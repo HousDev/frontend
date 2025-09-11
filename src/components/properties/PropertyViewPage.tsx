@@ -348,8 +348,8 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
   const [activities, setActivities] = useState<any[]>([]);
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const [loadingStatusHistory, setLoadingStatusHistory] = useState(false);
-const prevRef = React.useRef<HTMLButtonElement | null>(null);
-const nextRef = React.useRef<HTMLButtonElement | null>(null);
+  const prevRef = React.useRef<HTMLButtonElement | null>(null);
+  const nextRef = React.useRef<HTMLButtonElement | null>(null);
 
   // Property stages with automatic progression
   const propertyStages = [
@@ -740,7 +740,12 @@ const nextRef = React.useRef<HTMLButtonElement | null>(null);
               <ArrowLeft size={18} />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{propertyData.title}</h1>
+              {/* <h1 className="text-xl font-bold text-gray-900">{propertyData.title}</h1> */}
+              <div className=" font-bold text-gray-900 text-lg">
+                {(propertyData.type && property.type !== ' - ') && <span className="mr-2">{property.type}</span>}
+                {(property.unitType && property.unitType !== ' - ') && <span className="mr-2"> {property.unitType}</span>}
+                {(property.subtype && property.subtype !== ' - ') && <span className="mr-2"> {property.subtype}</span>}
+              </div>
               <div className="flex items-center space-x-2 mt-1">
                 {getStatusBadge(propertyData.status)}
                 {getStageBadge(propertyData.stage)}
@@ -1236,6 +1241,7 @@ const OverviewTab = ({ property, onUpdate }: any) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3 gap-3 text-sm text-gray-700">
                 {/* Row 1 */}
                 <div><span className="font-semibold">Seller:</span><span className="ml-2">{property.seller?.name || "-"}</span></div>
+                <div><span className="font-semibold">Property type:</span><span className="ml-2">{property?.type || "-"}</span></div>
                 <div><span className="font-semibold">Unit Type:</span><span className="ml-2">{property?.unitType || "-"}</span></div>
                 <div><span className="font-semibold">Subtype:</span><span className="ml-2">{property?.subtype || "-"}</span></div>
 
