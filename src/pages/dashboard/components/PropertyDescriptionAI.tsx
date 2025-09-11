@@ -121,7 +121,7 @@ export default function PropertyDescriptionAI<T extends WithDescription>({
     }
 
     return (
-        <div className="space-y-2">
+        <div className="space-y-2 p-4">
             <label className="block text-xs font-medium text-gray-700">
                 Description/Notes
             </label>

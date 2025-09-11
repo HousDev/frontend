@@ -4,7 +4,7 @@
 
 // API base (could be e.g. http://localhost:3000/api)
 export const API_BASE =
-  (import.meta as any)?.env?.VITE_API_URL || "http://localhost:4000";
+  (import.meta as any)?.env?.VITE_API_URL || "http://localhost:3000";
 
 // FILE base (origin for static /uploads). Strip trailing /api or /api/* from API_BASE.
 export const FILE_BASE = (() => {
@@ -21,7 +21,7 @@ export const FILE_BASE = (() => {
   } catch {
     return typeof window !== "undefined"
       ? window.location.origin
-      : "http://localhost:4000";
+      : "http://localhost:3000";
   }
 })();
 

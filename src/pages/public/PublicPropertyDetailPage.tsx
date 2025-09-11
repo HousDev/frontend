@@ -241,9 +241,14 @@ const PublicPropertyDetailPage = ({ property, onBack }: any) => {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <div className="flex items-center space-x-3 mb-2">
-                    <h1 className="text-2xl font-bold text-gray-900">
+                    {/* <h1 className="text-2xl font-bold text-gray-900">
                       {property.title || 'Luxury Villa in Prime Location'}
-                    </h1>
+                    </h1> */}
+                    <div className=" font-bold text-gray-900 text-lg">
+                      {(property.type && property.type !== ' - ') && <span className="mr-2">{property.type}</span>}
+                      {(property.unitType && property.unitType !== ' - ') && <span className="mr-2"> {property.unitType}</span>}
+                      {(property.subtype && property.subtype !== ' - ') && <span className="mr-2"> {property.subtype}</span>}
+                    </div>
                     {property.verified && (
                       <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs">
                         <CheckCircle size={14} />
@@ -921,3 +926,5 @@ const PublicPropertyDetailPage = ({ property, onBack }: any) => {
 };
 
 export default PublicPropertyDetailPage;
+
+

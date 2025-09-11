@@ -1,63 +1,10 @@
-// // components/Modal.tsx
-// import React from "react";
-
-// interface ModalProps {
-//   isOpen: boolean;
-//   onClose: () => void;
-//   title?: string;
-//   children: React.ReactNode;
-//   width?: string; // optional custom width
-// }
-
-// const Modal: React.FC<ModalProps> = ({
-//   isOpen,
-//   onClose,
-//   title,
-//   children,
-//   width = "max-w-[80vw] sm:max-w-sm md:max-w-md lg:max-w-lg",
-// }) => {
-//   if (!isOpen) return null;
-
-//   return (
-//     <div
-//       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-//       onClick={onClose}
-//     >
-//       <div
-//         className={`bg-white rounded-lg shadow-lg w-full ${width} max-h-[90vh] flex flex-col relative`}
-//         onClick={(e) => e.stopPropagation()}
-//       >
-//         {title && (
-//           <div className="sticky top-0 bg-white z-10 border-b p-2">
-//             <h2 className="text-lg font-semibold">{title}</h2>
-//           </div>
-//         )}
-
-//         <div className="p-4 overflow-y-auto flex-1">
-//           {children}
-//         </div>
-
-//         <button
-//           onClick={onClose}
-//           className="absolute top-0 right-3 text-gray-500 hover:text-gray-700 text-xl p-1 z-50"
-//           aria-label="Close modal"
-//         >
-//           ✕
-//         </button>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default Modal;
-
-// components/Modal.tsx
-import React from "react";
+import React, { useEffect } from "react";
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
+  subtitle?: React.ReactNode;
   children: React.ReactNode;
   width?: string; // optional custom width
 }
@@ -66,33 +13,80 @@ const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   title,
+  subtitle,
   children,
-  width = "max-w-[80vw] sm:max-w-sm md:max-w-md lg:max-w-lg",
+  width = "max-w-[95vw] sm:max-w-sm md:max-w-md lg:max-w-lg",
 }) => {
+  // prevent body scroll while modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = {
+      overflow: document.body.style.overflow,
+      paddingRight: document.body.style.paddingRight
+    };
+    // lock scroll
+    document.body.style.overflow = "hidden";
+
+    // optional: avoid layout shift when scrollbar disappears
+    const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (scrollBarWidth > 0) {
+      document.body.style.paddingRight = `${scrollBarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = prev.overflow;
+      document.body.style.paddingRight = prev.paddingRight;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
+  /**
+   * Z-index plan (clear and adjustable):
+   * overlay -> 40
+   * modal container -> 50
+   * modal portal (for dropdowns) -> 55
+   * modal header -> 60  (header should appear ABOVE dropdown)
+   * modal close button -> 65 (close button above everything if needed)
+   */
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center"
+      aria-modal="true"
+      role="dialog"
     >
+      {/* overlay */}
       <div
-        className={`bg-white rounded-lg shadow-lg w-full ${width} max-h-[90vh] flex flex-col relative`}
+        className="absolute inset-0 bg-black bg-opacity-50"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      <div
+        className={`relative bg-white rounded-lg shadow-xl w-full ${width} max-h-[90vh] flex flex-col z-50`}
         onClick={(e) => e.stopPropagation()}
+        style={{ minWidth: 320 }}
       >
-        {title && (
-          <div className="sticky top-0 bg-white z-10 border-b p-2 rounded-t-lg">
-            <h2 className="text-lg font-semibold">{title}</h2>
+        {/* header — keep above portal/dropdown */}
+        {(title || subtitle) && (
+          <div className="sticky top-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white z-[60] p-4 rounded-t-lg shadow-md">
+            {title && <h2 className="text-xl font-semibold">{title}</h2>}
+            {subtitle && <p className="text-sm opacity-90">{subtitle}</p>}
           </div>
         )}
 
-        <div className="p-4 overflow-y-auto flex-1 rounded-b-lg [&>*]:rounded-lg [&_input]:rounded-lg [&_select]:rounded-lg [&_textarea]:rounded-lg [&_button]:rounded-lg [&_.dropdown]:rounded-lg [&_.dropdown-menu]:rounded-lg [&_.border]:rounded-lg [&_.bg-white]:rounded-lg [&_.bg-gray-50]:rounded-lg [&_.bg-blue-100]:rounded-lg [&_div[class*='border']]:rounded-lg">
+        {/* modal-scoped portal target */}
+        {/* This is where dropdowns can portal into so they stay inside modal stacking context.
+            pointer-events is left auto so dropdown is interactive. z-index placed between modal content and header. */}
+        <div id="modal-portal" className="absolute left-0 right-0 pointer-events-auto z-[55]" />
+
+        <div className="p-4 overflow-y-auto flex-1 rounded-b-lg">
           {children}
         </div>
 
         <button
           onClick={onClose}
-          className="absolute top-0 right-3 text-gray-500 hover:text-gray-700 text-xl p-1 z-50 rounded-lg"
+          className="absolute top-3 right-3 text-white hover:text-gray-200 text-xl p-1 z-[65] rounded-lg"
           aria-label="Close modal"
         >
           ✕
