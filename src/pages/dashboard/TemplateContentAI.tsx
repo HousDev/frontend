@@ -106,11 +106,13 @@ export default function TemplateContentAI<T extends WithContent>({ formData, set
         };
     }, [openPanel]);
 
+    /**
+     * computePosition:
+     * - On larger screens: prefer to position the small panel directly above the trigger button (aligned to button's right edge).
+     *   If there isn't enough space above, open it below.
+     * - Panel size is intentionally small (width 320 or 280 depending on viewport).
+     */
     const computePosition = () => {
-        if (isSmallScreen) {
-            setPanelStyle(null);
-            return;
-        }
         const trigger = triggerRef.current;
         if (!trigger) {
             setPanelStyle(null);
@@ -121,22 +123,37 @@ export default function TemplateContentAI<T extends WithContent>({ formData, set
         const viewportW = window.innerWidth;
         const viewportH = window.innerHeight;
 
-        const panelWidth = Math.min(360, Math.max(280, Math.floor(viewportW * 0.26)));
+        // small panel dimensions (tune as needed)
+        const panelWidth = Math.min(340, Math.max(260, Math.floor(viewportW * 0.28)));
+        const panelHeight = 220; // fixed guess for small panel
         const gap = 8;
 
-        const desiredTop = rect.top - gap - 300; // height guess
-        const placeAbove = desiredTop > 10;
-        const top = placeAbove ? Math.max(10, rect.top - gap - 300) : Math.min(viewportH - 10 - 300, rect.bottom + gap);
+        // prefer above the trigger
+        const spaceAbove = rect.top;
+        const spaceBelow = viewportH - rect.bottom;
 
-        const right = Math.max(8, viewportW - (rect.right + Math.min(0, panelWidth - rect.width)));
+        const placeAbove = spaceAbove > panelHeight + gap + 10 || spaceAbove >= spaceBelow;
+
+        const top = placeAbove ? Math.max(8, rect.top - panelHeight - gap) : Math.min(viewportH - panelHeight - 8, rect.bottom + gap);
+
+        // align the panel so that its right edge matches the trigger's right edge,
+        // but keep it within viewport with at least 8px margin
+        let left = rect.right - panelWidth;
+        if (left < 8) left = 8;
+        if (left + panelWidth > viewportW - 8) left = viewportW - panelWidth - 8;
 
         setPanelStyle({
             position: "fixed",
             top: `${top}px`,
-            right: `${right}px`,
+            left: `${left}px`,
             width: `${panelWidth}px`,
+            height: `${panelHeight}px`,
             zIndex: 9999,
             boxShadow: "0 8px 40px rgba(17,24,39,0.12)",
+            overflow: "hidden",
+            borderRadius: 8,
+            background: "white",
+            border: "1px solid rgba(0,0,0,0.06)",
         });
     };
 
@@ -150,9 +167,9 @@ export default function TemplateContentAI<T extends WithContent>({ formData, set
         setErr(null);
 
         // Validation: require channel and (subject or category) only
-        const channel = (formData as any).channel?.toString()?.trim?.() || "";
-        const category = (formData as any).category?.toString()?.trim?.() || "";
-        const priority = (formData as any).priority?.toString()?.trim?.() || "";
+        const channel = (formData as any).channel?.toString?.()?.trim?.() || "";
+        const category = (formData as any).category?.toString?.()?.trim?.() || "";
+        const priority = (formData as any).priority?.toString?.()?.trim?.() || "";
 
         if (!channel) {
             setErr("Please select channel (sms/whatsapp/email).");
@@ -245,7 +262,17 @@ export default function TemplateContentAI<T extends WithContent>({ formData, set
                 <button
                     ref={triggerRef}
                     type="button"
-                    onClick={() => setOpenPanel((s) => !s)}
+                    onClick={() => {
+                        setOpenPanel((s) => {
+                            const next = !s;
+                            // if opening, compute position after next paint
+                            if (next) {
+                                // slight delay to ensure DOM measurement correct
+                                setTimeout(() => computePosition(), 0);
+                            }
+                            return next;
+                        });
+                    }}
                     disabled={loading}
                     aria-expanded={openPanel}
                     aria-controls="ai-settings-panel"
@@ -267,6 +294,7 @@ export default function TemplateContentAI<T extends WithContent>({ formData, set
                 {/* Panel */}
                 {openPanel && (
                     <>
+                        {/* small-screen backdrop and full-width small modal (kept compact) */}
                         {isSmallScreen && <div className="fixed inset-0 bg-black/40 z-[9998]" onClick={() => setOpenPanel(false)} aria-hidden />}
 
                         <div
@@ -274,8 +302,8 @@ export default function TemplateContentAI<T extends WithContent>({ formData, set
                             ref={panelRef}
                             role="dialog"
                             aria-modal={isSmallScreen ? "true" : "false"}
-                            className={`bg-white rounded shadow-lg border border-gray-200 z-[9999] ${isSmallScreen ? "fixed inset-x-4 top-16 mx-auto max-w-md p-4" : "p-0 overflow-hidden"}`}
-                            style={isSmallScreen ? undefined : panelStyle ?? { position: "fixed", top: "calc(50% - 150px)", right: "12px", width: "360px", zIndex: 9999 }}
+                            className={`bg-white rounded shadow-lg border border-gray-200 z-[9999] ${isSmallScreen ? "fixed inset-x-4 top-20 mx-auto max-w-md p-3" : "p-0 overflow-hidden"}`}
+                            style={isSmallScreen ? undefined : panelStyle ?? { position: "fixed", top: "calc(50% - 110px)", left: "calc(50% - 180px)", width: "220px", height: "220px", zIndex: 9999 }}
                         >
                             <div className="flex items-center justify-between px-3 py-2 border-b">
                                 <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -286,48 +314,50 @@ export default function TemplateContentAI<T extends WithContent>({ formData, set
                                     <X className="h-4 w-4 text-gray-500" />
                                 </button>
                             </div>
+                            <div className="p-3 pb-0 space-y-2" style={{ maxHeight: 220 - 44, overflowY: "auto" }}>
+                                    {/* Subject input (local) */}
+                                    <div>
+                                        <label className="text-[11px] text-gray-600 block mb-1">Content Subject*</label>
+                                        <input
+                                            type="text"
+                                            value={subject}
+                                            onChange={(e) => setSubject(e.target.value)}
+                                            placeholder="Enter your content subject"
+                                            className="w-full border rounded px-2 py-1 text-xs"
+                                        />
+                                    </div>
 
-                            <div className="p-3 space-y-3">
-                                {/* Subject input (local) */}
-                                <div>
-                                    <label className="text-[11px] text-gray-600 block mb-1">Content Subject*</label>
-                                    <input
-                                        type="text"
-                                        value={subject}
-                                        onChange={(e) => setSubject(e.target.value)}
-                                        placeholder='Enter your content subject'
-                                        className="w-full border rounded px-2 py-1 text-xs"
-                                    />
-                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-xs">
 
-                                {/* Tone */}
-                                <div>
-                                    <label className="text-[11px] text-gray-600 block mb-1">Tone</label>
-                                    <select className="w-full border rounded px-2 py-1 text-xs" value={tone} onChange={(e) => setTone(e.target.value as any)}>
-                                        <option value="friendly">Friendly</option>
-                                        <option value="formal">Formal</option>
-                                        <option value="marketing">Marketing</option>
-                                        <option value="concise">Concise</option>
-                                    </select>
-                                </div>
+                                    {/* Tone */}
+                                    <div>
+                                        <label className="text-[11px] text-gray-600 block mb-1">Tone</label>
+                                        <select className="w-full border rounded px-2 py-1 text-xs" value={tone} onChange={(e) => setTone(e.target.value as any)}>
+                                            <option value="friendly">Friendly</option>
+                                            <option value="formal">Formal</option>
+                                            <option value="marketing">Marketing</option>
+                                            <option value="concise">Concise</option>
+                                        </select>
+                                    </div>
 
-                                {/* Language */}
-                                <div>
-                                    <label className="text-[11px] text-gray-600 block mb-1">Language</label>
-                                    <select className="w-full border rounded px-2 py-1 text-xs" value={lang} onChange={(e) => setLang(e.target.value as any)}>
-                                        <option>English</option>
-                                        <option>Hindi</option>
-                                    </select>
-                                </div>
+                                    {/* Language */}
+                                    <div>
+                                        <label className="text-[11px] text-gray-600 block mb-1">Language</label>
+                                        <select className="w-full border rounded px-2 py-1 text-xs" value={lang} onChange={(e) => setLang(e.target.value as any)}>
+                                            <option>English</option>
+                                            <option>Hindi</option>
+                                        </select>
+                                    </div>
 
-                                {/* Length */}
-                                <div>
-                                    <label className="text-[11px] text-gray-600 block mb-1">Length</label>
-                                    <select className="w-full border rounded px-2 py-1 text-xs" value={length} onChange={(e) => setLength(e.target.value as any)}>
-                                        <option value="short">Short</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="long">Long</option>
-                                    </select>
+                                    {/* Length */}
+                                    <div>
+                                        <label className="text-[11px] text-gray-600 block mb-1">Length</label>
+                                        <select className="w-full border rounded px-2 py-1 text-xs" value={length} onChange={(e) => setLength(e.target.value as any)}>
+                                            <option value="short">Short</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="long">Long</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 {/* Generate */}
