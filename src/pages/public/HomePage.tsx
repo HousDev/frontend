@@ -22,7 +22,7 @@ import {
   Shield
 } from 'lucide-react';
 import SubscriptionModal from '@/components/subscription/SubscriptionModal';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import PublicPropertyDetailPage from './PublicPropertyDetailPage';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
@@ -72,6 +72,18 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Parse original query params and preserve both key and value.
+  const queryParams = new URLSearchParams(location.search);
+  // Prefer explicit 'filterToken' param if present; otherwise accept 'fltcnt' (external sites).
+  const filterParamKey =
+    queryParams.has('filterToken') ? 'filterToken' :
+    (queryParams.has('tf') ? 'tf' : undefined);
+
+  const filterToken = filterParamKey ? (queryParams.get(filterParamKey) as string | null) ?? undefined : undefined;
 
   useEffect(() => {
     const fetchMasters = async () => {
@@ -126,7 +138,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           const subtype = (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim();
 
           // === STRICT: USE ONLY BACKEND-PROVIDED SLUG ===
-          // Do NOT generate fallback slugs on frontend.
           const rawSlug = p?.slug ?? p?.url_slug ?? p?.generated_slug;
           const slug = typeof rawSlug === 'string' && rawSlug.trim().length > 0 ? rawSlug.trim() : undefined;
 
@@ -158,10 +169,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
             sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
             slug,
-            // === FIXED: read possession fields from the API correctly ===
             possessionMonth: p.possession_month ?? p.possessionMonth ?? null,
             possessionYear: p.possession_year ?? p.possessionYear ?? null,
-            // also keep property_status
             property_status: p.property_status ?? p.status ?? '',
             created_at: p.created_at ?? null,
             public_views: p.public_views ?? null
@@ -222,6 +231,76 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
     return `₹${num.toLocaleString('en-IN')}`;
   };
+
+  // New: handler to send analytics then navigate (non-blocking)
+// HomePage.tsx — replace handleNavigateToProperty with this async version
+const handleNavigateToProperty = async (property: Property) => {
+  const id = property.id;
+  const slug = property.slug;
+  if (!slug) {
+    console.warn('Attempted to navigate to property without slug:', id);
+    return;
+  }
+
+  // If there's already a token in URL, prefer it (preserve param key & value)
+  const existingParamKey = filterParamKey;
+  const existingToken = filterToken;
+
+  // Build a "filters" object from current UI state to save if we need to create one
+  const inferredFilters = {
+    search: searchQuery || null,
+    location: selectedLocation || null,
+    budget: selectedBudget || null,
+    propertyType: selectedPropertyType || null,
+    source: 'homepage',
+    clickedPropertyId: id,
+  };
+
+  try {
+    let finalToken = existingToken;
+    let finalParamKey = existingParamKey || 'tf'; // choose fltcnt as canonical external key
+
+    // If no existing token, create a filter-context (server will return id)
+    if (!finalToken) {
+      try {
+        const createRes = await propertiesAPI.createFilterContext({ filters: inferredFilters });
+        if (createRes && createRes.id) {
+          finalToken = createRes.id;
+        } else {
+          console.warn('createFilterContext did not return id, response:', createRes);
+        }
+      } catch (err) {
+        console.warn('createFilterContext failed (proceeding without token):', err);
+      }
+    }
+
+    // Send analytics event — prefer to send the token string (if available)
+    // We await this to ensure backend has the token/event, but don't block navigation too long.
+    try {
+      await propertiesAPI.sendPropertyEvent(
+        id,
+        'click',
+        'listing_card_click',
+        { source: 'homepage', title: property.title || null },
+        { slug, filterToken: finalToken || undefined, filterParamKey: finalParamKey }
+      );
+    } catch (err) {
+      console.warn('sendPropertyEvent failed (we will still navigate):', err);
+    }
+
+    // Build destination preserving/adding token param
+    let dest = `/properties/${encodeURIComponent(String(slug))}`;
+    if (finalToken) {
+      dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(finalToken)}`;
+    }
+    navigate(dest);
+  } catch (err) {
+    console.error('handleNavigateToProperty unexpected error:', err);
+    // fallback: navigate without token if something went wrong
+    navigate(`/properties/${encodeURIComponent(String(slug))}`);
+  }
+};
+
 
   if (currentPropertyView) {
     return <PublicPropertyDetailPage property={currentPropertyView} onBack={() => setCurrentPropertyView(null)} />;
@@ -380,11 +459,14 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
                     <div className="flex items-center gap-3">
                       {property.slug ? (
-                        <Link to={`/properties/${encodeURIComponent(String(property.slug))}`} className="flex-1">
-                          <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <div className="flex-1">
+                          <button
+                            onClick={() => handleNavigateToProperty(property)}
+                            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                          >
                             View Details
                           </button>
-                        </Link>
+                        </div>
                       ) : (
                         <button disabled className="w-full bg-gray-300 text-gray-600 py-2 rounded-lg cursor-not-allowed" title="Details not available">
                           View Details

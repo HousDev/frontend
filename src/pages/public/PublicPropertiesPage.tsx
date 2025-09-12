@@ -1054,7 +1054,7 @@
 
 // export default PublicPropertiesPage;
 
-
+// PublicPropertiesPage.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Search,
@@ -1088,7 +1088,8 @@ import PublicPropertyDetailPage from './PublicPropertyDetailPage';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+
 interface Property {
   id: number;
   title: number | string;
@@ -1132,10 +1133,12 @@ interface Property {
   carpet_area?: number;
   builtup_area?: number;
   _raw?: any;
+  slug?:string;
 }
 
 const PublicPropertiesPage = ({ onPropertyView }: any) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
@@ -1157,13 +1160,20 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
 
+  // --- parse filter token from URL (prefer 'filterToken', fall back to 'fltcnt')
+  const queryParams = new URLSearchParams(location.search);
+  const filterParamKey =
+    queryParams.has('filterToken') ? 'filterToken' :
+    (queryParams.has('fltcnt') ? 'fltcnt' : undefined);
+  // token value (may be undefined)
+  const filterTokenFromUrl = filterParamKey ? (queryParams.get(filterParamKey) as string | null) ?? undefined : undefined;
+
   useEffect(() => {
     const fetchMasters = async () => {
       try {
         setMasterLoading(true);
         const data = await getMasterDropdownOptions(['common', 'lead', 'property']);
         setMasters(data || {});
-
       } catch (err) {
         console.error('Error fetching master options:', err);
       } finally {
@@ -1182,8 +1192,6 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
           status: 'Available',
           limit: 50,
         });
-
-
 
         if (response?.data && Array.isArray(response.data)) {
           const transformedProperties = response.data.map((p: any, index: number) => ({
@@ -1489,6 +1497,93 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
     }
   };
 
+  // Helper: preserve existing query params and add token param (same key)
+  const preserveAndAddToken = (existingSearch: string, paramKey: string, token?: string | null) => {
+    const params = new URLSearchParams(existingSearch || '');
+    if (token) {
+      params.set(paramKey, token);
+    }
+    // keep other params untouched
+    const s = params.toString();
+    return s ? `?${s}` : '';
+  };
+
+  /**
+   * handleNavigateToProperty
+   * - ensures a filterToken exists (creates via API if none in URL)
+   * - sends analytics event (best-effort)
+   * - navigates to canonical property page, appending token with the same key (filterToken or fltcnt)
+   */
+  const handleNavigateToProperty = async (property: Property) => {
+    const id = property.id;
+    const slug = property.slug;
+    if (!slug) {
+      console.warn('Attempted to navigate to property without slug:', id);
+      // fallback: open in-app preview
+      setCurrentPropertyView(property);
+      if (onPropertyView) onPropertyView(property);
+      return;
+    }
+
+    // Use token from URL if available; otherwise we'll try to create one.
+    let finalToken = filterTokenFromUrl ?? null;
+    const finalParamKey = filterParamKey ?? 'fltcnt';
+
+    // Build a lightweight filters object from current UI state
+    const inferredFilters = {
+      search: searchQuery || null,
+      location: selectedLocation || null,
+      budget: selectedBudget || null,
+      propertyType: selectedType || null,
+      bedrooms: selectedBedrooms || null,
+      clickedPropertyId: id,
+      source: 'properties_list',
+    };
+
+    // If there's no token in URL, try to create one via API
+    if (!finalToken) {
+      try {
+        const createRes = await propertiesAPI.createFilterContext({ filters: inferredFilters });
+        // Accept either { success: true, id: 'xyz' } or { id: 'xyz' }
+        if (createRes) {
+          // prefer createRes.id
+          const idFromRes = (createRes as any).id || (createRes as any).filterId || null;
+          if (idFromRes) finalToken = String(idFromRes);
+          // some implementations might return { success:true, data:{ id: '...' } }
+          else if ((createRes as any).data && (createRes as any).data.id) {
+            finalToken = String((createRes as any).data.id);
+          } else {
+            // if backend uses numeric id, string it
+            if ((createRes as any).success && (createRes as any).id) {
+              finalToken = String((createRes as any).id);
+            }
+          }
+        }
+      } catch (err) {
+        // non-blocking — continue without token if creation fails
+        console.warn('createFilterContext failed (continuing without token):', err);
+      }
+    }
+
+    // Send analytics event (best-effort). Include token if we have it.
+    try {
+      await propertiesAPI.sendPropertyEvent(
+        id,
+        'click',
+        'listing_card_click',
+        { source: 'properties_list', title: property.title || null },
+        { slug, filterToken: finalToken || undefined, filterParamKey: finalParamKey }
+      );
+    } catch (err) {
+      console.warn('sendPropertyEvent failed (we still navigate):', err);
+    }
+
+    // Build destination with preserved query params + token
+    const mergedQs = preserveAndAddToken(location.search, finalParamKey, finalToken);
+    const dest = `/properties/${encodeURIComponent(String(slug))}${mergedQs}`;
+    navigate(dest);
+  };
+
   if (currentPropertyView) {
     return (
       <PublicPropertyDetailPage
@@ -1734,16 +1829,15 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                       key={property.id}
                       className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group cursor-pointer"
                       onClick={() => {
+                        // Use handler to ensure token + analytics, rather than raw navigate
                         if (property.slug) {
-                          // SPA navigation to property page when slug exists
-                          navigate(`/properties/${encodeURIComponent(property.slug)}`);
+                          handleNavigateToProperty(property);
                           return;
                         }
                         // fallback: open in-app preview
                         setCurrentPropertyView(property);
                         if (onPropertyView) onPropertyView(property);
                       }}
-
                     >
                       <div className="relative">
                         <img
@@ -1803,11 +1897,6 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                             <MapPin size={14} className="mr-1" />
                             <span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span>
                           </div>
-
-                          {/* Show "1BHK • 500 sq ft" line */}
-                          {/* <div className="text-xs text-gray-500">
-                            {unitAreaLine}
-                          </div> */}
                         </div>
 
                         {/* PRICE IS MOVED BELOW (user requested price only below) */}
@@ -1866,11 +1955,17 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
 
                         <div className="flex items-center space-x-2">
                           {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
-                            <Link to={`/properties/${encodeURIComponent(property.slug.trim())}`} className="flex-1">
-                              <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all text-sm">
+                            <div className="flex-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleNavigateToProperty(property);
+                                }}
+                                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all text-sm"
+                              >
                                 View Details
                               </button>
-                            </Link>
+                            </div>
                           ) : (
                             <button
                               disabled
@@ -1918,6 +2013,7 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                       key={property.id}
                       className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all group cursor-pointer"
                       onClick={() => {
+                        // Clicking list card opens preview (keeps previous behavior)
                         setCurrentPropertyView(property);
                         if (onPropertyView) onPropertyView(property);
                       }}
@@ -2022,22 +2118,19 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                             </div>
 
                             <div className="flex items-center space-x-2">
-                              {/* <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setCurrentPropertyView(property);
-                                  if (onPropertyView) onPropertyView(property);
-                                }}
-                                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all text-sm"
-                              >
-                                View Details
-                              </button> */}
                               {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
-                                <Link to={`/properties/${encodeURIComponent(property.slug.trim())}`} className="flex-1">
-                                  <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                <div className="flex-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // move to details with token creation + analytics
+                                      handleNavigateToProperty(property);
+                                    }}
+                                    className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                                  >
                                     View Details
                                   </button>
-                                </Link>
+                                </div>
                               ) : (
                                 <button
                                   disabled

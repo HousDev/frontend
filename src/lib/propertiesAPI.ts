@@ -7,7 +7,16 @@ import { api } from "./api";
    ======================= */
 export type Tone = "professional" | "friendly" | "luxury";
 export type Lang = "English" | "Hindi" | "Hinglish";
+export interface CreateFilterContextPayload {
+  filters: Record<string, any> | string;
+  user_id?: number | null;
+}
 
+export interface CreateFilterContextResponse {
+  success: boolean;
+  id?: string;
+  error?: string;
+}
 export interface GenerateDescriptionPayload {
   formData: {
     propertyType?: string;
@@ -380,7 +389,61 @@ searchProperties: async (params: {
     console.error("[getPropertyBySlug] ❌ Error fetching property:", err);
     throw err;
   }
+  
 },
+
+// Replace the existing sendPropertyEvent implementation with this (typescript-safe)
+sendPropertyEvent: async (
+  propertyId: string | number,
+  eventType: string,
+  eventName: string,
+  payload: Record<string, any> = {},
+  opts: { slug?: string; filterToken?: string; filterParamKey?: string; baseURLOverride?: string } = {}
+) => {
+  const client = pickClient(opts.baseURLOverride);
+
+  // Body remains same (keeps filterToken for backwards compatibility)
+  const body = {
+    event_type: eventType,
+    event_name: eventName,
+    payload: payload || {},
+    slug: opts.slug,
+    filterToken: opts.filterToken,
+  };
+
+  // Build query params dynamically; if caller provided filterParamKey (e.g. 'fltcnt'), use that key.
+  const config: { params: Record<string, string>; withCredentials: boolean } = {
+    params: {},
+    withCredentials: true,
+  };
+
+  // If both key and token are provided, attach as e.g. { fltcnt: '...' }
+  if (opts.filterParamKey && opts.filterToken) {
+    config.params[opts.filterParamKey] = String(opts.filterToken);
+  } else if (opts.filterToken) {
+    // Fallback to existing conventional name
+    config.params.filterToken = String(opts.filterToken);
+  }
+
+  if (opts.slug) {
+    config.params.slug = String(opts.slug);
+  }
+
+  const res = await client.post(`/properties/${propertyId}/event`, body, config);
+  return res.data as { success: boolean; message?: string; data?: any };
+},
+
+
+createFilterContext: async (payload: CreateFilterContextPayload) => {
+  const res = await api.post("/properties/filters", payload);
+  return res.data as CreateFilterContextResponse;
+},
+
+getFilterContext: async (id: string) => {
+  const res = await api.get(`/properties/filters/${encodeURIComponent(id)}`);
+  return res.data as { success: boolean; context?: any };
+},
+
 
 };
 
