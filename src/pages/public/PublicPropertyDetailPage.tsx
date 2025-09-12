@@ -72,8 +72,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   });
 
   // route param
-  const { slugParam } = useParams();
-const navigate = useNavigate();
+  const { slug } = useParams();
+  const navigate = useNavigate();
   // local property state used across the component
   const [property, setProperty] = useState<any>(null);
 
@@ -291,8 +291,7 @@ const navigate = useNavigate();
     if (propertyProp) {
       const normalized = normalizeProperty(propertyProp);
       setProperty(normalized);
-      // debug: log normalized (not older state)
-      console.log("initialized property (normalized):", normalized);
+
     }
   }, [propertyProp]);
 
@@ -301,15 +300,14 @@ const navigate = useNavigate();
 
   useEffect(() => {
     const fetchProperty = async () => {
-      if (!slugParam) return;
+      if (!slug) return;
       try {
         setLoading(true);
-        const res = await propertiesAPI.getPropertyBySlug(slugParam as string);
+        const res = await propertiesAPI.getPropertyBySlug(slug as string);
         // handle both shapes: res or res.data
         const payload = res?.data ?? res ?? null;
         const normalized = normalizeProperty(payload);
         setProperty(normalized);
-        console.log("Fetched (and normalized) property:", normalized);
       } catch (err) {
         console.error("Error fetching property:", err);
         setProperty(null);
@@ -319,32 +317,32 @@ const navigate = useNavigate();
     };
 
     // Only fetch if parent didn't provide propertyProp (avoid unnecessary refetch)
-    if (!propertyProp && slugParam) fetchProperty();
-  }, [slugParam, propertyProp]);
+    if (!propertyProp && slug) fetchProperty();
+  }, [slug, propertyProp]);
 
   // ---- safe back handler: use parent callback if provided, otherwise fallback ----
-// ---- safe back handler: use parent callback if provided, otherwise fallback to navigate to /properties ----
-const handleBack = () => {
-  if (typeof onBack === 'function') {
-    try {
-      onBack();
-      return;
-    } catch (err) {
-      // ignore and fallback to navigate
-      console.error('onBack threw:', err);
+  // ---- safe back handler: use parent callback if provided, otherwise fallback to navigate to /properties ----
+  const handleBack = () => {
+    if (typeof onBack === 'function') {
+      try {
+        onBack();
+        return;
+      } catch (err) {
+        // ignore and fallback to navigate
+        console.error('onBack threw:', err);
+      }
     }
-  }
 
-  // Prefer SPA navigation to /properties
-  try {
-    navigate('/properties');
-  } catch (err) {
-    // As a last resort, fallback to full-page redirect
-    if (typeof window !== 'undefined') {
-      window.location.href = '/properties';
+    // Prefer SPA navigation to /properties
+    try {
+      navigate('/properties');
+    } catch (err) {
+      // As a last resort, fallback to full-page redirect
+      if (typeof window !== 'undefined') {
+        window.location.href = '/properties';
+      }
     }
-  }
-};
+  };
 
 
   if (loading) {

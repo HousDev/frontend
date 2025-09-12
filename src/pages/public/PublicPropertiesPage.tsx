@@ -1088,7 +1088,7 @@ import PublicPropertyDetailPage from './PublicPropertyDetailPage';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
-
+import { Link, useNavigate } from 'react-router-dom';
 interface Property {
   id: number;
   title: number | string;
@@ -1135,6 +1135,8 @@ interface Property {
 }
 
 const PublicPropertiesPage = ({ onPropertyView }: any) => {
+  const navigate = useNavigate();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedBudget, setSelectedBudget] = useState('');
@@ -1161,7 +1163,7 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
         setMasterLoading(true);
         const data = await getMasterDropdownOptions(['common', 'lead', 'property']);
         setMasters(data || {});
-        console.log('Fetched master data:', data);
+
       } catch (err) {
         console.error('Error fetching master options:', err);
       } finally {
@@ -1181,11 +1183,12 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
           limit: 50,
         });
 
-        console.log('Properties API Response:', response);
+
 
         if (response?.data && Array.isArray(response.data)) {
           const transformedProperties = response.data.map((p: any, index: number) => ({
             id: p.id,
+            slug: p.slug,
             title: p.title || `${p.unit_type || ''} ${p.property_type_name || ''}`.trim() || `Property ${p.id}`,
             price: Number(p.budget) || 0,
             bedrooms: Number(p.bedrooms) || 0,
@@ -1731,9 +1734,16 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                       key={property.id}
                       className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group cursor-pointer"
                       onClick={() => {
+                        if (property.slug) {
+                          // SPA navigation to property page when slug exists
+                          navigate(`/properties/${encodeURIComponent(property.slug)}`);
+                          return;
+                        }
+                        // fallback: open in-app preview
                         setCurrentPropertyView(property);
                         if (onPropertyView) onPropertyView(property);
                       }}
+
                     >
                       <div className="relative">
                         <img
@@ -1855,16 +1865,23 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCurrentPropertyView(property);
-                              if (onPropertyView) onPropertyView(property);
-                            }}
-                            className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all text-sm"
-                          >
-                            View Details
-                          </button>
+                          {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
+                            <Link to={`/properties/${encodeURIComponent(property.slug.trim())}`} className="flex-1">
+                              <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all text-sm">
+                                View Details
+                              </button>
+                            </Link>
+                          ) : (
+                            <button
+                              disabled
+                              aria-disabled="true"
+                              title="Details not available – missing backend slug"
+                              className="w-full bg-gray-300 text-gray-600 py-2 px-3 rounded-lg cursor-not-allowed"
+                            >
+                              View Details
+                            </button>
+                          )}
+
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2005,7 +2022,7 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                             </div>
 
                             <div className="flex items-center space-x-2">
-                              <button
+                              {/* <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setCurrentPropertyView(property);
@@ -2014,7 +2031,24 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all text-sm"
                               >
                                 View Details
-                              </button>
+                              </button> */}
+                              {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
+                                <Link to={`/properties/${encodeURIComponent(property.slug.trim())}`} className="flex-1">
+                                  <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                    View Details
+                                  </button>
+                                </Link>
+                              ) : (
+                                <button
+                                  disabled
+                                  aria-disabled="true"
+                                  title="Details not available – missing backend slug"
+                                  className="w-full bg-gray-300 text-gray-600 py-2 rounded-lg cursor-not-allowed"
+                                >
+                                  View Details
+                                </button>
+                              )}
+
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

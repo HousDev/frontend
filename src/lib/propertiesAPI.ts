@@ -367,10 +367,21 @@ searchProperties: async (params: {
     return res.data as GenerateDescriptionResponse;
   },
 
-  getPropertyBySlug: async (slugParam: string) => {
-  const res = await api.get(`/properties/page/${slugParam}`);
-  return res.data;
+ getPropertyBySlug: async (slug: string) => {
+  try {
+    console.log("[getPropertyBySlug] 🔍 Slug Param:", slug);
+
+    const res = await api.get(`/properties/page/${slug}`);
+
+    console.log("[getPropertyBySlug] ✅ API Response:", res.data);
+
+    return res.data;
+  } catch (err) {
+    console.error("[getPropertyBySlug] ❌ Error fetching property:", err);
+    throw err;
+  }
 },
+
 };
 
 export default propertiesAPI;

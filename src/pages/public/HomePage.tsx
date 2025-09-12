@@ -51,34 +51,13 @@ interface Property {
   views?: number;
   aiScore?: number;
   sellerName?: string;
-  slug?: string;
+  slug?: string | undefined;
   property_status?: string;
   possessionMonth?: string | null;
   possessionYear?: string | null;
   created_at?: string | null;
   public_views?: number | null;
 }
-
-const slugifyPart = (input: any) => {
-  const s = String(input || '').trim().toLowerCase();
-  return s
-    .replace(/&/g, 'and')
-    .replace(/[\s\_]+/g, '-')
-    .replace(/[^a-z0-9\-]/g, '')
-    .replace(/\-+/g, '-')
-    .replace(/^\-+|\-+$/g, '');
-};
-
-const makeSlugFromRaw = (p: any) => {
-  // Use these specific keys (as user requested): property_type_name, unit_type, property_subtype_name, city_name
-  const id = p?.id ?? '';
-  const propType = p?.property_type_name || p?.property_type || '';
-  const unitType = p?.unit_type || p?.unit || p?.unit_type_name || '';
-  const subType = p?.property_subtype_name || p?.property_subtype || p?.subtype || '';
-  const city = p?.city_name || p?.city || '';
-  const parts = [id, propType, unitType, subType, city].map(slugifyPart).filter(Boolean);
-  return parts.join('-');
-};
 
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,7 +103,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
         const mapped = rawList.map((p: any) => {
           // Normalize images
-          const images = Array.isArray(p.photos) ? p.photos.map((ph: string) => ph.replace(/\\/g, '/')) : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
+          const images = Array.isArray(p.photos)
+            ? p.photos.map((ph: string) => ph.replace(/\\/g, '/'))
+            : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
 
           // Normalize city & location
           const city = p.city_name || p.city || p.town || p.cityName || '';
@@ -144,7 +125,15 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           const unitType = (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim();
           const subtype = (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim();
 
-          const slug = makeSlugFromRaw(p);
+          // === STRICT: USE ONLY BACKEND-PROVIDED SLUG ===
+          // Do NOT generate fallback slugs on frontend.
+          const rawSlug = p?.slug ?? p?.url_slug ?? p?.generated_slug;
+          const slug = typeof rawSlug === 'string' && rawSlug.trim().length > 0 ? rawSlug.trim() : undefined;
+
+          // Log if slug missing (helps you identify missing slugs on backend)
+          if (!slug) {
+            console.warn('[HomePage] Missing backend slug for property id:', p?.id);
+          }
 
           return {
             id: p.id,
@@ -174,7 +163,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             possessionYear: p.possession_year ?? p.possessionYear ?? null,
             // also keep property_status
             property_status: p.property_status ?? p.status ?? '',
-            created_at: p.created_at ?? null, // 👈 yeh line add karo
+            created_at: p.created_at ?? null,
             public_views: p.public_views ?? null
           } as Property;
         });
@@ -183,7 +172,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
       } catch (err) {
         console.error('Error fetching featured properties:', err);
-        // no fallback static - per request remove fallback
         setFeaturedProperties([]);
       } finally {
         setLoading(false);
@@ -391,16 +379,22 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <Link to={`/properties/${encodeURIComponent(String(property.slug))}`} className="flex-1">
-                        <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                      {property.slug ? (
+                        <Link to={`/properties/${encodeURIComponent(String(property.slug))}`} className="flex-1">
+                          <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                            View Details
+                          </button>
+                        </Link>
+                      ) : (
+                        <button disabled className="w-full bg-gray-300 text-gray-600 py-2 rounded-lg cursor-not-allowed" title="Details not available">
                           View Details
                         </button>
-                      </Link>
+                      )}
+
                       <button className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors group">
                         <Phone className="text-green-600 group-hover:text-green-700" size={20} />
                       </button>
                     </div>
-
 
                   </div>
                 </div>
