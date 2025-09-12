@@ -1,3 +1,4 @@
+// HomePage.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Home,
@@ -5,7 +6,6 @@ import {
   MapPin,
   Building,
   Star,
-  CheckCircle,
   Phone,
   Eye,
   Heart,
@@ -31,8 +31,8 @@ import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 
 interface Property {
   id: number;
-  title: string;
-  price: number;
+  title?: string;
+  price?: number;
   bedrooms?: number;
   bathrooms?: number;
   square_feet?: number;
@@ -51,7 +51,34 @@ interface Property {
   views?: number;
   aiScore?: number;
   sellerName?: string;
+  slug?: string;
+  property_status?: string;
+  possessionMonth?: string | null;
+  possessionYear?: string | null;
+  created_at?: string | null;
+  public_views?: number | null;
 }
+
+const slugifyPart = (input: any) => {
+  const s = String(input || '').trim().toLowerCase();
+  return s
+    .replace(/&/g, 'and')
+    .replace(/[\s\_]+/g, '-')
+    .replace(/[^a-z0-9\-]/g, '')
+    .replace(/\-+/g, '-')
+    .replace(/^\-+|\-+$/g, '');
+};
+
+const makeSlugFromRaw = (p: any) => {
+  // Use these specific keys (as user requested): property_type_name, unit_type, property_subtype_name, city_name
+  const id = p?.id ?? '';
+  const propType = p?.property_type_name || p?.property_type || '';
+  const unitType = p?.unit_type || p?.unit || p?.unit_type_name || '';
+  const subType = p?.property_subtype_name || p?.property_subtype || p?.subtype || '';
+  const city = p?.city_name || p?.city || '';
+  const parts = [id, propType, unitType, subType, city].map(slugifyPart).filter(Boolean);
+  return parts.join('-');
+};
 
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,28 +126,25 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           // Normalize images
           const images = Array.isArray(p.photos) ? p.photos.map((ph: string) => ph.replace(/\\/g, '/')) : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
 
-          // Normalize location & city (many possible keys)
+          // Normalize city & location
           const city = p.city_name || p.city || p.town || p.cityName || '';
-          // location may be area/sector/locality field
-          const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || '';
+          const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
           const state = p.state || p.region || '';
-          const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', '); // prefer "Locality, City"
+          const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
 
-          // Normalize amenities: array or comma-separated string
+          // Normalize amenities
           let amenities: string[] = [];
-          if (Array.isArray(p.amenities)) {
-            amenities = p.amenities.map(String).map(s => s.trim()).filter(Boolean);
-          } else if (typeof p.amenities === 'string') {
-            amenities = p.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
-          } else if (p.features) {
-            // fallback keys
+          if (Array.isArray(p.amenities)) amenities = p.amenities.map(String).map(s => s.trim()).filter(Boolean);
+          else if (typeof p.amenities === 'string') amenities = p.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+          else if (p.features) {
             if (Array.isArray(p.features)) amenities = p.features.map(String).map(s => s.trim()).filter(Boolean);
             else if (typeof p.features === 'string') amenities = p.features.split(',').map((s: string) => s.trim()).filter(Boolean);
           }
 
-          // Normalize unitType & subtype with multiple fallbacks
           const unitType = (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim();
           const subtype = (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim();
+
+          const slug = makeSlugFromRaw(p);
 
           return {
             id: p.id,
@@ -143,14 +167,24 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
             views: Number(p.views) || Math.floor(Math.random() * 300) + 50,
             aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
-            sellerName: p.seller_name || p.owner_name || p.seller?.name || ''
+            sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
+            slug,
+            // === FIXED: read possession fields from the API correctly ===
+            possessionMonth: p.possession_month ?? p.possessionMonth ?? null,
+            possessionYear: p.possession_year ?? p.possessionYear ?? null,
+            // also keep property_status
+            property_status: p.property_status ?? p.status ?? '',
+            created_at: p.created_at ?? null, // 👈 yeh line add karo
+            public_views: p.public_views ?? null
           } as Property;
         });
 
         setFeaturedProperties(mapped);
+
       } catch (err) {
         console.error('Error fetching featured properties:', err);
-        setFeaturedProperties(getStaticProperties());
+        // no fallback static - per request remove fallback
+        setFeaturedProperties([]);
       } finally {
         setLoading(false);
       }
@@ -159,7 +193,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     fetchFeaturedProperties();
   }, []);
 
-  // carousel
   useEffect(() => {
     if (!featuredProperties.length) return;
     const t = setInterval(() => setFeaturedIndex(i => (i + 1) % featuredProperties.length), 5000);
@@ -194,20 +227,21 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const locationsOptions: MasterOption[] = findMasterOptions(['location', 'locations', 'place', 'place name', 'city', 'area']);
   const budgetOptions: MasterOption[] = findMasterOptions(['price range', 'price_range', 'budget', 'priceRange', 'price']);
 
-  const formatPrice = (price: number) => {
-    if (!Number.isFinite(price)) return ' - ';
-    if (price >= 10000000) return `₹${(price / 10000000).toFixed(2)}Cr`;
-    if (price >= 100000) return `₹${(price / 100000).toFixed(2)}L`;
-    return `₹${price.toLocaleString('en-IN')}`;
+  const formatPrice = (price: any) => {
+    const num = Number(price);
+    if (!Number.isFinite(num) || num <= 0) return ' - ';
+    if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
+    if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
+    return `₹${num.toLocaleString('en-IN')}`;
   };
 
   if (currentPropertyView) {
-    return <PublicPropertyDetailPage property={currentPropertyView} />;
+    return <PublicPropertyDetailPage property={currentPropertyView} onBack={() => setCurrentPropertyView(null)} />;
   }
 
   return (
     <div className="min-h-screen">
-      {/* Hero/Search same as before (kept concise) */}
+      {/* hero/search */}
       <section className="relative bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white overflow-hidden">
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
         {featuredProperties.length > 0 && (
@@ -240,7 +274,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           </div>
         </div>
 
-        {/* carousel nav */}
         {featuredProperties.length > 0 && (
           <>
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
@@ -252,7 +285,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         )}
       </section>
 
-      {/* AI Insights (kept minimal) */}
+      {/* AI Insights */}
       <section className="py-12 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-8">
@@ -294,7 +327,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                       <div className="h-48 bg-gray-200 flex items-center justify-center"><Building className="text-gray-400" /></div>
                     )}
 
-                    {/* badge + icons */}
                     <div className="absolute top-4 left-4">
                       <span className={`px-3 py-1 rounded-full text-white text-sm ${property.badge === 'Premium' ? 'bg-blue-500' : 'bg-orange-500'}`}>{property.badge || 'Featured'}</span>
                     </div>
@@ -303,7 +335,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                       <button className="p-2 bg-white/80 rounded-full"><Eye className="text-blue-500" /></button>
                     </div>
 
-                    {/* bottom left small stats */}
                     <div className="absolute bottom-4 left-4 flex items-center gap-2">
                       <div className="bg-white/90 rounded-full px-2 py-1 flex items-center gap-1">
                         <Star className="text-yellow-500" size={12} />
@@ -316,26 +347,16 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   </div>
 
                   <div className="p-6">
-                    {/* Title + meta */}
                     <div className="flex items-start justify-between mb-2">
                       <div className="pr-4">
-                        {/* <h3 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600">{property.title}</h3> */}
-
-                        {/* single-line meta: Property Type • Unit Type • Subtype */}
                         <div className="font-bold text-gray-900 text-lg">
-                          {[
-                            property.type && property.type !== '' ? property.type : null,
-                            property.unitType && property.unitType !== '' ? property.unitType : null,
-                            property.subtype && property.subtype !== '' ? property.subtype : null
-                          ].filter(Boolean).join('  ') || ' - '}
+                          {[property.type, property.unitType, property.subtype].filter(Boolean).join('  ') || ' - '}
                         </div>
                       </div>
 
-                      {/* optional short code */}
                       <div className="text-xs text-gray-400 whitespace-nowrap">PROP{String(property.id).padStart(3, '0')}</div>
                     </div>
 
-                    {/* Price row */}
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <div className="text-3xl font-bold text-green-600">{formatPrice(property.price)}</div>
@@ -347,13 +368,19 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                       </div>
                     </div>
 
-                    {/* Location + City */}
                     <div className="flex items-center text-gray-600 mb-3">
                       <MapPin size={16} className="mr-2" />
                       <span>{property.location || property.city || ' - '}</span>
                     </div>
 
-                    {/* Amenities chips */}
+                    {/* Show possession month + year if available */}
+                    <div className="text-sm text-gray-600 mb-3">
+                      <strong>Possession:</strong>{' '}
+                      {property.possessionMonth || property.possessionYear
+                        ? `${property.possessionMonth ? property.possessionMonth : ''}${property.possessionMonth && property.possessionYear ? ' ' : ''}${property.possessionYear ? property.possessionYear : ''}`
+                        : ' - '}
+                    </div>
+
                     <div className="flex flex-wrap gap-2 mb-4">
                       {(property.amenities || []).slice(0, 3).map((a, i) => (
                         <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{a}</span>
@@ -363,13 +390,18 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                       )}
                     </div>
 
-                    {/* seller or short note */}
-                    {/* {property.sellerName && <div className="text-sm text-gray-600 mb-3">Seller: {property.sellerName}</div>} */}
-
                     <div className="flex items-center gap-3">
-                      <button onClick={() => handleViewProperty(property)} className="flex-1 bg-blue-600 text-white py-2 rounded-lg">View Details</button>
-                      <button className="p-3 bg-gray-100 rounded-xl"><Phone /></button>
+                      <Link to={`/properties/${encodeURIComponent(String(property.slug))}`} className="flex-1">
+                        <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                          View Details
+                        </button>
+                      </Link>
+                      <button className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors group">
+                        <Phone className="text-green-600 group-hover:text-green-700" size={20} />
+                      </button>
                     </div>
+
+
                   </div>
                 </div>
               ))}
@@ -381,7 +413,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         </div>
       </section>
 
-      {/* Sell CTA / Why choose / Footer kept minimal */}
+      {/* Sell CTA / Footer minimal */}
       <section className="py-12 bg-gradient-to-r from-green-600 to-emerald-600 text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
@@ -405,32 +437,3 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 };
 
 export default HomePage;
-
-/* ---------- fallback static data ---------- */
-function getStaticProperties(): Property[] {
-  return [
-    {
-      id: 58,
-      title: 'Luxury 3BHK Apartment',
-      price: 25000000,
-      bedrooms: 3,
-      bathrooms: 2,
-      square_feet: 1250,
-      city: 'Mumbai',
-      property_type: 'Apartment',
-      status: 'Available',
-      images: [],
-      location: 'Andheri West, Mumbai',
-      area: 1250,
-      type: '3BHK',
-      unitType: '3BHK',
-      subtype: 'Apartment',
-      amenities: ['Swimming Pool', 'Gym', 'Security', 'Clubhouse'],
-      badge: 'Premium',
-      rating: 4.8,
-      views: 245,
-      aiScore: 92,
-      sellerName: 'Demo Seller'
-    }
-  ];
-}

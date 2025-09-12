@@ -366,6 +366,11 @@ searchProperties: async (params: {
     const res = await client.post("/ai/generate-description", payload);
     return res.data as GenerateDescriptionResponse;
   },
+
+  getPropertyBySlug: async (slugParam: string) => {
+  const res = await api.get(`/properties/page/${slugParam}`);
+  return res.data;
+},
 };
 
 export default propertiesAPI;

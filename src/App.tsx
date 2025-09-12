@@ -95,7 +95,8 @@ function App() {
                   <Route path='/' element={<PublicHeader />} >
                     <Route index element={<HomePage />} />
                     <Route path="properties" element={<PublicPropertiesPage />} />
-                    <Route path="properties/:id" element={<PublicPropertyDetailPage />} />
+                    {/* <Route path="properties/:id" element={<PublicPropertyDetailPage />} /> */}
+                    <Route path="properties/:slugParam" element={<PublicPropertyDetailPage />} />
                     <Route path="about" element={<AboutPage />} />
                     <Route path='blogs' element={<BlogsPage/>}/>
                     <Route path="services" element={<ServicesPage />} />
