@@ -53,6 +53,9 @@ import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
 import propertiesAPI from '@/lib/propertiesAPI';
 import { FaWhatsapp } from 'react-icons/fa';
+import viewsAPI from '@/lib/viewAPI';
+
+// NEW: import viewsAPI (as you asked)
 
 type RawProperty = any;
 
@@ -64,6 +67,9 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const [paywallFeature, setPaywallFeature] = useState<'ai-recommendations' | 'ai-investment' | 'premium-details'>('ai-recommendations');
   const [hasSubscription, setHasSubscription] = useState(false); // This would come from user context
   const [isLoggedIn, setIsLoggedIn] = useState(false); // This would come from auth context
+  // add near other hooks / state
+const hasRecordedViewRef = React.useRef<{ [key: string]: boolean }>({});
+
   const [contactForm, setContactForm] = useState({
     name: '',
     phone: '',
@@ -344,6 +350,175 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     }
   };
 
+  // ------------------------
+  // PAGE-VIEW RECORDING LOGIC (uses viewsAPI.recordView)
+  // ------------------------
+
+  // helper: extract numeric id if possible (falls back to leading number from slug)
+  const resolvePropertyIdNumber = (normalized: any): number | null => {
+    if (!normalized) return null;
+    // Try common numeric fields from raw object first
+    const raw = normalized.raw ?? {};
+    const possible = [
+      raw.id,
+      raw.property_id,
+      raw.id_number,
+      normalized.id, // might be numeric or slug-like
+    ];
+    for (const v of possible) {
+      if (v === undefined || v === null) continue;
+      const n = Number(String(v).replace(/[^0-9]/g, ''));
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    // If id is slug-like "307185-some-slug", try leading number
+    const candidate = String(normalized.id || normalized.raw?.slug || normalized.raw?.id || '');
+    const m = candidate.match(/^(\d+)(?:-|$)/);
+    if (m) return Number(m[1]);
+    return null;
+  };
+
+  // localStorage dedupe: avoid recording more than once in windowPerProperty minutes
+const recordView = async (normalizedProp: any, options?: { windowMinutes?: number }) => {
+  if (!normalizedProp) return;
+  const windowMinutes = options?.windowMinutes ?? 10;
+  const propertyId = resolvePropertyIdNumber(normalizedProp);
+  const slugId = normalizedProp?.raw?.slug ?? normalizedProp?.id ?? null;
+  const dedupeKey = `viewed_property_${propertyId ?? slugId ?? String(Math.random()).slice(2)}`;
+
+  // If we've already recorded this property in this component instance, skip
+  const instanceKey = String(propertyId ?? slugId ?? 'unknown');
+  if (hasRecordedViewRef.current[instanceKey]) {
+    // But try to refresh count once (optional) — only if you want updated view count
+    try {
+      if (propertyId) {
+        const resp = await viewsAPI.getByProperty(propertyId, false);
+        if (resp?.success && resp?.total_views !== undefined) {
+          setProperty((prev: any) => {
+            if (!prev) return prev;
+            // only update if changed
+            if (prev.views === resp.total_views) return prev;
+            return { ...prev, views: resp.total_views };
+          });
+        }
+      } else if (slugId) {
+        const resp = await propertiesAPI.getPropertyBySlug(slugId);
+        const payload = resp?.data ?? resp ?? null;
+        const normalized = normalizeProperty(payload);
+        if (normalized?.views !== undefined) {
+          setProperty((prev: any) => {
+            if (!prev) return prev;
+            if (prev.views === normalized.views) return prev;
+            return { ...prev, views: normalized.views };
+          });
+        }
+      }
+    } catch (err) { /* ignore */ }
+    return;
+  }
+
+  // localStorage dedupe check (same as you had)
+  try {
+    const last = localStorage.getItem(dedupeKey);
+    if (last) {
+      const lastTs = Number(last);
+      if (!Number.isNaN(lastTs)) {
+        const elapsed = Date.now() - lastTs;
+        if (elapsed < windowMinutes * 60 * 1000) {
+          // mark instance as recorded so effect won't re-trigger record
+          hasRecordedViewRef.current[instanceKey] = true;
+          // refresh views (same safe update)
+          try {
+            if (propertyId) {
+              const resp = await viewsAPI.getByProperty(propertyId, false);
+              if (resp?.success && resp?.total_views !== undefined) {
+                setProperty((prev: any) => {
+                  if (!prev) return prev;
+                  if (prev.views === resp.total_views) return prev;
+                  return { ...prev, views: resp.total_views };
+                });
+              }
+            }
+          } catch (err) { /* ignore */ }
+          return;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('localStorage unavailable for view dedupe:', err);
+  }
+
+  // Build payload & call record API
+  const eventPayload: Record<string, any> = {
+    source: 'client',
+    path: typeof window !== 'undefined' ? window.location.pathname : null,
+    referrer: typeof document !== 'undefined' ? document.referrer : null,
+    slug: slugId ?? null,
+  };
+
+  try {
+    await viewsAPI.recordView(propertyId, eventPayload);
+    // mark localStorage and instance flag
+    try { localStorage.setItem(dedupeKey, String(Date.now())); } catch (err) { /* ignore */ }
+    hasRecordedViewRef.current[instanceKey] = true;
+  } catch (err) {
+    console.warn('viewsAPI.recordView failed:', err);
+  }
+
+  // Refresh server-side count once, but only update state if changed
+  try {
+    if (propertyId) {
+      const resp = await viewsAPI.getByProperty(propertyId, false);
+      if (resp?.success && resp?.total_views !== undefined) {
+        setProperty((prev: any) => {
+          if (!prev) return prev;
+          if (prev.views === resp.total_views) return prev;
+          return { ...prev, views: resp.total_views };
+        });
+        return;
+      }
+    }
+    if (slugId) {
+      const resp = await propertiesAPI.getPropertyBySlug(slugId);
+      const payload = resp?.data ?? resp ?? null;
+      const normalized = normalizeProperty(payload);
+      if (normalized?.views !== undefined) {
+        setProperty((prev: any) => {
+          if (!prev) return prev;
+          if (prev.views === normalized.views) return prev;
+          return { ...prev, views: normalized.views };
+        });
+      }
+    }
+  } catch (err) { /* ignore */ }
+};
+
+  // When property is set, trigger view recording once
+useEffect(() => {
+  if (!property) return;
+  // compute a stable key for the property instance (use id if available)
+  const instanceKey = String(resolvePropertyIdNumber(property) ?? property?.id ?? 'unknown');
+  if (hasRecordedViewRef.current[instanceKey]) return;
+
+  let aborted = false;
+  (async () => {
+    try {
+      await recordView(property, { windowMinutes: 10 });
+    } catch (err) {
+      console.warn('recordView failed:', err);
+    } finally {
+      if (!aborted) {
+        // nothing extra
+      }
+    }
+  })();
+
+  return () => { aborted = true; };
+}, [property]); // keep dependency but guarded by hasRecordedViewRef
+
+
+  // ------------------------
+  // END PAGE-VIEW RECORDING
+  // ------------------------
 
   if (loading) {
     return (
@@ -372,7 +547,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       </div>
     );
   }
-
   // support multiple shapes for images & amenities (from normalized property)
   const images: string[] = Array.isArray(property?.images) && property.images.length
     ? property.images

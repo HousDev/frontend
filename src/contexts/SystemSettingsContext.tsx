@@ -31,6 +31,7 @@ interface SystemSettingsContextType {
   systemSettings: SystemSettings | null;
   loading: boolean;
   saving: boolean;
+  error: string | null;
   updateSystemSettings: (settings: Partial<SystemSettings>) => void;
   saveSystemSettings: () => Promise<void>;
   refreshSystemSettings: () => Promise<void>;
@@ -39,17 +40,32 @@ interface SystemSettingsContextType {
     type: "company_logo" | "company_favicon"
   ) => Promise<void>;
   handleFileRemove: (type: "company_logo" | "company_favicon") => void;
+  resetError: () => void;
 }
 
-/**
- * Generic API response shape used locally here.
- * If your systemSettingsAPI already exports a type, prefer that instead.
- */
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
   message?: string;
 }
+
+// Default system settings to prevent errors
+const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
+  company_name: "Your Company",
+  company_logo: "",
+  company_favicon: "",
+  primary_color: "#3B82F6",
+  secondary_color: "#10B981",
+  currency: "USD",
+  date_format: "MM/DD/YYYY",
+  time_format: "12",
+  default_language: "en",
+  max_file_size: 5242880, // 5MB
+  backup_frequency: "daily",
+  auto_assign_leads: true,
+  lead_scoring_enabled: true,
+  property_auto_approval: false,
+};
 
 const SystemSettingsContext = createContext<SystemSettingsContextType | null>(
   null
@@ -69,97 +85,158 @@ interface SystemSettingsProviderProps {
   children: ReactNode;
 }
 
+// Safe localStorage operations
+const getStoredSettings = (): SystemSettings | null => {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const saved = window.localStorage?.getItem("systemSettings");
+    if (saved) {
+      const parsed = JSON.parse(saved) as SystemSettings;
+      // Validate that parsed data has required fields
+      if (parsed.company_name && parsed.primary_color) {
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to parse stored system settings:", error);
+  }
+  return null;
+};
+
+const storeSettings = (settings: SystemSettings): void => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    window.localStorage?.setItem("systemSettings", JSON.stringify(settings));
+  } catch (error) {
+    console.warn("Failed to store system settings:", error);
+  }
+};
+
 export const SystemSettingsProvider: React.FC<
   SystemSettingsProviderProps
 > = ({ children }) => {
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(
-    () => {
-      try {
-        const saved = localStorage.getItem("systemSettings");
-        return saved ? (JSON.parse(saved) as SystemSettings) : null;
-      } catch {
-        return null;
-      }
-    }
+    () => getStoredSettings() || DEFAULT_SYSTEM_SETTINGS
   );
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Persist settings to localStorage
   useEffect(() => {
-    try {
-      if (systemSettings) {
-        localStorage.setItem("systemSettings", JSON.stringify(systemSettings));
-      }
-    } catch (err) {
-      // ignore localStorage errors
-      console.warn("Failed to persist system settings to localStorage", err);
+    if (systemSettings) {
+      storeSettings(systemSettings);
     }
   }, [systemSettings]);
 
   // Sync favicon + document title
   useEffect(() => {
-    if (systemSettings?.company_favicon) {
-      const link = document.querySelector<HTMLLinkElement>(
-        "link[rel~='icon']"
-      );
-      if (link) {
+    if (typeof window === 'undefined') return;
+
+    try {
+      if (systemSettings?.company_favicon) {
+        let link = document.querySelector<HTMLLinkElement>(
+          "link[rel~='icon']"
+        );
+        if (!link) {
+          link = document.createElement("link");
+          link.rel = "icon";
+          document.head.appendChild(link);
+        }
         link.href = systemSettings.company_favicon;
-      } else {
-        const newLink = document.createElement("link");
-        newLink.rel = "icon";
-        newLink.href = systemSettings.company_favicon;
-        document.head.appendChild(newLink);
       }
-    }
-    if (systemSettings?.company_name) {
-      document.title = systemSettings.company_name;
+
+      if (systemSettings?.company_name) {
+        document.title = systemSettings.company_name;
+      }
+    } catch (error) {
+      console.warn("Failed to update favicon/title:", error);
     }
   }, [systemSettings?.company_favicon, systemSettings?.company_name]);
 
-  // Fetch system settings from API
+  // Reset error state
+  const resetError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  // Fetch system settings from API with better error handling
   const fetchSystemSettings = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
-      // assume systemSettingsAPI.getSettings() returns something like ApiResponse<SystemSettings>
+      setError(null);
+
+      // Check if API is available
+      if (!systemSettingsAPI || typeof systemSettingsAPI.getSettings !== 'function') {
+        throw new Error('System settings API is not available');
+      }
+
       const response = (await systemSettingsAPI.getSettings()) as ApiResponse<
         SystemSettings
       >;
 
-      if (response?.data) {
-        setSystemSettings(response.data);
+      if (response?.success && response.data) {
+        const mergedSettings = {
+          ...DEFAULT_SYSTEM_SETTINGS,
+          ...response.data,
+        };
+        setSystemSettings(mergedSettings);
+        setError(null);
+      } else if (response?.data) {
+        const mergedSettings = {
+          ...DEFAULT_SYSTEM_SETTINGS,
+          ...response.data,
+        };
+        setSystemSettings(mergedSettings);
+        setError(null);
       } else {
-        console.warn("No system settings found");
+        throw new Error(response?.message || 'Failed to load system settings');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching system settings:", error);
-      toast.error("Failed to load system settings, using last saved data");
+      const errorMessage = error?.message || 'Failed to load system settings';
+      setError(errorMessage);
+      
+      // Use stored settings or defaults as fallback
+      const storedSettings = getStoredSettings();
+      if (storedSettings) {
+        setSystemSettings(storedSettings);
+        toast.warn("Using cached system settings due to connection error");
+      } else {
+        setSystemSettings(DEFAULT_SYSTEM_SETTINGS);
+        toast.warn("Using default system settings due to connection error");
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // On mount: if no local data, fallback to API
+  // Initialize settings on mount
   useEffect(() => {
-    if (!systemSettings) {
-      void fetchSystemSettings();
+    // Only fetch from API if we don't have stored settings
+    const storedSettings = getStoredSettings();
+    if (!storedSettings) {
+      fetchSystemSettings();
     } else {
+      setSystemSettings(storedSettings);
       setLoading(false);
     }
-  }, [systemSettings, fetchSystemSettings]);
+  }, [fetchSystemSettings]);
 
   // Update system settings locally (optimistic update)
   const updateSystemSettings = useCallback(
     (settings: Partial<SystemSettings>) => {
       setSystemSettings((prevSettings) => ({
-        ...(prevSettings || ({} as SystemSettings)),
+        ...(prevSettings || DEFAULT_SYSTEM_SETTINGS),
         ...settings,
       }));
+      setError(null);
     },
     []
   );
 
-  // Save system settings to API
+  // Save system settings to API with better error handling
   const saveSystemSettings = useCallback(async (): Promise<void> => {
     if (!systemSettings) {
       throw new Error("No system settings to save");
@@ -167,17 +244,21 @@ export const SystemSettingsProvider: React.FC<
 
     try {
       setSaving(true);
+      setError(null);
+
+      // Check if API is available
+      if (!systemSettingsAPI || typeof systemSettingsAPI.saveSettings !== 'function') {
+        throw new Error('System settings API is not available');
+      }
+
       const formData = new FormData();
 
       (Object.entries(systemSettings) as [keyof SystemSettings, any][]).forEach(
         ([key, value]) => {
-          // only append defined values
           if (value !== undefined && value !== null) {
-            // FormData expects string | Blob; convert primitives to string
             if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
               formData.append(String(key), String(value));
             } else {
-              // For complex objects (shouldn't normally be present here), stringify
               formData.append(String(key), JSON.stringify(value));
             }
           }
@@ -188,23 +269,27 @@ export const SystemSettingsProvider: React.FC<
         formData
       )) as ApiResponse<SystemSettings>;
 
-      if (response?.success && response.data) {
-        setSystemSettings(response.data);
+      if (response?.success) {
+        if (response.data) {
+          const mergedSettings = {
+            ...DEFAULT_SYSTEM_SETTINGS,
+            ...response.data,
+          };
+          setSystemSettings(mergedSettings);
+        }
         toast.success("System settings updated successfully");
-      } else if (response?.data) {
-        setSystemSettings(response.data);
-        toast.success("System settings updated successfully");
+        setError(null);
       } else {
-        // fallback success message if API returns success without data
-        toast.success("System settings updated successfully");
+        throw new Error(response?.message || "Failed to update system settings");
       }
     } catch (error: any) {
       console.error("Error updating system settings:", error);
-      toast.error(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Failed to update system settings"
-      );
+      const errorMessage = error?.response?.data?.message ||
+        error?.message ||
+        "Failed to update system settings";
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
       throw error;
     } finally {
       setSaving(false);
@@ -213,27 +298,39 @@ export const SystemSettingsProvider: React.FC<
 
   // Refresh system settings from API
   const refreshSystemSettings = useCallback(async (): Promise<void> => {
-    await fetchSystemSettings();
-    toast.info("System settings refreshed");
+    try {
+      await fetchSystemSettings();
+      toast.success("System settings refreshed successfully");
+    } catch (error) {
+      toast.error("Failed to refresh system settings");
+    }
   }, [fetchSystemSettings]);
 
-  // Handle file upload for logo/favicon
+  // Handle file upload for logo/favicon with better error handling
   const handleFileUpload = useCallback(
     async (file: File, type: "company_logo" | "company_favicon") => {
       if (!file) return;
-      // basic validations
+
+      // Validation
       if (!file.type.startsWith("image/")) {
         toast.error("Please upload a valid image file");
         return;
       }
 
-      const maxSize = 5 * 1024 * 1024; // 5MB
+      const maxSize = systemSettings?.max_file_size || 5 * 1024 * 1024; // 5MB default
       if (file.size > maxSize) {
-        toast.error("File size must be less than 5MB");
+        toast.error(`File size must be less than ${(maxSize / 1024 / 1024).toFixed(1)}MB`);
         return;
       }
 
       try {
+        setError(null);
+
+        // Check if API is available
+        if (!systemSettingsAPI || typeof systemSettingsAPI.saveSettings !== 'function') {
+          throw new Error('System settings API is not available');
+        }
+
         const formData = new FormData();
         formData.append(type, file);
 
@@ -242,45 +339,45 @@ export const SystemSettingsProvider: React.FC<
         )) as ApiResponse<Partial<SystemSettings>>;
 
         if (response?.success && response.data) {
-          // response.data[type] may be a string URL. Use a runtime cast.
           const returnedUrl = (response.data as any)[type] as string | undefined;
           if (returnedUrl) {
             setSystemSettings((prev) => ({
-              ...(prev || ({} as SystemSettings)),
+              ...(prev || DEFAULT_SYSTEM_SETTINGS),
               [type]: `${returnedUrl}?t=${Date.now()}`,
             }));
             toast.success(
               `${type === "company_logo" ? "Logo" : "Favicon"} updated successfully`
             );
           } else {
-            // If API succeeded but didn't return url, just refresh
             await fetchSystemSettings();
             toast.success(
               `${type === "company_logo" ? "Logo" : "Favicon"} updated successfully`
             );
           }
         } else {
-          toast.error("Failed to upload image");
+          throw new Error(response?.message || "Failed to upload image");
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error uploading file:", error);
-        toast.error("Failed to upload file");
+        const errorMessage = error?.message || "Failed to upload file";
+        setError(errorMessage);
+        toast.error(errorMessage);
       }
     },
-    [fetchSystemSettings]
+    [systemSettings?.max_file_size, fetchSystemSettings]
   );
 
   // Remove uploaded file
   const handleFileRemove = useCallback(
     (type: "company_logo" | "company_favicon") => {
       setSystemSettings((prev) => ({
-        ...(prev || ({} as SystemSettings)),
-        // set to undefined to indicate it's removed; interface allows optional
+        ...(prev || DEFAULT_SYSTEM_SETTINGS),
         [type]: undefined,
       }));
       toast.info(
         `${type === "company_logo" ? "Logo" : "Favicon"} removed from settings`
       );
+      setError(null);
     },
     []
   );
@@ -289,11 +386,13 @@ export const SystemSettingsProvider: React.FC<
     systemSettings,
     loading,
     saving,
+    error,
     updateSystemSettings,
     saveSystemSettings,
     refreshSystemSettings,
     handleFileUpload,
     handleFileRemove,
+    resetError,
   };
 
   return (
@@ -306,18 +405,18 @@ export const SystemSettingsProvider: React.FC<
 export { SystemSettingsContext };
 
 /**
- * Convenience hook for branding values
+ * Convenience hook for branding values with fallbacks
  */
 export const useCompanyBranding = () => {
   const { systemSettings } = useSystemSettings();
 
   return {
-    companyName: systemSettings?.company_name,
-    companyLogo: systemSettings?.company_logo,
-    companyFavicon: systemSettings?.company_favicon,
-    primaryColor: systemSettings?.primary_color ?? "#3B82F6",
-    secondaryColor: systemSettings?.secondary_color ?? "#10B981",
+    companyName: systemSettings?.company_name || DEFAULT_SYSTEM_SETTINGS.company_name,
+    companyLogo: systemSettings?.company_logo || DEFAULT_SYSTEM_SETTINGS.company_logo,
+    companyFavicon: systemSettings?.company_favicon || DEFAULT_SYSTEM_SETTINGS.company_favicon,
+    primaryColor: systemSettings?.primary_color || DEFAULT_SYSTEM_SETTINGS.primary_color,
+    secondaryColor: systemSettings?.secondary_color || DEFAULT_SYSTEM_SETTINGS.secondary_color,
   };
 };
 
-export type {  SystemSettingsContextType };
+export type { SystemSettingsContextType };

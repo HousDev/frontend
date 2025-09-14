@@ -25,9 +25,11 @@ import SubscriptionModal from '@/components/subscription/SubscriptionModal';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import PublicPropertyDetailPage from './PublicPropertyDetailPage';
 import { propertiesAPI } from '@/lib/propertiesAPI';
+
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
+import viewsAPI from '@/lib/viewAPI';
 
 interface Property {
   id: number;
@@ -57,6 +59,7 @@ interface Property {
   possessionYear?: string | null;
   created_at?: string | null;
   public_views?: number | null;
+  total_views?: number;
 }
 
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
@@ -70,6 +73,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [isSubOpen, setIsSubOpen] = useState(false);
   const [currentPropertyView, setCurrentPropertyView] = useState<any | null>(null);
 
+  // Track viewed properties in current session to prevent duplicate views
+  const [viewedProperties, setViewedProperties] = useState<Set<number>>(new Set());
+
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
 
@@ -78,7 +84,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   // Parse original query params and preserve both key and value.
   const queryParams = new URLSearchParams(location.search);
-  // Prefer explicit 'filterToken' param if present; otherwise accept 'fltcnt' (external sites).
+  // Prefer explicit 'filterToken' param if present; otherwise accept 'tf' (external sites).
   const filterParamKey =
     queryParams.has('filterToken') ? 'filterToken' :
     (queryParams.has('tf') ? 'tf' : undefined);
@@ -103,6 +109,20 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const { systemSettings } = useSystemSettings();
   const companyName = systemSettings?.company_name || 'ResaleExpert';
 
+  // Function to fetch view counts for properties - only total views
+  const fetchPropertyViews = async (propertyId: number): Promise<{ total_views: number }> => {
+    try {
+      const viewData = await viewsAPI.getByProperty(propertyId, false); // Get total views only
+      
+      return {
+        total_views: viewData?.total_views || 0
+      };
+    } catch (err) {
+      console.error(`Error fetching views for property ${propertyId}:`, err);
+      return { total_views: 0 };
+    }
+  };
+
   useEffect(() => {
     const fetchFeaturedProperties = async () => {
       try {
@@ -113,7 +133,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         });
 
         const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
-        const mapped = rawList.map((p: any) => {
+        
+        // Map properties and fetch view counts
+        const mapped = await Promise.all(rawList.map(async (p: any) => {
           // Normalize images
           const images = Array.isArray(p.photos)
             ? p.photos.map((ph: string) => ph.replace(/\\/g, '/'))
@@ -146,6 +168,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             console.warn('[HomePage] Missing backend slug for property id:', p?.id);
           }
 
+          // Fetch actual view counts from API - only total views
+          const viewCounts = await fetchPropertyViews(p.id);
+
           return {
             id: p.id,
             title: (p.title || `${unitType ? unitType + ' ' : ''}${p.property_type_name || p.property_type || ''}`).trim(),
@@ -165,7 +190,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             amenities,
             badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
             rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
-            views: Number(p.views) || Math.floor(Math.random() * 300) + 50,
+            // Use API view counts instead of random values - only total views
+            views: viewCounts.total_views || 0,
+            total_views: viewCounts.total_views,
             aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
             sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
             slug,
@@ -175,7 +202,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             created_at: p.created_at ?? null,
             public_views: p.public_views ?? null
           } as Property;
-        });
+        }));
 
         setFeaturedProperties(mapped);
 
@@ -232,13 +259,26 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     return `₹${num.toLocaleString('en-IN')}`;
   };
 
-  // New: handler to send analytics then navigate (non-blocking)
-// HomePage.tsx — replace handleNavigateToProperty with this async version
+  // Enhanced navigation function with single view recording
+// Enhanced navigation function - ONLY analytics, NO view recording
 const handleNavigateToProperty = async (property: Property) => {
   const id = property.id;
   const slug = property.slug;
   if (!slug) {
     console.warn('Attempted to navigate to property without slug:', id);
+    return;
+  }
+
+  // Check if this property has already been clicked in this session
+  if (viewedProperties.has(id)) {
+    console.log(`Property ${id} already clicked in this session`);
+    // Still navigate but don't send analytics
+    let dest = `/properties/${encodeURIComponent(String(slug))}`;
+    if (filterToken) {
+      const finalParamKey = filterParamKey || 'tf';
+      dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(finalToken)}`;
+    }
+    navigate(dest);
     return;
   }
 
@@ -258,7 +298,7 @@ const handleNavigateToProperty = async (property: Property) => {
 
   try {
     let finalToken = existingToken;
-    let finalParamKey = existingParamKey || 'tf'; // choose fltcnt as canonical external key
+    let finalParamKey = existingParamKey || 'tf';
 
     // If no existing token, create a filter-context (server will return id)
     if (!finalToken) {
@@ -274,8 +314,8 @@ const handleNavigateToProperty = async (property: Property) => {
       }
     }
 
-    // Send analytics event — prefer to send the token string (if available)
-    // We await this to ensure backend has the token/event, but don't block navigation too long.
+    // *** REMOVED VIEW RECORDING - Let page load handle it ***
+    // Only send click analytics event
     try {
       await propertiesAPI.sendPropertyEvent(
         id,
@@ -284,6 +324,11 @@ const handleNavigateToProperty = async (property: Property) => {
         { source: 'homepage', title: property.title || null },
         { slug, filterToken: finalToken || undefined, filterParamKey: finalParamKey }
       );
+      
+      // Mark this property as clicked in current session (prevent duplicate clicks)
+      setViewedProperties(prev => new Set(prev).add(id));
+      
+      console.log(`Click event sent for property ${id}`);
     } catch (err) {
       console.warn('sendPropertyEvent failed (we will still navigate):', err);
     }
@@ -300,7 +345,6 @@ const handleNavigateToProperty = async (property: Property) => {
     navigate(`/properties/${encodeURIComponent(String(slug))}`);
   }
 };
-
 
   if (currentPropertyView) {
     return <PublicPropertyDetailPage property={currentPropertyView} onBack={() => setCurrentPropertyView(null)} />;
@@ -408,7 +452,10 @@ const handleNavigateToProperty = async (property: Property) => {
                         <span className="text-xs font-semibold text-gray-900">{(property.rating || 4.5).toFixed(1)}</span>
                       </div>
                       <div className="bg-white/90 rounded-full px-2 py-1">
-                        <span className="text-xs font-semibold text-gray-900">{property.views ?? 0} views</span>
+                        <span className="text-xs font-semibold text-gray-900">
+                          {/* Display only total view count from API */}
+                          {property.total_views || property.views || 0} views
+                        </span>
                       </div>
                     </div>
                   </div>
