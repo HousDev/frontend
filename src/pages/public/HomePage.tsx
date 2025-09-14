@@ -468,7 +468,7 @@ const handleNavigateToProperty = async (property: Property) => {
                         </div>
                       </div>
 
-                      <div className="text-xs text-gray-400 whitespace-nowrap">PROP{String(property.id).padStart(3, '0')}</div>
+                      {/* <div className="text-xs text-gray-400 whitespace-nowrap">PROP{String(property.id).padStart(3, '0')}</div> */}
                     </div>
 
                     <div className="flex items-center justify-between mb-4">
@@ -488,12 +488,12 @@ const handleNavigateToProperty = async (property: Property) => {
                     </div>
 
                     {/* Show possession month + year if available */}
-                    <div className="text-sm text-gray-600 mb-3">
+                    {/* <div className="text-sm text-gray-600 mb-3">
                       <strong>Possession:</strong>{' '}
                       {property.possessionMonth || property.possessionYear
                         ? `${property.possessionMonth ? property.possessionMonth : ''}${property.possessionMonth && property.possessionYear ? ' ' : ''}${property.possessionYear ? property.possessionYear : ''}`
                         : ' - '}
-                    </div>
+                    </div> */}
 
                     <div className="flex flex-wrap gap-2 mb-4">
                       {(property.amenities || []).slice(0, 3).map((a, i) => (

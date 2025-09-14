@@ -161,6 +161,7 @@ function App() {
                     <Route path="activities" element={<ActivitiesPage />} />
                     <Route path="analytics" element={<AnalyticsPage />} />
                     <Route path="users" element={<UsersPage />} />
+                    <Route path="profile" element={<SettingsPage />} />
 
                     {/* Communication */}
                     <Route path="communication" element={<CommunicationHubPage />} />
