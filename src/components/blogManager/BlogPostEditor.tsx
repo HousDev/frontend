@@ -1,24 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Save, 
-  Send, 
-  Eye, 
-  X, 
-  Image, 
-  Link, 
-  Bold, 
-  Italic, 
-  List,
-  Quote,
-  Code,
-  Heading,
-  Type,
-  Calendar,
-  Tag,
-  User,
-  Globe
+import {
+  Save, Send, X, Bold, Italic, List, Quote, Code, Heading,
+  Calendar, Tag, User, Image, Link
 } from 'lucide-react';
-import { BlogPost } from '../../types/blog';
+
+interface BlogPost {
+  title: string;
+  content: string;
+  excerpt: string;
+  author: string;
+  category: string;
+  tags: string[];
+  featured: boolean;
+  featuredImage: string;
+  seoTitle: string;
+  seoDescription: string;
+  status: 'draft' | 'published' | 'archived';
+  publishedAt?: string;
+}
 
 interface BlogPostEditorProps {
   post?: BlogPost;
@@ -27,24 +26,18 @@ interface BlogPostEditorProps {
   isOpen: boolean;
 }
 
-const BlogPostEditor: React.FC<BlogPostEditorProps> = ({ 
-  post, 
-  onSave, 
-  onCancel, 
-  isOpen 
+const categories = [
+  'Real Estate', 'Investment', 'Market Analysis', 'Legal',
+  'Home Buying', 'Home Selling', 'Property News', 'Construction', 'Finance'
+];
+
+const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
+  post, onSave, onCancel, isOpen
 }) => {
   const [formData, setFormData] = useState<Partial<BlogPost>>({
-    title: '',
-    content: '',
-    excerpt: '',
-    author: 'Admin',
-    category: '',
-    tags: [],
-    featured: false,
-    featuredImage: '',
-    seoTitle: '',
-    seoDescription: '',
-    status: 'draft'
+    title: '', content: '', excerpt: '', author: 'Admin',
+    category: '', tags: [], featured: false, featuredImage: '',
+    seoTitle: '', seoDescription: '', status: 'draft'
   });
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [tagsInput, setTagsInput] = useState('');
@@ -58,10 +51,9 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
 
   if (!isOpen) return null;
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
-    
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -72,446 +64,404 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
     setTagsInput(value);
     setFormData(prev => ({
       ...prev,
-      tags: value.split(',').map(tag => tag.trim()).filter(tag => tag)
+      tags: value.split(',').map(tag => tag.trim()).filter(Boolean)
     }));
   };
 
   const insertMarkdown = (before: string, after: string = '') => {
     const textarea = document.getElementById('content-editor') as HTMLTextAreaElement;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = formData.content?.substring(start, end) || '';
-    
-    const newText = formData.content?.substring(0, start) + 
-                   before + selectedText + after + 
-                   formData.content?.substring(end);
-    
+    if (!textarea) return;
+
+    const { selectionStart: start, selectionEnd: end } = textarea;
+    const content = formData.content || '';
+    const selected = content.substring(start, end);
+    const newText = content.substring(0, start) + before + selected + after + content.substring(end);
+
     setFormData(prev => ({ ...prev, content: newText }));
-    
-    // Restore cursor position
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(
-        start + before.length,
-        start + before.length + selectedText.length
-      );
+      textarea.setSelectionRange(start + before.length, start + before.length + selected.length);
     }, 0);
   };
 
   const generatePreview = () => {
     if (!formData.content) return '';
-    
     return formData.content
-      .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold text-gray-900 mb-4">$1</h1>')
-      .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-bold text-gray-900 mb-3">$1</h2>')
-      .replace(/^### (.*$)/gim, '<h3 class="text-xl font-bold text-gray-900 mb-2">$1</h3>')
+      .replace(/^# (.*$)/gim, '<h1 class="text-2xl sm:text-3xl font-bold mb-4">$1</h1>')
+      .replace(/^## (.*$)/gim, '<h2 class="text-xl sm:text-2xl font-bold mb-3">$1</h2>')
       .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
       .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
       .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded text-sm">$1</code>')
       .replace(/^- (.*$)/gim, '<li class="ml-4 list-disc">$1</li>')
-      .replace(/^\d+\. (.*$)/gim, '<li class="ml-4 list-decimal">$1</li>')
-      .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-blue-500 pl-4 italic text-gray-600">$1</blockquote>')
-      .replace(/\n\n/g, '</p><p class="text-gray-700 leading-relaxed mb-4">')
+      .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-blue-500 pl-4 italic">$1</blockquote>')
+      .replace(/\n\n/g, '</p><p class="mb-4">')
       .replace(/\n/g, '<br>');
   };
 
-  const categories = [
-    'Real Estate', 'Investment', 'Market Analysis', 'Legal', 
-    'Home Buying', 'Home Selling', 'Property News', 'Construction', 'Finance'
+  const toolbarButtons = [
+    { icon: Heading, action: () => insertMarkdown('# '), title: 'Heading' },
+    { icon: Bold, action: () => insertMarkdown('**', '**'), title: 'Bold' },
+    { icon: Italic, action: () => insertMarkdown('*', '*'), title: 'Italic' },
+    { icon: List, action: () => insertMarkdown('- '), title: 'List' },
+    { icon: Quote, action: () => insertMarkdown('> '), title: 'Quote' },
+    { icon: Code, action: () => insertMarkdown('`', '`'), title: 'Code' },
+    { icon: Link, action: () => insertMarkdown('[Link](', ')'), title: 'Link' },
+    { icon: Image, action: () => insertMarkdown('![Alt](', ')'), title: 'Image' },
   ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {post ? 'Edit Blog Post' : 'Create New Blog Post'}
-            </h2>
-            <p className="text-gray-600">
-              {post ? `Editing: ${post.title}` : 'Write and publish new content'}
-            </p>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col">
+
+        {/* Header - Compact */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 sm:p-4 rounded-t-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold">
+                {post ? 'Edit Post' : 'Create New Blog Post'}
+              </h2>
+              <p className="text-xs opacity-90 hidden sm:block">
+                {post ? `Editing: ${post.title}` : 'Write and publish new content'}
+              </p>
+            </div>
+            <button onClick={onCancel} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
+              <X size={18} />
+            </button>
           </div>
-          <button
-            onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X size={24} />
-          </button>
         </div>
 
-        {/* Editor Tabs */}
+        {/* Tabs - Compact */}
         <div className="border-b border-gray-200 bg-gray-50">
           <div className="flex">
-            <button
-              onClick={() => setActiveTab('edit')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'edit'
+            {['edit', 'preview'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab as 'edit' | 'preview')}
+                className={`px-4 py-2 font-medium capitalize text-sm transition-colors ${activeTab === tab
                   ? 'bg-white text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => setActiveTab('preview')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                activeTab === 'preview'
-                  ? 'bg-white text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Preview
-            </button>
+                  }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(95vh-200px)]">
+        {/* Content - Fixed Height with Scroll */}
+        <div className="flex-1 overflow-hidden">
           {activeTab === 'edit' ? (
-            <div className="p-6 space-y-6">
-              {/* Basic Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="h-full overflow-y-auto p-3 sm:p-4 space-y-3">
+              {/* Basic Info - More Compact Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+                  <label className="block text-xs font-medium mb-1">Title *</label>
                   <input
                     type="text"
                     name="title"
                     value={formData.title}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter blog post title"
+                    onChange={handleChange}
+                    className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter title"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
+                  <label className="block text-xs font-medium mb-1">Category *</label>
                   <select
                     name="category"
                     value={formData.category}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    onChange={handleChange}
+                    className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
                     required
                   >
                     <option value="">Select category</option>
-                    {categories.map(category => (
-                      <option key={category} value={category}>{category}</option>
+                    {categories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Author</label>
+                  <label className="block text-xs font-medium mb-1">Author</label>
                   <input
                     type="text"
                     name="author"
                     value={formData.author}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Author name"
+                    onChange={handleChange}
+                    className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+              </div>
+
+              {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Featured Image URL</label>
+                  <label className="block text-xs font-medium mb-1">Featured Image URL</label>
                   <input
                     type="url"
                     name="featuredImage"
                     value={formData.featuredImage}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://images.pexels.com/..."
+                    onChange={handleChange}
+                    className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Tags</label>
+                  <input
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => handleTagsChange(e.target.value)}
+                    className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
+                    placeholder="tag1, tag2, tag3"
+                  />
+                </div>
+              </div> */}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1">Featured Image</label>
+                  <div className="space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              featuredImage: event.target?.result as string
+                            }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    {formData.featuredImage && (
+                      <div className="relative">
+                        <img
+                          src={formData.featuredImage}
+                          alt="Featured preview"
+                          className="w-full h-20 object-cover rounded-md border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, featuredImage: '' }))}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Tags</label>
+                  <input
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => handleTagsChange(e.target.value)}
+                    className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
+                    placeholder="tag1, tag2, tag3"
                   />
                 </div>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Excerpt *</label>
+                <label className="block text-xs font-medium mb-1">Excerpt *</label>
                 <textarea
                   name="excerpt"
                   value={formData.excerpt}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Brief description of the post"
+                  onChange={handleChange}
+                  rows={2}
+                  className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
+                  placeholder="Brief description"
                   required
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-                <input
-                  type="text"
-                  value={tagsInput}
-                  onChange={(e) => handleTagsChange(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="real estate, investment, property (comma-separated)"
-                />
-                {formData.tags && formData.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.tags.map((tag, index) => (
-                      <span key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Markdown Toolbar */}
-              <div className="border border-gray-300 rounded-lg">
-                <div className="flex items-center space-x-2 p-3 border-b border-gray-200 bg-gray-50">
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown('# ', '')}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
-                    title="Heading 1"
-                  >
-                    <Heading size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown('## ', '')}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
-                    title="Heading 2"
-                  >
-                    <Type size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown('**', '**')}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
-                    title="Bold"
-                  >
-                    <Bold size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown('*', '*')}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
-                    title="Italic"
-                  >
-                    <Italic size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown('- ', '')}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
-                    title="List"
-                  >
-                    <List size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown('> ', '')}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
-                    title="Quote"
-                  >
-                    <Quote size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown('`', '`')}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
-                    title="Code"
-                  >
-                    <Code size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown('[Link Text](', ')')}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
-                    title="Link"
-                  >
-                    <Link size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown('![Alt text](', ')')}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
-                    title="Image"
-                  >
-                    <Image size={16} />
-                  </button>
+              {formData.tags && formData.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {formData.tags.map((tag, i) => (
+                    <span key={i} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs">
+                      {tag}
+                    </span>
+                  ))}
                 </div>
+              )}
 
+              {/* Editor - Fixed Height */}
+              <div className="border rounded-lg">
+                <div className="flex flex-wrap gap-1 p-1.5 border-b bg-gray-50">
+                  {toolbarButtons.map(({ icon: Icon, action, title }, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={action}
+                      className="p-1.5 text-gray-600 hover:bg-gray-200 rounded transition-colors"
+                      title={title}
+                    >
+                      <Icon size={14} />
+                    </button>
+                  ))}
+                </div>
                 <textarea
                   id="content-editor"
                   name="content"
                   value={formData.content}
-                  onChange={handleInputChange}
-                  rows={20}
-                  className="w-full px-4 py-3 border-0 focus:ring-0 font-mono text-sm resize-none"
-                  placeholder="Write your blog content here using Markdown..."
+                  onChange={handleChange}
+                  className="w-full px-2 py-2 border-0 focus:ring-0 font-mono text-xs resize-none h-32"
+                  placeholder="Write your content using Markdown..."
                 />
               </div>
 
-              {/* SEO Section */}
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <h3 className="font-semibold text-gray-900 mb-4">SEO Settings</h3>
-                <div className="space-y-4">
+              {/* SEO & Settings - Compact */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className="space-y-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">SEO Title</label>
+                    <label className="block text-xs font-medium mb-1">SEO Title</label>
                     <input
                       type="text"
                       name="seoTitle"
                       value={formData.seoTitle}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="SEO optimized title (max 60 chars)"
+                      onChange={handleChange}
+                      className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
                       maxLength={60}
                     />
-                    <div className="text-xs text-gray-500 mt-1">
-                      {formData.seoTitle?.length || 0}/60 characters
-                    </div>
+                    <div className="text-xs text-gray-500">{formData.seoTitle?.length || 0}/60</div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">SEO Description</label>
+                    <label className="block text-xs font-medium mb-1">SEO Description</label>
                     <textarea
                       name="seoDescription"
                       value={formData.seoDescription}
-                      onChange={handleInputChange}
+                      onChange={handleChange}
                       rows={2}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="Meta description for search engines (max 160 chars)"
+                      className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
                       maxLength={160}
                     />
-                    <div className="text-xs text-gray-500 mt-1">
-                      {formData.seoDescription?.length || 0}/160 characters
-                    </div>
+                    <div className="text-xs text-gray-500">{formData.seoDescription?.length || 0}/160</div>
                   </div>
                 </div>
-              </div>
-
-              {/* Settings */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="featured"
-                      checked={formData.featured}
-                      onChange={handleInputChange}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Featured Post</span>
-                  </label>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="published">Published</option>
-                    <option value="archived">Archived</option>
-                  </select>
+                <div className="space-y-2">
+                  <div>
+                    <label className="flex items-center text-sm">
+                      <input
+                        type="checkbox"
+                        name="featured"
+                        checked={!!formData.featured}
+                        onChange={handleChange}
+                        className="rounded mr-2"
+                      />
+                      <span>Featured Post</span>
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Status</label>
+                    <select
+                      name="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                      className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="published">Published</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
           ) : (
-            /* Preview */
-            <div className="p-6">
-              <div className="max-w-4xl mx-auto">
-                <div className="text-center mb-8">
-                  <h1 className="text-4xl font-bold text-gray-900 mb-4">{formData.title}</h1>
-                  <div className="flex items-center justify-center space-x-6 text-sm text-gray-600">
-                    <div className="flex items-center space-x-1">
-                      <User size={16} />
+            /* Preview - Fixed Height with Scroll */
+            <div className="h-full overflow-y-auto p-3 sm:p-4">
+              <article className="max-w-4xl mx-auto">
+                <header className="text-center mb-4">
+                  <h1 className="text-xl sm:text-2xl font-bold mb-2">{formData.title}</h1>
+                  <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-gray-600">
+                    <div className="flex items-center gap-1">
+                      <User size={14} />
                       <span>{formData.author}</span>
                     </div>
-                    <div className="flex items-center space-x-1">
-                      <Calendar size={16} />
+                    <div className="flex items-center gap-1">
+                      <Calendar size={14} />
                       <span>{new Date().toLocaleDateString()}</span>
                     </div>
-                    <div className="flex items-center space-x-1">
-                      <Tag size={16} />
+                    <div className="flex items-center gap-1">
+                      <Tag size={14} />
                       <span>{formData.category}</span>
                     </div>
                   </div>
-                </div>
-                
+                </header>
+
                 {formData.featuredImage && (
                   <img
                     src={formData.featuredImage}
                     alt={formData.title}
-                    className="w-full h-64 object-cover rounded-xl mb-8"
+                    className="w-full h-32 sm:h-40 object-cover rounded-lg mb-4"
                   />
                 )}
-                
-                <div className="prose prose-lg max-w-none">
-                  <div 
-                    dangerouslySetInnerHTML={{ 
-                      __html: `<p class="text-gray-700 leading-relaxed mb-4">${generatePreview()}</p>` 
-                    }}
-                  />
+
+                <div className="prose prose-sm max-w-none text-sm">
+                  <div dangerouslySetInnerHTML={{
+                    __html: `<p class="leading-relaxed">${generatePreview()}</p>`
+                  }} />
                 </div>
 
                 {formData.tags && formData.tags.length > 0 && (
-                  <div className="mt-8 pt-6 border-t border-gray-200">
-                    <div className="flex items-center space-x-2 mb-4">
-                      <Tag className="text-gray-400" size={18} />
-                      <span className="text-gray-600 font-medium">Tags:</span>
+                  <footer className="mt-4 pt-4 border-t">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Tag size={16} />
+                      <span className="font-medium text-sm">Tags:</span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {formData.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium"
-                        >
+                    <div className="flex flex-wrap gap-1">
+                      {formData.tags.map((tag, i) => (
+                        <span key={i} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
                           {tag}
                         </span>
                       ))}
                     </div>
-                  </div>
+                  </footer>
                 )}
-              </div>
+              </article>
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">
-              Status: <span className={`font-medium ${
-                formData.status === 'published' ? 'text-green-600' :
-                formData.status === 'draft' ? 'text-yellow-600' : 'text-gray-600'
+        {/* Footer - Compact */}
+        <div className="flex flex-col sm:flex-row items-center justify-between p-3 border-t bg-gray-50 gap-2">
+          <div className="text-xs text-gray-600">
+            Status: <span className={`font-medium ${formData.status === 'published' ? 'text-green-600' :
+              formData.status === 'draft' ? 'text-yellow-600' : 'text-gray-600'
               }`}>
-                {formData.status?.charAt(0).toUpperCase() + formData.status?.slice(1)}
-              </span>
+              {String(formData.status || 'Draft').charAt(0).toUpperCase() + String(formData.status || 'draft').slice(1)}
             </span>
-            {formData.content && (
-              <span className="text-sm text-gray-600">
-                Read time: ~{Math.ceil(formData.content.length / 1000)} min
-              </span>
-            )}
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={onCancel}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex-1 sm:flex-none px-3 py-1.5 text-sm border text-gray-700 rounded-md hover:bg-gray-100 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={() => onSave({ ...formData, status: 'draft' })}
-              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
+              className="flex-1 sm:flex-none px-3 py-1.5 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center justify-center gap-1"
             >
-              <Save size={16} />
-              <span>Save Draft</span>
+              <Save size={14} />
+              <span>Draft</span>
             </button>
             <button
-              onClick={() => onSave({ ...formData, status: 'published', publishedAt: new Date().toISOString() })}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              onClick={() => onSave({
+                ...formData,
+                status: 'published',
+                publishedAt: new Date().toISOString()
+              })}
+              className="flex-1 sm:flex-none px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
             >
-              <Send size={16} />
+              <Send size={14} />
               <span>Publish</span>
             </button>
           </div>
