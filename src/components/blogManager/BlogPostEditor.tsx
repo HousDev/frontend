@@ -1,8 +1,10 @@
+// src/components/BlogPostEditor.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Save, Send, X, Bold, Italic, List, Quote, Code, Heading,
-  Calendar, Tag, User, Image, Link
+  Calendar, Tag, User, Link
 } from 'lucide-react';
+import blogsAPI from '@/lib/blogsAPI';
 
 interface BlogPost {
   title: string;
@@ -17,6 +19,7 @@ interface BlogPost {
   seoDescription: string;
   status: 'draft' | 'published' | 'archived';
   publishedAt?: string;
+  id?: number | string;
 }
 
 interface BlogPostEditorProps {
@@ -41,11 +44,20 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
   });
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [tagsInput, setTagsInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (post) {
       setFormData(post);
       setTagsInput(post.tags?.join(', ') || '');
+    } else {
+      setFormData({
+        title: '', content: '', excerpt: '', author: 'Admin',
+        category: '', tags: [], featured: false, featuredImage: '',
+        seoTitle: '', seoDescription: '', status: 'draft'
+      });
+      setTagsInput('');
     }
   }, [post]);
 
@@ -106,14 +118,114 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
     { icon: Quote, action: () => insertMarkdown('> '), title: 'Quote' },
     { icon: Code, action: () => insertMarkdown('`', '`'), title: 'Code' },
     { icon: Link, action: () => insertMarkdown('[Link](', ')'), title: 'Link' },
-    { icon: Image, action: () => insertMarkdown('![Alt](', ')'), title: 'Image' },
+    // Note: removed any toolbar button that would imply uploading inline images
   ];
+
+  // Helper to convert dataURL -> Blob (used only for featured image upload)
+  const dataURLtoBlob = (dataurl: string): Blob => {
+    const arr = dataurl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
+  // Build payload: FormData only when featuredImage is a data URL (file)
+  const buildPayload = (): { payload: FormData | Record<string, any>; isFormData: boolean } => {
+    const payloadObj: Record<string, any> = {
+      title: formData.title || '',
+      content: formData.content || '',
+      excerpt: formData.excerpt || '',
+      author: formData.author || '',
+      category: formData.category || '',
+      tags: formData.tags || [],
+      featured: !!formData.featured,
+      seoTitle: formData.seoTitle || '',
+      seoDescription: formData.seoDescription || '',
+      status: formData.status || 'draft',
+      publishedAt: formData.publishedAt || undefined,
+    };
+
+    // If featuredImage is a data URL, send FormData (file)
+    if (formData.featuredImage && typeof formData.featuredImage === 'string' && formData.featuredImage.startsWith('data:')) {
+      const fd = new FormData();
+      Object.entries(payloadObj).forEach(([k, v]) => {
+        if (v === undefined) return;
+        if (k === 'tags') {
+          fd.append('tags', JSON.stringify(v));
+        } else {
+          fd.append(k, String(v));
+        }
+      });
+      const blob = dataURLtoBlob(formData.featuredImage);
+      const ext = blob.type.split('/')[1] || 'png';
+      const filename = `featured.${ext}`;
+      fd.append('featuredImage', blob, filename);
+      return { payload: fd, isFormData: true };
+    }
+
+    // If featuredImage is a remote URL (string not data:) or empty, send JSON (record)
+    if (formData.featuredImage) {
+      payloadObj.featuredImage = formData.featuredImage;
+    }
+
+    return { payload: payloadObj, isFormData: false };
+  };
+
+  const getPostId = (): number | string | undefined => {
+    return (post as any)?.id ?? (formData as any)?.id;
+  };
+
+  const savePost = async (status: 'draft' | 'published' | 'archived') => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      setFormData(prev => ({ ...prev, status, publishedAt: status === 'published' ? new Date().toISOString() : prev.publishedAt }));
+
+      const { payload, isFormData } = buildPayload();
+      const id = getPostId();
+      let responseData: any;
+
+      if (id !== undefined && id !== null) {
+        if (isFormData) {
+          responseData = await blogsAPI.updatePost(id, payload as FormData);
+        } else {
+          responseData = await blogsAPI.updatePost(id, payload as Record<string, any>);
+        }
+      } else {
+        if (isFormData) {
+          responseData = await blogsAPI.createPost(payload as FormData);
+        } else {
+          responseData = await blogsAPI.createPost(payload as Record<string, any>);
+        }
+      }
+
+      onSave(responseData);
+      setFormData(prev => ({ ...prev, ...(responseData || {}) }));
+
+      // Use toast/alert as minimal feedback (replace with your toast if available)
+      alert(`Post ${status === 'published' ? 'published' : 'saved as draft'} successfully.`);
+    } catch (err: any) {
+      console.error('Error saving post', err);
+      setError(err?.message || 'Failed to save post. Please try again.');
+      alert(`Error: ${err?.message || 'Failed to save post.'}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveDraftClick = () => savePost('draft');
+  const handlePublishClick = () => savePost('published');
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col">
-
-        {/* Header - Compact */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 sm:p-4 rounded-t-xl">
           <div className="flex items-center justify-between">
             <div>
@@ -130,7 +242,6 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
           </div>
         </div>
 
-        {/* Tabs - Compact */}
         <div className="border-b border-gray-200 bg-gray-50">
           <div className="flex">
             {['edit', 'preview'].map((tab) => (
@@ -148,11 +259,9 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
           </div>
         </div>
 
-        {/* Content - Fixed Height with Scroll */}
         <div className="flex-1 overflow-hidden">
           {activeTab === 'edit' ? (
             <div className="h-full overflow-y-auto p-3 sm:p-4 space-y-3">
-              {/* Basic Info - More Compact Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-medium mb-1">Title *</label>
@@ -192,30 +301,6 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
                   />
                 </div>
               </div>
-
-              {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium mb-1">Featured Image URL</label>
-                  <input
-                    type="url"
-                    name="featuredImage"
-                    value={formData.featuredImage}
-                    onChange={handleChange}
-                    className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://example.com/image.jpg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1">Tags</label>
-                  <input
-                    type="text"
-                    value={tagsInput}
-                    onChange={(e) => handleTagsChange(e.target.value)}
-                    className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
-                    placeholder="tag1, tag2, tag3"
-                  />
-                </div>
-              </div> */}
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <div>
@@ -268,6 +353,7 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
                   />
                 </div>
               </div>
+
               <div>
                 <label className="block text-xs font-medium mb-1">Excerpt *</label>
                 <textarea
@@ -291,7 +377,6 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
                 </div>
               )}
 
-              {/* Editor - Fixed Height */}
               <div className="border rounded-lg">
                 <div className="flex flex-wrap gap-1 p-1.5 border-b bg-gray-50">
                   {toolbarButtons.map(({ icon: Icon, action, title }, i) => (
@@ -316,7 +401,6 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
                 />
               </div>
 
-              {/* SEO & Settings - Compact */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <div>
@@ -374,7 +458,6 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
               </div>
             </div>
           ) : (
-            /* Preview - Fixed Height with Scroll */
             <div className="h-full overflow-y-auto p-3 sm:p-4">
               <article className="max-w-4xl mx-auto">
                 <header className="text-center mb-4">
@@ -429,7 +512,6 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
           )}
         </div>
 
-        {/* Footer - Compact */}
         <div className="flex flex-col sm:flex-row items-center justify-between p-3 border-t bg-gray-50 gap-2">
           <div className="text-xs text-gray-600">
             Status: <span className={`font-medium ${formData.status === 'published' ? 'text-green-600' :
@@ -437,32 +519,34 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
               }`}>
               {String(formData.status || 'Draft').charAt(0).toUpperCase() + String(formData.status || 'draft').slice(1)}
             </span>
+            {error && <span className="text-red-600 ml-3">Error: {error}</span>}
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={onCancel}
               className="flex-1 sm:flex-none px-3 py-1.5 text-sm border text-gray-700 rounded-md hover:bg-gray-100 transition-colors"
+              disabled={saving}
             >
               Cancel
             </button>
             <button
-              onClick={() => onSave({ ...formData, status: 'draft' })}
+              onClick={handleSaveDraftClick}
               className="flex-1 sm:flex-none px-3 py-1.5 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center justify-center gap-1"
+              disabled={saving}
+              title={saving ? 'Saving...' : 'Save as draft'}
             >
               <Save size={14} />
-              <span>Draft</span>
+              <span>{saving ? 'Saving...' : 'Draft'}</span>
             </button>
             <button
-              onClick={() => onSave({
-                ...formData,
-                status: 'published',
-                publishedAt: new Date().toISOString()
-              })}
+              onClick={handlePublishClick}
               className="flex-1 sm:flex-none px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+              disabled={saving}
+              title={saving ? 'Publishing...' : 'Publish'}
             >
               <Send size={14} />
-              <span>Publish</span>
+              <span>{saving ? (formData.status === 'published' ? 'Publishing...' : 'Processing...') : 'Publish'}</span>
             </button>
           </div>
         </div>

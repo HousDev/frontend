@@ -1,13 +1,14 @@
+// src/components/BlogDetailPage.tsx
 import React, { useState, useEffect } from 'react';
-import { 
-  ArrowLeft, 
-  Calendar, 
-  User, 
-  Clock, 
-  Eye, 
-  Heart, 
-  MessageSquare, 
-  Share, 
+import {
+  ArrowLeft,
+  Calendar,
+  User,
+  Clock,
+  Eye,
+  Heart,
+  MessageSquare,
+  Share,
   Bookmark,
   Tag,
   Facebook,
@@ -15,44 +16,40 @@ import {
   Linkedin,
   Copy,
   ThumbsUp,
-  ThumbsDown,
   Send,
   Star,
-  Quote,
-  TrendingUp,
   Home,
-  Building,
-  DollarSign
+  Building
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-
+import blogsAPI from '@/lib/blogsAPI';
 interface BlogPost {
-  id: string;
+  id: string | number;
   title: string;
-  slug: string;
+  slug?: string;
   content: string;
-  excerpt: string;
-  author: string;
-  category: string;
-  tags: string[];
-  status: string;
-  featured: boolean;
-  featuredImage: string;
-  publishedAt: string;
-  createdAt: string;
-  updatedAt: string;
-  views: number;
-  likes: number;
-  comments: number;
-  seoTitle: string;
-  seoDescription: string;
-  readTime: number;
+  excerpt?: string;
+  author?: string;
+  category?: string;
+  tags?: string[];
+  status?: string;
+  featured?: boolean;
+  featuredImage?: string;
+  publishedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  views?: number;
+  likes?: number;
+  comments?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  readTime?: number;
 }
 
 interface Comment {
   id: string;
   author: string;
-  email: string;
+  email?: string;
   content: string;
   createdAt: string;
   likes: number;
@@ -71,266 +68,189 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showCommentForm, setShowCommentForm] = useState(false);
-  const [commentForm, setCommentForm] = useState({
-    name: '',
-    email: '',
-    content: ''
-  });
+  const [commentForm, setCommentForm] = useState({ name: '', email: '', content: '' });
   const [isLoading, setIsLoading] = useState(true);
 
+  // Helper to normalize image URL:
+  const buildImageUrl = (img?: string | null) => {
+    if (!img) return null;
+    // If already absolute (http, https) return as-is
+    if (/^https?:\/\//i.test(img)) return img;
+    // If relative path (starts with /uploads...), prefix with origin
+    if (img.startsWith('/')) return `${window.location.origin}${img}`;
+    // Otherwise return as-is (fallback)
+    return img;
+  };
+
   useEffect(() => {
-    // Simulate API call to fetch blog post
-    const fetchPost = async () => {
+    let mounted = true;
+
+    const fetchPostAndRelated = async () => {
       setIsLoading(true);
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Sample blog post data
-        const samplePost: BlogPost = {
-          id: 'POST001',
-          title: 'Top 10 Real Estate Investment Tips for 2025',
-          slug: 'top-10-real-estate-investment-tips-2025',
-          content: `# Top 10 Real Estate Investment Tips for 2025
+        // 1) Try dedicated slug endpoint if exists
+        let fetched: any = null;
 
-Real estate investment continues to be one of the most reliable ways to build long-term wealth. As we enter 2025, the market presents both opportunities and challenges that savvy investors can navigate with the right strategies.
+        if (typeof (blogsAPI as any).getPostBySlug === 'function') {
+          try {
+            const res = await (blogsAPI as any).getPostBySlug(slug);
+            // accept either direct object or { data: post } shapes
+            fetched = (res && (res.data ?? res.post ?? res)) ?? null;
+          } catch (e) {
+            // fallback to search below
+            fetched = null;
+          }
+        }
 
-## 1. Research Market Trends Thoroughly
+        // 2) Fallback: search via getAllPosts with query or get-all then find by slug
+        if (!fetched) {
+          try {
+            // Try searching by slug or title
+            const listRes = await blogsAPI.getAllPosts({ q: slug, limit: 10 });
+            let items = listRes;
+            if (items && (items.data || items.items || items.results)) {
+              items = items.data ?? items.items ?? items.results;
+            }
+            if (Array.isArray(items) && items.length) {
+              // Try exact match by slug, otherwise pick first
+              const bySlug = items.find((it: any) => String(it.slug ?? it.id ?? '').toLowerCase() === slug.toLowerCase());
+              fetched = bySlug ?? items[0];
+            } else {
+              // As ultimate fallback, if getAllPosts returned a single object shape
+              if (listRes && (listRes.id || listRes.title)) fetched = listRes;
+            }
+          } catch (err) {
+            // Continue — we'll handle not found below
+            fetched = null;
+          }
+        }
 
-Understanding local market conditions is crucial for making informed investment decisions. Look at:
+        if (!fetched) {
+          toast.error('Could not find the requested post.');
+          if (mounted) setPost(null);
+          return;
+        }
 
-- **Price trends** over the past 5 years
-- **Rental yields** in different neighborhoods  
-- **Infrastructure development** plans
-- **Population growth** patterns
-
-## 2. Location is Everything
-
-The old adage "location, location, location" remains true. Focus on:
-
-- **Proximity to transportation** hubs
-- **School districts** and educational facilities
-- **Employment centers** and business districts
-- **Future development** plans
-
-## 3. Calculate Your Numbers Carefully
-
-Before making any investment, ensure you understand:
-
-- **Total acquisition costs** (including taxes and fees)
-- **Expected rental income**
-- **Operating expenses** (maintenance, management, insurance)
-- **Cash flow projections**
-
-## 4. Diversify Your Portfolio
-
-Don't put all your eggs in one basket:
-
-- **Mix property types** (residential, commercial, industrial)
-- **Spread across locations** to reduce risk
-- **Consider REITs** for liquid real estate exposure
-- **Balance growth and income** properties
-
-## 5. Leverage Technology and Data
-
-Use modern tools to your advantage:
-
-- **Property analysis software** for quick evaluations
-- **Market data platforms** for trend analysis
-- **Property management apps** for efficiency
-- **Virtual tours** to save time on initial screening
-
-## 6. Build a Strong Network
-
-Relationships are key in real estate:
-
-- **Connect with local agents** who know the market
-- **Build relationships with contractors** for renovations
-- **Network with other investors** for opportunities
-- **Maintain good relationships with tenants**
-
-## 7. Understand Financing Options
-
-Explore different financing strategies:
-
-- **Traditional mortgages** for primary investments
-- **Hard money loans** for fix-and-flip projects
-- **Private lending** for unique opportunities
-- **Partnership structures** to pool resources
-
-## 8. Plan for Property Management
-
-Decide early how you'll manage your properties:
-
-- **Self-management** for hands-on investors
-- **Professional management** for passive income
-- **Hybrid approach** for selective involvement
-- **Technology solutions** for efficiency
-
-## 9. Stay Updated on Legal Requirements
-
-Real estate laws change frequently:
-
-- **Landlord-tenant laws** in your area
-- **Tax implications** of your investments
-- **Zoning regulations** and restrictions
-- **Environmental requirements**
-
-## 10. Have an Exit Strategy
-
-Always plan your exit before you enter:
-
-- **Hold period** expectations
-- **Market conditions** for selling
-- **Improvement plans** to add value
-- **Alternative uses** for the property
-
-## Conclusion
-
-Successful real estate investing in 2025 requires a combination of traditional wisdom and modern tools. By following these ten tips and staying informed about market conditions, you'll be well-positioned to build wealth through real estate.
-
-Remember, every market is different, and what works in one area may not work in another. Always do your due diligence and consider consulting with local real estate professionals before making investment decisions.
-
----
-
-*Ready to start your real estate investment journey? Contact our expert team for personalized guidance and access to exclusive investment opportunities.*`,
-          excerpt: 'Discover the most effective strategies for building wealth through real estate investments in today\'s market.',
-          author: 'Sarah Johnson',
-          category: 'Investment Guide',
-          tags: ['investment', 'tips', '2025', 'wealth building', 'real estate'],
-          status: 'published',
-          featured: true,
-          featuredImage: 'https://images.pexels.com/photos/280229/pexels-photo-280229.jpeg',
-          publishedAt: '2025-01-15T10:00:00Z',
-          createdAt: '2025-01-14T15:30:00Z',
-          updatedAt: '2025-01-15T10:00:00Z',
-          views: 1245,
-          likes: 89,
-          comments: 23,
-          seoTitle: 'Top 10 Real Estate Investment Tips for 2025 | ResaleExpert',
-          seoDescription: 'Learn the best real estate investment strategies for 2025. Expert tips to maximize returns and build wealth through property investments.',
-          readTime: 8
+        // Normalize fields a bit
+        const normalized: BlogPost = {
+          id: fetched.id ?? fetched._id ?? fetched.slug ?? fetched.title ?? Date.now(),
+          title: fetched.title ?? 'Untitled',
+          slug: fetched.slug ?? undefined,
+          content: fetched.content ?? fetched.body ?? fetched.html ?? '',
+          excerpt: fetched.excerpt ?? fetched.description ?? '',
+          author: fetched.author ?? 'Admin',
+          category: fetched.category ?? fetched.cat ?? 'Uncategorized',
+          tags: Array.isArray(fetched.tags) ? fetched.tags : (typeof fetched.tags === 'string' ? (fetched.tags ? fetched.tags.split(',').map((s: string) => s.trim()) : []) : []),
+          status: fetched.status ?? 'draft',
+          featured: !!fetched.featured,
+          featuredImage: buildImageUrl(fetched.featuredImage ?? fetched.featured_image ?? fetched.image ?? null),
+          publishedAt: fetched.publishedAt ?? fetched.published_at ?? fetched.publishedAt ?? '',
+          createdAt: fetched.createdAt ?? fetched.created_at ?? new Date().toISOString(),
+          updatedAt: fetched.updatedAt ?? fetched.updated_at ?? new Date().toISOString(),
+          views: Number(fetched.views ?? 0),
+          likes: Number(fetched.likes ?? 0),
+          comments: Number(fetched.comments ?? 0),
+          seoTitle: fetched.seoTitle ?? fetched.seo_title ?? '',
+          seoDescription: fetched.seoDescription ?? fetched.seo_description ?? '',
+          readTime: typeof fetched.readTime === 'number' ? fetched.readTime : Math.ceil(((fetched.content ?? '').length || 0) / 200)
         };
 
-        const sampleComments: Comment[] = [
-          {
-            id: 'COMMENT001',
-            author: 'Rajesh Kumar',
-            email: 'rajesh@example.com',
-            content: 'Excellent article! The tip about diversifying across different property types really resonates with me. I\'ve been focusing only on residential properties, but after reading this, I\'m considering adding some commercial properties to my portfolio.',
-            createdAt: '2025-01-16T09:30:00Z',
-            likes: 12,
-            replies: [
-              {
-                id: 'REPLY001',
-                author: 'Sarah Johnson',
-                email: 'sarah@resaleexpert.com',
-                content: 'Thank you, Rajesh! Commercial properties can indeed be a great addition to a diversified portfolio. Just make sure to research the commercial market thoroughly as it has different dynamics compared to residential.',
-                createdAt: '2025-01-16T14:20:00Z',
-                likes: 5,
-                replies: []
-              }
-            ]
-          },
-          {
-            id: 'COMMENT002',
-            author: 'Priya Sharma',
-            email: 'priya@example.com',
-            content: 'Great insights on using technology for property analysis. Can you recommend some specific software or platforms that you find most useful for market data analysis?',
-            createdAt: '2025-01-16T11:15:00Z',
-            likes: 8,
-            replies: []
-          },
-          {
-            id: 'COMMENT003',
-            author: 'Amit Patel',
-            email: 'amit@example.com',
-            content: 'The point about having an exit strategy is so important but often overlooked. I learned this the hard way with my first investment property. Thanks for emphasizing this!',
-            createdAt: '2025-01-16T16:45:00Z',
-            likes: 15,
-            replies: []
-          }
-        ];
+        if (!mounted) return;
+        setPost(normalized);
 
-        const sampleRelatedPosts: BlogPost[] = [
-          {
-            id: 'POST002',
-            title: 'Understanding Market Trends in Urban Development',
-            slug: 'understanding-market-trends-urban-development',
-            content: '',
-            excerpt: 'Analyze current market trends and their impact on urban real estate development.',
-            author: 'Michael Chen',
-            category: 'Market Analysis',
-            tags: ['market trends', 'urban development'],
-            status: 'published',
-            featured: false,
-            featuredImage: 'https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg',
-            publishedAt: '2025-01-12T14:00:00Z',
-            createdAt: '2025-01-11T09:15:00Z',
-            updatedAt: '2025-01-12T14:00:00Z',
-            views: 892,
-            likes: 67,
-            comments: 15,
-            seoTitle: 'Urban Development Market Trends 2025',
-            seoDescription: 'Comprehensive analysis of urban development trends.',
-            readTime: 6
-          },
-          {
-            id: 'POST003',
-            title: 'First-Time Homebuyer\'s Complete Guide',
-            slug: 'first-time-homebuyer-complete-guide',
-            content: '',
-            excerpt: 'Everything you need to know about purchasing your first home.',
-            author: 'Emily Rodriguez',
-            category: 'Home Buying',
-            tags: ['first-time buyer', 'home buying'],
-            status: 'published',
-            featured: false,
-            featuredImage: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg',
-            publishedAt: '2025-01-10T11:20:00Z',
-            createdAt: '2025-01-10T11:20:00Z',
-            updatedAt: '2025-01-13T16:45:00Z',
-            views: 654,
-            likes: 45,
-            comments: 12,
-            seoTitle: 'First-Time Homebuyer Guide',
-            seoDescription: 'Complete guide for first-time homebuyers.',
-            readTime: 12
+        // Comments: if backend provides comments endpoint, fetch; otherwise keep empty
+        if (typeof (blogsAPI as any).getComments === 'function') {
+          try {
+            const cRes = await (blogsAPI as any).getComments(normalized.id);
+            const cList = cRes && (cRes.data ?? cRes.comments ?? cRes) ? (cRes.data ?? cRes.comments ?? cRes) : [];
+            if (mounted) setComments(Array.isArray(cList) ? cList : []);
+          } catch {
+            // ignore comments fetch errors (keep comments empty)
+            if (mounted) setComments([]);
           }
-        ];
+        } else {
+          // No comments endpoint — keep comments empty (or you can enable local comments below)
+          if (mounted) setComments([]);
+        }
 
-        setPost(samplePost);
-        setComments(sampleComments);
-        setRelatedPosts(sampleRelatedPosts);
-      } catch (error) {
+        // Related posts: try fetch by same category (limit 4)
+        try {
+          const relatedRes = await blogsAPI.getAllPosts({ category: normalized.category, limit: 6 });
+          let relatedItems = relatedRes;
+          if (relatedItems && (relatedItems.data || relatedItems.items || relatedItems.results)) {
+            relatedItems = relatedItems.data ?? relatedItems.items ?? relatedItems.results;
+          }
+          if (Array.isArray(relatedItems)) {
+            // exclude current post and map with normalization similar to above
+            const related = relatedItems
+              .filter((rp: any) => String(rp.id ?? rp._id ?? rp.slug) !== String(normalized.id))
+              .slice(0, 4)
+              .map((rp: any) => ({
+                id: rp.id ?? rp._id ?? rp.slug ?? Date.now(),
+                title: rp.title ?? 'Untitled',
+                slug: rp.slug ?? undefined,
+                excerpt: rp.excerpt ?? rp.description ?? '',
+                author: rp.author ?? 'Admin',
+                category: rp.category ?? normalized.category,
+                tags: Array.isArray(rp.tags) ? rp.tags : (typeof rp.tags === 'string' ? rp.tags.split(',').map((s: string) => s.trim()) : []),
+                status: rp.status ?? 'draft',
+                featured: !!rp.featured,
+                featuredImage: buildImageUrl(rp.featuredImage ?? rp.featured_image ?? rp.image ?? null),
+                publishedAt: rp.publishedAt ?? rp.published_at ?? '',
+                createdAt: rp.createdAt ?? rp.created_at ?? '',
+                updatedAt: rp.updatedAt ?? rp.updated_at ?? '',
+                views: Number(rp.views ?? 0),
+                likes: Number(rp.likes ?? 0),
+                comments: Number(rp.comments ?? 0),
+                seoTitle: rp.seoTitle ?? rp.seo_title ?? '',
+                seoDescription: rp.seoDescription ?? rp.seo_description ?? '',
+                readTime: typeof rp.readTime === 'number' ? rp.readTime : Math.ceil(((rp.content ?? '').length || 0) / 200)
+              }));
+            if (mounted) setRelatedPosts(related);
+          } else {
+            if (mounted) setRelatedPosts([]);
+          }
+        } catch {
+          if (mounted) setRelatedPosts([]);
+        }
+      } catch (err) {
+        console.error('Failed to load post', err);
         toast.error('Failed to load blog post');
+        if (mounted) {
+          setPost(null);
+          setRelatedPosts([]);
+        }
       } finally {
-        setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
     };
 
-    fetchPost();
+    fetchPostAndRelated();
+
+    return () => {
+      mounted = false;
+    };
   }, [slug]);
 
   const handleLike = () => {
-    setIsLiked(!isLiked);
+    setIsLiked(prev => !prev);
     if (post) {
-      setPost(prev => prev ? {
-        ...prev,
-        likes: isLiked ? prev.likes - 1 : prev.likes + 1
-      } : null);
+      setPost(prev => prev ? { ...prev, likes: isLiked ? (prev.likes || 0) - 1 : (prev.likes || 0) + 1 } : prev);
+      // Optionally persist like via API: blogsAPI.likePost(post.id)
     }
     toast.success(isLiked ? 'Removed from likes' : 'Added to likes');
   };
 
   const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked);
+    setIsBookmarked(prev => !prev);
+    // optionally persist bookmark via API/localStorage
     toast.success(isBookmarked ? 'Removed from bookmarks' : 'Added to bookmarks');
   };
 
   const handleShare = (platform: string) => {
     const url = window.location.href;
     const title = post?.title || '';
-    
+
     let shareUrl = '';
     switch (platform) {
       case 'facebook':
@@ -347,7 +267,7 @@ Remember, every market is different, and what works in one area may not work in 
         toast.success('Link copied to clipboard!');
         return;
     }
-    
+
     if (shareUrl) {
       window.open(shareUrl, '_blank', 'width=600,height=400');
     }
@@ -371,31 +291,38 @@ Remember, every market is different, and what works in one area may not work in 
         replies: []
       };
 
+      // Optionally post comment to backend if blogsAPI.createComment exists
+      if (post && typeof (blogsAPI as any).createComment === 'function') {
+        try {
+          await (blogsAPI as any).createComment(post.id, newComment);
+        } catch (err) {
+          // still show locally
+        }
+      }
+
       setComments(prev => [newComment, ...prev]);
       setCommentForm({ name: '', email: '', content: '' });
       setShowCommentForm(false);
       toast.success('Comment posted successfully!');
     } catch (error) {
+      console.error(error);
       toast.error('Failed to post comment');
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
   const formatContent = (content: string) => {
-    // Simple markdown-like formatting
+    if (!content) return '';
+    // Basic markdown -> HTML conversions (kept simple)
     return content
       .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold text-gray-900 mb-6 mt-8">$1</h1>')
       .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-bold text-gray-900 mb-4 mt-6">$1</h2>')
       .replace(/^### (.*$)/gim, '<h3 class="text-xl font-bold text-gray-900 mb-3 mt-4">$1</h3>')
-      .replace(/^\*\*(.*)\*\*/gim, '<strong class="font-bold">$1</strong>')
-      .replace(/^\* (.*$)/gim, '<li class="ml-4">• $1</li>')
+      .replace(/\*\*(.*?)\*\*/gim, '<strong class="font-bold">$1</strong>')
       .replace(/^- (.*$)/gim, '<li class="ml-4 mb-2">• $1</li>')
       .replace(/\n\n/g, '</p><p class="text-gray-700 leading-relaxed mb-4">')
       .replace(/\n/g, '<br>');
@@ -418,10 +345,7 @@ Remember, every market is different, and what works in one area may not work in 
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Blog Post Not Found</h2>
           <p className="text-gray-600 mb-6">The blog post you're looking for doesn't exist.</p>
-          <button
-            onClick={onBack}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-          >
+          <button onClick={onBack} className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
             Back to Blog
           </button>
         </div>
@@ -429,58 +353,45 @@ Remember, every market is different, and what works in one area may not work in 
     );
   }
 
+  const featuredImgUrl = buildImageUrl(post.featuredImage);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
-            <button
-              onClick={onBack}
-              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-            >
+            <button onClick={onBack} className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
               <ArrowLeft size={20} className="mr-2" />
               Back to Blog
             </button>
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleBookmark}
-                className={`p-2 rounded-lg transition-colors ${
-                  isBookmarked ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`p-2 rounded-lg transition-colors ${isBookmarked ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                aria-label="Bookmark"
               >
                 <Bookmark size={18} />
               </button>
+
               <div className="relative group">
                 <button className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
                   <Share size={18} />
                 </button>
                 <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-gray-200 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                  <button
-                    onClick={() => handleShare('facebook')}
-                    className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-50 w-full text-left"
-                  >
+                  <button onClick={() => handleShare('facebook')} className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-50 w-full text-left">
                     <Facebook size={16} className="text-blue-600" />
                     <span>Facebook</span>
                   </button>
-                  <button
-                    onClick={() => handleShare('twitter')}
-                    className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-50 w-full text-left"
-                  >
+                  <button onClick={() => handleShare('twitter')} className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-50 w-full text-left">
                     <Twitter size={16} className="text-blue-400" />
                     <span>Twitter</span>
                   </button>
-                  <button
-                    onClick={() => handleShare('linkedin')}
-                    className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-50 w-full text-left"
-                  >
+                  <button onClick={() => handleShare('linkedin')} className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-50 w-full text-left">
                     <Linkedin size={16} className="text-blue-700" />
                     <span>LinkedIn</span>
                   </button>
-                  <button
-                    onClick={() => handleShare('copy')}
-                    className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-50 w-full text-left"
-                  >
+                  <button onClick={() => handleShare('copy')} className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-50 w-full text-left">
                     <Copy size={16} className="text-gray-600" />
                     <span>Copy Link</span>
                   </button>
@@ -495,31 +406,26 @@ Remember, every market is different, and what works in one area may not work in 
         {/* Article Header */}
         <article className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
           <div className="relative">
-            <img
-              src={post.featuredImage}
-              alt={post.title}
-              className="w-full h-64 md:h-80 object-cover"
-            />
+            {featuredImgUrl ? (
+              <img src={featuredImgUrl} alt={post.title} className="w-full h-64 md:h-80 object-cover" />
+            ) : (
+              <div className="w-full h-64 md:h-80 bg-gray-100 flex items-center justify-center">
+                <div className="text-gray-400">No image available</div>
+              </div>
+            )}
+
             <div className="absolute inset-0 bg-black bg-opacity-20"></div>
             <div className="absolute bottom-6 left-6 right-6">
               <div className="flex items-center space-x-2 mb-3">
-                <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                  {post.category}
-                </span>
-                {post.featured && (
-                  <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    Featured
-                  </span>
-                )}
+                <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">{post.category}</span>
+                {post.featured && <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-medium">Featured</span>}
               </div>
-              <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">
-                {post.title}
-              </h1>
+              <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">{post.title}</h1>
             </div>
           </div>
 
           <div className="p-6 md:p-8">
-            {/* Article Meta */}
+            {/* Meta */}
             <div className="flex flex-wrap items-center justify-between mb-6 pb-6 border-b border-gray-200">
               <div className="flex items-center space-x-6 mb-4 md:mb-0">
                 <div className="flex items-center space-x-2">
@@ -532,23 +438,18 @@ Remember, every market is different, and what works in one area may not work in 
                 </div>
                 <div className="flex items-center space-x-2">
                   <Clock className="text-gray-400" size={18} />
-                  <span className="text-gray-600">{post.readTime} min read</span>
+                  <span className="text-gray-600">{post.readTime ?? Math.ceil(((post.content || '').length || 0) / 200)} min read</span>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-1 text-gray-600">
                   <Eye size={18} />
-                  <span>{post.views.toLocaleString()}</span>
+                  <span>{(post.views ?? 0).toLocaleString()}</span>
                 </div>
-                <button
-                  onClick={handleLike}
-                  className={`flex items-center space-x-1 transition-colors ${
-                    isLiked ? 'text-red-600' : 'text-gray-600 hover:text-red-600'
-                  }`}
-                >
-                  <Heart size={18} className={isLiked ? 'fill-current' : ''} />
-                  <span>{post.likes}</span>
+                <button onClick={handleLike} className={`flex items-center space-x-1 transition-colors ${isLiked ? 'text-red-600' : 'text-gray-600 hover:text-red-600'}`}>
+                  <Heart size={18} />
+                  <span>{post.likes ?? 0}</span>
                 </button>
                 <div className="flex items-center space-x-1 text-gray-600">
                   <MessageSquare size={18} />
@@ -557,14 +458,9 @@ Remember, every market is different, and what works in one area may not work in 
               </div>
             </div>
 
-            {/* Article Content */}
+            {/* Content */}
             <div className="prose prose-lg max-w-none">
-              <div 
-                className="text-gray-700 leading-relaxed"
-                dangerouslySetInnerHTML={{ 
-                  __html: `<p class="text-gray-700 leading-relaxed mb-4">${formatContent(post.content)}</p>` 
-                }}
-              />
+              <div className="text-gray-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: `<p class="text-gray-700 leading-relaxed mb-4">${formatContent(post.content)}</p>` }} />
             </div>
 
             {/* Tags */}
@@ -574,18 +470,13 @@ Remember, every market is different, and what works in one area may not work in 
                 <span className="text-gray-600 font-medium">Tags:</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {post.tags.map((tag, index) => (
-                  <span
-                    key={index}
-                    className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium hover:bg-blue-200 transition-colors cursor-pointer"
-                  >
-                    {tag}
-                  </span>
+                {(post.tags ?? []).map((tag, index) => (
+                  <span key={index} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium hover:bg-blue-200 transition-colors cursor-pointer">{tag}</span>
                 ))}
               </div>
             </div>
 
-            {/* Author Bio */}
+            {/* Author */}
             <div className="mt-8 p-6 bg-gray-50 rounded-xl">
               <div className="flex items-start space-x-4">
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
@@ -593,10 +484,7 @@ Remember, every market is different, and what works in one area may not work in 
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-2">{post.author}</h3>
-                  <p className="text-gray-600 mb-3">
-                    Real estate expert with over 10 years of experience in property investment and market analysis. 
-                    Passionate about helping others build wealth through smart real estate decisions.
-                  </p>
+                  <p className="text-gray-600 mb-3">Real estate expert focused on market analysis and investment strategy.</p>
                   <div className="flex items-center space-x-4">
                     <span className="text-sm text-gray-500">Senior Real Estate Analyst</span>
                     <div className="flex items-center space-x-1">
@@ -610,84 +498,41 @@ Remember, every market is different, and what works in one area may not work in 
           </div>
         </article>
 
-        {/* Comments Section */}
+        {/* Comments */}
         <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 mb-8">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Comments ({comments.length})
-            </h2>
-            <button
-              onClick={() => setShowCommentForm(!showCommentForm)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-            >
+            <h2 className="text-2xl font-bold text-gray-900">Comments ({comments.length})</h2>
+            <button onClick={() => setShowCommentForm(!showCommentForm)} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
               <MessageSquare size={18} />
               <span>Add Comment</span>
             </button>
           </div>
 
-          {/* Comment Form */}
           {showCommentForm && (
             <form onSubmit={handleCommentSubmit} className="mb-8 p-6 bg-gray-50 rounded-xl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={commentForm.name}
-                    onChange={(e) => setCommentForm(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+                  <input type="text" value={commentForm.name} onChange={(e) => setCommentForm(prev => ({ ...prev, name: e.target.value }))} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={commentForm.email}
-                    onChange={(e) => setCommentForm(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <input type="email" value={commentForm.email} onChange={(e) => setCommentForm(prev => ({ ...prev, email: e.target.value }))} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Comment *
-                </label>
-                <textarea
-                  value={commentForm.content}
-                  onChange={(e) => setCommentForm(prev => ({ ...prev, content: e.target.value }))}
-                  rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Share your thoughts..."
-                  required
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Comment *</label>
+                <textarea value={commentForm.content} onChange={(e) => setCommentForm(prev => ({ ...prev, content: e.target.value }))} rows={4} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Share your thoughts..." required />
               </div>
               <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCommentForm(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                >
-                  <Send size={16} />
-                  <span>Post Comment</span>
-                </button>
+                <button type="button" onClick={() => setShowCommentForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"><Send size={16} /><span>Post Comment</span></button>
               </div>
             </form>
           )}
 
-          {/* Comments List */}
           <div className="space-y-6">
-            {comments.map((comment) => (
+            {comments.map(comment => (
               <div key={comment.id} className="border-b border-gray-200 pb-6 last:border-b-0">
                 <div className="flex items-start space-x-4">
                   <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -696,25 +541,17 @@ Remember, every market is different, and what works in one area may not work in 
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
                       <h4 className="font-semibold text-gray-900">{comment.author}</h4>
-                      <span className="text-sm text-gray-500">
-                        {formatDate(comment.createdAt)}
-                      </span>
+                      <span className="text-sm text-gray-500">{formatDate(comment.createdAt)}</span>
                     </div>
                     <p className="text-gray-700 mb-3 leading-relaxed">{comment.content}</p>
                     <div className="flex items-center space-x-4">
-                      <button className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors">
-                        <ThumbsUp size={14} />
-                        <span>{comment.likes}</span>
-                      </button>
-                      <button className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
-                        Reply
-                      </button>
+                      <button className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"><ThumbsUp size={14} /><span>{comment.likes}</span></button>
+                      <button className="text-sm text-gray-600 hover:text-blue-600 transition-colors">Reply</button>
                     </div>
 
-                    {/* Replies */}
                     {comment.replies.length > 0 && (
                       <div className="mt-4 ml-6 space-y-4">
-                        {comment.replies.map((reply) => (
+                        {comment.replies.map(reply => (
                           <div key={reply.id} className="flex items-start space-x-3">
                             <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
                               <User className="text-gray-600" size={14} />
@@ -722,9 +559,7 @@ Remember, every market is different, and what works in one area may not work in 
                             <div className="flex-1">
                               <div className="flex items-center space-x-2 mb-1">
                                 <h5 className="font-medium text-gray-900 text-sm">{reply.author}</h5>
-                                <span className="text-xs text-gray-500">
-                                  {formatDate(reply.createdAt)}
-                                </span>
+                                <span className="text-xs text-gray-500">{formatDate(reply.createdAt)}</span>
                               </div>
                               <p className="text-gray-700 text-sm leading-relaxed">{reply.content}</p>
                             </div>
@@ -743,57 +578,31 @@ Remember, every market is different, and what works in one area may not work in 
               <MessageSquare className="mx-auto text-gray-300 mb-4" size={48} />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No comments yet</h3>
               <p className="text-gray-600 mb-4">Be the first to share your thoughts!</p>
-              <button
-                onClick={() => setShowCommentForm(true)}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Write a Comment
-              </button>
+              <button onClick={() => setShowCommentForm(true)} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">Write a Comment</button>
             </div>
           )}
         </div>
 
-        {/* Related Posts */}
+        {/* Related */}
         {relatedPosts.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Related Articles</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {relatedPosts.map((relatedPost) => (
-                <div
-                  key={relatedPost.id}
-                  className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                >
-                  <img
-                    src={relatedPost.featuredImage}
-                    alt={relatedPost.title}
-                    className="w-full h-40 object-cover"
-                  />
+              {relatedPosts.map(rp => (
+                <div key={rp.id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onClick={() => { /* optionally navigate */ }}>
+                  {rp.featuredImage ? <img src={rp.featuredImage} alt={rp.title} className="w-full h-40 object-cover" /> : <div className="w-full h-40 bg-gray-100 flex items-center justify-center">No image</div>}
                   <div className="p-4">
                     <div className="flex items-center space-x-2 mb-2">
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                        {relatedPost.category}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {relatedPost.readTime} min read
-                      </span>
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">{rp.category}</span>
+                      <span className="text-xs text-gray-500">{rp.readTime ?? Math.ceil(((rp.content || '').length || 0) / 200)} min read</span>
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">
-                      {relatedPost.title}
-                    </h3>
-                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                      {relatedPost.excerpt}
-                    </p>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{rp.title}</h3>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{rp.excerpt}</p>
                     <div className="flex items-center justify-between text-sm text-gray-500">
-                      <span>{relatedPost.author}</span>
+                      <span>{rp.author}</span>
                       <div className="flex items-center space-x-3">
-                        <span className="flex items-center space-x-1">
-                          <Eye size={12} />
-                          <span>{relatedPost.views}</span>
-                        </span>
-                        <span className="flex items-center space-x-1">
-                          <Heart size={12} />
-                          <span>{relatedPost.likes}</span>
-                        </span>
+                        <span className="flex items-center space-x-1"><Eye size={12} /><span>{rp.views}</span></span>
+                        <span className="flex items-center space-x-1"><Heart size={12} /><span>{rp.likes}</span></span>
                       </div>
                     </div>
                   </div>
@@ -803,21 +612,13 @@ Remember, every market is different, and what works in one area may not work in 
           </div>
         )}
 
-        {/* CTA Section */}
+        {/* CTA */}
         <div className="mt-8 bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl p-8 text-center text-white">
           <h2 className="text-2xl font-bold mb-4">Ready to Start Your Real Estate Journey?</h2>
-          <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
-            Get expert guidance and access to exclusive property listings. Our team is here to help you make informed decisions.
-          </p>
+          <p className="text-blue-100 mb-6 max-w-2xl mx-auto">Get expert guidance and access to exclusive property listings. Our team is here to help you make informed decisions.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-4">
-            <button className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center space-x-2">
-              <Home size={18} />
-              <span>Browse Properties</span>
-            </button>
-            <button className="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition-colors flex items-center space-x-2">
-              <Building size={18} />
-              <span>Get Expert Consultation</span>
-            </button>
+            <button className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center space-x-2"><Home size={18} /><span>Browse Properties</span></button>
+            <button className="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition-colors flex items-center space-x-2"><Building size={18} /><span>Get Expert Consultation</span></button>
           </div>
         </div>
       </div>
@@ -826,3 +627,5 @@ Remember, every market is different, and what works in one area may not work in 
 };
 
 export default BlogDetailPage;
+
+
