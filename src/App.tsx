@@ -104,7 +104,7 @@ function App() {
                     <Route path="about" element={<AboutPage />} />
                     <Route path='blogs' element={<BlogsPage />} />
 
-                    <Route path="/blog/:slug" element={<BlogDetailPage />} />
+                    <Route path="/blogs/:slug" element={<BlogsPage />} />
                     
                     <Route path="services" element={<ServicesPage />} />
                     <Route path="contact" element={<ContactUsPage/>}/>

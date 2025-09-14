@@ -32,6 +32,11 @@ export const blogsAPI = {
     const response = await api.delete(`/blog-posts/delete/${id}`);
     return response.data;
   },
+   // ✅ Get single post by slug
+  getPostBySlug: async (slug: string) => {
+    const response = await api.get(`/blog-posts/${slug}`);
+    return response.data;
+  },
 
 };
 
