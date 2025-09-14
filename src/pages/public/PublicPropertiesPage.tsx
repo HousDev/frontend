@@ -1055,6 +1055,10 @@
 // export default PublicPropertiesPage;
 
 
+
+
+
+// PublicPropertiesPage.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Search,
@@ -1088,6 +1092,8 @@ import PublicPropertyDetailPage from './PublicPropertyDetailPage';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import viewsAPI from '@/lib/viewAPI';
 
 interface Property {
   id: number;
@@ -1132,9 +1138,15 @@ interface Property {
   carpet_area?: number;
   builtup_area?: number;
   _raw?: any;
+  slug?: string;
+  total_views?: number;
+  public_views?: number | null;
 }
 
 const PublicPropertiesPage = ({ onPropertyView }: any) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedBudget, setSelectedBudget] = useState('');
@@ -1155,13 +1167,22 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
 
+  // Track viewed properties in current session to prevent duplicate views
+  const [viewedProperties, setViewedProperties] = useState<Set<number>>(new Set());
+
+  // Parse filter token from URL
+  const queryParams = new URLSearchParams(location.search);
+  const filterParamKey =
+    queryParams.has('filterToken') ? 'filterToken' :
+    (queryParams.has('fltcnt') ? 'fltcnt' : undefined);
+  const filterTokenFromUrl = filterParamKey ? (queryParams.get(filterParamKey) as string | null) ?? undefined : undefined;
+
   useEffect(() => {
     const fetchMasters = async () => {
       try {
         setMasterLoading(true);
         const data = await getMasterDropdownOptions(['common', 'lead', 'property']);
         setMasters(data || {});
-        console.log('Fetched master data:', data);
       } catch (err) {
         console.error('Error fetching master options:', err);
       } finally {
@@ -1172,6 +1193,20 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
     fetchMasters();
   }, []);
 
+  // Function to fetch view counts for properties - only total views
+  const fetchPropertyViews = async (propertyId: number): Promise<{ total_views: number }> => {
+    try {
+      const viewData = await viewsAPI.getByProperty(propertyId, false); // Get total views only
+      
+      return {
+        total_views: viewData?.total_views || 0
+      };
+    } catch (err) {
+      console.error(`Error fetching views for property ${propertyId}:`, err);
+      return { total_views: 0 };
+    }
+  };
+
   useEffect(() => {
     const fetchProperties = async () => {
       try {
@@ -1181,53 +1216,61 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
           limit: 50,
         });
 
-        console.log('Properties API Response:', response);
-
         if (response?.data && Array.isArray(response.data)) {
-          const transformedProperties = response.data.map((p: any, index: number) => ({
-            id: p.id,
-            title: p.title || `${p.unit_type || ''} ${p.property_type_name || ''}`.trim() || `Property ${p.id}`,
-            price: Number(p.budget) || 0,
-            bedrooms: Number(p.bedrooms) || 0,
-            bathrooms: Number(p.bathrooms) || 0,
-            square_feet: Number(p.carpet_area) || Number(p.builtup_area) || 0,
-            city: p.city_name || p.city || '',
-            property_type: p.property_type_name || p.property_type || '',
-            status: p.status || '',
-            images: Array.isArray(p.photos) ? p.photos.map((ph: string) => ph.replace(/\\/g, '/')) : ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'],
-            location: `${p.location_name || p.location || ''}`.replace(/\s*,\s*$/, ''),
-            society: p.society_name || p.project_name || `Society ${p.id}`,
-            area: Number(p.carpet_area) || Number(p.builtup_area) || 0,
-            parking: Number(p.parking_slots) || Math.floor(Math.random() * 3) + 1,
-            type: p.unit_type || p.property_subtype || p.property_type_name || p.property_type || 'Apartment',
-            furnishing: p.furnishing_status || ['Fully Furnished', 'Semi Furnished', 'Unfurnished'][index % 3],
-            possession: p.possession_status || ['Ready to Move', 'Under Construction'][index % 2],
-            amenities: p.amenities ?
-              (Array.isArray(p.amenities) ? p.amenities :
-                typeof p.amenities === 'string' ? p.amenities.split(',').map((a: string) => a.trim()) :
-                  ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup']) :
-              ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'],
-            featured: p.featured || index < 3,
-            verified: p.verified !== false,
-            rating: p.rating || (4 + Math.random() * 1),
-            reviews: p.reviews || Math.floor(Math.random() * 50) + 5,
-            postedDate: p.created_at ? p.created_at.split('T')[0] : `2025-01-${String(Math.floor(Math.random() * 15) + 1).padStart(2, '0')}`,
-            views: p.views || Math.floor(Math.random() * 300) + 50,
-            aiScore: p.ai_score || Math.floor(Math.random() * 30) + 70,
-            priceGrowth: p.price_growth || `+${(Math.random() * 20 + 5).toFixed(1)}%`,
-            investmentGrade: p.investment_grade || ['A++', 'A+', 'A', 'B+'][Math.floor(Math.random() * 4)],
-            agent: {
-              name: p.agent_name || `Agent ${index + 1}`,
-              phone: p.agent_phone || `+91 99999 999${String(index % 100).padStart(2, '0')}`,
-              rating: p.agent_rating || (4 + Math.random())
-            },
-            highlights: p.highlights || ['Prime Location', 'Good Value', 'Verified', 'No Brokerage'].slice(0, (index % 4) + 1),
-            nearbyPlaces: p.nearby_places || [
-              { name: 'Metro Station', distance: `${(Math.random() * 2).toFixed(1)} km` },
-              { name: 'Shopping Mall', distance: `${(Math.random() * 3).toFixed(2)} km` },
-              { name: 'School', distance: `${(Math.random() * 2).toFixed(1)} km` }
-            ],
-            _raw: p
+          // Map properties and fetch view counts
+          const transformedProperties = await Promise.all(response.data.map(async (p: any, index: number) => {
+            // Fetch actual view counts from API - only total views
+            const viewCounts = await fetchPropertyViews(p.id);
+
+            return {
+              id: p.id,
+              slug: p.slug,
+              title: p.title || `${p.unit_type || ''} ${p.property_type_name || ''}`.trim() || `Property ${p.id}`,
+              price: Number(p.budget) || 0,
+              bedrooms: Number(p.bedrooms) || 0,
+              bathrooms: Number(p.bathrooms) || 0,
+              square_feet: Number(p.carpet_area) || Number(p.builtup_area) || 0,
+              city: p.city_name || p.city || '',
+              property_type: p.property_type_name || p.property_type || '',
+              status: p.status || '',
+              images: Array.isArray(p.photos) ? p.photos.map((ph: string) => ph.replace(/\\/g, '/')) : ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'],
+              location: `${p.location_name || p.location || ''}`.replace(/\s*,\s*$/, ''),
+              society: p.society_name || p.project_name || `Society ${p.id}`,
+              area: Number(p.carpet_area) || Number(p.builtup_area) || 0,
+              parking: Number(p.parking_slots) || Math.floor(Math.random() * 3) + 1,
+              type: p.unit_type || p.property_subtype || p.property_type_name || p.property_type || 'Apartment',
+              furnishing: p.furnishing_status || ['Fully Furnished', 'Semi Furnished', 'Unfurnished'][index % 3],
+              possession: p.possession_status || ['Ready to Move', 'Under Construction'][index % 2],
+              amenities: p.amenities ?
+                (Array.isArray(p.amenities) ? p.amenities :
+                  typeof p.amenities === 'string' ? p.amenities.split(',').map((a: string) => a.trim()) :
+                    ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup']) :
+                ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'],
+              featured: p.featured || index < 3,
+              verified: p.verified !== false,
+              rating: p.rating || (4 + Math.random() * 1),
+              reviews: p.reviews || Math.floor(Math.random() * 50) + 5,
+              postedDate: p.created_at ? p.created_at.split('T')[0] : `2025-01-${String(Math.floor(Math.random() * 15) + 1).padStart(2, '0')}`,
+              // Use API view counts instead of random values - only total views
+              views: viewCounts.total_views || 0,
+              total_views: viewCounts.total_views,
+              aiScore: p.ai_score || Math.floor(Math.random() * 30) + 70,
+              priceGrowth: p.price_growth || `+${(Math.random() * 20 + 5).toFixed(1)}%`,
+              investmentGrade: p.investment_grade || ['A++', 'A+', 'A', 'B+'][Math.floor(Math.random() * 4)],
+              agent: {
+                name: p.agent_name || `Agent ${index + 1}`,
+                phone: p.agent_phone || `+91 99999 999${String(index % 100).padStart(2, '0')}`,
+                rating: p.agent_rating || (4 + Math.random())
+              },
+              highlights: p.highlights || ['Prime Location', 'Good Value', 'Verified', 'No Brokerage'].slice(0, (index % 4) + 1),
+              nearbyPlaces: p.nearby_places || [
+                { name: 'Metro Station', distance: `${(Math.random() * 2).toFixed(1)} km` },
+                { name: 'Shopping Mall', distance: `${(Math.random() * 3).toFixed(2)} km` },
+                { name: 'School', distance: `${(Math.random() * 2).toFixed(1)} km` }
+              ],
+              public_views: p.public_views ?? null,
+              _raw: p
+            };
           }));
 
           setAllProperties(transformedProperties);
@@ -1345,7 +1388,6 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
     return price >= (isFinite(min) ? min : Number.NEGATIVE_INFINITY) && price <= (isFinite(max) ? max : Number.POSITIVE_INFINITY);
   };
 
-  // EXTRACT UNIT TYPE (no change to join char — per user request, DO NOT add the middle dot)
   const extractUnitType = (p: Property) => {
     const candidates = [
       p.type,
@@ -1365,7 +1407,6 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
     return '';
   };
 
-  // Compose title WITHOUT middle dot (user asked: "• ye nhi add karo")
   const composeHeaderTitle = (p: Property) => {
     const parts: string[] = [];
 
@@ -1382,11 +1423,9 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
       return p.title as any;
     }
 
-    // join with space (no middle dot)
     return parts.join(' ');
   };
 
-  // Format "1BHK • 500 sq ft" — keep the bullet between unit & area (user wants this)
   const formatUnitAreaLine = (p: Property) => {
     const unit = extractUnitType(p);
     const area = p.area || p.square_feet || (p as any)._raw?.carpet_area || (p as any)._raw?.builtup_area;
@@ -1484,6 +1523,92 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
       case 'wifi': return <Wifi className="text-purple-500" size={14} />;
       default: return <CheckCircle className="text-blue-500" size={14} />;
     }
+  };
+
+  const preserveAndAddToken = (existingSearch: string, paramKey: string, token?: string | null) => {
+    const params = new URLSearchParams(existingSearch || '');
+    if (token) {
+      params.set(paramKey, token);
+    }
+    const s = params.toString();
+    return s ? `?${s}` : '';
+  };
+
+  // Enhanced navigation function - ONLY analytics, NO view recording
+  const handleNavigateToProperty = async (property: Property) => {
+    const id = property.id;
+    const slug = property.slug;
+    if (!slug) {
+      console.warn('Attempted to navigate to property without slug:', id);
+      setCurrentPropertyView(property);
+      if (onPropertyView) onPropertyView(property);
+      return;
+    }
+
+    // Check if this property has already been clicked in this session
+    if (viewedProperties.has(id)) {
+      console.log(`Property ${id} already clicked in this session`);
+      // Still navigate but don't send analytics
+      let dest = `/properties/${encodeURIComponent(String(slug))}`;
+      const mergedQs = preserveAndAddToken(location.search, filterParamKey || 'fltcnt', filterTokenFromUrl);
+      navigate(dest + mergedQs);
+      return;
+    }
+
+    let finalToken = filterTokenFromUrl ?? null;
+    const finalParamKey = filterParamKey ?? 'fltcnt';
+
+    const inferredFilters = {
+      search: searchQuery || null,
+      location: selectedLocation || null,
+      budget: selectedBudget || null,
+      propertyType: selectedType || null,
+      bedrooms: selectedBedrooms || null,
+      clickedPropertyId: id,
+      source: 'properties_list',
+    };
+
+    if (!finalToken) {
+      try {
+        const createRes = await propertiesAPI.createFilterContext({ filters: inferredFilters });
+        if (createRes) {
+          const idFromRes = (createRes as any).id || (createRes as any).filterId || null;
+          if (idFromRes) finalToken = String(idFromRes);
+          else if ((createRes as any).data && (createRes as any).data.id) {
+            finalToken = String((createRes as any).data.id);
+          } else {
+            if ((createRes as any).success && (createRes as any).id) {
+              finalToken = String((createRes as any).id);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('createFilterContext failed (continuing without token):', err);
+      }
+    }
+
+    // *** REMOVED VIEW RECORDING - Let page load handle it ***
+    // Only send click analytics event
+    try {
+      await propertiesAPI.sendPropertyEvent(
+        id,
+        'click',
+        'listing_card_click',
+        { source: 'properties_list', title: property.title || null },
+        { slug, filterToken: finalToken || undefined, filterParamKey: finalParamKey }
+      );
+      
+      // Mark this property as clicked in current session (prevent duplicate clicks)
+      setViewedProperties(prev => new Set(prev).add(id));
+      
+      console.log(`Click event sent for property ${id}`);
+    } catch (err) {
+      console.warn('sendPropertyEvent failed (we will still navigate):', err);
+    }
+
+    const mergedQs = preserveAndAddToken(location.search, finalParamKey, finalToken);
+    const dest = `/properties/${encodeURIComponent(String(slug))}${mergedQs}`;
+    navigate(dest);
   };
 
   if (currentPropertyView) {
@@ -1731,6 +1856,10 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                       key={property.id}
                       className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group cursor-pointer"
                       onClick={() => {
+                        if (property.slug) {
+                          handleNavigateToProperty(property);
+                          return;
+                        }
                         setCurrentPropertyView(property);
                         if (onPropertyView) onPropertyView(property);
                       }}
@@ -1778,13 +1907,15 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
 
                         <div className="absolute bottom-3 right-3 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full text-xs flex items-center space-x-1">
                           <Eye size={10} />
-                          <span>{property.views || 0}</span>
+                          <span>
+                            {/* Display only total view count from API */}
+                            {property.total_views || property.views || 0}
+                          </span>
                         </div>
                       </div>
 
                       <div className="p-6">
                         <div className="mb-3">
-                          {/* Title WITHOUT middle dot */}
                           <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
                             {composedTitle}
                           </h3>
@@ -1793,14 +1924,8 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                             <MapPin size={14} className="mr-1" />
                             <span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span>
                           </div>
-
-                          {/* Show "1BHK • 500 sq ft" line */}
-                          {/* <div className="text-xs text-gray-500">
-                            {unitAreaLine}
-                          </div> */}
                         </div>
 
-                        {/* PRICE IS MOVED BELOW (user requested price only below) */}
                         <div className="mb-4">
                           <div className="text-2xl font-bold text-green-600">{formatCurrency(property.price)}</div>
                           <div className="text-xs text-gray-500">{property.type || property.property_type} • {property.area || property.square_feet} sq ft</div>
@@ -1855,16 +1980,29 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCurrentPropertyView(property);
-                              if (onPropertyView) onPropertyView(property);
-                            }}
-                            className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all text-sm"
-                          >
-                            View Details
-                          </button>
+                          {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
+                            <div className="flex-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleNavigateToProperty(property);
+                                }}
+                                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all text-sm"
+                              >
+                                View Details
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              disabled
+                              aria-disabled="true"
+                              title="Details not available – missing backend slug"
+                              className="w-full bg-gray-300 text-gray-600 py-2 px-3 rounded-lg cursor-not-allowed"
+                            >
+                              View Details
+                            </button>
+                          )}
+
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1924,6 +2062,14 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                               </span>
                             )}
                           </div>
+
+                          <div className="absolute bottom-3 right-3 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full text-xs flex items-center space-x-1">
+                            <Eye size={10} />
+                            <span>
+                              {/* Display only total view count from API */}
+                              {property.total_views || property.views || 0} views
+                            </span>
+                          </div>
                         </div>
 
                         <div className="md:w-2/3 p-5">
@@ -1941,11 +2087,9 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                               </div>
                             </div>
 
-                            {/* PRICE MOVED BELOW - remove top-right price */}
                             <div />
                           </div>
 
-                          {/* Price now shown below */}
                           <div className="mb-4">
                             <div className="text-2xl font-bold text-green-600">{formatCurrency(property.price)}</div>
                             <div className="text-sm text-gray-500">₹{Math.round(property.price / (property.area || property.square_feet || 1)).toLocaleString()}/sq ft</div>
@@ -2005,16 +2149,29 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                             </div>
 
                             <div className="flex items-center space-x-2">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setCurrentPropertyView(property);
-                                  if (onPropertyView) onPropertyView(property);
-                                }}
-                                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all text-sm"
-                              >
-                                View Details
-                              </button>
+                              {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
+                                <div className="flex-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleNavigateToProperty(property);
+                                    }}
+                                    className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                                  >
+                                    View Details
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  disabled
+                                  aria-disabled="true"
+                                  title="Details not available – missing backend slug"
+                                  className="w-full bg-gray-300 text-gray-600 py-2 rounded-lg cursor-not-allowed"
+                                >
+                                  View Details
+                                </button>
+                              )}
+
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

@@ -66,6 +66,7 @@ import ContactUsPage from './pages/public/ContactUsPage';
 import PublicHeader from './pages/public/PublicHeader';
 import BlogManagement from './pages/dashboard/BlogManagement';
 import AITraining from './pages/dashboard/AITraining';
+import ScrollToTop from './components/ui/ScrollToTop';
 
 function App() {
   useDynamicHead(); // ✅ Automatically set favicon + title
@@ -89,13 +90,15 @@ function App() {
           {/* ✅ Wrap with SystemSettingsProvider */}
           <SystemSettingsProvider>
             <Router>
+               <ScrollToTop smooth={false} /> 
               <div className="min-h-screen bg-gray-50">
                 <Routes>
                   {/* Public Routes */}
                   <Route path='/' element={<PublicHeader />} >
                     <Route index element={<HomePage />} />
                     <Route path="properties" element={<PublicPropertiesPage />} />
-                    <Route path="properties/:id" element={<PublicPropertyDetailPage />} />
+                    {/* <Route path="properties/:id" element={<PublicPropertyDetailPage />} /> */}
+                    <Route path="properties/:slug" element={<PublicPropertyDetailPage />} />
                     <Route path="about" element={<AboutPage />} />
                     <Route path='blogs' element={<BlogsPage/>}/>
                     <Route path="services" element={<ServicesPage />} />
