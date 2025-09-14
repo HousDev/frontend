@@ -466,73 +466,78 @@ const SettingsPage: React.FC = () => {
     <div className="">
       <div className="max-w-8xl mx-auto space-y-4">
         {/* Header */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <Settings className="h-6 w-6 text-white" />
+        <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 rounded-2xl shadow-2xl p-6 border border-white/20">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* Left side */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="h-10 w-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center shadow-md">
+                  <Settings className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+                  <h1 className="text-xl font-bold text-white leading-tight">
                     Settings
                   </h1>
-                  <p className="text-slate-600 font-medium">
+                  <p className="text-xs text-white/90 font-medium">
                     Manage your account and system preferences
                   </p>
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
+
+            {/* Right side buttons */}
+            <div className="flex flex-wrap gap-2">
               <Link to="/dashboard/settings/roles-permissions">
                 <Button
                   variant="outline"
-                  className="flex items-center space-x-2 bg-white/50 hover:bg-white/80 border-slate-200 hover:border-slate-300 transition-all duration-200"
+                  className="flex items-center space-x-1 bg-white/20 hover:bg-white/30 text-sm text-white border-white/30 hover:border-white/50 transition-all duration-200 px-3 py-1.5 h-auto"
                 >
-                  <Shield className="h-4 w-4" />
+                  <Shield className="h-3.5 w-3.5" />
                   <span>Roles & Permissions</span>
                 </Button>
               </Link>
               <Link to="/dashboard/settings/integrations">
                 <Button
                   variant="outline"
-                  className="flex items-center space-x-2 bg-white/50 hover:bg-white/80 border-slate-200 hover:border-slate-300 transition-all duration-200"
+                  className="flex items-center space-x-1 bg-white/20 hover:bg-white/30 text-sm text-white border-white/30 hover:border-white/50 transition-all duration-200 px-3 py-1.5 h-auto"
                 >
-                  <Zap className="h-4 w-4" />
+                  <Zap className="h-3.5 w-3.5" />
                   <span>Integrations</span>
                 </Button>
               </Link>
             </div>
+
           </div>
         </div>
 
         {/* Quick Links */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {quickLinks.map((link, index) => (
             <Link
               key={index}
               to={link.href}
-              className="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl border border-white/20 p-6 transition-all duration-300 hover:-translate-y-1"
+              className="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl border border-white/20 p-3 sm:p-4 transition-all duration-300 hover:-translate-y-1"
             >
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 <div
-                  className={`h-12 w-12 ${colorMap[link.color]} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-200`}
+                  className={`h-10 w-10 ${colorMap[link.color]} rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-200`}
                 >
-                  <link.icon className="h-6 w-6 text-white" />
+                  <link.icon className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-sm sm:text-base font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
                     {link.title}
                   </h3>
-                  <p className="text-sm text-slate-600 line-clamp-2">
+                  <p className="text-xs sm:text-sm text-slate-600 line-clamp-2">
                     {link.description}
                   </p>
                 </div>
-                <ArrowRight className="h-5 w-5 text-slate-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all duration-200" />
+                <ArrowRight className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 group-hover:text-blue-500 group-hover:translate-x-1 transition-all duration-200" />
               </div>
             </Link>
           ))}
         </div>
+
 
         {/* Tabs */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
@@ -542,11 +547,10 @@ const SettingsPage: React.FC = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex-shrink-0 px-6 py-4 font-semibold text-sm transition-all duration-200 border-b-3 ${
-                    activeTab === tab.id
-                      ? "border-blue-500 text-blue-600 bg-white/50"
-                      : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/30"
-                  }`}
+                  className={`flex-shrink-0 px-6 py-4 font-medium text-sm md:text-base transition-all duration-200 border-b-[3px] ${activeTab === tab.id
+                    ? "border-blue-500 text-blue-600 bg-white shadow-sm"
+                    : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/40 rounded-t-md"
+                    }`}
                 >
                   <div className="flex items-center space-x-2">
                     <tab.icon className="h-4 w-4" />
@@ -557,18 +561,19 @@ const SettingsPage: React.FC = () => {
             </nav>
           </div>
 
+
           <div className="p-8">
             {/* PROFILE TAB */}
             {activeTab === "profile" && profile && (
               <div className="space-y-8">
-                {/* Profile Picture */}
-                <div className="flex items-center gap-6 mb-8">
+                {/* Profile Header */}
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-4">
                   <div className="relative group">
-                    <div className="h-24 w-24 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg overflow-hidden">
+                    <div className="h-28 w-28 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg overflow-hidden">
                       {profile.avatar ? (
                         <img
                           src={profile.avatar}
-                          alt="Profile"
+                          alt={`${profile.first_name || "User"}'s avatar`}
                           className="h-full w-full rounded-full object-cover"
                           key={profile.avatar}
                         />
@@ -576,39 +581,45 @@ const SettingsPage: React.FC = () => {
                         <User className="h-12 w-12 text-white" />
                       )}
 
+                      {/* uploading overlay */}
                       {uploadingAvatar && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full">
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full" aria-live="polite">
                           <LoadingSpinner size="sm" />
                         </div>
                       )}
                     </div>
 
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full flex items-center justify-center">
-                      <Camera className="h-6 w-6 text-white" />
-                    </div>
-
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/jpg,image/png,image/gif"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleAvatarUpload(file);
-                      }}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer rounded-full"
-                      disabled={uploadingAvatar}
-                    />
+                    {/* hover overlay + file input (single control) */}
+                    <label className="absolute -bottom-1 right-0 transform translate-y-1/2">
+                      <div className="inline-flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-full shadow-sm text-sm hover:shadow-md transition">
+                        <Camera className="h-4 w-4 text-slate-600" />
+                        <span className="text-slate-700 font-medium">Change</span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/gif"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleAvatarUpload(file);
+                        }}
+                        className="sr-only"
+                        disabled={uploadingAvatar}
+                      />
+                    </label>
                   </div>
 
-                  <div className="flex-1">
-                    <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                      Profile Information
-                    </h3>
-                    <p className="text-slate-600 mb-4">
-                      Update your personal details and preferences
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-2xl font-bold text-slate-900">Profile Information</h3>
+                    <p className="text-sm text-slate-600 mt-1">
+                      Keep your personal details up to date so your account and notifications are correct.
                     </p>
 
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-3 mt-4">
                       <label className="cursor-pointer">
+                        <div className="inline-flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors border border-blue-200 hover:border-blue-300">
+                          <Upload className="h-4 w-4" />
+                          {uploadingAvatar ? "Uploading..." : "Upload Photo"}
+                        </div>
                         <input
                           type="file"
                           accept="image/jpeg,image/jpg,image/png,image/gif"
@@ -619,17 +630,13 @@ const SettingsPage: React.FC = () => {
                           className="hidden"
                           disabled={uploadingAvatar}
                         />
-                        <div className="inline-flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-blue-200 hover:border-blue-300">
-                          <Upload className="h-4 w-4" />
-                          {uploadingAvatar ? "Uploading..." : "Upload Photo"}
-                        </div>
                       </label>
 
                       {profile.avatar && (
                         <button
                           onClick={handleAvatarRemove}
                           disabled={uploadingAvatar}
-                          className="inline-flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-red-200 hover:border-red-300"
+                          className="inline-flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors border border-red-200 hover:border-red-300"
                         >
                           <X className="h-4 w-4" />
                           Remove
@@ -638,44 +645,19 @@ const SettingsPage: React.FC = () => {
                     </div>
 
                     <p className="text-xs text-slate-500 mt-2">
-                      at least 200x200px. Max 5MB. (JPG, PNG, GIF)
+                      Recommended: at least 200×200 px. Max 5MB. Supported: JPG, PNG, GIF.
                     </p>
                   </div>
                 </div>
 
                 {/* Form */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   {[
-                    {
-                      label: "First Name",
-                      value: profile.first_name,
-                      key: "first_name",
-                      type: "text",
-                    },
-                    {
-                      label: "Last Name",
-                      value: profile.last_name,
-                      key: "last_name",
-                      type: "text",
-                    },
-                    {
-                      label: "Email",
-                      value: profile.email,
-                      key: "email",
-                      type: "email",
-                    },
-                    {
-                      label: "Phone",
-                      value: profile.phone || "",
-                      key: "phone",
-                      type: "tel",
-                    },
-                    {
-                      label: "Designation",
-                      value: profile.designation || "",
-                      key: "designation",
-                      type: "text",
-                    },
+                    { label: "First name", value: profile.first_name ?? "", key: "first_name", type: "text", placeholder: "John" },
+                    { label: "Last name", value: profile.last_name ?? "", key: "last_name", type: "text", placeholder: "Doe" },
+                    { label: "Email", value: profile.email ?? "", key: "email", type: "email", placeholder: "you@example.com", readOnly: true },
+                    { label: "Phone", value: profile.phone ?? "", key: "phone", type: "tel", placeholder: "+1 555 555 555" },
+                    { label: "Designation", value: profile.designation ?? "", key: "designation", type: "text", placeholder: "Product Manager" },
                   ].map((field) => (
                     <div key={field.key} className="space-y-2">
                       <label className="block text-sm font-semibold text-slate-700">
@@ -684,38 +666,32 @@ const SettingsPage: React.FC = () => {
                       <input
                         type={field.type}
                         value={field.value}
+                        readOnly={field.readOnly}
+                        placeholder={field.placeholder}
                         onChange={(e) =>
                           setProfile({
                             ...profile,
                             [field.key]: e.target.value,
                           })
                         }
-                        className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50"
+                        className={`w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-blue-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/60 ${field.readOnly ? "opacity-70 cursor-not-allowed" : ""}`}
+                        aria-label={field.label}
                       />
                     </div>
                   ))}
 
-                  {/* Department Dropdown */}
+                  {/* Department */}
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-slate-700">
-                      Department
-                    </label>
+                    <label className="block text-sm font-semibold text-slate-700">Department</label>
                     <select
-                      value={
-                        masterOptions.departments.find(
-                          (d) => d.label === profile.department
-                        )?.value || ""
-                      }
+                      value={masterOptions.departments.find((d) => d.label === profile.department)?.value || ""}
                       onChange={(e) =>
                         setProfile({
                           ...profile,
-                          department:
-                            masterOptions.departments.find(
-                              (d) => d.value === e.target.value
-                            )?.label || "",
+                          department: masterOptions.departments.find((d) => d.value === e.target.value)?.label || "",
                         })
                       }
-                      className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 appearance-none cursor-pointer"
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/60 appearance-none cursor-pointer"
                     >
                       <option value="">Select Department</option>
                       {masterOptions.departments.map((dept) => (
@@ -726,26 +702,18 @@ const SettingsPage: React.FC = () => {
                     </select>
                   </div>
 
-                  {/* Role Dropdown */}
+                  {/* Role */}
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-slate-700">
-                      Role
-                    </label>
+                    <label className="block text-sm font-semibold text-slate-700">Role</label>
                     <select
-                      value={
-                        masterOptions.roles.find((r) => r.label === profile.role)
-                          ?.value || ""
-                      }
+                      value={masterOptions.roles.find((r) => r.label === profile.role)?.value || ""}
                       onChange={(e) =>
                         setProfile({
                           ...profile,
-                          role:
-                            masterOptions.roles.find(
-                              (r) => r.value === e.target.value
-                            )?.label || "",
+                          role: masterOptions.roles.find((r) => r.value === e.target.value)?.label || "",
                         })
                       }
-                      className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 appearance-none cursor-pointer"
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/60 appearance-none cursor-pointer"
                     >
                       <option value="">Select Role</option>
                       {masterOptions.roles.map((role) => (
@@ -758,15 +726,11 @@ const SettingsPage: React.FC = () => {
 
                   {/* Timezone */}
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-slate-700">
-                      Timezone
-                    </label>
+                    <label className="block text-sm font-semibold text-slate-700">Timezone</label>
                     <select
                       value={profile.timezone}
-                      onChange={(e) =>
-                        setProfile({ ...profile, timezone: e.target.value })
-                      }
-                      className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 appearance-none cursor-pointer"
+                      onChange={(e) => setProfile({ ...profile, timezone: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/60 appearance-none cursor-pointer"
                     >
                       <option value="UTC">UTC</option>
                       <option value="America/New_York">Eastern Time</option>
@@ -779,15 +743,11 @@ const SettingsPage: React.FC = () => {
 
                   {/* Language */}
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-slate-700">
-                      Language
-                    </label>
+                    <label className="block text-sm font-semibold text-slate-700">Language</label>
                     <select
                       value={profile.language}
-                      onChange={(e) =>
-                        setProfile({ ...profile, language: e.target.value })
-                      }
-                      className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 appearance-none cursor-pointer"
+                      onChange={(e) => setProfile({ ...profile, language: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/60 appearance-none cursor-pointer"
                     >
                       <option value="en">English</option>
                       <option value="hi">Hindi</option>
@@ -798,44 +758,54 @@ const SettingsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex space-x-4 pt-6 border-t border-slate-200">
-                  <Button
-                    onClick={handleProfileUpdate}
-                    disabled={saving || uploadingAvatar}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {saving ? "Saving..." : "Save Changes"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      fetchUserProfile();
-                      fetchMasterData();
-                    }}
-                    disabled={saving || uploadingAvatar}
-                    className="border-slate-300 hover:border-slate-400 hover:bg-slate-50 transition-all duration-200"
-                  >
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Reset
-                  </Button>
+                {/* Actions */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-6 border-t border-slate-200">
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={handleProfileUpdate}
+                      disabled={saving || uploadingAvatar}
+                      className="inline-flex items-center bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl rounded-xl px-4 py-2 transition"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {saving ? "Saving..." : "Save changes"}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        fetchUserProfile();
+                        fetchMasterData();
+                      }}
+                      disabled={saving || uploadingAvatar}
+                      className="inline-flex items-center border-slate-300 hover:border-slate-400 hover:bg-slate-50 rounded-xl px-4 py-2 transition"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Reset
+                    </Button>
+                  </div>
+
+                  <p className="text-xs text-slate-500">
+                    Changes are saved to your account. Email is not editable here — contact admin to update email.
+                  </p>
                 </div>
               </div>
             )}
 
+
             {/* NOTIFICATIONS TAB */}
             {activeTab === "notifications" && profile && (
-              <div className="space-y-8">
-                <div className="mb-8">
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">
+              <div className="space-y-6">
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold text-slate-900 mb-1">
                     Notification Preferences
                   </h3>
-                  <p className="text-slate-600">
+                  <p className="text-xs text-slate-600">
                     Choose how you want to receive notifications
                   </p>
                 </div>
 
-                <div className="space-y-6">
+                {/* Grid layout */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {[
                     {
                       icon: Mail,
@@ -864,18 +834,20 @@ const SettingsPage: React.FC = () => {
                   ].map((notification) => (
                     <div
                       key={notification.key}
-                      className="bg-white/50 rounded-xl p-6 border border-slate-200 hover:border-slate-300 transition-all duration-200"
+                      className="bg-white/50 rounded-lg p-4 border border-slate-200 hover:border-slate-300 transition-all duration-200"
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className={`h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center`}>
-                            <notification.icon className={`h-6 w-6 ${notification.color}`} />
+                        <div className="flex items-center space-x-3">
+                          <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center">
+                            <notification.icon
+                              className={`h-4 w-4 ${notification.color}`}
+                            />
                           </div>
                           <div>
-                            <h4 className="text-lg font-semibold text-slate-900">
+                            <h4 className="text-xs font-semibold text-slate-900">
                               {notification.title}
                             </h4>
-                            <p className="text-slate-600">
+                            <p className="text-xs text-slate-600">
                               {notification.description}
                             </p>
                           </div>
@@ -892,20 +864,20 @@ const SettingsPage: React.FC = () => {
                             }
                             className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                          <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                         </label>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex space-x-4 pt-6 border-t border-slate-200">
+                <div className="flex pt-4 border-t border-slate-200">
                   <Button
                     onClick={handleProfileUpdate}
                     disabled={saving}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all duration-200 text-xs px-3 py-2"
                   >
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="h-3.5 w-3.5 mr-1" />
                     {saving ? "Saving..." : "Save Preferences"}
                   </Button>
                 </div>
@@ -914,36 +886,39 @@ const SettingsPage: React.FC = () => {
 
             {/* SECURITY TAB */}
             {activeTab === "security" && (
-              <div className="space-y-8">
-                <div className="mb-8">
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-1">
                     Security Settings
                   </h3>
-                  <p className="text-slate-600">
+                  <p className="text-xs text-slate-600">
                     Manage your password and security preferences
                   </p>
                 </div>
 
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6 mb-8">
-                  <div className="flex items-center gap-3">
-                    <Shield className="h-6 w-6 text-amber-600" />
+                {/* Security Tip */}
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Shield className="h-5 w-5 text-amber-600 mt-0.5" />
                     <div>
-                      <h4 className="font-semibold text-amber-800">Security Tip</h4>
-                      <p className="text-amber-700 text-sm">
-                        Use a strong password with at least 8 characters,
-                        including uppercase, lowercase, numbers, and symbols.
+                      <h4 className="font-semibold text-amber-800 text-sm">Security Tip</h4>
+                      <p className="text-amber-700 text-xs leading-snug">
+                        Use a strong password with at least 8 characters, including
+                        uppercase, lowercase, numbers, and symbols.
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white/50 rounded-xl p-6 border border-slate-200">
-                  <h4 className="text-lg font-semibold text-slate-900 mb-6">
-                    Change Password
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="md:col-span-1">
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                {/* Change Password */}
+                <div className="bg-white/50 rounded-lg p-4 border border-slate-200">
+                  <h4 className="text-base font-semibold text-slate-900 mb-4">Change Password</h4>
+
+                  {/* Shared input class for consistency */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Current Password */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Current Password
                       </label>
                       <input
@@ -955,15 +930,16 @@ const SettingsPage: React.FC = () => {
                             current_password: e.target.value,
                           })
                         }
-                        className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50"
                         placeholder="Enter current password"
+                        className="w-full border border-slate-400 rounded-lg px-3 py-2 text-sm outline-blue-600
+                       focus:border-blue-600 focus:ring-1 focus:ring-blue-600
+                       transition-all bg-white/50"
                       />
                     </div>
-                    <div></div>
+
+                    {/* New Password */}
                     <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        New Password
-                      </label>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">New Password</label>
                       <input
                         type="password"
                         value={passwordData.new_password}
@@ -973,12 +949,16 @@ const SettingsPage: React.FC = () => {
                             new_password: e.target.value,
                           })
                         }
-                        className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50"
                         placeholder="Enter new password"
+                        className="w-full border border-slate-400 rounded-lg px-3 py-2 text-sm outline-blue-600
+                       focus:border-blue-600 focus:ring-1 focus:ring-blue-600
+                       transition-all bg-white/50"
                       />
                     </div>
+
+                    {/* Confirm Password */}
                     <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Confirm New Password
                       </label>
                       <input
@@ -990,14 +970,17 @@ const SettingsPage: React.FC = () => {
                             confirm_password: e.target.value,
                           })
                         }
-                        className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50"
                         placeholder="Confirm new password"
+                        className="w-full border border-slate-400 rounded-lg px-3 py-2 text-sm outline-blue-600
+                       focus:border-blue-600 focus:ring-1 focus:ring-blue-600
+                       transition-all bg-white/50"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="flex space-x-4 pt-6 border-t border-slate-200">
+                {/* Actions */}
+                <div className="flex pt-4 border-t border-slate-200">
                   <Button
                     onClick={handlePasswordChange}
                     disabled={
@@ -1006,67 +989,53 @@ const SettingsPage: React.FC = () => {
                       !passwordData.new_password ||
                       !passwordData.confirm_password
                     }
-                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg transition-all text-xs px-3 py-2"
                   >
-                    <Lock className="h-4 w-4 mr-2" />
+                    <Lock className="h-3.5 w-3.5 mr-1" />
                     {saving ? "Changing..." : "Change Password"}
                   </Button>
                 </div>
               </div>
             )}
 
+
+            {/* SYSTEM TAB (admin only) */}
             {/* SYSTEM TAB (admin only) */}
             {activeTab === "system" &&
               user?.role === "admin" &&
               systemSettings && (
-                <div className="space-y-8">
-                  <div className="mb-8">
-                    <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                      System Configuration
-                    </h3>
-                    <p className="text-slate-600">
-                      Configure global system settings and preferences
-                    </p>
+                <div className="space-y-6">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-bold text-slate-900 mb-1">System Configuration</h3>
+                    <p className="text-slate-700 text-xs">Configure global system settings and preferences</p>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Company Settings */}
-                    <div className="bg-white/50 rounded-xl p-6 border border-slate-200 space-y-6">
-                      <h4 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                        <Building className="h-5 w-5 text-blue-500" />
+                    <div className="bg-white/50 rounded-lg p-4 border border-slate-200 space-y-4 hover:outline hover:outline-1 hover:outline-blue-300 transition-all duration-150">
+                      <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-1">
+                        <Building className="h-4 w-4 text-blue-500" />
                         Company Settings
                       </h4>
 
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Company Name
-                            </label>
+                            <label className="block text-xs font-medium text-slate-900 mb-1">Company Name</label>
                             <input
                               type="text"
                               value={systemSettings.company_name || ""}
-                              onChange={(e) =>
-                                updateSystemSettings({
-                                  company_name: e.target.value,
-                                })
-                              }
-                              className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50"
+                              onChange={(e) => updateSystemSettings({ company_name: e.target.value })}
+                              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none bg-white/50 text-slate-900"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Currency
-                            </label>
+                            <label className="block text-xs font-medium text-slate-900 mb-1">Currency</label>
                             <select
                               value={systemSettings.currency || "USD"}
-                              onChange={(e) =>
-                                updateSystemSettings({
-                                  currency: e.target.value,
-                                })
-                              }
-                              className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 appearance-none cursor-pointer"
+                              onChange={(e) => updateSystemSettings({ currency: e.target.value })}
+                              className="w-full border border-slate-300 rounded-lg  px-2 py-1.5 text-xs bg-white/50 cursor-pointer text-slate-900 focus:ring-1 focus:ring-blue-400"
                             >
                               <option value="INR">INR - Indian Rupee</option>
                               <option value="USD">USD - US Dollar</option>
@@ -1077,19 +1046,13 @@ const SettingsPage: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Date Format
-                            </label>
+                            <label className="block text-xs font-medium text-slate-900 mb-1">Date Format</label>
                             <select
                               value={systemSettings.date_format || "YYYY-MM-DD"}
-                              onChange={(e) =>
-                                updateSystemSettings({
-                                  date_format: e.target.value,
-                                })
-                              }
-                              className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 appearance-none cursor-pointer"
+                              onChange={(e) => updateSystemSettings({ date_format: e.target.value })}
+                              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white/50 cursor-pointer text-slate-900 focus:ring-1 focus:ring-blue-400"
                             >
                               <option value="MM/DD/YYYY">MM/DD/YYYY</option>
                               <option value="DD/MM/YYYY">DD/MM/YYYY</option>
@@ -1098,17 +1061,11 @@ const SettingsPage: React.FC = () => {
                           </div>
 
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Time Format
-                            </label>
+                            <label className="block text-xs font-medium text-slate-900 mb-1">Time Format</label>
                             <select
                               value={systemSettings.time_format || "24h"}
-                              onChange={(e) =>
-                                updateSystemSettings({
-                                  time_format: e.target.value,
-                                })
-                              }
-                              className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 appearance-none cursor-pointer"
+                              onChange={(e) => updateSystemSettings({ time_format: e.target.value })}
+                              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white/50 cursor-pointer text-slate-900 focus:ring-1 focus:ring-blue-400"
                             >
                               <option value="12h">12 Hour</option>
                               <option value="24h">24 Hour</option>
@@ -1117,17 +1074,11 @@ const SettingsPage: React.FC = () => {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            Default Language
-                          </label>
+                          <label className="block text-xs font-medium text-slate-900 mb-1">Default Language</label>
                           <select
                             value={systemSettings.default_language || "en"}
-                            onChange={(e) =>
-                              updateSystemSettings({
-                                default_language: e.target.value,
-                              })
-                            }
-                            className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 appearance-none cursor-pointer"
+                            onChange={(e) => updateSystemSettings({ default_language: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white/50 cursor-pointer text-slate-900 focus:ring-1 focus:ring-blue-400"
                           >
                             <option value="en">English</option>
                             <option value="hi">Hindi</option>
@@ -1137,40 +1088,27 @@ const SettingsPage: React.FC = () => {
                           </select>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Max File Size (MB)
-                            </label>
+                            <label className="block text-xs font-medium text-slate-900 mb-1">Max File Size (MB)</label>
                             <input
                               type="number"
-                              value={Math.round(
-                                (systemSettings.max_file_size || 2097152) / 1048576
-                              )}
+                              value={Math.round((systemSettings.max_file_size || 2097152) / 1048576)}
                               onChange={(e) =>
-                                updateSystemSettings({
-                                  max_file_size:
-                                    (parseInt(e.target.value, 10) || 2) * 1048576,
-                                })
+                                updateSystemSettings({ max_file_size: (parseInt(e.target.value, 10) || 2) * 1048576 })
                               }
                               min={1}
                               max={100}
-                              className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50"
+                              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white/50 text-slate-900 focus:ring-1 focus:ring-blue-400"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Backup Frequency
-                            </label>
+                            <label className="block text-xs font-medium text-slate-900 mb-1">Backup Frequency</label>
                             <select
                               value={systemSettings.backup_frequency || "daily"}
-                              onChange={(e) =>
-                                updateSystemSettings({
-                                  backup_frequency: e.target.value,
-                                })
-                              }
-                              className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 appearance-none cursor-pointer"
+                              onChange={(e) => updateSystemSettings({ backup_frequency: e.target.value })}
+                              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white/50 cursor-pointer text-slate-900 focus:ring-1 focus:ring-blue-400"
                             >
                               <option value="hourly">Hourly</option>
                               <option value="daily">Daily</option>
@@ -1182,226 +1120,204 @@ const SettingsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Appearance Settings */}
-                    <div className="bg-white/50 rounded-xl p-6 border border-slate-200 space-y-6">
-                      <h4 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                        <Palette className="h-5 w-5 text-purple-500" />
+                    {/* Appearance & Branding */}
+                    <div className="bg-white/50 rounded-lg p-4 border border-slate-200 space-y-4 hover:outline hover:outline-1  hover:outline-blue-300 transition-all duration-150">
+                      <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-1 focus:ring-1 focus:ring-blue-400">
+                        <Palette className="h-4 w-4 text-purple-500" />
                         Appearance & Branding
                       </h4>
+<div className="space-y-3">
+  <div className="grid grid-cols-2 gap-3">
+    {/* Primary Color */}
+    <div>
+      <label className="block text-xs font-medium text-slate-900 mb-1">Primary Color</label>
 
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Primary Color
-                            </label>
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="color"
-                                value={systemSettings.primary_color || "#000000"}
-                                onChange={(e) =>
-                                  updateSystemSettings({
-                                    primary_color: e.target.value,
-                                  })
-                                }
-                                className="w-16 h-12 border border-slate-300 rounded-xl cursor-pointer"
-                              />
-                              <input
-                                type="text"
-                                value={systemSettings.primary_color || "#000000"}
-                                onChange={(e) =>
-                                  updateSystemSettings({
-                                    primary_color: e.target.value,
-                                  })
-                                }
-                                className="flex-1 border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white/50"
-                              />
-                            </div>
-                          </div>
+      {/* wrapper ensures reliable ring on focus for color input across browsers */}
+      <div className="flex items-center gap-2 rounded-md border border-slate-300 px-2 py-1 focus-within:ring-1 focus-within:ring-blue-400 transition">
+        <input
+          type="color"
+          value={systemSettings.primary_color || "#000000"}
+          onChange={(e) => updateSystemSettings({ primary_color: e.target.value })}
+          className="w-10 h-8 rounded-sm border-none p-0 m-0 appearance-none cursor-pointer"
+          aria-label="Primary color"
+        />
+        <input
+          type="text"
+          value={systemSettings.primary_color || "#000000"}
+          onChange={(e) => updateSystemSettings({ primary_color: e.target.value })}
+          className="flex-1 border-none px-2 py-1 text-xs bg-transparent text-slate-900 focus:outline-none"
+        />
+      </div>
+    </div>
 
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Secondary Color
-                            </label>
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="color"
-                                value={systemSettings.secondary_color || "#ffffff"}
-                                onChange={(e) =>
-                                  updateSystemSettings({
-                                    secondary_color: e.target.value,
-                                  })
-                                }
-                                className="w-16 h-12 border border-slate-300 rounded-xl cursor-pointer"
-                              />
-                              <input
-                                type="text"
-                                value={systemSettings.secondary_color || "#ffffff"}
-                                onChange={(e) =>
-                                  updateSystemSettings({
-                                    secondary_color: e.target.value,
-                                  })
-                                }
-                                className="flex-1 border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white/50"
-                              />
-                            </div>
-                          </div>
-                        </div>
+    {/* Secondary Color */}
+    <div>
+      <label className="block text-xs font-medium text-slate-900 mb-1">Secondary Color</label>
+      <div className="flex items-center gap-2 rounded-md border border-slate-300 px-2 py-1 focus-within:ring-1 focus-within:ring-blue-400 transition">
+        <input
+          type="color"
+          value={systemSettings.secondary_color || "#ffffff"}
+          onChange={(e) => updateSystemSettings({ secondary_color: e.target.value })}
+          className="w-10 h-8 rounded-sm border-none p-0 m-0 appearance-none cursor-pointer  "
+          aria-label="Secondary color"
+        />
+        <input
+          type="text"
+          value={systemSettings.secondary_color || "#ffffff"}
+          onChange={(e) => updateSystemSettings({ secondary_color: e.target.value })}
+          className="flex-1 border-none px-2 py-1 text-xs bg-transparent text-slate-900 focus:outline-none"
+        />
+      </div>
+    </div>
+  </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Company Logo
-                            </label>
-                            <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
-                              {systemSettings.company_logo ? (
-                                <div className="space-y-3">
-                                  <img
-                                    src={systemSettings.company_logo}
-                                    alt="Company Logo"
-                                    className="h-12 w-auto mx-auto object-contain"
-                                    key={systemSettings.company_logo}
-                                  />
-                                  <div className="flex justify-center gap-2">
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                          handleFileUpload(file, "company_logo");
-                                        }
-                                      }}
-                                      className="hidden"
-                                      id="logo-upload"
-                                    />
-                                    <label
-                                      htmlFor="logo-upload"
-                                      className="cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                                    >
-                                      Change
-                                    </label>
-                                    <button
-                                      onClick={() => handleFileRemove("company_logo")}
-                                      className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="space-y-3">
-                                  <Upload className="h-8 w-8 text-slate-400 mx-auto" />
-                                  <div>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                          handleFileUpload(file, "company_logo");
-                                        }
-                                      }}
-                                      className="hidden"
-                                      id="logo-upload-empty"
-                                    />
-                                    <label
-                                      htmlFor="logo-upload-empty"
-                                      className="cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block"
-                                    >
-                                      Upload Company Logo
-                                    </label>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                      PNG, JPG, GIF up to 2MB
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+<div className="grid grid-cols-2 gap-3">
+  {/* Company Logo */}
+  <div>
+    <label className="block text-xs font-medium text-slate-900 mb-1">Company Logo</label>
 
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                              Favicon
-                            </label>
-                            <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
-                              {systemSettings.company_favicon ? (
-                                <div className="space-y-3">
-                                  <img
-                                    src={systemSettings.company_favicon}
-                                    alt="Favicon"
-                                    className="h-8 w-8 mx-auto object-contain"
-                                    key={systemSettings.company_favicon}
-                                  />
-                                  <div className="flex justify-center gap-2">
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                          handleFileUpload(file, "company_favicon");
-                                        }
-                                      }}
-                                      className="hidden"
-                                      id="favicon-upload"
-                                    />
-                                    <label
-                                      htmlFor="favicon-upload"
-                                      className="cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                                    >
-                                      Change
-                                    </label>
-                                    <button
-                                      onClick={() => handleFileRemove("company_favicon")}
-                                      className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="space-y-3">
-                                  <Upload className="h-8 w-8 text-slate-400 mx-auto" />
-                                  <div>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                          handleFileUpload(file, "company_favicon");
-                                        }
-                                      }}
-                                      className="hidden"
-                                      id="favicon-upload-empty"
-                                    />
-                                    <label
-                                      htmlFor="favicon-upload-empty"
-                                      className="cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block"
-                                    >
-                                      Upload Favicon
-                                    </label>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                      16x16 or 32x32 pixels recommended
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+    <div
+      tabIndex={0}
+      className="border-2 border-dashed border-slate-300 rounded-md p-3 text-center hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
+    >
+      {systemSettings.company_logo ? (
+        <div className="space-y-2">
+          <img
+            src={systemSettings.company_logo}
+            alt="Company Logo"
+            className="h-10 w-auto mx-auto object-contain"
+          />
+          <div className="flex justify-center gap-2">
+            <input
+              id="logo-upload-compact"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file, "company_logo");
+              }}
+              className="hidden"
+            />
+            <label
+              htmlFor="logo-upload-compact"
+              className="cursor-pointer bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-xs transition-colors hover:bg-blue-100 hover:text-blue-700"
+            >
+              Change
+            </label>
+            <button
+              onClick={() => handleFileRemove("company_logo")}
+              className="bg-red-50 text-red-600 px-2 py-1 rounded-md text-xs transition-colors hover:bg-red-100 hover:text-red-700"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2 text-slate-900">
+          <Upload className="h-5 w-5 text-slate-400 mx-auto" />
+          <div>
+            <input
+              id="logo-upload-compact-empty"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file, "company_logo");
+              }}
+              className="hidden"
+            />
+            <label
+              htmlFor="logo-upload-compact-empty"
+              className="cursor-pointer bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-xs inline-block transition-colors hover:bg-blue-100 hover:text-blue-700"
+            >
+              Upload Logo
+            </label>
+            <p className="text-xs text-slate-500 mt-1">PNG/JPG up to 2MB</p>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+
+  {/* Favicon */}
+  <div>
+    <label className="block text-xs font-medium text-slate-900 mb-1">Favicon</label>
+    <div
+      tabIndex={0}
+      className="border-2 border-dashed border-slate-300 rounded-md p-3 text-center hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
+    >
+      {systemSettings.company_favicon ? (
+        <div className="space-y-2">
+          <img
+            src={systemSettings.company_favicon}
+            alt="Favicon"
+            className="h-6 w-6 mx-auto object-contain"
+          />
+          <div className="flex justify-center gap-2">
+            <input
+              id="favicon-upload-compact"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file, "company_favicon");
+              }}
+              className="hidden"
+            />
+            <label
+              htmlFor="favicon-upload-compact"
+              className="cursor-pointer bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-xs transition-colors hover:bg-blue-100 hover:text-blue-700"
+            >
+              Change
+            </label>
+            <button
+              onClick={() => handleFileRemove("company_favicon")}
+              className="bg-red-50 text-red-600 px-2 py-1 rounded-md text-xs transition-colors hover:bg-red-100 hover:text-red-700"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2 text-slate-900">
+          <Upload className="h-5 w-5 text-slate-400 mx-auto" />
+          <div>
+            <input
+              id="favicon-upload-compact-empty"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file, "company_favicon");
+              }}
+              className="hidden"
+            />
+            <label
+              htmlFor="favicon-upload-compact-empty"
+              className="cursor-pointer bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-xs inline-block transition-colors hover:bg-blue-100 hover:text-blue-700"
+            >
+              Upload Favicon
+            </label>
+            <p className="text-xs text-slate-500 mt-1">16x16 or 32x32 px</p>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
+
+</div>
+
                     </div>
 
-                    {/* System Features */}
-                    <div className="lg:col-span-2 bg-white/50 rounded-xl p-6 border border-slate-200 space-y-6">
-                      <h4 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                        <Zap className="h-5 w-5 text-yellow-500" />
+                    {/* System Features (span 2) */}
+                    <div className="lg:col-span-2 bg-white/50 rounded-lg p-4 border border-slate-200 space-y-4">
+                      <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-1">
+                        <Zap className="h-4 w-4 text-yellow-500" />
                         System Features
                       </h4>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         {[
                           {
                             title: "Auto Assign Leads",
@@ -1430,35 +1346,27 @@ const SettingsPage: React.FC = () => {
                         ].map((feature) => (
                           <div
                             key={feature.key}
-                            className="bg-white/70 rounded-xl p-4 border border-slate-200 hover:border-slate-300 transition-all duration-200"
+                            className="bg-white/70 rounded-lg p-3 border border-slate-200 hover:border-slate-300 transition-all duration-150"
                           >
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <div className={`h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center`}>
-                                  <feature.icon className={`h-5 w-5 ${feature.color}`} />
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={feature.checked}
-                                    onChange={(e) =>
-                                      updateSystemSettings({
-                                        [feature.key]: e.target.checked,
-                                      } as Partial<SystemSettings>)
-                                    }
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="h-8 w-8 rounded-md bg-slate-100 flex items-center justify-center">
+                                <feature.icon className={`h-4 w-4 ${feature.color}`} />
                               </div>
-                              <div>
-                                <h5 className="font-semibold text-slate-900 text-sm">
-                                  {feature.title}
-                                </h5>
-                                <p className="text-xs text-slate-600">
-                                  {feature.description}
-                                </p>
-                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={feature.checked}
+                                  onChange={(e) =>
+                                    updateSystemSettings({ [feature.key]: e.target.checked } as Partial<SystemSettings>)
+                                  }
+                                  className="sr-only peer"
+                                />
+                                <div className="w-9 h-5 bg-slate-200 rounded-full peer-checked:bg-blue-600 relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                              </label>
+                            </div>
+                            <div>
+                              <h5 className="font-semibold text-slate-900 text-xs">{feature.title}</h5>
+                              <p className="text-xs text-slate-600">{feature.description}</p>
                             </div>
                           </div>
                         ))}
@@ -1466,15 +1374,17 @@ const SettingsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex space-x-4 pt-6 border-t border-slate-200">
+                  {/* Actions */}
+                  <div className="flex space-x-3 pt-4 border-t border-slate-200">
                     <Button
                       onClick={handleSystemSettingsUpdate}
                       disabled={saving}
-                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                      className="px-3 py-1.5 text-xs bg-gradient-to-r from-green-500 to-green-600 text-white"
                     >
-                      <Save className="h-4 w-4 mr-2" />
-                      {saving ? "Saving..." : "Save System Settings"}
+                      <Save className="h-3 w-3 mr-1" />
+                      {saving ? "Saving..." : "Save"}
                     </Button>
+
                     <Button
                       variant="outline"
                       onClick={() => {
@@ -1482,14 +1392,15 @@ const SettingsPage: React.FC = () => {
                         toast.info("System settings refreshed");
                       }}
                       disabled={saving}
-                      className="border-slate-300 hover:border-slate-400 hover:bg-slate-50 transition-all duration-200"
+                      className="px-3 py-1.5 text-xs border-slate-300 hover:bg-slate-50"
                     >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Refresh Settings
+                      <RotateCcw className="h-3 w-3 mr-1" />
+                      Refresh
                     </Button>
                   </div>
                 </div>
               )}
+
 
           </div>
         </div>

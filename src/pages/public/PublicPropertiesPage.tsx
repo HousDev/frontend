@@ -1057,7 +1057,6 @@
 
 
 
-
 // PublicPropertiesPage.tsx
 import React, { useState, useEffect } from 'react';
 import {
@@ -1248,8 +1247,9 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                 ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'],
               featured: p.featured || index < 3,
               verified: p.verified !== false,
-              rating: p.rating || (4 + Math.random() * 1),
-              reviews: p.reviews || Math.floor(Math.random() * 50) + 5,
+              // Enhanced rating logic - use API data or generate realistic static rating
+              rating: p.rating ? Number(p.rating) : (4.0 + Math.random() * 1.0),
+              reviews: p.reviews ? Number(p.reviews) : Math.floor(Math.random() * 50) + 5,
               postedDate: p.created_at ? p.created_at.split('T')[0] : `2025-01-${String(Math.floor(Math.random() * 15) + 1).padStart(2, '0')}`,
               // Use API view counts instead of random values - only total views
               views: viewCounts.total_views || 0,
@@ -1931,6 +1931,22 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                           <div className="text-xs text-gray-500">{property.type || property.property_type} • {property.area || property.square_feet} sq ft</div>
                         </div>
 
+                        {/* Rating Display - Added */}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-1">
+                            <Star className="text-yellow-400 fill-current" size={14} />
+                            <span className="text-sm font-medium text-gray-700">
+                              {(property.rating || 4.2).toFixed(1)}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              ({property.reviews || 0} reviews)
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {property.postedDate}
+                          </div>
+                        </div>
+
                         <div className="flex items-center justify-between mb-3 p-2 bg-blue-50 rounded-lg">
                           <div className="flex items-center space-x-2">
                             <TrendingUp className="text-green-600" size={12} />
@@ -2039,6 +2055,10 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                       key={property.id}
                       className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all group cursor-pointer"
                       onClick={() => {
+                        if (property.slug) {
+                          handleNavigateToProperty(property);
+                          return;
+                        }
                         setCurrentPropertyView(property);
                         if (onPropertyView) onPropertyView(property);
                       }}
@@ -2072,7 +2092,7 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                           </div>
                         </div>
 
-                        <div className="md:w-2/3 p-5">
+                        <div className="md:w-2/3 p-6">
                           <div className="flex items-start justify-between mb-4">
                             <div>
                               <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
@@ -2087,7 +2107,16 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
                               </div>
                             </div>
 
-                            <div />
+                            {/* Rating Display in List View - Added */}
+                            <div className="flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-lg">
+                              <Star className="text-yellow-400 fill-current" size={16} />
+                              <span className="font-semibold text-gray-700">
+                                {(property.rating || 4.2).toFixed(1)}
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                ({property.reviews || 0})
+                              </span>
+                            </div>
                           </div>
 
                           <div className="mb-4">
@@ -2138,11 +2167,6 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
 
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-4">
-                              <div className="flex items-center space-x-1">
-                                <Star className="text-yellow-400 fill-current" size={16} />
-                                <span className="font-medium text-gray-700">{(property.rating || 4.5).toFixed(1)}</span>
-                                <span className="text-sm text-gray-500">({property.reviews || 0} reviews)</span>
-                              </div>
                               <div className="text-sm text-gray-500">
                                 Posted {property.postedDate}
                               </div>
@@ -2150,23 +2174,21 @@ const PublicPropertiesPage = ({ onPropertyView }: any) => {
 
                             <div className="flex items-center space-x-2">
                               {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
-                                <div className="flex-1">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleNavigateToProperty(property);
-                                    }}
-                                    className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                                  >
-                                    View Details
-                                  </button>
-                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleNavigateToProperty(property);
+                                  }}
+                                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                >
+                                  View Details
+                                </button>
                               ) : (
                                 <button
                                   disabled
                                   aria-disabled="true"
                                   title="Details not available – missing backend slug"
-                                  className="w-full bg-gray-300 text-gray-600 py-2 rounded-lg cursor-not-allowed"
+                                  className="bg-gray-300 text-gray-600 px-6 py-2 rounded-lg cursor-not-allowed"
                                 >
                                   View Details
                                 </button>
