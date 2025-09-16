@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Clock, 
+// src/pages/ContactUsPage.jsx  (or replace your existing file)
+import React, { useEffect, useState } from 'react';
+import {
+  Phone,
+  Mail,
+  MapPin,
+  Clock,
   MessageCircle,
   Send,
   User,
@@ -21,6 +22,8 @@ import {
   Instagram,
   Linkedin
 } from 'lucide-react';
+import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
+import { contactsAPI } from '@/lib/contactsAPI'; 
 
 const ContactUsPage = () => {
   const [formData, setFormData] = useState({
@@ -32,17 +35,63 @@ const ContactUsPage = () => {
     propertyType: '',
     budget: ''
   });
-
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [masterLoading, setMasterLoading] = useState(true);
+  const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
+  const [feedback, setFeedback] = useState({ type: '', message: '' }); // type: 'success' | 'error' | ''
+
+  useEffect(() => {
+    const fetchMasters = async () => {
+      try {
+        setMasterLoading(true);
+        const data = await getMasterDropdownOptions([
+          'common', 'lead', 'property'
+        ]);
+        setMasters(data);
+        // console.log("Fetched master data:", data);
+      } catch (err) {
+        console.error('Error fetching master options:', err);
+        setFeedback({ type: 'error', message: 'Failed to load dropdown options' });
+      } finally {
+        setMasterLoading(false);
+      }
+    };
+
+    fetchMasters();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFeedback({ type: '', message: '' });
+
+    // Basic client-side validation
+    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim() || !formData.subject.trim() || !formData.message.trim()) {
+      setFeedback({ type: 'error', message: 'Please fill all required fields.' });
+      return;
+    }
+
     setIsSubmitting(true);
-    
-    // Simulate form submission
-    setTimeout(() => {
-      setIsSubmitting(false);
-      alert('Thank you! We will get back to you within 24 hours.');
+
+    try {
+      // Prepare payload - adapt fields if your backend expects different names
+      const payload = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        subject: formData.subject.trim(),
+        message: formData.message.trim(),
+        propertyType: formData.propertyType || null,
+        budget: formData.budget || null,
+        source: 'website' // optional meta, change if needed
+      };
+
+      const resp = await contactsAPI.submitContact(payload);
+
+      // If your backend returns success flag or created object, you can check resp accordingly.
+      setFeedback({ type: 'success', message: 'Thank you! We will get back to you within 24 hours.' });
+
+      // Clear form
       setFormData({
         name: '',
         email: '',
@@ -52,7 +101,17 @@ const ContactUsPage = () => {
         propertyType: '',
         budget: ''
       });
-    }, 2000);
+
+      // Optional: you can also re-fetch master data or analytics here
+      // console.log('submit response', resp);
+    } catch (err) {
+      console.error('Submit failed', err);
+      // Try to surface backend error message if available
+      const errMsg = err?.response?.data?.message || 'Failed to send message. Please try again later.';
+      setFeedback({ type: 'error', message: errMsg });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -133,6 +192,10 @@ const ContactUsPage = () => {
     }
   ];
 
+  // Get property types and price ranges from master data
+  const propertyTypes = masters['property type'] || [];
+  const priceRanges = masters['price range'] || [];
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
@@ -169,11 +232,20 @@ const ContactUsPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Contact Form */}
             <div className="bg-white rounded-2xl shadow-xl p-8">
-              <div className="mb-8">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">Send us a Message</h2>
-                <p className="text-gray-600">
-                  Fill out the form below and we'll get back to you within 24 hours with personalized assistance.
-                </p>
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-900 mb-2">Send us a Message</h2>
+                  <p className="text-gray-600">
+                    Fill out the form below and we'll get back to you within 24 hours with personalized assistance.
+                  </p>
+                </div>
+
+                {/* feedback */}
+                {feedback.message && (
+                  <div className={`px-4 py-2 rounded-md text-sm ${feedback.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    {feedback.message}
+                  </div>
+                )}
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -232,14 +304,15 @@ const ContactUsPage = () => {
                       name="propertyType"
                       value={formData.propertyType}
                       onChange={handleChange}
+                      disabled={masterLoading}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">Select property type</option>
-                      <option value="apartment">Apartment</option>
-                      <option value="villa">Villa</option>
-                      <option value="penthouse">Penthouse</option>
-                      <option value="studio">Studio</option>
-                      <option value="commercial">Commercial</option>
+                      {propertyTypes.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -250,14 +323,15 @@ const ContactUsPage = () => {
                       name="budget"
                       value={formData.budget}
                       onChange={handleChange}
+                      disabled={masterLoading}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">Select budget range</option>
-                      <option value="50L-1Cr">₹50L - ₹1Cr</option>
-                      <option value="1Cr-2Cr">₹1Cr - ₹2Cr</option>
-                      <option value="2Cr-5Cr">₹2Cr - ₹5Cr</option>
-                      <option value="5Cr-10Cr">₹5Cr - ₹10Cr</option>
-                      <option value="10Cr+">₹10Cr+</option>
+                      {priceRanges.map((range) => (
+                        <option key={range.value} value={range.value}>
+                          {range.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -327,7 +401,7 @@ const ContactUsPage = () => {
                   return (
                     <div key={index} className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
                       <div className="flex items-start space-x-4">
-                        <div className={`p-3 bg-gradient-to-r from-${info.color}-500 to-${info.color}-600 rounded-xl`}>
+                        <div className={`p-3 rounded-xl ${info.color === 'green' ? 'bg-gradient-to-r from-green-500 to-emerald-600' : info.color === 'blue' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : info.color === 'purple' ? 'bg-gradient-to-r from-purple-500 to-pink-600' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}`}>
                           <Icon className="text-white" size={24} />
                         </div>
                         <div>
@@ -437,7 +511,7 @@ const ContactUsPage = () => {
             <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
               Follow us on social media for the latest updates, property listings, and real estate tips
             </p>
-            
+
             <div className="flex items-center justify-center space-x-6 mb-12">
               {[
                 { icon: Facebook, href: '#', label: 'Facebook' },

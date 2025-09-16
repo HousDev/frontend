@@ -68,6 +68,7 @@ import BlogManagement from './pages/dashboard/BlogManagement';
 import AITraining from './pages/dashboard/AITraining';
 import ScrollToTop from './components/ui/ScrollToTop';
 import BlogDetailPage from './pages/public/BlogDetailPage';
+import ContactMessagesManagement from './pages/dashboard/ContactMessagesManagement';
 
 
 function App() {
@@ -154,6 +155,7 @@ function App() {
                     <Route path="sellers" element={<SellersPage />} />
                     <Route path="document-center" element={<DocumentCenter />} />
                     <Route path='blog-manager' element={<BlogManagement />} />
+                    <Route path='contact-messages' element={<ContactMessagesManagement/>}/>
                     <Route path='ai-training' element={<AITraining />} />
                     <Route path='template-center' element={<TemplateCenter/>}/>
                     <Route path="accounts" element={<AccountsPage />} />
