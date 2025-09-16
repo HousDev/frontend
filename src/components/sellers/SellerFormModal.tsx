@@ -7,7 +7,7 @@ import { useProperties } from '@/hooks/properties';
 import { FaWhatsapp } from 'react-icons/fa';
 import DOBStepCalendar from '../ui/DOBStepCalendar';
 import { usersAPI } from '@/lib/api';
-import { sellerAPI } from '@/lib/sellersAPI';
+
 
 // ---------- types ----------
 // Normalize a string for comparison (spaces/underscores/case-insensitive)
