@@ -14,8 +14,10 @@ import BudgetInput from '../dashboard/components/BudgetInput';
 import PropertyDescriptionAI from '../dashboard/components/PropertyDescriptionAI';
 import { FaWhatsapp } from 'react-icons/fa';
 import { createPortal } from 'react-dom';
+// add this near other API imports
+import { sellerAPI } from '@/lib/sellersAPI';
 
-/* ---------------- Types (unchanged) ---------------- */
+/* ---------------- Types ---------------- */
 
 export interface NearbyPlace {
   name: string;
@@ -127,18 +129,19 @@ interface InitialDataFromParent {
 interface PublicSellPropertyFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (property: any) => void;
+  onSubmit?: (property: any) => void; // made optional
   mode?: 'create' | 'edit';
   propertyId?: string | number;
   initialData?: InitialDataFromParent | null;
 }
+
 
 /* ---------------- Style Constants ---------------- */
 const LABEL = 'block text-xs font-semibold text-gray-700 mb-1';
 const FIELD = 'w-full h-10 px-3 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white';
 const FIELD_DISABLED = 'w-full h-10 px-3 rounded-lg text-sm border border-gray-100 bg-gray-100 text-gray-500';
 const SELECT_BASE = FIELD + ' flex items-center justify-between';
-const CONTROL_WRAPPER = 'space-y-3 bg-white p-4 py-0   rounded-lg shadow-sm';
+const CONTROL_WRAPPER = 'space-y-3 bg-white p-4 py-0 rounded-lg shadow-sm';
 const SECTION_HEADER = 'text-base font-semibold text-gray-900';
 const HELP_TEXT = 'text-xs text-gray-500';
 
@@ -164,7 +167,6 @@ function getScrollParents(node: Element | null): Element[] {
 }
 
 /* ---------------- MultiSelectDropdown (improved) ---------------- */
-/* ---------------- MultiSelectDropdown (modal-aware portal) ---------------- */
 const MultiSelectDropdown: React.FC<{
   options: MasterOption[];
   selectedValues: string[];
@@ -255,8 +257,6 @@ const MultiSelectDropdown: React.FC<{
   };
 
   // z-index strategy:
-  // - If portal target is modal portal, use a z-index that's above regular content but below modal header controls.
-  // - If portal target is body fallback, use a very large z to beat global app layers.
   const isModalPortal = typeof document !== 'undefined' && !!document.getElementById('modal-portal');
   const MODAL_PORTAL_Z = 1050; // high enough to appear above normal modal content but leave room for header if needed
   const BODY_FALLBACK_HIGH_Z = 9999999;
@@ -337,7 +337,6 @@ const MultiSelectDropdown: React.FC<{
           // wait for next tick then compute rect
           setTimeout(updateRect, 0);
         }}
-        // removed the forced huge z-index so popup can appear above the button
         className={`${SELECT_BASE} text-left px-3`}
       >
         <span className={selectedValues.length === 0 ? "text-gray-400" : "text-gray-900"}>{displayText}</span>
@@ -349,7 +348,7 @@ const MultiSelectDropdown: React.FC<{
   );
 };
 
-/* ---------------- FilePreviewComponent (unchanged except small cleanup) ---------------- */
+/* ---------------- FilePreviewComponent ---------------- */
 const FilePreviewComponent: React.FC<{
   preview: FilePreview;
   onRemove: () => void;
@@ -381,7 +380,7 @@ const FilePreviewComponent: React.FC<{
   );
 };
 
-/* ---------------- PossessionDropdown (unchanged) ---------------- */
+/* ---------------- PossessionDropdown ---------------- */
 
 const PossessionDropdown: React.FC<{
   possessionMonth: string;
@@ -448,16 +447,17 @@ const PossessionDropdown: React.FC<{
   );
 };
 
-/* ---------------- Main Component (rest stays same) ---------------- */
+/* ---------------- Main Component ---------------- */
 
 const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
   isOpen,
   onClose,
-  onSubmit,
+  onSubmit = () => { }, // default no-op so missing prop doesn't crash
   mode = 'create',
   propertyId,
   initialData = null
 }) => {
+
   const now = new Date();
   const CURRENT_YEAR = now.getFullYear();
   const CURRENT_MONTH = now.getMonth() + 1;
@@ -512,6 +512,9 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [masterOptions, setMasterOptions] = useState<Record<string, MasterOption[]>>({});
+
+  // showThankYou state for the overlay modal after submit
+  const [showThankYou, setShowThankYou] = useState(false);
 
   const getLabelFromValue = (options: MasterOption[] = [], value: string) => options.find(o => String(o.value) === String(value))?.label || '';
 
@@ -695,7 +698,8 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
   ]);
 
   const handleEventChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type, checked } = e.target as any;
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
     const val = type === 'checkbox' ? checked : value;
     setFormData(prev => {
       const next: any = { ...prev, [name]: val };
@@ -711,7 +715,6 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
   };
 
   const handleDropdownChange = (field: keyof PropertyFormData) => (value: string) => {
-    console.log(`Dropdown Change [${field}]:`, value); // 👈 Console log
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field as string]) setErrors(prev => ({ ...prev, [field as string]: '' }));
   };
@@ -728,9 +731,6 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       const updated = alreadySelected
         ? prev.amenities.filter(v => String(v) !== String(value))
         : [...prev.amenities.map(String), String(value)];
-
-      console.log("Selected Amenities:", updated); // 👈 Console log
-
       return {
         ...prev,
         amenities: updated,
@@ -744,9 +744,6 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       const updated = alreadySelected
         ? prev.furnishingItems.filter(v => String(v) !== String(value))
         : [...prev.furnishingItems.map(String), String(value)];
-
-      console.log("Selected Furnishing Items:", updated); // 👈 Console log
-
       return {
         ...prev,
         furnishingItems: updated,
@@ -879,6 +876,95 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
     return Object.keys(e).length === 0;
   };
 
+  // Helper to create seller safely
+  const createSellerSafe = async (payload: {
+    salutation?: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
+  }) => {
+    try {
+      // Try sellersAPI methods first
+      if ((sellerAPI as any)?.createSeller) {
+        return await (sellerAPI as any).createSeller(payload);
+      }
+
+      if ((sellerAPI as any)?.create) {
+        return await (sellerAPI as any).create(payload);
+      }
+
+      if ((propertiesAPI as any)?.createSeller) {
+        return await (propertiesAPI as any).createSeller(payload);
+      }
+      const res = await fetch('/api/sellers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('API error response:', {
+          status: res.status,
+          statusText: res.statusText,
+          body: errorText
+        });
+        throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`);
+      }
+
+      const result = await res.json();
+      return result;
+
+    } catch (err: any) {
+      console.error('Error in createSellerSafe:', err);
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to seller API');
+      }
+
+      if (err.response) {
+        const msg = err.response.data?.message || err.response.statusText || 'Unknown API error';
+        throw new Error(`API Error: ${msg}`);
+      }
+
+      throw new Error(err.message || 'Unknown error creating seller');
+    }
+  };
+
+  const extractIdFromResponse = (obj: any): string | null => {
+    if (!obj) {
+      console.warn('extractIdFromResponse: No response object provided');
+      return null;
+    }
+
+    // Try various common ID field names
+    const possibleIds = [
+      obj.id,
+      obj._id,
+      obj.seller_id,
+      obj.sellerId,
+      obj.data?.id,
+      obj.data?._id,
+      obj.data?.seller_id,
+      obj.result?.id,
+      obj.result?._id
+    ];
+
+    for (const id of possibleIds) {
+      if (id !== null && id !== undefined) {
+        const idStr = String(id);
+        console.log('Found ID:', idStr);
+        return idStr;
+      }
+    }
+
+    console.warn('No ID found in response object:', obj);
+    return null;
+  };
+
   const buildPayload = (): FormData => {
     const fd = new FormData();
 
@@ -890,27 +976,63 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       "status", "leadSource", "possessionMonth", "possessionYear",
       "purchaseMonth", "purchaseYear", "sellingRights", "description"
     ];
-    textFields.forEach((k) => fd.append(k, String((formData as any)[k] ?? "")));
 
+    textFields.forEach((k) => {
+      const value = (formData as any)[k] ?? "";
+      fd.append(k, String(value));
+    });
+
+    // Add society_name (human-readable label)
+    const societyLabel = getLabelFromValue(masterOptions['society'] || [], formData.society) || '';
+    fd.append('society_name', societyLabel);
+
+    // Add boolean field
+    fd.append('sameAsPhone', String(formData.sameAsPhone ?? true));
+
+    // Add JSON fields
     fd.append("amenities", JSON.stringify(formData.amenities || []));
     fd.append("furnishingItems", JSON.stringify(formData.furnishingItems || []));
     fd.append("nearby_places", JSON.stringify(formData.nearby_places || []));
 
+    // Handle existing files for edit mode
     if (mode === 'edit') {
       const existingPhotoUrls = photoPreviews.filter(p => p.isExisting).map(p => p.url);
       fd.append("existingPhotoUrls", JSON.stringify(existingPhotoUrls));
+
       if (ownershipDocPreview?.isExisting) {
         fd.append("existingOwnershipDocUrl", ownershipDocPreview.url);
       }
     }
 
+    // Add new files
     if (formData.ownershipDoc) {
       fd.append("ownershipDoc", formData.ownershipDoc, formData.ownershipDoc.name);
     }
-    (formData.photos || []).forEach((file) => file && fd.append("photos", file, file.name));
+
+    (formData.photos || []).forEach((file) => {
+      if (file) {
+        fd.append("photos", file, file.name);
+      }
+    });
 
     return fd;
   };
+  useEffect(() => {
+    if (!isOpen) return;
+    if (mode !== 'create') return;
+
+    const fullName = `${formData.salutation || ''} ${formData.ownerName || ''}`.trim();
+    setFormData(prev => ({ ...prev, seller: fullName }));
+  }, [formData.salutation, formData.ownerName, isOpen, mode]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (mode !== 'create') return;
+    const autop = `${formData.salutation || ''} ${formData.ownerName || ''}`.trim();
+    if (!formData.seller || formData.seller.trim() === '') {
+      setFormData(prev => ({ ...prev, seller: autop }));
+    }
+  }, [formData.salutation, formData.ownerName, isOpen, mode]);
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
@@ -920,21 +1042,89 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       setLoading(true);
       setErrorBanner(null);
 
-      const payload = buildPayload();
-      let result;
+      let result: any;
 
       if (mode === 'edit' && propertyId) {
+        // For edit mode, just update the property
+        const payload = buildPayload();
         result = await propertiesAPI.updateProperty(String(propertyId), payload);
-        toast.success('Property updated successfully ✅');
+        toast.success('Property updated successfully');
       } else {
-        result = await propertiesAPI.createProperty(payload);
-        toast.success('Property created successfully 🎉');
+        // CREATE MODE: First create seller, then create property with seller_id
+        let sellerId: string | null = null;
+        let sellerName = '';
+
+        // Step 1: Create seller first (if owner info is provided)
+        const hasSellerInfo = (formData.ownerName && formData.ownerName.trim()) &&
+          (formData.ownerEmail || formData.ownerPhone);
+
+        if (hasSellerInfo) {
+          try {
+            const sellerPayload = {
+              salutation: formData.salutation,
+              name: formData.ownerName,
+              email: formData.ownerEmail,
+              phone: formData.ownerPhone,
+              whatsapp: formData.ownerWhatsapp
+            };
+
+            console.log('Creating seller with payload:', sellerPayload);
+            const sellerRes = await createSellerSafe(sellerPayload);
+            console.log('Seller creation response:', sellerRes);
+
+            sellerId = extractIdFromResponse(sellerRes);
+            sellerName = `${formData.salutation ? formData.salutation + ' ' : ''}${formData.ownerName}`.trim();
+
+          } catch (sellerErr: any) {
+            return; // Don't proceed with property creation if seller creation fails
+          }
+        }
+        const payload = buildPayload();
+        if (sellerId) {
+          payload.append('seller_id', String(sellerId));
+          payload.append('seller_name', sellerName);
+          console.log('Adding seller info to property:', { seller_id: sellerId, seller_name: sellerName });
+        }
+        try {
+          result = await propertiesAPI.createProperty(payload);
+
+          if (sellerId) {
+            result = {
+              ...result,
+              seller_id: sellerId,
+              seller_name: sellerName
+            };
+          }
+
+
+
+        } catch (propertyErr: any) {
+          console.error('Property creation failed:', propertyErr);
+          const msg = propertyErr?.response?.data?.message || propertyErr?.message || 'Failed to create property';
+          setErrorBanner(msg);
+          toast.error(msg);
+          return;
+        }
       }
 
-      onSubmit(result);
-      onClose?.();
+      setShowThankYou(true);
+
+      // Call onSubmit callback if provided
+      if (typeof onSubmit === 'function') {
+        try {
+          onSubmit(result);
+        } catch (err) {
+          console.error('onSubmit handler threw:', err);
+        }
+      } else {
+        console.warn('PublicSellPropertyForm: onSubmit not provided; skipping callback.');
+      }
+
+      // NOTE: Don't call onClose() here - let the thank you modal handle closing
+      // The thank you modal's close button will call onClose()
+
     } catch (e: any) {
-      console.error(e);
+      console.error('Unexpected error in handleSubmit:', e);
       const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
       setErrorBanner(msg);
       toast.error(msg);
@@ -966,497 +1156,550 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
   if (!isOpen) return null;
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={modalTitle}
-      subtitle={
-        <>
-          <ArrowRight size={18} className="mr-1 inline" />
-          <span>Owner Information • Let us know who you are ?</span>
-        </>
-      }
-      width="max-w-[95vw] md:max-w-4xl lg:max-w-5xl "
-    >
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={modalTitle}
+        subtitle={
+          <>
+            <ArrowRight size={18} className="mr-1 inline" />
+            <span>Owner Information • Let us know who you are ?</span>
+          </>
+        }
+        width="max-w-[95vw] md:max-w-4xl lg:max-w-5xl"
+      >
 
-      <div className="space-y-6 relative" style={{ minHeight: '320px' }}>
-        {loading && (
-          <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            <span className="ml-3 text-sm">{mode === 'edit' ? 'Updating...' : 'Saving...'}</span>
-          </div>
-        )}
+        <div className="space-y-6 relative" style={{ minHeight: '320px' }}>
+          {loading && (
+            <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-20">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              <span className="ml-3 text-sm">{mode === 'edit' ? 'Updating...' : 'Saving...'}</span>
+            </div>
+          )}
 
-        {errorBanner && (
-          <div className="bg-red-50 border-l-4 border-red-400 text-red-700 p-3 rounded">
-            {errorBanner}
-          </div>
-        )}
+          {errorBanner && (
+            <div className="bg-red-50 border-l-4 border-red-400 text-red-700 p-3 rounded">
+              {errorBanner}
+            </div>
+          )}
 
-        {/* Owner section */}
-        <div className={CONTROL_WRAPPER}>
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Salutation</label>
-              <select
-                name="salutation"
-                value={formData.salutation || ''}
-                onChange={handleEventChange}
-                className="border border-gray-300 rounded w-full h-8 px-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select Salutation</option>
-                <option value="Mr">Mr</option>
-                <option value="Ms">Ms</option>
-                <option value="Mrs">Mrs</option>
-                <option value="Dr">Dr</option>
-                <option value="Mx">Mx</option>
-              </select>
+          {/* Owner section */}
+          <div className={CONTROL_WRAPPER}>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Salutation</label>
+                <select
+                  name="salutation"
+                  value={formData.salutation || ''}
+                  onChange={handleEventChange}
+                  className="border border-gray-300 rounded w-full h-8 px-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Salutation</option>
+                  <option value="Mr">Mr</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Dr">Dr</option>
+                  <option value="Mx">Mx</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-5">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="ownerName"
+                  value={formData.ownerName || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[0-9]/g, '');
+                    handleEventChange({ target: { name: 'ownerName', value } } as any);
+                  }}
+                  placeholder="Enter your full name"
+                  className="border border-gray-300 rounded w-full h-8 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+                {errors.ownerName && (
+                  <p className="text-red-500 text-xs mt-1">{errors.ownerName}</p>
+                )}
+              </div>
+
+              <div className="md:col-span-5">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Email Address <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  name="ownerEmail"
+                  value={formData.ownerEmail || ''}
+                  onChange={handleEventChange}
+                  placeholder="your.email@example.com"
+                  className="border px-2 border-gray-300 rounded w-full h-8 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+                {errors.ownerEmail && (
+                  <p className="text-red-500 text-xs mt-1">{errors.ownerEmail}</p>
+                )}
+              </div>
             </div>
 
-            <div className="md:col-span-5">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Full Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="ownerName"
-                value={formData.ownerName || ''}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[0-9]/g, '');
-                  handleEventChange({ target: { name: 'ownerName', value } } as any);
-                }}
-                placeholder="Enter your full name"
-                className="border border-gray-300 rounded w-full h-8 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-              {errors.ownerName && (
-                <p className="text-red-500 text-xs mt-1">{errors.ownerName}</p>
-              )}
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Phone Number <span className="text-red-500">*</span>
+                </label>
+                <PhoneInput
+                  country={'in'}
+                  value={formData.ownerPhone || ''}
+                  onChange={(v: any) => handlePhoneChange(String(v || ''))}
+                  onBlur={() => handlePhoneBlur('ownerPhone')}
+                  inputClass="!w-full !h-8 !rounded !border-gray-300 !text-xs focus:!ring-1 focus:!ring-blue-500 focus:!border-transparent"
+                  containerClass="!w-full"
+                  inputProps={{
+                    name: 'ownerPhone',
+                    required: true,
+                    autoFocus: false
+                  }}
+                />
+                {errors.ownerPhone && (
+                  <p className="text-red-500 text-xs mt-1">{errors.ownerPhone}</p>
+                )}
+              </div>
 
-            <div className="md:col-span-5">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Email Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                name="ownerEmail"
-                value={formData.ownerEmail || ''}
-                onChange={handleEventChange}
-                placeholder="your.email@example.com"
-                className="border px-2 border-gray-300 rounded w-full h-8  text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-              {errors.ownerEmail && (
-                <p className="text-red-500 text-xs mt-1">{errors.ownerEmail}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Phone Number <span className="text-red-500">*</span>
-              </label>
-              <PhoneInput
-                country={'in'}
-                value={formData.ownerPhone || ''}
-                onChange={(v: any) => handlePhoneChange(String(v || ''))}
-                onBlur={() => handlePhoneBlur('ownerPhone')}
-                inputClass="!w-full !h-8 !rounded !border-gray-300 !text-xs focus:!ring-1 focus:!ring-blue-500 focus:!border-transparent"
-                containerClass="!w-full"
-                inputProps={{
-                  name: 'ownerPhone',
-                  required: true,
-                  autoFocus: false
-                }}
-              />
-              {errors.ownerPhone && (
-                <p className="text-red-500 text-xs mt-1">{errors.ownerPhone}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-2">
-                <FaWhatsapp className="text-green-500" /> WhatsApp Number
-                <div className="ml-auto flex items-center">
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.sameAsPhone}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setFormData((prev) => ({
-                          ...prev,
-                          sameAsPhone: checked,
-                          ownerWhatsapp: checked ? prev.ownerPhone : prev.ownerWhatsapp
-                        }));
-                        if (checked && errors.ownerWhatsapp)
-                          setErrors((prev) => ({ ...prev, ownerWhatsapp: '' }));
-                      }}
-                      className="sr-only"
-                    />
-                    <div
-                      className={`w-8 h-3 rounded-full relative transition-colors duration-200 ease-in-out ${formData.sameAsPhone ? 'bg-blue-500' : 'bg-gray-300'
-                        }`}
-                    >
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <FaWhatsapp className="text-green-500" /> WhatsApp Number
+                  <div className="ml-auto flex items-center">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.sameAsPhone}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setFormData((prev) => ({
+                            ...prev,
+                            sameAsPhone: checked,
+                            ownerWhatsapp: checked ? prev.ownerPhone : prev.ownerWhatsapp
+                          }));
+                          if (checked && errors.ownerWhatsapp)
+                            setErrors((prev) => ({ ...prev, ownerWhatsapp: '' }));
+                        }}
+                        className="sr-only"
+                      />
                       <div
-                        className={`absolute top-0.3 left-0.5 bg-white w-3 h-3 rounded-full transition-transform duration-200 ease-in-out ${formData.sameAsPhone ? 'translate-x-5' : 'translate-x-0'
+                        className={`w-8 h-3 rounded-full relative transition-colors duration-200 ease-in-out ${formData.sameAsPhone ? 'bg-blue-500' : 'bg-gray-300'
                           }`}
-                      ></div>
-                    </div>
-                    <span className="ml-2 text-xs text-gray-600">
-                      {formData.sameAsPhone ? 'Same as phone' : 'Different'}
-                    </span>
-                  </label>
-                </div>
-              </label>
+                      >
+                        <div
+                          className={`absolute top-0.5 left-0.5 bg-white w-2 h-2 rounded-full transition-transform duration-200 ease-in-out ${formData.sameAsPhone ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                        ></div>
+                      </div>
+                      <span className="ml-2 text-xs text-gray-600">
+                        {formData.sameAsPhone ? 'Same as phone' : 'Different'}
+                      </span>
+                    </label>
+                  </div>
+                </label>
 
-              <input
-                type="tel"
-                name="ownerWhatsapp"
-                value={
-                  formData.sameAsPhone
-                    ? formData.ownerPhone || ''
-                    : formData.ownerWhatsapp || ''
-                }
-                onChange={(e) => handleWhatsappChange(e.target.value)}
-                onBlur={() => handlePhoneBlur('ownerWhatsapp')}
-                disabled={formData.sameAsPhone}
-                placeholder="9876543210"
-                maxLength={10}
-                className={`border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${formData.sameAsPhone ? 'bg-gray-100' : ''
-                  }`}
-              />
+                <input
+                  type="tel"
+                  name="ownerWhatsapp"
+                  value={
+                    formData.sameAsPhone
+                      ? formData.ownerPhone || ''
+                      : formData.ownerWhatsapp || ''
+                  }
+                  onChange={(e) => handleWhatsappChange(e.target.value)}
+                  onBlur={() => handlePhoneBlur('ownerWhatsapp')}
+                  disabled={formData.sameAsPhone}
+                  placeholder="9876543210"
+                  maxLength={10}
+                  className={`border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${formData.sameAsPhone ? 'bg-gray-100' : ''
+                    }`}
+                />
 
-              {errors.ownerWhatsapp && (
-                <p className="text-red-500 text-xs mt-1">{errors.ownerWhatsapp}</p>
-              )}
+                {errors.ownerWhatsapp && (
+                  <p className="text-red-500 text-xs mt-1">{errors.ownerWhatsapp}</p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Property grid */}
-        <div className={CONTROL_WRAPPER}>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <div>
-              <label className={LABEL}>Seller (optional)</label>
-              <input type="text" placeholder="Enter Seller" value={formData.seller || ""} onChange={(e) => handleInputChange('seller', e.target.value)} className={FIELD} />
-            </div>
+          {/* Property grid */}
+          <div className={CONTROL_WRAPPER}>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div>
+                <label className={LABEL}>Seller (optional)</label>
+                <input
+                  type="text"
+                  placeholder="Enter Seller"
+                  value={formData.seller || ""}
+                  onChange={(e) => handleInputChange('seller', e.target.value)}
+                  className={FIELD}
+                />
 
-            <div>
-              <label className={LABEL}>Property Type*</label>
-              <SafeDropdown placeholder="Select Property Type" options={getOptions('property type')} value={formData.propertyType} onChange={handleDropdownChange('propertyType')} className="w-full" />
-              {errors.propertyType && <p className="text-red-500 text-xs mt-1">{errors.propertyType}</p>}
-            </div>
+              </div>
 
-            <div>
-              <label className={LABEL}>Property Subtype*</label>
-              <SafeDropdown placeholder="Select Property Subtype" options={getOptions('property subtype')} value={formData.propertySubtype} onChange={handleDropdownChange('propertySubtype')} className="w-full" />
-              {errors.propertySubtype && <p className="text-red-500 text-xs mt-1">{errors.propertySubtype}</p>}
-            </div>
+              <div>
+                <label className={LABEL}>Property Type <span className="text-red-500">*</span></label>
+                <SafeDropdown placeholder="Select Property Type" options={getOptions('property type')} value={formData.propertyType} onChange={handleDropdownChange('propertyType')} className="w-full" />
+                {errors.propertyType && <p className="text-red-500 text-xs mt-1">{errors.propertyType}</p>}
+              </div>
 
-            <div>
-              <label className={LABEL}>Unit Type</label>
-              <SafeDropdown placeholder="Select Unit Type" options={getOptions('unit type')} value={formData.unitType} onChange={handleDropdownChange('unitType')} className="w-full" />
-            </div>
+              <div>
+                <label className={LABEL}>Property Subtype <span className="text-red-500">*</span></label>
+                <SafeDropdown placeholder="Select Property Subtype" options={getOptions('property subtype')} value={formData.propertySubtype} onChange={handleDropdownChange('propertySubtype')} className="w-full" />
+                {errors.propertySubtype && <p className="text-red-500 text-xs mt-1">{errors.propertySubtype}</p>}
+              </div>
 
-            <div>
-              <label className={LABEL}>Wing</label>
-              <input type="text" placeholder="Wing name/number" value={formData.wing} onChange={(e) => handleInputChange('wing', e.target.value)} className={FIELD} />
-            </div>
+              <div>
+                <label className={LABEL}>Unit Type</label>
+                <SafeDropdown placeholder="Select Unit Type" options={getOptions('unit type')} value={formData.unitType} onChange={handleDropdownChange('unitType')} className="w-full" />
+              </div>
 
-            <div>
-              <label className={LABEL}>Unit No</label>
-              <input type="text" placeholder="Unit/Flat no" value={formData.unitNo} onChange={(e) => handleInputChange('unitNo', e.target.value)} className={FIELD} />
-            </div>
+              <div>
+                <label className={LABEL}>Wing</label>
+                <input type="text" placeholder="Wing name/number" value={formData.wing} onChange={(e) => handleInputChange('wing', e.target.value)} className={FIELD} />
+              </div>
 
-            <div>
-              <label className={LABEL}>Furnishing</label>
-              <SafeDropdown placeholder="Select Furnishing" options={getOptions('furnishing')} value={formData.furnishing} onChange={handleDropdownChange('furnishing')} className="w-full" />
-            </div>
+              <div>
+                <label className={LABEL}>Unit No</label>
+                <input type="text" placeholder="Unit/Flat no" value={formData.unitNo} onChange={(e) => handleInputChange('unitNo', e.target.value)} className={FIELD} />
+              </div>
 
-            <div>
-              <label className={LABEL}>Parking Type</label>
-              <SafeDropdown placeholder="Select Parking Type" options={getOptions('parking type')} value={formData.parkingType} onChange={handleDropdownChange('parkingType')} className="w-full" />
-            </div>
+              <div>
+                <label className={LABEL}>Furnishing</label>
+                <SafeDropdown placeholder="Select Furnishing" options={getOptions('furnishing')} value={formData.furnishing} onChange={handleDropdownChange('furnishing')} className="w-full" />
+              </div>
 
-            <div>
-              <label className={LABEL}>Parking Qty</label>
-              <SafeDropdown placeholder="Select Parking Quantity" options={getOptions('parking qty')} value={formData.parkingQty} onChange={handleDropdownChange('parkingQty')} className="w-full" />
-            </div>
+              <div>
+                <label className={LABEL}>Parking Type</label>
+                <SafeDropdown placeholder="Select Parking Type" options={getOptions('parking type')} value={formData.parkingType} onChange={handleDropdownChange('parkingType')} className="w-full" />
+              </div>
 
-            <div>
-              <label className={LABEL}>City*</label>
-              <SafeDropdown placeholder="Select City" options={getOptions('city')} value={formData.city} onChange={handleDropdownChange('city')} className="w-full" />
-              {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
-            </div>
+              <div>
+                <label className={LABEL}>Parking Qty</label>
+                <SafeDropdown placeholder="Select Parking Quantity" options={getOptions('parking qty')} value={formData.parkingQty} onChange={handleDropdownChange('parkingQty')} className="w-full" />
+              </div>
 
-            <div>
-              <label className={LABEL}>Location*</label>
-              <SafeDropdown placeholder="Select Location" options={getOptions('location')} value={formData.location} onChange={handleDropdownChange('location')} className="w-full" />
-              {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
-            </div>
+              <div>
+                <label className={LABEL}>City <span className="text-red-500">*</span></label>
+                <SafeDropdown placeholder="Select City" options={getOptions('city')} value={formData.city} onChange={handleDropdownChange('city')} className="w-full" />
+                {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
+              </div>
 
-            <div>
-              <label className={LABEL}>Society*</label>
-              <SafeDropdown placeholder="Select Society" options={getOptions('society')} value={formData.society} onChange={handleDropdownChange('society')} className="w-full" />
-              {errors.society && <p className="text-red-500 text-xs mt-1">{errors.society}</p>}
-            </div>
+              <div>
+                <label className={LABEL}>Location <span className="text-red-500">*</span></label>
+                <SafeDropdown placeholder="Select Location" options={getOptions('location')} value={formData.location} onChange={handleDropdownChange('location')} className="w-full" />
+                {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
+              </div>
 
-            <div>
-              <label className={LABEL}>Floor</label>
-              <SafeDropdown placeholder="Select Floor" options={getOptions('floor')} value={formData.floor} onChange={handleDropdownChange('floor')} className="w-full" />
-            </div>
+              <div>
+                <label className={LABEL}>Society <span className="text-red-500">*</span></label>
+                <SafeDropdown placeholder="Select Society" options={getOptions('society')} value={formData.society} onChange={handleDropdownChange('society')} className="w-full" />
+                {errors.society && <p className="text-red-500 text-xs mt-1">{errors.society}</p>}
+              </div>
 
-            <div>
-              <label className={LABEL}>Total Floors</label>
-              <SafeDropdown placeholder="Select Total Floors" options={getOptions('total floors')} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" />
-            </div>
+              <div>
+                <label className={LABEL}>Floor</label>
+                <SafeDropdown placeholder="Select Floor" options={getOptions('floor')} value={formData.floor} onChange={handleDropdownChange('floor')} className="w-full" />
+              </div>
 
-            <div>
-              <label className={LABEL}>Carpet Area (sq.ft)*</label>
-              <input type="number" placeholder="Enter carpet area" value={formData.carpetArea} onChange={(e) => handleInputChange('carpetArea', e.target.value)} className={`${FIELD} ${errors.carpetArea ? 'border-red-400' : ''}`} />
-              {errors.carpetArea && <p className="text-red-500 text-xs mt-1">{errors.carpetArea}</p>}
-            </div>
+              <div>
+                <label className={LABEL}>Total Floors</label>
+                <SafeDropdown placeholder="Select Total Floors" options={getOptions('total floors')} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" />
+              </div>
 
-            <div>
-              <label className={LABEL}>Builtup Area (sq.ft) (optional)</label>
-              <input type="number" placeholder="Enter builtup area" value={formData.builtupArea} onChange={(e) => handleInputChange('builtupArea', e.target.value)} className={FIELD} />
-            </div>
+              <div>
+                <label className={LABEL}>Carpet Area (sq.ft) <span className="text-red-500">*</span></label>
+                <input type="number" placeholder="Enter carpet area" value={formData.carpetArea} onChange={(e) => handleInputChange('carpetArea', e.target.value)} className={`${FIELD} ${errors.carpetArea ? 'border-red-400' : ''}`} />
+                {errors.carpetArea && <p className="text-red-500 text-xs mt-1">{errors.carpetArea}</p>}
+              </div>
 
-            <div>
-              <label className={LABEL}>Property Status</label>
-              <SafeDropdown placeholder="Select Status" options={getOptions('property status')} value={formData.status} onChange={handleDropdownChange('status')} className="w-full" />
-            </div>
+              <div>
+                <label className={LABEL}>Builtup Area (sq.ft) (optional)</label>
+                <input type="number" placeholder="Enter builtup area" value={formData.builtupArea} onChange={(e) => handleInputChange('builtupArea', e.target.value)} className={FIELD} />
+              </div>
 
-            <div>
-              <label className={LABEL}>Lead Source</label>
-              <SafeDropdown placeholder="Select Lead Source" options={getOptions('lead source')} value={formData.leadSource} onChange={handleDropdownChange('leadSource')} className="w-full" />
-            </div>
+              <div>
+                <label className={LABEL}>Property Status</label>
+                <SafeDropdown placeholder="Select Status" options={getOptions('property status')} value={formData.status} onChange={handleDropdownChange('status')} className="w-full" />
+              </div>
 
-            <div>
-              <PossessionDropdown
-                title="Purchase Month & Year"
-                possessionMonth={formData.purchaseMonth}
-                possessionYear={formData.purchaseYear}
-                onMonthChange={(m) => handleInputChange('purchaseMonth', m)}
-                onYearChange={(y) => handleInputChange('purchaseYear', y)}
-              />
-            </div>
+              <div>
+                <label className={LABEL}>Lead Source</label>
+                <SafeDropdown placeholder="Select Lead Source" options={getOptions('lead source')} value={formData.leadSource} onChange={handleDropdownChange('leadSource')} className="w-full" />
+              </div>
 
-            <div>
-              <PossessionDropdown
-                title="Possession Month & Year"
-                possessionMonth={formData.possessionMonth}
-                possessionYear={formData.possessionYear}
-                onMonthChange={(m) => handleInputChange('possessionMonth', m)}
-                onYearChange={(y) => handleInputChange('possessionYear', y)}
-              />
-            </div>
+              <div>
+                <PossessionDropdown
+                  title="Purchase Month & Year"
+                  possessionMonth={formData.purchaseMonth}
+                  possessionYear={formData.purchaseYear}
+                  onMonthChange={(m) => handleInputChange('purchaseMonth', m)}
+                  onYearChange={(y) => handleInputChange('purchaseYear', y)}
+                />
+              </div>
 
-            <div>
-              <label className={LABEL}>Selling Rights</label>
-              <SafeDropdown placeholder="Select Selling Rights" options={getOptions('selling rights')} value={formData.sellingRights} onChange={handleDropdownChange('sellingRights')} className="w-full" />
-            </div>
+              <div>
+                <PossessionDropdown
+                  title="Possession Month & Year"
+                  possessionMonth={formData.possessionMonth}
+                  possessionYear={formData.possessionYear}
+                  onMonthChange={(m) => handleInputChange('possessionMonth', m)}
+                  onYearChange={(y) => handleInputChange('possessionYear', y)}
+                />
+              </div>
 
-            <div>
-              <BudgetInput value={formData.budget} onChange={(v) => handleInputChange('budget', v)} error={errors.budget} />
-            </div>
+              <div>
+                <label className={LABEL}>Selling Rights</label>
+                <SafeDropdown placeholder="Select Selling Rights" options={getOptions('selling rights')} value={formData.sellingRights} onChange={handleDropdownChange('sellingRights')} className="w-full" />
+              </div>
 
-            <div className="">
-              <MultiSelectDropdown
-                label="Amenities"
-                options={getOptions('amenities')}
-                selectedValues={formData.amenities}
-                onToggle={handleAmenitiesToggle}
-                placeholder="Select amenities..."
-              />
-              {formData.amenities.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.amenities.map((val) => {
-                    const opt = getOptions('amenities').find(o => String(o.value) === String(val));
-                    return (
-                      <span
-                        key={String(val)}
-                        className="flex items-center bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-[10px]"
-                      >
-                        {opt?.label || val}
-                        <button
-                          type="button"
-                          onClick={() => handleAmenitiesToggle(String(val))}
-                          className="ml-1 text-purple-500 hover:text-purple-700"
+              <div>
+                <BudgetInput value={formData.budget} onChange={(v) => handleInputChange('budget', v)} error={errors.budget} />
+              </div>
+
+              <div className="">
+                <MultiSelectDropdown
+                  label="Amenities"
+                  options={getOptions('amenities')}
+                  selectedValues={formData.amenities}
+                  onToggle={handleAmenitiesToggle}
+                  placeholder="Select amenities..."
+                />
+                {formData.amenities.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.amenities.map((val) => {
+                      const opt = getOptions('amenities').find(o => String(o.value) === String(val));
+                      return (
+                        <span
+                          key={String(val)}
+                          className="flex items-center bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-[10px]"
                         >
-                          ×
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                          {opt?.label || val}
+                          <button
+                            type="button"
+                            onClick={() => handleAmenitiesToggle(String(val))}
+                            className="ml-1 text-purple-500 hover:text-purple-700"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
-            <div className="w-full z-40">
-              <MultiSelectDropdown
-                label="Furnishing Items"
-                options={getOptions('furnishing items')}
-                selectedValues={formData.furnishingItems}
-                onToggle={handleFurnishingItemsToggle}
-                placeholder="Select furnishing items..."
-              />
-              {formData.furnishingItems.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.furnishingItems.map((val) => {
-                    const opt = getOptions('furnishing items').find(o => String(o.value) === String(val));
-                    return (
-                      <span
-                        key={String(val)}
-                        className="flex items-center bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-[10px]"
-                      >
-                        {opt?.label || val}
-                        <button
-                          type="button"
-                          onClick={() => handleFurnishingItemsToggle(String(val))}
-                          className="ml-1 text-purple-500 hover:text-purple-700"
+              <div className="w-full z-40">
+                <MultiSelectDropdown
+                  label="Furnishing Items"
+                  options={getOptions('furnishing items')}
+                  selectedValues={formData.furnishingItems}
+                  onToggle={handleFurnishingItemsToggle}
+                  placeholder="Select furnishing items..."
+                />
+                {formData.furnishingItems.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.furnishingItems.map((val) => {
+                      const opt = getOptions('furnishing items').find(o => String(o.value) === String(val));
+                      return (
+                        <span
+                          key={String(val)}
+                          className="flex items-center bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-[10px]"
                         >
-                          ×
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="md:col-span-2 lg:col-span-2">
-              <label className={LABEL}>Address</label>
-              <textarea placeholder="Auto-filled based on selections (editable)" value={formData.address} onChange={(e) => handleInputChange('address', e.target.value)} rows={3} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50" />
-            </div>
-
-            <div className="md:col-span-2 lg:col-span-2">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Nearby Places</h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-12 gap-3">
-                  <div className="col-span-12 md:col-span-4">
-                    <label className={LABEL}>Place Name</label>
-                    <SafeDropdown placeholder="Select Place" options={getOptions('place name')} value={nearbyPlaceForm.name} onChange={(v) => handleNearbyPlaceInputChange('name', v)} className="w-full" />
+                          {opt?.label || val}
+                          <button
+                            type="button"
+                            onClick={() => handleFurnishingItemsToggle(String(val))}
+                            className="ml-1 text-purple-500 hover:text-purple-700"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
                   </div>
+                )}
+              </div>
 
-                  <div className="col-span-6 md:col-span-2">
-                    <label className={LABEL}>Distance</label>
-                    <input type="number" className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Enter distance" value={nearbyPlaceForm.distance} onChange={(e) => handleNearbyPlaceInputChange('distance', e.target.value)} />
-                  </div>
+              <div className="md:col-span-2 lg:col-span-2">
+                <label className={LABEL}>Address</label>
+                <textarea placeholder="Auto-filled based on selections (editable)" value={formData.address} onChange={(e) => handleInputChange('address', e.target.value)} rows={3} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50" />
+              </div>
 
-                  <div className="col-span-6 md:col-span-2">
-                    <label className={LABEL}>Unit</label>
-                    <select className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500" value={nearbyPlaceForm.unit} onChange={(e) => handleNearbyPlaceInputChange('unit', e.target.value)}>
-                      <option value="">Select Unit</option>
-                      <option value="km">km</option>
-                      <option value="m">m</option>
-                      <option value="min">min</option>
-                    </select>
-                  </div>
-
-                  <div className="col-span-12 md:col-span-3">
-                    <label className={LABEL}>Place Type</label>
-                    <div className="flex gap-2 items-center">
-                      <SafeDropdown placeholder="Select" options={getOptions('place type')} value={nearbyPlaceForm.type} onChange={(v) => handleNearbyPlaceInputChange('type', v)} className="flex-1" />
-                      <button type="button" onClick={addNearbyPlace} className="h-10 px-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300" disabled={!nearbyPlaceForm.name || !nearbyPlaceForm.distance || !nearbyPlaceForm.unit || !nearbyPlaceForm.type} title="Add place">
-                        <Plus size={16} />
-                      </button>
+              <div className="md:col-span-2 lg:col-span-2">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Nearby Places</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-12 gap-3">
+                    <div className="col-span-12 md:col-span-4">
+                      <label className={LABEL}>Place Name</label>
+                      <SafeDropdown placeholder="Select Place" options={getOptions('place name')} value={nearbyPlaceForm.name} onChange={(v) => handleNearbyPlaceInputChange('name', v)} className="w-full" />
                     </div>
-                  </div>
-                </div>
 
-                <div className="space-y-2 ">
-                  {formData.nearby_places.length === 0 ? (
-                    <div className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded">
-                      No nearby places added yet. Fill the form above and click + to add places.
+                    <div className="col-span-6 md:col-span-2">
+                      <label className={LABEL}>Distance</label>
+                      <input type="number" className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Enter distance" value={nearbyPlaceForm.distance} onChange={(e) => handleNearbyPlaceInputChange('distance', e.target.value)} />
                     </div>
-                  ) : (
-                    formData.nearby_places.map((place, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                        <div className="text-sm text-gray-700">
-                          <span className="font-medium text-blue-600">{place.name}</span>
-                          <span className="text-gray-500 ml-2">({place.distance} {place.unit})</span>
-                          <span className="text-green-600 ml-2 capitalize">{place.type}</span>
-                        </div>
-                        <button type="button" onClick={() => removeNearbyPlace(index)} className="text-red-600 hover:text-red-800 transition-colors" title="Remove">
-                          <Trash2 size={16} />
+
+                    <div className="col-span-6 md:col-span-2">
+                      <label className={LABEL}>Unit</label>
+                      <select className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500" value={nearbyPlaceForm.unit} onChange={(e) => handleNearbyPlaceInputChange('unit', e.target.value)}>
+                        <option value="">Select Unit</option>
+                        <option value="km">km</option>
+                        <option value="m">m</option>
+                        <option value="min">min</option>
+                      </select>
+                    </div>
+
+                    <div className="col-span-12 md:col-span-3">
+                      <label className={LABEL}>Place Type</label>
+                      <div className="flex gap-2 items-center">
+                        <SafeDropdown placeholder="Select" options={getOptions('place type')} value={nearbyPlaceForm.type} onChange={(v) => handleNearbyPlaceInputChange('type', v)} className="flex-1" />
+                        <button type="button" onClick={addNearbyPlace} className="h-10 px-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300" disabled={!nearbyPlaceForm.name || !nearbyPlaceForm.distance || !nearbyPlaceForm.unit || !nearbyPlaceForm.type} title="Add place">
+                          <Plus size={16} />
                         </button>
                       </div>
-                    ))
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {formData.nearby_places.length === 0 ? (
+                      <div className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded">
+                        No nearby places added yet. Fill the form above and click + to add places.
+                      </div>
+                    ) : (
+                      formData.nearby_places.map((place, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                          <div className="text-sm text-gray-700">
+                            <span className="font-medium text-blue-600">{place.name}</span>
+                            <span className="text-gray-500 ml-2">({place.distance} {place.unit})</span>
+                            <span className="text-green-600 ml-2 capitalize">{place.type}</span>
+                          </div>
+                          <button type="button" onClick={() => removeNearbyPlace(index)} className="text-red-600 hover:text-red-800 transition-colors" title="Remove">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="md:col-span-2 lg:col-span-2">
+                <div className="space-y-3">
+                  <div>
+                    <label className={LABEL}>Ownership Doc (PDF/JPG/PNG)</label>
+                    <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 transition-colors bg-white">
+                      <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleOwnershipDocUpload(e.target.files?.[0] || null)} className="hidden" id="ownership-doc" />
+                      <label htmlFor="ownership-doc" className="cursor-pointer">
+                        <Upload className="h-5 w-5 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600 mb-1">Choose Document</p>
+                        <p className="text-xs text-gray-500">PDF, JPG, PNG up to 10MB</p>
+                      </label>
+                    </div>
+                  </div>
+
+                  {ownershipDocPreview && (
+                    <div>
+                      <label className={LABEL}>Document Preview</label>
+                      <FilePreviewComponent preview={ownershipDocPreview} onRemove={removeOwnershipDoc} />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 lg:col-span-2">
+                <div className="space-y-3">
+                  <div>
+                    <label className={LABEL}>Property Photos (JPG/PNG, Multiple)</label>
+                    <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 transition-colors bg-white">
+                      <input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => {
+                        const selected = Array.from(e.target.files || []);
+                        if (selected.length > 0) handlePhotosUpload(selected);
+                      }} className="hidden" id="property-photos" />
+                      <label htmlFor="property-photos" className="cursor-pointer">
+                        <Upload className="h-5 w-5 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600 mb-1">{photoPreviews.length > 0 ? 'Add More Photos' : 'Choose Photos'}</p>
+                        <p className="text-xs text-gray-500">JPG, PNG up to 5MB each</p>
+                      </label>
+                    </div>
+                  </div>
+
+                  {photoPreviews.length > 0 && (
+                    <div>
+                      <label className={LABEL}>Photos Preview ({photoPreviews.length} files)</label>
+                      <div className="grid grid-cols-3 gap-3 max-h-56 overflow-y-auto">
+                        {photoPreviews.map((preview, index) => (
+                          <FilePreviewComponent key={index} preview={preview} onRemove={() => removePhoto(index)} />
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="md:col-span-2 lg:col-span-2">
-              <div className="space-y-3">
-                <div>
-                  <label className={LABEL}>Ownership Doc (PDF/JPG/PNG)</label>
-                  <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 transition-colors bg-white">
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleOwnershipDocUpload(e.target.files?.[0] || null)} className="hidden" id="ownership-doc" />
-                    <label htmlFor="ownership-doc" className="cursor-pointer">
-                      <Upload className="h-5 w-5 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600 mb-1">Choose Document</p>
-                      <p className="text-xs text-gray-500">PDF, JPG, PNG up to 10MB</p>
-                    </label>
-                  </div>
-                </div>
+          <PropertyDescriptionAI formData={formData} setFormData={(u) => setFormData((p) => u(p))} endpoint="/api/ai/generate-description" />
 
-                {ownershipDocPreview && (
-                  <div>
-                    <label className={LABEL}>Document Preview</label>
-                    <FilePreviewComponent preview={ownershipDocPreview} onRemove={removeOwnershipDoc} />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="md:col-span-2 lg:col-span-2">
-              <div className="space-y-3">
-                <div>
-                  <label className={LABEL}>Property Photos (JPG/PNG, Multiple)</label>
-                  <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 transition-colors bg-white">
-                    <input type="file" accept=".jpg,.jpeg,.png" multiple onChange={(e) => {
-                      const selected = Array.from(e.target.files || []);
-                      if (selected.length > 0) handlePhotosUpload(selected);
-                    }} className="hidden" id="property-photos" />
-                    <label htmlFor="property-photos" className="cursor-pointer">
-                      <Upload className="h-5 w-5 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600 mb-1">{photoPreviews.length > 0 ? 'Add More Photos' : 'Choose Photos'}</p>
-                      <p className="text-xs text-gray-500">JPG, PNG up to 5MB each</p>
-                    </label>
-                  </div>
-                </div>
-
-                {photoPreviews.length > 0 && (
-                  <div>
-                    <label className={LABEL}>Photos Preview ({photoPreviews.length} files)</label>
-                    <div className="grid grid-cols-3 gap-3 max-h-56 overflow-y-auto">
-                      {photoPreviews.map((preview, index) => (
-                        <FilePreviewComponent key={index} preview={preview} onRemove={() => removePhoto(index)} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+          <div className="flex justify-end space-x-4 mt-4 pt-4 border-t border-gray-200">
+            <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={loading}>
+              {React.createElement(submitIcon, { className: "h-4 w-4 mr-2" })}
+              {submitButtonText}
+            </Button>
           </div>
         </div>
+      </Modal>
 
-        <PropertyDescriptionAI formData={formData} setFormData={(u) => setFormData((p) => u(p))} endpoint="/api/ai/generate-description" />
+      {showThankYou && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
+          {/* Background overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/70 to-purple-600/70 backdrop-blur-sm"></div>
 
-        <div className="flex justify-end space-x-4 mt-4 pt-4  border-t border-gray-200">
-          <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {React.createElement(submitIcon, { className: "h-4 w-4 mr-2" })}
-            {submitButtonText}
-          </Button>
-        </div>
-      </div>
-    </Modal>
+          {/* Modal box */}
+          <div className="relative bg-gradient-to-br from-white via-blue-50 to-purple-50 rounded-2xl shadow-2xl p-8 max-w-md w-full text-center animate-fadeInUp border border-blue-100">
+
+            {/* Success Icon */}
+            <div className="flex items-center justify-center w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r from-green-400 to-green-600 shadow-lg">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-10 w-10 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+
+            {/* Heading */}
+            <h3 className="text-3xl font-extrabold text-gray-900 mb-3">🎉 Thank you!</h3>
+            <p className="text-gray-700 mb-6 leading-relaxed">
+              Your property details have been <span className="font-semibold text-blue-600">submitted successfully</span>.
+              Our executive will contact you soon.
+            </p>
+
+            {/* Button */}
+            <button
+              onClick={() => {
+                setShowThankYou(false);
+                try { onClose?.(); } catch (e) { /* noop */ }
+              }}
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-semibold shadow hover:from-blue-600 hover:to-purple-700 focus:ring-2 focus:ring-purple-400 focus:outline-none transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+    </>
   );
 };
 
