@@ -10,7 +10,6 @@ interface Props {
     keySecret?: string | null;
     webhookSecret?: string | null;
     webhookUrl?: string | null;
-    isActive?: boolean;
   }) => Promise<any> | void;
   integration?: {
     id?: string;
@@ -35,7 +34,6 @@ const RazorpayConfigurationModal: React.FC<Props> = ({
   const [keySecret, setKeySecret] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
-  const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [showKeySecret, setShowKeySecret] = useState(false);
@@ -59,11 +57,6 @@ const RazorpayConfigurationModal: React.FC<Props> = ({
       setKeySecret(cfg?.key_secret ?? "");
       setWebhookSecret(cfg?.webhook_secret ?? "");
       setWebhookUrl(cfg?.webhook_url ?? "");
-      setIsActive(
-        typeof integration?.is_enabled === "boolean"
-          ? Boolean(integration?.is_enabled)
-          : true
-      );
       setErrors({});
       setSaved(false);
     }
@@ -116,7 +109,6 @@ const RazorpayConfigurationModal: React.FC<Props> = ({
     key_secret: keySecret.trim() || null,
     webhook_secret: webhookSecret.trim() || null,
     webhook_url: webhookUrl.trim() || null,
-    is_active: isActive ? 1 : 0,
   });
 
   const handleSave = async () => {
@@ -134,7 +126,6 @@ const RazorpayConfigurationModal: React.FC<Props> = ({
         keySecret: payload.key_secret,
         webhookSecret: payload.webhook_secret,
         webhookUrl: payload.webhook_url,
-        isActive: Boolean(payload.is_active === 1),
       });
 
       console.log("✅ Save response (Razorpay modal):", resp);
@@ -347,18 +338,7 @@ const RazorpayConfigurationModal: React.FC<Props> = ({
         {/* Footer with Active toggle shown at bottom-left */}
         <div className="bg-gray-50 px-6 py-4 flex items-center justify-between gap-3 border-t">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <input
-                id="razorpay-active"
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                className="h-4 w-4"
-              />
-              <label htmlFor="razorpay-active" className="text-sm text-gray-700">
-                Active
-              </label>
-            </div>
+            
             {saved && <span className="text-sm text-green-600">Saved</span>}
           </div>
 

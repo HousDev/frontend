@@ -27,7 +27,8 @@ import {
   Coffee,
   FileText,
   Receipt,
-  LayoutTemplate
+  LayoutTemplate,
+  MessageCircle
 } from 'lucide-react';
 import { FaEarthAsia } from "react-icons/fa6";
 import { useAuth } from '@/contexts/AuthContext';
@@ -329,6 +330,7 @@ const DashboardLayout: React.FC = () => {
       { name: 'Sellers', href: '/dashboard/sellers', icon: Users, color: 'text-cyan-600' },
       { name: 'Properties', href: '/dashboard/properties', icon: Building, color: 'text-orange-600' },
       { name: 'Blog Manager', href: '/dashboard/blog-manager', icon: FileText, color: 'text-rose-600' },
+      { name: 'Contact Messages', href: '/dashboard/contact-messages', icon: MessageCircle, color: 'text-rose-600' },
       { name: 'AI Training', href: '/dashboard/ai-training', icon: FileText, color: 'text-violet-600' },
       { name: 'Document Center', href: '/dashboard/document-center', icon: FileText, color: 'text-amber-600' },
       { name: 'Template Center', href: '/dashboard/template-center', icon: LayoutTemplate, color: 'text-lime-600' },
