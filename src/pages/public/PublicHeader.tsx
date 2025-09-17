@@ -79,7 +79,7 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
       textColor: '#1e40af',
       iconColor: '#f97316'
     },
-    { id: 'about', label: 'About', href: '/about', icon: Sparkles, textColor: '#1e3a8a', iconColor: '#ea580c' },
+    { id: 'about', label: 'About', href: '/about', icon: Info, textColor: '#1e3a8a', iconColor: '#ea580c' },
     { id: 'blogs', label: 'Blogs', href: '/blogs', icon: BookOpen, textColor: '#1e40af', iconColor: '#f97316' },
     { id: 'contact', label: 'Contact', href: '/contact', icon: Phone, textColor: '#1e3a8a', iconColor: '#ea580c' }
   ];
