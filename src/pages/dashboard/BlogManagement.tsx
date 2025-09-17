@@ -17,7 +17,8 @@ import {
   Wand2,
   Save,
   Send,
-  X
+  X,
+  Globe as GlobeIcon
 } from 'lucide-react';
 import { BlogPost, RSSSource, BlogCategory, BlogStatus } from '../../types/blog';
 
@@ -28,11 +29,38 @@ import RSSSourceManager from '@/components/blogManager/RSSSourceManager';
 import SocialMediaManager from '@/components/blogManager/SocialMediaManager';
 import BlogAnalytics from '@/components/blogManager/BlogAnalytics';
 import blogsAPI from '@/lib/blogsAPI';
+import { useAuth } from '@/contexts/AuthContext';
 
 const BlogManagement: React.FC = () => {
+  const { user } = useAuth?.() ?? { user: null };
+
+  const getUserDisplayName = (u: any) => {
+    if (!u) return 'Admin';
+    if (typeof u === 'string' && u.trim()) return u;
+    const candidates = [
+      u.name,
+      u.fullName,
+      u.displayName,
+      u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : null,
+      u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : null,
+      u.profile?.name,
+      u.attributes?.name,
+      u.user_metadata?.full_name,
+      u.username,
+      u.nick,
+      u.preferred_username
+    ];
+    for (const c of candidates) {
+      if (c && String(c).trim()) return String(c).trim();
+    }
+    if (u?.email) return u.email;
+    if (u?.emails && Array.isArray(u.emails) && u.emails[0]) return u.emails[0].value || u.emails[0];
+    return 'Admin';
+  };
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [rssources, setRSSources] = useState<RSSSource[]>([])
+  const [rssources, setRSSources] = useState<RSSSource[]>([]);
 
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
   const [showPostEditor, setShowPostEditor] = useState(false);
@@ -53,22 +81,17 @@ const BlogManagement: React.FC = () => {
     { id: 'content', label: 'Content Management', icon: FileText, description: 'Manage all blog posts' },
     { id: 'ai-writer', label: 'AI Content Studio', icon: Bot, description: 'Create content with AI' },
     { id: 'ai-tools', label: 'AI Enhancement Tools', icon: Wrench, description: 'Enhance existing content' },
-    { id: 'rss', label: 'RSS Sources', icon: Globe, description: 'Auto-import from RSS feeds' },
+    { id: 'rss', label: 'RSS Sources', icon: GlobeIcon, description: 'Auto-import from RSS feeds' },
     { id: 'social', label: 'Social Media', icon: Share2, description: 'Schedule social posts' },
     { id: 'seo', label: 'SEO Tools', icon: TrendingUp, description: 'Optimize for search engines' },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp, description: 'Performance insights' }
   ];
 
-  // ---------- Backend integration ----------
   const loadPosts = useCallback(async (params?: Record<string, any>) => {
     setLoadingPosts(true);
     setPostsError(null);
     try {
-      console.log('Loading posts with params:', params);
       const data = await blogsAPI.getAllPosts(params);
-      console.log('Raw posts API response:', data);
-
-      // Normalize response into an array safely
       let list: any[] = [];
 
       if (Array.isArray(data)) {
@@ -89,7 +112,6 @@ const BlogManagement: React.FC = () => {
         list = [];
       }
 
-      // Ensure items are objects and have expected defaults
       const normalized = list.map((p: any) => ({
         id: p.id ?? p._id ?? p.slug ?? `LOCAL_${Date.now()}`,
         title: p.title ?? 'Untitled',
@@ -100,15 +122,15 @@ const BlogManagement: React.FC = () => {
         tags: p.tags ?? [],
         status: p.status ?? 'draft',
         featured: !!p.featured,
-        featuredImage: p.featuredImage ?? p.featured_image ?? p.image ?? '', // dynamic field
+        featuredImage: p.featuredImage ?? p.featured_image ?? p.image ?? p.imageUrl ?? '',
         publishedAt: p.publishedAt ?? p.published_at ?? '',
         createdAt: p.createdAt ?? p.created_at ?? new Date().toISOString(),
         updatedAt: p.updatedAt ?? p.updated_at ?? new Date().toISOString(),
         views: p.views ?? 0,
         likes: p.likes ?? 0,
         comments: p.comments ?? 0,
-        seoTitle: p.seoTitle ?? p.seo_title ?? '',
-        seoDescription: p.seoDescription ?? p.seo_description ?? '',
+        seoTitle: p.seoTitle ?? p.seo_title ?? p.metaTitle ?? '',
+        seoDescription: p.seoDescription ?? p.seo_description ?? p.metaDescription ?? '',
         readTime: typeof p.readTime === 'number' ? p.readTime : Math.ceil(((p.content || '').length || 0) / 200)
       })) as BlogPost[];
 
@@ -123,7 +145,7 @@ const BlogManagement: React.FC = () => {
         setPostsError(err.message || 'Failed to fetch posts from server');
       }
       toast.error('Could not fetch posts from server');
-      setPosts([]); // be defensive
+      setPosts([]);
     } finally {
       setLoadingPosts(false);
     }
@@ -133,7 +155,6 @@ const BlogManagement: React.FC = () => {
     loadPosts();
   }, [loadPosts]);
 
-  // Called by BlogPostEditor when it saves — Editor already calls blogsAPI and passes response back
   const handleSavePost = (postData: Partial<BlogPost>) => {
     if (!postData) return;
 
@@ -185,8 +206,6 @@ const BlogManagement: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
 
     try {
-      // optimistic UI update (and defensive array check)
-      const prev = posts;
       setPosts(curr => (Array.isArray(curr) ? curr.filter(p => String(p.id) !== String(postId)) : []));
       await blogsAPI.deletePost(postId);
       toast.success('Post deleted successfully!');
@@ -202,7 +221,6 @@ const BlogManagement: React.FC = () => {
     setShowPostEditor(true);
   };
 
-  // Generate AI Content and save to backend (if you want to persist)
   const generateAIContent = async (prompt: string, keywords: string[]) => {
     setIsGenerating(true);
     try {
@@ -216,20 +234,52 @@ const BlogManagement: React.FC = () => {
         tags: [...keywords, 'ai-generated'],
         status: 'draft',
         featured: false,
-        featuredImage: ''
+        featuredImage: 'https://images.pexels.com/photos/280229/pexels-photo-280229.jpeg',
+        seoTitle: `${prompt} | Complete Guide | ResaleExpert`,
+        seoDescription: `Learn about ${prompt.toLowerCase()}. Expert insights and strategies for real estate success.`
       };
 
-      const created = await blogsAPI.createPost(payload);
-      const createdObj = (created && (created.post ?? created.data ?? created)) || null;
+      const created = await blogsAPI.createPost(payload).catch(err => {
+        console.warn('createPost failed — will still open editor with local payload', err);
+        return null;
+      });
 
-      if (createdObj) {
-        setPosts(prev => [createdObj as BlogPost, ...(Array.isArray(prev) ? prev : [])]);
-      } else {
-        setPosts(prev => [{ id: `LOCAL_${Date.now()}`, ...(payload as any) } as BlogPost, ...(Array.isArray(prev) ? prev : [])]);
-      }
+      const createdObjRaw = created && (created.post ?? created.data ?? created) || null;
 
+      const normalizedAIObj: any = {
+        id: createdObjRaw?.id ?? createdObjRaw?._id ?? `LOCAL_AI_${Date.now()}`,
+        title: createdObjRaw?.title ?? payload.title,
+        content: createdObjRaw?.content ?? payload.content,
+        excerpt: createdObjRaw?.excerpt ?? payload.excerpt,
+        author: createdObjRaw?.author ?? payload.author,
+        category: createdObjRaw?.category ?? payload.category,
+        tags: createdObjRaw?.tags ?? payload.tags,
+        status: createdObjRaw?.status ?? 'draft',
+        featured: createdObjRaw?.featured ?? payload.featured ?? false,
+        featuredImage: createdObjRaw?.featuredImage
+          ?? createdObjRaw?.featured_image
+          ?? createdObjRaw?.image
+          ?? createdObjRaw?.imageUrl
+          ?? payload.featuredImage
+          ?? '',
+        publishedAt: createdObjRaw?.publishedAt ?? createdObjRaw?.published_at ?? '',
+        createdAt: createdObjRaw?.createdAt ?? createdObjRaw?.created_at ?? new Date().toISOString(),
+        updatedAt: createdObjRaw?.updatedAt ?? createdObjRaw?.updated_at ?? new Date().toISOString(),
+        views: createdObjRaw?.views ?? 0,
+        likes: createdObjRaw?.likes ?? 0,
+        comments: createdObjRaw?.comments ?? 0,
+        seoTitle: createdObjRaw?.seoTitle ?? createdObjRaw?.seo_title ?? createdObjRaw?.metaTitle ?? payload.seoTitle ?? '',
+        seoDescription: createdObjRaw?.seoDescription ?? createdObjRaw?.seo_description ?? createdObjRaw?.metaDescription ?? payload.seoDescription ?? '',
+        readTime: createdObjRaw?.readTime ?? Math.ceil((payload.content.length || 0) / 200)
+      } as BlogPost;
+
+      setPosts(prev => [normalizedAIObj, ...(Array.isArray(prev) ? prev : [])]);
+
+      setSelectedPost(normalizedAIObj);
+      setShowPostEditor(true);
       setShowAIWriter(false);
-      toast.success('AI content generated and saved!');
+
+      toast.success('AI content generated and opened in editor!');
     } catch (err: any) {
       console.error('AI generation/save failed', err);
       toast.error('AI generation failed or could not save to backend.');
@@ -259,7 +309,6 @@ const BlogManagement: React.FC = () => {
     }
   };
 
-  // Defensive: ensure posts array before using array methods
   const postsArray = Array.isArray(posts) ? posts : [];
 
   const filteredPosts = postsArray.filter(post => {
@@ -278,10 +327,8 @@ const BlogManagement: React.FC = () => {
 
   const statuses: BlogStatus[] = ['draft', 'published', 'archived'];
 
-  // ---------- UI rendering (kept your layout, only main differences: loading, actions wired to API) ----------
   const renderDashboard = () => (
     <div className="space-y-6">
-      {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
@@ -312,7 +359,7 @@ const BlogManagement: React.FC = () => {
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="p-3 bg-purple-100 rounded-xl">
-              <Globe className="text-purple-600" size={24} />
+              <GlobeIcon className="text-purple-600" size={24} />
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-600">RSS Sources</h3>
@@ -336,7 +383,6 @@ const BlogManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -362,7 +408,7 @@ const BlogManagement: React.FC = () => {
             onClick={() => setShowRSSManager(true)}
             className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4 rounded-xl hover:shadow-lg transition-all text-left"
           >
-            <Globe className="mb-2" size={24} />
+            <GlobeIcon className="mb-2" size={24} />
             <div className="font-semibold">RSS Import</div>
             <div className="text-xs text-green-100">Auto-import content</div>
           </button>
@@ -378,63 +424,43 @@ const BlogManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Recent Posts */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-900">Recent Posts</h3>
-          <div className="flex items-center gap-2">
-            <button onClick={() => loadPosts()} className="px-3 py-1 text-sm border rounded-md">Refresh</button>
-            <button onClick={() => { setShowPostEditor(true); setSelectedPost(null); }} className="bg-blue-600 text-white px-3 py-1 rounded-md">New</button>
-          </div>
-        </div>
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Posts</h3>
+        <div className="space-y-3">
+          {postsArray.slice(0, 5).map((post) => (
+            <div key={post.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-all">
+              <div className="flex items-center space-x-4">
+                {post.featuredImage ? (
+                  <img src={post.featuredImage} alt={post.title} className="w-12 h-12 object-cover rounded-lg" />
+                ) : (
+                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 3v18h18" /></svg>
+                  </div>
+                )}
 
-        {loadingPosts ? (
-          <div className="text-center py-8">Loading posts...</div>
-        ) : postsError ? (
-          <div className="text-center text-red-600 py-8">{postsError}</div>
-        ) : (
-          <div className="space-y-3">
-            {postsArray.slice(0, 5).map((post) => (
-              <div key={post.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-all">
-                <div className="flex items-center space-x-4">
-                  {/* dynamic image: if available show <img>, else neutral placeholder (no external static url) */}
-                  {post.featuredImage ? (
-                    <img
-                      src={post.featuredImage}
-                      alt={post.title}
-                      className="w-12 h-12 object-cover rounded-lg"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 3v18h18" /></svg>
-                    </div>
-                  )}
-
-                  <div>
-                    <h4 className="font-medium text-gray-900">{post.title}</h4>
-                    <div className="flex items-center space-x-3 text-sm text-gray-600">
-                      <span className="flex items-center space-x-1">
-                        <Eye size={12} />
-                        <span>{post.views || 0}</span>
-                      </span>
-                      <span>{post.category}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${post.status === 'published' ? 'bg-green-100 text-green-800' : post.status === 'draft' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {post.status}
-                      </span>
-                    </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">{post.title}</h4>
+                  <div className="flex items-center space-x-3 text-sm text-gray-600">
+                    <span className="flex items-center space-x-1">
+                      <Eye size={12} />
+                      <span>{post.views || 0}</span>
+                    </span>
+                    <span>{post.category}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${post.status === 'published' ? 'bg-green-100 text-green-800' : post.status === 'draft' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
+                      {post.status}
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button onClick={() => handleEditPost(post)} className="text-blue-600 hover:text-blue-700" title="Edit"><Edit size={16} /></button>
-                  <button onClick={() => handleDeletePost(post.id!)} className="text-red-600 hover:text-red-700" title="Delete"><Trash2 size={16} /></button>
-                </div>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="flex items-center space-x-2">
+                <button onClick={() => handleEditPost(post)} className="text-blue-600 hover:text-blue-700" title="Edit"><Edit size={16} /></button>
+                <button onClick={() => handleDeletePost(post.id!)} className="text-red-600 hover:text-red-700" title="Delete"><Trash2 size={16} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Content Quality Overview (static numbers kept) */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Content Quality Overview</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -442,21 +468,21 @@ const BlogManagement: React.FC = () => {
             <div className="text-3xl font-bold text-green-600 mb-2">97.2%</div>
             <div className="text-sm text-gray-600">Avg Plagiarism Score</div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div className="bg-green-500 h-2 rounded-full" style={{ width: '97.2%' }}></div>
+              <div className="bg-green-500 h-2 rounded-full" style={{ width: '97.2%' }} />
             </div>
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold text-blue-600 mb-2">89.5%</div>
             <div className="text-sm text-gray-600">Avg SEO Score</div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div className="bg-blue-500 h-2 rounded-full" style={{ width: '89.5%' }}></div>
+              <div className="bg-blue-500 h-2 rounded-full" style={{ width: '89.5%' }} />
             </div>
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold text-purple-600 mb-2">92.8%</div>
             <div className="text-sm text-gray-600">AI Enhancement Rate</div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div className="bg-purple-500 h-2 rounded-full" style={{ width: '92.8%' }}></div>
+              <div className="bg-purple-500 h-2 rounded-full" style={{ width: '92.8%' }} />
             </div>
           </div>
         </div>
@@ -464,7 +490,6 @@ const BlogManagement: React.FC = () => {
     </div>
   );
 
-  // Content Management (uses API-driven posts list)
   const renderContentManagement = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -546,11 +571,7 @@ const BlogManagement: React.FC = () => {
                     <td className="py-3 px-4">
                       <div className="flex items-center space-x-3">
                         {post.featuredImage ? (
-                          <img
-                            src={post.featuredImage}
-                            alt={post.title}
-                            className="w-10 h-10 object-cover rounded-lg"
-                          />
+                          <img src={post.featuredImage} alt={post.title} className="w-10 h-10 object-cover rounded-lg" />
                         ) : (
                           <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
                             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 3v18h18" /></svg>
@@ -563,9 +584,7 @@ const BlogManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                        {post.category}
-                      </span>
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">{post.category}</span>
                     </td>
                     <td className="py-3 px-4">
                       <span className={`px-2 py-1 rounded-full text-xs ${post.status === 'published' ? 'bg-green-100 text-green-800' : post.status === 'draft' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
@@ -716,14 +735,10 @@ const BlogManagement: React.FC = () => {
                   <div key={post.id} className="p-4 border border-gray-200 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <h5 className="font-medium text-gray-900 text-sm">{post.title}</h5>
-                      <span className={`text-xs font-bold ${seoScore > 80 ? 'text-green-600' : seoScore > 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                        {seoScore}%
-                      </span>
+                      <span className={`text-xs font-bold ${seoScore > 80 ? 'text-green-600' : seoScore > 60 ? 'text-yellow-600' : 'text-red-600'}`}>{seoScore}%</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <div className={`w-full bg-gray-200 rounded-full h-2 mr-3`}>
-                        <div className={`h-2 rounded-full ${seoScore > 80 ? 'bg-green-500' : seoScore > 60 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${seoScore}%` }}></div>
-                      </div>
+                      <div className={`w-full bg-gray-200 rounded-full h-2 mr-3`}><div className={`h-2 rounded-full ${seoScore > 80 ? 'bg-green-500' : seoScore > 60 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${seoScore}%` }}></div></div>
                       <button className="text-blue-600 hover:text-blue-700 text-xs">Optimize</button>
                     </div>
                   </div>
@@ -762,23 +777,23 @@ const BlogManagement: React.FC = () => {
           </div>
         </div>
 
-        {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'content' && renderContentManagement()}
-        {activeTab === 'ai-writer' && (
-          <AIBlogWriter onGenerate={generateAIContent} isGenerating={isGenerating} />
-        )}
-        {activeTab === 'ai-tools' && renderAITools()}
-        {activeTab === 'rss' && (
-          <RSSSourceManager
-            sources={rssources}
-            onUpdate={setRSSources}
-            onSync={() => toast.success('RSS sources synced!')}
-            autoApprove={autoApprove}
-          />
-        )}
-        {activeTab === 'social' && <SocialMediaManager posts={postsArray} />}
-        {activeTab === 'seo' && renderSEOTools()}
-        {activeTab === 'analytics' && <BlogAnalytics posts={postsArray} />}
+        <div>
+          {activeTab === 'dashboard' && renderDashboard()}
+          {activeTab === 'content' && renderContentManagement()}
+          {activeTab === 'ai-writer' && <AIBlogWriter onGenerate={generateAIContent} isGenerating={isGenerating} />}
+          {activeTab === 'ai-tools' && renderAITools()}
+          {activeTab === 'rss' && (
+            <RSSSourceManager
+              sources={rssources}
+              onUpdate={setRSSources}
+              onSync={() => toast.success('RSS sources synced!')}
+              autoApprove={autoApprove}
+            />
+          )}
+          {activeTab === 'social' && <SocialMediaManager posts={postsArray} />}
+          {activeTab === 'seo' && renderSEOTools()}
+          {activeTab === 'analytics' && <BlogAnalytics posts={postsArray} />}
+        </div>
 
         {showPostEditor && (
           <BlogPostEditor
@@ -789,6 +804,8 @@ const BlogManagement: React.FC = () => {
               setSelectedPost(null);
             }}
             isOpen={showPostEditor}
+            currentUserName={getUserDisplayName(user)}
+            lockAuthor={true}
           />
         )}
 

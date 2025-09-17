@@ -1,4 +1,4 @@
-// src/components/BlogPostEditor.tsx
+// src/components/blogManager/BlogPostEditor.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Save, Send, X, Bold, Italic, List, Quote, Code, Heading,
@@ -23,10 +23,12 @@ interface BlogPost {
 }
 
 interface BlogPostEditorProps {
-  post?: BlogPost;
+  post?: BlogPost | null;
   onSave: (post: Partial<BlogPost>) => void;
   onCancel: () => void;
   isOpen: boolean;
+  currentUserName?: string;
+  lockAuthor?: boolean;
 }
 
 const categories = [
@@ -35,7 +37,7 @@ const categories = [
 ];
 
 const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
-  post, onSave, onCancel, isOpen
+  post, onSave, onCancel, isOpen, currentUserName, lockAuthor = false
 }) => {
   const [formData, setFormData] = useState<Partial<BlogPost>>({
     title: '', content: '', excerpt: '', author: 'Admin',
@@ -47,25 +49,57 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // image preview / validation state
+  const [imgLoading, setImgLoading] = useState(false);
+  const [imgError, setImgError] = useState<string | null>(null);
+  const [imgDimensions, setImgDimensions] = useState<{ w: number; h: number } | null>(null);
+
   useEffect(() => {
     if (post) {
-      setFormData(post);
+      // important: use shallow copy so controlled inputs update
+      setFormData({ ...post });
       setTagsInput(post.tags?.join(', ') || '');
+
+      // validate image url if it's a normal URL (not data:)
+      if (post.featuredImage && typeof post.featuredImage === 'string' && !post.featuredImage.startsWith('data:')) {
+        validateImageUrl(post.featuredImage);
+      } else {
+        setImgError(null);
+        setImgLoading(false);
+        setImgDimensions(null);
+      }
     } else {
       setFormData({
-        title: '', content: '', excerpt: '', author: 'Admin',
+        title: '', content: '', excerpt: '', author: currentUserName || 'Admin',
         category: '', tags: [], featured: false, featuredImage: '',
         seoTitle: '', seoDescription: '', status: 'draft'
       });
       setTagsInput('');
+      setImgError(null);
+      setImgLoading(false);
+      setImgDimensions(null);
     }
-  }, [post]);
+  }, [post, currentUserName]);
 
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
+
+    if (name === 'featuredImage') {
+      const url = value;
+      setFormData(prev => ({ ...prev, featuredImage: url }));
+      if (typeof url === 'string' && url.startsWith('data:')) {
+        setImgError(null);
+        setImgLoading(false);
+        setImgDimensions(null);
+      } else {
+        validateImageUrl(String(url));
+      }
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -81,7 +115,7 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
   };
 
   const insertMarkdown = (before: string, after: string = '') => {
-    const textarea = document.getElementById('content-editor') as HTMLTextAreaElement;
+    const textarea = document.getElementById('content-editor') as HTMLTextAreaElement | null;
     if (!textarea) return;
 
     const { selectionStart: start, selectionEnd: end } = textarea;
@@ -117,11 +151,9 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
     { icon: List, action: () => insertMarkdown('- '), title: 'List' },
     { icon: Quote, action: () => insertMarkdown('> '), title: 'Quote' },
     { icon: Code, action: () => insertMarkdown('`', '`'), title: 'Code' },
-    { icon: Link, action: () => insertMarkdown('[Link](', ')'), title: 'Link' },
-    // Note: removed any toolbar button that would imply uploading inline images
+    { icon: Link, action: () => insertMarkdown('[Link](', ')'), title: 'Link' }
   ];
 
-  // Helper to convert dataURL -> Blob (used only for featured image upload)
   const dataURLtoBlob = (dataurl: string): Blob => {
     const arr = dataurl.split(',');
     const mimeMatch = arr[0].match(/:(.*?);/);
@@ -135,7 +167,6 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
     return new Blob([u8arr], { type: mime });
   };
 
-  // Build payload: FormData only when featuredImage is a data URL (file)
   const buildPayload = (): { payload: FormData | Record<string, any>; isFormData: boolean } => {
     const payloadObj: Record<string, any> = {
       title: formData.title || '',
@@ -151,7 +182,6 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
       publishedAt: formData.publishedAt || undefined,
     };
 
-    // If featuredImage is a data URL, send FormData (file)
     if (formData.featuredImage && typeof formData.featuredImage === 'string' && formData.featuredImage.startsWith('data:')) {
       const fd = new FormData();
       Object.entries(payloadObj).forEach(([k, v]) => {
@@ -169,7 +199,6 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
       return { payload: fd, isFormData: true };
     }
 
-    // If featuredImage is a remote URL (string not data:) or empty, send JSON (record)
     if (formData.featuredImage) {
       payloadObj.featuredImage = formData.featuredImage;
     }
@@ -208,8 +237,6 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
 
       onSave(responseData);
       setFormData(prev => ({ ...prev, ...(responseData || {}) }));
-
-      // Use toast/alert as minimal feedback (replace with your toast if available)
       alert(`Post ${status === 'published' ? 'published' : 'saved as draft'} successfully.`);
     } catch (err: any) {
       console.error('Error saving post', err);
@@ -222,6 +249,88 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
 
   const handleSaveDraftClick = () => savePost('draft');
   const handlePublishClick = () => savePost('published');
+
+  // image validation (url or data URL handled)
+  const validateImageUrl = (url: string) => {
+    if (!url) {
+      setImgError(null);
+      setImgLoading(false);
+      setImgDimensions(null);
+      return;
+    }
+
+    if (url.startsWith('data:')) {
+      setImgError(null);
+      setImgLoading(false);
+      return;
+    }
+
+    try {
+      new URL(url);
+    } catch {
+      setImgError('Invalid image URL');
+      setImgLoading(false);
+      setImgDimensions(null);
+      return;
+    }
+
+    setImgLoading(true);
+    setImgError(null);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+    img.onload = () => {
+      setImgLoading(false);
+      setImgError(null);
+      setImgDimensions({ w: img.naturalWidth, h: img.naturalHeight });
+      setFormData(prev => ({ ...prev, featuredImage: url }));
+    };
+    img.onerror = () => {
+      setImgLoading(false);
+      setImgError('Could not load image from URL');
+      setImgDimensions(null);
+    };
+  };
+
+  const handleFileSelected = (file?: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setFormData(prev => ({ ...prev, featuredImage: dataUrl }));
+      const img = new Image();
+      img.src = dataUrl;
+      setImgLoading(true);
+      img.onload = () => {
+        setImgLoading(false);
+        setImgError(null);
+        setImgDimensions({ w: img.naturalWidth, h: img.naturalHeight });
+      };
+      img.onerror = () => {
+        setImgLoading(false);
+        setImgError('Uploaded image could not be processed');
+        setImgDimensions(null);
+      };
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const copyUrlToClipboard = async () => {
+    const url = formData.featuredImage || '';
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert('Image URL copied to clipboard');
+    } catch {
+      // ignore
+    }
+  };
+
+  const openImageInNewTab = () => {
+    const url = formData.featuredImage || '';
+    if (!url) return;
+    window.open(url, '_blank', 'noopener');
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
@@ -298,6 +407,7 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
                     value={formData.author}
                     onChange={handleChange}
                     className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
+                    readOnly={lockAuthor}
                   />
                 </div>
               </div>
@@ -307,37 +417,77 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
                   <label className="block text-xs font-medium mb-1">Featured Image</label>
                   <div className="space-y-2">
                     <input
+                      type="url"
+                      name="featuredImage"
+                      value={formData.featuredImage || ''}
+                      onChange={handleChange}
+                      className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
+                      placeholder="https://example.com/image.jpg"
+                    />
+
+                    <input
                       type="file"
                       accept="image/*"
                       onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            setFormData(prev => ({
-                              ...prev,
-                              featuredImage: event.target?.result as string
-                            }));
-                          };
-                          reader.readAsDataURL(file);
-                        }
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        handleFileSelected(file);
                       }}
                       className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     />
+
+                    <div className="text-xs text-gray-500">
+                      {imgLoading && <span>Validating image...</span>}
+                      {imgError && <span className="text-red-600">{imgError}</span>}
+                      {!imgLoading && !imgError && imgDimensions && (
+                        <span>Image size: {imgDimensions.w}×{imgDimensions.h}px</span>
+                      )}
+                    </div>
+
                     {formData.featuredImage && (
                       <div className="relative">
                         <img
                           src={formData.featuredImage}
                           alt="Featured preview"
                           className="w-full h-20 object-cover rounded-md border"
+                          onLoad={(e) => {
+                            const img = e.currentTarget as HTMLImageElement;
+                            if (!imgDimensions) {
+                              setImgDimensions({ w: img.naturalWidth, h: img.naturalHeight });
+                              setImgError(null);
+                              setImgLoading(false);
+                            }
+                          }}
+                          onError={() => {
+                            setImgError('Could not load preview');
+                          }}
                         />
-                        <button
-                          type="button"
-                          onClick={() => setFormData(prev => ({ ...prev, featuredImage: '' }))}
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                        >
-                          <X size={12} />
-                        </button>
+                        <div className="absolute top-1 right-1 flex gap-1">
+                          <button
+                            type="button"
+                            onClick={openImageInNewTab}
+                            className="bg-white text-gray-700 rounded px-2 py-1 text-xs hover:bg-gray-100"
+                          >
+                            Open
+                          </button>
+                          <button
+                            type="button"
+                            onClick={copyUrlToClipboard}
+                            className="bg-white text-gray-700 rounded px-2 py-1 text-xs hover:bg-gray-100"
+                          >
+                            Copy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, featuredImage: '' }));
+                              setImgDimensions(null);
+                              setImgError(null);
+                            }}
+                            className="bg-red-500 text-white rounded px-2 py-1 text-xs hover:bg-red-600"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
