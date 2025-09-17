@@ -76,10 +76,16 @@ const PublicFooter = ({ onPageChange }: any) => {
                       className="h-10 w-25 object-contain rounded-xs shadow-sm bg-white p-1"
                     />
                   ) : (
-                    // ✅ अगर logo नहीं है तो fallback → company name या default icon
-                    <span className="text-2xl font-bold text-gray-900 tracking-tight">
-                      {companyName}
-                    </span>
+                      <>
+                        <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+                          <Building className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="hidden sm:block">
+                          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
+                            {companyName}
+                          </h1>
+                        </div>
+                      </>
                   )}
                 </div>
               </Link>
