@@ -1,10 +1,10 @@
 import React from 'react';
-import { 
-  Users, 
-  Award, 
-  Shield, 
-  Target, 
-  Heart, 
+import {
+  Users,
+  Award,
+  Shield,
+  Target,
+  Heart,
   Star,
   CheckCircle,
   TrendingUp,
@@ -21,6 +21,7 @@ import {
   Zap,
   Rocket
 } from 'lucide-react';
+import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 
 const AboutUsPage = () => {
   const stats = [
@@ -111,6 +112,8 @@ const AboutUsPage = () => {
       description: 'Awarded "Best Real Estate Platform" by Property Awards India'
     }
   ];
+  const { systemSettings } = useSystemSettings();
+  const companyName = systemSettings?.company_name;
 
   return (
     <div className="min-h-screen bg-white">
@@ -118,9 +121,11 @@ const AboutUsPage = () => {
       <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-5xl font-bold mb-6">About ResaleExpert</h1>
+            <h1 className="text-5xl font-bold mb-6">About
+              &nbsp;{companyName}
+            </h1>
             <p className="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
-              India's most trusted real estate platform, connecting millions of buyers, sellers, and renters 
+              India's most trusted real estate platform, connecting millions of buyers, sellers, and renters
               with verified properties and expert guidance since 2010.
             </p>
             <div className="flex items-center justify-center space-x-8">
@@ -148,8 +153,8 @@ const AboutUsPage = () => {
             <div>
               <h2 className="text-4xl font-bold text-gray-900 mb-6">Our Mission</h2>
               <p className="text-lg text-gray-700 mb-6 leading-relaxed">
-                To make real estate transactions transparent, efficient, and accessible for everyone. 
-                We leverage technology and expertise to simplify the complex process of buying, 
+                To make real estate transactions transparent, efficient, and accessible for everyone.
+                We leverage technology and expertise to simplify the complex process of buying,
                 selling, and renting properties.
               </p>
               <div className="space-y-4">
@@ -200,7 +205,7 @@ const AboutUsPage = () => {
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Impact in Numbers</h2>
             <p className="text-xl text-gray-600">Trusted by thousands of customers across India</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {stats.map((stat, index) => {
               const Icon = stat.icon;
@@ -225,7 +230,7 @@ const AboutUsPage = () => {
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Core Values</h2>
             <p className="text-xl text-gray-600">The principles that guide everything we do</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {values.map((value, index) => {
               const Icon = value.icon;
@@ -254,7 +259,7 @@ const AboutUsPage = () => {
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Meet Our Expert Team</h2>
             <p className="text-xl text-gray-600">Experienced professionals dedicated to your success</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {team.map((member, index) => (
               <div key={index} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow group">
@@ -285,7 +290,7 @@ const AboutUsPage = () => {
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Journey</h2>
             <p className="text-xl text-gray-600">Milestones that shaped our success story</p>
           </div>
-          
+
           <div className="relative">
             <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-blue-200"></div>
             <div className="space-y-12">
@@ -318,7 +323,7 @@ const AboutUsPage = () => {
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose ResaleExpert?</h2>
             <p className="text-xl text-gray-600">What makes us the preferred choice for real estate</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center group">
               <div className="bg-gradient-to-r from-green-500 to-emerald-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
@@ -326,29 +331,29 @@ const AboutUsPage = () => {
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">100% Verified Properties</h3>
               <p className="text-gray-700">
-                Every property on our platform is thoroughly verified for legal compliance, 
+                Every property on our platform is thoroughly verified for legal compliance,
                 ownership, and authenticity before listing.
               </p>
             </div>
-            
+
             <div className="text-center group">
               <div className="bg-gradient-to-r from-blue-500 to-indigo-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
                 <Zap className="text-white" size={28} />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">AI-Powered Matching</h3>
               <p className="text-gray-700">
-                Our advanced AI algorithms match buyers with perfect properties based on 
+                Our advanced AI algorithms match buyers with perfect properties based on
                 preferences, budget, and lifestyle requirements.
               </p>
             </div>
-            
+
             <div className="text-center group">
               <div className="bg-gradient-to-r from-purple-500 to-pink-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
                 <Handshake className="text-white" size={28} />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">End-to-End Support</h3>
               <p className="text-gray-700">
-                From property search to final registration, we provide complete support 
+                From property search to final registration, we provide complete support
                 throughout your real estate journey.
               </p>
             </div>
@@ -363,7 +368,7 @@ const AboutUsPage = () => {
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Awards & Recognition</h2>
             <p className="text-xl text-gray-600">Industry recognition for our excellence</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-white rounded-2xl p-8 text-center shadow-lg">
               <div className="bg-gradient-to-r from-yellow-400 to-orange-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -372,7 +377,7 @@ const AboutUsPage = () => {
               <h3 className="text-xl font-bold text-gray-900 mb-2">Best Real Estate Platform 2023</h3>
               <p className="text-gray-600">Property Awards India</p>
             </div>
-            
+
             <div className="bg-white rounded-2xl p-8 text-center shadow-lg">
               <div className="bg-gradient-to-r from-green-400 to-emerald-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Award className="text-white" size={28} />
@@ -380,7 +385,7 @@ const AboutUsPage = () => {
               <h3 className="text-xl font-bold text-gray-900 mb-2">Customer Choice Award 2022</h3>
               <p className="text-gray-600">Real Estate Excellence Awards</p>
             </div>
-            
+
             <div className="bg-white rounded-2xl p-8 text-center shadow-lg">
               <div className="bg-gradient-to-r from-blue-400 to-indigo-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Rocket className="text-white" size={28} />
@@ -407,7 +412,7 @@ const AboutUsPage = () => {
               Contact Us Today
             </button>
           </div>
-          
+
           <div className="mt-12 flex items-center justify-center space-x-8 text-blue-100">
             <div className="flex items-center space-x-2">
               <Phone size={20} />
