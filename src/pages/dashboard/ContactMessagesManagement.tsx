@@ -106,7 +106,7 @@ const ContactMessagesManagement = () => {
             return matchesSearch && matchesStatus;
         });
 
-        filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
         setFilteredMessages(filtered);
         setCurrentPage(1);
@@ -179,7 +179,7 @@ const ContactMessagesManagement = () => {
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         const now = new Date();
-        const diffTime = Math.abs(now - date);
+        const diffTime = Math.abs(now.getTime() - date.getTime());
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays === 0) {

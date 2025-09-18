@@ -26,7 +26,7 @@ interface PropertyFilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   filters: PropertyFilters;
-  setFilters: (filters: PropertyFilters) => void;
+  setFilters: React.Dispatch<React.SetStateAction<PropertyFilters>>;
   clearFilters: () => void;
   typeOptions: Array<{ label: string; value: string }>;
   statusOptions: Array<{ label: string; value: string }>;
@@ -58,6 +58,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
   stageOptions,
   tagsOptions,
 }) => {
+
+  
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     if (isOpen) document.addEventListener("keydown", onKey);

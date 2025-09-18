@@ -32,6 +32,12 @@ interface BlogPost {
   featured?: boolean;
   slug?: string;
 }
+export interface BlogDetailPageProps {
+  slug: string;
+  post?: BlogPost; // <-- make this optional so BlogsPage can pass selectedPostObj
+  loading?: boolean;
+  onBack?: () => void;
+}
 
 const defaultCategories = [
   "All",

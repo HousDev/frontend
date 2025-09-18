@@ -1141,8 +1141,8 @@ const BlogManagement: React.FC = () => {
 
         {showPostEditor && (
           <BlogPostEditor
-            post={selectedPost || undefined}
-            onSave={handleSavePost}
+            post={selectedPost as any}
+            onSave={(p: Partial<any>) => handleSavePost(p as Partial<BlogPost>)}
             onCancel={() => {
               setShowPostEditor(false);
               setSelectedPost(null);

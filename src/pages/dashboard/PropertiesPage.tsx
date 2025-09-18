@@ -551,25 +551,25 @@ const PropertiesPage = () => {
   }, []);
 
 
-const initialFilters = {
-  dateFrom: '',
-  dateTo: '',
-  ignoreDate: false,
-  type: 'all',
-  status: 'all',
-  priceRange: 'all',
-  location: 'all',
-  seller: 'all',
-  stage: 'all',
-  tags: 'all',
-  minBudget: '',
-  maxBudget: '',
-  sortOrder: 'created_desc',
-};
-const [filters, setFilters] = useState(initialFilters);
-const clearFilters = () => {
-  setFilters(initialFilters);
-};
+  const initialFilters = {
+    dateFrom: '',
+    dateTo: '',
+    ignoreDate: false,
+    type: 'all',
+    status: 'all',
+    priceRange: 'all',
+    location: 'all',
+    seller: 'all',
+    stage: 'all',
+    tags: 'all',
+    minBudget: '',
+    maxBudget: '',
+    sortOrder: 'created_desc',
+  };
+  const [filters, setFilters] = useState(initialFilters);
+  const clearFilters = () => {
+    setFilters(initialFilters);
+  };
   const [properties, setProperties] = useState<UIProperty[]>([]);
 
   const fetchPropertiesOnce = async () => {
@@ -1059,12 +1059,12 @@ const clearFilters = () => {
               />
             </div>
             <button
-  onClick={() => setShowFilters(true)}
-  className="flex items-center space-x-1.5 px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-xs"
->
-  <Filter size={14} />
-  <span>Filters</span>
-</button>
+              onClick={() => setShowFilters(true)}
+              className="flex items-center space-x-1.5 px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-xs"
+            >
+              <Filter size={14} />
+              <span>Filters</span>
+            </button>
 
             <div className="flex items-center space-x-1">
               <button
@@ -1166,21 +1166,21 @@ const clearFilters = () => {
           </div>
         )}
 
-      { /* Property Filter Sidebar Modal */ }
-<PropertyFilterModal
-  isOpen={showFilters}
-  onClose={() => { setShowFilters(false); setCurrentPage(1); }}
-  filters={filters}
-  setFilters={setFilters}
-  clearFilters={clearFilters}
-  typeOptions={(masters?.["property type"] || []).map(m => ({ label: m.label, value: m.value }))}
-  statusOptions={(masters?.["property status"] || []).map(m => ({ label: m.label, value: m.value }))}
-  priceRangeOptions={(masters?.["price range"] || []).map(m => ({ label: m.label, value: m.value }))}
-  locationOptions={(masters?.location || []).map(m => ({ label: m.label, value: m.value }))}
-  sellerOptions={(masters?.["sellers"] || masters?.["agents"] || []).map(m => ({ label: m.label, value: m.value }))}
-  stageOptions={(masters?.["property stages"] || []).map(m => ({ label: m.label, value: m.value }))}
-  tagsOptions={getUniquePropertyTags(properties).map(t => ({ label: t, value: t }))}
-/>
+        { /* Property Filter Sidebar Modal */}
+        <PropertyFilterModal
+          isOpen={showFilters}
+          onClose={() => { setShowFilters(false); setCurrentPage(1); }}
+          filters={filters}
+          setFilters={setFilters}
+          clearFilters={clearFilters}
+          typeOptions={(masters?.["property type"] || []).map(m => ({ label: m.label, value: m.value }))}
+          statusOptions={(masters?.["property status"] || []).map(m => ({ label: m.label, value: m.value }))}
+          priceRangeOptions={(masters?.["price range"] || []).map(m => ({ label: m.label, value: m.value }))}
+          locationOptions={(masters?.location || []).map(m => ({ label: m.label, value: m.value }))}
+          sellerOptions={(masters?.["sellers"] || masters?.["agents"] || []).map(m => ({ label: m.label, value: m.value }))}
+          stageOptions={(masters?.["property stages"] || []).map(m => ({ label: m.label, value: m.value }))}
+          tagsOptions={getUniquePropertyTags(properties).map(t => ({ label: t, value: t }))}
+        />
 
       </div>
 
@@ -1410,7 +1410,7 @@ const clearFilters = () => {
                             </div>
                             <div className="text-xs text-gray-500">{dash(p.propertyId)}</div>
                             <div className="text-sm font-bold text-green-600">{formatCurrency(p.budget)}</div>
-                           
+
                           </div>
                         </div>
                       </td>

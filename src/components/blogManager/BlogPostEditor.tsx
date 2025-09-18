@@ -24,11 +24,12 @@ interface BlogPost {
 
 interface BlogPostEditorProps {
   post?: BlogPost | null;
-  onSave: (post: Partial<BlogPost>) => void;
+onSave: (post: Partial<BlogPost>) => void;  
   onCancel: () => void;
   isOpen: boolean;
   currentUserName?: string;
   lockAuthor?: boolean;
+
 }
 
 const categories = [
