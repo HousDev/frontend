@@ -46,16 +46,15 @@ import {
   Flag
 } from 'lucide-react';
 import ActivityModal from './ActivityModal';
-import FollowupModal from './FollowupModal';
 import VisitModal from './VisitModal';
 import PropertyMatchModal from './PropertyMatchModal';
 import PropertySuggestionModal from './PropertySuggestionModal';
 import LoanApplicationModal from './LoanApplicationModal';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import PropertyDetailsShareModal from '../properties/PropertyDetailsShareModal';
+import BuyerFollowupModal from './BuyerFollowupModal';
 
 const BuyerViewPage = ({
-
   buyer,
   onBack,
   onEdit,
@@ -74,11 +73,8 @@ const BuyerViewPage = ({
   const [showPropertySuggestions, setShowPropertySuggestions] = useState(false);
   const [showLoanApplication, setShowLoanApplication] = useState(false);
   const [editingActivity, setEditingActivity] = useState(null);
-  const [editingFollowup, setEditingFollowup] = useState(null);
+  const [editingFollowup, setEditingFollowup] = useState<any | null>(null);
   const [editingVisit, setEditingVisit] = useState(null);
-
-
-
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },
@@ -94,10 +90,10 @@ const BuyerViewPage = ({
     if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
     return `₹${amount.toLocaleString('en-IN')}`;
   };
+
   useEffect(() => {
     // console.log("🟢 BuyerFormModal mounted with buyer:", buyer);
   }, [buyer]);
-
 
   const getStatusBadge = (status: string, size: string = 'text-xs') => {
     const statusConfig = {
@@ -113,7 +109,6 @@ const BuyerViewPage = ({
       </span>
     );
   };
-
 
   const getStageBadge = (stage: string) => {
     const stageConfig = {
@@ -133,7 +128,6 @@ const BuyerViewPage = ({
       </span>
     );
   };
-
 
   const getPriorityBadge = (priority: string) => {
     const priorityConfig = {
@@ -161,7 +155,6 @@ const BuyerViewPage = ({
       </div>
     );
   };
-
 
   const handleAddActivity = () => {
     setEditingActivity(null);
@@ -196,10 +189,11 @@ const BuyerViewPage = ({
   };
 
   const handleSaveFollowup = (followupData: any) => {
+    // followupData is expected to be the payload returned from BuyerFollowupModal (has buyer_id)
     const updatedBuyer = {
       ...buyer,
       followups: editingFollowup
-        ? buyer.followups.map((f: any) => f.id === editingFollowup.id ? followupData : f)
+        ? (buyer.followups || []).map((f: any) => (f.id === editingFollowup.id ? followupData : f))
         : [...(buyer.followups || []), followupData]
     };
     onUpdateBuyer(updatedBuyer);
@@ -218,7 +212,6 @@ const BuyerViewPage = ({
   };
 
   const handleSaveVisit = (visitData: any) => {
-    // Add visit to activities as well
     const visitActivity = {
       id: Date.now() + 1,
       type: 'visit',
@@ -304,7 +297,6 @@ ResaleExpert Team`;
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Header */}
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 md:py-4 sticky top-0 z-50 text-xs">
         <div className="flex flex-wrap md:flex-nowrap items-center justify-between">
@@ -395,8 +387,6 @@ ResaleExpert Team`;
         </div>
       </div>
 
-
-
       {/* Tab Content */}
       <div className="flex-1 overflow-auto p-6 pt-2">
         {activeTab === 'overview' && <OverviewTab buyer={buyer} onUpdateBuyer={onUpdateBuyer} />}
@@ -431,10 +421,7 @@ ResaleExpert Team`;
         )}
       </div>
 
-      {/* Quick Actions Bar */}
-
-      {/* Quick Actions Bar (responsive sizing) */}
-      {/* Quick Actions Bar – tablet responsive fixed */}
+      {/* Quick Actions Bar (omitted for brevity in explanation; remains same) */}
       <div className="
   bg-white border-t border-gray-200 
   px-2 sm:px-3 md:px-3 lg:px-4 
@@ -444,20 +431,9 @@ ResaleExpert Team`;
   lg:w-[calc(100%-335px)] lg:ml-[288px] 
   z-50 shadow-lg
 ">
-        {/* mobile: 8px, tablet(md): 10px, desktop+: xs */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-[8px] sm:text-[10px] md:text-[10px] lg:text-xs">
-
-          {/* Left group */}
-          <div
-            className="
-        flex items-center gap-1 sm:gap-2 lg:gap-3
-        flex-wrap md:flex-wrap lg:flex-nowrap
-        overflow-x-auto md:overflow-x-auto lg:overflow-visible
-        whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]
-      "
-          >
+          <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 flex-wrap md:flex-wrap lg:flex-nowrap overflow-x-auto md:overflow-x-auto lg:overflow-visible whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]">
             <style>{`.quickbar::-webkit-scrollbar{display:none}`}</style>
-
             <button
               onClick={handleWhatsApp}
               className="flex items-center gap-1 px-2 md:px-2.5 lg:px-3 py-1.5 md:py-1.5 lg:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -483,15 +459,7 @@ ResaleExpert Team`;
             </button>
           </div>
 
-          {/* Right group */}
-          <div
-            className="
-        flex items-center gap-1 sm:gap-2 lg:gap-3
-        flex-wrap md:flex-wrap lg:flex-nowrap
-        overflow-x-auto md:overflow-x-auto lg:overflow-visible
-        whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]
-      "
-          >
+          <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 flex-wrap md:flex-wrap lg:flex-nowrap overflow-x-auto md:overflow-x-auto lg:overflow-visible whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]">
             <button
               onClick={handleAddVisit}
               className="flex items-center gap-1 px-2 md:px-2.5 lg:px-3 py-1.5 md:py-1.5 lg:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -527,13 +495,6 @@ ResaleExpert Team`;
         </div>
       </div>
 
-
-
-
-
-
-
-
       {/* Modals */}
       {showActivityModal && (
         <ActivityModal
@@ -548,14 +509,16 @@ ResaleExpert Team`;
       )}
 
       {showFollowupModal && (
-        <FollowupModal
+        <BuyerFollowupModal
           isOpen={showFollowupModal}
           onClose={() => {
             setShowFollowupModal(false);
             setEditingFollowup(null);
           }}
-          followup={editingFollowup}
           onSave={handleSaveFollowup}
+          tabId="buyer" /* <-- pass the correct master tab id so modal filters buyer-specific connected remarks */
+          buyerId={buyer?.id ?? buyer?.buyerId ?? ""} /* <-- ensure buyerId is passed */
+          initialForm={editingFollowup ?? undefined} /* <-- when editing, prefill fields */
         />
       )}
 
