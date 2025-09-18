@@ -1,36 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import {
-  Home,
-  Building2,
-  Settings,
-  Users,
-  BookOpen,
-  MessageSquare,
-  Phone,
-  Mail,
-  Star,
-  Shield,
-  ChevronDown,
-  User,
-  Menu,
-  X,
-  LogOut,
-  Crown,
-  Bot,
-  LogIn,
-  InfoIcon,
-  DollarSign,
-  HandCoins,
-  Briefcase,
-  Info,
-  FileText,
-  MessageCircle,
-  Brain,
-  Sparkles,
-  Building,
-  Zap,
-} from 'lucide-react';
+import { User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
@@ -55,6 +25,9 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
   const companyName = systemSettings?.company_name || 'ResaleExpert';
   const companyLogo = systemSettings?.company_logo;
 
+  // Use the sampled image color
+  const navTextColor = '#0c3854';
+
   // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e) {
@@ -67,21 +40,14 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // Updated navigation items with proper modern icons
+  // Navigation items — all use the sampled color
   const navigationItems = [
-    { id: 'home', label: 'Home', href: '/', icon: Home, textColor: '#1e40af', iconColor: '#f97316' },
-    { id: 'properties', label: 'Properties', href: '/properties', icon: Building2, textColor: '#1e3a8a', iconColor: '#ea580c' },
-    {
-      id: 'services',
-      label: 'Services',
-      href: '/services',
-      icon: Zap,
-      textColor: '#1e40af',
-      iconColor: '#f97316'
-    },
-    { id: 'about', label: 'About', href: '/about', icon: Info, textColor: '#1e3a8a', iconColor: '#ea580c' },
-    { id: 'blogs', label: 'Blogs', href: '/blogs', icon: BookOpen, textColor: '#1e40af', iconColor: '#f97316' },
-    { id: 'contact', label: 'Contact', href: '/contact', icon: Phone, textColor: '#1e3a8a', iconColor: '#ea580c' }
+    { id: 'home', label: 'Home', href: '/', textColor: navTextColor },
+    { id: 'properties', label: 'Properties', href: '/properties', textColor: navTextColor },
+    { id: 'services', label: 'Services', href: '/services', textColor: navTextColor },
+    { id: 'about', label: 'About', href: '/about', textColor: navTextColor },
+    { id: 'blogs', label: 'Blogs', href: '/blogs', textColor: navTextColor },
+    { id: 'contact', label: 'Contact', href: '/contact', textColor: navTextColor },
   ];
 
   const handleNavClick = (pageId, href) => {
@@ -119,9 +85,6 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
       // Add your seller save logic here
       console.log('Saving seller:', sellerData);
 
-      // You can call your API here
-      // await sellerAPI.createSeller(sellerData);
-
       // Show success message
       alert('Seller information saved successfully!');
 
@@ -141,22 +104,24 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
           <div className="flex items-center justify-between text-xs sm:text-sm">
             <div className="flex items-center space-x-4">
               <div className="hidden sm:flex items-center space-x-1">
-                <Phone size={12} />
+                {/* phone placeholder */}
+                <span className="text-xs font-medium">📞</span>
                 <span>+91 99999 99999</span>
               </div>
               <div className="hidden md:flex items-center space-x-1">
-                <Mail size={12} />
+                {/* mail placeholder */}
+                <span className="text-xs font-medium">✉️</span>
                 <span>info@resaleexpert.in</span>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-1">
-                <Star className="text-yellow-300 fill-current" size={12} />
+                <span className="text-yellow-300">★</span>
                 <span className="hidden sm:inline">4.9/5</span>
                 <span className="sm:hidden">★4.9</span>
               </div>
               <div className="flex items-center space-x-1">
-                <Shield className="text-green-300" size={12} />
+                <span className="text-green-300">✓</span>
                 <span className="hidden sm:inline">Verified</span>
                 <span className="sm:hidden">✓</span>
               </div>
@@ -179,9 +144,9 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                 />
               ) : (
                 <>
-                    <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-                      <Building className="h-6 w-6 text-white" />
-                    </div>
+                  <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <span className="text-white font-bold">RE</span>
+                  </div>
                   <div className="hidden sm:block">
                     <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
                       {companyName}
@@ -194,65 +159,39 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center space-x-1" ref={dropdownRef}>
               {navigationItems.map((item) => {
-                const Icon = item.icon;
                 const isActive = isActivePage(item.id, item.href);
 
                 return (
                   <div key={item.id} className="relative">
-                    {item.hasDropdown ? (
-                      <div
-                        className="relative"
-                        onMouseEnter={() => setOpenDropdown(item.id)}
-                        onMouseLeave={() => setOpenDropdown((prev) => (prev === item.id ? null : prev))}
+                    {item.href ? (
+                      <Link
+                        to={item.href}
+                        onClick={() => handleNavClick(item.id, item.href)}
+                        style={{
+                          color: isActive ? undefined : item.textColor,
+                        }}
+                        className={cn(
+                          'flex items-center space-x-2 px-3 mx-2 py-1.5 rounded-xl transition-all text-sm font-medium',
+                          isActive
+                            ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
+                            : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
+                        )}
                       >
-                        <button
-                          type="button"
-                          aria-haspopup="true"
-                          aria-expanded={openDropdown === item.id}
-                          style={{ color: item.textColor }}
-                          className={cn(
-                            'flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all text-sm font-medium',
-                            isActive
-                              ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200'
-                              : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-orange-600'
-                          )}
-                        >
-                          <Icon size={16} style={{ color: item.iconColor }} />
-                          <span>{item.label}</span>
-                          <ChevronDown size={14} className={`transition-transform ${openDropdown === item.id ? 'rotate-180' : ''}`} />
-                        </button>
-                      </div>
+                        <span>{item.label}</span>
+                      </Link>
                     ) : (
-                      item.href ? (
-                        <Link
-                          to={item.href}
-                          onClick={() => handleNavClick(item.id, item.href)}
-                          style={{ color: item.textColor }}
-                          className={cn(
-                            'flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all text-sm font-medium',
-                            isActive
-                              ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200'
-                              : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-orange-600'
-                          )}
-                        >
-                          <Icon size={16} style={{ color: item.iconColor }} />
-                          <span>{item.label}</span>
-                        </Link>
-                      ) : (
-                        <button
-                          onClick={() => handleNavClick(item.id)}
-                          style={{ color: item.textColor }}
-                          className={cn(
-                            'flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all text-sm font-medium',
-                            isActive
-                              ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200'
-                              : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-orange-600'
-                          )}
-                        >
-                          <Icon size={16} style={{ color: item.iconColor }} />
-                          <span>{item.label}</span>
-                        </button>
-                      )
+                      <button
+                        onClick={() => handleNavClick(item.id)}
+                        style={{ color: item.textColor }}
+                        className={cn(
+                          'flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all text-sm font-medium',
+                          isActive
+                            ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
+                            : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
+                        )}
+                      >
+                        <span>{item.label}</span>
+                      </button>
                     )}
                   </div>
                 );
@@ -263,25 +202,26 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleSellPropertyClick}
-                className="hidden sm:flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-5 py-2.5 rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                className="hidden sm:flex items-center space-x-2 bg-[#e68130] opacity-1 text-white px-5 py-2.5 rounded-xl hover:bg-[#e67310] transition-all text-sm font-medium shadow-md hover:shadow-lg"
               >
-                <HandCoins size={16} />
-                <span>Sell Property</span>
+                <span className="font-semibold">Sell Property</span>
               </button>
 
+
               {!isAuthenticated ? (
-                <div className="hidden md:flex space-x-2">
+                <div className="hidden md:flex space-x-2 items-center">
                   {onAuthAction ? (
                     <>
                       <button
                         onClick={() => onAuthAction('login')}
-                        className="border border-blue-800 text-blue-800 px-5 py-2.5 rounded-xl hover:bg-blue-50 transition-all text-sm font-medium"
+                        style={{ color: navTextColor, borderColor: navTextColor }}
+                        className="border px-5 py-2.5 rounded-xl hover:bg-[#f7fbfd] transition-all text-sm font-medium"
                       >
                         Login
                       </button>
                       <button
                         onClick={() => onAuthAction('signup')}
-                        className="bg-gradient-to-r from-blue-800 to-blue-900 text-white px-5 py-2.5 rounded-xl hover:from-blue-900 hover:to-blue-950 transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                        className="bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-5 py-2.5 rounded-xl hover:from-[#092e45] hover:to-[#071f2e] transition-all text-sm font-medium shadow-md hover:shadow-lg"
                       >
                         Sign Up
                       </button>
@@ -290,14 +230,14 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                     <>
                       <Link
                         to="/login"
-                        className="flex items-center space-x-1 text-blue-800 hover:text-orange-600 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+                        style={{ color: navTextColor }}
+                        className="flex items-center space-x-1 px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:text-[#07304a]"
                       >
-                        <LogIn className="h-4 w-4" />
                         <span>Login</span>
                       </Link>
                       <Link
                         to="/register"
-                        className="bg-gradient-to-r from-blue-800 to-blue-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:from-blue-900 hover:to-blue-950 transition-colors shadow-md hover:shadow-lg"
+                        className="bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:from-[#092e45] hover:to-[#071f2e] transition-colors shadow-md hover:shadow-lg"
                       >
                         Get Started
                       </Link>
@@ -308,8 +248,9 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                 <div className="flex items-center space-x-4">
                   <Link
                     to="/dashboard"
-                    className="flex items-center space-x-2 bg-gradient-to-r from-blue-800 to-blue-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:from-blue-900 hover:to-blue-950 transition-colors shadow-md hover:shadow-lg"
+                    className="flex items-center space-x-2 bg-[#0c3854] text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[#0b3858]/95 transition-colors shadow-md hover:shadow-lg"
                   >
+                    {/* Keep User icon on dashboard button */}
                     <User className="h-4 w-4" />
                     <span>Dashboard</span>
                   </Link>
@@ -320,7 +261,8 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                     onMouseLeave={() => setIsUserDropdownOpen(false)}
                   >
                     <button className="w-10 h-10 bg-gradient-to-r from-orange-100 to-blue-100 rounded-xl flex items-center justify-center border border-orange-200">
-                      <User className="text-blue-800" size={16} />
+                      {/* Keep the User icon in the avatar button */}
+                      <User className="text-[#0b3855]" size={16} />
                     </button>
                     {isUserDropdownOpen && (
                       <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50">
@@ -336,29 +278,24 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                               onClick={() => onPageChange && onPageChange('admin-ai')}
                               className="w-full text-left px-4 py-3 hover:bg-orange-50 text-sm flex items-center space-x-3 text-gray-700 hover:text-orange-600"
                             >
-                              <Brain size={16} />
                               <span>AI Training Panel</span>
                             </button>
                             <button
                               onClick={() => onPageChange && onPageChange('admin-dashboard')}
-                              className="w-full text-left px-4 py-3 hover:bg-blue-50 text-sm flex items-center space-x-3 text-gray-700 hover:text-blue-800"
+                              className="w-full text-left px-4 py-3 hover:bg-blue-50 text-sm flex items-center space-x-3 text-gray-700 hover:text-[#0b3855]"
                             >
-                              <Settings size={16} />
                               <span>Admin Dashboard</span>
                             </button>
                           </>
                         )}
                         <button className="w-full text-left px-4 py-3 hover:bg-yellow-50 text-sm flex items-center space-x-3 text-gray-700 hover:text-yellow-600">
-                          <Crown size={16} />
                           <span>Upgrade Plan</span>
                         </button>
                         <button className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center space-x-3 text-gray-700">
-                          <Settings size={16} />
                           <span>Settings</span>
                         </button>
                         <div className="border-t border-gray-100 mt-2 pt-2">
                           <button className="w-full text-left px-4 py-3 hover:bg-red-50 text-sm flex items-center space-x-3 text-red-600">
-                            <LogOut size={16} />
                             <span>Logout</span>
                           </button>
                         </div>
@@ -382,8 +319,9 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="lg:hidden p-2 rounded-xl text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                aria-label="Toggle mobile menu"
               >
-                {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+                <span className="font-medium">{isMobileMenuOpen ? 'Close' : 'Menu'}</span>
               </button>
             </div>
           </div>
@@ -394,7 +332,6 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
           <div className="lg:hidden bg-white border-t border-gray-200 shadow-lg">
             <div className="px-4 py-4 space-y-2">
               {navigationItems.map((item) => {
-                const Icon = item.icon;
                 const isActive = isActivePage(item.id, item.href);
                 return item.href ? (
                   <Link
@@ -405,11 +342,10 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                     className={cn(
                       'w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-left',
                       isActive
-                        ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200'
-                        : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-orange-600'
+                        ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
+                        : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
                     )}
                   >
-                    <Icon size={18} style={{ color: item.iconColor }} />
                     <span className="font-medium">{item.label}</span>
                   </Link>
                 ) : (
@@ -420,11 +356,10 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                     className={cn(
                       'w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-left',
                       isActive
-                        ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200'
-                        : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-orange-600'
+                        ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
+                        : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
                     )}
                   >
-                    <Icon size={18} style={{ color: item.iconColor }} />
                     <span className="font-medium">{item.label}</span>
                   </button>
                 );
@@ -435,7 +370,6 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                   onClick={handleSellPropertyClick}
                   className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-3 rounded-xl font-medium text-sm shadow-md"
                 >
-                  <HandCoins size={16} />
                   <span>Sell Property</span>
                 </button>
 
@@ -444,13 +378,14 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                     <div className="flex space-x-3">
                       <button
                         onClick={() => onAuthAction('login')}
-                        className="flex-1 border border-blue-800 text-blue-800 px-4 py-3 rounded-xl font-medium text-sm"
+                        style={{ borderColor: navTextColor, color: navTextColor }}
+                        className="flex-1 border px-4 py-3 rounded-xl font-medium text-sm"
                       >
                         Login
                       </button>
                       <button
                         onClick={() => onAuthAction('signup')}
-                        className="flex-1 bg-gradient-to-r from-blue-800 to-blue-900 text-white px-4 py-3 rounded-xl font-medium text-sm"
+                        className="flex-1 bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-4 py-3 rounded-xl font-medium text-sm"
                       >
                         Sign Up
                       </button>
@@ -459,13 +394,14 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                     <div className="flex space-x-3">
                       <Link
                         to="/login"
-                        className="flex-1 text-center border border-blue-800 text-blue-800 px-4 py-3 rounded-xl font-medium text-sm"
+                        style={{ color: navTextColor, borderColor: navTextColor }}
+                        className="flex-1 text-center border px-4 py-3 rounded-xl font-medium text-sm"
                       >
                         Login
                       </Link>
                       <Link
                         to="/register"
-                        className="flex-1 text-center bg-gradient-to-r from-blue-800 to-blue-900 text-white px-4 py-3 rounded-xl font-medium text-sm"
+                        className="flex-1 text-center bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-4 py-3 rounded-xl font-medium text-sm"
                       >
                         Get Started
                       </Link>
@@ -474,9 +410,9 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                 ) : (
                   <Link
                     to="/dashboard"
-                    className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-800 to-blue-900 text-white px-4 py-3 rounded-xl font-medium text-sm"
+                    className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-4 py-3 rounded-xl font-medium text-sm"
                   >
-                    <User size={16} />
+                    <User className="h-4 w-4" />
                     <span>Dashboard</span>
                   </Link>
                 )}

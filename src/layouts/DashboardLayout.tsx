@@ -57,7 +57,7 @@ import NotificationPanel from './NotificationPanel';
 import { notificationAPI } from '@/lib/notificationAPI';
 import UserProfileMenu from './UserProfileMenu';
 
-// DashboardLayout with Blue content and Orange icons
+// DashboardLayout with unified menu color (#0b3855)
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activityModalOpen, setActivityModalOpen] = useState(false);
@@ -88,6 +88,12 @@ const DashboardLayout = () => {
   const mobileTimersRef = useRef(null);
 
   const NotificationPanelAny = NotificationPanel;
+
+  // Unified nav color (from image)
+  const navColorHex = '#0b3855';
+  const navTextClass = `text-[${navColorHex}]`; // will be used where text color is needed
+  const navHoverClass = `group-hover:text-[${navColorHex}]`;
+  // NOTE: tailwind arbitrary classes in template strings are fine in JSX className
 
   // Exclusive toggleMenu: opening one menu closes others. Closing a menu only closes it.
   const toggleMenu = useCallback((menuKey) => {
@@ -156,90 +162,136 @@ const DashboardLayout = () => {
     return loginTimeRef.current;
   }, []);
 
-  // navigation structure with Blue content and Orange icons
-  const navigationStructure = useMemo(() => {
-    const structure = [
+  // navigation structure with unified color for icons/text
+  type NavigationSingle = {
+    name: string;
+    href: string;
+    icon: any;
+    exact: boolean;
+    colorClass: string;
+    type: 'single';
+  };
+
+  type NavigationDropdown = {
+    name: string;
+    icon: any;
+    colorClass: string;
+    type: 'dropdown';
+    key: string;
+    submenu: Array<{
+      name: string;
+      href: string;
+      icon: any;
+      colorClass: string;
+    }>;
+  };
+
+  type NavigationItem = NavigationSingle | NavigationDropdown;
+
+  const navigationStructure: NavigationItem[] = useMemo(() => {
+    const structure: NavigationItem[] = [
       {
         name: 'Overview',
         href: '/dashboard',
         icon: Home,
         exact: true,
-        color: 'text-orange-600',
+        colorClass: navTextClass,
         type: 'single'
       }
     ];
 
     if (hasRole('admin')) {
-      structure.push({ name: 'Admin Dashboard', href: '/dashboard/admin', icon: Crown, exact: true, color: 'text-orange-600', type: 'single' });
+      structure.push({
+        name: 'Admin Dashboard',
+        href: '/dashboard/admin',
+        icon: Crown,
+        exact: true,
+        colorClass: navTextClass,
+        type: 'single'
+      });
     }
     if (hasRole(['admin', 'manager'])) {
-      structure.push({ name: 'Manager Dashboard', href: '/dashboard/manager', icon: UserCheck, exact: true, color: 'text-orange-600', type: 'single' });
+      structure.push({
+        name: 'Manager Dashboard',
+        href: '/dashboard/manager',
+        icon: UserCheck,
+        exact: true,
+        colorClass: navTextClass,
+        type: 'single'
+      });
     }
     if (hasRole(['admin', 'manager', 'agent'])) {
-      structure.push({ name: 'Agent Dashboard', href: '/dashboard/agent', icon: Briefcase, exact: true, color: 'text-orange-600', type: 'single' });
+      structure.push({
+        name: 'Agent Dashboard',
+        href: '/dashboard/agent',
+        icon: Briefcase,
+        exact: true,
+        colorClass: navTextClass,
+        type: 'single'
+      });
     }
 
     structure.push(
-      { name: 'Seller Dashboard', href: '/dashboard/seller', icon: ShoppingBag, exact: true, color: 'text-orange-600', type: 'single' },
-      { name: 'Buyer Dashboard', href: '/dashboard/buyer', icon: Heart, exact: true, color: 'text-orange-600', type: 'single' }
+      { name: 'Seller Dashboard', href: '/dashboard/seller', icon: ShoppingBag, exact: true, colorClass: navTextClass, type: 'single' },
+      { name: 'Buyer Dashboard', href: '/dashboard/buyer', icon: Heart, exact: true, colorClass: navTextClass, type: 'single' }
     );
 
     structure.push(
       {
         name: 'CMS',
         icon: Globe,
-        color: 'text-orange-600',
+        colorClass: navTextClass,
         type: 'dropdown',
         key: 'cms',
-        submenu: [{ name: 'Blog Manager', href: '/dashboard/blog-manager', icon: Edit3, color: 'text-orange-600' }]
+        submenu: [{ name: 'Blog Manager', href: '/dashboard/blog-manager', icon: Edit3, colorClass: navTextClass }]
       },
       {
         name: 'CRM',
         icon: Users,
-        color: 'text-orange-600',
+        colorClass: navTextClass,
         type: 'dropdown',
         key: 'crm',
         submenu: [
-          { name: 'Leads', href: '/dashboard/leads', icon: Target, color: 'text-orange-600' },
-          { name: 'Buyers', href: '/dashboard/buyers', icon: UserCheck, color: 'text-orange-600' },
-          { name: 'Sellers', href: '/dashboard/sellers', icon: Users, color: 'text-orange-600' },
-          { name: 'Properties', href: '/dashboard/properties', icon: Building, color: 'text-orange-600' },
-          { name: 'Contact Messages', href: '/dashboard/contact-messages', icon: MessageCircle, color: 'text-orange-600' }
+          { name: 'Leads', href: '/dashboard/leads', icon: Target, colorClass: navTextClass },
+          { name: 'Buyers', href: '/dashboard/buyers', icon: UserCheck, colorClass: navTextClass },
+          { name: 'Sellers', href: '/dashboard/sellers', icon: Users, colorClass: navTextClass },
+          { name: 'Properties', href: '/dashboard/properties', icon: Building, colorClass: navTextClass },
+          { name: 'Contact Messages', href: '/dashboard/contact-messages', icon: MessageCircle, colorClass: navTextClass }
         ]
       },
       {
         name: 'Administrator',
         icon: Shield,
-        color: 'text-orange-600',
+        colorClass: navTextClass,
         type: 'dropdown',
         key: 'administrator',
         submenu: [
-          { name: 'Document Center', href: '/dashboard/document-center', icon: FileText, color: 'text-orange-600' },
-          { name: 'Template Center', href: '/dashboard/template-center', icon: LayoutTemplate, color: 'text-orange-600' },
-          { name: 'Accounts', href: '/dashboard/accounts', icon: Receipt, color: 'text-orange-600' }
+          { name: 'Document Center', href: '/dashboard/document-center', icon: FileText, colorClass: navTextClass },
+          { name: 'Template Center', href: '/dashboard/template-center', icon: LayoutTemplate, colorClass: navTextClass },
+          { name: 'Accounts', href: '/dashboard/accounts', icon: Receipt, colorClass: navTextClass }
         ]
       },
-      { name: 'Communication', href: '/dashboard/communication', icon: MessageSquare, exact: true, color: 'text-orange-600', type: 'single' },
+      { name: 'Communication', href: '/dashboard/communication', icon: MessageSquare, exact: true, colorClass: navTextClass, type: 'single' },
       {
         name: 'Tools',
         icon: Wrench,
-        color: 'text-orange-600',
+        colorClass: navTextClass,
         type: 'dropdown',
         key: 'tools',
         submenu: [
-          { name: 'Vendors', href: '/dashboard/vendors', icon: Building, color: 'text-orange-600' },
-          { name: 'AI Training', href: '/dashboard/ai-training', icon: FileText, color: 'text-orange-600' }
+          { name: 'Vendors', href: '/dashboard/vendors', icon: Building, colorClass: navTextClass },
+          { name: 'AI Training', href: '/dashboard/ai-training', icon: FileText, colorClass: navTextClass }
         ]
       },
       {
         name: 'Reports',
         icon: TrendingUp,
-        color: 'text-orange-600',
+        colorClass: navTextClass,
         type: 'dropdown',
         key: 'reports',
         submenu: [
-          { name: 'Activities', href: '/dashboard/activities', icon: Activity, color: 'text-orange-600' },
-          { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, color: 'text-orange-600' }
+          { name: 'Activities', href: '/dashboard/activities', icon: Activity, colorClass: navTextClass },
+          { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, colorClass: navTextClass }
         ]
       }
     );
@@ -248,25 +300,25 @@ const DashboardLayout = () => {
     structure.push({
       name: 'Settings',
       icon: Settings,
-      color: 'text-orange-600',
+      colorClass: navTextClass,
       type: 'dropdown',
       key: 'settings',
       submenu: [
-        { name: 'General Settings', href: '/dashboard/settings', icon: Settings, color: 'text-orange-600' },
-        { name: 'Roles & Permissions', href: '/dashboard/settings/roles-permissions', icon: Shield, color: 'text-orange-600' },
-        { name: 'Integrations', href: '/dashboard/settings/integrations', icon: Zap, color: 'text-orange-600' },
-        { name: 'AI Settings', href: '/dashboard/settings/ai', icon: Zap, color: 'text-orange-600' },
-        { name: 'Master Data', href: '/dashboard/settings/master-data', icon: Database, color: 'text-orange-600' },
-        { name: 'Import/Export', href: '/dashboard/settings/import-export', icon: Download, color: 'text-orange-600' }
+        { name: 'General Settings', href: '/dashboard/settings', icon: Settings, colorClass: navTextClass },
+        { name: 'Roles & Permissions', href: '/dashboard/settings/roles-permissions', icon: Shield, colorClass: navTextClass },
+        { name: 'Integrations', href: '/dashboard/settings/integrations', icon: Zap, colorClass: navTextClass },
+        { name: 'AI Settings', href: '/dashboard/settings/ai', icon: Zap, colorClass: navTextClass },
+        { name: 'Master Data', href: '/dashboard/settings/master-data', icon: Database, colorClass: navTextClass },
+        { name: 'Import/Export', href: '/dashboard/settings/import-export', icon: Download, colorClass: navTextClass }
       ]
     });
 
     if (hasRole('admin')) {
-      structure.push({ name: 'Users', href: '/dashboard/users', icon: Users, exact: true, color: 'text-orange-600', type: 'single' });
+      structure.push({ name: 'Users', href: '/dashboard/users', icon: Users, exact: true, colorClass: navTextClass, type: 'single' });
     }
 
     return structure;
-  }, [hasRole]);
+  }, [hasRole, navTextClass]);
 
   const filteredNavigation = useMemo(() => {
     if (!searchQuery.trim()) return navigationStructure;
@@ -473,7 +525,7 @@ const DashboardLayout = () => {
   const companyLogo = systemSettings?.company_logo;
   const companyName = systemSettings?.company_name || 'Resale Expert';
 
-  // Sidebar component with Blue content and Orange icons
+  // Sidebar component with unified nav color
   const SidebarComponent = useMemo(() => {
     return (
       <div className="flex flex-col h-full" ref={sidebarRef}>
@@ -486,11 +538,11 @@ const DashboardLayout = () => {
               <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
                 <Building className="h-6 w-6 text-white" />
               </div>
-                <div className="hidden sm:block">
-                  <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
-                    {companyName}
-                  </h1>
-                </div>
+              <div className="hidden sm:block">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
+                  {companyName}
+                </h1>
+              </div>
             </div>
           )}
         </div>
@@ -525,7 +577,7 @@ const DashboardLayout = () => {
           </div>
         </div>
 
-        {/* Navigation with blue content and orange icons */}
+        {/* Navigation with unified color for icons and labels */}
         <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto bg-white" role="navigation" aria-label="Main sidebar navigation">
           {filteredNavigation.map((item) => (
             <div key={item.name}>
@@ -536,12 +588,15 @@ const DashboardLayout = () => {
                     ? 'bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg shadow-blue-700/25'
                     : 'text-blue-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:text-blue-800 hover:shadow-md'
                 )}>
-                  <item.icon className={cn('mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-150',
-                    isActive(item.href, item.exact)
-                      ? 'text-white'
-                      : `${item.color} group-hover:text-orange-600`
-                  )} />
-                  <span className="flex-1">{item.name}</span>
+                  <item.icon
+                    className={cn(
+                      'mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-150',
+                      isActive(item.href, item.exact)
+                        ? 'text-white'
+                        : `${item.colorClass} ${navHoverClass}`
+                    )}
+                  />
+                  <span className={cn('flex-1', !isActive(item.href, item.exact) ? `${item.colorClass}` : '')}>{item.name}</span>
                   {isActive(item.href, item.exact) && <div className="w-2 h-2 bg-white rounded-full opacity-90" />}
                 </Link>
               ) : (
@@ -560,12 +615,15 @@ const DashboardLayout = () => {
                     )}
                     type="button"
                   >
-                    <item.icon className={cn('mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-150',
-                      isParentActive(item.submenu)
-                        ? 'text-white'
-                        : `${item.color} group-hover:text-orange-600`
-                    )} />
-                    <span className="flex-1 text-left">{item.name}</span>
+                    <item.icon
+                      className={cn(
+                        'mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-150',
+                        isParentActive(item.submenu)
+                          ? 'text-white'
+                          : `${item.colorClass} ${navHoverClass}`
+                      )}
+                    />
+                    <span className={cn('flex-1 text-left', !isParentActive(item.submenu) ? `${item.colorClass}` : '')}>{item.name}</span>
                     {expandedMenus.has(item.key) ? (
                       <ChevronDown className={cn('h-4 w-4 transition-transform duration-200',
                         isParentActive(item.submenu) ? 'text-white' : 'text-blue-500'
@@ -589,9 +647,9 @@ const DashboardLayout = () => {
                           <child.icon className={cn('mr-3 h-4 w-4 flex-shrink-0 transition-colors duration-150',
                             isActive(child.href)
                               ? 'text-white'
-                              : `${child.color} group-hover:text-orange-600`
+                              : `${child.colorClass} ${navHoverClass}`
                           )} />
-                          <span className="flex-1">{child.name}</span>
+                          <span className={cn('flex-1', !isActive(child.href) ? `${child.colorClass}` : '')}>{child.name}</span>
                           {isActive(child.href) && <div className="w-1.5 h-1.5 bg-white rounded-full opacity-90" />}
                         </Link>
                       ))}
@@ -619,7 +677,7 @@ const DashboardLayout = () => {
         </div>
       </div>
     );
-  }, [companyLogo, companyName, searchFocused, searchQuery, handleSearchChange, handleSearchFocus, handleSearchBlur, clearSearch, filteredNavigation, isActive, isParentActive, handleSidebarLinkClick, handleLogout, expandedMenus, toggleMenu]);
+  }, [companyLogo, companyName, searchFocused, searchQuery, handleSearchChange, handleSearchFocus, handleSearchBlur, clearSearch, filteredNavigation, isActive, isParentActive, handleSidebarLinkClick, handleLogout, expandedMenus, toggleMenu, navHoverClass]);
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-blue-100/50">
@@ -652,52 +710,52 @@ const DashboardLayout = () => {
                 <Menu className="h-6 w-6" />
               </button>
 
-              <Link to="/home" title="Go back to website" className="ml-3 flex items-center justify-center text-white font-semibold bg-gradient-to-r from-blue-700 to-blue-800 px-4 py-2 rounded-xl hover:from-blue-800 hover:to-blue-900 transition-all shadow-lg hover:shadow-xl">
+              <Link to="/home" title="Go back to website" className="ml-3 flex items-center justify-center text-white font-semibold  bg-[#0c3854] px-2 py-1 rounded-xl text-sm  hover:bg-[#0b3858]/95 transition-colors shadow-md hover:shadow-lg">
                 <FaEarthAsia className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline text-sm">Website</span>
               </Link>
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Desktop timer buttons with blue content and orange icons */}
+              {/* Desktop timer buttons with unified icon color */}
               <div className="hidden lg:flex items-center space-x-3">
                 <button onClick={openActivityModal} title="Click to open activity tracker" className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all group shadow-sm hover:shadow-md" type="button">
-                  <Clock className="h-4 w-4 text-orange-600 group-hover:text-orange-700" />
+                  <Clock className={`h-4 w-4 ${navTextClass} group-hover:opacity-90`} />
                   <span className="text-blue-700 text-sm font-semibold group-hover:text-blue-800">{sessionTime}</span>
                 </button>
 
                 <button title="Activity progress" className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all group shadow-sm hover:shadow-md" type="button">
-                  <Activity className="h-4 w-4 text-orange-600 group-hover:text-orange-700" />
+                  <Activity className={`h-4 w-4 ${navTextClass} group-hover:opacity-90`} />
                   <span className="text-blue-700 text-sm font-semibold group-hover:text-blue-800">100%</span>
                 </button>
 
                 <button title="Coffee breaks taken" className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all group shadow-sm hover:shadow-md" type="button">
-                  <Coffee className="h-4 w-4 text-orange-600 group-hover:text-orange-700" />
+                  <Coffee className={`h-4 w-4 ${navTextClass} group-hover:opacity-90`} />
                   <span className="text-blue-700 text-sm font-semibold group-hover:text-blue-800">10</span>
                 </button>
               </div>
 
-              {/* Mobile timers dropdown with blue content and orange icons */}
+              {/* Mobile timers dropdown with unified icon color */}
               <div className="relative lg:hidden" ref={mobileTimersRef}>
                 <button onClick={(e) => { e.stopPropagation(); setMobileTimersOpen((p) => !p); }} title="Open timers" className="p-2.5 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm" type="button" aria-haspopup="true" aria-expanded={mobileTimersOpen}>
-                  <Clock className="h-5 w-5 text-orange-600" />
+                  <Clock className={`h-5 w-5 ${navTextClass}`} />
                 </button>
 
                 {mobileTimersOpen && (
                   <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2" onClick={(e) => e.stopPropagation()}>
                     <div className="px-3">
                       <button onClick={() => { setMobileTimersOpen(false); openActivityModal(); }} title="Open activity tracker" className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg hover:bg-blue-50 transition-colors" type="button">
-                        <Clock className="h-4 w-4 text-orange-600" />
+                        <Clock className={`h-4 w-4 ${navTextClass}`} />
                         <span className="text-sm font-medium text-blue-700">{sessionTime}</span>
                       </button>
 
                       <button onClick={() => setMobileTimersOpen(false)} title="Activity progress" className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg hover:bg-blue-50 transition-colors" type="button">
-                        <Activity className="h-4 w-4 text-orange-600" />
+                        <Activity className={`h-4 w-4 ${navTextClass}`} />
                         <span className="text-sm font-medium text-blue-700">100%</span>
                       </button>
 
                       <button onClick={() => setMobileTimersOpen(false)} title="Coffee breaks" className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg hover:bg-blue-50 transition-colors" type="button">
-                        <Coffee className="h-4 w-4 text-orange-600" />
+                        <Coffee className={`h-4 w-4 ${navTextClass}`} />
                         <span className="text-sm font-medium text-blue-700">10</span>
                       </button>
                     </div>
