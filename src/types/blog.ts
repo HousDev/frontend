@@ -7,7 +7,7 @@ export interface BlogPost {
   author: string;
   category: string;
   tags: string[];
-  status: 'draft' | 'published' | 'archived';
+  status: 'draft' | 'scheduled' | 'published' | 'archived';
   featured: boolean;
   featuredImage: string;
   publishedAt: string;
@@ -73,17 +73,17 @@ export interface BlogSettings {
   approvalRequired: boolean;
 }
 
-export type BlogCategory = 
-  | 'Real Estate' 
-  | 'Investment' 
-  | 'Market Analysis' 
-  | 'Legal' 
-  | 'Home Buying' 
-  | 'Home Selling' 
-  | 'Property News' 
-  | 'Construction' 
+export type BlogCategory =
+  | 'Real Estate'
+  | 'Investment'
+  | 'Market Analysis'
+  | 'Legal'
+  | 'Home Buying'
+  | 'Home Selling'
+  | 'Property News'
+  | 'Construction'
   | 'Finance';
 
-export type BlogStatus = 'draft' | 'published' | 'archived';
+export type BlogStatus = 'draft' | 'scheduled' | 'published' | 'archived';
 
 export type RSSSourceStatus = 'active' | 'inactive' | 'error' | 'syncing';

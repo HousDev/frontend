@@ -1916,7 +1916,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       try {
         const createRes = await propertiesAPI.createFilterContext({ filters: inferredFilters });
         if (createRes) {
-          const idFromRes = (createRes as any).id || (createRes as any).filterId || (createRes?.data && createRes.data.id) || null;
+          const idFromRes = (createRes as any).id || (createRes as any).filterId || null;
           if (idFromRes) finalToken = String(idFromRes);
         }
       } catch (err) {
