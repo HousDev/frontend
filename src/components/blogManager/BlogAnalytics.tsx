@@ -1,18 +1,10 @@
+// src/components/blogManager/BlogAnalytics.tsx
 import React from 'react';
 import { BarChart, Users, Eye, TrendingUp, Calendar } from 'lucide-react';
-
-interface BlogPost {
-  id: string;
-  title: string;
-  views?: number;
-  likes?: number;
-  comments?: number;
-  createdAt: string;
-  status: 'draft' | 'published' | 'scheduled';
-}
+import { BlogPost as BlogPostType } from '@/types/blog'; // <-- use the canonical type
 
 interface BlogAnalyticsProps {
-  posts: BlogPost[];
+  posts: BlogPostType[];
 }
 
 const BlogAnalytics: React.FC<BlogAnalyticsProps> = ({ posts }) => {
@@ -23,7 +15,15 @@ const BlogAnalytics: React.FC<BlogAnalyticsProps> = ({ posts }) => {
   const totalLikes = posts.reduce((sum, post) => sum + (post.likes || 0), 0);
   const totalComments = posts.reduce((sum, post) => sum + (post.comments || 0), 0);
 
-  const stats = [
+  type Stat = {
+    title: string;
+    value: string | number;
+    icon: React.ComponentType<any>;
+    color: string;
+    bg: string;
+  };
+
+  const stats: Stat[] = [
     {
       title: 'Total Posts',
       value: totalPosts,
@@ -103,7 +103,7 @@ const BlogAnalytics: React.FC<BlogAnalyticsProps> = ({ posts }) => {
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
           <div className="space-y-3">
             {posts.slice(0, 5).map((post) => (
-              <div key={post.id} className="flex items-center space-x-3">
+              <div key={String(post.id)} className="flex items-center space-x-3">
                 <Calendar className="w-4 h-4 text-gray-400" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{post.title}</p>
@@ -112,13 +112,13 @@ const BlogAnalytics: React.FC<BlogAnalyticsProps> = ({ posts }) => {
                   </p>
                 </div>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  post.status === 'published' 
-                    ? 'bg-green-100 text-green-800' 
+                  post.status === 'published'
+                    ? 'bg-green-100 text-green-800'
                     : post.status === 'draft'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-blue-100 text-blue-800'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-blue-100 text-blue-800'
                 }`}>
-                  {post.status}
+                  {String(post.status)}
                 </span>
               </div>
             ))}

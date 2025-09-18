@@ -24,7 +24,7 @@ import {
 import toast from 'react-hot-toast';
 import blogsAPI from '@/lib/blogsAPI';
 
-interface BlogPost {
+export interface BlogPost {
   id: string | number;
   title: string;
   slug?: string;
@@ -35,7 +35,7 @@ interface BlogPost {
   tags?: string[];
   status?: string;
   featured?: boolean;
-  featuredImage?: string;
+  featuredImage?: string | null;
   publishedAt?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -44,7 +44,7 @@ interface BlogPost {
   comments?: number;
   seoTitle?: string;
   seoDescription?: string;
-  readTime?: number;
+  readTime?: number | string;
 }
 
 interface Comment {
@@ -59,69 +59,71 @@ interface Comment {
 
 interface BlogDetailPageProps {
   slug: string;
-  onBack: () => void;
+  post?: BlogPost;            // optional: parent can pass pre-fetched post
+  loading?: boolean;         // optional: parent can indicate loading state
+  onBack?: () => void;       // optional navigation callback
 }
 
-const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
-  const [post, setPost] = useState<BlogPost | null>(null);
+const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: propPost, loading: propLoading = false, onBack }) => {
+  const [post, setPost] = useState<BlogPost | null>(propPost ?? null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([]);
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [commentForm, setCommentForm] = useState({ name: '', email: '', content: '' });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(propLoading);
 
   // Helper to normalize image URL:
   const buildImageUrl = (img?: string | null) => {
     if (!img) return null;
-    // If already absolute (http, https) return as-is
     if (/^https?:\/\//i.test(img)) return img;
-    // If relative path (starts with /uploads...), prefix with origin
     if (img.startsWith('/')) return `${window.location.origin}${img}`;
-    // Otherwise return as-is (fallback)
     return img;
   };
 
+  // If parent provides a post prop, prefer it and skip fetch.
   useEffect(() => {
+    setPost(propPost ?? null);
+    setIsLoading(propLoading);
+  }, [propPost, propLoading]);
+
+  useEffect(() => {
+    // If post prop was provided we don't fetch. Otherwise, fetch by slug.
+    if (propPost) return;
+
     let mounted = true;
 
     const fetchPostAndRelated = async () => {
       setIsLoading(true);
       try {
-        // 1) Try dedicated slug endpoint if exists
         let fetched: any = null;
 
+        // 1) Try dedicated slug endpoint if exists
         if (typeof (blogsAPI as any).getPostBySlug === 'function') {
           try {
             const res = await (blogsAPI as any).getPostBySlug(slug);
-            // accept either direct object or { data: post } shapes
             fetched = (res && (res.data ?? res.post ?? res)) ?? null;
           } catch (e) {
-            // fallback to search below
             fetched = null;
           }
         }
 
-        // 2) Fallback: search via getAllPosts with query or get-all then find by slug
+        // 2) Fallback: search via getAllPosts
         if (!fetched) {
           try {
-            // Try searching by slug or title
-            const listRes = await blogsAPI.getAllPosts({ q: slug, limit: 10 });
-            let items = listRes;
+            const listRes = await blogsAPI.getAllPosts?.({ q: slug, limit: 10 }) ?? [];
+            let items: any = listRes;
             if (items && (items.data || items.items || items.results)) {
               items = items.data ?? items.items ?? items.results;
             }
             if (Array.isArray(items) && items.length) {
-              // Try exact match by slug, otherwise pick first
               const bySlug = items.find((it: any) => String(it.slug ?? it.id ?? '').toLowerCase() === slug.toLowerCase());
               fetched = bySlug ?? items[0];
             } else {
-              // As ultimate fallback, if getAllPosts returned a single object shape
               if (listRes && (listRes.id || listRes.title)) fetched = listRes;
             }
-          } catch (err) {
-            // Continue — we'll handle not found below
+          } catch {
             fetched = null;
           }
         }
@@ -132,7 +134,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
           return;
         }
 
-        // Normalize fields a bit
+        // Normalize fields
         const normalized: BlogPost = {
           id: fetched.id ?? fetched._id ?? fetched.slug ?? fetched.title ?? Date.now(),
           title: fetched.title ?? 'Untitled',
@@ -145,7 +147,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
           status: fetched.status ?? 'draft',
           featured: !!fetched.featured,
           featuredImage: buildImageUrl(fetched.featuredImage ?? fetched.featured_image ?? fetched.image ?? null),
-          publishedAt: fetched.publishedAt ?? fetched.published_at ?? fetched.publishedAt ?? '',
+          publishedAt: fetched.publishedAt ?? fetched.published_at ?? '',
           createdAt: fetched.createdAt ?? fetched.created_at ?? new Date().toISOString(),
           updatedAt: fetched.updatedAt ?? fetched.updated_at ?? new Date().toISOString(),
           views: Number(fetched.views ?? 0),
@@ -159,30 +161,27 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
         if (!mounted) return;
         setPost(normalized);
 
-        // Comments: if backend provides comments endpoint, fetch; otherwise keep empty
+        // Comments
         if (typeof (blogsAPI as any).getComments === 'function') {
           try {
             const cRes = await (blogsAPI as any).getComments(normalized.id);
             const cList = cRes && (cRes.data ?? cRes.comments ?? cRes) ? (cRes.data ?? cRes.comments ?? cRes) : [];
             if (mounted) setComments(Array.isArray(cList) ? cList : []);
           } catch {
-            // ignore comments fetch errors (keep comments empty)
             if (mounted) setComments([]);
           }
         } else {
-          // No comments endpoint — keep comments empty (or you can enable local comments below)
           if (mounted) setComments([]);
         }
 
-        // Related posts: try fetch by same category (limit 4)
+        // Related posts
         try {
-          const relatedRes = await blogsAPI.getAllPosts({ category: normalized.category, limit: 6 });
-          let relatedItems = relatedRes;
+          const relatedRes = await blogsAPI.getAllPosts?.({ category: normalized.category, limit: 6 }) ?? [];
+          let relatedItems: any = relatedRes;
           if (relatedItems && (relatedItems.data || relatedItems.items || relatedItems.results)) {
             relatedItems = relatedItems.data ?? relatedItems.items ?? relatedItems.results;
           }
           if (Array.isArray(relatedItems)) {
-            // exclude current post and map with normalization similar to above
             const related = relatedItems
               .filter((rp: any) => String(rp.id ?? rp._id ?? rp.slug) !== String(normalized.id))
               .slice(0, 4)
@@ -190,6 +189,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
                 id: rp.id ?? rp._id ?? rp.slug ?? Date.now(),
                 title: rp.title ?? 'Untitled',
                 slug: rp.slug ?? undefined,
+                content: rp.content ?? rp.body ?? rp.html ?? '', // <-- add content property
                 excerpt: rp.excerpt ?? rp.description ?? '',
                 author: rp.author ?? 'Admin',
                 category: rp.category ?? normalized.category,
@@ -231,20 +231,20 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
     return () => {
       mounted = false;
     };
-  }, [slug]);
+  }, [slug, propPost]);
 
   const handleLike = () => {
-    setIsLiked(prev => !prev);
+    setIsLiked((prev) => !prev);
     if (post) {
-      setPost(prev => prev ? { ...prev, likes: isLiked ? (prev.likes || 0) - 1 : (prev.likes || 0) + 1 } : prev);
-      // Optionally persist like via API: blogsAPI.likePost(post.id)
+      setPost((prev) => (prev ? { ...prev, likes: isLiked ? (prev.likes || 0) - 1 : (prev.likes || 0) + 1 } : prev));
+      // Optionally persist via API (e.g. blogsAPI.likePost(post.id))
     }
     toast.success(isLiked ? 'Removed from likes' : 'Added to likes');
   };
 
   const handleBookmark = () => {
-    setIsBookmarked(prev => !prev);
-    // optionally persist bookmark via API/localStorage
+    setIsBookmarked((prev) => !prev);
+    // persist if needed
     toast.success(isBookmarked ? 'Removed from bookmarks' : 'Added to bookmarks');
   };
 
@@ -292,16 +292,15 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
         replies: []
       };
 
-      // Optionally post comment to backend if blogsAPI.createComment exists
       if (post && typeof (blogsAPI as any).createComment === 'function') {
         try {
           await (blogsAPI as any).createComment(post.id, newComment);
-        } catch (err) {
-          // still show locally
+        } catch {
+          // ignore errors, still add locally
         }
       }
 
-      setComments(prev => [newComment, ...prev]);
+      setComments((prev) => [newComment, ...prev]);
       setCommentForm({ name: '', email: '', content: '' });
       setShowCommentForm(false);
       toast.success('Comment posted successfully!');
@@ -313,12 +312,15 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch {
+      return dateString;
+    }
   };
 
   const formatContent = (content: string) => {
     if (!content) return '';
-    // Basic markdown -> HTML conversions (kept simple)
     return content
       .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold text-gray-900 mb-6 mt-8">$1</h1>')
       .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-bold text-gray-900 mb-4 mt-6">$1</h2>')
@@ -329,6 +331,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
       .replace(/\n/g, '<br>');
   };
 
+  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -354,7 +357,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
     );
   }
 
-  const featuredImgUrl = buildImageUrl(post.featuredImage);
+  const featuredImgUrl = buildImageUrl(post.featuredImage ?? null);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -433,11 +436,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
                 {/* Meta */}
                 <div className="flex flex-wrap items-center justify-between mb-6 pb-6 border-b border-gray-200">
                   <div className="flex items-center space-x-6 mb-4 md:mb-0">
-                    {/* <div className="flex items-center space-x-2">
-                      <User className="text-gray-400" size={18} />
-                      <span className="text-gray-700 font-medium">{post.author}</span>
-                    </div> */}
-                    
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                         <span className="text-white text-sm font-bold">
@@ -515,6 +513,11 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
             </article>
 
             {/* Comments */}
+
+ (file continued — full file below)
+```tsx
+// continue of src/components/BlogDetailPage.tsx
+
             <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 mb-8">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Comments ({comments.length})</h2>
@@ -624,7 +627,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
                   </div>
 
                   <div className="space-y-4">
-                    {relatedPosts.map((rp, index) => (
+                    {relatedPosts.map((rp) => (
                       <div
                         key={rp.id}
                         className="group border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg hover:border-blue-300 transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
@@ -632,7 +635,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
                       >
                         <div className="relative">
                           {rp.featuredImage ? (
-                            <img src={rp.featuredImage} alt={rp.title} className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300" />
+                            <img src={rp.featuredImage as string} alt={rp.title} className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300" />
                           ) : (
                             <div className="w-full h-32 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                               <div className="text-gray-400 text-sm">No image</div>
@@ -654,12 +657,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
                           </p>
 
                           <div className="flex items-center justify-between">
-                            {/* <div className="flex items-center space-x-1">
-                              <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
-                                <User className="text-blue-600" size={10} />
-                              </div>
-                              <span className="text-xs text-gray-500 font-medium">{rp.author}</span>
-                            </div> */}
                             <div className="flex items-center space-x-3">
                               <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                                 <span className="text-white text-sm font-bold">
@@ -778,7 +775,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, onBack }) => {
             </div>
           </div>
         </div>
-      </div>
+      </div>  
     </div>
   );
 };

@@ -8,6 +8,7 @@ import {
   FileText,
   Check,
   Trash2,
+  X
 } from "lucide-react";
 import { notificationAPI } from "@/lib/notificationAPI";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,7 +26,7 @@ type RawNotification = {
 
 type UILevel = "low" | "medium" | "high";
 
-type NotificationItem = {
+export type NotificationItem = {
   id: number;
   title: string;
   message: string;
@@ -39,27 +40,58 @@ type NotificationItem = {
 
 const toNumberId = (id: number | string) => (typeof id === "number" ? id : Number(id));
 
-const NotificationPanel: React.FC = () => {
+interface NotificationPanelProps {
+  // If provided, component becomes controlled for notifications (won't fetch)
+  notifications?: NotificationItem[];
+  // Optional callback from parent to close/hide the panel
+  onClose?: () => void;
+  // Optional userId override (useful if parent already has user id)
+  userId?: number | string;
+  // If true forces fetch even when notifications prop present
+  forceFetch?: boolean;
+}
+
+const NotificationPanel: React.FC<NotificationPanelProps> = ({
+  notifications: controlledNotifications,
+  onClose,
+  userId: userIdProp,
+  forceFetch = false,
+}) => {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const currentUserId = userIdProp ?? user?.id;
+
+  // Controlled vs uncontrolled mode
+  const isControlled = Array.isArray(controlledNotifications) && !forceFetch;
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>(
+    controlledNotifications ? controlledNotifications : []
+  );
+  const [loading, setLoading] = useState<boolean>(!isControlled);
   const [error, setError] = useState<string | null>(null);
 
+  // Sync controlled notifications if parent updates them
   useEffect(() => {
+    if (controlledNotifications && !forceFetch) {
+      setNotifications(controlledNotifications);
+      setLoading(false);
+    }
+  }, [controlledNotifications, forceFetch]);
+
+  // Fetch only when uncontrolled
+  useEffect(() => {
+    if (isControlled) return;
+
     let mounted = true;
 
-    // if user or id missing -> clear and stop
-    if (!user?.id) {
+    if (!currentUserId) {
       setNotifications([]);
       setLoading(false);
       return;
     }
 
-    // coerce user.id to number because API expects number
-    const uid = Number(user.id);
+    const uid = Number(currentUserId);
     if (Number.isNaN(uid)) {
-      // don't call API with NaN
-      console.warn("NotificationPanel: user.id is not a number, skipping fetch:", user.id);
+      console.warn("NotificationPanel: user.id is not a number, skipping fetch:", currentUserId);
       setNotifications([]);
       setLoading(false);
       return;
@@ -68,21 +100,17 @@ const NotificationPanel: React.FC = () => {
     const fetchNotifications = async () => {
       setLoading(true);
       setError(null);
-
       try {
-        // <-- safe numeric id passed here
         const res = await notificationAPI.getUserNotifications(uid);
         const apiData: RawNotification[] =
           Array.isArray(res?.notifications) ? res.notifications : res?.notifications ? [res.notifications] : [];
 
         const formatted: NotificationItem[] = apiData.map((n) => {
-          const id = toNumberId(n.id ?? Math.floor(Math.random() * 1e9));
+          const id = Number.isFinite(toNumberId(n.id)) ? toNumberId(n.id) : Math.floor(Math.random() * 1e9);
           const type = n.type ?? "general";
           const title =
             type === "lead_assign" ? `Lead Assigned:` : type === "property_inquiry" ? "Property Inquiry" : type;
-
           const message = `${n.lead_name ? n.lead_name + " - " : ""}${n.message ?? ""}`;
-
           return {
             id,
             title,
@@ -108,14 +136,15 @@ const NotificationPanel: React.FC = () => {
     };
 
     fetchNotifications();
-
     return () => {
       mounted = false;
     };
-  }, [user?.id]);
+  }, [currentUserId, isControlled]);
 
   // mark single as read (optimistic)
   const markAsRead = useCallback(async (id: number) => {
+    // in controlled mode, prefer calling parent handler (not present here),
+    // so we still update local copy for immediate UX. Parent should reconcile.
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
 
     try {
@@ -132,18 +161,15 @@ const NotificationPanel: React.FC = () => {
     // optionally call API delete here if available
   }, []);
 
-  // IMPORTANT: markAllAsRead now accepts the userId parameter and calls API with it
+  // markAllAsRead accepts userId param and calls API with it
   const markAllAsRead = useCallback(
     async (userId: number) => {
-      // optimistic UI update
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-
       try {
-        // notificationAPI.markAllAsRead expects userId: number
         await notificationAPI.markAllAsRead(userId);
       } catch (err) {
         console.error("❌ Error marking all as read:", err);
-        // If you want to revert on failure, consider refetching notifications here instead
+        // Consider re-fetching if you want to revert on failure
       }
     },
     []
@@ -205,13 +231,20 @@ const NotificationPanel: React.FC = () => {
   return (
     <div className="relative z-50 bg-white shadow-md rounded-xl border border-gray-200 w-full max-w-2xl mx-auto">
       <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-xl">
-        <h2 className="text-base font-semibold text-gray-800">Notifications</h2>
         <div className="flex items-center space-x-3">
-          {unreadCount > 0 && user?.id && (
+          <h2 className="text-base font-semibold text-gray-800">Notifications</h2>
+        </div>
+
+        <div className="flex items-center space-x-3">
+          {onClose && (
+            <button onClick={onClose} className="p-1 rounded hover:bg-gray-100" title="Close">
+              <X size={16} />
+            </button>
+          )}
+          {unreadCount > 0 && currentUserId && (
             <button
               onClick={() => {
-                // coerce to number because API expects number
-                const uid = Number(user.id);
+                const uid = Number(currentUserId);
                 if (!Number.isNaN(uid)) markAllAsRead(uid);
               }}
               className="text-xs text-blue-600 hover:text-blue-800 font-medium"

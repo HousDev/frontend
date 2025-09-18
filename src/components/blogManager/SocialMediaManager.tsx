@@ -211,7 +211,7 @@ Link in bio for full article
 
     const newSocialPost: SocialMediaPost = {
       id: `SP${Date.now()}`,
-      blogPostId: selectedPost.id,
+      blogPostId: String(selectedPost.id),
       platform: scheduleData.platform,
       content: scheduleData.content || generateSocialContent(selectedPost, scheduleData.platform),
       scheduledDate: new Date(`${scheduleData.scheduledDate}T${scheduleData.scheduledTime}`).toISOString(),
@@ -245,7 +245,7 @@ Link in bio for full article
     // Simulate posting to social media
     const newSocialPost: SocialMediaPost = {
       id: `SP${Date.now()}`,
-      blogPostId: post.id,
+      blogPostId: String(post.id),
       platform: platform,
       content: content,
       scheduledDate: new Date().toISOString(),

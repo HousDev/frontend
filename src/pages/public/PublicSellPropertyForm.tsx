@@ -447,13 +447,24 @@ const PossessionDropdown: React.FC<{
 
 /* ---------------- Main Component (two-step) ---------------- */
 
+interface PublicSellPropertyFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit?: (property: any) => void;
+  mode?: 'create' | 'edit';
+  propertyId?: string | number;
+  initialData?: InitialDataFromParent | null;
+  seller?: string | null; // <-- add this if you need it
+}
+
 const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
   isOpen,
   onClose,
-  onSubmit = () => { }, // default no-op so missing prop doesn't crash
+  onSubmit,
   mode = 'create',
   propertyId,
-  initialData = null
+  initialData,
+  seller
 }) => {
 
   const now = new Date();
@@ -513,8 +524,8 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [masterOptions, setMasterOptions] = useState<Record<string, MasterOption[]>>({});
-// lock lead source to Website so user cannot change it
-const [leadSourceLocked, setLeadSourceLocked] = useState<boolean>(false);
+  // lock lead source to Website so user cannot change it
+  const [leadSourceLocked, setLeadSourceLocked] = useState<boolean>(false);
 
   // showThankYou state for the overlay modal after submit
   const [showThankYou, setShowThankYou] = useState(false);
@@ -603,20 +614,20 @@ const [leadSourceLocked, setLeadSourceLocked] = useState<boolean>(false);
       const data = await getMasterDropdownOptions(['lead', 'common', 'property']);
       const normalized = normalizeMasterData(data);
       setMasterOptions(normalized);
-       const leadOpts: MasterOption[] = (normalized['lead source'] || normalized['lead'] || []);
-    const websiteOpt = leadOpts.find(o =>
-      (o.label && String(o.label).toLowerCase() === 'website') ||
-      (String(o.value).toLowerCase() === 'website')
-    );
+      const leadOpts: MasterOption[] = (normalized['lead source'] || normalized['lead'] || []);
+      const websiteOpt = leadOpts.find(o =>
+        (o.label && String(o.label).toLowerCase() === 'website') ||
+        (String(o.value).toLowerCase() === 'website')
+      );
 
-    if (websiteOpt) {
-      // Use the option's value so backend mapping continues to work
-      setFormData(prev => ({ ...prev, leadSource: String(websiteOpt.value) }));
-    } else {
-      // Fallback: set a literal string 'Website' (backend should accept or map)
-      setFormData(prev => ({ ...prev, leadSource: 'Website' }));
-    }
-    setLeadSourceLocked(true);
+      if (websiteOpt) {
+        // Use the option's value so backend mapping continues to work
+        setFormData(prev => ({ ...prev, leadSource: String(websiteOpt.value) }));
+      } else {
+        // Fallback: set a literal string 'Website' (backend should accept or map)
+        setFormData(prev => ({ ...prev, leadSource: 'Website' }));
+      }
+      setLeadSourceLocked(true);
 
     } catch (err: any) {
       setErrorBanner(`Failed to load dropdown options: ${err instanceof Error ? err.message : String(err)}`);
@@ -765,7 +776,7 @@ const [leadSourceLocked, setLeadSourceLocked] = useState<boolean>(false);
   };
 
   const handleDropdownChange = (field: keyof PropertyFormData) => (value: string) => {
-     if (field === 'leadSource' && leadSourceLocked) return;
+    if (field === 'leadSource' && leadSourceLocked) return;
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field as string]) setErrors(prev => ({ ...prev, [field as string]: '' }));
   };
@@ -1156,8 +1167,11 @@ const [leadSourceLocked, setLeadSourceLocked] = useState<boolean>(false);
             sellerName = `${formData.salutation ? formData.salutation + ' ' : ''}${formData.ownerName}`.trim();
 
           } catch (sellerErr: any) {
-            return; // Don't proceed with property creation if seller creation fails
+            toast.error('Failed to create seller: ' + (sellerErr.message || 'unknown'));
+            setLoading(false);
+            return;
           }
+
         }
         const payload = buildPayload();
         if (sellerId) {
@@ -1386,26 +1400,26 @@ const [leadSourceLocked, setLeadSourceLocked] = useState<boolean>(false);
         </div>
 
       </div >
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => { try { onClose(); } catch { } }}>Cancel</Button>
-          <Button onClick={() => {
-            // validate step1 minimal fields: ownerName, ownerEmail, ownerPhone
-            const step1Errors: Record<string, string> = {};
-            if (!formData.ownerName) step1Errors.ownerName = 'Owner name is required';
-            if (!formData.ownerEmail) step1Errors.ownerEmail = 'Owner email is required';
-            if (!formData.ownerPhone) step1Errors.ownerPhone = 'Owner phone is required';
-            setErrors(step1Errors);
-            if (Object.keys(step1Errors).length === 0) {
-              // ensure phone normalized
-              handlePhoneBlur('ownerPhone');
-              if (formData.sameAsPhone) handlePhoneBlur('ownerWhatsapp');
-              setStep(2);
-            }
-          }}>
-            Next
-            <ArrowRight className="h-4 w-4 ml-2 inline" />
-          </Button>
-        </div>
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={() => { try { onClose(); } catch { } }}>Cancel</Button>
+        <Button onClick={() => {
+          // validate step1 minimal fields: ownerName, ownerEmail, ownerPhone
+          const step1Errors: Record<string, string> = {};
+          if (!formData.ownerName) step1Errors.ownerName = 'Owner name is required';
+          if (!formData.ownerEmail) step1Errors.ownerEmail = 'Owner email is required';
+          if (!formData.ownerPhone) step1Errors.ownerPhone = 'Owner phone is required';
+          setErrors(step1Errors);
+          if (Object.keys(step1Errors).length === 0) {
+            // ensure phone normalized
+            handlePhoneBlur('ownerPhone');
+            if (formData.sameAsPhone) handlePhoneBlur('ownerWhatsapp');
+            setStep(2);
+          }
+        }}>
+          Next
+          <ArrowRight className="h-4 w-4 ml-2 inline" />
+        </Button>
+      </div>
     </div>
   );
 
@@ -1552,30 +1566,30 @@ const [leadSourceLocked, setLeadSourceLocked] = useState<boolean>(false);
                     <SafeDropdown placeholder="Select Status" options={getOptions('property status')} value={formData.status} onChange={handleDropdownChange('status')} className="w-full" />
                   </div>
 
-             <div>
-  <label className={LABEL}>Lead Source</label>
+                  <div>
+                    <label className={LABEL}>Lead Source</label>
 
-  {leadSourceLocked ? (
-    // show a disabled dropdown (if your Dropdown supports disabled prop),
-    // otherwise show plain text and include a hidden input so the value posts.
-    <div>
-      {/* If your Dropdown accepts disabled prop, pass it. Otherwise show plain text. */}
-      <SafeDropdown
-        placeholder="Lead Source"
-        options={getOptions('lead source')}
-        value={formData.leadSource}
-        onChange={handleDropdownChange('leadSource')}
-        className="w-full opacity-70 cursor-not-allowed"
-        disabled={true}
-      />
-     
-      {/* Hidden input to ensure formData.leadSource is available in any non-JS path or for debugging */}
-      <input type="hidden" name="leadSource" value={formData.leadSource} />
-    </div>
-  ) : (
-    <SafeDropdown placeholder="Select Lead Source" options={getOptions('lead source')} value={formData.leadSource} onChange={handleDropdownChange('leadSource')} className="w-full" />
-  )}
-</div>
+                    {leadSourceLocked ? (
+                      // show a disabled dropdown (if your Dropdown supports disabled prop),
+                      // otherwise show plain text and include a hidden input so the value posts.
+                      <div>
+                        {/* If your Dropdown accepts disabled prop, pass it. Otherwise show plain text. */}
+                        <SafeDropdown
+                          placeholder="Lead Source"
+                          options={getOptions('lead source')}
+                          value={formData.leadSource}
+                          onChange={handleDropdownChange('leadSource')}
+                          className="w-full opacity-70 cursor-not-allowed"
+                          disabled={true}
+                        />
+
+                        {/* Hidden input to ensure formData.leadSource is available in any non-JS path or for debugging */}
+                        <input type="hidden" name="leadSource" value={formData.leadSource} />
+                      </div>
+                    ) : (
+                      <SafeDropdown placeholder="Select Lead Source" options={getOptions('lead source')} value={formData.leadSource} onChange={handleDropdownChange('leadSource')} className="w-full" />
+                    )}
+                  </div>
 
 
                   <div>
