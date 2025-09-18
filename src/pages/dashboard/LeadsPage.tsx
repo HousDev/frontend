@@ -36,6 +36,8 @@ interface Lead {
   updated_by_name?: string;
   created_by_name?: string;
   priority?: string;
+  last_contacted_by?: string;
+  last_contacted_by_name?: string;
 }
 
 type TabID = 'all' | 'contacted' | 'new' | 'qualified' | 'unqualified';
@@ -145,26 +147,75 @@ const LeadsPage: React.FC = () => {
     { id: 'unqualified' as TabID, label: 'Unqualified', color: 'red', count: allLeads.filter(l => statusKey(l.status) === 'unqualified').length },
   ]), [allLeads]);
 
-  const fetchLeads = async () => {
-    try {
-      setLoading(true);
-      const response = await leadsAPI.getLeads();
-      const data = Array.isArray(response?.data) ? response.data : response?.data?.data ?? [];
-      console.log("first", data)
-      // ✅ पहले सारे leads लाओ
-      let leads = data;
+const fetchLeads = async () => {
+  try {
+    setLoading(true);
+    const response = await leadsAPI.getLeads();
+    const data = Array.isArray(response?.data) ? response.data : response?.data?.data ?? [];
+    // पहले सारे leads लाओ
+    let leads: any[] = data;
 
-      // ✅ फिर role के हिसाब से filter करो
-      leads = filterLeadsByRole(user, leads, presalesUsers);
-
-      setAllLeads(leads);
-    } catch (error) {
-      console.error('Error fetching leads:', error);
-      toast.error('Failed to fetch leads');
-    } finally {
-      setLoading(false);
+    // अगर presalesUsers अभी fetch नहीं हुए तो fetch कर लो (safety)
+    if (!presalesUsers || presalesUsers.length === 0) {
+      try {
+        const ures = await usersAPI.getAllUsers();
+        setPresalesUsers(ures.data || []);
+      } catch (e) {
+        console.error("Failed to fetch presales users inside fetchLeads", e);
+      }
     }
-  };
+
+    // Normalize / map leads: ensure last_contacted_by_name exists (from user list) and handle common field variants
+    const usersById = (presalesUsers || []).reduce((acc: Record<string, any>, u: any) => {
+      acc[String(u.id ?? u._id ?? u.user_id ?? u.value ?? u.id)] = u;
+      return acc;
+    }, {});
+
+    leads = leads.map((l: any) => {
+      const copy = { ...l };
+
+      // possible field names that backend might send
+      const lastContactId =
+        copy.last_contacted_by ??
+        copy.last_contact_by ??
+        copy.last_contact_id ??
+        copy.last_contacted_by_id ??
+        null;
+
+      // prefer explicit name field if provided
+      copy.last_contacted_by_name =
+        copy.last_contacted_by_name ??
+        copy.last_contact_by_name ??
+        copy.last_contacted_name ??
+        copy.last_contact_name ??
+        null;
+
+      // if id exists but no name, try to resolve from presalesUsers
+      if (!copy.last_contacted_by_name && lastContactId) {
+        const u = usersById[String(lastContactId)];
+        copy.last_contacted_by_name = u?.name ?? u?.full_name ?? u?.displayName ?? u?.username ?? null;
+      }
+
+      // fallbacks: maybe updated_by_name or updated_by holds who last contacted
+      if (!copy.last_contacted_by_name) {
+        copy.last_contacted_by_name = copy.last_contacted_by_name ?? copy.updated_by_name ?? copy.updated_by ?? null;
+      }
+
+      return copy;
+    });
+
+    // role-based filter
+    leads = filterLeadsByRole(user, leads, presalesUsers);
+
+    setAllLeads(leads);
+  } catch (error) {
+    console.error('Error fetching leads:', error);
+    toast.error('Failed to fetch leads');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => { fetchLeads(); }, [user]);
 

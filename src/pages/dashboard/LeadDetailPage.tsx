@@ -59,9 +59,10 @@ export interface Lead {
   created_by?: string;
   last_contact?: string;
   last_contacted_by?: string;
+  last_contacted_by_name?: string;
   updated_by_name?: string;
   created_by_name?: string;
-  updated_at?:string
+  updated_at?: string
 }
 type UILead = Lead & {
   assigned_executive_name?: string;
@@ -86,6 +87,8 @@ type Followup = {
   createdByLastName?: string;
   updatedByFirstName?: string;
   updatedByLastName?: string;
+   last_contacted_by?: string;
+  last_contacted_by_name?: string;
 };
 
 // helpers (file-level)
@@ -311,72 +314,106 @@ const LeadDetailPage: React.FC = () => {
 
   // Fetch lead + master data
   useEffect(() => {
-    const fetchLead = async () => {
+   const fetchLead = async () => {
+  try {
+    setLoading(true);
+
+    // ensure we have presales users (resolve names from them if needed)
+    if (!presalesUsers || presalesUsers.length === 0) {
       try {
-        setLoading(true);
-        if (id) {
-          const [response, allLeadsResponse] = await Promise.all([
-            leadsAPI.getLead(id),
-            leadsAPI.getLeads(),
-          ]);
-
-          if (allLeadsResponse?.success && allLeadsResponse.data) {
-            setAllLeads(allLeadsResponse.data);
-            const index = allLeadsResponse.data.findIndex((l: Lead) => l.id === id);
-            setCurrentLeadIndex(index >= 0 ? index : 0);
-          }
-          // Add these debug logs
-          console.log("API Response:", response?.data);
-          // console.log("Lead assigned_executive:", lead?.assigned_executive);
-          // console.log("Lead assigned_executive_name:", lead?.assigned_executive_name);
-          // console.log("Presales Users:", presalesUsers);
-          // In the fetchLead function, replace the response handling:
-          if (response?.success && response.data) {
-            const data = response.data;
-
-            // Get executive name from API response if available
-            const execName = data.assigned_executive_name ||
-              (data.assigned_executive && presalesUsers.find(u => u.id === data.assigned_executive)?.name) ||
-              "Unassigned";
-
-            const leadData = {
-              id: data.id || "",
-              salutation: data.salutation || "",
-              name: data.name || "",
-              phone: data.phone || "",
-              email: data.email || "",
-              lead_type: data.lead_type || "",
-              lead_source: data.lead_source || "",
-              whatsapp_number: data.whatsapp_number || "",
-              state: data.state || "",
-              city: data.city || "",
-              location: data.location || "",
-              status: data.status || "New",
-              assigned_executive: data.assigned_executive || "",
-              assigned_executive_name: execName, // Use the derived name
-              created_at: data.created_at || new Date().toISOString(),
-              updated_at: data.updated_at || new Date().toISOString(),
-              priority: data.priority || " -",
-              stage: data.stage || "-",
-              created_by: data.created_by || "System",
-              last_contact: data.last_contact || "",
-              last_contacted_by: data.last_contacted_by || "",
-              created_by_name: `${data.createdByFirstName || ""} ${data.createdByLastName || ""}`.trim() || "System",
-              updated_by_name: `${data.updatedByFirstName || ""} ${data.updatedByLastName || ""}`.trim() || "System",
-            };
-
-            setLead(leadData);
-          }
-
-
-        }
-      } catch (err) {
-        console.error("Error fetching lead details:", err);
-        setError("Failed to fetch lead details");
-      } finally {
-        setLoading(false);
+        const resp = await usersAPI.getAllUsers?.();
+        setPreSalesUsers(resp?.data || []);
+      } catch (e) {
+        console.warn("Could not fetch presales users inside fetchLead:", e);
       }
-    };
+    }
+
+    if (id) {
+      const [response, allLeadsResponse] = await Promise.all([
+        leadsAPI.getLead(id),
+        leadsAPI.getLeads(),
+      ]);
+
+      if (allLeadsResponse?.success && allLeadsResponse.data) {
+        setAllLeads(allLeadsResponse.data);
+        const index = allLeadsResponse.data.findIndex((l: Lead) => l.id === id);
+        setCurrentLeadIndex(index >= 0 ? index : 0);
+      }
+
+      // normalize response shape
+      const data = response?.data ?? response;
+      if (!data) {
+        setError("No lead data returned");
+        return;
+      }
+
+      // helper to resolve a user id -> name from presalesUsers (or fallback)
+      const resolveUserName = (userId: any) => {
+        if (!userId) return null;
+        const found = (presalesUsers || []).find(u => String(u.id) === String(userId) || String(u._id) === String(userId) || String(u.user_id) === String(userId));
+        return found?.name ?? found?.full_name ?? found?.displayName ?? null;
+      };
+
+      const execName =
+        data.assigned_executive_name ||
+        resolveUserName(data.assigned_executive) ||
+        "Unassigned";
+
+      const createdByName =
+        data.created_by_name ||
+        resolveUserName(data.created_by) ||
+        `${data.created_first_name || data.createdByFirstName || ""} ${data.created_last_name || data.createdByLastName || ""}`.trim() ||
+        "System";
+
+      const updatedByName =
+        data.updated_by_name ||
+        resolveUserName(data.updated_by) ||
+        `${data.updated_first_name || data.updatedByFirstName || ""} ${data.updated_last_name || data.updatedByLastName || ""}`.trim() ||
+        "System";
+
+      const lastContactedByName =
+        data.last_contacted_by_name ||
+        resolveUserName(data.last_contacted_by) ||
+        data.updated_by_name ||
+        data.updated_by ||
+        null;
+
+      const leadData: Lead = {
+        id: data.id || data._id || "",
+        salutation: data.salutation || "",
+        name: data.name || "",
+        phone: data.phone || "",
+        email: data.email || "",
+        lead_type: data.lead_type || data.leadType || "",
+        lead_source: data.lead_source || data.leadSource || "",
+        whatsapp_number: data.whatsapp_number || data.whatsapp || "",
+        state: data.state || "",
+        city: data.city || "",
+        location: data.location || "",
+        status: data.status || "New",
+        assigned_executive: data.assigned_executive || "",
+        assigned_executive_name: execName,
+        created_at: data.created_at || new Date().toISOString(),
+        updated_at: data.updated_at || new Date().toISOString(),
+        priority: data.priority || " -",
+        stage: data.stage || "-",
+        created_by: data.created_by || data.createdBy || "System",
+        last_contact: data.last_contact || data.lastContact || "",
+        last_contacted_by: data.last_contacted_by || data.last_contact_by || data.lastContactedBy || "",
+        last_contacted_by_name: lastContactedByName,
+        created_by_name: createdByName,
+        updated_by_name: updatedByName,
+      };
+
+      setLead(leadData);
+    }
+  } catch (err) {
+    console.error("Error fetching lead details:", err);
+    setError("Failed to fetch lead details");
+  } finally {
+    setLoading(false);
+  }
+};
 
     const initializeData = async () => {
       await Promise.all([fetchLead(), fetchMasterData()]);
@@ -1178,7 +1215,10 @@ const LeadDetailPage: React.FC = () => {
                       <p className="text-xs font-medium text-gray-800">
                         {lastContactDate} {lastContactTime}
                       </p>
-                      <div className="text-xs text-gray-500 mt-1">By: {lead.last_contacted_by || "-"}</div>
+                     <div className="text-xs text-gray-500 mt-1">
+  By: {lead.last_contacted_by_name || lead.last_contacted_by || lead.updated_by_name || lead.created_by_name || "-"}
+</div>
+
                     </div>
                   </div>
 
@@ -1262,107 +1302,107 @@ const LeadDetailPage: React.FC = () => {
               className="space-y-3 overflow-y-auto"
               style={{ maxHeight: "calc(100vh - 250px)" }}
             >
-             {followups.map((f) => {
-  const Ico = typeIcon(f.type);
-  const scheduledLabel = formatDateShort(f.scheduledDate || f.createdAt || "");
-  const color = followupCardClasses(f.type);
+              {followups.map((f) => {
+                const Ico = typeIcon(f.type);
+                const scheduledLabel = formatDateShort(f.scheduledDate || f.createdAt || "");
+                const color = followupCardClasses(f.type);
 
-  return (
-    <div
-      key={f.id}
-      className={`border rounded-lg p-3 transition ${color.container} border-l-4 ${color.leftBar}`}
-    >
-      <div className="flex gap-3">
-        {/* Icon */}
-        <div className="flex-shrink-0">
-          <Ico className={`h-5 w-5 ${color.icon}`} />
-        </div>
+                return (
+                  <div
+                    key={f.id}
+                    className={`border rounded-lg p-3 transition ${color.container} border-l-4 ${color.leftBar}`}
+                  >
+                    <div className="flex gap-3">
+                      {/* Icon */}
+                      <div className="flex-shrink-0">
+                        <Ico className={`h-5 w-5 ${color.icon}`} />
+                      </div>
 
-        {/* Content */}
-        <div className="flex-1 space-y-2 text-xs">
-  {/* Row 1 → Type + Actions */}
-  <div className="flex items-center justify-between">
-    <span
-      className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${color.badge}`}
-    >
-      {f.type}
-    </span>
+                      {/* Content */}
+                      <div className="flex-1 space-y-2 text-xs">
+                        {/* Row 1 → Type + Actions */}
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${color.badge}`}
+                          >
+                            {f.type}
+                          </span>
 
-    <div className="flex items-center gap-1">
-      <button
-        onClick={() => handleEditFollowups(f)}
-        className="p-1 rounded hover:bg-gray-200 transition"
-        title="Edit"
-      >
-        <Pencil className="h-3.5 w-3.5 text-gray-600" />
-      </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleEditFollowups(f)}
+                              className="p-1 rounded hover:bg-gray-200 transition"
+                              title="Edit"
+                            >
+                              <Pencil className="h-3.5 w-3.5 text-gray-600" />
+                            </button>
 
-      {currentUserRole === "admin" && (
-        <button
-          onClick={() => handleDeleteFollowups(f.id)}
-          className="p-1 rounded hover:bg-red-100 transition"
-          title="Delete"
-        >
-          <Trash2 className="h-3.5 w-3.5 text-red-600" />
-        </button>
-      )}
-    </div>
-  </div>
+                            {currentUserRole === "admin" && (
+                              <button
+                                onClick={() => handleDeleteFollowups(f.id)}
+                                className="p-1 rounded hover:bg-red-100 transition"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
 
-  {/* Row 2 → Priority + Status + Stage */}
-  <div className="flex flex-wrap items-center gap-2">
-    <span className="font-medium text-gray-600">Lead Priority:</span>
-    {(f.priority || lead.priority) && (
-      <span
-        className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${getPriorityColor(
-          f.priority || lead.priority
-        )}`}
-      >
-        {f.priority || lead.priority}
-      </span>
-    )}
+                        {/* Row 2 → Priority + Status + Stage */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-gray-600">Lead Priority:</span>
+                          {(f.priority || lead.priority) && (
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${getPriorityColor(
+                                f.priority || lead.priority
+                              )}`}
+                            >
+                              {f.priority || lead.priority}
+                            </span>
+                          )}
 
-    <span className="font-medium text-gray-600">Lead Stage:</span>
-    {f.stage && (
-      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-white/70 text-gray-800 border border-gray-200">
-        {f.stage}
-      </span>
-    )}
+                          <span className="font-medium text-gray-600">Lead Stage:</span>
+                          {f.stage && (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-white/70 text-gray-800 border border-gray-200">
+                              {f.stage}
+                            </span>
+                          )}
 
-    <span className="font-medium text-gray-600">Lead Status:</span>
-    {f.status && (
-      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-white/70 text-gray-800 border border-gray-200">
-        {f.status}
-      </span>
-    )}
-  </div>
+                          <span className="font-medium text-gray-600">Lead Status:</span>
+                          {f.status && (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-white/70 text-gray-800 border border-gray-200">
+                              {f.status}
+                            </span>
+                          )}
+                        </div>
 
-  {/* Row 3 → Remark + Next Action */}
-  <div className="text-gray-700">
-    <span className="font-medium">Remark:</span> {f.customRemark || f.remark || "—"}
-  </div>
-  {f.nextAction && (
-    <div className="text-gray-700">
-      <span className="font-medium">Next Action:</span> {f.nextAction}
-    </div>
-  )}
+                        {/* Row 3 → Remark + Next Action */}
+                        <div className="text-gray-700">
+                          <span className="font-medium">Remark:</span> {f.customRemark || f.remark || "—"}
+                        </div>
+                        {f.nextAction && (
+                          <div className="text-gray-700">
+                            <span className="font-medium">Next Action:</span> {f.nextAction}
+                          </div>
+                        )}
 
-  {/* Bottom Right → Date + User */}
-  <div className="mt-2 flex justify-end text-gray-500">
-    <div className="flex items-center gap-2">
-      <div>{scheduledLabel}</div>
-      <div className="flex items-center gap-1">
-        <User className="h-3 w-3 text-gray-400" />
-        {`${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || "System"}
-      </div>
-    </div>
-  </div>
-</div>
+                        {/* Bottom Right → Date + User */}
+                        <div className="mt-2 flex justify-end text-gray-500">
+                          <div className="flex items-center gap-2">
+                            <div>{scheduledLabel}</div>
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3 text-gray-400" />
+                              {`${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || "System"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
 
-      </div>
-    </div>
-  );
-})}
+                    </div>
+                  </div>
+                );
+              })}
 
             </div>
           )}
