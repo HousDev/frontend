@@ -45,3 +45,18 @@ img {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;             /* Chrome, Safari */
 }
+
+
+/* globals.css */
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: #374151; /* gray-700 */
+  border-radius: 9999px;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: #6b7280; /* gray-500 */
+  border-radius: 9999px;
+}
+  

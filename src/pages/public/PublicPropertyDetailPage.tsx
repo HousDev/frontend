@@ -47,19 +47,23 @@ import {
   Calculator,
   PieChart,
   Lock,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
 import propertiesAPI from '@/lib/propertiesAPI';
 import { FaWhatsapp } from 'react-icons/fa';
 import viewsAPI from '@/lib/viewAPI';
+import ShareModal from './ShareModal';
 
 // NEW: import viewsAPI (as you asked)
 
 type RawProperty = any;
 
 const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
+  const [open, setOpen] = useState(false);
   // UI state
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showContactForm, setShowContactForm] = useState(false);
@@ -68,7 +72,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const [hasSubscription, setHasSubscription] = useState(false); // This would come from user context
   const [isLoggedIn, setIsLoggedIn] = useState(false); // This would come from auth context
   // add near other hooks / state
-const hasRecordedViewRef = React.useRef<{ [key: string]: boolean }>({});
+  const hasRecordedViewRef = React.useRef<{ [key: string]: boolean }>({});
 
   const [contactForm, setContactForm] = useState({
     name: '',
@@ -82,7 +86,7 @@ const hasRecordedViewRef = React.useRef<{ [key: string]: boolean }>({});
   const navigate = useNavigate();
   // local property state used across the component
   const [property, setProperty] = useState<any>(null);
-
+  console.log("sellername ", property?.agent?.seller_name);
   // helper: display value or dash
   const displayOrDash = (val: any) => {
     if (val === null || val === undefined || (typeof val === 'string' && val.trim() === '')) return ' - ';
@@ -268,7 +272,7 @@ const hasRecordedViewRef = React.useRef<{ [key: string]: boolean }>({});
       builtYear: p?.builtYear ?? p?.year_built ?? p?.construction_year ?? '',
       facing: p?.facing ?? p?.direction ?? '',
       agent: {
-        name: p?.agent?.name ?? p?.broker?.name ?? p?.contact_name ?? '',
+        name: p?.agent?.name ??  p?.seller_name ?? '',
         phone: p?.agent?.phone ?? p?.broker?.phone ?? p?.contact_phone ?? ''
       },
       aiScore: p?.aiScore ?? p?.score,
@@ -378,29 +382,106 @@ const hasRecordedViewRef = React.useRef<{ [key: string]: boolean }>({});
   };
 
   // localStorage dedupe: avoid recording more than once in windowPerProperty minutes
-const recordView = async (normalizedProp: any, options?: { windowMinutes?: number }) => {
-  if (!normalizedProp) return;
-  const windowMinutes = options?.windowMinutes ?? 10;
-  const propertyId = resolvePropertyIdNumber(normalizedProp);
-  const slugId = normalizedProp?.raw?.slug ?? normalizedProp?.id ?? null;
-  const dedupeKey = `viewed_property_${propertyId ?? slugId ?? String(Math.random()).slice(2)}`;
+  const recordView = async (normalizedProp: any, options?: { windowMinutes?: number }) => {
+    if (!normalizedProp) return;
+    const windowMinutes = options?.windowMinutes ?? 10;
+    const propertyId = resolvePropertyIdNumber(normalizedProp);
+    const slugId = normalizedProp?.raw?.slug ?? normalizedProp?.id ?? null;
+    const dedupeKey = `viewed_property_${propertyId ?? slugId ?? String(Math.random()).slice(2)}`;
 
-  // If we've already recorded this property in this component instance, skip
-  const instanceKey = String(propertyId ?? slugId ?? 'unknown');
-  if (hasRecordedViewRef.current[instanceKey]) {
-    // But try to refresh count once (optional) — only if you want updated view count
+    // If we've already recorded this property in this component instance, skip
+    const instanceKey = String(propertyId ?? slugId ?? 'unknown');
+    if (hasRecordedViewRef.current[instanceKey]) {
+      // But try to refresh count once (optional) — only if you want updated view count
+      try {
+        if (propertyId) {
+          const resp = await viewsAPI.getByProperty(propertyId, false);
+          if (resp?.success && resp?.total_views !== undefined) {
+            setProperty((prev: any) => {
+              if (!prev) return prev;
+              // only update if changed
+              if (prev.views === resp.total_views) return prev;
+              return { ...prev, views: resp.total_views };
+            });
+          }
+        } else if (slugId) {
+          const resp = await propertiesAPI.getPropertyBySlug(slugId);
+          const payload = resp?.data ?? resp ?? null;
+          const normalized = normalizeProperty(payload);
+          if (normalized?.views !== undefined) {
+            setProperty((prev: any) => {
+              if (!prev) return prev;
+              if (prev.views === normalized.views) return prev;
+              return { ...prev, views: normalized.views };
+            });
+          }
+        }
+      } catch (err) { /* ignore */ }
+      return;
+    }
+
+    // localStorage dedupe check (same as you had)
+    try {
+      const last = localStorage.getItem(dedupeKey);
+      if (last) {
+        const lastTs = Number(last);
+        if (!Number.isNaN(lastTs)) {
+          const elapsed = Date.now() - lastTs;
+          if (elapsed < windowMinutes * 60 * 1000) {
+            // mark instance as recorded so effect won't re-trigger record
+            hasRecordedViewRef.current[instanceKey] = true;
+            // refresh views (same safe update)
+            try {
+              if (propertyId) {
+                const resp = await viewsAPI.getByProperty(propertyId, false);
+                if (resp?.success && resp?.total_views !== undefined) {
+                  setProperty((prev: any) => {
+                    if (!prev) return prev;
+                    if (prev.views === resp.total_views) return prev;
+                    return { ...prev, views: resp.total_views };
+                  });
+                }
+              }
+            } catch (err) { /* ignore */ }
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('localStorage unavailable for view dedupe:', err);
+    }
+
+    // Build payload & call record API
+    const eventPayload: Record<string, any> = {
+      source: 'client',
+      path: typeof window !== 'undefined' ? window.location.pathname : null,
+      referrer: typeof document !== 'undefined' ? document.referrer : null,
+      slug: slugId ?? null,
+    };
+
+    try {
+      await viewsAPI.recordView(propertyId, eventPayload);
+      // mark localStorage and instance flag
+      try { localStorage.setItem(dedupeKey, String(Date.now())); } catch (err) { /* ignore */ }
+      hasRecordedViewRef.current[instanceKey] = true;
+    } catch (err) {
+      console.warn('viewsAPI.recordView failed:', err);
+    }
+
+    // Refresh server-side count once, but only update state if changed
     try {
       if (propertyId) {
         const resp = await viewsAPI.getByProperty(propertyId, false);
         if (resp?.success && resp?.total_views !== undefined) {
           setProperty((prev: any) => {
             if (!prev) return prev;
-            // only update if changed
             if (prev.views === resp.total_views) return prev;
             return { ...prev, views: resp.total_views };
           });
+          return;
         }
-      } else if (slugId) {
+      }
+      if (slugId) {
         const resp = await propertiesAPI.getPropertyBySlug(slugId);
         const payload = resp?.data ?? resp ?? null;
         const normalized = normalizeProperty(payload);
@@ -413,107 +494,30 @@ const recordView = async (normalizedProp: any, options?: { windowMinutes?: numbe
         }
       }
     } catch (err) { /* ignore */ }
-    return;
-  }
-
-  // localStorage dedupe check (same as you had)
-  try {
-    const last = localStorage.getItem(dedupeKey);
-    if (last) {
-      const lastTs = Number(last);
-      if (!Number.isNaN(lastTs)) {
-        const elapsed = Date.now() - lastTs;
-        if (elapsed < windowMinutes * 60 * 1000) {
-          // mark instance as recorded so effect won't re-trigger record
-          hasRecordedViewRef.current[instanceKey] = true;
-          // refresh views (same safe update)
-          try {
-            if (propertyId) {
-              const resp = await viewsAPI.getByProperty(propertyId, false);
-              if (resp?.success && resp?.total_views !== undefined) {
-                setProperty((prev: any) => {
-                  if (!prev) return prev;
-                  if (prev.views === resp.total_views) return prev;
-                  return { ...prev, views: resp.total_views };
-                });
-              }
-            }
-          } catch (err) { /* ignore */ }
-          return;
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('localStorage unavailable for view dedupe:', err);
-  }
-
-  // Build payload & call record API
-  const eventPayload: Record<string, any> = {
-    source: 'client',
-    path: typeof window !== 'undefined' ? window.location.pathname : null,
-    referrer: typeof document !== 'undefined' ? document.referrer : null,
-    slug: slugId ?? null,
   };
 
-  try {
-    await viewsAPI.recordView(propertyId, eventPayload);
-    // mark localStorage and instance flag
-    try { localStorage.setItem(dedupeKey, String(Date.now())); } catch (err) { /* ignore */ }
-    hasRecordedViewRef.current[instanceKey] = true;
-  } catch (err) {
-    console.warn('viewsAPI.recordView failed:', err);
-  }
-
-  // Refresh server-side count once, but only update state if changed
-  try {
-    if (propertyId) {
-      const resp = await viewsAPI.getByProperty(propertyId, false);
-      if (resp?.success && resp?.total_views !== undefined) {
-        setProperty((prev: any) => {
-          if (!prev) return prev;
-          if (prev.views === resp.total_views) return prev;
-          return { ...prev, views: resp.total_views };
-        });
-        return;
-      }
-    }
-    if (slugId) {
-      const resp = await propertiesAPI.getPropertyBySlug(slugId);
-      const payload = resp?.data ?? resp ?? null;
-      const normalized = normalizeProperty(payload);
-      if (normalized?.views !== undefined) {
-        setProperty((prev: any) => {
-          if (!prev) return prev;
-          if (prev.views === normalized.views) return prev;
-          return { ...prev, views: normalized.views };
-        });
-      }
-    }
-  } catch (err) { /* ignore */ }
-};
-
   // When property is set, trigger view recording once
-useEffect(() => {
-  if (!property) return;
-  // compute a stable key for the property instance (use id if available)
-  const instanceKey = String(resolvePropertyIdNumber(property) ?? property?.id ?? 'unknown');
-  if (hasRecordedViewRef.current[instanceKey]) return;
+  useEffect(() => {
+    if (!property) return;
+    // compute a stable key for the property instance (use id if available)
+    const instanceKey = String(resolvePropertyIdNumber(property) ?? property?.id ?? 'unknown');
+    if (hasRecordedViewRef.current[instanceKey]) return;
 
-  let aborted = false;
-  (async () => {
-    try {
-      await recordView(property, { windowMinutes: 10 });
-    } catch (err) {
-      console.warn('recordView failed:', err);
-    } finally {
-      if (!aborted) {
-        // nothing extra
+    let aborted = false;
+    (async () => {
+      try {
+        await recordView(property, { windowMinutes: 10 });
+      } catch (err) {
+        console.warn('recordView failed:', err);
+      } finally {
+        if (!aborted) {
+          // nothing extra
+        }
       }
-    }
-  })();
+    })();
 
-  return () => { aborted = true; };
-}, [property]); // keep dependency but guarded by hasRecordedViewRef
+    return () => { aborted = true; };
+  }, [property]); // keep dependency but guarded by hasRecordedViewRef
 
 
   // ------------------------
@@ -623,7 +627,10 @@ useEffect(() => {
               <button className="p-2 text-gray-600 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100">
                 <Heart size={18} />
               </button>
-              <button className="p-2 text-gray-600 hover:text-blue-500 transition-colors rounded-lg hover:bg-gray-100">
+              <button
+                onClick={() => setOpen(true)}
+                className="p-2 text-gray-600 hover:text-blue-500 transition-colors rounded-lg hover:bg-gray-100"
+              >
                 <Share size={18} />
               </button>
               <button className="p-2 text-gray-600 hover:text-yellow-500 transition-colors rounded-lg hover:bg-gray-100">
@@ -634,58 +641,88 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Image Gallery */}
-      <div className="relative h-80 bg-gray-900">
-        <img
-          src={images[currentImageIndex]}
-          alt={property?.title || 'Property Image'}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black bg-opacity-20" />
 
-        {/* Image Navigation */}
-        {images.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-            {images.map((_: any, index: number) => (
-              <button
-                key={index}
-                onClick={() => setCurrentImageIndex(index)}
-                className={`w-3 h-3 rounded-full transition-colors ${index === currentImageIndex ? 'bg-white' : 'bg-white bg-opacity-50'
-                  }`}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Image Counter */}
-        <div className="absolute top-3 right-3 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full text-xs">
-          {currentImageIndex + 1} / {images.length}
-        </div>
-
-        {/* View Options */}
-        <div className="absolute bottom-3 right-3 flex space-x-2">
-          <button className="bg-white bg-opacity-90 text-gray-900 px-3 py-1.5 rounded-lg flex items-center space-x-1 hover:bg-white transition-colors text-sm">
-            <Camera size={16} />
-            <span className="text-sm">Photos</span>
-          </button>
-          <button className="bg-white bg-opacity-90 text-gray-900 px-3 py-1.5 rounded-lg flex items-center space-x-1 hover:bg-white transition-colors text-sm">
-            <Video size={16} />
-            <span className="text-sm">Tour</span>
-          </button>
-        </div>
-      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Image Gallery */}
+            <div className="relative w-full h-80 md:h-[420px] lg:h-[520px] bg-gray-900">
+              <img
+                src={images[currentImageIndex]}
+                alt={property?.title || 'Property Image'}
+                className="w-full h-full object-cover" // ensures uniform slot, crops if aspect mismatch
+              />
+              <div className="absolute inset-0 bg-black bg-opacity-20" />
+
+              {/* Left Arrow */}
+              {images.length > 1 && (
+                <button
+                  onClick={() =>
+                    setCurrentImageIndex(
+                      (prev) => (prev - 1 + images.length) % images.length
+                    )
+                  }
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-60 text-white p-2 rounded-full z-10 transition"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+              )}
+
+              {/* Right Arrow */}
+              {images.length > 1 && (
+                <button
+                  onClick={() =>
+                    setCurrentImageIndex((prev) => (prev + 1) % images.length)
+                  }
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-60 text-white p-2 rounded-full z-10 transition"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              )}
+
+              {/* Image Navigation Dots */}
+              {images.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                  {images.map((_: any, index: number) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={`w-3 h-3 rounded-full transition-colors ${index === currentImageIndex ? 'bg-white' : 'bg-white bg-opacity-50'
+                        }`}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Image Counter */}
+              <div className="absolute top-3 right-3 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full text-xs">
+                {currentImageIndex + 1} / {images.length}
+              </div>
+
+              {/* View Options */}
+              <div className="absolute bottom-3 right-3 flex space-x-2">
+                <button className="bg-white bg-opacity-90 text-gray-900 px-3 py-1.5 rounded-lg flex items-center space-x-1 hover:bg-white transition-colors text-sm">
+                  <Camera size={16} />
+                  <span className="text-sm">Photos</span>
+                </button>
+                <button className="bg-white bg-opacity-90 text-gray-900 px-3 py-1.5 rounded-lg flex items-center space-x-1 hover:bg-white transition-colors text-sm">
+                  <Video size={16} />
+                  <span className="text-sm">Tour</span>
+                </button>
+              </div>
+            </div>
+
+
             {/* Property Header */}
             <div className="bg-white rounded-xl shadow-sm p-5">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center space-x-3 mb-2">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mb-2">
                     {/* normalized display for type/unit/subtype */}
-                    <div className="font-bold text-gray-900 text-lg">
+                    <div className="font-bold text-gray-900 text-lg sm:text-xl truncate">
                       {(() => {
                         const displayType = property?.type ?? '';
                         return displayType ? <span className="mr-2">{displayType}</span> : null;
@@ -695,37 +732,41 @@ useEffect(() => {
                     </div>
 
                     {property?.verified && (
-                      <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs">
-                        <CheckCircle size={14} />
+                      <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs mt-2 sm:mt-0 shrink-0">
+                        <CheckCircle className="w-3.5 h-3.5" />
                         <span>Verified</span>
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center text-gray-600 mb-2">
-                    <MapPin size={16} className="mr-1" />
-                    <span>{displayOrDash(property?.locationNormalized)}</span>
+
+                  <div className="flex items-center text-gray-600 mb-2 text-sm sm:text-base">
+                    <MapPin className="w-4 h-4 mr-1 shrink-0" />
+                    <span className="truncate">{displayOrDash(property?.locationNormalized)}</span>
                   </div>
-                  <div className="flex items-center space-x-4 text-sm text-gray-500">
-                    <span className="flex items-center">
-                      <Eye size={14} className="mr-1" />
-                      {displayOrDash(property?.views ?? ' - ')} views
-                    </span>
-                    <span className="flex items-center">
-                      <Clock size={14} className="mr-1" />
-                      {formatDaysAgo(property?.listedDays)}
+
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                    <span className="flex items-center whitespace-nowrap">
+                      <Eye className="w-3.5 h-3.5 mr-1 shrink-0" />
+                      <span className="truncate">{displayOrDash(property?.views ?? ' - ')} views</span>
                     </span>
 
+                    <span className="flex items-center whitespace-nowrap">
+                      <Clock className="w-3.5 h-3.5 mr-1 shrink-0" />
+                      <span>{formatDaysAgo(property?.listedDays)}</span>
+                    </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-green-600">
+
+                <div className="mt-3 md:mt-0 md:ml-4 text-left md:text-right flex-shrink-0">
+                  <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-green-600 leading-tight">
                     {formatCurrency(property?.price)}
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm sm:text-base text-gray-500 mt-1">
                     {pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - '}
                   </div>
                 </div>
               </div>
+
 
               {/* AI Insights Banner */}
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-4 border border-purple-100">
@@ -825,6 +866,90 @@ useEffect(() => {
 
             {/* ... rest of UI remains unchanged ... */}
 
+            {/* AI Recommendations */}
+            <div className="bg-white rounded-xl shadow-sm p-5 relative">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Lightbulb className="text-blue-600" size={20} />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">AI Recommendations</h2>
+              </div>
+
+              {hasSubscription ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <TrendingUp className="text-green-600" size={18} />
+                      <span className="font-semibold text-green-800">Price Appreciation</span>
+                    </div>
+                    <div className="text-2xl font-bold text-green-600 mb-1">+15.2%</div>
+                    <div className="text-sm text-green-700">Expected in next 12 months</div>
+                  </div>
+
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <PieChart className="text-blue-600" size={18} />
+                      <span className="font-semibold text-blue-800">Market Position</span>
+                    </div>
+                    <div className="text-2xl font-bold text-blue-600 mb-1">Top 10%</div>
+                    <div className="text-sm text-blue-700">In this locality</div>
+                  </div>
+
+                  <div className="bg-orange-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <AlertCircle className="text-orange-600" size={18} />
+                      <span className="font-semibold text-orange-800">Investment Timing</span>
+                    </div>
+                    <div className="text-2xl font-bold text-orange-600 mb-1">Excellent</div>
+                    <div className="text-sm text-orange-700">Buy now recommended</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 blur-md">
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <TrendingUp className="text-green-600" size={18} />
+                        <span className="font-semibold text-green-800">Price Appreciation</span>
+                      </div>
+                      <div className="text-2xl font-bold text-green-600 mb-1">+••.•%</div>
+                      <div className="text-sm text-green-700">Expected in next 12 months</div>
+                    </div>
+
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <PieChart className="text-blue-600" size={18} />
+                        <span className="font-semibold text-blue-800">Market Position</span>
+                      </div>
+                      <div className="text-2xl font-bold text-blue-600 mb-1">Top ••%</div>
+                      <div className="text-sm text-blue-700">In this locality</div>
+                    </div>
+
+                    <div className="bg-orange-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <AlertCircle className="text-orange-600" size={18} />
+                        <span className="font-semibold text-orange-800">Investment Timing</span>
+                      </div>
+                      <div className="text-2xl font-bold text-orange-600 mb-1">••••••••</div>
+                      <div className="text-sm text-orange-700">Buy now recommended</div>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center bg-white bg-opacity-95 p-6 rounded-xl shadow-lg border border-gray-200">
+                      <Lock className="text-blue-600 mx-auto mb-3" size={32} />
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">Premium AI Insights</h3>
+                      <p className="text-gray-600 mb-4">Get detailed recommendations and market analysis</p>
+                      <button
+                        onClick={() => handlePaywallOpen('ai-recommendations')}
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                      >
+                        Unlock for ₹299
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             {/* Description */}
             <div className="bg-white rounded-xl shadow-sm p-5">
               <h2 className="text-lg font-bold text-gray-900 mb-3">Property Description</h2>
@@ -928,14 +1053,19 @@ useEffect(() => {
 
           {/* Sidebar */}
           <div className="space-y-5">
-            {/* Contact Agent */}
-            <div className="bg-white rounded-xl shadow-sm p-5 sticky top-4">
+            <div className="bg-white rounded-xl shadow-sm p-5 sticky top-16">
+              {/* Agent Info */}
+              {/* Agent Info */}
               <div className="flex items-center space-x-3 mb-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
                   <User size={24} className="text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900">{displayOrDash(property?.agent?.name) === ' - ' ? ' - ' : property?.agent?.name || 'Rohit Sharma'}</h3>
+                  <h3 className="font-bold text-gray-900">
+                    {displayOrDash(property?.agent?.name) === ' - '
+                      ? ' - '
+                      : property?.agent?.name || 'Rohit Sharma'}
+                  </h3>
                   <p className="text-gray-600 text-sm">Senior Property Consultant</p>
                   <div className="flex items-center mt-1">
                     <Star size={14} className="text-yellow-400 fill-current mr-1" />
@@ -944,39 +1074,64 @@ useEffect(() => {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <button className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 text-sm">
-                  <Phone size={16} />
-                  <span>Call Agent</span>
+              {/* Action Icons Row */}
+              <div className="flex justify-between gap-3">
+                {/* Call */}
+                <button
+                  className="relative flex-1 py-3 rounded-lg bg-blue-600 text-white flex items-center justify-center group transition-colors hover:bg-blue-700"
+                >
+                  <Phone size={18} />
+                  <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    Call Agent
+                  </span>
                 </button>
+
+                {/* Message */}
                 <button
                   onClick={() => setShowContactForm(true)}
-                  className="w-full bg-gray-100 text-gray-900 py-2.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2 text-sm"
+                  className="relative flex-1 py-3 rounded-lg bg-gray-100 text-gray-900 flex items-center justify-center group transition-colors hover:bg-gray-200"
                 >
-                  <MessageCircle size={16} />
-                  <span>Send Message</span>
+                  <MessageCircle size={18} />
+                  <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    Message
+                  </span>
                 </button>
-                <button className="w-full bg-green-600 text-white py-2.5 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 text-sm">
-                  <Calendar size={16} />
-                  <span>Schedule Visit</span>
+
+                {/* Schedule */}
+                <button
+                  className="relative flex-1 py-3 rounded-lg bg-green-600 text-white flex items-center justify-center group transition-colors hover:bg-green-700"
+                >
+                  <Calendar size={18} />
+                  <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    Schedule Visit
+                  </span>
+                </button>
+
+                {/* WhatsApp */}
+                <button
+                  onClick={() => {
+                    const message = `Hi! I'm interested in ${property?.title} at ${property?.locationNormalized}. Price: ${formatCurrency(
+                      property?.price ?? 0
+                    )}. Can you provide more details?`;
+                    if (typeof window !== 'undefined') {
+                      window.open(
+                        `https://wa.me/919999999999?text=${encodeURIComponent(message)}`,
+                        '_blank'
+                      );
+                    }
+                  }}
+                  className="relative flex-1 py-3 rounded-lg bg-green-500 text-white flex items-center justify-center group transition-colors hover:bg-green-600"
+                >
+                  <FaWhatsapp size={18} />
+                  <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    WhatsApp
+                  </span>
                 </button>
               </div>
 
-              <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                <button
-                  onClick={() => {
-                    const message = `Hi! I'm interested in ${property?.title} at ${property?.locationNormalized}. Price: ${formatCurrency(property?.price ?? 0)}. Can you provide more details?`;
-                    if (typeof window !== 'undefined') {
-                      window.open(`https://wa.me/919999999999?text=${encodeURIComponent(message)}`, '_blank');
-                    }
-                  }}
-                  className="w-full bg-green-500 text-white py-2.5 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2 text-sm"
-                >
-                  <FaWhatsapp size={16} />
-                  <span>Chat on WhatsApp</span>
-                </button>
-              </div>
             </div>
+
+
 
             {/* AI Investment Analysis */}
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm p-5 relative">
@@ -1288,6 +1443,44 @@ useEffect(() => {
         onSubscribe={handleSubscribe}
         featureType={paywallFeature}
       />
+      {open && (
+        (() => {
+          // Build the same title you show in the UI (type + unitType + subtype)
+          const displayType = property?.type ?? '';
+          const titleParts = [
+            displayType,
+            property?.unitType ?? '',
+            property?.subtype ?? ''
+          ].map(s => (s || '').toString().trim()).filter(Boolean);
+          const shareTitle = titleParts.length ? titleParts.join(' ') : (property?.title || 'Property Listing');
+
+          // Build description & image as before
+          const shareDescription =
+            property?.description && property.description !== ''
+              ? property.description
+              : (property?.raw?.description ?? property?.raw?.short_description ?? '');
+
+          const shareImage =
+            (Array.isArray(property?.images) && property.images[0]) ||
+            (Array.isArray(property?.photos) && property.photos[0]) ||
+            property?.raw?.image ||
+            property?.raw?.photo ||
+            '';
+
+          const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+          return (
+            <ShareModal
+              url={shareUrl}
+              title={shareTitle}
+              description={shareDescription}
+              image={shareImage}
+              onClose={() => setOpen(false)}
+            />
+          );
+        })()
+      )}
+
     </div>
   );
 };
