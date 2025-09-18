@@ -19,24 +19,24 @@ interface Lead {
   id?: string;
   salutation?: string;
   name?: string;
-  phone?: string;
+  phone?: string; // will be normalized to +<country><digits>
   email?: string;
   lead_type?: string;
   lead_source?: string;
-  whatsapp_number?: string;
+  whatsapp_number?: string; // will be stored as plain digits (no +91)
   state?: string;
   city?: string;
   location?: string;
   status?: string;
-  assigned_executive?: string; // 👈 changed field
+  assigned_executive?: string;
   priority?: string;
 }
 
 interface AddLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (lead: Lead | null) => void; // allow null
-  lead?: Partial<Lead>; // incoming lead may have slightly different shape
+  onSave: (lead: Lead | null) => void;
+  lead?: Partial<Lead>;
 }
 
 interface DropdownProps {
@@ -188,6 +188,20 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
   });
   const [presalesUsers, setPreSalesUsers] = useState<any[]>([]);
 
+  // helper: get digits-only from a string
+  const digitsOnly = (s?: string) => (s ? String(s).replace(/\D/g, '') : '');
+
+  // helper: convert a phone string (maybe 9198... or +9198...) -> +<digits>
+  const toE164 = (s?: string) => {
+    if (!s) return '';
+    const d = digitsOnly(s);
+    if (!d) return '';
+    return d.startsWith('0') ? `+${d.replace(/^0+/, '')}` : `+${d}`;
+  };
+
+  // helper: whatsapp store as digits only (10 or whatever)
+  const normalizeWhatsapp = (s?: string) => digitsOnly(s);
+
   // fetch executives
   useEffect(() => {
     if (!isOpen) return;
@@ -198,12 +212,11 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
         .toString()
         .trim()
         .toLowerCase()
-        .replace(/[\s-_/]+/g, ""); // "Pre Sales" / "pre-sales" -> "presales"
+        .replace(/[\s-_/]+/g, "");
 
     (async () => {
       try {
         const resp = await usersAPI.getAllUsers();
-        // handle different shapes: {data: [...]}, {users: [...]}, or [...]
         const list =
           (Array.isArray(resp?.data) && resp.data) ||
           (Array.isArray(resp?.users) && resp.users) ||
@@ -218,11 +231,10 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
 
         if (!alive) return;
         setPreSalesUsers(execs);
-        // console.debug('presales execs ⇒', execs);
       } catch (e) {
         console.error("Error fetching users:", e);
         if (!alive) return;
-        setPreSalesUsers([]); // fail-safe
+        setPreSalesUsers([]);
       }
     })();
 
@@ -272,6 +284,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
     if (isOpen) {
       fetchMasterData();
       if (isEdit && lead) {
+        // Load lead into local state.
         setNewLead({
           id: lead.id,
           salutation: lead.salutation || '',
@@ -288,7 +301,11 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
           assigned_executive: lead.assigned_executive || '',
           priority: lead.priority || '',
         });
-        setSameAsPhone(!!lead.whatsapp_number && lead.whatsapp_number === lead.phone);
+
+        // determine sameAsPhone: compare phone digits w/out + and whatsapp digits
+        const phoneDigits = digitsOnly(lead.phone);
+        const waDigits = digitsOnly(lead.whatsapp_number);
+        setSameAsPhone(!!waDigits && phoneDigits && waDigits === phoneDigits.replace(/^91/, '') || waDigits === phoneDigits);
       } else {
         setNewLead({ ...emptyLead });
         setSameAsPhone(false);
@@ -309,23 +326,38 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
   };
 
   const handlePhoneChange = (value: string) => {
+    // react-phone-input-2 often returns '919876543210' (without +). Normalize to +<digits>.
+    const withPlus = toE164(value);
     setNewLead(prev => {
-      const updated = { ...prev, phone: value };
-      if (sameAsPhone) updated.whatsapp_number = value;
+      const updated = { ...prev, phone: withPlus };
+      // if sameAsPhone is active, update whatsapp to digits-only version of phone
+      if (sameAsPhone) {
+        // derive whatsapp digits (remove country code like 91 if present)
+        const phoneDigits = digitsOnly(withPlus);
+        const waDigits = phoneDigits.startsWith('91') ? phoneDigits.replace(/^91/, '') : phoneDigits;
+        updated.whatsapp_number = waDigits;
+      }
       return updated;
     });
   };
 
   const handleWhatsappChange = (value: string) => {
-    setNewLead(prev => ({ ...prev, whatsapp_number: value }));
+    // Only keep digits, no +91
+    const numbers = digitsOnly(value);
+    setNewLead(prev => ({ ...prev, whatsapp_number: numbers }));
   };
 
   const handleSameAsPhoneToggle = (checked: boolean) => {
     setSameAsPhone(checked);
     if (checked) {
-      setNewLead(prev => ({ ...prev, whatsapp_number: prev.phone || '' }));
+      // phone already in E.164 in state; extract local digits for whatsapp (strip country code like 91)
+      const phoneDigits = digitsOnly(newLead.phone || '');
+      const waDigits = phoneDigits.startsWith('91') ? phoneDigits.replace(/^91/, '') : phoneDigits;
+      setNewLead(prev => ({ ...prev, whatsapp_number: waDigits }));
     }
   };
+
+  const normalizeNumber = (num?: string) => toE164(num);
 
   const handleSubmit = () => {
     if (!String(newLead.name || '').trim()) {
@@ -346,8 +378,18 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
       return;
     }
 
-    // only trigger save (do not close modal here)
-    onSave(newLead);
+    // prepare normalized payload:
+    const normalizedLead: Lead = {
+      ...newLead,
+      phone: normalizeNumber(newLead.phone),           // +<country><digits>
+      whatsapp_number: normalizeWhatsapp(newLead.whatsapp_number) // digits only
+    };
+
+    // debug: confirm payload in console / network tab before it's sent to API
+    // eslint-disable-next-line no-console
+    console.log('Saving lead payload:', normalizedLead);
+
+    onSave(normalizedLead);
   };
 
   const valFromLabel = (opts: MasterOption[], labelOrValue?: string) =>
@@ -457,11 +499,8 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
             </label>
             <input
               type="tel"
-              value={(newLead.whatsapp_number || '').replace(/^\+91/, '')}
-              onChange={(e) => {
-                const numbers = e.target.value.replace(/\D/g, '');
-                handleWhatsappChange('+91' + numbers);
-              }}
+              value={newLead.whatsapp_number || ''}
+              onChange={(e) => handleWhatsappChange(e.target.value)}
               placeholder="9876543210"
               className={`border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${sameAsPhone ? 'bg-gray-100' : ''}`}
               maxLength={10}
@@ -562,7 +601,6 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
           {(() => {
             const execs = getAssignableExecutives(user, presalesUsers);
 
-            // If only self allowed -> show as text
             if (execs.length === 1 && execs[0].selfOnly) {
               const selfExec = execs[0];
               return (
@@ -572,7 +610,6 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
               );
             }
 
-            // otherwise show select
             return (
               <select
                 className="px-2 py-1.5 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 inline-block"

@@ -15,6 +15,7 @@ export type FollowupForm = {
     scheduleDate: string; // yyyy-mm-dd
     scheduleTime: string; // HH:MM
     priority: string; // 👈 NEW
+    
 };
 
 // Create/Edit payload coming back out of the modal.
