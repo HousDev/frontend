@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { User } from 'lucide-react';
+import { User, Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
@@ -315,13 +315,14 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
                 </button>
               )}
 
-              {/* Mobile Menu Button */}
+              {/* Mobile Menu Button - now uses icons */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="lg:hidden p-2 rounded-xl text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                aria-label="Toggle mobile menu"
+                aria-label={isMobileMenuOpen ? 'Close mobile menu' : 'Open mobile menu'}
+                aria-expanded={isMobileMenuOpen}
               >
-                <span className="font-medium">{isMobileMenuOpen ? 'Close' : 'Menu'}</span>
+                {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
             </div>
           </div>
