@@ -7,20 +7,30 @@ import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import PublicFooter from './PublicFooter';
 import PublicSellPropertyForm from './PublicSellPropertyForm';
 
-const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
-  const location = useLocation();
-  const { isAuthenticated } = useAuth();
-  const { systemSettings } = useSystemSettings();
+type PublicHeaderProps = {
+  currentPage?: string | null;
+  onPageChange?: (pageId: string) => void;
+  onAuthAction?: (action: 'login' | 'signup' | 'sell' | string) => void;
+};
 
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState(null);
-  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(true); // Set to true for admin access
+const PublicHeader: React.FC<PublicHeaderProps> = ({
+  currentPage = null,
+  onPageChange,
+  onAuthAction,
+}) => {
+  const location = useLocation();
+  const { isAuthenticated } = useAuth() as any;
+  const { systemSettings } = useSystemSettings() as any;
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(true); // Set to true for admin access
 
   // Add state for the seller modal
-  const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
+  const [isSellerModalOpen, setIsSellerModalOpen] = useState<boolean>(false);
 
-  const dropdownRef = useRef(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const companyName = systemSettings?.company_name || 'ResaleExpert';
   const companyLogo = systemSettings?.company_logo;
@@ -30,9 +40,10 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
 
   // Close dropdown on outside click
   useEffect(() => {
-    function handleClick(e) {
+    function handleClick(e: MouseEvent) {
       if (!dropdownRef.current) return;
-      if (!dropdownRef.current.contains(e.target)) {
+      const target = e.target as Node | null;
+      if (target && !dropdownRef.current.contains(target)) {
         setOpenDropdown(null);
       }
     }
@@ -41,7 +52,7 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
   }, []);
 
   // Navigation items — all use the sampled color
-  const navigationItems = [
+  const navigationItems: { id: string; label: string; href?: string; textColor?: string }[] = [
     { id: 'home', label: 'Home', href: '/', textColor: navTextColor },
     { id: 'properties', label: 'Properties', href: '/properties', textColor: navTextColor },
     { id: 'services', label: 'Services', href: '/services', textColor: navTextColor },
@@ -50,15 +61,19 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
     { id: 'contact', label: 'Contact', href: '/contact', textColor: navTextColor },
   ];
 
-  const handleNavClick = (pageId, href) => {
+  // Make href optional to avoid TS errors when callers pass only pageId
+  const handleNavClick = (pageId: string, href?: string) => {
     if (onPageChange) {
       onPageChange(pageId);
     }
     setIsMobileMenuOpen(false);
     setOpenDropdown(null);
+
+    // If href provided, navigation is handled by Link's `to` (or you can programmatically navigate here if needed)
+    // e.g., navigate(href) using react-router's useNavigate if required.
   };
 
-  const isActivePage = (itemId, itemHref) => {
+  const isActivePage = (itemId: string, itemHref?: string) => {
     if (currentPage) {
       return currentPage === itemId;
     }
@@ -80,7 +95,7 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
   };
 
   // Handle seller form save
-  const handleSellerSave = async (sellerData) => {
+  const handleSellerSave = async (sellerData: any) => {
     try {
       // Add your seller save logic here
       console.log('Saving seller:', sellerData);
@@ -206,7 +221,6 @@ const PublicHeader = ({ currentPage, onPageChange, onAuthAction }) => {
               >
                 <span className="font-semibold">Sell Property</span>
               </button>
-
 
               {!isAuthenticated ? (
                 <div className="hidden md:flex space-x-2 items-center">

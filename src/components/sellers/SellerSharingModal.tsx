@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { 
-  X, 
-  Send, 
-  MessageCircle, 
-  Mail, 
-  Phone, 
-  Globe, 
-  QrCode, 
-  Copy, 
+import {
+  X,
+  Send,
+  MessageCircle,
+  Mail,
+  Phone,
+  Globe,
+  QrCode,
+  Copy,
   Share,
   User,
   Building,
@@ -29,45 +29,98 @@ import {
   Video
 } from 'lucide-react';
 
-const SellerSharingModal = ({ isOpen, onClose, seller, onShare }: any) => {
+/* ------------ Types (minimal & safe) ------------ */
+type AnyObj = Record<string, any>;
+
+type Seller = {
+  id?: string | number;
+  name?: string;
+  phone?: string;
+  email?: string;
+  location?: string;
+  city?: string;
+  leadScore?: number;
+  stage?: string;
+  responseRate?: number | string;
+  avgResponseTime?: string;
+  properties?: AnyObj[];
+  [k: string]: any;
+};
+
+type Recipient = {
+  id: number;
+  name: string;
+  contact: string;
+  type: 'phone' | 'email';
+};
+
+type ShareResult = {
+  channel: string;
+  recipient: string;
+  status: string;
+};
+
+type Props = {
+  isOpen: boolean;
+  onClose: () => void;
+  seller: Seller;
+  onShare: (data: AnyObj) => void;
+};
+
+/* util first (was used earlier in template) */
+const formatCurrency = (amount: number) => {
+  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
+  if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+  return `₹${Number(amount).toLocaleString('en-IN')}`;
+};
+
+const SellerSharingModal: React.FC<Props> = ({ isOpen, onClose, seller, onShare }) => {
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [customMessage, setCustomMessage] = useState('');
-  const [recipients, setRecipients] = useState<any[]>([]);
-  const [newRecipient, setNewRecipient] = useState({ name: '', contact: '', type: 'phone' });
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [newRecipient, setNewRecipient] = useState<{ name: string; contact: string; type: 'phone' | 'email' }>({
+    name: '',
+    contact: '',
+    type: 'phone'
+  });
   const [isSharing, setIsSharing] = useState(false);
-  const [shareResults, setShareResults] = useState<any[]>([]);
-  const [shareType, setShareType] = useState('profile');
+  const [shareResults, setShareResults] = useState<ShareResult[]>([]);
+  const [shareType, setShareType] = useState<'profile' | 'properties' | 'contact'>('profile');
 
   if (!isOpen || !seller) return null;
 
-  const defaultMessages = {
-    profile: `👤 *Seller Profile - ${seller.name}*
+  const stageLabel = (seller.stage ?? '')
+    .replace('_', ' ')
+    .replace(/\b\w/g, (l: string) => l.toUpperCase());
 
-📞 *Contact:* ${seller.phone}
-📧 *Email:* ${seller.email}
-📍 *Location:* ${seller.location}, ${seller.city}
-⭐ *Lead Score:* ${seller.leadScore}/100
-📊 *Stage:* ${seller.stage.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+  const defaultMessages = {
+    profile: `👤 *Seller Profile - ${seller.name ?? ''}*
+
+📞 *Contact:* ${seller.phone ?? '—'}
+📧 *Email:* ${seller.email ?? '—'}
+📍 *Location:* ${seller.location ?? '—'}, ${seller.city ?? '—'}
+⭐ *Lead Score:* ${seller.leadScore ?? 0}/100
+📊 *Stage:* ${stageLabel}
 
 🏠 *Properties:* ${seller.properties?.length || 0} listed
-📈 *Response Rate:* ${seller.responseRate}%
-⏱️ *Avg Response:* ${seller.avgResponseTime}
+📈 *Response Rate:* ${seller.responseRate ?? '—'}%
+⏱️ *Avg Response:* ${seller.avgResponseTime ?? '—'}
 
 ---
 Shared via ResaleExpert
 🌐 www.resaleexpert.com`,
 
-    properties: `🏠 *${seller.name}'s Properties*
+    properties: `🏠 *${seller.name ?? ''}'s Properties*
 
-📍 *Seller Location:* ${seller.location}, ${seller.city}
-📞 *Contact:* ${seller.phone}
+📍 *Seller Location:* ${seller.location ?? '—'}, ${seller.city ?? '—'}
+📞 *Contact:* ${seller.phone ?? '—'}
 
-${seller.properties?.map((prop: any, index: number) => 
-  `${index + 1}. *${prop.title}*
-   📍 ${prop.address}
-   💰 ${formatCurrency(prop.price)}
-   🏢 ${prop.unitType} • ${prop.area} sq ft`
-).join('\n\n') || 'No properties listed yet'}
+${seller.properties?.map((prop: any, index: number) =>
+      `${index + 1}. *${prop.title ?? 'Property'}*
+   📍 ${prop.address ?? prop.location ?? '—'}
+   💰 ${prop.price != null ? formatCurrency(Number(prop.price)) : '—'}
+   🏢 ${prop.unitType ?? prop.unit_type ?? '—'} • ${prop.area ?? prop.carpet_area ?? '—'} sq ft`
+    ).join('\n\n') || 'No properties listed yet'}
 
 *Interested in any property? Contact us!*
 
@@ -75,19 +128,19 @@ ${seller.properties?.map((prop: any, index: number) =>
 ResaleExpert - Your Trusted Partner
 📞 +91 99999 99999`,
 
-    contact: `📞 *Contact Details - ${seller.name}*
+    contact: `📞 *Contact Details - ${seller.name ?? ''}*
 
 *Primary Contact:*
-📱 Phone: ${seller.phone}
-📧 Email: ${seller.email}
+📱 Phone: ${seller.phone ?? '—'}
+📧 Email: ${seller.email ?? '—'}
 
 *Location:*
-📍 ${seller.location}, ${seller.city}
+📍 ${seller.location ?? '—'}, ${seller.city ?? '—'}
 
 *Business Details:*
-⭐ Lead Score: ${seller.leadScore}/100
-📊 Current Stage: ${seller.stage.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-📈 Response Rate: ${seller.responseRate}%
+⭐ Lead Score: ${seller.leadScore ?? 0}/100
+📊 Current Stage: ${stageLabel}
+📈 Response Rate: ${seller.responseRate ?? '—'}%
 
 ---
 ResaleExpert Team
@@ -95,62 +148,58 @@ ResaleExpert Team
   };
 
   const sharingChannels = [
-    { 
-      id: 'whatsapp', 
-      label: 'WhatsApp', 
-      icon: MessageCircle, 
+    {
+      id: 'whatsapp',
+      label: 'WhatsApp',
+      icon: MessageCircle,
       color: 'green',
       description: 'Share via WhatsApp with rich formatting'
     },
-    { 
-      id: 'email', 
-      label: 'Email', 
-      icon: Mail, 
+    {
+      id: 'email',
+      label: 'Email',
+      icon: Mail,
       color: 'blue',
       description: 'Send detailed email with seller information'
     },
-    { 
-      id: 'sms', 
-      label: 'SMS', 
-      icon: Phone, 
+    {
+      id: 'sms',
+      label: 'SMS',
+      icon: Phone,
       color: 'purple',
       description: 'Send SMS with seller contact details'
     },
-    { 
-      id: 'public_link', 
-      label: 'Public Link', 
-      icon: Globe, 
+    {
+      id: 'public_link',
+      label: 'Public Link',
+      icon: Globe,
       color: 'indigo',
       description: 'Generate shareable public link'
     },
-    { 
-      id: 'qr_code', 
-      label: 'QR Code', 
-      icon: QrCode, 
+    {
+      id: 'qr_code',
+      label: 'QR Code',
+      icon: QrCode,
       color: 'gray',
       description: 'Generate QR code for easy sharing'
     },
-    { 
-      id: 'business_card', 
-      label: 'Digital Business Card', 
-      icon: User, 
+    {
+      id: 'business_card',
+      label: 'Digital Business Card',
+      icon: User,
       color: 'pink',
       description: 'Create digital business card'
     }
-  ];
+  ] as const;
 
-  const shareTypes = [
+  const shareTypes: { id: 'profile' | 'properties' | 'contact'; label: string; description: string }[] = [
     { id: 'profile', label: 'Seller Profile', description: 'Complete seller information' },
-    { id: 'properties', label: 'Property List', description: 'Seller\'s property listings' },
+    { id: 'properties', label: "Property List", description: "Seller's property listings" },
     { id: 'contact', label: 'Contact Details', description: 'Contact information only' }
   ];
 
   const handleChannelToggle = (channelId: string) => {
-    setSelectedChannels(prev => 
-      prev.includes(channelId) 
-        ? prev.filter(id => id !== channelId)
-        : [...prev, channelId]
-    );
+    setSelectedChannels(prev => (prev.includes(channelId) ? prev.filter(id => id !== channelId) : [...prev, channelId]));
   };
 
   const addRecipient = () => {
@@ -165,8 +214,9 @@ ResaleExpert Team
   };
 
   const generatePublicLink = () => {
-    const sellerSlug = seller.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    return `https://resaleexpert.com/seller/${seller.id}/${sellerSlug}`;
+    const slug = String(seller.name ?? '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const sid = seller.id ?? 'seller';
+    return `https://resaleexpert.com/seller/${sid}/${slug}`;
   };
 
   const generateQRCode = () => {
@@ -182,16 +232,17 @@ ResaleExpert Team
 
     setIsSharing(true);
     setShareResults([]);
-    
+
     try {
-      const results = [];
-      const message = customMessage || defaultMessages[shareType as keyof typeof defaultMessages];
-      
+      const results: ShareResult[] = [];
+      const message = customMessage || defaultMessages[shareType];
+
       for (const channel of selectedChannels) {
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-        
+        // simulate async op
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         switch (channel) {
-          case 'whatsapp':
+          case 'whatsapp': {
             if (recipients.length > 0) {
               for (const recipient of recipients) {
                 if (recipient.type === 'phone') {
@@ -202,12 +253,12 @@ ResaleExpert Team
               }
             }
             break;
-            
-          case 'email':
+          }
+          case 'email': {
             if (recipients.length > 0) {
               for (const recipient of recipients) {
                 if (recipient.type === 'email') {
-                  const subject = `Seller Information - ${seller.name}`;
+                  const subject = `Seller Information - ${seller.name ?? ''}`;
                   const mailtoUrl = `mailto:${recipient.contact}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
                   window.open(mailtoUrl, '_blank');
                   results.push({ channel: 'Email', recipient: recipient.name, status: 'sent' });
@@ -215,27 +266,31 @@ ResaleExpert Team
               }
             }
             break;
-            
-          case 'sms':
-            // SMS would be sent via SMS gateway
+          }
+          case 'sms': {
+            // integrate SMS gateway here
             results.push({ channel: 'SMS', recipient: 'Multiple', status: 'sent' });
             break;
-            
-          case 'public_link':
+          }
+          case 'public_link': {
             const publicLink = generatePublicLink();
-            navigator.clipboard.writeText(publicLink);
-            results.push({ channel: 'Public Link', recipient: 'Copied to clipboard', status: 'generated' });
+            try {
+              await navigator.clipboard.writeText(publicLink);
+              results.push({ channel: 'Public Link', recipient: 'Copied to clipboard', status: 'generated' });
+            } catch {
+              results.push({ channel: 'Public Link', recipient: publicLink, status: 'generated' });
+            }
             break;
-            
-          case 'qr_code':
+          }
+          case 'qr_code': {
             const qrCodeUrl = generateQRCode();
             const qrWindow = window.open('', '_blank');
             if (qrWindow) {
               qrWindow.document.write(`
                 <html>
-                  <head><title>QR Code - ${seller.name}</title></head>
+                  <head><title>QR Code - ${seller.name ?? ''}</title></head>
                   <body style="text-align: center; padding: 20px; font-family: Arial, sans-serif;">
-                    <h2>Seller: ${seller.name}</h2>
+                    <h2>Seller: ${seller.name ?? ''}</h2>
                     <img src="${qrCodeUrl}" alt="QR Code" style="margin: 20px;">
                     <p>Scan to view seller profile</p>
                     <p style="font-size: 12px; color: #666;">${generatePublicLink()}</p>
@@ -245,25 +300,24 @@ ResaleExpert Team
             }
             results.push({ channel: 'QR Code', recipient: 'Generated', status: 'created' });
             break;
-            
-          default:
+          }
+          default: {
             results.push({ channel, recipient: 'Multiple', status: 'sent' });
+          }
         }
       }
-      
+
       setShareResults(results);
-      
-      // Call the onShare callback
+
       onShare({
         seller_id: seller.id,
         channels: selectedChannels,
-        recipients: recipients,
-        message: message,
-        shareType: shareType,
-        results: results,
+        recipients,
+        message,
+        shareType,
+        results,
         shared_at: new Date().toISOString()
       });
-      
     } catch (error) {
       console.error('Sharing failed:', error);
     } finally {
@@ -271,15 +325,14 @@ ResaleExpert Team
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert('Copied to clipboard!');
-  };
-
-  const formatCurrency = (amount: number) => {
-    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-    return `₹${amount.toLocaleString('en-IN')}`;
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Copied to clipboard!');
+    } catch {
+      // fallback prompt
+      window.prompt('Copy to clipboard:', text);
+    }
   };
 
   return (
@@ -315,11 +368,8 @@ ResaleExpert Team
                 <button
                   key={type.id}
                   onClick={() => setShareType(type.id)}
-                  className={`p-4 rounded-xl border-2 transition-all text-left ${
-                    shareType === type.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  className={`p-4 rounded-xl border-2 transition-all text-left ${shareType === type.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
                 >
                   <div className="font-medium text-gray-900">{type.label}</div>
                   <div className="text-sm text-gray-600 mt-1">{type.description}</div>
@@ -342,7 +392,9 @@ ResaleExpert Team
               </div>
               <div>
                 <span className="text-gray-500">Location:</span>
-                <span className="font-semibold ml-2">{seller.location}, {seller.city}</span>
+                <span className="font-semibold ml-2">
+                  {seller.location}, {seller.city}
+                </span>
               </div>
               <div>
                 <span className="text-gray-500">Properties:</span>
@@ -362,17 +414,11 @@ ResaleExpert Team
                   <button
                     key={channel.id}
                     onClick={() => handleChannelToggle(channel.id)}
-                    className={`p-4 rounded-xl border-2 transition-all text-left ${
-                      isSelected
-                        ? `border-${channel.color}-500 bg-${channel.color}-50`
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${isSelected ? `border-${channel.color}-500 bg-${channel.color}-50` : 'border-gray-200 hover:border-gray-300'
+                      }`}
                   >
                     <div className="flex items-center space-x-3 mb-2">
-                      <Icon 
-                        size={20} 
-                        className={isSelected ? `text-${channel.color}-600` : 'text-gray-400'} 
-                      />
+                      <Icon size={20} className={isSelected ? `text-${channel.color}-600` : 'text-gray-400'} />
                       <span className={`font-medium ${isSelected ? `text-${channel.color}-900` : 'text-gray-600'}`}>
                         {channel.label}
                       </span>
@@ -388,36 +434,33 @@ ResaleExpert Team
           {/* Recipients */}
           <div className="mb-6">
             <h3 className="font-semibold text-gray-900 mb-4">Recipients</h3>
-            
+
             {/* Add Recipient */}
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <input
                   type="text"
                   value={newRecipient.name}
-                  onChange={(e) => setNewRecipient({...newRecipient, name: e.target.value})}
+                  onChange={(e) => setNewRecipient({ ...newRecipient, name: e.target.value })}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="Recipient name"
                 />
                 <input
                   type="text"
                   value={newRecipient.contact}
-                  onChange={(e) => setNewRecipient({...newRecipient, contact: e.target.value})}
+                  onChange={(e) => setNewRecipient({ ...newRecipient, contact: e.target.value })}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="Phone/Email"
                 />
                 <select
                   value={newRecipient.type}
-                  onChange={(e) => setNewRecipient({...newRecipient, type: e.target.value})}
+                  onChange={(e) => setNewRecipient({ ...newRecipient, type: e.target.value as 'phone' | 'email' })}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="phone">Phone</option>
                   <option value="email">Email</option>
                 </select>
-                <button
-                  onClick={addRecipient}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
+                <button onClick={addRecipient} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                   Add
                 </button>
               </div>
@@ -436,36 +479,31 @@ ResaleExpert Team
                       <div className="text-sm text-gray-600">{recipient.contact}</div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => removeRecipient(recipient.id)}
-                    className="text-red-600 hover:text-red-800"
-                  >
+                  <button onClick={() => removeRecipient(recipient.id)} className="text-red-600 hover:text-red-800">
                     <X size={16} />
                   </button>
                 </div>
               ))}
-              
+
               {recipients.length === 0 && (
-                <div className="text-center py-4 text-gray-500">
-                  No recipients added. Add recipients to share seller information.
-                </div>
+                <div className="text-center py-4 text-gray-500">No recipients added. Add recipients to share seller information.</div>
               )}
             </div>
           </div>
 
-          {/* Custom Message */}
+          {/* Message */}
           <div className="mb-6">
             <h3 className="font-semibold text-gray-900 mb-4">Message</h3>
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setCustomMessage(defaultMessages[shareType as keyof typeof defaultMessages])}
+                  onClick={() => setCustomMessage(defaultMessages[shareType])}
                   className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 transition-colors"
                 >
                   Use Default
                 </button>
                 <button
-                  onClick={() => copyToClipboard(customMessage || defaultMessages[shareType as keyof typeof defaultMessages])}
+                  onClick={() => copyToClipboard(customMessage || defaultMessages[shareType])}
                   className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200 transition-colors"
                 >
                   <Copy size={12} className="inline mr-1" />
@@ -473,7 +511,7 @@ ResaleExpert Team
                 </button>
               </div>
               <textarea
-                value={customMessage || defaultMessages[shareType as keyof typeof defaultMessages]}
+                value={customMessage || defaultMessages[shareType]}
                 onChange={(e) => setCustomMessage(e.target.value)}
                 className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
                 placeholder="Enter your custom message..."
@@ -495,16 +533,16 @@ ResaleExpert Team
                   <div className="text-sm text-gray-600">Share direct seller profile</div>
                 </div>
               </button>
-              
+
               <button
                 onClick={() => {
                   const qrWindow = window.open('', '_blank');
                   if (qrWindow) {
                     qrWindow.document.write(`
                       <html>
-                        <head><title>QR Code - ${seller.name}</title></head>
+                        <head><title>QR Code - ${seller.name ?? ''}</title></head>
                         <body style="text-align: center; padding: 20px; font-family: Arial, sans-serif;">
-                          <h2>Seller: ${seller.name}</h2>
+                          <h2>Seller: ${seller.name ?? ''}</h2>
                           <img src="${generateQRCode()}" alt="QR Code" style="margin: 20px;">
                           <p>Scan to view seller profile</p>
                           <p style="font-size: 12px; color: #666;">${generatePublicLink()}</p>
@@ -537,9 +575,7 @@ ResaleExpert Team
                         {result.channel} - {result.recipient}
                       </span>
                     </div>
-                    <span className="text-xs text-green-600 uppercase font-medium">
-                      {result.status}
-                    </span>
+                    <span className="text-xs text-green-600 uppercase font-medium">{result.status}</span>
                   </div>
                 ))}
               </div>
@@ -551,13 +587,11 @@ ResaleExpert Team
         <div className="p-6 border-t border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500">
-              {selectedChannels.length} channel{selectedChannels.length !== 1 ? 's' : ''} selected • {recipients.length} recipient{recipients.length !== 1 ? 's' : ''}
+              {selectedChannels.length} channel{selectedChannels.length !== 1 ? 's' : ''} selected • {recipients.length} recipient
+              {recipients.length !== 1 ? 's' : ''}
             </div>
             <div className="flex items-center space-x-3">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
+              <button onClick={onClose} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                 Cancel
               </button>
               <button

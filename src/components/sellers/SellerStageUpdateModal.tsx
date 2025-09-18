@@ -1,124 +1,162 @@
 import React, { useState } from 'react';
-import { X, Save, TrendingUp, CheckCircle, Clock, AlertCircle, ArrowRight, User, Building, Calendar, FileText, Target, Award, Shield, Crown } from 'lucide-react';
+import {
+  X,
+  Save,
+  TrendingUp,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  ArrowRight,
+  User,
+  Building,
+  Calendar,
+  FileText,
+  Target,
+  Award,
+  Shield,
+  Crown
+} from 'lucide-react';
 
-const SellerStageUpdateModal = ({ isOpen, onClose, seller, onUpdateStage }: any) => {
-  const [selectedStage, setSelectedStage] = useState(seller.stage);
-  const [remarks, setRemarks] = useState('');
-  const [nextAction, setNextAction] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+type Seller = {
+  id?: string | number;
+  name?: string;
+  stage?: string;
+  stageProgress?: number;
+  [k: string]: any;
+};
 
+type Props = {
+  isOpen: boolean;
+  onClose: () => void;
+  seller?: Seller;
+  onUpdateStage: (newStage: string, remarks: string, nextAction: string) => Promise<any> | any;
+};
+
+const SellerStageUpdateModal: React.FC<Props> = ({ isOpen, onClose, seller = {}, onUpdateStage }) => {
   if (!isOpen) return null;
 
-  const sellerStages = [
-    {
-      id: 'initial_contact',
-      label: 'Initial Contact',
-      description: 'First contact with seller',
-      progress: 10,
-      icon: '📞',
-      tasks: [
-        'Contact seller and introduce services',
-        'Understand seller requirements',
-        'Schedule property visit',
-        'Collect basic property information'
-      ]
-    },
-    {
-      id: 'property_collection',
-      label: 'Property Collection',
-      description: 'Collecting property details',
-      progress: 25,
-      icon: '🏠',
-      tasks: [
-        'Visit property for inspection',
-        'Collect property documents',
-        'Take professional photos',
-        'Gather all property specifications'
-      ]
-    },
-    {
-      id: 'mandate_discussion',
-      label: 'Mandate Discussion',
-      description: 'Discussing mandate terms',
-      progress: 40,
-      icon: '💬',
-      tasks: [
-        'Explain mandate agreement benefits',
-        'Discuss commission structure',
-        'Negotiate terms and conditions',
-        'Address seller concerns'
-      ]
-    },
-    {
-      id: 'mandate_signed',
-      label: 'Mandate Signed',
-      description: 'Exclusive mandate agreement signed',
-      progress: 60,
-      icon: '✅',
-      tasks: [
-        'Prepare mandate agreement',
-        'Get seller signature',
-        'Complete OTP verification',
-        'File signed agreement'
-      ]
-    },
-    {
-      id: 'selling_process',
-      label: 'Selling Process',
-      description: 'Active marketing and selling',
-      progress: 75,
-      icon: '🔄',
-      tasks: [
-        'List property on portals',
-        'Market to potential buyers',
-        'Arrange property visits',
-        'Handle buyer inquiries'
-      ]
-    },
-    {
-      id: 'deal_negotiation',
-      label: 'Deal Negotiation',
-      description: 'Negotiating with buyers',
-      progress: 85,
-      icon: '🤝',
-      tasks: [
-        'Receive buyer offers',
-        'Negotiate price and terms',
-        'Facilitate buyer-seller meetings',
-        'Finalize deal terms'
-      ]
-    },
-    {
-      id: 'deal_closure',
-      label: 'Deal Closure',
-      description: 'Completing the sale',
-      progress: 95,
-      icon: '📋',
-      tasks: [
-        'Prepare sale agreement',
-        'Coordinate documentation',
-        'Handle registration process',
-        'Ensure smooth handover'
-      ]
-    },
-    {
-      id: 'completed',
-      label: 'Completed',
-      description: 'Sale successfully completed',
-      progress: 100,
-      icon: '🎉',
-      tasks: [
-        'Sale completed successfully',
-        'All documents finalized',
-        'Commission received',
-        'Relationship maintained'
-      ]
-    }
-  ];
+  const [selectedStage, setSelectedStage] = useState<string>(seller?.stage ?? '');
+  const [remarks, setRemarks] = useState<string>('');
+  const [nextAction, setNextAction] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const currentStageIndex = sellerStages.findIndex(s => s.id === seller.stage);
+  const sellerStages: {
+    id: string;
+    label: string;
+    description: string;
+    progress: number;
+    icon: React.ReactNode;
+    tasks: string[];
+  }[] = [
+      {
+        id: 'initial_contact',
+        label: 'Initial Contact',
+        description: 'First contact with seller',
+        progress: 10,
+        icon: '📞',
+        tasks: [
+          'Contact seller and introduce services',
+          'Understand seller requirements',
+          'Schedule property visit',
+          'Collect basic property information'
+        ]
+      },
+      {
+        id: 'property_collection',
+        label: 'Property Collection',
+        description: 'Collecting property details',
+        progress: 25,
+        icon: '🏠',
+        tasks: [
+          'Visit property for inspection',
+          'Collect property documents',
+          'Take professional photos',
+          'Gather all property specifications'
+        ]
+      },
+      {
+        id: 'mandate_discussion',
+        label: 'Mandate Discussion',
+        description: 'Discussing mandate terms',
+        progress: 40,
+        icon: '💬',
+        tasks: [
+          'Explain mandate agreement benefits',
+          'Discuss commission structure',
+          'Negotiate terms and conditions',
+          'Address seller concerns'
+        ]
+      },
+      {
+        id: 'mandate_signed',
+        label: 'Mandate Signed',
+        description: 'Exclusive mandate agreement signed',
+        progress: 60,
+        icon: '✅',
+        tasks: [
+          'Prepare mandate agreement',
+          'Get seller signature',
+          'Complete OTP verification',
+          'File signed agreement'
+        ]
+      },
+      {
+        id: 'selling_process',
+        label: 'Selling Process',
+        description: 'Active marketing and selling',
+        progress: 75,
+        icon: '🔄',
+        tasks: [
+          'List property on portals',
+          'Market to potential buyers',
+          'Arrange property visits',
+          'Handle buyer inquiries'
+        ]
+      },
+      {
+        id: 'deal_negotiation',
+        label: 'Deal Negotiation',
+        description: 'Negotiating with buyers',
+        progress: 85,
+        icon: '🤝',
+        tasks: [
+          'Receive buyer offers',
+          'Negotiate price and terms',
+          'Facilitate buyer-seller meetings',
+          'Finalize deal terms'
+        ]
+      },
+      {
+        id: 'deal_closure',
+        label: 'Deal Closure',
+        description: 'Completing the sale',
+        progress: 95,
+        icon: '📋',
+        tasks: [
+          'Prepare sale agreement',
+          'Coordinate documentation',
+          'Handle registration process',
+          'Ensure smooth handover'
+        ]
+      },
+      {
+        id: 'completed',
+        label: 'Completed',
+        description: 'Sale successfully completed',
+        progress: 100,
+        icon: '🎉',
+        tasks: [
+          'Sale completed successfully',
+          'All documents finalized',
+          'Commission received',
+          'Relationship maintained'
+        ]
+      }
+    ];
+
+  const currentStageIndex = Math.max(0, sellerStages.findIndex(s => s.id === seller.stage));
   const selectedStageIndex = sellerStages.findIndex(s => s.id === selectedStage);
-  const selectedStageData = sellerStages.find(s => s.id === selectedStage);
+  const selectedStageData = sellerStages.find(s => s.id === selectedStage) ?? null;
 
   const handleSave = async () => {
     if (!remarks.trim()) {
@@ -142,7 +180,9 @@ const SellerStageUpdateModal = ({ isOpen, onClose, seller, onUpdateStage }: any)
   };
 
   const canProgressToStage = (stageIndex: number) => {
-    return stageIndex <= currentStageIndex + 1; // Can only progress one stage at a time
+    // allow selecting current stage or progressing at most one step ahead
+    const safeCurrent = Math.max(0, currentStageIndex);
+    return stageIndex <= safeCurrent + 1;
   };
 
   return (
@@ -189,24 +229,22 @@ const SellerStageUpdateModal = ({ isOpen, onClose, seller, onUpdateStage }: any)
                 const isCurrent = index === currentStageIndex;
                 const isSelected = selectedStage === stage.id;
                 const canProgress = canProgressToStage(index);
-                
+
                 return (
                   <button
                     key={stage.id}
                     onClick={() => canProgress && setSelectedStage(stage.id)}
                     disabled={!canProgress}
-                    className={`w-full flex items-center space-x-4 p-4 rounded-xl border-2 transition-all text-left ${
-                      isSelected ? 'border-purple-500 bg-purple-50' :
-                      canProgress ? 'border-gray-200 hover:border-gray-300 hover:bg-gray-50' :
-                      'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
-                    }`}
+                    className={`w-full flex items-center space-x-4 p-4 rounded-xl border-2 transition-all text-left ${isSelected ? 'border-purple-500 bg-purple-50' :
+                        canProgress ? 'border-gray-200 hover:border-gray-300 hover:bg-gray-50' :
+                          'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
+                      }`}
                   >
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg ${
-                      isCompleted ? 'bg-green-500 text-white' :
-                      isCurrent ? 'bg-blue-500 text-white' :
-                      isSelected ? 'bg-purple-500 text-white' :
-                      'bg-gray-200 text-gray-500'
-                    }`}>
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg ${isCompleted ? 'bg-green-500 text-white' :
+                        isCurrent ? 'bg-blue-500 text-white' :
+                          isSelected ? 'bg-purple-500 text-white' :
+                            'bg-gray-200 text-gray-500'
+                      }`}>
                       {isCompleted ? <CheckCircle size={20} /> : stage.icon}
                     </div>
                     <div className="flex-1">
@@ -220,10 +258,10 @@ const SellerStageUpdateModal = ({ isOpen, onClose, seller, onUpdateStage }: any)
                       </div>
                       <div className="text-sm text-gray-600 mb-2">{stage.description}</div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
+                        <div
                           className="bg-purple-500 h-2 rounded-full transition-all"
                           style={{ width: `${stage.progress}%` }}
-                        ></div>
+                        />
                       </div>
                       <div className="text-xs text-gray-500 mt-1">Progress: {stage.progress}%</div>
                     </div>
@@ -241,8 +279,8 @@ const SellerStageUpdateModal = ({ isOpen, onClose, seller, onUpdateStage }: any)
             <div className="bg-green-50 rounded-xl p-4 mb-6">
               <h3 className="font-semibold text-green-900 mb-3">Tasks for {selectedStageData.label}</h3>
               <div className="space-y-2">
-                {selectedStageData.tasks.map((task, index) => (
-                  <div key={index} className="flex items-center space-x-2">
+                {selectedStageData.tasks.map((task, idx) => (
+                  <div key={idx} className="flex items-center space-x-2">
                     <CheckCircle className="text-green-600" size={14} />
                     <span className="text-sm text-green-800">{task}</span>
                   </div>

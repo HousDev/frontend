@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { 
-  Bot, 
-  Sparkles, 
-  Target, 
-  Brain, 
-  Wand2, 
-  FileText, 
-  Image, 
+import {
+  Bot,
+  Sparkles,
+  Target,
+  Brain,
+  Wand2,
+  FileText,
+  Image,
   Share,
   CheckCircle,
   Clock,
@@ -27,6 +27,7 @@ import {
   X
 } from 'lucide-react';
 
+import { toast } from 'react-toastify';
 interface AIBlogWriterProps {
   isOpen?: boolean;
   onClose?: () => void;
@@ -34,11 +35,11 @@ interface AIBlogWriterProps {
   isGenerating: boolean;
 }
 
-const AIBlogWriter: React.FC<AIBlogWriterProps> = ({ 
-  isOpen, 
-  onClose, 
-  onGenerate, 
-  isGenerating 
+const AIBlogWriter: React.FC<AIBlogWriterProps> = ({
+  isOpen,
+  onClose,
+  onGenerate,
+  isGenerating
 }) => {
   const [prompt, setPrompt] = useState('');
   const [keywords, setKeywords] = useState<string[]>([]);
@@ -67,7 +68,7 @@ const AIBlogWriter: React.FC<AIBlogWriterProps> = ({
   ];
 
   const categories = [
-    'Real Estate', 'Investment', 'Market Analysis', 'Legal', 'Home Buying', 
+    'Real Estate', 'Investment', 'Market Analysis', 'Legal', 'Home Buying',
     'Home Selling', 'Property News', 'Construction', 'Finance', 'Legal Updates'
   ];
 
@@ -117,7 +118,7 @@ const AIBlogWriter: React.FC<AIBlogWriterProps> = ({
     const suggestions = topicSuggestions
       .filter(suggestion => {
         const relevantKeywords = audienceKeywords[targetAudience as keyof typeof audienceKeywords] || [];
-        return relevantKeywords.some(keyword => 
+        return relevantKeywords.some(keyword =>
           suggestion.toLowerCase().includes(keyword.toLowerCase())
         );
       })
@@ -343,7 +344,7 @@ const AIBlogWriter: React.FC<AIBlogWriterProps> = ({
           <Settings className="text-blue-600" size={20} />
           <span>Advanced AI Options</span>
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <label className="flex items-center">
             <input
@@ -392,7 +393,7 @@ const AIBlogWriter: React.FC<AIBlogWriterProps> = ({
           <Brain className="text-green-600" size={20} />
           <span>AI Content Insights</span>
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-lg p-4">
             <div className="flex items-center space-x-2 mb-2">
@@ -482,7 +483,7 @@ const AIBlogWriter: React.FC<AIBlogWriterProps> = ({
             </>
           )}
         </button>
-        
+
         <p className="text-sm text-gray-600 mt-3">
           AI will create SEO-optimized content with table of contents, proper formatting, and relevant images
         </p>

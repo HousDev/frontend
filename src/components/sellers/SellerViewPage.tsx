@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   ArrowLeft,
@@ -37,26 +36,29 @@ import SellerFollowupModal from './SellerFollowupModal';
 
 type AnyObj = Record<string, any>;
 
-const SellerViewPage: React.FC<{
+export interface SellerViewPageProps {
   seller?: AnyObj;
   onBack?: () => void;
-  onEdit?: () => void;
-  onAccount?: () => void;
+  onEdit?: (seller?: AnyObj) => void;                // accept optional seller
+  onAccount?: (sellerId?: string | number) => void;  // accept optional id
   onNext?: () => void;
   onPrevious?: () => void;
   currentIndex?: number;
   totalSellers?: number;
   onUpdateSeller?: (s: AnyObj) => void;
-}> = ({
+  sellerId?: string | number; // optional, harmless
+}
+
+const SellerViewPage: React.FC<SellerViewPageProps> = ({
   seller = {},
-  onBack = () => {},
-  onEdit = () => {},
-  onAccount = () => {},
-  onNext = () => {},
-  onPrevious = () => {},
+  onBack = () => { },
+  onEdit = (..._args: any[]) => { },
+  onAccount = (..._args: any[]) => { },
+  onNext = () => { },
+  onPrevious = () => { },
   currentIndex = 0,
   totalSellers = 1,
-  onUpdateSeller = () => {}
+  onUpdateSeller = () => { }
 }) => {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [showStageUpdateModal, setShowStageUpdateModal] = useState(false);
@@ -66,7 +68,7 @@ const SellerViewPage: React.FC<{
   const [showPropertyForm, setShowPropertyForm] = useState(false);
   const [editingActivity, setEditingActivity] = useState<any>(null);
   const [editingProperty, setEditingProperty] = useState<any>(null);
-   const [showFollowupModal, setShowFollowupModal] = useState(false);
+  const [showFollowupModal, setShowFollowupModal] = useState(false);
   const [editingFollowup, setEditingFollowup] = useState<any | null>(null);
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User, count: null },
@@ -145,23 +147,23 @@ const SellerViewPage: React.FC<{
 
     const mappedPhotos = Array.isArray(property.photos)
       ? property.photos
-          .map((p: any, idx: number) => {
-            if (!p) return null;
-            if (typeof p === 'string') return { id: `${property.id ?? 'p'}-${idx}`, url: p, name: `photo-${idx + 1}` };
-            return { id: p.id ?? `${property.id ?? 'p'}-${idx}`, url: p.url ?? p.path ?? '', name: p.name ?? `photo-${idx + 1}` };
-          })
-          .filter(Boolean)
+        .map((p: any, idx: number) => {
+          if (!p) return null;
+          if (typeof p === 'string') return { id: `${property.id ?? 'p'}-${idx}`, url: p, name: `photo-${idx + 1}` };
+          return { id: p.id ?? `${property.id ?? 'p'}-${idx}`, url: p.url ?? p.path ?? '', name: p.name ?? `photo-${idx + 1}` };
+        })
+        .filter(Boolean)
       : Array.isArray(property.photoUrls)
-      ? property.photoUrls.map((u: string, idx: number) => ({ id: `${property.id ?? 'p'}-${idx}`, url: u, name: `photo-${idx + 1}` }))
-      : [];
+        ? property.photoUrls.map((u: string, idx: number) => ({ id: `${property.id ?? 'p'}-${idx}`, url: u, name: `photo-${idx + 1}` }))
+        : [];
 
     const mappedNearby = Array.isArray(property.nearby_places)
       ? property.nearby_places.map((n: any) => ({
-          name: n.name ?? n.place ?? '',
-          type: n.type ?? n.category ?? '',
-          distance: n.distance ?? '',
-          unit: n.unit ?? ''
-        }))
+        name: n.name ?? n.place ?? '',
+        type: n.type ?? n.category ?? '',
+        distance: n.distance ?? '',
+        unit: n.unit ?? ''
+      }))
       : [];
 
     console.log('property', property);
@@ -841,7 +843,7 @@ const SellerViewPage: React.FC<{
               <Mail size={20} />
             </button>
 
-            <button onClick={onEdit} className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors" title="Edit">
+            <button onClick={() => onEdit(seller)} className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors" title="Edit">
               <Edit size={20} />
             </button>
           </div>
@@ -957,5 +959,3 @@ const SellerViewPage: React.FC<{
 };
 
 export default SellerViewPage;
-
-
