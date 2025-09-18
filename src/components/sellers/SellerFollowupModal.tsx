@@ -34,12 +34,18 @@ type APIRemarkData = {
     remarks?: string[];
 };
 
+/**
+ * NOTE: added `sellerId?` as an accepted prop so callers that pass
+ * `sellerId={...}` (like SellerViewPage) won't cause a TS error.
+ * We'll prefer `leadId` if provided, otherwise fall back to `sellerId`.
+ */
 type Props = {
     isOpen: boolean;
     onClose: () => void;
     onSave: (data: FollowupFormWithLead) => void;
     tabId: string;
-    leadId: string;
+    leadId?: string;
+    sellerId?: string;
 
     /** Optional: pass this when editing an existing follow-up */
     initialForm?: Partial<FollowupFormWithLead>; // can include id
@@ -192,8 +198,11 @@ const ColoredFollowupTypeSelect: React.FC<{
 ColoredFollowupTypeSelect.displayName = "ColoredFollowupTypeSelect";
 
 /* ------------------------- Modal ------------------------- */
-const SellerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, leadId, initialForm }) => {
+const SellerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, leadId, sellerId, initialForm }) => {
     if (!isOpen) return null;
+
+    // Prefer explicit leadId, otherwise accept sellerId (caller compatibility)
+    const effectiveLeadId = leadId ?? sellerId ?? "";
 
     const isEdit = Boolean(initialForm?.id);
     const [priorityOptions, setPriorityOptions] = useState<{ value: string, label: string }[]>([]);
@@ -336,7 +345,7 @@ const SellerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, 
 
         const payload: FollowupFormWithLead = {
             ...form,
-            lead_id: leadId,
+            lead_id: effectiveLeadId,
             ...(initialForm?.id ? { id: initialForm.id } : {}),
         };
         onSave(payload);

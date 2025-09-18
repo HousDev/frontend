@@ -16,7 +16,10 @@ export interface CreateFilterContextResponse {
   success: boolean;
   id?: string;
   error?: string;
+  // Some backends return { data: { id: '...' } }, so keep data flexible for callers
+  data?: any;
 }
+
 export interface GenerateDescriptionPayload {
   formData: {
     propertyType?: string;
@@ -130,11 +133,9 @@ export interface BulkOperationResponse {
       totalProcessed: number;
       successful: number;
       failed: number;
-      // keep these optional for forward/back compat
       successfulIds?: Array<string | number>;
       failedIds?: Array<{ id: string | number; error: string }>;
     };
-    // optional depending on backend
     results?: BulkOperationResult[];
   };
 }
@@ -186,7 +187,6 @@ export const propertiesAPI = {
       property?: any;
       statusHistory?: StatusHistoryRecord;
     };
-    // (no change)
   },
 
   getStatusHistory: async (propertyId: string) => {
@@ -203,19 +203,16 @@ export const propertiesAPI = {
     return res.data as BulkOperationResponse;
   },
 
-  // legacy public
   bulkMarkPublic: async (data: BulkMarkPublicPayload) => {
     const res = await api.post("/bulk-operations/mark-public", data);
     return res.data as BulkOperationResponse;
   },
 
-  // NEW: bulk private
   bulkMarkPrivate: async (data: BulkMarkPrivatePayload) => {
     const res = await api.post("/bulk-operations/mark-private", data);
     return res.data as BulkOperationResponse;
   },
 
-  // NEW: bulk visibility toggle via boolean
   bulkSetVisibility: async (data: BulkSetVisibilityPayload) => {
     const res = await api.post("/bulk-operations/visibility", data);
     return res.data as BulkOperationResponse;
@@ -252,7 +249,6 @@ export const propertiesAPI = {
   },
 
   /* ---- Single-item visibility ---- */
-  // legacy public
   markPublic: async (propertyId: string, updatedBy?: string) => {
     const res = await api.patch(`/bulk-operations/${propertyId}/mark-public`, { updatedBy });
     return res.data as {
@@ -260,13 +256,11 @@ export const propertiesAPI = {
       message: string;
       data: {
         propertyId: string;
-        // backend may or may not send this; keep optional
         publicationDate?: string | null;
       };
     };
   },
 
-  // NEW: single private
   markPrivate: async (propertyId: string, updatedBy?: string) => {
     const res = await api.patch(`/bulk-operations/${propertyId}/mark-private`, { updatedBy });
     return res.data as {
@@ -278,7 +272,6 @@ export const propertiesAPI = {
     };
   },
 
-  // NEW: single visibility with boolean
   setVisibility: async (propertyId: string, isPublic: boolean, updatedBy?: string) => {
     const res = await api.patch(`/bulk-operations/${propertyId}/visibility`, { isPublic, updatedBy });
     return res.data as {
@@ -306,9 +299,85 @@ export const propertiesAPI = {
   },
 
   /* ---- Queries / analytics ---- */
+
+  // POST-based search (body)
   search: async (data: any) => {
     const res = await api.post("/properties/search", data);
     return res.data;
+  },
+
+  // Legacy alias (some callers use getSearch)
+  getSearch: async (data: any) => {
+    const res = await api.post("/properties/search", data);
+    return res.data;
+  },
+
+  // GET-based canonical search wrapper (query params)
+  searchProperties: async (params: {
+    city?: string;
+    location?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    sort?: "low_to_high" | "high_to_low" | "medium" | "newest";
+    propertyType?: string | string[];
+    propertySubtype?: string | string[];
+    unitType?: string | string[];
+    unitTypes?: string[];
+    furnishing?: string;
+    possession?: string;
+    featured?: boolean | string;
+    verified?: boolean | string;
+    minRating?: number | string;
+    parking?: string;
+    floor_min?: number | string;
+    floor_max?: number | string;
+    bathrooms?: number | string;
+    bedrooms?: number | string | string[];
+    filterToken?: string | null;
+  }) => {
+    const queryParams: any = {
+      city: params.city,
+      location: params.location,
+      budget_min: params.minPrice,
+      budget_max: params.maxPrice,
+      sort: params.sort,
+      propertyType: Array.isArray(params.propertyType) ? params.propertyType.join(",") : params.propertyType,
+      propertySubtype: Array.isArray(params.propertySubtype) ? params.propertySubtype.join(",") : params.propertySubtype,
+      unitType: Array.isArray(params.unitType) ? params.unitType.join(",") : params.unitType,
+      unitTypes: params.unitTypes?.join(","),
+      furnishing: params.furnishing,
+      possession: params.possession,
+      featured:
+        params.featured === undefined
+          ? undefined
+          : typeof params.featured === "boolean"
+          ? params.featured
+            ? "1"
+            : "0"
+          : params.featured,
+      verified:
+        params.verified === undefined
+          ? undefined
+          : typeof params.verified === "boolean"
+          ? params.verified
+            ? "1"
+            : "0"
+          : params.verified,
+      min_rating: params.minRating,
+      parking: params.parking,
+      floor_min: params.floor_min,
+      floor_max: params.floor_max,
+      bathrooms: params.bathrooms,
+      bedrooms: Array.isArray(params.bedrooms) ? params.bedrooms.join(",") : params.bedrooms,
+      filter_token: params.filterToken ?? undefined,
+    };
+
+    Object.keys(queryParams).forEach((k) => {
+      if (queryParams[k] === undefined || queryParams[k] === null || queryParams[k] === "") delete queryParams[k];
+    });
+
+    const response = await api.get("/properties/", { params: queryParams });
+    return response.data;
   },
 
   getStats: async () => {
@@ -336,161 +405,74 @@ export const propertiesAPI = {
     return res.data;
   },
 
-// ✅ canonical search (GET with query params, unitTypes as string[])
-// propertiesAPI.searchProperties wrapper (replace your old function with this)
-searchProperties: async (params: {
-  city?: string;
-  location?: string;
-  minPrice?: number;       // frontend field
-  maxPrice?: number;       // frontend field
-  sort?: "low_to_high" | "high_to_low" | "medium" | "newest";
-  propertyType?: string | string[];     // allow array too
-  propertySubtype?: string | string[];  // new
-  unitType?: string | string[];         // new (single or list)
-  unitTypes?: string[];                 // legacy array
-  furnishing?: string;
-  possession?: string;
-  featured?: boolean | string;
-  verified?: boolean | string;
-  minRating?: number | string;
-  parking?: string; // e.g. '2w','4w','any' or numeric
-  floor_min?: number | string;
-  floor_max?: number | string;
-  bathrooms?: number | string;
-  bedrooms?: number | string | string[];
-  filterToken?: string | null;
-}) => {
-  const queryParams: any = {
-    city: params.city,
-    location: params.location,
-    budget_min: params.minPrice,
-    budget_max: params.maxPrice,
-    sort: params.sort,
-
-    // normalize to comma-separated string where needed
-    propertyType: Array.isArray(params.propertyType)
-      ? params.propertyType.join(",")
-      : params.propertyType,
-
-    propertySubtype: Array.isArray(params.propertySubtype)
-      ? params.propertySubtype.join(",")
-      : params.propertySubtype,
-
-    unitType: Array.isArray(params.unitType)
-      ? params.unitType.join(",")
-      : params.unitType,
-
-    // legacy support
-    unitTypes: params.unitTypes?.join(","),
-
-    furnishing: params.furnishing,
-    possession: params.possession,
-
-    // new filters
-    featured: params.featured === undefined ? undefined : (typeof params.featured === 'boolean' ? (params.featured ? '1' : '0') : params.featured),
-    verified: params.verified === undefined ? undefined : (typeof params.verified === 'boolean' ? (params.verified ? '1' : '0') : params.verified),
-    min_rating: params.minRating,
-    parking: params.parking, // backend-dependent (2w/4w/any)
-    floor_min: params.floor_min,
-    floor_max: params.floor_max,
-    bathrooms: params.bathrooms,
-    bedrooms: Array.isArray(params.bedrooms) ? params.bedrooms.join(",") : params.bedrooms,
-    filter_token: params.filterToken ?? undefined,
-  };
-
-  // remove undefined keys
-  Object.keys(queryParams).forEach(k => {
-    if (queryParams[k] === undefined || queryParams[k] === null || queryParams[k] === '') delete queryParams[k];
-  });
-
-  const response = await api.get("/properties/", { params: queryParams });
-  return response.data;
-},
-
-
-
-
-
   /* ---- AI Description Generator ---- */
-  generateDescription: async (
-    payload: GenerateDescriptionPayload,
-    baseURLOverride?: string
-  ): Promise<GenerateDescriptionResponse> => {
+  generateDescription: async (payload: GenerateDescriptionPayload, baseURLOverride?: string): Promise<GenerateDescriptionResponse> => {
     const client = pickClient(baseURLOverride);
     const res = await client.post("/ai/generate-description", payload);
     return res.data as GenerateDescriptionResponse;
   },
 
- getPropertyBySlug: async (slug: string) => {
-  try {
-    console.log("[getPropertyBySlug] 🔍 Slug Param:", slug);
+  getPropertyBySlug: async (slug: string) => {
+    try {
+      // debug logs intentionally kept
+      const res = await api.get(`/properties/page/${slug}`);
+      return res.data;
+    } catch (err) {
+      throw err;
+    }
+  },
 
-    const res = await api.get(`/properties/page/${slug}`);
+  sendPropertyEvent: async (
+    propertyId: string | number,
+    eventType: string,
+    eventName: string,
+    payload: Record<string, any> = {},
+    opts: { slug?: string; filterToken?: string; filterParamKey?: string; baseURLOverride?: string } = {}
+  ) => {
+    const client = pickClient(opts.baseURLOverride);
 
-    console.log("[getPropertyBySlug] ✅ API Response:", res.data);
+    const body = {
+      event_type: eventType,
+      event_name: eventName,
+      payload: payload || {},
+      slug: opts.slug,
+      filterToken: opts.filterToken,
+    };
 
-    return res.data;
-  } catch (err) {
-    console.error("[getPropertyBySlug] ❌ Error fetching property:", err);
-    throw err;
-  }
-  
-},
+    const config: { params: Record<string, string>; withCredentials: boolean } = {
+      params: {},
+      withCredentials: true,
+    };
 
-// Replace the existing sendPropertyEvent implementation with this (typescript-safe)
-sendPropertyEvent: async (
-  propertyId: string | number,
-  eventType: string,
-  eventName: string,
-  payload: Record<string, any> = {},
-  opts: { slug?: string; filterToken?: string; filterParamKey?: string; baseURLOverride?: string } = {}
-) => {
-  const client = pickClient(opts.baseURLOverride);
+    if (opts.filterParamKey && opts.filterToken) {
+      config.params[opts.filterParamKey] = String(opts.filterToken);
+    } else if (opts.filterToken) {
+      config.params.filterToken = String(opts.filterToken);
+    }
 
-  // Body remains same (keeps filterToken for backwards compatibility)
-  const body = {
-    event_type: eventType,
-    event_name: eventName,
-    payload: payload || {},
-    slug: opts.slug,
-    filterToken: opts.filterToken,
-  };
+    if (opts.slug) {
+      config.params.slug = String(opts.slug);
+    }
 
-  // Build query params dynamically; if caller provided filterParamKey (e.g. 'fltcnt'), use that key.
-  const config: { params: Record<string, string>; withCredentials: boolean } = {
-    params: {},
-    withCredentials: true,
-  };
+    const res = await client.post(`/properties/${propertyId}/event`, body, config);
+    return res.data as { success: boolean; message?: string; data?: any };
+  },
 
-  // If both key and token are provided, attach as e.g. { fltcnt: '...' }
-  if (opts.filterParamKey && opts.filterToken) {
-    config.params[opts.filterParamKey] = String(opts.filterToken);
-  } else if (opts.filterToken) {
-    // Fallback to existing conventional name
-    config.params.filterToken = String(opts.filterToken);
-  }
+  createFilterContext: async (payload: CreateFilterContextPayload) => {
+    const res = await api.post("/properties/filters", payload);
+    // normalize shape a bit for callers
+    const out: CreateFilterContextResponse = {
+      success: res?.data?.success ?? true,
+      id: res?.data?.id ?? res?.data?.filterId ?? undefined,
+      data: res?.data ?? undefined,
+    };
+    return out;
+  },
 
-  if (opts.slug) {
-    config.params.slug = String(opts.slug);
-  }
-
-  const res = await client.post(`/properties/${propertyId}/event`, body, config);
-  return res.data as { success: boolean; message?: string; data?: any };
-},
-
-
-createFilterContext: async (payload: CreateFilterContextPayload) => {
-  const res = await api.post("/properties/filters", payload);
-  return res.data as CreateFilterContextResponse;
-},
-
-getFilterContext: async (id: string) => {
-  const res = await api.get(`/properties/filters/${encodeURIComponent(id)}`);
-  return res.data as { success: boolean; context?: any };
-},
-
-
+  getFilterContext: async (id: string) => {
+    const res = await api.get(`/properties/filters/${encodeURIComponent(id)}`);
+    return res.data as { success: boolean; context?: any };
+  },
 };
 
 export default propertiesAPI;
-

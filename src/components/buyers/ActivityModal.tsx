@@ -1,11 +1,42 @@
-import React, { useState } from 'react';
-import { 
-  X, Save, Phone, Eye, Users, Mail, MessageCircle, 
-  Building, Award, CheckCircle, AlertCircle 
+import React, { useEffect, useState } from 'react';
+import {
+  X, Save, Phone, Eye, Users, Mail, MessageCircle,
+  Building, Award, CheckCircle, AlertCircle
 } from 'lucide-react';
 
-const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
-  const [formData, setFormData] = useState({
+type AnyObj = Record<string, any>;
+
+type ActivityShape = {
+  id?: string | number;
+  type?: string;
+  description?: string;
+  date?: string;
+  time?: string;
+  duration?: string;
+  stage?: string;
+  outcome?: string;
+  nextAction?: string;
+  executedBy?: string;
+  remarks?: string;
+  propertyDiscussed?: string;
+  followupRequired?: boolean;
+  followupDate?: string;
+  rating?: number;
+  created_at?: string;
+  updated_at?: string;
+  [k: string]: any;
+};
+
+type Props = {
+  isOpen: boolean;
+  onClose: () => void;
+  activity?: ActivityShape | null;
+  onSave: (activityData: ActivityShape) => Promise<any> | any;
+};
+
+const ActivityModal: React.FC<Props> = ({ isOpen, onClose, activity = null, onSave }) => {
+  // initialize with sensible defaults, but prefer incoming activity when available
+  const [formData, setFormData] = useState<ActivityShape>({
     type: activity?.type || 'call',
     description: activity?.description || '',
     date: activity?.date || new Date().toISOString().split('T')[0],
@@ -19,10 +50,49 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
     propertyDiscussed: activity?.propertyDiscussed || '',
     followupRequired: activity?.followupRequired || false,
     followupDate: activity?.followupDate || '',
-    rating: activity?.rating || 3
+    rating: activity?.rating ?? 3
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Keep local form in sync if `activity` prop changes (useful when opening editor)
+  useEffect(() => {
+    if (!activity) {
+      setFormData({
+        type: 'call',
+        description: '',
+        date: new Date().toISOString().split('T')[0],
+        time: '10:00',
+        duration: '30 minutes',
+        stage: 'initial_contact',
+        outcome: '',
+        nextAction: '',
+        executedBy: 'Admin User',
+        remarks: '',
+        propertyDiscussed: '',
+        followupRequired: false,
+        followupDate: '',
+        rating: 3
+      });
+    } else {
+      setFormData({
+        type: activity.type ?? 'call',
+        description: activity.description ?? '',
+        date: activity.date ?? new Date().toISOString().split('T')[0],
+        time: activity.time ?? '10:00',
+        duration: activity.duration ?? '30 minutes',
+        stage: activity.stage ?? 'initial_contact',
+        outcome: activity.outcome ?? '',
+        nextAction: activity.nextAction ?? '',
+        executedBy: activity.executedBy ?? 'Admin User',
+        remarks: activity.remarks ?? '',
+        propertyDiscussed: activity.propertyDiscussed ?? '',
+        followupRequired: !!activity.followupRequired,
+        followupDate: activity.followupDate ?? '',
+        rating: activity.rating ?? 3
+      });
+    }
+  }, [activity, isOpen]);
 
   const activityTypes = [
     { value: 'call', label: 'Phone Call', icon: Phone, color: 'blue' },
@@ -43,7 +113,7 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
   ];
 
   const durations = [
-    '15 minutes', '30 minutes', '45 minutes', '1 hour', '1.5 hours', '2 hours', 
+    '15 minutes', '30 minutes', '45 minutes', '1 hour', '1.5 hours', '2 hours',
     '3 hours', 'Half day', 'Full day'
   ];
 
@@ -54,27 +124,28 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
   };
 
   const handleSave = async () => {
-    if (!formData.description.trim()) {
+    if (!formData.description || !String(formData.description).trim()) {
       alert('Please enter activity description');
       return;
     }
 
-    if (!formData.outcome.trim()) {
+    if (!formData.outcome || !String(formData.outcome).trim()) {
       alert('Please enter activity outcome');
       return;
     }
 
     setIsSubmitting(true);
-    
+
     try {
-      const activityData = {
+      const activityData: ActivityShape = {
         ...formData,
-        id: activity?.id || Date.now(),
-        created_at: activity?.created_at || new Date().toISOString(),
+        id: activity?.id ?? Date.now(),
+        created_at: activity?.created_at ?? new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
-      await onSave(activityData);
+      // call parent handler; accept promise or sync return
+      await Promise.resolve(onSave(activityData));
     } catch (error) {
       console.error('Error saving activity:', error);
     } finally {
@@ -87,23 +158,23 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
   // Helper function to get color classes based on type
   const getColorClasses = (color: string, isSelected: boolean) => {
     const colorMap: Record<string, string> = {
-      blue: isSelected 
-        ? 'border-blue-500 bg-blue-50 text-blue-700' 
+      blue: isSelected
+        ? 'border-blue-500 bg-blue-50 text-blue-700'
         : 'border-gray-200 hover:border-gray-300 text-gray-600',
-      green: isSelected 
-        ? 'border-green-500 bg-green-50 text-green-700' 
+      green: isSelected
+        ? 'border-green-500 bg-green-50 text-green-700'
         : 'border-gray-200 hover:border-gray-300 text-gray-600',
-      purple: isSelected 
-        ? 'border-purple-500 bg-purple-50 text-purple-700' 
+      purple: isSelected
+        ? 'border-purple-500 bg-purple-50 text-purple-700'
         : 'border-gray-200 hover:border-gray-300 text-gray-600',
-      orange: isSelected 
-        ? 'border-orange-500 bg-orange-50 text-orange-700' 
+      orange: isSelected
+        ? 'border-orange-500 bg-orange-50 text-orange-700'
         : 'border-gray-200 hover:border-gray-300 text-gray-600',
-      indigo: isSelected 
-        ? 'border-indigo-500 bg-indigo-50 text-indigo-700' 
+      indigo: isSelected
+        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
         : 'border-gray-200 hover:border-gray-300 text-gray-600',
     };
-    
+
     return colorMap[color] || colorMap.blue;
   };
 
@@ -137,7 +208,7 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
                 const Icon = type.icon;
                 const isSelected = formData.type === type.value;
                 const colorClasses = getColorClasses(type.color, isSelected);
-                
+
                 return (
                   <button
                     key={type.value}
@@ -162,7 +233,7 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
                 </label>
                 <input
                   type="text"
-                  value={formData.description}
+                  value={formData.description || ''}
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Brief description of the activity"
@@ -235,7 +306,7 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
                   Outcome <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  value={formData.outcome}
+                  value={formData.outcome || ''}
                   onChange={(e) => handleInputChange('outcome', e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   rows={2}
@@ -246,7 +317,7 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Next Action</label>
                 <textarea
-                  value={formData.nextAction}
+                  value={formData.nextAction || ''}
                   onChange={(e) => handleInputChange('nextAction', e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   rows={2}
@@ -277,7 +348,7 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
                 <label className="block text-xs font-medium text-gray-700 mb-1">Property Discussed</label>
                 <input
                   type="text"
-                  value={formData.propertyDiscussed}
+                  value={formData.propertyDiscussed || ''}
                   onChange={(e) => handleInputChange('propertyDiscussed', e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Property name or ID"
@@ -295,16 +366,16 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
                   key={star}
                   type="button"
                   onClick={() => handleInputChange('rating', star)}
-                  className={`p-1 rounded ${star <= formData.rating ? 'text-yellow-500' : 'text-gray-300'}`}
+                  className={`p-1 rounded ${star <= (formData.rating ?? 3) ? 'text-yellow-500' : 'text-gray-300'}`}
                 >
-                  <Award size={16} className={star <= formData.rating ? 'fill-current' : ''} />
+                  <Award size={16} className={star <= (formData.rating ?? 3) ? 'fill-current' : ''} />
                 </button>
               ))}
               <span className="text-xs text-gray-600 ml-2">
                 {formData.rating === 5 ? 'Excellent' :
-                 formData.rating === 4 ? 'Good' :
-                 formData.rating === 3 ? 'Average' :
-                 formData.rating === 2 ? 'Poor' : 'Very Poor'}
+                  formData.rating === 4 ? 'Good' :
+                    formData.rating === 3 ? 'Average' :
+                      formData.rating === 2 ? 'Poor' : 'Very Poor'}
               </span>
             </div>
           </div>
@@ -314,19 +385,19 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
             <label className="flex items-center space-x-2">
               <input
                 type="checkbox"
-                checked={formData.followupRequired}
+                checked={!!formData.followupRequired}
                 onChange={(e) => handleInputChange('followupRequired', e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="text-xs text-gray-700 font-medium">Follow-up required</span>
             </label>
-            
+
             {formData.followupRequired && (
               <div className="mt-2">
                 <label className="block text-xs font-medium text-gray-700 mb-1">Follow-up Date</label>
                 <input
                   type="date"
-                  value={formData.followupDate}
+                  value={formData.followupDate || ''}
                   onChange={(e) => handleInputChange('followupDate', e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
@@ -338,7 +409,7 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
           <div className="mb-4">
             <label className="block text-xs font-medium text-gray-700 mb-1">Detailed Remarks</label>
             <textarea
-              value={formData.remarks}
+              value={formData.remarks || ''}
               onChange={(e) => handleInputChange('remarks', e.target.value)}
               className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               rows={4}
@@ -362,7 +433,7 @@ const ActivityModal = ({ isOpen, onClose, activity, onSave }: any) => {
               </button>
               <button
                 onClick={handleSave}
-                disabled={isSubmitting || !formData.description.trim() || !formData.outcome.trim()}
+                disabled={isSubmitting || !String(formData.description || '').trim() || !String(formData.outcome || '').trim()}
                 className="flex items-center space-x-1 px-4 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save size={14} />

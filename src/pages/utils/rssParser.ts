@@ -1,4 +1,5 @@
-import { RSSArticle, BlogPost } from '../types/blog';
+// src/pages/utils/rssParser.ts
+import { RSSArticle, BlogPost } from '../../types/blog';
 
 export class RSSParser {
   private static readonly CORS_PROXIES = [
@@ -6,84 +7,90 @@ export class RSSParser {
     'https://corsproxy.io/?',
     'https://api.cors.lol/?url='
   ];
-  
-  static async fetchAndParseFeed(url: string, sourceName: string, category: string): Promise<BlogPost[]> {
+
+  /**
+   * Fetch feed using optional CORS proxies and parse to BlogPost[]
+   */
+  static async fetchAndParseFeed(url: string, sourceName: string, category: string, timeoutMs = 10000): Promise<BlogPost[]> {
     try {
-      // Try multiple CORS proxies for better reliability
       for (let i = 0; i < this.CORS_PROXIES.length; i++) {
+        const proxyUrl = `${this.CORS_PROXIES[i]}${encodeURIComponent(url)}`;
         try {
-          const proxyUrl = `${this.CORS_PROXIES[i]}${encodeURIComponent(url)}`;
-          const response = await fetch(proxyUrl, { timeout: 10000 });
-          
+          const controller = new AbortController();
+          const id = setTimeout(() => controller.abort(), timeoutMs);
+          const response = await fetch(proxyUrl, { signal: controller.signal });
+          clearTimeout(id);
+
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
           }
-          
-          const data = await response.json();
-          
-          if (data.contents || data.response) {
-            const content = data.contents || data.response;
-            return this.parseXMLContent(content, sourceName, category, url);
+
+          // many proxies (like allorigins) return JSON with contents field
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const json = await response.json();
+            const content = (json.contents || json.response || json.body || json.data) as string;
+            if (content) return this.parseXMLContent(content, sourceName, category, url);
+          } else {
+            const text = await response.text();
+            return this.parseXMLContent(text, sourceName, category, url);
           }
         } catch (proxyError) {
+          // continue to next proxy
+          // eslint-disable-next-line no-console
           console.warn(`Proxy ${i + 1} failed:`, proxyError);
-          if (i === this.CORS_PROXIES.length - 1) {
-            throw proxyError;
-          }
-          // Continue to next proxy
+          if (i === this.CORS_PROXIES.length - 1) throw proxyError;
         }
       }
-      
+
       throw new Error('All CORS proxies failed');
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.warn(`RSS fetch failed for ${sourceName}:`, error);
-      // Return sample data for demonstration
       return this.generateSampleRSSPosts(sourceName, category);
     }
   }
 
   static parseXMLContent(xmlContent: string, sourceName: string, category: string, originalUrl: string): BlogPost[] {
     try {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
-      
-      // Check for parsing errors
-      const parseError = xmlDoc.querySelector('parsererror');
-      if (parseError) {
-        throw new Error('Invalid XML format');
-      }
-      
-      const items = xmlDoc.querySelectorAll('item, entry'); // Support both RSS and Atom
-      const posts: BlogPost[] = [];
-      
-      for (let i = 0; i < Math.min(items.length, 5); i++) {
-        const item = items[i];
-        const article = this.extractArticleData(item, xmlDoc);
-        
-        if (article.title && article.content) {
-          const blogPost = this.convertToBlogPost(article, sourceName, category, originalUrl);
-          posts.push(blogPost);
+      // prefer DOMParser if available (browser)
+      if (typeof DOMParser !== 'undefined') {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
+        const parseError = xmlDoc.querySelector('parsererror');
+        if (!parseError) {
+          const items = Array.from(xmlDoc.querySelectorAll('item, entry'));
+          const posts: BlogPost[] = [];
+          for (let i = 0; i < Math.min(items.length, 5); i++) {
+            const item = items[i];
+            const article = this.extractArticleData(item, xmlDoc);
+            if (article.title && article.content) {
+              posts.push(this.convertToBlogPost(article, sourceName, category, originalUrl));
+            }
+          }
+          return posts;
         }
+        // fall-through to fallback parsing if parseError
       }
-      
-      return posts;
+
+      // fallback simple parse (best-effort)
+      return this._fallbackParse(xmlContent).map(a => this.convertToBlogPost(a, sourceName, category, originalUrl));
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error parsing XML:', error);
       return this.generateSampleRSSPosts(sourceName, category);
     }
   }
 
-  private static extractArticleData(item: Element, xmlDoc: Document): RSSArticle {
-    // Support both RSS and Atom formats
+  private static extractArticleData(item: Element, _xmlDoc: Document): RSSArticle {
     const title = this.getElementText(item, ['title']);
-    const description = this.getElementText(item, ['description', 'summary', 'content']);
-    const link = this.getElementText(item, ['link', 'guid']);
+    const description = this.getElementText(item, ['description', 'summary', 'content', 'content:encoded']);
+    const link = this.getElementText(item, ['link']) || this.getElementText(item, ['guid']);
     const pubDate = this.getElementText(item, ['pubDate', 'published', 'updated']);
     const author = this.getElementText(item, ['author', 'dc:creator']);
-    
-    // Extract image from content or media elements
+
     const imageUrl = this.extractImageUrl(item, description);
-    
+
     return {
       title: this.cleanText(title),
       content: this.formatContent(description),
@@ -92,13 +99,18 @@ export class RSSParser {
       pubDate: this.parseDate(pubDate),
       author: author || undefined,
       imageUrl: imageUrl || undefined,
-      tags: this.extractTags(title + ' ' + description)
+      tags: this.extractTags((title || '') + ' ' + (description || ''))
     };
   }
 
   private static getElementText(parent: Element, selectors: string[]): string {
     for (const selector of selectors) {
-      const element = parent.querySelector(selector);
+      // try direct tag and also namespaced variants
+      let element = parent.querySelector(selector);
+      if (!element) {
+        // try common namespaced forms
+        element = parent.querySelector(selector.replace(':', '\\:'));
+      }
       if (element?.textContent) {
         return element.textContent.trim();
       }
@@ -107,23 +119,24 @@ export class RSSParser {
   }
 
   private static extractImageUrl(item: Element, content: string): string | null {
-    // Try to find image in media:content or enclosure
-    const mediaContent = item.querySelector('media\\:content, enclosure[type^="image"]');
-    if (mediaContent) {
-      return mediaContent.getAttribute('url') || null;
+    // media:content or enclosure[type="image"]
+    const media = item.querySelector('media\\:content, enclosure[type^="image"], enclosure[url]');
+    if (media) {
+      return media.getAttribute('url') || media.getAttribute('href') || media.getAttribute('src') || null;
     }
-    
-    // Extract from content HTML
-    const imgMatch = content.match(/<img[^>]+src=['""]([^'""]+)['""][^>]*>/i);
+
+    // Extract from content HTML — fixed regex for quotes
+    const imgMatch = content && content.match(/<img[^>]+src=['"]([^'"]+)['"][^>]*>/i);
     if (imgMatch) {
       return imgMatch[1];
     }
-    
-    // Default real estate image
+
+    // fallback image
     return 'https://images.pexels.com/photos/280229/pexels-photo-280229.jpeg';
   }
 
   private static cleanText(text: string): string {
+    if (!text) return '';
     return text
       .replace(/<[^>]*>/g, '') // Remove HTML tags
       .replace(/&quot;/g, '"')
@@ -131,39 +144,29 @@ export class RSSParser {
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&nbsp;/g, ' ')
-      .replace(/\s+/g, ' ') // Normalize whitespace
+      .replace(/\s+/g, ' ')
       .trim();
   }
 
   private static formatContent(content: string): string {
-    let formatted = this.cleanText(content);
-    
-    // Add proper paragraph breaks
-    formatted = formatted.replace(/\. ([A-Z])/g, '.\n\n$1');
-    
-    // Format lists if any
+    const cleaned = this.cleanText(content);
+    if (!cleaned) return '';
+
+    let formatted = cleaned.replace(/\. ([A-Z])/g, '.\n\n$1');
     formatted = formatted.replace(/(\d+\.\s)/g, '\n$1');
-    
-    // Clean up excessive line breaks
     formatted = formatted.replace(/\n{3,}/g, '\n\n');
-    
-    // Add source attribution
     formatted += '\n\n---\n\n*This article was automatically imported from RSS feed and formatted for better readability.*';
-    
     return formatted.trim();
   }
 
-  private static generateExcerpt(content: string, maxLength: number = 160): string {
+  private static generateExcerpt(content: string, maxLength = 160): string {
     const cleaned = this.cleanText(content);
     if (cleaned.length <= maxLength) return cleaned;
-    
     const truncated = cleaned.substring(0, maxLength);
     const lastSpace = truncated.lastIndexOf(' ');
     const lastSentence = truncated.lastIndexOf('.');
-    
     const cutPoint = lastSentence > lastSpace - 20 ? lastSentence + 1 : lastSpace;
-    
-    return cutPoint > 0 ? truncated.substring(0, cutPoint).trim() + '...' : truncated + '...';
+    return (cutPoint > 0 ? truncated.substring(0, cutPoint).trim() : truncated.trim()) + '...';
   }
 
   private static extractTags(content: string): string[] {
@@ -174,26 +177,16 @@ export class RSSParser {
       'bandra', 'andheri', 'juhu', 'worli', 'powai'
     ];
 
-    const text = content.toLowerCase();
-    const foundTags = realEstateKeywords.filter(keyword => 
-      text.includes(keyword.toLowerCase())
-    );
+    const text = (content || '').toLowerCase();
+    const foundTags = realEstateKeywords.filter(k => text.includes(k));
 
-    // Add dynamic tags from content
     const words = text.match(/\b[a-z]{4,}\b/g) || [];
-    const frequentWords = words
-      .filter(word => word.length > 4 && !this.isStopWord(word))
-      .reduce((acc: { [key: string]: number }, word) => {
-        acc[word] = (acc[word] || 0) + 1;
-        return acc;
-      }, {});
-
-    const topWords = Object.entries(frequentWords)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 3)
-      .map(([word]) => word);
-
-    return [...new Set([...foundTags, ...topWords])].slice(0, 8);
+    const freq: Record<string, number> = {};
+    for (const w of words) {
+      if (!this.isStopWord(w)) freq[w] = (freq[w] || 0) + 1;
+    }
+    const topWords = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
+    return Array.from(new Set([...foundTags, ...topWords])).slice(0, 8);
   }
 
   private static isStopWord(word: string): boolean {
@@ -206,28 +199,17 @@ export class RSSParser {
       'could', 'should', 'might', 'must', 'shall', 'can', 'may', 'does',
       'did', 'has', 'have', 'had', 'been', 'being', 'are', 'was', 'were'
     ];
-    
     return stopWords.includes(word.toLowerCase());
   }
 
   private static parseDate(dateString: string): string {
     if (!dateString) return new Date().toISOString();
-    
-    try {
-      return new Date(dateString).toISOString();
-    } catch {
-      return new Date().toISOString();
-    }
+    const d = new Date(dateString);
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
   }
 
-  private static convertToBlogPost(
-    article: RSSArticle, 
-    sourceName: string, 
-    category: string, 
-    originalUrl: string
-  ): BlogPost {
+  private static convertToBlogPost(article: RSSArticle, sourceName: string, category: string, originalUrl: string): BlogPost {
     const now = new Date().toISOString();
-    
     return {
       id: `RSS_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       title: article.title,
@@ -237,7 +219,7 @@ export class RSSParser {
       author: article.author || sourceName,
       category: category,
       tags: article.tags,
-      status: 'draft', // Always start as draft for review
+      status: 'draft',
       featured: false,
       featuredImage: article.imageUrl || 'https://images.pexels.com/photos/280229/pexels-photo-280229.jpeg',
       publishedAt: '',
@@ -248,7 +230,7 @@ export class RSSParser {
       comments: 0,
       seoTitle: this.generateSEOTitle(article.title, category),
       seoDescription: this.generateSEODescription(article.excerpt, category),
-      readTime: Math.max(1, Math.ceil(article.content.length / 200)), // ~200 words per minute
+      readTime: Math.max(1, Math.ceil((article.content?.length ?? 0) / 200)),
       source: 'rss',
       rssSource: sourceName,
       originalUrl: article.link
@@ -256,12 +238,7 @@ export class RSSParser {
   }
 
   private static generateSlug(title: string): string {
-    return title
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '') // Remove special chars
-      .replace(/\s+/g, '-') // Replace spaces with hyphens
-      .replace(/-+/g, '-') // Remove multiple hyphens
-      .trim();
+    return (title || 'untitled').toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
   }
 
   private static generateSEOTitle(title: string, category: string): string {
@@ -271,7 +248,7 @@ export class RSSParser {
 
   private static generateSEODescription(excerpt: string, category: string): string {
     const baseDesc = `${excerpt} Read latest ${category.toLowerCase()} news and insights on ResaleExpert.`;
-    return baseDesc.length <= 160 ? baseDesc : excerpt.substring(0, 157) + '...';
+    return baseDesc.length <= 160 ? baseDesc : (excerpt || '').substring(0, 157) + '...';
   }
 
   static generateSampleRSSPosts(sourceName: string, category: string): BlogPost[] {
@@ -287,8 +264,47 @@ export class RSSParser {
       }
     ];
 
-    return sampleArticles.map(article => 
-      this.convertToBlogPost(article, sourceName, category, 'https://example.com')
-    );
+    return sampleArticles.map(article => this.convertToBlogPost(article as RSSArticle, sourceName, category, 'https://example.com'));
+  }
+
+  // Fallback raw parser for non-DOM environments
+  private static _fallbackParse(text: string): RSSArticle[] {
+    try {
+      const items: RSSArticle[] = [];
+      const splits = text.split(/<item\b|<entry\b/i).slice(1);
+      for (const chunk of splits) {
+        const getTag = (tag: string) => {
+          const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
+          const m = chunk.match(re);
+          return m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
+        };
+        const title = getTag('title');
+        const link = (chunk.match(/<link[^>]*>([\s\S]*?)<\/link>/i)?.[1] || chunk.match(/href=["']([^"']+)["']/i)?.[1]) || '';
+        const content = getTag('content:encoded') || getTag('content') || getTag('description') || '';
+        const excerpt = getTag('description') || '';
+        const pubDate = getTag('pubDate') || getTag('published') || getTag('updated') || '';
+        const author = getTag('author') || '';
+        const tagsRaw = (chunk.match(/<category[^>]*>([\s\S]*?)<\/category>/ig) || []).map(s => s.replace(/<\/?category[^>]*>/ig, '').trim());
+        const tags = tagsRaw.filter(Boolean);
+        const image = (chunk.match(/<enclosure[^>]*url=["']([^"']+)["']/i)?.[1] || '') || '';
+
+        items.push({
+          title,
+          content,
+          excerpt,
+          link,
+          pubDate,
+          tags,
+          author,
+          category: tags[0] ?? undefined,
+          imageUrl: image ?? undefined
+        } as RSSArticle);
+      }
+      return items;
+    } catch {
+      return [];
+    }
   }
 }
+
+export default RSSParser;
