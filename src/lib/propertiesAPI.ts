@@ -337,31 +337,76 @@ export const propertiesAPI = {
   },
 
 // ✅ canonical search (GET with query params, unitTypes as string[])
+// propertiesAPI.searchProperties wrapper (replace your old function with this)
 searchProperties: async (params: {
   city?: string;
   location?: string;
   minPrice?: number;       // frontend field
   maxPrice?: number;       // frontend field
   sort?: "low_to_high" | "high_to_low" | "medium" | "newest";
-  propertyType?: string;
-  unitTypes?: string[];
+  propertyType?: string | string[];     // allow array too
+  propertySubtype?: string | string[];  // new
+  unitType?: string | string[];         // new (single or list)
+  unitTypes?: string[];                 // legacy array
   furnishing?: string;
   possession?: string;
+  featured?: boolean | string;
+  verified?: boolean | string;
+  minRating?: number | string;
+  parking?: string; // e.g. '2w','4w','any' or numeric
+  floor_min?: number | string;
+  floor_max?: number | string;
+  bathrooms?: number | string;
+  bedrooms?: number | string | string[];
+  filterToken?: string | null;
 }) => {
-  const queryParams = {
+  const queryParams: any = {
     city: params.city,
     location: params.location,
-    budget_min: params.minPrice,   // 👈 remap
-    budget_max: params.maxPrice,   // 👈 remap
+    budget_min: params.minPrice,
+    budget_max: params.maxPrice,
     sort: params.sort,
-    propertyType: params.propertyType,
+
+    // normalize to comma-separated string where needed
+    propertyType: Array.isArray(params.propertyType)
+      ? params.propertyType.join(",")
+      : params.propertyType,
+
+    propertySubtype: Array.isArray(params.propertySubtype)
+      ? params.propertySubtype.join(",")
+      : params.propertySubtype,
+
+    unitType: Array.isArray(params.unitType)
+      ? params.unitType.join(",")
+      : params.unitType,
+
+    // legacy support
     unitTypes: params.unitTypes?.join(","),
+
     furnishing: params.furnishing,
     possession: params.possession,
+
+    // new filters
+    featured: params.featured === undefined ? undefined : (typeof params.featured === 'boolean' ? (params.featured ? '1' : '0') : params.featured),
+    verified: params.verified === undefined ? undefined : (typeof params.verified === 'boolean' ? (params.verified ? '1' : '0') : params.verified),
+    min_rating: params.minRating,
+    parking: params.parking, // backend-dependent (2w/4w/any)
+    floor_min: params.floor_min,
+    floor_max: params.floor_max,
+    bathrooms: params.bathrooms,
+    bedrooms: Array.isArray(params.bedrooms) ? params.bedrooms.join(",") : params.bedrooms,
+    filter_token: params.filterToken ?? undefined,
   };
+
+  // remove undefined keys
+  Object.keys(queryParams).forEach(k => {
+    if (queryParams[k] === undefined || queryParams[k] === null || queryParams[k] === '') delete queryParams[k];
+  });
+
   const response = await api.get("/properties/", { params: queryParams });
   return response.data;
 },
+
 
 
 

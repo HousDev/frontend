@@ -69,7 +69,7 @@ const Modal: React.FC<ModalProps> = ({
       >
         {/* header — keep above portal/dropdown */}
         {(title || subtitle) && (
-          <div className="sticky top-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white z-[60] p-4 rounded-t-lg shadow-md">
+          <div className="sticky top-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white z-[60] p-4 py-2 rounded-t-lg shadow-md">
             {title && <h2 className="text-xl font-semibold">{title}</h2>}
             {subtitle && <p className="text-sm opacity-90">{subtitle}</p>}
           </div>

@@ -69,12 +69,16 @@ import AITraining from './pages/dashboard/AITraining';
 import ScrollToTop from './components/ui/ScrollToTop';
 import BlogDetailPage from './pages/public/BlogDetailPage';
 import ContactMessagesManagement from './pages/dashboard/ContactMessagesManagement';
-
+import { Helmet } from "react-helmet";
 
 function App() {
   useDynamicHead(); // ✅ Automatically set favicon + title
   return (
     <>
+      <Helmet>
+        <meta property="og:url" content={window.location.href} />
+      </Helmet>
+
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -93,7 +97,7 @@ function App() {
           {/* ✅ Wrap with SystemSettingsProvider */}
           <SystemSettingsProvider>
             <Router>
-               <ScrollToTop smooth={false} /> 
+              <ScrollToTop smooth={false} />
               <div className="min-h-screen bg-gray-50">
                 <Routes>
                   {/* Public Routes */}
@@ -106,9 +110,9 @@ function App() {
                     <Route path='blogs' element={<BlogsPage />} />
 
                     <Route path="/blogs/:slug" element={<BlogsPage />} />
-                    
+
                     <Route path="services" element={<ServicesPage />} />
-                    <Route path="contact" element={<ContactUsPage/>}/>
+                    <Route path="contact" element={<ContactUsPage />} />
                   </Route>
 
                   {/* Auth Routes */}
@@ -155,9 +159,9 @@ function App() {
                     <Route path="sellers" element={<SellersPage />} />
                     <Route path="document-center" element={<DocumentCenter />} />
                     <Route path='blog-manager' element={<BlogManagement />} />
-                    <Route path='contact-messages' element={<ContactMessagesManagement/>}/>
+                    <Route path='contact-messages' element={<ContactMessagesManagement />} />
                     <Route path='ai-training' element={<AITraining />} />
-                    <Route path='template-center' element={<TemplateCenter/>}/>
+                    <Route path='template-center' element={<TemplateCenter />} />
                     <Route path="accounts" element={<AccountsPage />} />
                     <Route path="vendors" element={<VendorDirectoryPage />} />
                     <Route path="activities" element={<ActivitiesPage />} />

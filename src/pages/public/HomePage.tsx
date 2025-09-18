@@ -1,5 +1,5 @@
 // HomePage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Home,
   Search,
@@ -63,8 +63,13 @@ interface Property {
 }
 
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('');
+  const [searchQuery, setSearchQuery] = useState(''); // free text (kept but not used)
+  // City now from dropdown
+  const [selectedCity, setSelectedCity] = useState('');
+  // Localities input + array of localities (max 5)
+  const [localityInput, setLocalityInput] = useState('');
+  const [localities, setLocalities] = useState<string[]>([]);
+
   const [selectedBudget, setSelectedBudget] = useState('');
   const [selectedPropertyType, setSelectedPropertyType] = useState('');
   const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
@@ -73,22 +78,22 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [isSubOpen, setIsSubOpen] = useState(false);
   const [currentPropertyView, setCurrentPropertyView] = useState<any | null>(null);
 
-  // Track viewed properties in current session to prevent duplicate views
   const [viewedProperties, setViewedProperties] = useState<Set<number>>(new Set());
 
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
+
+  const [suggestions, setSuggestions] = useState<MasterOption[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
   // Parse original query params and preserve both key and value.
   const queryParams = new URLSearchParams(location.search);
-  // Prefer explicit 'filterToken' param if present; otherwise accept 'tf' (external sites).
   const filterParamKey =
     queryParams.has('filterToken') ? 'filterToken' :
-    (queryParams.has('tf') ? 'tf' : undefined);
-
+      (queryParams.has('tf') ? 'tf' : undefined);
   const filterToken = filterParamKey ? (queryParams.get(filterParamKey) as string | null) ?? undefined : undefined;
 
   useEffect(() => {
@@ -109,14 +114,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const { systemSettings } = useSystemSettings();
   const companyName = systemSettings?.company_name || 'ResaleExpert';
 
-  // Function to fetch view counts for properties - only total views
   const fetchPropertyViews = async (propertyId: number): Promise<{ total_views: number }> => {
     try {
-      const viewData = await viewsAPI.getByProperty(propertyId, false); // Get total views only
-      
-      return {
-        total_views: viewData?.total_views || 0
-      };
+      const viewData = await viewsAPI.getByProperty(propertyId, false);
+      return { total_views: viewData?.total_views || 0 };
     } catch (err) {
       console.error(`Error fetching views for property ${propertyId}:`, err);
       return { total_views: 0 };
@@ -133,21 +134,17 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         });
 
         const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
-        
-        // Map properties and fetch view counts
+
         const mapped = await Promise.all(rawList.map(async (p: any) => {
-          // Normalize images
-          const images = Array.isArray(p.photos)
-            ? p.photos.map((ph: string) => ph.replace(/\\/g, '/'))
+          const images = Array.isArray(p.amenities)
+            ? p.photos?.map((ph: string) => ph.replace(/\\/g, '/')) ?? []
             : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
 
-          // Normalize city & location
           const city = p.city_name || p.city || p.town || p.cityName || '';
           const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
           const state = p.state || p.region || '';
           const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
 
-          // Normalize amenities
           let amenities: string[] = [];
           if (Array.isArray(p.amenities)) amenities = p.amenities.map(String).map(s => s.trim()).filter(Boolean);
           else if (typeof p.amenities === 'string') amenities = p.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
@@ -159,16 +156,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           const unitType = (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim();
           const subtype = (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim();
 
-          // === STRICT: USE ONLY BACKEND-PROVIDED SLUG ===
           const rawSlug = p?.slug ?? p?.url_slug ?? p?.generated_slug;
           const slug = typeof rawSlug === 'string' && rawSlug.trim().length > 0 ? rawSlug.trim() : undefined;
+          if (!slug) console.warn('[HomePage] Missing backend slug for property id:', p?.id);
 
-          // Log if slug missing (helps you identify missing slugs on backend)
-          if (!slug) {
-            console.warn('[HomePage] Missing backend slug for property id:', p?.id);
-          }
-
-          // Fetch actual view counts from API - only total views
           const viewCounts = await fetchPropertyViews(p.id);
 
           return {
@@ -190,7 +181,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             amenities,
             badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
             rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
-            // Use API view counts instead of random values - only total views
             views: viewCounts.total_views || 0,
             total_views: viewCounts.total_views,
             aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
@@ -205,7 +195,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         }));
 
         setFeaturedProperties(mapped);
-
       } catch (err) {
         console.error('Error fetching featured properties:', err);
         setFeaturedProperties([]);
@@ -248,8 +237,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     return [];
   };
 
-  const locationsOptions: MasterOption[] = findMasterOptions(['location', 'locations', 'place', 'place name', 'city', 'area']);
-  const budgetOptions: MasterOption[] = findMasterOptions(['price range', 'price_range', 'budget', 'priceRange', 'price']);
+  const masterCity: MasterOption[] = findMasterOptions(['city']);
+  const propertyTypeOptions: MasterOption[] = findMasterOptions(['property type', 'property_type', 'propertytype', 'type', 'property']);
+  // NEW: try to find location/locality masters
+  const masterLocation: MasterOption[] = findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']);
 
   const formatPrice = (price: any) => {
     const num = Number(price);
@@ -259,92 +250,184 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     return `₹${num.toLocaleString('en-IN')}`;
   };
 
-  // Enhanced navigation function with single view recording
-// Enhanced navigation function - ONLY analytics, NO view recording
-const handleNavigateToProperty = async (property: Property) => {
-  const id = property.id;
-  const slug = property.slug;
-  if (!slug) {
-    console.warn('Attempted to navigate to property without slug:', id);
-    return;
-  }
+  // State for Buy/Rent toggle (only Buy works; Rent disabled)
+  const [transactionType, setTransactionType] = useState<'buy' | 'rent'>('buy');
 
-  // Check if this property has already been clicked in this session
-  if (viewedProperties.has(id)) {
-    console.log(`Property ${id} already clicked in this session`);
-    // Still navigate but don't send analytics
-    let dest = `/properties/${encodeURIComponent(String(slug))}`;
-    if (filterToken) {
-      const finalParamKey = filterParamKey || 'tf';
-      dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(finalToken)}`;
+  // Helper: add a locality (max 5)
+  const addLocality = (value?: string) => {
+    const v = (value ?? localityInput ?? '').toString().trim();
+    if (!v) return;
+    // normalise: remove extra spaces and trailing commas
+    const normalized = v.replace(/\s{2,}/g, ' ').replace(/(^,|,$)/g, '').trim();
+    if (!normalized) return;
+    if (localities.includes(normalized)) {
+      setLocalityInput('');
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
     }
-    navigate(dest);
-    return;
-  }
-
-  // If there's already a token in URL, prefer it (preserve param key & value)
-  const existingParamKey = filterParamKey;
-  const existingToken = filterToken;
-
-  // Build a "filters" object from current UI state to save if we need to create one
-  const inferredFilters = {
-    search: searchQuery || null,
-    location: selectedLocation || null,
-    budget: selectedBudget || null,
-    propertyType: selectedPropertyType || null,
-    source: 'homepage',
-    clickedPropertyId: id,
+    if (localities.length >= 5) {
+      // could show toast - console for now
+      console.warn('Maximum 5 localities allowed');
+      setLocalityInput('');
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    setLocalities(prev => [...prev, normalized]);
+    setLocalityInput('');
+    setSuggestions([]);
+    setShowSuggestions(false);
   };
 
-  try {
-    let finalToken = existingToken;
-    let finalParamKey = existingParamKey || 'tf';
+  const removeLocality = (idx: number) => {
+    setLocalities(prev => prev.filter((_, i) => i !== idx));
+  };
 
-    // If no existing token, create a filter-context (server will return id)
-    if (!finalToken) {
-      try {
-        const createRes = await propertiesAPI.createFilterContext({ filters: inferredFilters });
-        if (createRes && createRes.id) {
-          finalToken = createRes.id;
-        } else {
-          console.warn('createFilterContext did not return id, response:', createRes);
-        }
-      } catch (err) {
-        console.warn('createFilterContext failed (proceeding without token):', err);
+  // Suggestion handling
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    // if we have masterLocation options and user typed something, filter suggestions
+    const q = (localityInput || '').trim().toLowerCase();
+    if (!q || !Array.isArray(masterLocation) || masterLocation.length === 0) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    // filter by label or value
+    const matched = masterLocation
+      .filter(opt => {
+        const label = (opt.label || '').toString().toLowerCase();
+        const value = (opt.value || '').toString().toLowerCase();
+        return label.includes(q) || value.includes(q);
+      })
+      .slice(0, 10); // limit
+    setSuggestions(matched);
+    setShowSuggestions(matched.length > 0);
+  }, [localityInput, masterLocation]);
+
+  // When user clicks Search: navigate to PublicPropertiesPage with query params
+  const handleSearch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    // Only Buy search is enabled — if rent selected, do nothing (or show disabled)
+    if (transactionType === 'rent') {
+      console.warn('Rent search not implemented yet. Only Buy is active.');
+      return;
+    }
+
+    const params: Record<string, string> = {};
+
+    // City must come from dropdown; only include if set
+    if (selectedCity) {
+      params.city = selectedCity;
+    }
+
+    // If localities present, send them as comma-separated WITHOUT spaces
+    if (localities.length > 0) {
+      params.location = localities.join(',');
+    }
+
+    // Only send propertyType if present
+    if (selectedPropertyType) {
+      params.propertyType = selectedPropertyType;
+    }
+
+    // Only send budget if present
+    if (selectedBudget) {
+      params.budget = selectedBudget;
+    }
+
+    // mark this as a buy / available search so backend can filter by status if it supports
+    params.status = 'Available';
+
+    // preserve existing filter token if present
+    if (filterToken && filterParamKey) {
+      params[filterParamKey] = filterToken;
+    }
+
+    // Build search string (only include keys that have values)
+    const searchParams = new URLSearchParams();
+    Object.keys(params).forEach(k => {
+      const v = (params as any)[k];
+      if (v !== undefined && v !== null && String(v).trim() !== '') {
+        searchParams.set(k, String(v));
       }
+    });
+
+    const qs = searchParams.toString();
+    const finalURL = `/properties${qs ? `?${qs}` : ''}`;
+    navigate(finalURL);
+  };
+
+
+  // Enhanced navigation function used on click property cards (keeps previous behavior)
+  const handleNavigateToProperty = async (property: Property) => {
+    const id = property.id;
+    const slug = property.slug;
+    if (!slug) {
+      console.warn('Attempted to navigate to property without slug:', id);
+      return;
     }
 
-    // *** REMOVED VIEW RECORDING - Let page load handle it ***
-    // Only send click analytics event
+    if (viewedProperties.has(id)) {
+      let dest = `/properties/${encodeURIComponent(String(slug))}`;
+      if (filterToken) {
+        const finalParamKey = filterParamKey || 'tf';
+        dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(filterToken)}`;
+      }
+      navigate(dest);
+      return;
+    }
+
+    const inferredFilters = {
+      search: searchQuery || null,
+      location: localities.length ? localities.join(', ') : null,
+      city: selectedCity || null,
+      budget: selectedBudget || null,
+      propertyType: selectedPropertyType || null,
+      source: 'homepage',
+      clickedPropertyId: id,
+    };
+
     try {
-      await propertiesAPI.sendPropertyEvent(
-        id,
-        'click',
-        'listing_card_click',
-        { source: 'homepage', title: property.title || null },
-        { slug, filterToken: finalToken || undefined, filterParamKey: finalParamKey }
-      );
-      
-      // Mark this property as clicked in current session (prevent duplicate clicks)
-      setViewedProperties(prev => new Set(prev).add(id));
-      
-      console.log(`Click event sent for property ${id}`);
-    } catch (err) {
-      console.warn('sendPropertyEvent failed (we will still navigate):', err);
-    }
+      let finalToken = filterToken;
+      let finalParamKey = filterParamKey || 'tf';
 
-    // Build destination preserving/adding token param
-    let dest = `/properties/${encodeURIComponent(String(slug))}`;
-    if (finalToken) {
-      dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(finalToken)}`;
+      if (!finalToken) {
+        try {
+          const createRes = await propertiesAPI.createFilterContext({ filters: inferredFilters });
+          if (createRes && createRes.id) finalToken = createRes.id;
+          else console.warn('createFilterContext did not return id, response:', createRes);
+        } catch (err) {
+          console.warn('createFilterContext failed (proceeding without token):', err);
+        }
+      }
+
+      try {
+        await propertiesAPI.sendPropertyEvent(
+          id,
+          'click',
+          'listing_card_click',
+          { source: 'homepage', title: property.title || null },
+          { slug, filterToken: finalToken || undefined, filterParamKey: finalParamKey }
+        );
+
+        setViewedProperties(prev => new Set(prev).add(id));
+      } catch (err) {
+        console.warn('sendPropertyEvent failed (we will still navigate):', err);
+      }
+
+      let dest = `/properties/${encodeURIComponent(String(slug))}`;
+      if (finalToken) {
+        dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(finalToken)}`;
+      }
+      navigate(dest);
+    } catch (err) {
+      console.error('handleNavigateToProperty unexpected error:', err);
+      navigate(`/properties/${encodeURIComponent(String(slug))}`);
     }
-    navigate(dest);
-  } catch (err) {
-    console.error('handleNavigateToProperty unexpected error:', err);
-    // fallback: navigate without token if something went wrong
-    navigate(`/properties/${encodeURIComponent(String(slug))}`);
-  }
-};
+  };
 
   if (currentPropertyView) {
     return <PublicPropertyDetailPage property={currentPropertyView} onBack={() => setCurrentPropertyView(null)} />;
@@ -352,48 +435,251 @@ const handleNavigateToProperty = async (property: Property) => {
 
   return (
     <div className="min-h-screen">
-      {/* hero/search */}
-      <section className="relative bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white overflow-hidden">
+      {/* hero/search - increased height so carousel/bg is taller */}
+      <section className="relative bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white overflow-hidden ">
         <div className="absolute inset-0 bg-black bg-opacity-30"></div>
         {featuredProperties.length > 0 && (
-          <div className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
-            style={{ backgroundImage: `url(${featuredProperties[featuredIndex]?.images?.[0] || ''})`, filter: 'brightness(0.3)' }} />
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
+            style={{ backgroundImage: `url(${featuredProperties[featuredIndex]?.images?.[0] || ''})`, filter: 'brightness(0.35)' }}
+          />
         )}
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 py-16">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12  sm:py-20 md:py-28">
+
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-2">Find Your <span className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">Dream Property</span></h1>
+            <h1 className="text-4xl font-bold mb-2">
+              Find Your <span className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">Dream Property</span>
+            </h1>
             <p className="text-blue-100 mb-6">AI-powered property search in Mumbai's premium locations</p>
 
-            <form onSubmit={(e) => { e.preventDefault(); if (onPageChange) onPageChange('properties', { search: searchQuery }); }} className="max-w-3xl mx-auto bg-white text-black p-4 rounded-2xl">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 pr-3 py-2 border rounded-lg w-full" placeholder="Search properties..." />
+            {/* Row: Buy/Rent + PropertyType */}
+            <div className="flex flex-col items-center gap-3 mb-6 md:flex-row md:justify-center">
+              {/* Buy/Rent */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTransactionType("buy")}
+                  className={`px-4 py-1 rounded-full ${transactionType === "buy"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-700"
+                    }`}
+                >
+                  Buy
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTransactionType("rent")}
+                  className={`px-4 py-1 rounded-full ${transactionType === "rent"
+                    ? "bg-gray-300 text-gray-600"
+                    : "bg-gray-100 text-gray-700"
+                    }`}
+                  title="Rent search not available yet"
+                >
+                  Rent
+                </button>
+              </div>
+
+              {/* property-type buttons group */}
+              <div className="flex items-center justify-center w-full md:w-auto overflow-x-auto">
+                {masterLoading ? (
+                  <div className="text-sm text-white/80 px-3 py-1">Loading types...</div>
+                ) : (
+                  <div className="flex gap-2 py-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPropertyType("")}
+                      aria-pressed={selectedPropertyType === ""}
+                      className={`px-3 py-1 rounded-full ${selectedPropertyType === ""
+                        ? "bg-white text-black"
+                        : "bg-white/30 text-white"
+                        }`}
+                    >
+                      All
+                    </button>
+
+                    {propertyTypeOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setSelectedPropertyType(opt.value)}
+                        aria-pressed={selectedPropertyType === opt.value}
+                        className={`whitespace-nowrap px-3 py-1 rounded-full ${selectedPropertyType === opt.value
+                          ? "bg-white text-black"
+                          : "bg-white/20 text-white"
+                          }`}
+                        title={opt.label}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* FORM */}
+            <form
+              onSubmit={handleSearch}
+              className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-4 shadow-xl max-w-5xl mx-auto"
+            >
+              <div className="flex flex-col gap-3 md:flex-row">
+                {/* City dropdown (transparent) */}
+                <div className="relative w-full md:w-48">
+                  <select
+                    value={selectedCity}
+                    onChange={(e) => setSelectedCity(e.target.value)}
+                    disabled={masterLoading}
+                    className="appearance-none px-3 py-2 border z-100 rounded-lg w-full bg-transparent text-white border-white/30 focus:outline-none focus:ring-1 focus:ring-white"
+                  >
+                    <option value="" className="bg-gray-900 text-white">{masterLoading ? "Loading cities..." : "Select city"}</option>
+                    {masterCity.map((o) => (
+                      <option key={o.value} value={o.value} className="bg-gray-900 text-white">
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  {/* custom arrow */}
+                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                    <ChevronRight className="text-white rotate-90" size={14} />
+                  </div>
                 </div>
-                <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} disabled={masterLoading} className="px-3 py-2 border rounded-lg">
-                  <option value="">{masterLoading ? 'Loading locations...' : 'Location'}</option>
-                  {locationsOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-                <select value={selectedBudget} onChange={(e) => setSelectedBudget(e.target.value)} disabled={masterLoading} className="px-3 py-2 border rounded-lg">
-                  <option value="">{masterLoading ? 'Loading budgets...' : 'Budget'}</option>
-                  {budgetOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-                <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg">Search</button>
+
+                {/* Locality input */}
+                <div className="relative flex-grow">
+                  <Search
+                    className="absolute left-3 top-1/2 -translate-y-1/2  text-white "
+                    size={18}
+                  />
+                  <input
+                    ref={inputRef}
+                    value={localityInput}
+                    onChange={(e) => setLocalityInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addLocality();
+                      } else if (e.key === "Escape") {
+                        setShowSuggestions(false);
+                      }
+                    }}
+                    onFocus={() => {
+                      if (suggestions.length > 0) setShowSuggestions(true);
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => setShowSuggestions(false), 120);
+                    }}
+                    className="pl-10 pr-24 py-2 border rounded-lg w-full bg-white/20 text-white placeholder-white outline-none focus:ring-1 focus:ring-gray-400"
+                    placeholder={
+                      Array.isArray(masterLocation) && masterLocation.length > 0
+                        ? "Type locality (autosuggest). Enter to add"
+                        : "Type locality (free text). Enter to add"
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addLocality()}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-blue-600/90 text-white px-3 py-1 rounded-lg text-sm"
+                  >
+                    Add
+                  </button>
+
+                  {/* Suggestions */}
+                  {showSuggestions && suggestions.length > 0 && (
+                    <ul
+                      className="absolute left-0 right-0 mt-1 max-h-32 lg:max-w-60 overflow-auto 
+               bg-gray-700 border rounded-lg shadow-lg z-[200] custom-scroll"
+                    >
+                      {suggestions.map((s, idx) => (
+                        <li
+                          key={`${s.value}-${idx}`}
+                          onMouseDown={(ev) => ev.preventDefault()}
+                          onClick={() => {
+                            const toAdd =
+                              s.label?.toString().trim() || s.value?.toString().trim();
+                            addLocality(toAdd);
+                          }}
+                          className="px-3 py-2 hover:bg-white/20 cursor-pointer text-sm"
+                        >
+                          {s.label || s.value}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                </div>
+
+                {/* Search button */}
+                <button
+                  type="submit"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg w-full md:w-28 text-sm"
+                >
+                  Search
+                </button>
+              </div>
+
+              {/* Locality chips */}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {localities.map((loc, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center bg-white/20 text-white px-3 py-1 rounded-full text-sm"
+                  >
+                    <span className="mr-2">{loc}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeLocality(idx)}
+                      className="text-gray-500 hover:text-gray-800"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ))}
+                {localities.length === 0 && (
+                  <div className="text-xs text-gray-100">Add up to 5 localities.</div>
+                )}
               </div>
             </form>
+
           </div>
         </div>
 
         {featuredProperties.length > 0 && (
           <>
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
-              {featuredProperties.map((_, i) => <button key={i} onClick={() => setFeaturedIndex(i)} className={`w-2 h-2 rounded-full ${i === featuredIndex ? 'bg-white' : 'bg-white/50'}`} />)}
+            {/* Dots (Hide on mobile, show from sm+) */}
+            <div className="hidden sm:flex absolute bottom-4 left-1/2 -translate-x-1/2 space-x-2">
+              {featuredProperties.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setFeaturedIndex(i)}
+                  className={`w-2 h-2 rounded-full ${i === featuredIndex ? "bg-white" : "bg-white/50"}`}
+                />
+              ))}
             </div>
-            <button onClick={() => setFeaturedIndex((i) => (i - 1 + featuredProperties.length) % featuredProperties.length)} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/20 rounded-full"><ChevronLeft className="text-white" /></button>
-            <button onClick={() => setFeaturedIndex((i) => (i + 1) % featuredProperties.length)} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/20 rounded-full"><ChevronRight className="text-white" /></button>
+
+            {/* Left Button (Hide on mobile) */}
+            <button
+              onClick={() =>
+                setFeaturedIndex(
+                  (i) => (i - 1 + featuredProperties.length) % featuredProperties.length
+                )
+              }
+              className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/20 rounded-full"
+            >
+              <ChevronLeft className="text-white" />
+            </button>
+
+            {/* Right Button (Hide on mobile) */}
+            <button
+              onClick={() => setFeaturedIndex((i) => (i + 1) % featuredProperties.length)}
+              className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/20 rounded-full"
+            >
+              <ChevronRight className="text-white" />
+            </button>
           </>
         )}
+
       </section>
 
       {/* AI Insights */}
@@ -453,7 +739,6 @@ const handleNavigateToProperty = async (property: Property) => {
                       </div>
                       <div className="bg-white/90 rounded-full px-2 py-1">
                         <span className="text-xs font-semibold text-gray-900">
-                          {/* Display only total view count from API */}
                           {property.total_views || property.views || 0} views
                         </span>
                       </div>
@@ -467,8 +752,6 @@ const handleNavigateToProperty = async (property: Property) => {
                           {[property.type, property.unitType, property.subtype].filter(Boolean).join('  ') || ' - '}
                         </div>
                       </div>
-
-                      {/* <div className="text-xs text-gray-400 whitespace-nowrap">PROP{String(property.id).padStart(3, '0')}</div> */}
                     </div>
 
                     <div className="flex items-center justify-between mb-4">
@@ -486,14 +769,6 @@ const handleNavigateToProperty = async (property: Property) => {
                       <MapPin size={16} className="mr-2" />
                       <span>{property.location || property.city || ' - '}</span>
                     </div>
-
-                    {/* Show possession month + year if available */}
-                    {/* <div className="text-sm text-gray-600 mb-3">
-                      <strong>Possession:</strong>{' '}
-                      {property.possessionMonth || property.possessionYear
-                        ? `${property.possessionMonth ? property.possessionMonth : ''}${property.possessionMonth && property.possessionYear ? ' ' : ''}${property.possessionYear ? property.possessionYear : ''}`
-                        : ' - '}
-                    </div> */}
 
                     <div className="flex flex-wrap gap-2 mb-4">
                       {(property.amenities || []).slice(0, 3).map((a, i) => (
