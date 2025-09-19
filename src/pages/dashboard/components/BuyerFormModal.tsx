@@ -1,8 +1,8 @@
 // src/pages/dashboard/components/BuyerFormModal.tsx
+import React, { useEffect, useRef, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
 import { usersAPI } from "@/lib/api";
-import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,52 +10,68 @@ import { getAssignableExecutives } from "@/pages/utils/roleBasedOptions";
 import { ChevronDown } from "lucide-react";
 import BudgetRangeSelector from "@/components/ui/BudgetRangeSelector";
 
+type Lead = {
+  id: string;
+  salutation?: string;
+  name?: string;
+  phone?: string;
+  whatsapp_number?: string;
+  email?: string;
+  city?: string;
+  state?: string;
+  location?: string;
+  lead_source?: string;
+  lead_type?: string;
+  priority?: string;
+  status?: string;
+  stage?: string;
+  created_at?: string;
+  created_by?: string;
+  last_contact?: string;
+  last_contacted_by?: string;
+  // ... other lead fields as needed
+};
+
+type Followup = {
+  id?: string;
+  type?: string;
+  remark?: string;
+  customRemark?: string;
+  scheduledDate?: string | null;
+  createdAt?: string | null;
+  priority?: string;
+  stage?: string;
+  status?: string;
+  createdByFirstName?: string;
+  createdByLastName?: string;
+  // ... other followup fields if available
+};
+
 interface BuyerFormModalProps {
-  lead: any;
+  lead: Lead;
+  followups?: Followup[]; // optional; will NOT be rendered — only console.logged
   onClose: () => void;
 }
 
-const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
+const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, followups = [], onClose }) => {
   const { user } = useAuth();
 
+  // UI toggles & refs
   const [showUnitTypeDropdown, setShowUnitTypeDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showExecDropdown, setShowExecDropdown] = useState(false);
-
   const unitTypeButtonRef = useRef<HTMLDivElement | null>(null);
   const locationButtonRef = useRef<HTMLDivElement | null>(null);
   const execDropdownRef = useRef<HTMLDivElement | null>(null);
 
+  // data
   const [masterLoading, setMasterLoading] = useState(true);
-  const [masters, setMasters] = useState<Record<string, MasterOption[]>>([] as any);
-
-  // all users (for resolving ids -> names when showing in UI; not stored in form)
+  const [masters, setMasters] = useState<Record<string, MasterOption[]>>({} as any);
   const [allUsers, setAllUsers] = useState<any[]>([]);
-  // presales subset for assigning executives
   const [presalesUsers, setPresalesUsers] = useState<any[]>([]);
 
-  // load all users (and set presales subset)
-  useEffect(() => {
-    (async () => {
-      try {
-        const resp = await usersAPI.getAllUsers?.();
-        const users = resp?.data || [];
-        setAllUsers(users);
-
-        const execs = users.filter(
-          (u: any) =>
-            (u?.department || "").toLowerCase() === "presales" &&
-            (u?.role || "").toLowerCase() === "executive"
-        );
-        setPresalesUsers(execs);
-      } catch (err) {
-        console.error("Failed to load users:", err);
-      }
-    })();
-  }, []);
-
+  // form data
   const [formData, setFormData] = useState<any>({
-    // basic contact & lead fields (mostly read-only in UI)
     salutation: "",
     name: "",
     phone: "",
@@ -70,49 +86,66 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
     status: "",
     stage: "",
     created_at: "",
-    created_by: "", // id (if present)
+    created_by: "",
     last_contact: "",
-    last_contacted_by: "", // id
+    last_contacted_by: "",
 
-    // Buyer specific fields
-    budget_range: "", // kept in state but will NOT be sent (raw string)
-    budget_range_readable: "", // human readable - kept for UI only (WILL NOT be sent)
-    budget_min: 0, // numeric (in Crores) - WILL be sent
-    budget_max: 0, // numeric (in Crores) - WILL be sent
+    // Buyer-specific editable fields
+    budget_range: "",
+    budget_range_readable: "",
+    budget_min: 0,
+    budget_max: 0,
     preferred_unit_type: [] as string[],
     preferred_location: [] as string[],
     property_subtype: "",
     property_type: "",
-    assigned_executive: "", // id only
-    buyer_remark: "",
+    assigned_executive: "",
+    remark: "",
     nearbylocations: "",
 
-    // metadata
     updated_at: "",
-    buyer_lead_status: "",
-    is_active: true, // always send true by default per request
+    is_active: true,
   });
 
-  // helper to get user name by id from allUsers
-  const getUserNameById = (id: string | number) => {
-    if (!id) return "";
-    const u = allUsers.find((x) => String(x.id) === String(id) || String(x._id) === String(id));
-    return u?.name || u?.full_name || u?.username || "";
-  };
+  // IMPORTANT: We accept `followups` prop but DO NOT render them in the form.
+  // We will log them for inspection only (per your request).
+  useEffect(() => {
+    console.info("BuyerFormModal received followups:", followups);
+  }, [followups]);
+
+  // load users / presales list
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await usersAPI.getAllUsers?.();
+        const users = resp?.data || [];
+        setAllUsers(users);
+
+        const execs = users.filter(
+          (u: any) =>
+            (String(u.department || "").toLowerCase() === "presales" ||
+              String(u.department || "").toLowerCase() === "pre-sales") &&
+            (String(u.role || "").toLowerCase() === "executive" || String(u.role || "").toLowerCase() === "presales_executive")
+        );
+        setPresalesUsers(execs);
+      } catch (err) {
+        console.error("Failed to load users:", err);
+      }
+    })();
+  }, []);
 
   // initialize form from lead
   useEffect(() => {
     if (!lead) return;
 
-    // try to parse budget_range into min/max numbers if present
     let budgetMin = 0;
     let budgetMax = 0;
-    if (lead?.budget_min != null || lead?.budget_max != null) {
-      // prefer explicit numeric fields if present
-      budgetMin = Number(lead.budget_min) || 0;
-      budgetMax = Number(lead.budget_max) || 0;
-    } else if (lead?.budget_range) {
-      const parts = String(lead.budget_range).split("-").map((p: string) => parseFloat(p) || 0);
+
+    if (lead["budget_min"] != null || lead["budget_max"] != null) {
+      budgetMin = Number((lead as any).budget_min) || 0;
+      budgetMax = Number((lead as any).budget_max) || 0;
+    } else if ((lead as any).budget_range) {
+      const parts = String((lead as any).budget_range).split("-").map((p) => parseFloat(p) || 0);
       budgetMin = parts[0] ?? 0;
       budgetMax = parts[1] ?? parts[0] ?? 0;
     }
@@ -132,67 +165,28 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
       priority: lead.priority ?? "",
       status: lead.status ?? "",
       stage: lead.stage ?? "",
-      created_at: lead.created_at ?? new Date().toISOString(),
+      created_at: lead.created_at ?? "",
       created_by: lead.created_by ?? "",
       last_contact: lead.last_contact ?? "",
       last_contacted_by: lead.last_contacted_by ?? "",
 
-      // keep budget_range / readable in UI state but budget_range (raw) & readable won't be sent
-      budget_range: lead.budget_range ?? (budgetMin || budgetMax ? `${budgetMin}-${budgetMax}` : ""),
-      budget_range_readable: lead.budget_range_readable ?? "", // UI only
+      budget_range: (lead as any).budget_range ?? (budgetMin || budgetMax ? `${budgetMin}-${budgetMax}` : ""),
+      budget_range_readable: (lead as any).budget_range_readable ?? "",
       budget_min: budgetMin,
       budget_max: budgetMax,
-      preferred_unit_type: lead.preferred_unit_type ?? [],
-      preferred_location: lead.preferred_location ?? [],
-      property_subtype: lead.property_subtype ?? "",
-      property_type: lead.property_type ?? "",
-      assigned_executive: lead.assigned_executive ?? "",
-      buyer_remark: lead.buyer_remark ?? "",
-      nearbylocations: lead.nearbylocations ?? "",
-      updated_at: lead.updated_at ?? "",
-      buyer_lead_status: lead.buyer_lead_status ?? "",
-      is_active: lead.is_active != null ? !!lead.is_active : true,
+
+      preferred_unit_type: (lead as any).preferred_unit_type ?? [],
+      preferred_location: (lead as any).preferred_location ?? [],
+      property_subtype: (lead as any).property_subtype ?? "",
+      property_type: (lead as any).property_type ?? "",
+      assigned_executive: (lead as any).assigned_executive ?? "",
+      remark: (lead as any).remark ?? "",
+      nearbylocations: (lead as any).nearbylocations ?? "",
+      updated_at: (lead as any).updated_at ?? "",
+      is_active: (lead as any).is_active != null ? !!(lead as any).is_active : true,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead]);
-
-  // NOTE: removed effects that previously resolved and stored *_name fields in state.
-  // We will resolve names for display only via getUserNameById or presalesUsers lookup.
-
-  const getAssignedExecName = () => {
-    if (formData?.assigned_executive) {
-      const exec = presalesUsers.find(
-        (u) => String(u.id) === String(formData.assigned_executive) || String(u._id) === String(formData.assigned_executive)
-      );
-      return exec?.name || getUserNameById(formData.assigned_executive) || "Unassigned";
-    }
-    return "Unassigned";
-  };
-
-  const handleExecAssign = async (execId: string) => {
-    try {
-      setFormData((prev: any) => ({
-        ...prev,
-        assigned_executive: execId,
-      }));
-      setShowExecDropdown(false);
-      const name = getUserNameById(execId) || presalesUsers.find((u) => String(u.id) === String(execId))?.name || "Executive";
-      toast.success(`Buyer assigned to ${name}`);
-    } catch (err) {
-      console.error("Error assigning executive:", err);
-      toast.error("Failed to assign. Please try again.");
-    }
-  };
-
-  const getOptionNames = (possibleKeys: string[]) => {
-    for (const k of possibleKeys) {
-      const arr = (masters as any)[k];
-      if (Array.isArray(arr) && arr.length) {
-        return arr.map((it: any) => (typeof it === "string" ? it : it.name ?? it.label ?? it.title ?? it.id));
-      }
-    }
-    return [];
-  };
 
   // fetch masters
   useEffect(() => {
@@ -208,14 +202,71 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
         setMasterLoading(false);
       }
     };
-
     fetchMasters();
   }, []);
+
+  const getOptionNames = (possibleKeys: string[]) => {
+    for (const k of possibleKeys) {
+      const arr = (masters as any)[k];
+      if (Array.isArray(arr) && arr.length) {
+        return arr.map((it: any) => (typeof it === "string" ? it : it.name ?? it.label ?? it.title ?? it.value ?? it.id));
+      }
+    }
+    return [];
+  };
 
   const locationOptions = getOptionNames(["location", "locations", "preferred_location", "locations_list"]);
   const unitTypeOptions = getOptionNames(["unit type", "unit_type", "unitType", "unit_types", "unitTypes"]);
   const propertySubtypeOptions = getOptionNames(["property subtype", "property_subtype", "propertySubtype", "property_subtypes"]);
   const propertyTypeOptions = getOptionNames(["property type", "property_type", "propertyType", "property_types"]);
+
+  const getUserNameById = (id: string | number) => {
+    if (!id) return "";
+    const u = allUsers.find((x) => String(x.id) === String(id) || String(x._id) === String(id));
+    return u?.name || u?.full_name || u?.username || "";
+  };
+
+  // simple classes used in UI
+  const wrapperClass = "border-2 border-green-400 rounded-lg p-2 mt-2 space-y-3 bg-white";
+  const innerInputClass = "w-full border rounded h-9 px-2 text-xs bg-white focus:outline-none focus:border-green-600";
+  const innerTextareaClass = "w-full border rounded px-2 py-1 text-xs bg-white focus:outline-none focus:border-green-600 resize-none";
+  const execButtonClass = "w-full flex items-center justify-between space-x-1 border rounded p-1 text-xs bg-white hover:bg-gray-50";
+
+
+  // replace existing getAssignedExecName (if present) with this:
+  const getAssignedExecName = () => {
+    const leadExecName = (lead as any)?.assigned_executive_name;
+    if (leadExecName && String(leadExecName).trim() !== "" && leadExecName.toLowerCase() !== "unassigned") {
+      return leadExecName;
+    }
+
+    if (formData?.assigned_executive) {
+      const exec = presalesUsers.find(
+        (u) => String(u.id) === String(formData.assigned_executive) || String(u._id) === String(formData.assigned_executive)
+      );
+      return exec?.name || getUserNameById(formData.assigned_executive) || "Unassigned";
+    }
+    return "Unassigned";
+  };
+
+  // and in the JSX where label is:
+  <button type="button" onClick={() => setShowExecDropdown(!showExecDropdown)} className={execButtonClass}>
+    <span className="truncate text-xs">{(lead as any).assigned_executive_name || getAssignedExecName()}</span>
+    <ChevronDown className="w-3 h-3 flex-shrink-0" />
+  </button>
+
+
+  const handleExecAssign = async (execId: string) => {
+    try {
+      setFormData((prev: any) => ({ ...prev, assigned_executive: execId }));
+      setShowExecDropdown(false);
+      const name = getUserNameById(execId) || presalesUsers.find((u) => String(u.id) === String(execId))?.name || "Executive";
+      toast.success(`Buyer assigned to ${name}`);
+    } catch (err) {
+      console.error("Error assigning executive:", err);
+      toast.error("Failed to assign. Please try again.");
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -230,14 +281,14 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
     });
   };
 
-  const handleRemarkChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const { value } = e.target;
-    setFormData((prev: any) => ({ ...prev, buyer_remark: value }));
-  };
-
   const handleNearbyLocationsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const { value } = e.target;
     setFormData((prev: any) => ({ ...prev, nearbylocations: value }));
+  };
+
+  const handleRemarkChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { value } = e.target;
+    setFormData((prev: any) => ({ ...prev, remark: value }));
   };
 
   const handleUnitTypeToggle = () => {
@@ -272,43 +323,35 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Ensure updated_at and numeric budget_min/budget_max are present
     const parsedMin = Number(formData.budget_min) || 0;
     const parsedMax = Number(formData.budget_max) || 0;
 
-    // Remove only budget_range (raw) and budget_range_readable from payload — they are UI-only
     const { budget_range, budget_range_readable, ...rest } = formData;
 
     const submissionData = {
       ...rest,
-      // numeric fields
       budget_min: parsedMin,
       budget_max: parsedMax,
       updated_at: new Date().toISOString(),
-      buyer_lead_status: formData.buyer_lead_status ,
       is_active: formData.is_active !== undefined ? !!formData.is_active : true,
     };
 
-    // Note: we are NOT including created_by_name / last_contacted_by_name / assigned_executive_name — only IDs.
-    console.log("🚀 Buyer Form Submitted (min/max, ids only):", submissionData);
+    // NOTE: We intentionally DO NOT send followups here.
+    // followups are only logged to console per requirement.
+    console.log("✅ Buyer Form Submission (payload):", submissionData);
+
     toast.success("Buyer information saved successfully!");
     onClose();
   };
 
-  // Small reusable classes
-  const wrapperClass = "border-2 border-green-400 rounded-lg p-2 mt-2 space-y-3 bg-white";
-  const innerInputClass = "w-full border rounded h-9 px-2 text-xs bg-white focus:outline-none focus:border-green-600";
-  const innerTextareaClass = "w-full border rounded px-2 py-1 text-xs bg-white focus:outline-none focus:border-green-600 resize-none";
-  const execButtonClass = "w-full flex items-center justify-between space-x-1 border rounded p-1 text-xs bg-white hover:bg-gray-50";
 
   return (
     <Modal isOpen={true} onClose={onClose} title="Buyer Form" width="max-w-4xl">
       <div className="text-xs">
         <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Wrap all editable areas inside one big bordered wrapper */}
           <div>
             <div className="space-y-2 p-2">
-              {/* Basic Details - Read-only */}
+              {/* Basic Details read-only */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                 <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Salutation</label>
@@ -348,7 +391,7 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
                 </div>
               </div>
 
-              {/* Lead Details - Read-only */}
+              {/* Lead meta (read-only) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 <div>
                   <label className="block text-xs font-medium">Lead Source</label>
@@ -363,31 +406,34 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
                   <input type="text" name="status" value={formData.status} readOnly className="w-full border p-1 rounded bg-gray-100 cursor-not-allowed text-xs" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium">Created By (ID)</label>
-                  <input type="text" name="created_by" value={formData.created_by || ""} readOnly className="w-full border p-1 rounded bg-gray-100 cursor-not-allowed text-xs" />
+                  <label className="block text-xs font-medium">Created By</label>
+                  <input
+                    type="text"
+                    name="created_by"
+                    value={
+                      // prefer explicit name passed on lead, then try to resolve ID -> name, then fall back to raw ID or empty
+                      (lead as any)?.created_by_name ||
+                      getUserNameById(formData.created_by) ||
+                      formData.created_by ||
+                      ""
+                    }
+                    readOnly
+                    className="w-full border p-1 rounded bg-gray-100 cursor-not-allowed text-xs"
+                  />
                 </div>
               </div>
             </div>
 
-            <div className={` ${wrapperClass}`}>
-              {/* Buyer Specific - Editable fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-2 ">
+            <div className={wrapperClass}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs font-medium">Property Type</label>
                   <select name="property_type" value={formData.property_type} onChange={handleChange} className={innerInputClass}>
                     <option value="">Select Property Type</option>
-                    {propertyTypeOptions.length > 0 ? (
-                      propertyTypeOptions.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="Commercial">Commercial</option>
-                        <option value="Residential">Residential</option>
-                      </>
-                    )}
+                    {propertyTypeOptions.length > 0 ? propertyTypeOptions.map((opt) => <option key={opt} value={opt}>{opt}</option>) : <>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Residential">Residential</option>
+                    </>}
                   </select>
                 </div>
 
@@ -395,23 +441,14 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
                   <label className="block text-xs font-medium">Property Subtype</label>
                   <select name="property_subtype" value={formData.property_subtype} onChange={handleChange} className={innerInputClass}>
                     <option value="">Select Property Subtype</option>
-                    {propertySubtypeOptions.length > 0 ? (
-                      propertySubtypeOptions.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="Apartment">Apartment</option>
-                        <option value="Row House">Row House</option>
-                        <option value="Plot">Plot</option>
-                      </>
-                    )}
+                    {propertySubtypeOptions.length > 0 ? propertySubtypeOptions.map((opt) => <option key={opt} value={opt}>{opt}</option>) : <>
+                      <option value="Apartment">Apartment</option>
+                      <option value="Row House">Row House</option>
+                      <option value="Plot">Plot</option>
+                    </>}
                   </select>
                 </div>
 
-                {/* Assign Executive */}
                 <div>
                   <label className="block text-xs font-medium text-green-700">Assigned Executive</label>
                   <div className="relative" ref={execDropdownRef}>
@@ -427,24 +464,11 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
 
                           {(() => {
                             const execs = getAssignableExecutives(user, presalesUsers);
-
-                            if (execs.length === 0) {
-                              return (
-                                <div className="px-2 py-2 text-xs text-gray-500">
-                                  <div>No executives available</div>
-                                </div>
-                              );
+                            if (!execs || execs.length === 0) {
+                              return <div className="px-2 py-2 text-xs text-gray-500">No executives available</div>;
                             }
-
                             return execs.map((exec: any) => (
-                              <button
-                                key={exec.id}
-                                type="button"
-                                onClick={() => handleExecAssign(exec.id)}
-                                className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${
-                                  String(formData.assigned_executive) === String(exec.id) ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-800"
-                                }`}
-                              >
+                              <button key={exec.id} type="button" onClick={() => handleExecAssign(exec.id)} className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${String(formData.assigned_executive) === String(exec.id) ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-800"}`}>
                                 {exec.name}
                               </button>
                             ));
@@ -457,67 +481,29 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-2">
-                {/* Preferred Unit Type */}
                 <div className="relative grid">
-                  <label className="block text-xs font-medium mb-1 ">Preferred Unit Type</label>
+                  <label className="block text-xs font-medium mb-1">Preferred Unit Type</label>
                   <div>
-                    <div
-                      ref={unitTypeButtonRef}
-                      role="button"
-                      tabIndex={0}
-                      onClick={handleUnitTypeToggle}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleUnitTypeToggle();
-                        }
-                      }}
-                      className={execButtonClass}
-                    >
+                    <div ref={unitTypeButtonRef} role="button" tabIndex={0} onClick={handleUnitTypeToggle} className={execButtonClass}>
                       <div className="flex flex-wrap gap-1 text-xs">
-                        {formData.preferred_unit_type?.length > 0 ? (
-                          formData.preferred_unit_type.map((item: string) => (
-                            <span key={item} className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                              <span>{item}</span>
-                              <span
-                                role="button"
-                                tabIndex={0}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCheckboxChange("preferred_unit_type", item);
-                                }}
-                                onKeyDown={(e) => {
-                                  if ((e as any).key === "Enter" || (e as any).key === " ") {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleCheckboxChange("preferred_unit_type", item);
-                                  }
-                                }}
-                                className="ml-1 text-blue-600 hover:text-blue-800 text-xs cursor-pointer"
-                                aria-label={`Remove ${item}`}
-                              >
-                                ×
-                              </span>
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs">Select Unit Types</span>
-                        )}
+                        {formData.preferred_unit_type?.length > 0 ? formData.preferred_unit_type.map((item: string) => (
+                          <span key={item} className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                            <span>{item}</span>
+                            <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); handleCheckboxChange("preferred_unit_type", item); }} className="ml-1 text-blue-600 hover:text-blue-800 text-xs cursor-pointer" aria-label={`Remove ${item}`}>×</span>
+                          </span>
+                        )) : <span className="text-xs">Select Unit Types</span>}
                       </div>
                       <span className="text-gray-500 ml-2">▼</span>
                     </div>
 
                     {showUnitTypeDropdown && unitTypeButtonRef.current && (
-                      <div
-                        className="bg-white border rounded shadow-lg text-xs"
-                        style={{
-                          position: "fixed",
-                          zIndex: 9999,
-                          top: unitTypeButtonRef.current.getBoundingClientRect().bottom + window.scrollY + 4,
-                          left: unitTypeButtonRef.current.getBoundingClientRect().left + window.scrollX,
-                          width: unitTypeButtonRef.current.getBoundingClientRect().width,
-                        }}
-                      >
+                      <div className="bg-white border rounded shadow-lg text-xs" style={{
+                        position: "fixed",
+                        zIndex: 9999,
+                        top: unitTypeButtonRef.current.getBoundingClientRect().bottom + window.scrollY + 4,
+                        left: unitTypeButtonRef.current.getBoundingClientRect().left + window.scrollX,
+                        width: unitTypeButtonRef.current.getBoundingClientRect().width,
+                      }}>
                         {(unitTypeOptions.length > 0 ? unitTypeOptions : ["1BHK", "2BHK", "3BHK", "Villa"]).map((unitType) => (
                           <label key={unitType} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer text-xs">
                             <input type="checkbox" checked={formData.preferred_unit_type?.includes(unitType)} onChange={() => handleCheckboxChange("preferred_unit_type", unitType)} className="mr-2 h-3 w-3" />
@@ -529,67 +515,29 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
                   </div>
                 </div>
 
-                {/* Preferred Location */}
                 <div className="relative">
                   <label className="block text-xs font-medium mb-1">Preferred Location</label>
                   <div>
-                    <div
-                      ref={locationButtonRef}
-                      role="button"
-                      tabIndex={0}
-                      onClick={handleLocationToggle}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleLocationToggle();
-                        }
-                      }}
-                      className={execButtonClass}
-                    >
+                    <div ref={locationButtonRef} role="button" tabIndex={0} onClick={handleLocationToggle} className={execButtonClass}>
                       <div className="flex flex-wrap gap-1 text-xs">
-                        {formData.preferred_location?.length > 0 ? (
-                          formData.preferred_location.map((item: string) => (
-                            <span key={item} className="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                              <span>{item}</span>
-                              <span
-                                role="button"
-                                tabIndex={0}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCheckboxChange("preferred_location", item);
-                                }}
-                                onKeyDown={(e) => {
-                                  if ((e as any).key === "Enter" || (e as any).key === " ") {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleCheckboxChange("preferred_location", item);
-                                  }
-                                }}
-                                className="ml-1 text-green-600 hover:text-green-800 cursor-pointer text-xs"
-                                aria-label={`Remove ${item}`}
-                              >
-                                ×
-                              </span>
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs">Select Locations</span>
-                        )}
+                        {formData.preferred_location?.length > 0 ? formData.preferred_location.map((item: string) => (
+                          <span key={item} className="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                            <span>{item}</span>
+                            <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); handleCheckboxChange("preferred_location", item); }} className="ml-1 text-green-600 hover:text-green-800 cursor-pointer text-xs" aria-label={`Remove ${item}`}>×</span>
+                          </span>
+                        )) : <span className="text-xs">Select Locations</span>}
                       </div>
                       <span className="text-gray-500 ml-2">▼</span>
                     </div>
 
                     {showLocationDropdown && locationButtonRef.current && (
-                      <div
-                        className="bg-white border rounded shadow-lg max-h-40 overflow-y-auto text-xs"
-                        style={{
-                          position: "fixed",
-                          zIndex: 9999,
-                          top: locationButtonRef.current.getBoundingClientRect().bottom + window.scrollY + 4,
-                          left: locationButtonRef.current.getBoundingClientRect().left + window.scrollX,
-                          width: locationButtonRef.current.getBoundingClientRect().width,
-                        }}
-                      >
+                      <div className="bg-white border rounded shadow-lg max-h-40 overflow-y-auto text-xs" style={{
+                        position: "fixed",
+                        zIndex: 9999,
+                        top: locationButtonRef.current.getBoundingClientRect().bottom + window.scrollY + 4,
+                        left: locationButtonRef.current.getBoundingClientRect().left + window.scrollX,
+                        width: locationButtonRef.current.getBoundingClientRect().width,
+                      }}>
                         {(locationOptions.length > 0 ? locationOptions : ["Hinjewadi", "Baner", "Wakad", "Pune"]).map((location) => (
                           <label key={location} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer text-xs">
                             <input type="checkbox" checked={formData.preferred_location?.includes(location)} onChange={() => handleCheckboxChange("preferred_location", location)} className="mr-2 h-3 w-3" />
@@ -602,7 +550,6 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
                 </div>
               </div>
 
-              {/* Budget Range (inside wrapper) */}
               <div>
                 <label className="block text-xs font-medium">Budget Range</label>
                 <div className="mt-2">
@@ -617,7 +564,6 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
                         ...prev,
                         budget_min: minNum,
                         budget_max: maxNum,
-                        // keep the string/readable in state for UI only
                         budget_range: `${minNum}-${maxNum}`,
                         budget_range_readable: readable,
                       }));
@@ -627,18 +573,14 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-2 items-start">
-                {/* Nearby Location (editable) */}
                 <div className="flex flex-col h-full">
-                  <label htmlFor="nearbylocations" className="block text-xs font-medium text-gray-700 mb-1">
-                    Nearby Location
-                  </label>
+                  <label htmlFor="nearbylocations" className="block text-xs font-medium text-gray-700 mb-1">Nearby Location</label>
                   <textarea id="nearbylocations" name="nearbylocations" value={formData.nearbylocations} onChange={handleNearbyLocationsChange} rows={3} placeholder="e.g. Near City Mall, beside Community Park" className={innerTextareaClass} />
                 </div>
 
-                {/* Buyer Remark (editable) */}
                 <div className="flex flex-col h-full">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Buyer Remark</label>
-                  <textarea name="buyer_remark" value={formData.buyer_remark} onChange={handleRemarkChange} rows={3} placeholder="Add any buyer remarks here..." className={innerTextareaClass} />
+                  <textarea name="remark" value={formData.remark} onChange={handleRemarkChange} rows={3} placeholder="Add any buyer remarks here..." className={innerTextareaClass} />
                 </div>
               </div>
             </div>
@@ -646,12 +588,8 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, onClose }) => {
 
           {/* Buttons */}
           <div className="flex justify-end gap-2 mt-1">
-            <button type="button" onClick={onClose} className="px-3 py-1 bg-gray-300 rounded text-xs">
-              Cancel
-            </button>
-            <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded text-xs">
-              Transfer to Buyer
-            </button>
+            <button type="button" onClick={onClose} className="px-3 py-1 bg-gray-300 rounded text-xs">Cancel</button>
+            <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded text-xs">Transfer to Buyer</button>
           </div>
         </form>
       </div>
