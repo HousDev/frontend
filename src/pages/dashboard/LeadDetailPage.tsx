@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Phone,
@@ -38,6 +37,7 @@ import SellerFormModal from "./components/SellerFormModel";
 
 /* ===================== Types ===================== */
 type UserRole = "admin" | "manager" | "agent";
+
 export interface Lead {
   id: string;
   salutation?: string;
@@ -54,7 +54,7 @@ export interface Lead {
   status: string;
   stage?: string;
   assigned_executive?: string;
-  assigned_executive_name?: string; // ✅ add here
+  assigned_executive_name?: string;
   created_at?: string;
   created_by?: string;
   last_contact?: string;
@@ -62,7 +62,7 @@ export interface Lead {
   last_contacted_by_name?: string;
   updated_by_name?: string;
   created_by_name?: string;
-  updated_at?: string
+  updated_at?: string;
 }
 type UILead = Lead & {
   assigned_executive_name?: string;
@@ -82,17 +82,16 @@ type Followup = {
   completedDate?: string | null;
   createdBy?: string;
   createdAt?: string;
-  // 👇 Add these optional fields
   createdByFirstName?: string;
   createdByLastName?: string;
   updatedByFirstName?: string;
   updatedByLastName?: string;
-   last_contacted_by?: string;
+  last_contacted_by?: string;
   last_contacted_by_name?: string;
 };
 
 // helpers (file-level)
-const getLatestFollowup = (arr: Followup[]) => (arr && arr.length ? arr[0] : null);
+const getLatestFollowup = (arr?: Followup[] | null) => (arr && arr.length ? arr[0] : null);
 
 const shouldShowTransfer = (ld?: Lead | null, lf?: Followup | null) => {
   const lStage = (ld?.stage || "").trim().toLowerCase();
@@ -103,7 +102,6 @@ const shouldShowTransfer = (ld?: Lead | null, lf?: Followup | null) => {
   const isLeadOK = (lStage === "contacted" || lStage === "connected") && lStatus === "qualified";
   const isFollowupOK = (fStage === "contacted" || fStage === "connected") && fStatus === "qualified";
 
-  // show if either the lead OR the latest follow-up meets the condition
   return isLeadOK || isFollowupOK;
 };
 
@@ -157,18 +155,19 @@ const LeadDetailPage: React.FC = () => {
   });
 
   const currentUserRole: UserRole = "admin";
-  const { user } = useAuth();  // ✅ logged-in user
+  const { user } = useAuth();
   const [presalesUsers, setPreSalesUsers] = useState<any[]>([]);
   const [showExecDropdown, setShowExecDropdown] = useState(false);
+
   // fetch presales users once (executives list)
   useEffect(() => {
     (async () => {
       try {
-        const resp = await usersAPI.getAllUsers?.(); // या usersAPI.getAllUsers() use करें
+        const resp = await usersAPI.getAllUsers?.();
         const execs = (resp?.data || []).filter(
           (u: any) =>
-            (u?.department || "").toLowerCase() === "presales" &&
-            (u?.role || "").toLowerCase() === "executive"
+            (String(u?.department || "").toLowerCase() === "presales" || String(u?.department || "").toLowerCase() === "pre-sales") &&
+            String(u?.role || "").toLowerCase() === "executive"
         );
         setPreSalesUsers(execs);
       } catch (err) {
@@ -176,10 +175,11 @@ const LeadDetailPage: React.FC = () => {
       }
     })();
   }, []);
+
   const handleExecAssign = async (execId: string, execName: string) => {
     if (!lead) return;
     try {
-      setLead({ ...lead, assigned_executive: execId, assigned_executive_name: execName }); // ✅ नाम भी set करो
+      setLead({ ...lead, assigned_executive: execId, assigned_executive_name: execName });
       setShowExecDropdown(false);
       await leadsAPI.assignToExecutive(lead.id, { assigned_executive: execId });
       toast.success(`Lead assigned to ${execName}`);
@@ -189,32 +189,24 @@ const LeadDetailPage: React.FC = () => {
     }
   };
 
-
   const getAssignedExecName = () => {
-    // First check if we have the name directly in lead data
     if (lead?.assigned_executive_name && lead.assigned_executive_name !== "Unassigned") {
       return lead.assigned_executive_name;
     }
-
-    // Fallback: try to find name from presalesUsers if we have executive ID
     if (lead?.assigned_executive && presalesUsers.length > 0) {
-      const exec = presalesUsers.find(u => u.id === lead.assigned_executive);
+      const exec = presalesUsers.find(u => String(u.id) === String(lead.assigned_executive));
       return exec?.name || "Unassigned";
     }
-
     return "Unassigned";
   };
 
-  // Add this useEffect to update lead when presalesUsers changes
+  // Update lead when presalesUsers becomes available (resolve name)
   useEffect(() => {
     if (lead?.assigned_executive && presalesUsers.length > 0 &&
       (!lead.assigned_executive_name || lead.assigned_executive_name === "Unassigned")) {
-      const exec = presalesUsers.find(u => u.id === lead.assigned_executive);
+      const exec = presalesUsers.find(u => String(u.id) === String(lead.assigned_executive));
       if (exec) {
-        setLead(prev => ({
-          ...prev,
-          assigned_executive_name: exec.name
-        }));
+        setLead(prev => prev ? ({ ...prev, assigned_executive_name: exec.name }) : prev);
       }
     }
   }, [presalesUsers, lead]);
@@ -238,51 +230,73 @@ const LeadDetailPage: React.FC = () => {
   }, []);
 
   // Fetch followups
-  const fetchFollowups = async () => {
-    if (!id) {
+  const fetchFollowups = async (leadIdParam?: string) => {
+    const leadToUse = leadIdParam ?? id;
+    if (!leadToUse) {
       setFollowups([]);
       setFollowupsError(null);
       setFollowupsLoading(false);
-      return;
+      return [];
     }
 
     try {
       setFollowupsLoading(true);
       setFollowupsError(null);
 
-      const response = await followupAPI.getFollowupsByLeadId(id);
+      const response = await followupAPI.getFollowupsByLeadId(leadToUse);
 
       // normalize various shapes
-      const followupsData: Followup[] =
-        Array.isArray(response?.data) ? response.data :
-          Array.isArray(response) ? response :
-            Array.isArray(response?.payload) ? response.payload : [];
+      let followupsData: Followup[] = [];
+      if (Array.isArray(response?.data)) followupsData = response.data;
+      else if (Array.isArray(response)) followupsData = response;
+      else if (Array.isArray(response?.payload)) followupsData = response.payload;
+      else if (Array.isArray(response?.result)) followupsData = response.result;
 
-      // ✅ अगर data खाली है → खाली array set कर दो
       if (!followupsData || followupsData.length === 0) {
         setFollowups([]);
-        setFollowupsLoading(false);
-        return;
+        return [];
       }
+
+      followupsData = followupsData.map((f: any) => ({
+        id: f.id || f._id || f.followup_id || "",
+        leadId: f.leadId || f.lead_id || leadToUse,
+        type: f.type || f.followupType || "general",
+        stage: f.stage || f.leadStage || "",
+        status: f.status || f.leadStatus || "",
+        remark: f.remark || "",
+        customRemark: f.customRemark || f.custom_remark || "",
+        nextAction: f.nextAction || f.next_action || "",
+        scheduledDate: f.scheduledDate || f.scheduled_date || f.schedule || f.createdAt || f.created_at || null,
+        createdAt: f.createdAt || f.created_at || null,
+        priority: f.priority || "Medium",
+        createdByFirstName: f.createdByFirstName || f.created_by_first_name || f.created_first_name || "",
+        createdByLastName: f.createdByLastName || f.created_by_last_name || f.created_last_name || "",
+        ...f,
+      }));
 
       // sort latest first (scheduledDate -> createdAt)
       followupsData.sort((a, b) => {
         const da = new Date(a.scheduledDate || a.createdAt || 0).getTime();
         const db = new Date(b.scheduledDate || b.createdAt || 0).getTime();
-        return db - da;
+        if (db !== da) return db - da;
+        if (a.id && b.id) return a.id > b.id ? -1 : 1;
+        return 0;
       });
 
       setFollowups(followupsData);
+      return followupsData;
     } catch (e: any) {
       const status = e?.response?.status || e?.status;
       if (status === 404 || status === 204) {
-        // ✅ 404/204 को "कोई followup नहीं" मानो
-        console.warn("No followups found for lead:", id);
+        console.warn("No followups found for lead:", leadToUse);
         setFollowups([]);
         setFollowupsError(null);
+        return [];
       } else {
         console.error("Error fetching followups:", e);
         setFollowupsError("Failed to fetch follow-ups");
+        setFollowups([]);
+        return [];
       }
     } finally {
       setFollowupsLoading(false);
@@ -310,110 +324,103 @@ const LeadDetailPage: React.FC = () => {
 
   useEffect(() => {
     fetchFollowups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Fetch lead + master data
   useEffect(() => {
-   const fetchLead = async () => {
-  try {
-    setLoading(true);
-
-    // ensure we have presales users (resolve names from them if needed)
-    if (!presalesUsers || presalesUsers.length === 0) {
+    const fetchLead = async () => {
       try {
-        const resp = await usersAPI.getAllUsers?.();
-        setPreSalesUsers(resp?.data || []);
-      } catch (e) {
-        console.warn("Could not fetch presales users inside fetchLead:", e);
+        setLoading(true);
+
+        // ensure we have presales users (resolve names from them if needed)
+        if (!presalesUsers || presalesUsers.length === 0) {
+          try {
+            const resp = await usersAPI.getAllUsers?.();
+            setPreSalesUsers(resp?.data || []);
+          } catch (e) {
+            console.warn("Could not fetch presales users inside fetchLead:", e);
+          }
+        }
+
+        if (id) {
+          const [response, allLeadsResponse] = await Promise.all([leadsAPI.getLead(id), leadsAPI.getLeads()]);
+
+          if (allLeadsResponse?.success && allLeadsResponse.data) {
+            setAllLeads(allLeadsResponse.data);
+            const index = allLeadsResponse.data.findIndex((l: Lead) => l.id === id);
+            setCurrentLeadIndex(index >= 0 ? index : 0);
+          }
+
+          const data = response?.data ?? response;
+          if (!data) {
+            setError("No lead data returned");
+            return;
+          }
+
+          const resolveUserName = (userId: any) => {
+            if (!userId) return null;
+            const found = (presalesUsers || []).find(u => String(u.id) === String(userId) || String(u._id) === String(userId) || String(u.user_id) === String(userId));
+            return found?.name ?? found?.full_name ?? found?.displayName ?? null;
+          };
+
+          const execName = data.assigned_executive_name || resolveUserName(data.assigned_executive) || "Unassigned";
+
+          const createdByName =
+            data.created_by_name ||
+            resolveUserName(data.created_by) ||
+            `${data.created_first_name || data.createdByFirstName || ""} ${data.created_last_name || data.createdByLastName || ""}`.trim() ||
+            "System";
+
+          const updatedByName =
+            data.updated_by_name ||
+            resolveUserName(data.updated_by) ||
+            `${data.updated_first_name || data.updatedByFirstName || ""} ${data.updated_last_name || data.updatedByLastName || ""}`.trim() ||
+            "System";
+
+          const lastContactedByName =
+            data.last_contacted_by_name ||
+            resolveUserName(data.last_contacted_by) ||
+            data.updated_by_name ||
+            data.updated_by ||
+            null;
+
+          const leadData: Lead = {
+            id: data.id || data._id || "",
+            salutation: data.salutation || "",
+            name: data.name || "",
+            phone: data.phone || "",
+            email: data.email || "",
+            lead_type: data.lead_type || data.leadType || "",
+            lead_source: data.lead_source || data.leadSource || "",
+            whatsapp_number: data.whatsapp_number || data.whatsapp || "",
+            state: data.state || "",
+            city: data.city || "",
+            location: data.location || "",
+            status: data.status || "New",
+            assigned_executive: data.assigned_executive || "",
+            assigned_executive_name: execName,
+            created_at: data.created_at || new Date().toISOString(),
+            updated_at: data.updated_at || new Date().toISOString(),
+            priority: data.priority || " -",
+            stage: data.stage || "-",
+            created_by: data.created_by || data.createdBy || "System",
+            last_contact: data.last_contact || data.lastContact || "",
+            last_contacted_by: data.last_contacted_by || data.last_contact_by || data.lastContactedBy || "",
+            last_contacted_by_name: lastContactedByName,
+            created_by_name: createdByName,
+            updated_by_name: updatedByName,
+          };
+
+          setLead(leadData);
+        }
+      } catch (err) {
+        console.error("Error fetching lead details:", err);
+        setError("Failed to fetch lead details");
+      } finally {
+        setLoading(false);
       }
-    }
-
-    if (id) {
-      const [response, allLeadsResponse] = await Promise.all([
-        leadsAPI.getLead(id),
-        leadsAPI.getLeads(),
-      ]);
-
-      if (allLeadsResponse?.success && allLeadsResponse.data) {
-        setAllLeads(allLeadsResponse.data);
-        const index = allLeadsResponse.data.findIndex((l: Lead) => l.id === id);
-        setCurrentLeadIndex(index >= 0 ? index : 0);
-      }
-
-      // normalize response shape
-      const data = response?.data ?? response;
-      if (!data) {
-        setError("No lead data returned");
-        return;
-      }
-
-      // helper to resolve a user id -> name from presalesUsers (or fallback)
-      const resolveUserName = (userId: any) => {
-        if (!userId) return null;
-        const found = (presalesUsers || []).find(u => String(u.id) === String(userId) || String(u._id) === String(userId) || String(u.user_id) === String(userId));
-        return found?.name ?? found?.full_name ?? found?.displayName ?? null;
-      };
-
-      const execName =
-        data.assigned_executive_name ||
-        resolveUserName(data.assigned_executive) ||
-        "Unassigned";
-
-      const createdByName =
-        data.created_by_name ||
-        resolveUserName(data.created_by) ||
-        `${data.created_first_name || data.createdByFirstName || ""} ${data.created_last_name || data.createdByLastName || ""}`.trim() ||
-        "System";
-
-      const updatedByName =
-        data.updated_by_name ||
-        resolveUserName(data.updated_by) ||
-        `${data.updated_first_name || data.updatedByFirstName || ""} ${data.updated_last_name || data.updatedByLastName || ""}`.trim() ||
-        "System";
-
-      const lastContactedByName =
-        data.last_contacted_by_name ||
-        resolveUserName(data.last_contacted_by) ||
-        data.updated_by_name ||
-        data.updated_by ||
-        null;
-
-      const leadData: Lead = {
-        id: data.id || data._id || "",
-        salutation: data.salutation || "",
-        name: data.name || "",
-        phone: data.phone || "",
-        email: data.email || "",
-        lead_type: data.lead_type || data.leadType || "",
-        lead_source: data.lead_source || data.leadSource || "",
-        whatsapp_number: data.whatsapp_number || data.whatsapp || "",
-        state: data.state || "",
-        city: data.city || "",
-        location: data.location || "",
-        status: data.status || "New",
-        assigned_executive: data.assigned_executive || "",
-        assigned_executive_name: execName,
-        created_at: data.created_at || new Date().toISOString(),
-        updated_at: data.updated_at || new Date().toISOString(),
-        priority: data.priority || " -",
-        stage: data.stage || "-",
-        created_by: data.created_by || data.createdBy || "System",
-        last_contact: data.last_contact || data.lastContact || "",
-        last_contacted_by: data.last_contacted_by || data.last_contact_by || data.lastContactedBy || "",
-        last_contacted_by_name: lastContactedByName,
-        created_by_name: createdByName,
-        updated_by_name: updatedByName,
-      };
-
-      setLead(leadData);
-    }
-  } catch (err) {
-    console.error("Error fetching lead details:", err);
-    setError("Failed to fetch lead details");
-  } finally {
-    setLoading(false);
-  }
-};
+    };
 
     const initializeData = async () => {
       await Promise.all([fetchLead(), fetchMasterData()]);
@@ -422,8 +429,6 @@ const LeadDetailPage: React.FC = () => {
     initializeData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
-
-
 
   const fetchMasterData = async () => {
     try {
@@ -523,17 +528,38 @@ const LeadDetailPage: React.FC = () => {
   /* ===================== Helpers ===================== */
   const canAssignAgents = ["admin", "manager"].includes(currentUserRole);
 
-  const handleTransferToBuyer = () => {
-    if (lead) console.log("🟢 Transfer to Buyer clicked:", lead);
-    setShowBuyerComponent(true);
-    setShowTransferOptions(false);
+  const handleTransferToBuyer = async () => {
+    if (!lead?.id) return;
+    try {
+      setShowTransferOptions(false);
+      const allFollowups = await fetchFollowups(lead.id);
+      setShowBuyerComponent(true);
+      if (allFollowups && Array.isArray(allFollowups)) {
+        setFollowups(allFollowups);
+      }
+    } catch (err) {
+      console.error("Failed to load followups before transfer:", err);
+      toast.error("Unable to load follow-ups. Try again.");
+    }
   };
 
-  const handleTransferToSeller = () => {
-    if (lead) console.log("🔴 Transfer to Seller clicked:", lead);
-    setShowSellerComponent(true);
-    setShowTransferOptions(false);
+  const handleTransferToSeller = async () => {
+    if (!lead?.id) return;
+    try {
+      setShowTransferOptions(false);
+      // fetch the latest followups for this lead and update state
+      const allFollowups = await fetchFollowups(lead.id);
+      if (allFollowups && Array.isArray(allFollowups)) {
+        setFollowups(allFollowups);
+      }
+      // open seller modal
+      setShowSellerComponent(true);
+    } catch (err) {
+      console.error("Failed to load followups before transfer to seller:", err);
+      toast.error("Unable to load follow-ups. Try again.");
+    }
   };
+
 
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return { date: "-", time: "-" };
@@ -671,9 +697,6 @@ const LeadDetailPage: React.FC = () => {
     }
   };
 
-
-
-
   const handleCall = () => lead?.phone && window.open(`tel:${lead.phone}`, "_self");
   const handleWhatsApp = () =>
     lead?.whatsapp_number && window.open(`https://wa.me/${lead.whatsapp_number.replace(/\D/g, "")}`, "_blank");
@@ -726,9 +749,6 @@ const LeadDetailPage: React.FC = () => {
     }
   };
 
-
-
-  // Save handler used by FollowupModal for both create & edit
   // Save handler used by FollowupModal for both create & edit
   const handleFollowupSave = async (data: FollowupForm & { lead_id?: string }) => {
     if (!lead?.id) {
@@ -756,7 +776,6 @@ const LeadDetailPage: React.FC = () => {
       let response;
 
       if (editingFollowup) {
-        // ✅ Followup Update
         response = await followupAPI.updateFollowup(editingFollowup.id, {
           ...followupPayload,
           updated_by: user?.id,
@@ -764,7 +783,6 @@ const LeadDetailPage: React.FC = () => {
         toast.success("Follow-up updated successfully!");
         setEditingFollowup(null);
       } else {
-        // ✅ Followup Create
         response = await followupAPI.createFollowup({
           ...followupPayload,
           updated_by: user?.id,
@@ -774,7 +792,7 @@ const LeadDetailPage: React.FC = () => {
 
       console.log("✅ Followup API Response:", response);
 
-      // ✅ Lead bhi update hogi
+      // update lead
       await leadsAPI.updateLead(lead.id, {
         stage: data.leadStage,
         status: data.leadStatus,
@@ -782,7 +800,7 @@ const LeadDetailPage: React.FC = () => {
         updated_by: user?.id,
       });
 
-      // ✅ Local sync
+      // Local sync
       setLead((prev) =>
         prev
           ? { ...prev, stage: data.leadStage || prev.stage, status: data.leadStatus || prev.status, priority: data.priority }
@@ -791,7 +809,7 @@ const LeadDetailPage: React.FC = () => {
 
       setIsFollowupModalOpen(false);
 
-      // ✅ Followups refresh alag try/catch me
+      // Refresh followups
       try {
         await fetchFollowups();
       } catch (fetchErr) {
@@ -803,24 +821,11 @@ const LeadDetailPage: React.FC = () => {
     }
   };
 
-
-
   const formatDateShort = (iso?: string | null) => {
     if (!iso) return "-";
     const d = new Date(iso);
-
-    const date = d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-
-    const time = d.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-
+    const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
     return `${date} • ${time}`;
   };
 
@@ -861,12 +866,7 @@ const LeadDetailPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Retry
-          </button>
+          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Retry</button>
         </div>
       </div>
     );
@@ -904,49 +904,29 @@ const LeadDetailPage: React.FC = () => {
         {/* Main Lead Profile Card */}
         <div className="xl:col-span-2 bg-white rounded-xl lg:rounded-2xl shadow-lg lg:shadow-xl border border-gray-100 overflow-visible p-2">
           <div className="mb-4 flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-1 px-2 py-1 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors w-fit text-xs"
-            >
+            <button onClick={handleBack} className="flex items-center gap-1 px-2 py-1 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors w-fit text-xs">
               <FiArrowLeft className="h-3.5 w-3.5" />
               <span>Back to Leads</span>
             </button>
 
             <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2">
-              <button
-                onClick={handleEdit}
-                className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 transition-colors bg-white"
-              >
+              <button onClick={handleEdit} className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 transition-colors bg-white">
                 <FiEdit className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Edit</span>
               </button>
               {canDeleteLead(user) && (
-                <button
-                  onClick={handleDelete}
-                  className="flex items-center gap-1 px-2 py-1 text-xs border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors bg-white"
-                >
+                <button onClick={handleDelete} className="flex items-center gap-1 px-2 py-1 text-xs border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors bg-white">
                   <FiTrash2 className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Delete</span>
                 </button>
               )}
 
-
-              <button
-                onClick={handlePreviousLead}
-                disabled={currentLeadIndex <= 0}
-                className={`flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex <= 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
-                  }`}
-              >
+              <button onClick={handlePreviousLead} disabled={currentLeadIndex <= 0} className={`flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex <= 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"}`}>
                 <ArrowLeftToLine className="w-4 h-4" />
                 <span className="hidden sm:inline">Previous</span>
               </button>
 
-              <button
-                onClick={handleNextLead}
-                disabled={currentLeadIndex >= allLeads.length - 1}
-                className={`flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex >= allLeads.length - 1 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
-                  }`}
-              >
+              <button onClick={handleNextLead} disabled={currentLeadIndex >= allLeads.length - 1} className={`flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex >= allLeads.length - 1 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"}`}>
                 <span className="hidden sm:inline">Next</span>
                 <ArrowRightToLine className="w-4 h-4" />
               </button>
@@ -965,15 +945,9 @@ const LeadDetailPage: React.FC = () => {
                     {lead.salutation} {lead.name}
                   </h2>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <span className="text-xs sm:text-sm text-white text-opacity-80 truncate">
-                      Lead ID: {lead.id.slice(0, 4)}
-                    </span>
+                    <span className="text-xs sm:text-sm text-white text-opacity-80 truncate">Lead ID: {lead.id.slice(0, 4)}</span>
 
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-semibold border w-fit ${getLeadTypeColor(
-                        lead.lead_type || ""
-                      )}`}
-                    >
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border w-fit ${getLeadTypeColor(lead.lead_type || "")}`}>
                       {lead.lead_type}
                     </span>
                   </div>
@@ -982,27 +956,19 @@ const LeadDetailPage: React.FC = () => {
 
               <div className="flex flex-wrap items-center gap-2 justify-end">
                 {/* Follow Up Button */}
-                <button
-                  onClick={() => {
-                    setEditingFollowup(null); // ensure create mode
-                    setIsFollowupModalOpen(true);
-                  }}
-                  className="flex items-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2.5 py-1.5 rounded-md shadow text-xs"
-                >
+                <button onClick={() => { setEditingFollowup(null); setIsFollowupModalOpen(true); }} className="flex items-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2.5 py-1.5 rounded-md shadow text-xs">
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Follow Up</span>
                 </button>
 
                 {/* Assign Executive dropdown */}
                 <div className="relative">
-                  <button
-                    onClick={() => setShowExecDropdown(!showExecDropdown)}
-                    className="flex items-center justify-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2.5 py-1.5 rounded-md shadow text-xs"
-                    title="Assign Lead"
-                  >
+                  <button onClick={() => setShowExecDropdown(!showExecDropdown)} className="flex items-center justify-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2.5 py-1.5 rounded-md shadow text-xs" title="Assign Lead">
                     <UserPlus className="w-3.5 h-3.5" />
                     <ChevronDown className="w-2.5 h-2.5" />
                   </button>
+
+
 
                   {showExecDropdown && (
                     <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border z-10 text-xs">
@@ -1012,26 +978,30 @@ const LeadDetailPage: React.FC = () => {
                         </div>
 
                         {(() => {
-                          const execs = getAssignableExecutives(user, presalesUsers);
+                          // Use getAssignableExecutives instead of presalesUsers directly
+                          const assignableExecs = getAssignableExecutives(user, presalesUsers);
 
-                          if (execs.length === 0) {
+                          if (assignableExecs.length === 0) {
                             return (
                               <div className="px-2 py-2 text-xs text-gray-500">
-                                <div>No executives</div>
+                                <div>No executives available</div>
                               </div>
                             );
                           }
 
-                          return execs.map((exec: any) => (
+                          return assignableExecs.map((exec: any) => (
                             <button
                               key={exec.id}
                               onClick={() => handleExecAssign(exec.id, exec.name)}
                               className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${lead.assigned_executive === exec.id
-                                ? "bg-blue-50 text-blue-600 font-medium"
-                                : "text-gray-800"
+                                  ? "bg-blue-50 text-blue-600 font-medium"
+                                  : "text-gray-800"
                                 }`}
                             >
                               {exec.name}
+                              {exec.selfOnly && (
+                                <span className="text-[10px] text-gray-400 ml-1">(Self)</span>
+                              )}
                             </button>
                           ));
                         })()}
@@ -1040,40 +1010,12 @@ const LeadDetailPage: React.FC = () => {
                   )}
                 </div>
 
-
                 {/* Communication Buttons */}
                 <div className="flex gap-2">
-                  <button
-                    onClick={handleCall}
-                    className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition shadow"
-                    title="Call"
-                  >
-                    <Phone className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={handleWhatsApp}
-                    className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-md transition shadow"
-                    title="WhatsApp"
-                  >
-                    <FaWhatsapp className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={handleEmail}
-                    className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition shadow"
-                    title="Email"
-                  >
-                    <Mail className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={handleScheduleMeeting}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-md transition shadow"
-                    title="Schedule Meeting"
-                  >
-                    <Calendar className="w-4 h-4" />
-                  </button>
+                  <button onClick={handleCall} className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition shadow" title="Call"><Phone className="w-4 h-4" /></button>
+                  <button onClick={handleWhatsApp} className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-md transition shadow" title="WhatsApp"><FaWhatsapp className="w-4 h-4" /></button>
+                  <button onClick={handleEmail} className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition shadow" title="Email"><Mail className="w-4 h-4" /></button>
+                  <button onClick={handleScheduleMeeting} className="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-md transition shadow" title="Schedule Meeting"><Calendar className="w-4 h-4" /></button>
                 </div>
               </div>
             </div>
@@ -1084,7 +1026,7 @@ const LeadDetailPage: React.FC = () => {
             {/* Contact & Location Details */}
             <div className="flex flex-col md:flex-row gap-6 items-start">
               {/* Contact Details */}
-              <div className="w/full md:w-auto">
+              <div className="w-full md:w-auto">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Contact Details</h3>
                 <div className="p-4 bg-gray-50 rounded-lg space-y-4 w-full md:w-fit">
                   <div className="flex items-center space-x-3">
@@ -1112,7 +1054,7 @@ const LeadDetailPage: React.FC = () => {
               </div>
 
               {/* Location Details */}
-              <div className="w/full md:w-auto">
+              <div className="w-full md:w-auto">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Location Details</h3>
                 <div className="p-4 bg-gray-50 rounded-lg space-y-4 w-full md:w-fit">
                   <div className="flex items-center space-x-3">
@@ -1147,35 +1089,20 @@ const LeadDetailPage: React.FC = () => {
                 <div className="flex flex-wrap gap-3">
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-500">Source:</span>
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-                      {lead.lead_source}
-                    </span>
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">{lead.lead_source}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-500">Priority:</span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(
-                        lead.priority || ""
-                      )}`}
-                    >
-                      {lead.priority || "-"}
-                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(lead.priority || "")}`}>{lead.priority || "-"}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-500">Stage:</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStageColor(lead.stage || "")}`}>
-                      {lead.stage || "-"}
-                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStageColor(lead.stage || "")}`}>{lead.stage || "-"}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-500">Status:</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(lead.status)}`}>
-                      {lead.status}
-                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(lead.status)}`}>{lead.status}</span>
                   </div>
-
-
-
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 sm:flex sm:flex-wrap">
@@ -1196,7 +1123,6 @@ const LeadDetailPage: React.FC = () => {
                     </div>
                   </div>
 
-
                   {/* created_by_name */}
                   <div className="p-1 bg-gray-50 rounded-md">
                     <p className="text-[10px] text-gray-400 uppercase tracking-wide">Created By</p>
@@ -1206,22 +1132,15 @@ const LeadDetailPage: React.FC = () => {
                     <p className="text-[11px] text-gray-700">{lead.updated_by_name || "System"}</p>
                   </div>
 
-
                   {/* Last Contact */}
                   <div className="flex items-start space-x-2 p-2 bg-gray-50 rounded-lg">
                     <Clock className="w-4 h-4 text-gray-600 mt-1 flex-shrink-0" />
                     <div>
                       <p className="text-xs text-gray-500 uppercase tracking-wide">Last Contact</p>
-                      <p className="text-xs font-medium text-gray-800">
-                        {lastContactDate} {lastContactTime}
-                      </p>
-                     <div className="text-xs text-gray-500 mt-1">
-  By: {lead.last_contacted_by_name || lead.last_contacted_by || lead.updated_by_name || lead.created_by_name || "-"}
-</div>
-
+                      <p className="text-xs font-medium text-gray-800">{lastContactDate} {lastContactTime}</p>
+                      <div className="text-xs text-gray-500 mt-1">By: {lead.last_contacted_by_name || lead.last_contacted_by || lead.updated_by_name || lead.created_by_name || "-"}</div>
                     </div>
                   </div>
-
 
                   {/* Assigned To */}
                   <div className="flex items-start space-x-2 p-2 bg-green-50 rounded-lg border border-green-200">
@@ -1235,34 +1154,19 @@ const LeadDetailPage: React.FC = () => {
                   {/* Transfer Options */}
                   <div className="relative inline-block" ref={dropdownRef}>
                     {shouldShowTransfer(lead, latestFollowup) && (
-                      <button
-                        onClick={() => setShowTransferOptions(!showTransferOptions)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md shadow hover:bg-blue-700"
-                      >
+                      <button onClick={() => setShowTransferOptions(!showTransferOptions)} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md shadow hover:bg-blue-700">
                         <HiArrowsRightLeft className="w-4 h-4" />
                         Transfer Lead
                       </button>
                     )}
 
                     {showTransferOptions && (
-                      <div className="absolute top-0 left-full ml-2 w-40  rounded z-[9999]">
-                        <button
-                          className="px-2 py-1 text-white text-xs rounded bg-green-500 hover:bg-green-600"
-                          onClick={handleTransferToBuyer}
-                        >
-                          Transfer to Buyer
-                        </button>
-                        <button
-                          className="px-2 py-1 text-white text-xs rounded bg-red-500 hover:bg-red-600"
-                          onClick={handleTransferToSeller}
-                        >
-                          Transfer to Seller
-                        </button>
+                      <div className="absolute top-0 left-full ml-2 w-40 rounded z-[9999]">
+                        <button className="px-2 py-1 text-white text-xs rounded bg-green-500 hover:bg-green-600" onClick={handleTransferToBuyer}>Transfer to Buyer</button>
+                        <button className="px-2 py-1 text-white text-xs rounded bg-red-500 hover:bg-red-600" onClick={handleTransferToSeller}>Transfer to Seller</button>
                       </div>
                     )}
-
                   </div>
-
                 </div>
               </div>
             </div>
@@ -1276,18 +1180,11 @@ const LeadDetailPage: React.FC = () => {
             <div className="flex gap-2"></div>
           </div>
 
-          {/* States */}
-          {followupsLoading && (
-            <div className="text-xs text-gray-500">Loading follow-ups…</div>
-          )}
+          {followupsLoading && (<div className="text-xs text-gray-500">Loading follow-ups…</div>)}
 
-          {!followupsLoading && !id && (
-            <div className="text-xs text-gray-500">No follow-up data — invalid lead.</div>
-          )}
+          {!followupsLoading && !id && (<div className="text-xs text-gray-500">No follow-up data — invalid lead.</div>)}
 
-          {!followupsLoading && id && followupsError && (
-            <div className="text-xs text-red-600">{followupsError}</div>
-          )}
+          {!followupsLoading && id && followupsError && (<div className="text-xs text-red-600">{followupsError}</div>)}
 
           {!followupsLoading && id && !followupsError && followups.length === 0 && (
             <div className="flex flex-col items-center justify-center text-gray-500 py-8 px-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
@@ -1296,105 +1193,51 @@ const LeadDetailPage: React.FC = () => {
             </div>
           )}
 
-
           {!followupsLoading && !followupsError && followups.length > 0 && (
-            <div
-              className="space-y-3 overflow-y-auto"
-              style={{ maxHeight: "calc(100vh - 250px)" }}
-            >
+            <div className="space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 250px)" }}>
               {followups.map((f) => {
                 const Ico = typeIcon(f.type);
                 const scheduledLabel = formatDateShort(f.scheduledDate || f.createdAt || "");
                 const color = followupCardClasses(f.type);
 
                 return (
-                  <div
-                    key={f.id}
-                    className={`border rounded-lg p-3 transition ${color.container} border-l-4 ${color.leftBar}`}
-                  >
+                  <div key={f.id} className={`border rounded-lg p-3 transition ${color.container} border-l-4 ${color.leftBar}`}>
                     <div className="flex gap-3">
-                      {/* Icon */}
-                      <div className="flex-shrink-0">
-                        <Ico className={`h-5 w-5 ${color.icon}`} />
-                      </div>
+                      <div className="flex-shrink-0"><Ico className={`h-5 w-5 ${color.icon}`} /></div>
 
-                      {/* Content */}
                       <div className="flex-1 space-y-2 text-xs">
-                        {/* Row 1 → Type + Actions */}
                         <div className="flex items-center justify-between">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${color.badge}`}
-                          >
-                            {f.type}
-                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${color.badge}`}>{f.type}</span>
 
                           <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleEditFollowups(f)}
-                              className="p-1 rounded hover:bg-gray-200 transition"
-                              title="Edit"
-                            >
-                              <Pencil className="h-3.5 w-3.5 text-gray-600" />
-                            </button>
+                            <button onClick={() => handleEditFollowups(f)} className="p-1 rounded hover:bg-gray-200 transition" title="Edit"><Pencil className="h-3.5 w-3.5 text-gray-600" /></button>
 
                             {currentUserRole === "admin" && (
-                              <button
-                                onClick={() => handleDeleteFollowups(f.id)}
-                                className="p-1 rounded hover:bg-red-100 transition"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                              </button>
+                              <button onClick={() => handleDeleteFollowups(f.id)} className="p-1 rounded hover:bg-red-100 transition" title="Delete"><Trash2 className="h-3.5 w-3.5 text-red-600" /></button>
                             )}
                           </div>
                         </div>
 
-                        {/* Row 2 → Priority + Status + Stage */}
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-gray-600">Lead Priority:</span>
                           {(f.priority || lead.priority) && (
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${getPriorityColor(
-                                f.priority || lead.priority
-                              )}`}
-                            >
-                              {f.priority || lead.priority}
-                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${getPriorityColor(f.priority || lead.priority)}`}>{f.priority || lead.priority}</span>
                           )}
 
                           <span className="font-medium text-gray-600">Lead Stage:</span>
-                          {f.stage && (
-                            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-white/70 text-gray-800 border border-gray-200">
-                              {f.stage}
-                            </span>
-                          )}
+                          {f.stage && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-white/70 text-gray-800 border border-gray-200">{f.stage}</span>}
 
                           <span className="font-medium text-gray-600">Lead Status:</span>
-                          {f.status && (
-                            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-white/70 text-gray-800 border border-gray-200">
-                              {f.status}
-                            </span>
-                          )}
+                          {f.status && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-white/70 text-gray-800 border border-gray-200">{f.status}</span>}
                         </div>
 
-                        {/* Row 3 → Remark + Next Action */}
-                        <div className="text-gray-700">
-                          <span className="font-medium">Remark:</span> {f.customRemark || f.remark || "—"}
-                        </div>
-                        {f.nextAction && (
-                          <div className="text-gray-700">
-                            <span className="font-medium">Next Action:</span> {f.nextAction}
-                          </div>
-                        )}
+                        <div className="text-gray-700"><span className="font-medium">Remark:</span> {f.customRemark || f.remark || "—"}</div>
+                        {f.nextAction && <div className="text-gray-700"><span className="font-medium">Next Action:</span> {f.nextAction}</div>}
 
-                        {/* Bottom Right → Date + User */}
                         <div className="mt-2 flex justify-end text-gray-500">
                           <div className="flex items-center gap-2">
                             <div>{scheduledLabel}</div>
-                            <div className="flex items-center gap-1">
-                              <User className="h-3 w-3 text-gray-400" />
-                              {`${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || "System"}
-                            </div>
+                            <div className="flex items-center gap-1"><User className="h-3 w-3 text-gray-400" />{`${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || "System"}</div>
                           </div>
                         </div>
                       </div>
@@ -1403,7 +1246,6 @@ const LeadDetailPage: React.FC = () => {
                   </div>
                 );
               })}
-
             </div>
           )}
         </div>
@@ -1426,35 +1268,24 @@ const LeadDetailPage: React.FC = () => {
               remark: editingFollowup.remark || "",
               customRemark: editingFollowup.customRemark || "",
               nextAction: editingFollowup.nextAction || "",
-              scheduleDate: editingFollowup.scheduledDate
-                ? new Date(editingFollowup.scheduledDate).toISOString().slice(0, 10)
-                : "",
-              scheduleTime: editingFollowup.scheduledDate
-                ? new Date(editingFollowup.scheduledDate).toTimeString().slice(0, 5)
-                : "",
-              priority: editingFollowup.priority || lead.priority || "Medium", // 👈 यहाँ से lead की priority पास करो
+              scheduleDate: editingFollowup.scheduledDate ? new Date(editingFollowup.scheduledDate).toISOString().slice(0, 10) : "",
+              scheduleTime: editingFollowup.scheduledDate ? new Date(editingFollowup.scheduledDate).toTimeString().slice(0, 5) : "",
+              priority: editingFollowup.priority || lead.priority || "Medium",
               lead_id: leadId,
             }
-            : { priority: lead.priority || "Medium" } // 👈 नया followup → lead.priority default हो
+            : { priority: lead.priority || "Medium" }
         }
       />
 
-
-      {/* Transfer Modals */}
       {showBuyerComponent && lead && (
-        <BuyerFormModal lead={lead} onClose={() => setShowBuyerComponent(false)} />
+        <BuyerFormModal lead={lead} followups={followups} onClose={() => setShowBuyerComponent(false)} />
       )}
+
       {showSellerComponent && lead && (
-        <SellerFormModal lead={lead} onClose={() => setShowSellerComponent(false)} />
+        <SellerFormModal lead={lead} followups={followups} onClose={() => setShowSellerComponent(false)} />
       )}
 
-      <AddLeadModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onSave={handleSaveLead}
-        lead={lead || undefined}
-      />
-
+      <AddLeadModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSave={handleSaveLead} lead={lead || undefined} />
     </div>
   );
 };
