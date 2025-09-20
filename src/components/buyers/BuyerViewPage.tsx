@@ -53,6 +53,7 @@ import LoanApplicationModal from './LoanApplicationModal';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import PropertyDetailsShareModal from '../properties/PropertyDetailsShareModal';
 import BuyerFollowupModal from './BuyerFollowupModal';
+import { buyerFollowupAPI } from '@/lib/buyerFollowupAPI';
 
 const BuyerViewPage = ({
   buyer,
@@ -1656,17 +1657,21 @@ const ActivitiesTab = ({ buyer, onAddActivity, onEditActivity }: any) => {
   );
 };
 
-// Follow-ups Tab Component
-const FollowupsTab = ({ buyer, onAddFollowup, onEditFollowup }: any) => {
-  const getFollowupStatusBadge = (status: string) => {
-    const statusConfig = {
-      'pending': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Pending', icon: '⏳' },
-      'scheduled': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Scheduled', icon: '📅' },
-      'completed': { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed', icon: '✅' },
-      'cancelled': { bg: 'bg-red-100', text: 'text-red-700', label: 'Cancelled', icon: '❌' }
-    };
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+
+const FollowupsTab = ({ buyer, onAddFollowup, onEditFollowup }: any) => {
+  const [followups, setFollowups] = useState<any[]>(buyer?.followups ?? []);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const getFollowupStatusBadge = (status: string) => {
+    const statusConfig: any = {
+      pending: { bg: "bg-orange-100", text: "text-orange-700", label: "Pending", icon: "⏳" },
+      scheduled: { bg: "bg-blue-100", text: "text-blue-700", label: "Scheduled", icon: "📅" },
+      completed: { bg: "bg-green-100", text: "text-green-700", label: "Completed", icon: "✅" },
+      cancelled: { bg: "bg-red-100", text: "text-red-700", label: "Cancelled", icon: "❌" },
+    };
+    const config = status ? statusConfig[status] ?? statusConfig.pending : statusConfig.pending;
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
         {config.icon} {config.label}
@@ -1676,12 +1681,66 @@ const FollowupsTab = ({ buyer, onAddFollowup, onEditFollowup }: any) => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'border-l-red-500 bg-red-50';
-      case 'medium': return 'border-l-yellow-500 bg-yellow-50';
-      case 'low': return 'border-l-green-500 bg-green-50';
-      default: return 'border-l-gray-500 bg-gray-50';
+      case "high": return "border-l-red-500 bg-red-50";
+      case "medium": return "border-l-yellow-500 bg-yellow-50";
+      case "low": return "border-l-green-500 bg-green-50";
+      default: return "border-l-gray-500 bg-gray-50";
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    const buyerId = buyer?.id ?? buyer?.buyerId ?? null;
+    if (!buyerId) {
+      setFollowups(mapAndNormalize(buyer?.followups ?? []));
+      return;
+    }
+
+    const fetchForBuyer = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await buyerFollowupAPI.getAll({ buyerId, page: 1, limit: 200 });
+        // unwrap common shapes
+        const raw = res?.data ?? res ?? (res?.success ? res.data : undefined);
+        // raw may already be [] or an object containing `data`
+        const list = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : (res?.data?.data ?? []);
+        if (!cancelled && Array.isArray(list) && list.length > 0) {
+          setFollowups(mapAndNormalize(list));
+        } else if (!cancelled) {
+          setFollowups(mapAndNormalize(buyer?.followups ?? []));
+        }
+      } catch (err: any) {
+        console.warn("Error fetching followups by buyerId:", err);
+        if (!cancelled) {
+          setError(err?.message ?? String(err));
+          setFollowups(mapAndNormalize(buyer?.followups ?? []));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchForBuyer();
+    return () => { cancelled = true; };
+  }, [buyer?.id, buyer?.buyerId, buyer?.followups]);
+
+  // normalizes backend fields to the UI's expected fields
+  const mapAndNormalize = (arr: any[]) =>
+    (arr || []).map((f: any) => ({
+      // use id if present, otherwise followupId, otherwise generate key
+      id: f.id ?? f.followupId ?? f._id ?? `${f.buyerId ?? "b"}-${Math.random().toString(36).slice(2, 8)}`,
+      description: f.description ?? f.remark ?? f.customRemark ?? f.title ?? "Follow-up",
+      status: f.status ?? f.buyerLeadStatus ?? f.leadStatus ?? "pending",
+      date: f.date ?? f.scheduleDate ?? f.createdAt ?? null,
+      time: f.time ?? f.scheduleTime ?? null,
+      priority: f.priority ?? "Medium",
+      assignedTo: f.assignedTo ?? f.assignee ?? f.createdBy ?? null,
+      type: f.type ?? f.followupType ?? null,
+      notes: f.notes ?? f.note ?? f.remark ?? f.customRemark ?? null,
+      reminder: f.reminder ?? false,
+      raw: f,
+    }));
 
   return (
     <div className="space-y-4">
@@ -1696,89 +1755,90 @@ const FollowupsTab = ({ buyer, onAddFollowup, onEditFollowup }: any) => {
         </button>
       </div>
 
-      {buyer.followups?.length > 0 ? (
+      {loading ? (
+        <p className="text-xs text-gray-500">Loading followups...</p>
+      ) : error ? (
+        <div className="bg-red-50 p-3 rounded text-xs text-red-700">Failed to load followups: {error}</div>
+      ) : followups && followups.length > 0 ? (
         <div className="space-y-3">
-          {buyer.followups.map((followup: any) => (
-            <div
-              key={followup.id}
-              className={`border-l-4 rounded-lg p-3 ${getPriorityColor(followup.priority)}`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <h4 className="font-semibold text-gray-900 text-xs">{followup.description}</h4>
-                  {getFollowupStatusBadge(followup.status)}
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${followup.priority === "high"
-                      ? "bg-red-100 text-red-700"
-                      : followup.priority === "medium"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-green-100 text-green-700"
-                      }`}
-                  >
-                    {followup.priority} priority
-                  </span>
+          {followups.map((followup: any, idx: number) => {
+            const key = followup.id ?? `${idx}-${(followup.description ?? "followup").slice(0, 20)}`;
+            return (
+              <div key={key} className={`border-l-4 rounded-lg p-3 ${getPriorityColor(followup.priority)}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <h4 className="font-semibold text-gray-900 text-xs">{followup.description}</h4>
+                    {getFollowupStatusBadge(followup.status)}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${followup.priority === "high" ? "bg-red-100 text-red-700" : followup.priority === "medium" ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>
+                      {followup.priority ?? "normal"} priority
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] text-gray-500">
+                      {followup.date ? prettyDate(followup.date) : "—"} {followup.time ? `• ${followup.time}` : ""}
+                    </span>
+                    <button onClick={() => onEditFollowup(followup.raw ?? followup)} className="p-1 text-purple-600 hover:bg-purple-100 rounded">
+                      <Edit size={12} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-[10px] text-gray-500">
-                    {followup.date} • {followup.time}
-                  </span>
-                  <button
-                    onClick={() => onEditFollowup(followup)}
-                    className="p-1 text-purple-600 hover:bg-purple-100 rounded"
-                  >
-                    <Edit size={12} />
-                  </button>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                  <div>
+                    <span className="text-gray-500">Assigned:</span>
+                    <span className="font-medium ml-1">{followup.assignedTo ?? "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Type:</span>
+                    <span className="font-medium ml-1">{followup.type ?? "—"}</span>
+                  </div>
                 </div>
+
+                {followup.notes && (
+                  <div className="mt-2">
+                    <span className="text-gray-500 text-[11px]">Notes:</span>
+                    <p className="text-gray-700 mt-1 text-xs">{followup.notes}</p>
+                  </div>
+                )}
+
+                {followup.reminder && (
+                  <div className="mt-2 flex items-center space-x-1 text-[11px]">
+                    <Bell className="text-purple-600" size={12} />
+                    <span className="text-purple-700 font-medium">Reminder set</span>
+                  </div>
+                )}
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
-                <div>
-                  <span className="text-gray-500">Assigned:</span>
-                  <span className="font-medium ml-1">{followup.assignedTo}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">Type:</span>
-                  <span className="font-medium ml-1">{followup.type}</span>
-                </div>
-              </div>
-
-              {followup.notes && (
-                <div className="mt-2">
-                  <span className="text-gray-500 text-[11px]">Notes:</span>
-                  <p className="text-gray-700 mt-1 text-xs">{followup.notes}</p>
-                </div>
-              )}
-
-              {followup.reminder && (
-                <div className="mt-2 flex items-center space-x-1 text-[11px]">
-                  <Bell className="text-purple-600" size={12} />
-                  <span className="text-purple-700 font-medium">Reminder set</span>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
           <Calendar className="mx-auto text-gray-300 mb-3" size={40} />
-          <h3 className="text-xs font-semibold text-gray-900 mb-1">
-            No Follow-ups Scheduled
-          </h3>
-          <p className="text-gray-500 text-xs mb-4">
-            Schedule follow-ups to maintain buyer engagement
-          </p>
-          <button
-            onClick={onAddFollowup}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs"
-          >
+          <h3 className="text-xs font-semibold text-gray-900 mb-1">No Follow-ups Scheduled</h3>
+          <p className="text-gray-500 text-xs mb-4">Schedule follow-ups to maintain buyer engagement</p>
+          <button onClick={onAddFollowup} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs">
             Schedule First Follow-up
           </button>
         </div>
       )}
     </div>
-
   );
 };
+
+// small helper to format ISO date-ish strings into readable date
+function prettyDate(raw?: string | null) {
+  if (!raw) return "";
+  try {
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return String(raw).slice(0, 16);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  } catch {
+    return String(raw);
+  }
+}
+
+
 
 const DocumentsTab = ({ buyer }: any) => {
   const documentCategories = [

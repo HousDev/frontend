@@ -25,6 +25,7 @@ import { toast } from "react-toastify";
 import { leadsAPI, usersAPI } from "@/lib/api";
 import { masterDataAPI } from "@/lib/mastersAPI";
 import { followupAPI } from "@/lib/followupAPI";
+import { notificationAPI } from "@/lib/notificationAPI"; // ✅ Import notification API
 
 import FollowupModal, { FOLLOWUP_TYPES, FollowupForm } from "@/pages/dashboard/components/FollowupModal";
 import BuyerFormModal from "./components/BuyerFormModal";
@@ -176,15 +177,47 @@ const LeadDetailPage: React.FC = () => {
     })();
   }, []);
 
+  // ✅ Fixed handleExecAssign with proper notification support
   const handleExecAssign = async (execId: string, execName: string) => {
     if (!lead) return;
+    
     try {
+      const previousExec = lead.assigned_executive;
+      
+      // Update local state first for immediate UI feedback
       setLead({ ...lead, assigned_executive: execId, assigned_executive_name: execName });
       setShowExecDropdown(false);
+      
+      // Call API to update assignment
       await leadsAPI.assignToExecutive(lead.id, { assigned_executive: execId });
+      
+      // ✅ Send notification if executive is being assigned (not unassigned) and it's a different executive
+      if (execId && execId.trim() !== "" && execId !== previousExec) {
+        try {
+          await notificationAPI.createNotification({
+            leadId: String(lead.id), // ✅ Convert to string
+            userId: String(execId),   // ✅ Convert to string
+            message: `Lead assigned to ${execName}`,
+            type: "lead_assign",
+            link: `/dashboard/leads/${lead.id}`,
+          });
+          
+          console.log("✅ Assignment notification sent to executive:", execName);
+        } catch (notifErr) {
+          console.error("Failed to send notification:", notifErr);
+          console.error("Notification error details:", notifErr?.response?.data || notifErr?.message);
+          // Don't fail the assignment for notification error
+          toast.warn("Lead assigned but notification failed to send");
+        }
+      }
+      
       toast.success(`Lead assigned to ${execName}`);
     } catch (err) {
       console.error("Error assigning executive:", err);
+      // Revert local state on error
+      if (lead) {
+        setLead({ ...lead, assigned_executive: lead.assigned_executive, assigned_executive_name: lead.assigned_executive_name });
+      }
       toast.error("Failed to assign. Please try again.");
     }
   };
@@ -684,15 +717,47 @@ const LeadDetailPage: React.FC = () => {
     navigate(`/dashboard/leads/${nextLead.id}`);
   };
 
+  // ✅ Fixed handleAgentAssign with proper notification support  
   const handleAgentAssign = async (agentId: string, agentName: string) => {
     if (!lead) return;
+    
     try {
+      const previousAgent = lead.assigned_executive;
+      
+      // Update local state first for immediate UI feedback
       setLead({ ...lead, assigned_executive: agentId, assigned_executive_name: agentName });
       setShowAgentDropdown(false);
+      
+      // Call API to update assignment
       await leadsAPI.updateLead(lead.id, { assigned_executive: agentId });
+      
+      // ✅ Send notification if agent is being assigned (not unassigned) and it's a different agent
+      if (agentId && agentId.trim() !== "" && agentId !== previousAgent) {
+        try {
+          await notificationAPI.createNotification({
+            leadId: String(lead.id), // ✅ Convert to string
+            userId: String(agentId),  // ✅ Convert to string
+            message: `Lead assigned to ${agentName}`,
+            type: "lead_assign",
+            link: `/dashboard/leads/${lead.id}`,
+          });
+          
+          console.log("✅ Agent assignment notification sent to:", agentName);
+        } catch (notifErr) {
+          console.error("Failed to send agent notification:", notifErr);
+          console.error("Agent notification error details:", notifErr?.response?.data || notifErr?.message);
+          // Don't fail the assignment for notification error
+          toast.warn("Agent assigned but notification failed to send");
+        }
+      }
+      
       toast.success(`Lead assigned to ${agentName}`);
     } catch (error) {
       console.error("Error assigning agent:", error);
+      // Revert local state on error
+      if (lead) {
+        setLead({ ...lead, assigned_executive: lead.assigned_executive, assigned_executive_name: lead.assigned_executive_name });
+      }
       toast.error("Failed to assign agent. Please try again.");
     }
   };
@@ -732,14 +797,41 @@ const LeadDetailPage: React.FC = () => {
     }
   };
 
+  // ✅ Enhanced handleSaveLead with notification support for assignment changes
   const handleSaveLead = async (updatedLead: Lead | null) => {
     if (!updatedLead) return;
+    
     try {
+      const previousExec = lead?.assigned_executive;
+      const newExec = updatedLead.assigned_executive;
+      
       const response = await leadsAPI.updateLead(updatedLead.id!, updatedLead);
       const savedLead = response?.data || response;
 
       setLead((prev) => ({ ...prev, ...savedLead }));
       setAllLeads((prev) => prev.map((l) => (l.id === savedLead.id ? { ...l, ...savedLead } : l)));
+
+      // ✅ Send notification if executive assignment changed
+      if (newExec && newExec !== previousExec && newExec.trim() !== "") {
+        try {
+          const exec = presalesUsers.find(u => String(u.id) === String(newExec));
+          const execName = exec?.name || savedLead.assigned_executive_name || "Executive";
+          
+          await notificationAPI.createNotification({
+            leadId: String(updatedLead.id), // ✅ Convert to string
+            userId: String(newExec),        // ✅ Convert to string
+            message: `Lead updated and assigned to ${execName}`,
+            type: "lead_update",
+            link: `/dashboard/leads/${updatedLead.id}`,
+          });
+          
+          console.log("✅ Lead update notification sent to executive:", execName);
+        } catch (notifErr) {
+          console.error("Failed to send lead update notification:", notifErr);
+          console.error("Update notification error details:", notifErr?.response?.data || notifErr?.message);
+          // Don't fail the update for notification error
+        }
+      }
 
       setIsEditModalOpen(false);
       toast.success("Lead details updated successfully!");
@@ -749,7 +841,7 @@ const LeadDetailPage: React.FC = () => {
     }
   };
 
-  // Save handler used by FollowupModal for both create & edit
+  // ✅ Enhanced Save handler for followups with notification support
   const handleFollowupSave = async (data: FollowupForm & { lead_id?: string }) => {
     if (!lead?.id) {
       toast.error("Lead not loaded.");
@@ -799,6 +891,28 @@ const LeadDetailPage: React.FC = () => {
         priority: data.priority,
         updated_by: user?.id,
       });
+
+      // ✅ Send notification to assigned executive about followup
+      if (lead.assigned_executive && lead.assigned_executive.trim() !== "") {
+        try {
+          const exec = presalesUsers.find(u => String(u.id) === String(lead.assigned_executive));
+          const execName = exec?.name || lead.assigned_executive_name || "Executive";
+          
+          await notificationAPI.createNotification({
+            leadId: String(lead.id), // ✅ Convert to string
+            userId: String(lead.assigned_executive), // ✅ Convert to string
+            message: `New follow-up added for lead "${lead.name}" by ${user?.name || 'User'}`,
+            type: "followup_add",
+            link: `/dashboard/leads/${lead.id}`,
+          });
+          
+          console.log("✅ Followup notification sent to executive:", execName);
+        } catch (notifErr) {
+          console.error("Failed to send followup notification:", notifErr);
+          console.error("Followup notification error details:", notifErr?.response?.data || notifErr?.message);
+          // Don't fail the followup for notification error
+        }
+      }
 
       // Local sync
       setLead((prev) =>
@@ -968,8 +1082,6 @@ const LeadDetailPage: React.FC = () => {
                     <ChevronDown className="w-2.5 h-2.5" />
                   </button>
 
-
-
                   {showExecDropdown && (
                     <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border z-10 text-xs">
                       <div className="p-2">
@@ -992,8 +1104,8 @@ const LeadDetailPage: React.FC = () => {
                           return assignableExecs.map((exec: any) => (
                             <button
                               key={exec.id}
-                              onClick={() => handleExecAssign(exec.id, exec.name)}
-                              className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${lead.assigned_executive === exec.id
+                              onClick={() => handleExecAssign(String(exec.id), exec.name)} // ✅ Ensure string conversion
+                              className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${lead.assigned_executive === String(exec.id)
                                   ? "bg-blue-50 text-blue-600 font-medium"
                                   : "text-gray-800"
                                 }`}
