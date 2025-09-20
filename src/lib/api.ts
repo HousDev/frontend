@@ -5,7 +5,7 @@ import axios, { AxiosRequestHeaders } from 'axios';
 // const API_BASE_URL = 'http://localhost:3000/api/';
 
 // Vite: use import.meta.env
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://investordeal.in/';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://localhost:3000/api/';
 
 // Create axios instance
 export const api = axios.create({
@@ -440,4 +440,3 @@ export const apiClient = {
   },
 };
 export default api;
-
