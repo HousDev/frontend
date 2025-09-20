@@ -1,401 +1,267 @@
-// src/components/PriceRangeSelector.tsx
 import React, { useEffect, useRef, useState } from "react";
 
 interface PriceRangeSelectorProps {
-  /**
-   * initialMin / initialMax are expected to be in CRORES.
-   * Example: 0.85 means 0.85 Cr (i.e. 8.5 Lacs).
-   */
-  initialMin?: number; // in Crores (e.g. 0.32 means 32 L)
-  initialMax?: number; // in Crores
-  max?: number; // upper bound in Crores (logical max for data, but visual slider cap is sliderLimit)
-  /**
-   * onChange payload:
-   * - min, max: numeric RUPEES (integers) — ready to send to backend/db
-   * - readable: human-friendly string (e.g. "₹0.85Cr - ₹2.00Cr")
-   */
-  onChange?: (payload: { min: number; max: number; readable: string }) => void;
-  className?: string;
-  sliderLimit?: number; // visual slider cap (default 6)
-  collisionThresholdPercent?: number; // optional tweak for when labels "collide"
+    initialMax?: number; // in Crores (e.g. 0.5 means 50L)
+    max?: number; // max in Crores (default 5)
+    onChange?: (payload: { min: number; max: number; readable: string }) => void;
+    className?: string;
+    sliderLimit?: number; // visual slider cap (default 5)
 }
 
+const CRORE_TO_RUPEE = 10_000_000;
+
+const currencyFormatter = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+});
+
 const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
-  initialMin = 0.32,
-  initialMax = 4.95,
-  max = 10,
-  onChange,
-  className = "",
-  sliderLimit = 6,
-  collisionThresholdPercent = 6,
+    initialMax = 0.5, // Default set to 50L (0.5 Cr)
+    max = 5,
+    onChange,
+    className = "",
+    sliderLimit = 5,
 }) => {
-  // Helper
-  const clamp = (v: number) => (Number.isNaN(v) ? 0 : Math.max(0, v));
+    const clamp = (v: number) => (Number.isNaN(v) ? 0.5 : Math.max(0, v)); // Default to 0.5 if NaN
+    const sliderScale = sliderLimit > 0 ? sliderLimit : 5;
+    const initVal = clamp(Math.min(Math.max(0.5, initialMax), Math.max(max, sliderScale))); // Minimum 0.5
+    const [value, setValue] = useState<number>(Number(initVal.toFixed(3))); // in Cr
 
-  // init in CRORES (component internal unit)
-  const initMin = clamp(Math.min(initialMin, initialMax));
-  const initMax = clamp(Math.max(initialMin, initialMax));
+    const [isDragging, setIsDragging] = useState<boolean>(false);
+    const sliderRef = useRef<HTMLDivElement | null>(null);
 
-  const [minBudget, setMinBudget] = useState<number>(initMin); // in crores
-  const [maxBudget, setMaxBudget] = useState<number>(initMax); // in crores
-  const [isDragging, setIsDragging] = useState<"min" | "max" | null>(null);
-  const sliderRef = useRef<HTMLDivElement | null>(null);
-
-  const sliderScale = sliderLimit > 0 ? sliderLimit : 6;
-  const TICKS = Array.from({ length: Math.floor(sliderScale) + 1 }, (_, i) => i);
-
-  // Format the value for UI display
-  const formatBudget = (value: number) => {
-    if (value <= 0) return "₹0";
-    if (value < 1) {
-      // value is fractional crores, show as Lacs (rounded)
-      return `₹${Math.round(value * 100)}L`;
-    }
-    const suffix = value >= sliderScale ? "+" : "";
-    const display = Number.isInteger(value) ? value.toString() : value.toFixed(2);
-    return `₹${display}Cr${suffix}`;
-  };
-
-  // Convert crores -> rupees and emit to parent whenever min/max change
-  useEffect(() => {
-    const readable = `${formatBudget(minBudget)} - ${formatBudget(maxBudget)}`;
-
-    // Convert crores to rupees (1 Cr = 10,000,000)
-    const CRORE_TO_RUPEE = 10_000_000;
-    const minRupees = Math.round(minBudget * CRORE_TO_RUPEE);
-    const maxRupees = Math.round(maxBudget * CRORE_TO_RUPEE);
-
-    onChange?.({ min: minRupees, max: maxRupees, readable });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minBudget, maxBudget]);
-
-  const pointerToValue = (clientX: number) => {
-    const rect = sliderRef.current;
-    if (!rect) return 0;
-    const bounds = rect.getBoundingClientRect();
-    const x = clientX - bounds.left;
-    const pct = Math.max(0, Math.min(1, x / bounds.width));
-    return Number((pct * sliderScale).toFixed(2));
-  };
-
-  const handleTrackPointerDown = (clientX: number) => {
-    const value = pointerToValue(clientX);
-    const minCompare = Math.min(minBudget, sliderScale);
-    const maxCompare = Math.min(maxBudget, sliderScale);
-    const distToMin = Math.abs(value - minCompare);
-    const distToMax = Math.abs(value - maxCompare);
-    if (distToMin <= distToMax) {
-      const v = Math.min(value, sliderScale);
-      setMinBudget(Number(Math.max(0, v).toFixed(2)));
-      setIsDragging("min");
-    } else {
-      const v = Math.min(value, sliderScale);
-      setMaxBudget(Number(Math.min(max, v).toFixed(2)));
-      setIsDragging("max");
-    }
-  };
-
-  const handleMouseDown = (e: React.MouseEvent, type: "min" | "max") => {
-    e.preventDefault();
-    setIsDragging(type);
-  };
-
-  const handlePointerMove = (clientX: number | null) => {
-    if (!isDragging || !sliderRef.current || clientX === null) return;
-    const newVal = pointerToValue(clientX);
-    if (isDragging === "min") {
-      setMinBudget(Number(Math.max(0, Math.min(sliderScale, newVal)).toFixed(2)));
-    } else {
-      setMaxBudget(Number(Math.max(0, Math.min(max, newVal)).toFixed(2)));
-    }
-  };
-
-  const handlePointerUp = () => setIsDragging(null);
-
-  useEffect(() => {
-    const onMouseMove = (ev: MouseEvent) => handlePointerMove(ev.clientX);
-    const onMouseUp = () => handlePointerUp();
-    const onTouchMove = (ev: TouchEvent) => {
-      if (ev.touches.length) {
-        ev.preventDefault();
-        handlePointerMove(ev.touches[0].clientX);
-      }
+    // Display text helper
+    const toDisplayText = (valCr: number) => {
+        if (valCr <= 0) return "0L";
+        if (valCr < 1) {
+            const lacs = +(valCr * 100).toFixed(1);
+            return `${lacs}L`;
+        }
+        return `${Number(valCr.toFixed(2))}Cr`;
     };
-    const onTouchEnd = () => handlePointerUp();
 
-    if (isDragging) {
-      window.addEventListener("mousemove", onMouseMove);
-      window.addEventListener("mouseup", onMouseUp);
-      window.addEventListener("touchmove", onTouchMove, { passive: false });
-      window.addEventListener("touchend", onTouchEnd);
-    }
-
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onTouchEnd);
+    const formatRupeesFull = (valCr: number) => {
+        const rupees = valCr * CRORE_TO_RUPEE;
+        return currencyFormatter.format(Math.round(rupees * 100) / 100);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDragging, minBudget, maxBudget, sliderScale]);
 
-  const posFor = (val: number) => {
-    const v = Math.min(val, sliderScale);
-    return (v / sliderScale) * 100;
-  };
-  const minPosition = posFor(minBudget);
-  const maxPosition = posFor(maxBudget);
-  const midPosition = (minPosition + maxPosition) / 2;
+    useEffect(() => {
+        const readable = `0 - ${toDisplayText(value)}`;
+        const minRupees = 0;
+        const maxRupees = Math.round(value * CRORE_TO_RUPEE);
+        onChange?.({ min: minRupees, max: maxRupees, readable });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value]);
 
-  // Manual numeric inputs: when user types in the small input boxes
-  // For values < 1 (crore) the UI expects Lacs input (e.g. 32), we convert to crores internally.
-  const handleManualMinChange = (rawVal: number) => {
-    const v = Number.isNaN(rawVal) ? 0 : rawVal;
-    const value = minBudget < 1 ? v / 100 : v;
-    if (value >= 0) setMinBudget(Number(value.toFixed(2)));
-  };
+    // pointer helpers
+    const pointerToValue = (clientX: number) => {
+        const rect = sliderRef.current;
+        if (!rect) return 0.5; // Default to 50L
+        const bounds = rect.getBoundingClientRect();
+        const x = clientX - bounds.left;
+        const pct = Math.max(0, Math.min(1, x / bounds.width));
+        return Number((pct * sliderScale).toFixed(3));
+    };
 
-  const handleManualMaxChange = (rawVal: number) => {
-    const v = Number.isNaN(rawVal) ? 0 : rawVal;
-    const value = maxBudget < 1 ? v / 100 : v;
-    if (value >= 0) setMaxBudget(Number(value.toFixed(2)));
-  };
+    const handleTrackPointerDown = (clientX: number) => {
+        const v = pointerToValue(clientX);
+        setValue(Number(Math.min(max, v).toFixed(3)));
+        setIsDragging(true);
+    };
 
-  const compactStyleBlock = `
-    /* hide number input spinners (Chrome, Edge, Safari) */
-    input[type=number]::-webkit-outer-spin-button,
-    input[type=number]::-webkit-inner-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-    /* hide Firefox spinner */
-    input[type=number] {
-      -moz-appearance: textfield;
-    }
-  `;
+    const handleMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
 
-  const minDisplayValue =
-    minBudget < 1 ? String(Math.round(minBudget * 100)) : String(Number(minBudget.toFixed(2)));
-  const maxDisplayValue =
-    maxBudget < 1 ? String(Math.round(maxBudget * 100)) : String(Number(maxBudget.toFixed(2)));
+    const handlePointerMove = (clientX: number | null) => {
+        if (!isDragging || !sliderRef.current || clientX === null) return;
+        const newVal = pointerToValue(clientX);
+        setValue(Number(Math.min(max, Math.max(0, newVal)).toFixed(3)));
+    };
 
-  // collision logic: if handles are within collisionThresholdPercent, show single centered label
-  const distance = Math.abs(maxPosition - minPosition);
-  const isColliding = distance <= collisionThresholdPercent;
+    const handlePointerUp = () => setIsDragging(false);
 
-  return (
-    <>
-      {/* <div className="grid grid-cols-3 gap-2 items-end text-xs mb-2">
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Minimum Budget {minBudget < 1 ? "(Lacs)" : "(Crores)"}
-          </label>
-          <div className="relative">
-            <input
-              type="number"
-              min={0}
-              step={minBudget < 1 ? 1 : 0.01}
-              value={minDisplayValue}
-              onChange={(e) => {
-                const raw = e.target.value === "" ? "0" : e.target.value;
-                const parsed = parseFloat(raw);
-                handleManualMinChange(parsed);
-              }}
-              className="w-full px-2 py-1 border border-gray-300 rounded-lg text-xs outline-none focus:ring-1 focus:ring-purple-500 focus:border-transparent"
-              placeholder={minBudget < 1 ? "e.g. 32" : "e.g. 0.32"}
-            />
-            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
-              {minBudget < 1 ? "L" : "Cr"}
+    useEffect(() => {
+        const onMouseMove = (ev: MouseEvent) => handlePointerMove(ev.clientX);
+        const onMouseUp = () => handlePointerUp();
+        const onTouchMove = (ev: TouchEvent) => {
+            if (ev.touches.length) {
+                ev.preventDefault();
+                handlePointerMove(ev.touches[0].clientX);
+            }
+        };
+        const onTouchEnd = () => handlePointerUp();
+
+        if (isDragging) {
+            window.addEventListener("mousemove", onMouseMove);
+            window.addEventListener("mouseup", onMouseUp);
+            window.addEventListener("touchmove", onTouchMove, { passive: false });
+            window.addEventListener("touchend", onTouchEnd);
+        }
+
+        return () => {
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+            window.removeEventListener("touchmove", onTouchMove);
+            window.removeEventListener("touchend", onTouchEnd);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isDragging, value, sliderScale]);
+
+    const posFor = (val: number) => {
+        const v = Math.min(val, sliderScale);
+        return (v / sliderScale) * 100;
+    };
+    const position = posFor(value);
+
+    // Manual input parser
+    const parseManualInput = (text: string) => {
+        const raw = text.trim();
+        if (raw === "") return 0.5; // Default to 50L if empty
+        const lower = raw.toLowerCase();
+
+        if (/[l]$/.test(lower)) {
+            const num = parseFloat(lower.replace(/[l]$/, "").trim());
+            return Number((num / 100).toFixed(3)); // Lacs → Cr
+        }
+
+        if (/(cr|c)$/.test(lower)) {
+            const num = parseFloat(lower.replace(/(cr|c)$/, "").trim());
+            return Number(num.toFixed(3));
+        }
+
+        const num = parseFloat(raw);
+        if (Number.isNaN(num)) return 0.5; // Default to 50L if invalid
+
+        if (value < 1) return Number((num / 100).toFixed(3)); // treat as Lacs
+        return Number(num.toFixed(3)); // treat as Crores
+    };
+
+    const manualDisplay = value < 1 ? String(Number((value * 100).toFixed(1))) : String(Number(value.toFixed(2)));
+
+    return (
+        <div className={`w-full ${className}`}>
+            {/* 50-50 Split Layout */}
+            <div className="flex items-center gap-6">
+                {/* Left Side - Slider (50%) */}
+                <div className="w-1/2">
+                    <div className="relative">
+                        {/* Label above handle */}
+                        <div className="relative h-6 mb-2 pointer-events-none">
+                            <div
+                                className="absolute text-xs font-medium text-gray-700 transform -translate-x-1/2 bg-white px-2 py-1 rounded-md shadow-sm border whitespace-nowrap"
+                                style={{ left: `${position}%`, top: "0" }}
+                                aria-hidden
+                            >
+                                {toDisplayText(value)}
+                            </div>
+                        </div>
+
+                        {/* Track */}
+                        <div
+                            ref={sliderRef}
+                            className="relative h-2 bg-gray-200 rounded-full cursor-pointer"
+                            onMouseDown={(e) => handleTrackPointerDown(e.clientX)}
+                            onTouchStart={(e) => {
+                                if (e.touches.length) {
+                                    handleTrackPointerDown(e.touches[0].clientX);
+                                    e.preventDefault();
+                                }
+                            }}
+                        >
+                            <div
+                                className="absolute rounded-full"
+                                style={{
+                                    height: "100%",
+                                    left: `0%`,
+                                    width: `${position}%`,
+                                    background: "linear-gradient(90deg,#7c3aed,#6d28d9)",
+                                }}
+                            />
+                            <div
+                                role="slider"
+                                tabIndex={0}
+                                aria-valuemin={0}
+                                aria-valuemax={sliderScale}
+                                aria-valuenow={Number(value.toFixed(3))}
+                                className="absolute w-4 h-4 bg-white border-2 border-purple-500 rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 top-1/2 hover:scale-105 transition-transform shadow-md z-20"
+                                style={{ left: `${position}%` }}
+                                onMouseDown={handleMouseDown}
+                                onTouchStart={(e) => {
+                                    if (e.touches.length) {
+                                        setIsDragging(true);
+                                        e.preventDefault();
+                                    }
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === "ArrowLeft" || e.key === "ArrowDown")
+                                        setValue((v) => Number(Math.max(0, Number((v - 0.01).toFixed(3)))));
+                                    if (e.key === "ArrowRight" || e.key === "ArrowUp")
+                                        setValue((v) => Number(Math.min(max, Number((v + 0.01).toFixed(3)))));
+                                }}
+                            />
+                        </div>
+
+                        {/* Start/End labels */}
+                        <div className="flex justify-between text-xs text-gray-600 mt-1">
+                            <span>₹0</span>
+                            <span>₹{sliderScale}Cr</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Side - Other Details (50%) */}
+                {/* --- SMALL CHANGE: ensure the right side also takes 1/2 width to match left --- */}
+                <div className="w-1/2 flex items-center gap-4">
+                    {/* Manual Input */}
+                    {/* --- SMALL CHANGE: give a fixed equal width and center content vertically --- */}
+                    <div className="flex flex-col w-48 py-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Maximum Budget
+                        </label>
+                        <input
+                            type="text"
+                            value={manualDisplay}
+                            onChange={(e) => {
+                                const parsedCr = parseManualInput(e.target.value);
+                                setValue(Number(Math.min(max, Math.max(0, parsedCr)).toFixed(3)));
+                            }}
+                            onBlur={(e) => {
+                                const parsedCr = parseManualInput(e.target.value);
+                                setValue(Number(Math.min(max, Math.max(0, parsedCr)).toFixed(3)));
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    const parsedCr = parseManualInput((e.target as HTMLInputElement).value);
+                                    setValue(Number(Math.min(max, Math.max(0, parsedCr)).toFixed(3)));
+                                    (e.target as HTMLInputElement).blur();
+                                }
+                            }}
+                            className="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="50"
+                        />
+                        <div className="text-xs text-gray-500 mt-1">
+                            {value < 1 ? "L (Lakh)" : "Cr (Crore)"}
+                        </div>
+                    </div>
+
+                    {/* Selected Range Display */}
+                    {/* --- SMALL CHANGE: make this the same width and vertical padding to match the input box --- */}
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg px-2 py-2 flex-1 w-48 flex flex-col justify-center">
+                        <div className="text-xs font-medium text-gray-700">Selected Range:</div>
+                        <div className="text-sm font-bold text-purple-600">
+                            {formatRupeesFull(value)}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                            ₹0 - {toDisplayText(value)}
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Maximum Budget {maxBudget < 1 ? "(Lacs)" : "(Crores)"}
-          </label>
-          <div className="relative">
-            <input
-              type="number"
-              min={0}
-              step={maxBudget < 1 ? 1 : 0.01}
-              value={maxDisplayValue}
-              onChange={(e) => {
-                const raw = e.target.value === "" ? "0" : e.target.value;
-                const parsed = parseFloat(raw);
-                handleManualMaxChange(parsed);
-              }}
-              className="w-full px-2 py-1 border border-gray-300 rounded-lg text-xs outline-none focus:ring-1 focus:ring-purple-500 focus:border-transparent"
-              placeholder={maxBudget < 1 ? "e.g. 32" : "e.g. 0.32"}
-            />
-            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
-              {maxBudget < 1 ? "L" : "Cr"}
-              {maxBudget >= sliderScale ? "+" : ""}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              setMinBudget(0.32);
-              setMaxBudget(Math.min(4.95, max));
-            }}
-            className="px-3 py-1 text-xs border border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-          >
-            Reset to Default
-          </button>
-        </div>
-      </div> */}
-
-      <div className={`max-w-full ${className}`}>
-        <style>{compactStyleBlock}</style>
-
-        <div className="relative">
-          {/* Hover / Tooltip labels */}
-          <div className="relative h-6 mb-1 pointer-events-none">
-            {isColliding ? (
-              // single centered aggregated label when close
-              <div
-                className="absolute text-xs font-medium text-gray-700 transform -translate-x-1/2 bg-white px-2 py-0.5 rounded shadow-sm border"
-                style={{ left: `${midPosition}%`, top: "-.2rem", whiteSpace: "nowrap" }}
-                aria-hidden
-              >
-                {formatBudget(minBudget)} - {formatBudget(maxBudget)}
-              </div>
-            ) : (
-              <>
-                <div
-                  className="absolute text-xs font-medium text-gray-700 transform -translate-x-1/2 bg-white px-2 py-0.5 rounded shadow-sm border"
-                  style={{
-                    left: `${minPosition}%`,
-                    top: "-.2rem",
-                    whiteSpace: "nowrap",
-                  }}
-                  aria-hidden
-                >
-                  {formatBudget(minBudget)}
-                </div>
-                <div
-                  className="absolute text-xs font-medium text-gray-700 transform -translate-x-1/2 bg-white px-2 py-0.5 rounded shadow-sm border"
-                  style={{
-                    left: `${maxPosition}%`,
-                    top: "-.2rem",
-                    whiteSpace: "nowrap",
-                  }}
-                  aria-hidden
-                >
-                  {formatBudget(maxBudget)}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Track */}
-          <div
-            ref={sliderRef}
-            className="relative h-2 bg-gray-200 rounded-full mb-2 cursor-pointer"
-            onMouseDown={(e) => handleTrackPointerDown(e.clientX)}
-            onTouchStart={(e) => {
-              if (e.touches.length) {
-                handleTrackPointerDown(e.touches[0].clientX);
-                e.preventDefault();
-              }
-            }}
-          >
-            <div
-              className="absolute rounded-full"
-              style={{
-                height: "100%",
-                left: `${Math.min(minPosition, maxPosition)}%`,
-                width: `${Math.abs(maxPosition - minPosition)}%`,
-                background: "linear-gradient(90deg,#7c3aed,#6d28d9)",
-              }}
-            />
-
-            {/* left handle */}
-            <div
-              role="slider"
-              tabIndex={0}
-              aria-valuemin={0}
-              aria-valuemax={sliderScale}
-              aria-valuenow={Math.min(minBudget, sliderScale)}
-              className="absolute w-4 h-4 bg-white border-2 border-purple-500 rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 top-1/2 hover:scale-105 transition-transform shadow z-20"
-              style={{ left: `${minPosition}%` }}
-              onMouseDown={(e) => handleMouseDown(e, "min")}
-              onTouchStart={(e) => {
-                if (e.touches.length) {
-                  setIsDragging("min");
-                  e.preventDefault();
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowLeft" || e.key === "ArrowDown")
-                  setMinBudget((v) => Number(Math.max(0, Number((v - 0.01).toFixed(2)))));
-                if (e.key === "ArrowRight" || e.key === "ArrowUp")
-                  setMinBudget((v) => Number(Math.min(sliderScale, Number((v + 0.01).toFixed(2)))));
-              }}
-            />
-
-            {/* right handle */}
-            <div
-              role="slider"
-              tabIndex={0}
-              aria-valuemin={0}
-              aria-valuemax={sliderScale}
-              aria-valuenow={Math.min(maxBudget, sliderScale)}
-              className="absolute w-4 h-4 bg-white border-2 border-purple-500 rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 top-1/2 hover:scale-105 transition-transform shadow z-20"
-              style={{ left: `${maxPosition}%` }}
-              onMouseDown={(e) => handleMouseDown(e, "max")}
-              onTouchStart={(e) => {
-                if (e.touches.length) {
-                  setIsDragging("max");
-                  e.preventDefault();
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowLeft" || e.key === "ArrowDown")
-                  setMaxBudget((v) => Number(Math.max(0, Number((v - 0.01).toFixed(2)))));
-                if (e.key === "ArrowRight" || e.key === "ArrowUp")
-                  setMaxBudget((v) => Number(Math.min(max, Number((v + 0.01).toFixed(2)))));
-              }}
-            />
-
-            {/* Tick marks */}
-            {TICKS.map((t) => {
-              const left = (t / sliderScale) * 100;
-              return (
-                <div
-                  key={String(t)}
-                  style={{ left: `${left}%` }}
-                  className="absolute top-0 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                >
-                  <div className="w-0.5 h-3 bg-gray-400 rounded" />
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Tick labels */}
-          <div className="flex justify-between text-xs text-gray-600 mb-2">
-            {TICKS.map((t) => (
-              <span key={String(t)} className="transform -translate-x-1/2">
-                {t === 0 ? "₹0" : t === sliderScale ? `₹${t}Cr+` : `₹${t}Cr`}
-              </span>
-            ))}
-          </div>
-
-          <div className="flex justify-center items-center gap-2 mb-2">
-            <span className="text-xs font-semibold text-gray-600">Selected Range :</span>
-            <span className="text-xs font-bold text-purple-600">
-              {formatBudget(minBudget)} - {formatBudget(maxBudget)}
-            </span>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+    );
 };
 
 export default PriceRangeSelector;
