@@ -4,7 +4,7 @@ import Modal from "@/components/ui/Modal";
 import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
 import { usersAPI } from "@/lib/api";
 import { buyerTransferAPI } from "@/lib/buyerTransferAPI";
-import { notificationAPI } from "@/lib/notificationAPI"; // ✅ Import notification API
+import { notificationAPI } from "@/lib/notificationAPI";
 
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAssignableExecutives } from "@/pages/utils/roleBasedOptions";
 import { ChevronDown } from "lucide-react";
 import BudgetRangeSelector from "@/components/ui/BudgetRangeSelector";
+
 
 type Lead = {
   id: string;
@@ -54,7 +55,7 @@ interface BuyerFormModalProps {
   lead: Lead;
   followups?: Followup[]; // optional; will NOT be rendered — only console.logged
   onClose: () => void;
-  onTransferSuccess?: (transferredBuyer: any) => void; // ✅ Optional callback for successful transfer
+  onTransferSuccess?: (transferredBuyer: any) => void; // Optional callback for successful transfer
 }
 
 const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
@@ -78,8 +79,9 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({} as any);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [presalesUsers, setPresalesUsers] = useState<any[]>([]);
+  const [salesUsers, setSalesUsers] = useState<any[]>([]);
 
-  // ✅ Add loading state for form submission
+  // submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // form data
@@ -119,13 +121,12 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
     is_active: true,
   });
 
-  // IMPORTANT: We accept `followups` prop but DO NOT render them in the form.
-  // We will log them for inspection only (per your request).
+  // Log followups (we accept but do not render)
   useEffect(() => {
     console.info("BuyerFormModal received followups:", followups);
   }, [followups]);
 
-  // ✅ Load users / presales list with proper normalization
+  // Load users and populate presales & sales lists
   useEffect(() => {
     (async () => {
       try {
@@ -133,7 +134,6 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
         const users = resp?.data || [];
         setAllUsers(users);
 
-        // ✅ Use same normalization as getAssignableExecutives
         const norm = (s: any) =>
           (s ?? "")
             .toString()
@@ -141,13 +141,21 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
             .toLowerCase()
             .replace(/[\s-_/]+/g, "");
 
-        const execs = users.filter((u: any) => {
+        // presales executives (kept if used elsewhere)
+        const execsPresales = users.filter((u: any) => {
           const dept = norm(u?.department || u?.department_name);
           const role = norm(u?.role || u?.role_name);
           return dept === "presales" && role === "executive";
         });
+        setPresalesUsers(execsPresales);
 
-        setPresalesUsers(execs);
+        // sales executives (NEW) — used in the assignment dropdown & notifications
+        const execsSales = users.filter((u: any) => {
+          const dept = norm(u?.department || u?.department_name);
+          const role = norm(u?.role || u?.role_name);
+          return dept === "sales" && role === "executive";
+        });
+        setSalesUsers(execsSales);
       } catch (err) {
         console.error("Failed to load users:", err);
       }
@@ -252,61 +260,113 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
   const innerTextareaClass = "w-full border rounded px-2 py-1 text-xs bg-white focus:outline-none focus:border-green-600 resize-none";
   const execButtonClass = "w-full flex items-center justify-between space-x-1 border rounded p-1 text-xs bg-white hover:bg-gray-50";
 
-  // ✅ Enhanced getAssignedExecName with better name resolution
+  // Check if currently assigned executive is from sales department
+  const isCurrentExecFromSales = () => {
+    if (!formData?.assigned_executive) return false;
+    
+    const id = String(formData.assigned_executive);
+    const salesExec = salesUsers.find((u) => String(u.id) === id || String(u._id) === id);
+    return !!salesExec;
+  };
+
+  // Resolve assigned executive name preferring salesUsers then presalesUsers then allUsers
   const getAssignedExecName = () => {
     const leadExecName = (lead as any)?.assigned_executive_name;
-    if (leadExecName && String(leadExecName).trim() !== "" && leadExecName.toLowerCase() !== "unassigned") {
-      return leadExecName;
-    }
-
+    
     if (formData?.assigned_executive) {
-      const exec = presalesUsers.find(
-        (u) => String(u.id) === String(formData.assigned_executive) || String(u._id) === String(formData.assigned_executive)
-      );
-      if (exec) {
-        return exec.name || exec.full_name || `${exec.first_name || ""} ${exec.last_name || ""}`.trim() || "Executive";
+      const id = String(formData.assigned_executive);
+      
+      // First check if assigned executive is from sales
+      const salesExec = salesUsers.find((u) => String(u.id) === id || String(u._id) === id);
+      if (salesExec) {
+        return salesExec.name || salesExec.full_name || `${salesExec.first_name || ""} ${salesExec.last_name || ""}`.trim() || "Executive";
       }
-      return getUserNameById(formData.assigned_executive) || "Unassigned";
+      
+      // If not from sales (i.e., from presales or other), show as "Unassigned" for sales assignment
+      // Since this is a sales executive assignment dropdown, presales executives should appear as unassigned
+      return "Unassigned (Currently Presales)";
     }
+    
+    // Fallback to lead executive name only if it's from sales
+    if (leadExecName && String(leadExecName).trim() !== "" && leadExecName.toLowerCase() !== "unassigned") {
+      // Check if this lead executive name belongs to a sales user
+      const salesExecByName = salesUsers.find(u => {
+        const userName = u.name || u.full_name || `${u.first_name || ""} ${u.last_name || ""}`.trim();
+        return userName.toLowerCase() === leadExecName.toLowerCase();
+      });
+      
+      if (salesExecByName) {
+        return leadExecName;
+      }
+      // If lead executive is not from sales, show as unassigned
+      return "Unassigned (Currently Presales)";
+    }
+    
     return "Unassigned";
   };
 
-  // ✅ Fixed handleExecAssign with proper notification support
+  // Get available sales executives for dropdown
+  const getAvailableSalesExecutives = () => {
+    // Apply role-based filtering only to sales executives
+    const filteredSalesExecs = getAssignableExecutives?.(user, salesUsers) ?? salesUsers;
+    
+    // Ensure we only return sales executives with proper name formatting
+    const formattedExecs = filteredSalesExecs.filter(Boolean).map((exec: any) => ({
+      ...exec,
+      name: exec.name || exec.full_name || `${exec.first_name || ""} ${exec.last_name || ""}`.trim() || "Executive"
+    }));
+    
+    // Check if current assigned executive is from sales department
+    const currentExecId = String(formData.assigned_executive || "");
+    const isCurrentFromSales = isCurrentExecFromSales();
+    
+    // If current executive is from sales, exclude them from dropdown (already assigned)
+    if (isCurrentFromSales && currentExecId !== "") {
+      return formattedExecs.filter((exec: any) => String(exec.id) !== currentExecId);
+    }
+    
+    // If current executive is from presales (like Mohan Kumar) or no assignment, 
+    // show all sales executives for assignment/reassignment
+    return formattedExecs;
+  };
+
+  // Assign executive (use salesUsers first for name resolution/notification fallback to presales)
   const handleExecAssign = async (execId: string) => {
     try {
       const previousExec = formData.assigned_executive;
-      
+
       setFormData((prev: any) => ({ ...prev, assigned_executive: execId }));
       setShowExecDropdown(false);
-      
-      // Get executive name for display - only if execId is not empty
+
       if (execId && execId.trim() !== "") {
-        const exec = presalesUsers.find((u) => String(u.id) === String(execId));
+        const id = String(execId);
+        // Prefer salesUsers for finding the user; fallback to presalesUsers and then allUsers
+        const exec =
+          salesUsers.find((u) => String(u.id) === id || String(u._id) === id) ||
+          presalesUsers.find((u) => String(u.id) === id || String(u._id) === id) ||
+          allUsers.find((u) => String(u.id) === id || String(u._id) === id);
+
         const execName = exec?.name || exec?.full_name || `${exec?.first_name || ""} ${exec?.last_name || ""}`.trim() || getUserNameById(execId) || "Executive";
-        
-        // ✅ Send notification if executive is being assigned (not unassigned) and it's a different executive
+
         if (execId !== previousExec) {
           try {
-            // ✅ Fix: Ensure leadId and userId are strings, not numbers
             await notificationAPI.createNotification({
-              leadId: String(lead.id), // ✅ Convert to string
-              userId: String(execId),   // ✅ Convert to string  
+              leadId: Number(lead.id),
+              userId: Number(execId),
               message: `Buyer lead assigned to ${execName}`,
               type: "buyer_assign",
-              link: `/dashboard/leads/${lead.id}`,
+              link: `/dashboard/buyers`,
+              // link: `/dashboard/buyers/${lead.id}`,
             });
-            
             console.log("✅ Assignment notification sent to executive:", execName);
           } catch (notifErr) {
             console.error("Failed to send notification:", notifErr);
-            // Don't fail the assignment for notification error
             toast.warn("Executive assigned but notification failed to send");
           }
         }
-        
+
         toast.success(`Buyer assigned to ${execName}`);
       } else {
-        // Unassigning executive
         toast.success("Executive assignment removed");
       }
     } catch (err) {
@@ -367,16 +427,15 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
     return () => document.removeEventListener("click", onDocClick);
   }, [showUnitTypeDropdown, showLocationDropdown, showExecDropdown]);
 
-  // ✅ Fixed handleSubmit with proper notification support
+  // handle submit (transfer to buyer)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isSubmitting) return; // Prevent double submission
+    if (isSubmitting) return;
 
     const parsedMin = Number(formData.budget_min) || 0;
     const parsedMax = Number(formData.budget_max) || 0;
 
-    // Build requirements object from form fields
     const requirements = {
       propertyType: formData.property_type || null,
       property_subtype: formData.property_subtype || null,
@@ -400,21 +459,14 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
       ...rest
     } = formData;
 
-    // Prepare overrides data (buyer-specific fields)
     const overrides = {
       budget_min: parsedMin,
       budget_max: parsedMax,
-
-      // Send requirements as structured object that backend will convert to JSON
-      requirements: requirements,
-
+      requirements,
       assigned_executive: formData.assigned_executive || null,
       updated_at: new Date().toISOString(),
       is_active: formData.is_active !== undefined ? !!formData.is_active : true,
-
-      // Include any other buyer-specific overrides
       remark: formData.remark || "",
-      // Add any other fields that should override the original lead data
     };
 
     try {
@@ -425,71 +477,64 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
       console.log("📋 Requirements Object:", requirements);
       console.log("🔄 Overrides:", overrides);
 
-      // ✅ Call the buyer transfer API
       const response = await buyerTransferAPI.transferToBuyer({
         leadId: lead.id,
-        overrides: overrides,
-        createdBy: user?.id, // Use current user's ID
+        overrides,
+        createdBy: user?.id,
       });
 
       console.log("✅ Buyer transfer successful:", response);
 
-      // ✅ Send notification to assigned executive after successful transfer
-      if (formData.assigned_executive && formData.assigned_executive.trim() !== "") {
+      // Send notification to assigned executive (prefer salesUsers)
+      if (formData.assigned_executive && String(formData.assigned_executive).trim() !== "") {
         try {
-          const exec = presalesUsers.find((u) => String(u.id) === String(formData.assigned_executive));
+          const execId = String(formData.assigned_executive);
+          const exec =
+            salesUsers.find((u) => String(u.id) === execId || String(u._id) === execId) ||
+            presalesUsers.find((u) => String(u.id) === execId || String(u._id) === execId) ||
+            allUsers.find((u) => String(u.id) === execId || String(u._id) === execId);
+
           const execName = exec?.name || exec?.full_name || `${exec?.first_name || ""} ${exec?.last_name || ""}`.trim() || "Executive";
-          
-          // ✅ Fix: Use string IDs and handle response properly
+
           await notificationAPI.createNotification({
-            leadId: Number(lead.id), // ✅ Convert to number
-            userId: Number(formData.assigned_executive), // ✅ Convert to string
+            leadId: Number(lead.id),
+            userId: Number(execId),
             message: `New buyer transferred and assigned to ${execName}`,
             type: "buyer_transfer",
-            link: `/dashboard/buyers/${response?.data?.id || response?.id || lead.id}`, // Link to buyer profile if available
+            link: `/dashboard/buyers/${response?.data?.id || response?.id || lead.id}`,
           });
 
           console.log("✅ Transfer notification sent to executive:", execName);
         } catch (notifErr) {
           console.error("Failed to send transfer notification:", notifErr);
-          console.error("Notification error details:", notifErr?.response?.data || notifErr?.message);
-          // Don't fail the whole operation for notification error
         }
       }
 
-      // ✅ Send notification to lead creator about the transfer (if different from current user)
+      // Notify lead creator (if different from current user)
       if (lead.created_by && String(lead.created_by) !== String(user?.id)) {
         try {
           await notificationAPI.createNotification({
-            leadId: Number(lead.id), // ✅ Convert to number
-            userId: Number(lead.created_by), // ✅ Convert to string
+            leadId: Number(lead.id),
+            userId: Number(lead.created_by),
             message: `Your lead "${lead.name}" has been transferred to buyer`,
             type: "lead_transfer",
             link: `/dashboard/buyers/${response?.data?.id || response?.id || lead.id}`,
           });
-
           console.log("✅ Transfer notification sent to lead creator");
         } catch (notifErr) {
           console.error("Failed to send creator notification:", notifErr);
-          console.error("Creator notification error details:", notifErr?.response?.data || notifErr?.message);
-          // Don't fail the operation
         }
       }
 
       toast.success("Lead successfully transferred to buyer!");
 
-      // ✅ Call success callback if provided
       if (onTransferSuccess && response) {
         onTransferSuccess(response);
       }
 
-      // Close the modal
       onClose();
-
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Buyer transfer failed:", error);
-
-      // Handle different error scenarios
       if (error?.response?.data?.message) {
         toast.error(`Transfer failed: ${error.response.data.message}`);
       } else if (error?.message) {
@@ -568,7 +613,6 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
                     type="text"
                     name="created_by"
                     value={
-                      // prefer explicit name passed on lead, then try to resolve ID -> name, then fall back to raw ID or empty
                       (lead as any)?.created_by_name ||
                       getUserNameById(formData.created_by) ||
                       formData.created_by ||
@@ -607,7 +651,7 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-green-700">Assigned Executive</label>
+                  <label className="block text-xs font-medium text-green-700">Assigned Sales Executive</label>
                   <div className="relative" ref={execDropdownRef}>
                     <button type="button" onClick={() => setShowExecDropdown(!showExecDropdown)} className={execButtonClass}>
                       <span className="truncate text-xs">{getAssignedExecName()}</span>
@@ -617,20 +661,22 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
                     {showExecDropdown && (
                       <div className="absolute top-full left-0 mt-1 w-full bg-white rounded-lg shadow-lg border z-[9999] text-xs">
                         <div className="p-2">
-                          <div className="text-[10px] text-gray-500 uppercase tracking-wide px-2 py-1 border-b truncate">Assign to Executive</div>
+                          <div className="text-[10px] text-gray-500 uppercase tracking-wide px-2 py-1 border-b truncate">Assign to Sales Executive</div>
 
                           {(() => {
-                            const execs = getAssignableExecutives(user, presalesUsers);
-                            if (!execs || execs.length === 0) {
-                              return <div className="px-2 py-2 text-xs text-gray-500">No executives available</div>;
+                            // Get only sales executives for dropdown
+                            const availableSalesExecs = getAvailableSalesExecutives();
+                            
+                            if (!availableSalesExecs || availableSalesExecs.length === 0) {
+                              return <div className="px-2 py-2 text-xs text-gray-500">No sales executives available</div>;
                             }
+                            
                             return (
                               <>
-                                {/* ✅ Unassigned option */}
-                                <button 
-                                  key="unassigned" 
-                                  type="button" 
-                                  onClick={() => handleExecAssign("")} 
+                                <button
+                                  key="unassigned"
+                                  type="button"
+                                  onClick={() => handleExecAssign("")}
                                   className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${
                                     !formData.assigned_executive || formData.assigned_executive === ""
                                       ? "bg-blue-50 text-blue-600 font-medium"
@@ -639,16 +685,15 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
                                 >
                                   Unassigned
                                 </button>
-                                
-                                {/* ✅ Available executives */}
-                                {execs.map((exec: any) => (
-                                  <button 
-                                    key={exec.id} 
-                                    type="button" 
-                                    onClick={() => handleExecAssign(String(exec.id))} // ✅ Ensure string conversion
+
+                                {availableSalesExecs.map((exec: any) => (
+                                  <button
+                                    key={exec.id}
+                                    type="button"
+                                    onClick={() => handleExecAssign(String(exec.id))}
                                     className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${
-                                      String(formData.assigned_executive) === String(exec.id) 
-                                        ? "bg-blue-50 text-blue-600 font-medium" 
+                                      String(formData.assigned_executive) === String(exec.id)
+                                        ? "bg-blue-50 text-blue-600 font-medium"
                                         : "text-gray-800"
                                     }`}
                                   >

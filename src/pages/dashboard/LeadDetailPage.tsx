@@ -195,8 +195,8 @@ const LeadDetailPage: React.FC = () => {
       if (execId && execId.trim() !== "" && execId !== previousExec) {
         try {
           await notificationAPI.createNotification({
-            leadId: Number(lead.id), // ✅ Convert to number
-            userId: Number(execId),   // ✅ Convert to number
+            leadId: Number(lead.id), // ✅ Convert to string
+            userId: Number(execId),   // ✅ Convert to string
             message: `Lead assigned to ${execName}`,
             type: "lead_assign",
             link: `/dashboard/leads/${lead.id}`,
@@ -735,8 +735,8 @@ const LeadDetailPage: React.FC = () => {
       if (agentId && agentId.trim() !== "" && agentId !== previousAgent) {
         try {
           await notificationAPI.createNotification({
-            leadId: Number(lead.id), // ✅ Convert to number
-            userId: Number(agentId),  // ✅ Convert to number
+            leadId: Number(lead.id), // ✅ Convert to string
+            userId: Number(agentId),  // ✅ Convert to string
             message: `Lead assigned to ${agentName}`,
             type: "lead_assign",
             link: `/dashboard/leads/${lead.id}`,
@@ -899,9 +899,9 @@ const LeadDetailPage: React.FC = () => {
           const execName = exec?.name || lead.assigned_executive_name || "Executive";
           
           await notificationAPI.createNotification({
-            leadId: Number(lead.id), // ✅ Convert to number
-            userId: Number(lead.assigned_executive), // ✅ Convert to number
-            message: `New follow-up added for lead "${lead.name}" by ${user?.first_name || 'User'}`,
+            leadId: Number(lead.id), // ✅ Convert to string
+            userId: Number(lead.assigned_executive), // ✅ Convert to string
+            message: `New follow-up added for lead "${lead.name}" by ${user?.first_name  || 'User'}`,
             type: "followup_add",
             link: `/dashboard/leads/${lead.id}`,
           });
@@ -1393,9 +1393,9 @@ const LeadDetailPage: React.FC = () => {
         <BuyerFormModal lead={lead} followups={followups} onClose={() => setShowBuyerComponent(false)} />
       )}
 
-      {showSellerComponent && lead && (
+      {/* {showSellerComponent && lead && (
         <SellerFormModal lead={lead} followups={followups} onClose={() => setShowSellerComponent(false)} />
-      )}
+      )} */}
 
       <AddLeadModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSave={handleSaveLead} lead={lead || undefined} />
     </div>

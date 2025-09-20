@@ -1,9 +1,11 @@
-// BuyerFollowupModal.tsx
+// src/components/BuyerFollowupModal.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { Phone, Mail, MapPin, Users, MessageSquare } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { connectedRemarkAPI } from "@/lib/connectedRemarkAPI";
 import { getMasterDropdownOptions } from "@/lib/useMasterData";
+import { useAuth } from "@/contexts/AuthContext";
+import { buyerFollowupAPI } from "@/lib/buyerFollowupAPI";
 
 /* ===================== Types ===================== */
 export type FollowupForm = {
@@ -16,28 +18,36 @@ export type FollowupForm = {
   scheduleDate: string; // yyyy-mm-dd
   scheduleTime: string; // HH:MM
   priority: string;
+  buyer_id?: string;
 };
 
-export type FollowupFormWithLead = FollowupForm & { buyer_id: string; id?: string };
+export type FollowupFormWithBuyer = FollowupForm & {
+  buyer_id: string;
+  id?: string;
+  created_by?: string;
+  created_at?: string;
+  updated_by?: string;
+  updated_at?: string;
+};
 
 type NormalizedRow = {
   id?: string | number;
-  tabId?: string; // master tab id (e.g. 'buyer' or 'lead')
+  tabId?: string;
   type1Name?: string;
   value1Name?: string;
   type2Name?: string;
   value2Name?: string;
-  remarks?: string[]; // normalized to array
+  remarks?: string[];
   raw?: any;
 };
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: FollowupFormWithLead) => void;
+  onSave?: (data: any) => void; // optional callback, receives server response
   tabId: string;
-  buyerId: string;
-  initialForm?: Partial<FollowupFormWithLead>;
+  buyerId: string | number | null; // allow number or string or null
+  initialForm?: Partial<any>;
 };
 
 export const FOLLOWUP_TYPES = [
@@ -54,12 +64,6 @@ const toStr = (v: any) => (v === null || v === undefined ? "" : String(v));
 const normKey = (s?: string) => toStr(s).toLowerCase().replace(/\s+/g, "");
 const includesKey = (hay?: string, needle?: string) => normKey(hay).includes(normKey(needle));
 
-/**
- * Normalize a raw API row into the expected shape.
- * The API (per your screenshots) might return:
- * { master_tab_id, master_type_1, master_value_1, master_type_2, master_value_2, remarks }
- * or other variants. We try many common keys.
- */
 const normalizeRow = (r: any): NormalizedRow => {
   const pick = (keys: string[]) => {
     for (const k of keys) {
@@ -69,34 +73,33 @@ const normalizeRow = (r: any): NormalizedRow => {
   };
 
   const type1Name =
-    pick(["type1Name", "type1_name", "type1", "masterType1", "master_type_1", "master_type1", "masterType1Name"]) ??
-    pick(["masterType1", "master_type_1", "master_type1"]) ??
-    pick(["master_type_1", "master_type_1_name"]) ??
-    pick(["master_type_1"]);
+    pick([
+      "type1Name",
+      "type1_name",
+      "type1",
+      "masterType1",
+      "master_type_1",
+      "master_type1",
+      "masterType1Name",
+    ]) ?? pick(["masterType1", "master_type_1", "master_type1"]) ?? pick(["master_type_1", "master_type_1_name"]) ?? pick(["master_type_1"]);
 
   const value1Name =
-    pick(["value1Name", "value1_name", "value1", "masterValue1", "master_value_1", "master_value1"]) ??
-    pick(["master_value_1"]);
+    pick(["value1Name", "value1_name", "value1", "masterValue1", "master_value_1", "master_value1"]) ?? pick(["master_value_1"]);
 
   const type2Name =
-    pick(["type2Name", "type2_name", "type2", "masterType2", "master_type_2", "master_type2"]) ??
-    pick(["master_type_2"]);
+    pick(["type2Name", "type2_name", "type2", "masterType2", "master_type_2", "master_type2"]) ?? pick(["master_type_2"]);
 
   const value2Name =
-    pick(["value2Name", "value2_name", "value2", "masterValue2", "master_value_2", "master_value2"]) ??
-    pick(["master_value_2"]);
+    pick(["value2Name", "value2_name", "value2", "masterValue2", "master_value_2", "master_value2"]) ?? pick(["master_value_2"]);
 
   const tabId =
-    pick(["masterTabId", "master_tab_id", "master_tab", "tabId", "tab_id"]) ??
-    pick(["mastertabid", "master_tab"]);
+    pick(["masterTabId", "master_tab_id", "master_tab", "tabId", "tab_id"]) ?? pick(["mastertabid", "master_tab"]);
 
-  // remarks may be an array or a comma/newline-separated string
   let remarksRaw = pick(["remarks", "remark", "remarks_list", "masterRemarks", "master_remarks"]) ?? undefined;
   let remarksArr: string[] = [];
   if (Array.isArray(remarksRaw)) {
     remarksArr = remarksRaw.map((x: any) => toStr(x).trim()).filter(Boolean);
   } else if (typeof remarksRaw === "string" && remarksRaw.trim()) {
-    // Split by newline or comma and trim
     remarksArr = remarksRaw
       .split(/\r?\n|,/)
       .map((x) => toStr(x).trim())
@@ -117,16 +120,11 @@ const normalizeRow = (r: any): NormalizedRow => {
 
 const uniq = (arr: string[]) => Array.from(new Set(arr.map((s) => (s || "").trim()).filter(Boolean)));
 
-/* fuzzy helpers targeting "lead stage", "lead status", "remark" tokens */
 const isStageType = (typeName?: string) =>
-  !!typeName && (includesKey(typeName, "leadstage") || includesKey(typeName, "leadstage".replace("", "lead stage")) || includesKey(typeName, "stage"));
-const isStatusType = (typeName?: string) =>
-  !!typeName && (includesKey(typeName, "leadstatus") || includesKey(typeName, "status"));
+  !!typeName && (includesKey(typeName, "leadstage") || includesKey(typeName, "stage") || includesKey(typeName, "lead stage"));
+const isStatusType = (typeName?: string) => !!typeName && (includesKey(typeName, "leadstatus") || includesKey(typeName, "status"));
 const isRemarksType = (typeName?: string) => !!typeName && (includesKey(typeName, "remark") || includesKey(typeName, "remarks"));
 
-/* ----------------- extraction utilities using normalized rows ------------------ */
-
-/** extract unique stage values (value1Name/value2Name) for rows matching stage-type */
 const extractStages = (rows: NormalizedRow[]) => {
   const vals: string[] = [];
   rows.forEach((r) => {
@@ -136,10 +134,6 @@ const extractStages = (rows: NormalizedRow[]) => {
   return uniq(vals);
 };
 
-/**
- * For a selected stage value, find statuses linked to it.
- * We look for rows where one side is a stage type with matching value and the other side is a status type.
- */
 const statusesForStageFrom = (rows: NormalizedRow[], stage: string) => {
   const out: string[] = [];
   rows.forEach((r) => {
@@ -158,9 +152,6 @@ const statusesForStageFrom = (rows: NormalizedRow[], stage: string) => {
   return uniq(out);
 };
 
-/**
- * For given status, return remarks: from r.remarks array or pairs where other side is 'Remarks'.
- */
 const remarksForStatusFrom = (rows: NormalizedRow[], status: string) => {
   const out: string[] = [];
   rows.forEach((r) => {
@@ -169,7 +160,6 @@ const remarksForStatusFrom = (rows: NormalizedRow[], status: string) => {
     const leftIsRemarks = isRemarksType(r.type1Name);
     const rightIsRemarks = isRemarksType(r.type2Name);
 
-    // direct remarks array attached to row
     if (leftIsStatus && toStr(r.value1Name).trim() === toStr(status).trim() && Array.isArray(r.remarks) && r.remarks.length) {
       out.push(...r.remarks);
     }
@@ -177,7 +167,6 @@ const remarksForStatusFrom = (rows: NormalizedRow[], status: string) => {
       out.push(...r.remarks);
     }
 
-    // status <-> remarks pair
     if (leftIsStatus && toStr(r.value1Name).trim() === toStr(status).trim() && rightIsRemarks) {
       out.push(r.value2Name || "");
     }
@@ -275,8 +264,10 @@ ColoredFollowupTypeSelect.displayName = "ColoredFollowupTypeSelect";
 
 /* ------------------------- Modal ------------------------- */
 const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, buyerId, initialForm }) => {
-  if (!isOpen) return null;
+  // debug: show prop
+  console.debug("BuyerFollowupModal open:", isOpen, "prop buyerId:", buyerId);
 
+  if (!isOpen) return null;
   const isEdit = Boolean(initialForm?.id);
   const [priorityOptions, setPriorityOptions] = useState<{ value: string; label: string }[]>([]);
 
@@ -287,7 +278,12 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
   const [availableStages, setAvailableStages] = useState<string[]>([]);
   const [availableStatuses, setAvailableStatuses] = useState<string[]>([]);
   const [availableRemarks, setAvailableRemarks] = useState<string[]>([]);
+  const { user } = useAuth();
 
+  // tolerant user id getter (works with common user shapes)
+  const currentUserId = user?.id;
+
+  // Initialize form and ensure buyer_id is set (coerce to string)
   const [form, setForm] = useState<FollowupForm>({
     followupType: FOLLOWUP_TYPES[0].value,
     buyerLeadStage: "",
@@ -298,7 +294,17 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
     scheduleDate: "",
     scheduleTime: "",
     priority: "Medium",
+    buyer_id: buyerId ? String(buyerId) : "",
   });
+
+  // keep buyer_id in sync if prop changes (defensive)
+  useEffect(() => {
+    if (buyerId !== undefined && buyerId !== null) {
+      setForm((f) => ({ ...f, buyer_id: String(buyerId) }));
+      console.debug("Synced buyerId into form:", buyerId);
+    }
+    // when modal opens and buyerId not available, we don't override form so edit flows keep their values
+  }, [buyerId]);
 
   // fetch priorities
   useEffect(() => {
@@ -313,6 +319,13 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
     })();
   }, [isOpen]);
 
+  // helper: read either snake_case or camelCase from initialForm
+  const readInit = (keyCamel: string, keySnake: string) => {
+    if (!initialForm) return undefined;
+    // @ts-ignore
+    return (initialForm as any)[keyCamel] ?? (initialForm as any)[keySnake];
+  };
+
   // fetch connected remarks and normalize + filter by tabId
   useEffect(() => {
     const load = async () => {
@@ -321,61 +334,52 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
       setError(null);
       try {
         const raw = (await connectedRemarkAPI.getRemarksByTabId(tabId)) as any;
-        // raw might be array or object with data prop — try to find rows
         let rowsCandidate: any[] = [];
         if (Array.isArray(raw)) rowsCandidate = raw;
         else if (raw && Array.isArray(raw.data)) rowsCandidate = raw.data;
         else if (raw && Array.isArray(raw.rows)) rowsCandidate = raw.rows;
         else if (raw && raw.result && Array.isArray(raw.result)) rowsCandidate = raw.result;
         else if (raw && typeof raw === "object") {
-          // sometimes API returns an object map of items
           rowsCandidate = Object.values(raw).flatMap((v) => (Array.isArray(v) ? v : []));
         }
 
-        // If still empty, but raw looks like array-like, try using raw directly
         if (!rowsCandidate.length && raw && typeof raw === "object" && Object.keys(raw).length) {
-          // fallback: try mapping top-level array-like keys
-          // but keep it simple: if raw has properties that are objects containing master_type_1 etc, include them
           rowsCandidate = Array.isArray(raw) ? raw : [raw];
         }
 
-        // normalize each row
         const normalized = rowsCandidate.map((r) => normalizeRow(r || {}));
-
-        // filter by tabId (case-insensitive). If tabId param empty, don't filter.
         const wantedTab = (tabId || "").toString().trim().toLowerCase();
-        const filtered = wantedTab
-          ? normalized.filter((nr) => (nr.tabId || "").toString().trim().toLowerCase() === wantedTab)
-          : normalized;
-
-        // If nothing matched, as a fallback use normalized rows unfiltered (helps debug)
+        const filtered = wantedTab ? normalized.filter((nr) => (nr.tabId || "").toString().trim().toLowerCase() === wantedTab) : normalized;
         const finalRows = filtered.length ? filtered : normalized;
 
         setApiRows(finalRows);
 
-        // populate stages
         const stages = extractStages(finalRows);
         setAvailableStages(stages);
 
-        // hydrate edit form if initialForm provided
+        // hydrate edit form if initialForm provided (accept both camelCase & snake_case)
         if (initialForm) {
-          setForm({
-            followupType: initialForm.followupType ?? FOLLOWUP_TYPES[0].value,
-            buyerLeadStage: initialForm.buyerLeadStage ?? "",
-            buyerLeadStatus: initialForm.buyerLeadStatus ?? "",
-            remark: initialForm.remark ?? "",
-            customRemark: initialForm.customRemark ?? "",
-            nextAction: initialForm.nextAction ?? "",
-            scheduleDate: initialForm.scheduleDate ?? "",
-            scheduleTime: initialForm.scheduleTime ?? "",
-            priority: initialForm.priority ?? "Medium",
-          });
+          setForm((f) => ({
+            ...f,
+            followupType: (readInit("followupType", "followup_type") as string) ?? f.followupType,
+            buyerLeadStage: (readInit("buyerLeadStage", "buyer_lead_stage") as string) ?? f.buyerLeadStage,
+            buyerLeadStatus: (readInit("buyerLeadStatus", "buyer_lead_status") as string) ?? f.buyerLeadStatus,
+            remark: (readInit("remark", "remark") as string) ?? f.remark,
+            customRemark: (readInit("customRemark", "custom_remark") as string) ?? f.customRemark,
+            nextAction: (readInit("nextAction", "next_action") as string) ?? f.nextAction,
+            scheduleDate: (readInit("scheduleDate", "schedule_date") as string) ?? f.scheduleDate,
+            scheduleTime: (readInit("scheduleTime", "schedule_time") as string) ?? f.scheduleTime,
+            priority: (readInit("priority", "priority") as string) ?? f.priority,
+            buyer_id: (readInit("buyer_id", "buyer_id") as any) ? String(readInit("buyer_id", "buyer_id")) : f.buyer_id,
+          }));
 
-          if (initialForm.buyerLeadStage) {
-            const sts = statusesForStageFrom(finalRows, initialForm.buyerLeadStage);
+          const stageVal = (readInit("buyerLeadStage", "buyer_lead_stage") as string) ?? "";
+          if (stageVal) {
+            const sts = statusesForStageFrom(finalRows, stageVal);
             setAvailableStatuses(sts);
-            if (initialForm.buyerLeadStatus) {
-              const rems = remarksForStatusFrom(finalRows, initialForm.buyerLeadStatus);
+            const statusVal = (readInit("buyerLeadStatus", "buyer_lead_status") as string) ?? "";
+            if (statusVal) {
+              const rems = remarksForStatusFrom(finalRows, statusVal);
               setAvailableRemarks(rems);
             } else {
               setAvailableRemarks([]);
@@ -385,7 +389,6 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
             setAvailableRemarks([]);
           }
         } else {
-          // reset dependent lists for create mode
           setAvailableStatuses([]);
           setAvailableRemarks([]);
           setForm((f) => ({ ...f, followupType: FOLLOWUP_TYPES[0].value, priority: "Medium" }));
@@ -431,8 +434,9 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
     setForm((f) => ({ ...f, remark, customRemark: remark ? `${remark} – ` : "" }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!form.buyerLeadStage) {
       alert("Please select a Buyer Lead Stage.");
       return;
@@ -442,16 +446,90 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
       return;
     }
 
-    const payload: FollowupFormWithLead = {
-      ...form,
-      buyer_id: buyerId,
-      ...(initialForm?.id ? { id: initialForm.id } : {}),
-    };
-    onSave(payload);
+    // RESOLVE buyer id robustly
+    const resolvedBuyerId = form.buyer_id ?? (buyerId !== undefined && buyerId !== null ? String(buyerId) : "");
+    console.debug("Submitting follow-up. prop buyerId:", buyerId, "form.buyer_id:", form.buyer_id, "resolvedBuyerId:", resolvedBuyerId);
+
+    if (!resolvedBuyerId) {
+      alert("Missing buyer id. Cannot save follow-up without buyer reference.");
+      console.error("Missing buyer id when submitting follow-up. form:", form, "prop buyerId:", buyerId);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const now = new Date().toISOString();
+
+      // determine created_by/created_at from initialForm (snake or camel) when editing
+      const initial_created_by = readInit("created_by", "created_by") ?? readInit("createdBy", "created_by");
+      const initial_created_at = readInit("created_at", "created_at") ?? readInit("createdAt", "created_at");
+
+      const created_by = initialForm?.id ? (initial_created_by as string) ?? undefined : currentUserId || undefined;
+      const created_at = initialForm?.id ? (initial_created_at as string) ?? undefined : now;
+
+      const updated_by = currentUserId || undefined;
+      const updated_at = now;
+
+      // Build payload using snake_case keys you requested
+      // try numeric conversion but fallback to string if NaN
+      const numericBuyerId = Number(resolvedBuyerId);
+      const buyerPayloadId = Number.isFinite(numericBuyerId) && numericBuyerId !== 0 ? numericBuyerId : resolvedBuyerId;
+
+      const payload: any = {
+        // core
+        buyer_id: buyerPayloadId,
+        followup_type: form.followupType,
+        buyer_lead_stage: form.buyerLeadStage,
+        buyer_lead_status: form.buyerLeadStatus,
+        remark: form.remark,
+        custom_remark: form.customRemark,
+        next_action: form.nextAction,
+        priority: form.priority,
+
+        // schedule
+        schedule_date: form.scheduleDate,
+        schedule_time: form.scheduleTime,
+
+        // audit
+        ...(created_by ? { created_by } : {}),
+        ...(created_at ? { created_at } : {}),
+        ...(updated_by ? { updated_by } : {}),
+        ...(updated_at ? { updated_at } : {}),
+      };
+
+      // include id for edit flows so caller can pass it to PUT endpoint if needed
+      if (initialForm?.id) payload.id = initialForm.id;
+
+      // LOG payload for debugging BEFORE API call
+      console.log("Buyer follow-up payload (sending):", payload);
+
+      // Call API: create or update
+      let resp: any = null;
+      if (initialForm?.id) {
+        // update
+        resp = await buyerFollowupAPI.update(String(initialForm.id), payload);
+      } else {
+        // create
+        resp = await buyerFollowupAPI.create(payload);
+      }
+
+      // call optional parent callback with server response (if provided)
+      if (onSave) onSave(resp);
+
+      // close modal on success
+      onClose();
+    } catch (err: any) {
+      console.error("Save follow-up failed:", err);
+      // If buyerFollowupAPI throws Error with message, show it; otherwise fallback
+      setError(err?.message ?? "Failed to save follow-up. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const selectedType =
-    FOLLOWUP_TYPES.find((t) => t.value === form.followupType) || FOLLOWUP_TYPES[0];
+  const selectedType = FOLLOWUP_TYPES.find((t) => t.value === form.followupType) || FOLLOWUP_TYPES[0];
   const ringColor =
     selectedType.color === "blue"
       ? "focus:ring-blue-500"
@@ -471,7 +549,7 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl p-5 m-4 max-h-[90vh] overflow-y-auto border border-gray-100">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-transparent bg-clip-text">
-            {initialForm?.id ? "Edit Follow-up" : "Add New Follow-up"}
+            {initialForm?.id ? "Edit Buyer Follow-up" : "Add Buyer New Follow-up"}
           </h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl leading-none" aria-label="Close">
             ×
@@ -555,7 +633,15 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
                 const tomorrow = new Date();
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 const minDate = tomorrow.toISOString().split("T")[0];
-                return <input type="date" className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-500" value={form.scheduleDate} onChange={handleChange("scheduleDate")} min={minDate} />;
+                return (
+                  <input
+                    type="date"
+                    className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                    value={form.scheduleDate}
+                    onChange={handleChange("scheduleDate")}
+                    min={minDate}
+                  />
+                );
               })()}
             </div>
 
@@ -570,7 +656,7 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
               Cancel
             </button>
             <button type="submit" className="px-4 py-2 rounded-md text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:brightness-110 transition-colors" disabled={loading}>
-              {initialForm?.id ? "Update Follow-up" : "Save Follow-up"}
+              {initialForm?.id ? (loading ? "Updating..." : "Update Follow-up") : (loading ? "Saving..." : "Save Follow-up")}
             </button>
           </div>
         </form>

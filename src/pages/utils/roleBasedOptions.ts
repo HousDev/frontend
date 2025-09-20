@@ -81,7 +81,7 @@ export function getAssignableExecutives(user: any, presalesUsers: any[]) {
 
   // Executive (Presales) → सिर्फ खुद
   if (role === "executive" && dept === "presales") {
-    console.log("✅ Executive access - showing self only");
+    // console.log("✅ Executive access - showing self only");
     return [{
       id: user.id,
       name: user.name || user.full_name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Self",
@@ -91,7 +91,7 @@ export function getAssignableExecutives(user: any, presalesUsers: any[]) {
 
   // Manager (Presales) → सभी presales executives
   if (role === "manager" && dept === "presales") {
-    console.log("✅ Manager access - showing all presales executives");
+    // console.log("✅ Manager access - showing all presales executives");
     return presalesUsers.map((u: any) => ({
       id: u.id,
       name: u.name || u.full_name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || "Executive",
@@ -101,7 +101,7 @@ export function getAssignableExecutives(user: any, presalesUsers: any[]) {
 
   // Admin → सभी presales executives
   if (role === "admin") {
-    console.log("✅ Admin access - showing all presales executives");
+    // console.log("✅ Admin access - showing all presales executives");
     return presalesUsers.map((u: any) => ({
       id: u.id,
       name: u.name || u.full_name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || "Executive",
