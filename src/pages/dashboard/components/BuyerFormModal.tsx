@@ -442,8 +442,8 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
           
           // ✅ Fix: Use string IDs and handle response properly
           await notificationAPI.createNotification({
-            leadId: String(lead.id), // ✅ Convert to string
-            userId: String(formData.assigned_executive), // ✅ Convert to string
+            leadId: Number(lead.id), // ✅ Convert to number
+            userId: Number(formData.assigned_executive), // ✅ Convert to string
             message: `New buyer transferred and assigned to ${execName}`,
             type: "buyer_transfer",
             link: `/dashboard/buyers/${response?.data?.id || response?.id || lead.id}`, // Link to buyer profile if available
@@ -461,8 +461,8 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
       if (lead.created_by && String(lead.created_by) !== String(user?.id)) {
         try {
           await notificationAPI.createNotification({
-            leadId: String(lead.id), // ✅ Convert to string
-            userId: String(lead.created_by), // ✅ Convert to string
+            leadId: Number(lead.id), // ✅ Convert to number
+            userId: Number(lead.created_by), // ✅ Convert to string
             message: `Your lead "${lead.name}" has been transferred to buyer`,
             type: "lead_transfer",
             link: `/dashboard/buyers/${response?.data?.id || response?.id || lead.id}`,

@@ -1,74 +1,88 @@
-// PriceRangeSelector.tsx
+// PriceRangeSelector.tsx (min = 1L, rupee-integer, ₹1 increments)
 import React, { useEffect, useRef, useState } from "react";
 
 interface PriceRangeSelectorProps {
-    initialMax?: number; // in Crores
-    max?: number; // max in Crores (default 5)
-    onChange?: (payload: { min: number; max: number; readable: string }) => void; // readable like "28L" or "2.50Cr"
+    initialMax?: number; // in Crores (e.g. 0.01 for 1L, 1 = 1 Cr)
+    max?: number; // max in Crores (default 10)
+    onChange?: (payload: { min: number; max: number; readable: string }) => void; // min/max returned in Crores
     className?: string;
-    sliderLimit?: number; // visual slider cap (default 5)
 }
 
 const CRORE_TO_RUPEE = 10_000_000;
+const LAKH_TO_RUPEE = 100_000;
+
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
 });
 
-const toReadable = (valCr: number) => {
-    if (valCr <= 0) return "0L";
-    if (valCr < 1) {
-        const lacs = Math.round(valCr * 100);
-        return `${lacs}L`;
-    }
-    return `${Number(valCr.toFixed(2))}Cr`;
-};
+const numberFormatter = new Intl.NumberFormat("en-IN", {
+    maximumFractionDigits: 0,
+});
 
-const formatRupeesFull = (valCr: number) => {
-    const rupees = valCr * CRORE_TO_RUPEE;
-    return currencyFormatter.format(Math.round(rupees * 100) / 100);
+const formatRupeesDisplay = (rupees: number) =>
+    currencyFormatter.format(Math.round(rupees)).replace("₹", "₹ ");
+
+const toReadable = (rupees: number) => {
+    if (rupees <= 0) return "0L";
+    if (rupees < CRORE_TO_RUPEE) {
+        const wholeL = Math.round(rupees / LAKH_TO_RUPEE);
+        return `${wholeL}L`;
+    }
+    const cr = rupees / CRORE_TO_RUPEE;
+    return `${Number(cr.toFixed(2))}Cr`;
 };
 
 const clamp = (v: number, min = 0, max = Infinity) => Math.max(min, Math.min(max, v));
 
 const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
-    initialMax = 0,
-    max = 5,
+    initialMax = 0.01, // default start = 0.01 Cr -> 1L
+    max = 10,
     onChange,
     className = "",
-    sliderLimit = 5,
 }) => {
-    const sliderScale = Math.max(0.1, sliderLimit);
-    const start = clamp(initialMax, 0, Math.min(max, sliderScale));
-    const [value, setValue] = useState<number>(Number(start.toFixed(3)));
+    // min = 1 Lakh (₹100,000)
+    const minRupees = LAKH_TO_RUPEE;
+    const maxRupees = Math.round(max * CRORE_TO_RUPEE);
+
+    // start must be within [minRupees, maxRupees]
+    const requestedStart = Math.round(initialMax * CRORE_TO_RUPEE);
+    const startRupees = clamp(requestedStart, minRupees, maxRupees);
+
+    const [valueRupees, setValueRupees] = useState<number>(startRupees);
     const [isDragging, setIsDragging] = useState(false);
     const sliderRef = useRef<HTMLDivElement | null>(null);
 
+    // notify parent, return min/max in Crores for backward compatibility
     useEffect(() => {
-        const readable = toReadable(value);
-        onChange?.({ min: 0, max: Number(value.toFixed(3)), readable });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [value]);
+        const readable = toReadable(valueRupees);
+        onChange?.({
+            min: minRupees / CRORE_TO_RUPEE,
+            max: valueRupees / CRORE_TO_RUPEE,
+            readable,
+        });
+    }, [valueRupees, onChange]);
 
-    const posFor = (val: number) => {
-        const v = clamp(val, 0, sliderScale);
-        return (v / sliderScale) * 100;
+    // position mapping based on [minRupees, maxRupees]
+    const posFor = (rupees: number) => {
+        const v = clamp(rupees, minRupees, maxRupees);
+        return ((v - minRupees) / (maxRupees - minRupees)) * 100;
     };
-    const position = posFor(value);
+    const position = posFor(valueRupees);
 
-    const pointerToValue = (clientX: number) => {
+    const pointerToRupees = (clientX: number) => {
         const el = sliderRef.current;
-        if (!el) return 0;
+        if (!el) return minRupees;
         const rect = el.getBoundingClientRect();
         const x = clientX - rect.left;
         const pct = clamp(x / rect.width, 0, 1);
-        return Number((pct * sliderScale).toFixed(3));
+        return Math.round(pct * (maxRupees - minRupees)) + minRupees;
     };
 
     const handleTrackPointerDown = (clientX: number) => {
-        const v = pointerToValue(clientX);
-        setValue(Number(clamp(v, 0, max).toFixed(3)));
+        const rupees = pointerToRupees(clientX);
+        setValueRupees(clamp(rupees, minRupees, maxRupees));
         setIsDragging(true);
     };
 
@@ -79,8 +93,8 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
 
     const handlePointerMove = (clientX: number | null) => {
         if (!isDragging || !sliderRef.current || clientX === null) return;
-        const newVal = pointerToValue(clientX);
-        setValue(Number(clamp(newVal, 0, max).toFixed(3)));
+        const rupees = pointerToRupees(clientX);
+        setValueRupees(clamp(rupees, minRupees, maxRupees));
     };
 
     const handlePointerUp = () => setIsDragging(false);
@@ -109,48 +123,161 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
             window.removeEventListener("touchmove", onTouchMove);
             window.removeEventListener("touchend", onTouchEnd);
         };
-    }, [isDragging, value, sliderScale]);
+    }, [isDragging, maxRupees]);
 
-    // manual input parsing (support "50L", "0.50Cr", "2", "2Cr")
-    const parseManualInput = (text: string) => {
+    // --- Manual input parsing (returns RUPEES integer) ---
+    const parseManualInputToRupees = (text: string) => {
         const raw = (text || "").trim().toLowerCase();
-        if (raw === "") return 0;
-        if (/^[\d,.]+\s*l$/.test(raw)) {
-            const n = parseFloat(raw.replace(/[,l\s]/g, ""));
-            if (Number.isNaN(n)) return 0;
-            return Number((n / 100).toFixed(3));
+        if (raw === "" || raw === "0") return minRupees;
+
+        // strip currency symbol and spaces
+        const cleaned = raw.replace(/₹/g, "").replace(/\s+/g, "");
+
+        // Primary: pure rupee integer like "100000" or "1,23,021"
+        const digitsOnly = cleaned.replace(/,/g, "");
+        if (/^\d+$/.test(digitsOnly)) {
+            const n = parseInt(digitsOnly, 10);
+            if (Number.isNaN(n)) return minRupees;
+            return Math.round(n);
         }
-        if (/^[\d,.]+\s*(cr|c)$/.test(raw)) {
-            const n = parseFloat(raw.replace(/[,crc\s]/g, ""));
-            return Number(isNaN(n) ? 0 : n.toFixed(3));
+
+        // fallback: Lakh format "50L"
+        const lakhMatch = cleaned.match(/^([\d,.]+)l$/);
+        if (lakhMatch) {
+            const n = parseFloat(lakhMatch[1].replace(/,/g, ""));
+            if (Number.isNaN(n)) return minRupees;
+            return Math.round(n * LAKH_TO_RUPEE);
         }
-        const n = parseFloat(raw.replace(/,/g, ""));
-        if (Number.isNaN(n)) return 0;
-        // treat plain numbers as Crores by default
-        return Number(n.toFixed(3));
+
+        // fallback: Crore format "1.25Cr"
+        const croreMatch = cleaned.match(/^([\d,.]+)(cr|c)$/);
+        if (croreMatch) {
+            const n = parseFloat(croreMatch[1].replace(/,/g, ""));
+            if (Number.isNaN(n)) return minRupees;
+            return Math.round(n * CRORE_TO_RUPEE);
+        }
+
+        // last resort: try parseFloat of digits removed commas
+        const n = parseFloat(digitsOnly);
+        if (Number.isNaN(n)) return minRupees;
+        return Math.round(n);
     };
 
-    const [manualInput, setManualInput] = useState<string>(() => (value < 1 ? `${Math.round(value * 100)}L` : `${value.toFixed(2)}Cr`));
+    const [manualInput, setManualInput] = useState<string>("");
+    const [showInput, setShowInput] = useState(false);
 
     useEffect(() => {
-        setManualInput(value < 1 ? `${Math.round(value * 100)}L` : `${value.toFixed(2)}Cr`);
-    }, [value]);
+        if (!showInput) {
+            // keep the bubble input as readable (L/Cr)
+            setManualInput(toReadable(valueRupees));
+        }
+    }, [valueRupees, showInput]);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setManualInput(e.target.value);
+        const parsed = parseManualInputToRupees(e.target.value);
+        if (!Number.isNaN(parsed)) {
+            const sanitized = clamp(parsed, minRupees, maxRupees);
+            setValueRupees(Math.round(sanitized));
+        }
+    };
+
+    const handleInputBlur = () => {
+        setShowInput(false);
+        const parsed = parseManualInputToRupees(manualInput);
+        const sanitized = clamp(parsed, minRupees, maxRupees);
+        setValueRupees(Math.round(sanitized));
+    };
+
+    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter") {
+            setShowInput(false);
+            const parsed = parseManualInputToRupees(manualInput);
+            const sanitized = clamp(parsed, minRupees, maxRupees);
+            setValueRupees(Math.round(sanitized));
+        }
+        if (e.key === "Escape") {
+            setShowInput(false);
+        }
+    };
+
+    // --- RIGHT-SIDE INPUT (always visible) ---
+    // Now shows plain rupee number (with Indian commas) like "1,23,021" and accepts raw numbers on input
+    const [rightInput, setRightInput] = useState<string>(numberFormatter.format(startRupees));
+
+    // whenever slider value changes, update right input (we always sync)
+    useEffect(() => {
+        setRightInput(numberFormatter.format(valueRupees));
+    }, [valueRupees]);
+
+    const handleRightInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const txt = e.target.value;
+        // allow user to type digits and commas; keep input as-typed
+        setRightInput(txt);
+
+        // Try parse only if there are digits
+        const cleaned = txt.replace(/,/g, "").replace(/₹/g, "").trim();
+        if (cleaned === "") return; // don't change slider while user is deleting
+        // If cleaned is pure digits, parse as rupees
+        if (/^\d+$/.test(cleaned)) {
+            const n = parseInt(cleaned, 10);
+            if (!Number.isNaN(n)) {
+                const sanitized = clamp(n, minRupees, maxRupees);
+                setValueRupees(Math.round(sanitized));
+            }
+            return;
+        }
+
+        // Also accept "50L" or "1.25Cr" while typing (fallback)
+        const parsed = parseManualInputToRupees(txt);
+        if (!Number.isNaN(parsed)) {
+            const sanitized = clamp(parsed, minRupees, maxRupees);
+            setValueRupees(Math.round(sanitized));
+        }
+    };
+
+    const handleRightInputBlur = () => {
+        // normalize display to comma-formatted rupees after blur
+        setRightInput(numberFormatter.format(valueRupees));
+    };
 
     return (
-        <div className={`w-full ${className}`}>
-            <div className="flex items-center gap-6">
-                <div className="w-1/2">
-                    <div className="relative">
-                        <div className="relative h-6 mb-2 pointer-events-none">
-                            <div
-                                className="absolute text-xs font-medium text-gray-700 transform -translate-x-1/2 bg-white px-2 py-1 rounded-md shadow-sm border whitespace-nowrap"
-                                style={{ left: `${position}%`, top: 0 }}
-                                aria-hidden
-                            >
-                                {value <= 0 ? "0L" : value < 1 ? `${Math.round(value * 100)}L` : `${Number(value.toFixed(2))}Cr`}
-                            </div>
+        <div className={`w-full max-w-2xl mx-auto p-6 ${className}`}>
+            {/* Price Display bubble above handle */}
+            <div className="relative mb-6">
+                <div
+                    className="absolute bg-white rounded-full px-4 py-2 shadow-lg border transform -translate-x-1/2 cursor-pointer hover:shadow-xl transition-all duration-200"
+                    style={{
+                        left: `${position}%`,
+                        top: "-50px",
+                        minWidth: "120px",
+                        textAlign: "center",
+                    }}
+                    onClick={() => setShowInput(true)}
+                >
+                    {showInput ? (
+                        <input
+                            className="text-sm font-semibold text-gray-800 bg-transparent border-none outline-none text-center w-full"
+                            value={manualInput}
+                            onChange={handleInputChange}
+                            onBlur={handleInputBlur}
+                            onKeyDown={handleInputKeyDown}
+                            autoFocus
+                            placeholder="Enter amount (e.g. 500000, 50L, 1.25Cr)"
+                        />
+                    ) : (
+                        <div className="text-sm font-semibold text-gray-800">
+                            {formatRupeesDisplay(valueRupees)}
                         </div>
+                    )}
+                </div>
+            </div>
 
+            {/* Slider + Right Input (row) */}
+            <div className="flex items-center gap-4">
+                {/* Slider track */}
+                <div className="flex-1">
+                    <div className="relative">
                         <div
                             ref={sliderRef}
                             className="relative h-2 bg-gray-200 rounded-full cursor-pointer"
@@ -162,22 +289,22 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
                                 }
                             }}
                         >
+                            {/* Active track */}
                             <div
-                                className="absolute rounded-full"
+                                className="absolute h-full rounded-full bg-orange-500"
                                 style={{
-                                    height: "100%",
-                                    left: `0%`,
                                     width: `${position}%`,
-                                    background: "linear-gradient(90deg,#7c3aed,#6d28d9)",
                                 }}
                             />
+
+                            {/* Slider Handle */}
                             <div
                                 role="slider"
                                 tabIndex={0}
-                                aria-valuemin={0}
-                                aria-valuemax={sliderScale}
-                                aria-valuenow={Number(value.toFixed(3))}
-                                className="absolute w-4 h-4 bg-white border-2 border-purple-500 rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 top-1/2 hover:scale-105 transition-transform shadow-md z-20"
+                                aria-valuemin={minRupees}
+                                aria-valuemax={maxRupees}
+                                aria-valuenow={valueRupees}
+                                className="absolute w-5 h-5 bg-blue-600 rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 top-1/2 hover:scale-110 transition-transform shadow-lg z-20"
                                 style={{ left: `${position}%` }}
                                 onMouseDown={handleMouseDown}
                                 onTouchStart={(e) => {
@@ -187,48 +314,42 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
                                     }
                                 }}
                                 onKeyDown={(e: React.KeyboardEvent) => {
-                                    const step = 0.01;
-                                    if (e.key === "ArrowLeft" || e.key === "ArrowDown") setValue((v) => Number(clamp(v - step, 0, max).toFixed(3)));
-                                    if (e.key === "ArrowRight" || e.key === "ArrowUp") setValue((v) => Number(clamp(v + step, 0, max).toFixed(3)));
-                                    if (e.key === "Home") setValue(0);
-                                    if (e.key === "End") setValue(Number(max.toFixed(3)));
+                                    if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+                                        setValueRupees((v) => clamp(v - 1, minRupees, maxRupees));
+                                    }
+                                    if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+                                        setValueRupees((v) => clamp(v + 1, minRupees, maxRupees));
+                                    }
+                                    if (e.key === "Home") setValueRupees(minRupees);
+                                    if (e.key === "End") setValueRupees(maxRupees);
                                 }}
                             />
                         </div>
 
-                        <div className="flex justify-between text-xs text-gray-600 mt-1">
-                            <span>₹0</span>
-                            <span>₹{sliderScale}Cr</span>
+                        {/* Labels under the track */}
+                        <div className="flex justify-between text-sm text-gray-600 mt-3">
+                            <span className="font-medium">{toReadable(minRupees)}</span>
+                            <span className="font-medium">{max}Cr</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="w-1/2 flex items-center gap-4">
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 flex-1 w-48 flex flex-col justify-center">
-                        <div className="text-xs font-medium text-gray-700">Selected:</div>
-                        <div className="text-sm font-bold text-purple-600">{formatRupeesFull(value)}</div>
-                        <div className="text-xs text-gray-600">{toReadable(value)}</div>
-                    </div>
-
-                    <div className="flex flex-col">
-                        <label className="text-[10px] text-gray-600 mb-1">Manual</label>
-                        <input
-                            className="text-xs px-2 py-1 border rounded w-28"
-                            value={manualInput}
-                            onChange={(e) => setManualInput(e.target.value)}
-                            onBlur={() => {
-                                const parsed = parseManualInput(manualInput);
-                                const sanitized = clamp(parsed, 0, max);
-                                setValue(Number(sanitized.toFixed(3)));
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                    const parsed = parseManualInput(manualInput);
-                                    const sanitized = clamp(parsed, 0, max);
-                                    setValue(Number(sanitized.toFixed(3)));
-                                }
-                            }}
-                        />
+                {/* Right-side input - always visible (expects rupee integers like 100000 or 1,23,021) */}
+                <div className="w-44 flex-shrink-0">
+                    <label className="block text-xs text-gray-500 mb-1">Amount (₹)</label>
+                    <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9,]*"
+                        className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-200"
+                        value={rightInput}
+                        onChange={handleRightInputChange}
+                        onBlur={handleRightInputBlur}
+                        placeholder="e.g. 500000 or 1,23,021"
+                        aria-label="Price input in rupees"
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                        {formatRupeesDisplay(valueRupees)}
                     </div>
                 </div>
             </div>
