@@ -1,45 +1,69 @@
 // src/lib/sellerAPI.ts
-import axios from "axios";
+import { api } from "./api"; // 🔥 Use same api instance as buyers for consistency
 
-const API_URL = "http://localhost:3000/api/sellers"; // backend ka base url
 export const sellerAPI = {
-  // Get all sellers
+  // ✅ Get all sellers
   getAll: async () => {
-    console.log("⏳ [Before] Fetching all sellers...");
-    const res = await axios.get(`${API_URL}/getSellers`);
-    console.log("✅ [After] Sellers fetched successfully:", res.data.data?.length || 0);
-    return res.data.data;
+    console.log("⏳ Fetching all sellers...");
+    const response = await api.get("/sellers/getSellers");
+    console.log("✅ Sellers fetched:", response.data?.data?.length || 0);
+    return response.data.data;
   },
 
-  // Get seller by ID
-  getById: async (id: number) => {
-    console.log(`⏳ [Before] Fetching seller by ID: ${id}`);
-    const res = await axios.get(`${API_URL}/getSellerById/${id}`);
-    console.log("✅ [After] Seller fetched:", res.data.data);
-    return res.data.data;
+  // ✅ Get seller by ID
+  getById: async (id: string) => {
+    if (!id) throw new Error("Seller ID is required");
+    console.log(`⏳ Fetching seller by ID: ${id}`);
+    const response = await api.get(`/sellers/getSellerById/${id}`);
+    console.log("✅ Seller fetched:", response.data.data);
+    return response.data.data;
   },
 
-  // Create new seller
+  // ✅ Create seller
   create: async (data: any) => {
-    console.log("⏳ [Before] Creating seller:", data);
-    const res = await axios.post(`${API_URL}/createSeller`, data);
-    console.log("✅ [After] Seller created successfully:", res.data);
-    return res.data;
+    if (!data?.name) throw new Error("Seller name is required");
+    console.log("➡️ Creating new seller with data:", data);
+    const response = await api.post("/sellers/createSeller", data);
+    console.log("✅ Seller created:", response.data);
+    return response.data;
   },
 
-  // Update seller
-  update: async (id: number, data: any) => {
-    console.log(`⏳ [Before] Updating seller ID: ${id}`, data);
-    const res = await axios.put(`${API_URL}/updateSeller/${id}`, data);
-    console.log("✅ [After] Seller updated successfully:", res.data);
-    return res.data;
+  // ✅ Update seller
+  update: async (id: string, data: any) => {
+    if (!id) throw new Error("Seller ID is required");
+    console.log(`➡️ Updating seller ${id} with data:`, data);
+    const response = await api.put(`/sellers/updateSeller/${id}`, data);
+    console.log("✅ Seller updated:", response.data);
+    return response.data;
   },
 
-  // Delete seller
-  delete: async (id: number) => {
-    console.log(`⏳ [Before] Deleting seller ID: ${id}`);
-    const res = await axios.delete(`${API_URL}/deleteSeller/${id}`);
-    console.log("✅ [After] Seller deleted successfully:", res.data);
-    return res.data;
+  // ✅ Delete seller
+  delete: async (id: string) => {
+    if (!id) throw new Error("Seller ID is required");
+    console.log(`➡️ Deleting seller with ID: ${id}`);
+    const response = await api.delete(`/sellers/deleteSeller/${id}`);
+    console.log("✅ Seller deleted:", response.data);
+    return response.data;
+  },
+
+  // ✅ Bulk delete sellers
+  bulkDelete: async (ids: string[], hard: boolean = false) => {
+    if (!ids || ids.length === 0) throw new Error("Seller IDs are required");
+    console.log(`➡️ Bulk deleting sellers: ${ids.join(", ")}, hard: ${hard}`);
+
+    const response = await api.post(`/sellers/bulk-delete`, { ids, hard });
+    console.log("✅ Sellers bulk deleted:", response.data);
+    return response.data;
+  },
+
+  // ✅ Import sellers (bulk insert from JSON array)
+  import: async (sellers: any[]) => {
+    if (!Array.isArray(sellers) || sellers.length === 0) {
+      throw new Error("Sellers array is required for import");
+    }
+    console.log(`➡️ Importing ${sellers.length} sellers...`);
+    const response = await api.post(`/sellers/bulk-import`, sellers);
+    console.log("✅ Sellers import result:", response.data);
+    return response.data;
   },
 };
