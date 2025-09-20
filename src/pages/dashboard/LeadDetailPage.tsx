@@ -195,8 +195,8 @@ const LeadDetailPage: React.FC = () => {
       if (execId && execId.trim() !== "" && execId !== previousExec) {
         try {
           await notificationAPI.createNotification({
-            leadId: String(lead.id), // ✅ Convert to string
-            userId: String(execId),   // ✅ Convert to string
+            leadId: Number(lead.id), // ✅ Convert to number
+            userId: Number(execId),   // ✅ Convert to number
             message: `Lead assigned to ${execName}`,
             type: "lead_assign",
             link: `/dashboard/leads/${lead.id}`,
@@ -735,8 +735,8 @@ const LeadDetailPage: React.FC = () => {
       if (agentId && agentId.trim() !== "" && agentId !== previousAgent) {
         try {
           await notificationAPI.createNotification({
-            leadId: String(lead.id), // ✅ Convert to string
-            userId: String(agentId),  // ✅ Convert to string
+            leadId: Number(lead.id), // ✅ Convert to number
+            userId: Number(agentId),  // ✅ Convert to number
             message: `Lead assigned to ${agentName}`,
             type: "lead_assign",
             link: `/dashboard/leads/${lead.id}`,
@@ -818,8 +818,8 @@ const LeadDetailPage: React.FC = () => {
           const execName = exec?.name || savedLead.assigned_executive_name || "Executive";
           
           await notificationAPI.createNotification({
-            leadId: String(updatedLead.id), // ✅ Convert to string
-            userId: String(newExec),        // ✅ Convert to string
+            leadId: Number(updatedLead.id), // ✅ Convert to number
+            userId: Number(newExec),        // ✅ Convert to number
             message: `Lead updated and assigned to ${execName}`,
             type: "lead_update",
             link: `/dashboard/leads/${updatedLead.id}`,
@@ -899,9 +899,9 @@ const LeadDetailPage: React.FC = () => {
           const execName = exec?.name || lead.assigned_executive_name || "Executive";
           
           await notificationAPI.createNotification({
-            leadId: String(lead.id), // ✅ Convert to string
-            userId: String(lead.assigned_executive), // ✅ Convert to string
-            message: `New follow-up added for lead "${lead.name}" by ${user?.name || 'User'}`,
+            leadId: Number(lead.id), // ✅ Convert to number
+            userId: Number(lead.assigned_executive), // ✅ Convert to number
+            message: `New follow-up added for lead "${lead.name}" by ${user?.first_name || 'User'}`,
             type: "followup_add",
             link: `/dashboard/leads/${lead.id}`,
           });

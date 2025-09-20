@@ -1,8 +1,8 @@
 // SellerFormModal.tsx
+import React, { useEffect, useRef, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
 import { usersAPI } from "@/lib/api";
-import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,10 +11,157 @@ import { ChevronDown } from "lucide-react";
 import PriceRangeSelector from "@/components/ui/PriceRangeSelector";
 import { sellerTransferAPI } from "@/lib/sellerTransferAPI";
 
-interface SellerFormModalProps {
-    lead: any;
+type Lead = {
+    id?: string;
+    salutation?: string;
+    name?: string;
+    phone?: string;
+    whatsapp_number?: string;
+    email?: string;
+    city?: string;
+    state?: string;
+    location?: string;
+    lead_source?: string;
+    lead_type?: string;
+    priority?: string;
+    status?: string;
+    stage?: string;
+    created_at?: string;
+    created_by?: string;
+    last_contact?: string;
+    last_contacted_by?: string;
+    budget_range_readable?: string | null;
+    budget_range?: string | null;
+    budget_min?: number | string | null;
+    budget_max?: number | string | null;
+    unit_type?: string;
+    property_subtype?: string;
+    property_type?: string;
+    assigned_executive?: string | number;
+    notes?: string;
+    nearbyplaces?: string;
+    updated_at?: string;
+    is_active?: boolean;
+    carpetArea?: string | number;
+    society?: string;
+    // add any other fields you expect
+};
+
+type Followup = {
+    id?: string;
+    type?: string;
+    remark?: string;
+    customRemark?: string;
+    scheduledDate?: string | null;
+    createdAt?: string | null;
+    priority?: string;
+    stage?: string;
+    status?: string;
+    createdByFirstName?: string;
+    createdByLastName?: string;
+};
+
+export interface SellerFormModalProps {
+    lead: Lead;
+    followups?: Followup[];
     onClose: () => void;
 }
+
+type UserSimple = {
+    id?: string | number;
+    _id?: string | number;
+    name?: string;
+    full_name?: string;
+    username?: string;
+    department?: string;
+    role?: string;
+};
+
+const toNumberSafe = (s?: string | number | null): number | null => {
+    if (s == null || s === "") return null;
+    if (typeof s === "number") return s;
+    const cleaned = String(s).replace(/,/g, "").trim();
+    const m = cleaned.match(/-?[\d.]+/);
+    if (!m) return null;
+    const n = parseFloat(m[0]);
+    return Number.isNaN(n) ? null : n;
+};
+
+/**
+ * Convert different readable forms into a canonical "L" or "Cr" string for form display.
+ * - Accepts inputs like "28L", "2.50Cr", numeric meaning either L-value (>=100) or Crore (>=1)
+ */
+const toLOrCrString = (params: { readable?: string | null; min?: string | number | null; max?: string | number | null }): string => {
+    const { readable, min, max } = params;
+
+    const normalize = (s?: string | null) => (s ? String(s).replace(/,/g, "").trim() : "");
+
+    // If explicit readable provided: parse suffixes
+    if (readable) {
+        const r = normalize(readable).toLowerCase();
+        // Lakh suffix (l, lakh, lakhs)
+        const lakhMatch = r.match(/^([\d.]+)\s*(l|lakh|lakhs)$/i);
+        if (lakhMatch) {
+            const n = toNumberSafe(lakhMatch[1]);
+            if (n != null) return `${Math.round(n)}L`;
+        }
+        // Crore suffix (cr, crore, crores)
+        const croreMatch = r.match(/^([\d.]+)\s*(cr|crore|crores)$/i);
+        if (croreMatch) {
+            const n = toNumberSafe(croreMatch[1]);
+            if (n != null) return `${Number(n.toFixed(2))}Cr`;
+        }
+
+        // Range like "20 - 50" or "0.20 to 0.50"
+        const rangeMatch = r.match(/([\d.]+)\s*(?:-|to)\s*([\d.]+)/i);
+        if (rangeMatch) {
+            const a = toNumberSafe(rangeMatch[1]);
+            const b = toNumberSafe(rangeMatch[2]);
+            const chosen = b != null ? b : a;
+            if (chosen != null) {
+                if (chosen >= 100) {
+                    const cr = chosen / 100;
+                    return cr >= 1 ? `${Number(cr.toFixed(2))}Cr` : `${Math.round(cr * 100)}L`;
+                }
+                if (chosen < 1) {
+                    return `${Math.round(chosen * 100)}L`;
+                }
+                return `${Number(chosen.toFixed(2))}Cr`;
+            }
+        }
+
+        // single numeric-like
+        const single = toNumberSafe(r);
+        if (single != null) {
+            if (single >= 100) {
+                const cr = single / 100;
+                return cr >= 1 ? `${Number(cr.toFixed(2))}Cr` : `${Math.round(cr * 100)}L`;
+            }
+            if (single < 1) {
+                return `${Math.round(single * 100)}L`;
+            }
+            return `${Number(single.toFixed(2))}Cr`;
+        }
+    }
+
+    // fallback to numeric max then min
+    const nMax = toNumberSafe(max as any);
+    const nMin = toNumberSafe(min as any);
+    const chosenNum = nMax != null ? nMax : nMin;
+
+    if (chosenNum != null) {
+        if (chosenNum >= 100) {
+            const cr = chosenNum / 100;
+            return cr >= 1 ? `${Number(cr.toFixed(2))}Cr` : `${Math.round(cr * 100)}L`;
+        }
+        if (chosenNum < 1) {
+            return `${Math.round(chosenNum * 100)}L`;
+        }
+        return `${Number(chosenNum.toFixed(2))}Cr`;
+    }
+
+    return "";
+};
 
 const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
     const { user } = useAuth();
@@ -30,20 +177,20 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
     const [masterLoading, setMasterLoading] = useState(true);
     const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
 
-    const [allUsers, setAllUsers] = useState<any[]>([]);
-    const [presalesUsers, setPresalesUsers] = useState<any[]>([]);
+    const [allUsers, setAllUsers] = useState<UserSimple[]>([]);
+    const [presalesUsers, setPresalesUsers] = useState<UserSimple[]>([]);
 
     useEffect(() => {
         (async () => {
             try {
                 const resp = await usersAPI.getAllUsers?.();
-                const users = resp?.data || [];
+                const users = resp?.data ?? [];
                 setAllUsers(users);
 
                 const execs = users.filter(
                     (u: any) =>
-                        (u?.department || "").toLowerCase() === "presales" &&
-                        (u?.role || "").toLowerCase() === "executive"
+                        (String(u?.department || "").toLowerCase() === "presales" || String(u?.department || "").toLowerCase() === "pre-sales") &&
+                        String(u?.role || "").toLowerCase() === "executive"
                 );
                 setPresalesUsers(execs);
             } catch (err) {
@@ -54,7 +201,8 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const [formData, setFormData] = useState<any>({
+    // minimal typed formData
+    const [formData, setFormData] = useState<Record<string, any>>({
         salutation: "",
         name: "",
         phone: "",
@@ -82,100 +230,12 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
         updated_at: "",
         is_active: true,
     });
-    console.log("Rendering SellerFormModal with lead:", formData);
-    // helpers
-    const getUserNameById = (id: string | number) => {
+
+    // helper to get user display
+    const getUserNameById = (id?: string | number | null) => {
         if (!id) return "";
         const u = allUsers.find((x) => String(x.id) === String(id) || String(x._id) === String(id));
-        return u?.name || u?.full_name || u?.username || "";
-    };
-
-    // Convert various inputs to string format we want: "28L" for <1Cr, otherwise "2.50Cr"
-    const toLOrCrString = (params: { readable?: string; min?: number | string; max?: number | string }): string => {
-        const { readable, min, max } = params;
-
-        const parseNumber = (s: string | number | undefined): number | null => {
-            if (s == null || s === "") return null;
-            if (typeof s === "number") return s;
-            const cleaned = String(s).replace(/,/g, "").trim();
-            const m = cleaned.match(/-?[\d.]+/);
-            if (!m) return null;
-            const n = parseFloat(m[0]);
-            if (isNaN(n)) return null;
-            return n;
-        };
-
-        const normalize = (s?: string) => (s ? String(s).replace(/,/g, "").trim() : "");
-
-        // If explicit readable provided
-        if (readable) {
-            const r = normalize(readable).toLowerCase();
-
-            // ends with l, lakh, lakhs
-            if (/(l|lakh|lakhs)$/.test(r)) {
-                const n = parseNumber(r);
-                if (n != null) return `${Math.round(n)}L`;
-            }
-
-            // ends with cr or crore
-            if (/(cr|crore|crores)$/.test(r)) {
-                const n = parseNumber(r);
-                if (n != null) {
-                    return `${Number(n.toFixed(2))}Cr`;
-                }
-            }
-
-            // Range like "20 - 50" or "0.20 to 0.50"
-            const rangeMatch = String(readable).match(/([\d,.]+)\s*(?:-|to)\s*([\d,.]+)/i);
-            if (rangeMatch) {
-                const a = parseNumber(rangeMatch[1]);
-                const b = parseNumber(rangeMatch[2]);
-                const chosen = b != null ? b : a;
-                if (chosen != null) {
-                    // heuristics: if >=100 => given in L (e.g., 250 means 250L => 2.50Cr)
-                    if (chosen >= 100) {
-                        const cr = chosen / 100;
-                        return cr >= 1 ? `${Number(cr.toFixed(2))}Cr` : `${Math.round(cr * 100)}L`;
-                    }
-                    // if <1 treat as Crore
-                    if (chosen < 1) {
-                        return `${Math.round(chosen * 100)}L`;
-                    }
-                    return `${Number(chosen.toFixed(2))}Cr`;
-                }
-            }
-
-            // single numeric-like
-            const single = parseNumber(readable);
-            if (single != null) {
-                if (single >= 100) {
-                    const cr = single / 100;
-                    return cr >= 1 ? `${Number(cr.toFixed(2))}Cr` : `${Math.round(cr * 100)}L`;
-                }
-                if (single < 1) {
-                    return `${Math.round(single * 100)}L`;
-                }
-                return `${Number(single.toFixed(2))}Cr`;
-            }
-        }
-
-        // fallback to numeric max then min
-        const nMax = parseNumber(max as any);
-        const nMin = parseNumber(min as any);
-        const chosenNum = nMax != null ? nMax : nMin;
-
-        if (chosenNum != null) {
-            if (chosenNum >= 100) {
-                const cr = chosenNum / 100;
-                return cr >= 1 ? `${Number(cr.toFixed(2))}Cr` : `${Math.round(cr * 100)}L`;
-            }
-            if (chosenNum < 1) {
-                return `${Math.round(chosenNum * 100)}L`;
-            }
-            return `${Number(chosenNum.toFixed(2))}Cr`;
-        }
-
-        return "";
+        return (u as any)?.name || (u as any)?.full_name || (u as any)?.username || "";
     };
 
     // Initialize form from lead
@@ -188,7 +248,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
             ? toLOrCrString({ readable: leadReadable, min: lead?.budget_min, max: lead?.budget_max })
             : toLOrCrString({ min: lead?.budget_min, max: lead?.budget_max });
 
-        setFormData((prev: any) => ({
+        setFormData((prev) => ({
             ...prev,
             salutation: lead.salutation ?? "",
             name: lead.name ?? "",
@@ -231,9 +291,9 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
         return "Unassigned";
     };
 
-    const handleExecAssign = async (execId: string) => {
+    const handleExecAssign = async (execId: string | number) => {
         try {
-            setFormData((prev: any) => ({
+            setFormData((prev) => ({
                 ...prev,
                 assigned_executive: execId,
             }));
@@ -280,7 +340,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
     const cityOptions = getOptionNames(["city", "cities", "master_city"]);
     const societyOptions = getOptionNames(["society", "societies", "society_name", "master_society"]);
 
-    // Styles
+    // Styles (kept as strings you used)
     const wrapperClass = "border-2 border-green-400 rounded-lg p-3 mt-2 space-y-3 bg-white";
     const sharedControlClass = "w-full h-10 px-3 text-xs rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-600";
     const sharedReadOnlyClass = "w-full h-10 px-3 text-xs rounded-md border border-gray-200 bg-gray-100 text-gray-700 cursor-not-allowed";
@@ -289,11 +349,11 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData((prev: any) => ({ ...prev, [name]: value }));
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
     const handleCheckboxChange = (name: string, value: string) => {
-        setFormData((prev: any) => {
+        setFormData((prev) => {
             const currentArray: string[] = prev[name] ?? [];
             const updatedArray = currentArray.includes(value) ? currentArray.filter((item) => item !== value) : [...currentArray, value];
             return { ...prev, [name]: updatedArray };
@@ -302,12 +362,12 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
 
     const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const { value } = e.target;
-        setFormData((prev: any) => ({ ...prev, notes: value }));
+        setFormData((prev) => ({ ...prev, notes: value }));
     };
 
     const handleNearbyLocationsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const { value } = e.target;
-        setFormData((prev: any) => ({ ...prev, nearbyplaces: value }));
+        setFormData((prev) => ({ ...prev, nearbyplaces: value }));
     };
 
     const handleUnitTypeToggle = () => {
@@ -341,7 +401,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
 
     // Build overrides
     const buildOverrides = () => {
-        const overrides: any = {
+        const overrides: Record<string, any> = {
             property_type: formData.property_type || null,
             property_subtype: formData.property_subtype || null,
             unit_type: Array.isArray(formData.unit_type) ? formData.unit_type : formData.unit_type ? [formData.unit_type] : [],
@@ -369,50 +429,64 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
         return overrides;
     };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-    setIsSubmitting(true);
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (isSubmitting) return;
+        setIsSubmitting(true);
 
-    try {
-        const overrides = buildOverrides();
+        try {
+            const overrides = buildOverrides();
 
-        const payload = {
-            leadId: lead?.id,
-            overrides,
-            createdBy: user?.id,
-        };
+            const payload: any = {
+                leadId: lead?.id,
+                overrides,
+                createdBy: user?.id,
+            };
 
-        console.log("Payload being sent to API:", payload); // 👈 yaha pe console karega
+            console.log("Payload being sent to API:", payload);
 
-        await sellerTransferAPI.transferToSeller(payload);
+            // Sender API - assume transferToSeller exists and returns Promise
+            await sellerTransferAPI.transferToSeller(payload);
 
-        toast.success("Seller information transferred successfully!");
-        onClose();
-    } catch (err: any) {
-        console.error("Transfer to seller failed:", err);
-        const msg = err?.response?.data?.error || err?.message || "Transfer failed. Try again.";
-        toast.error(msg);
-    } finally {
-        setIsSubmitting(false);
-    }
-};
-
+            toast.success("Seller information transferred successfully!");
+            onClose();
+        } catch (err: any) {
+            console.error("Transfer to seller failed:", err);
+            const msg = err?.response?.data?.error || err?.message || "Transfer failed. Try again.";
+            toast.error(msg);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     // derive initialMax for selector (in Crores)
     const initialMaxFromForm = (() => {
         const v = formData?.budget_range;
-        if (!v) return 0;
+        if (!v) return 0.01; // default 0.01 Cr (1L) so PriceRangeSelector has sensible start
         const s = String(v).trim().toLowerCase();
+
+        // Examples: "28L", "1.25Cr", "0.50" (as crores), "250" (as lakhs if that was used)
         if (s.endsWith("l")) {
             const n = parseFloat(s.replace(/[l\s]/g, "")) || 0;
+            // n is in Lakhs: convert to Crores -> n (L) / 100
             return Number((n / 100).toFixed(3));
         }
         if (s.endsWith("cr")) {
             return parseFloat(s.replace(/cr/i, "").trim()) || 0;
         }
+
+        // If it's plain number and > 1 probably Crores else handle heuristics
         const parsed = parseFloat(s);
-        return Number(isNaN(parsed) ? 0 : parsed);
+        if (!isNaN(parsed) && parsed > 0) {
+            // if parsed > 10 assume it's in Lakhs (e.g., 250 => 250L = 2.5Cr)
+            if (parsed >= 100) {
+                return Number((parsed / 100).toFixed(3));
+            }
+            // otherwise treat as crores
+            return parsed;
+        }
+
+        return 0.01;
     })();
 
     return (
@@ -545,9 +619,9 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                                     <div className="text-[10px] text-gray-500 uppercase tracking-wide px-2 py-1 border-b truncate">Assign to Executive</div>
 
                                                     {(() => {
-                                                        const execs = getAssignableExecutives(user, presalesUsers);
+                                                        const execs = getAssignableExecutives(user, presalesUsers || []);
 
-                                                        if (execs.length === 0) {
+                                                        if (!execs || execs.length === 0) {
                                                             return (
                                                                 <div className="px-2 py-2 text-xs text-gray-500">
                                                                     <div>No executives available</div>
@@ -560,8 +634,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                                                 key={exec.id}
                                                                 type="button"
                                                                 onClick={() => handleExecAssign(exec.id)}
-                                                                className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${String(formData.assigned_executive) === String(exec.id) ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-800"
-                                                                    }`}
+                                                                className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${String(formData.assigned_executive) === String(exec.id) ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-800"}`}
                                                             >
                                                                 {exec.name}
                                                             </button>
@@ -583,7 +656,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                             name="unit_type"
                                             value={formData.unit_type || ""}
                                             onChange={(e) =>
-                                                setFormData((prev: any) => ({
+                                                setFormData((prev) => ({
                                                     ...prev,
                                                     unit_type: e.target.value,
                                                 }))
@@ -606,12 +679,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                 <div>
                                     <label className="block text-xs font-medium mb-1">Society Name</label>
                                     <div className="relative">
-                                        <select
-                                            name="society"
-                                            value={formData.society || ""}
-                                            onChange={handleChange}
-                                            className={`${sharedControlClass} appearance-none pr-8`}
-                                        >
+                                        <select name="society" value={formData.society || ""} onChange={handleChange} className={`${sharedControlClass} appearance-none pr-8`}>
                                             <option value="">Select Society Name</option>
                                             {societyOptions.length > 0 ? (
                                                 societyOptions.map((s) => (
@@ -631,14 +699,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
 
                                 <div>
                                     <label className="block text-xs font-medium">Carpet Area (sq.ft)</label>
-                                    <input
-                                        type="number"
-                                        name="carpetArea"
-                                        placeholder="Enter carpet area"
-                                        value={formData.carpetArea || ""}
-                                        onChange={handleChange}
-                                        className={sharedControlClass}
-                                    />
+                                    <input type="number" name="carpetArea" placeholder="Enter carpet area" value={formData.carpetArea || ""} onChange={handleChange} className={sharedControlClass} />
                                 </div>
                             </div>
 
@@ -647,12 +708,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                 <div>
                                     <label className="block text-xs font-medium mb-1">City</label>
                                     <div className="relative">
-                                        <select
-                                            name="city"
-                                            value={formData.city || ""}
-                                            onChange={handleChange}
-                                            className={`${sharedControlClass} appearance-none pr-8`}
-                                        >
+                                        <select name="city" value={formData.city || ""} onChange={handleChange} className={`${sharedControlClass} appearance-none pr-8`}>
                                             <option value="">Select City</option>
                                             {cityOptions.length > 0 ? (
                                                 cityOptions.map((c) => (
@@ -673,17 +729,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                 <div>
                                     <label className="block text-xs font-medium mb-1">Location</label>
                                     <div className="relative">
-                                        <select
-                                            name="location"
-                                            value={formData.location || ""}
-                                            onChange={(e) =>
-                                                setFormData((prev: any) => ({
-                                                    ...prev,
-                                                    location: e.target.value,
-                                                }))
-                                            }
-                                            className={`${sharedControlClass} appearance-none pr-8`}
-                                        >
+                                        <select name="location" value={formData.location || ""} onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))} className={`${sharedControlClass} appearance-none pr-8`}>
                                             <option value="">Select Location</option>
                                             {(locationOptions.length > 0 ? locationOptions : ["Hinjewadi", "Baner", "Wakad", "Pune"]).map((loc) => (
                                                 <option key={loc} value={loc}>
@@ -709,6 +755,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                             const r = String(readable).trim();
                                             let budgetString = r;
 
+                                            // If readable doesn't include L/Cr suffix, build from numeric max (which is in Crores)
                                             if (!/[lc]r?$/i.test(r)) {
                                                 const numeric = Number(maxV || 0);
                                                 if (numeric < 1) {
@@ -717,6 +764,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                                     budgetString = `${Number(numeric.toFixed(2))}Cr`;
                                                 }
                                             } else {
+                                                // normalize explicit suffixes
                                                 if (/l$/i.test(r)) {
                                                     const n = parseFloat(r.replace(/l/i, "").trim()) || 0;
                                                     budgetString = `${Math.round(n)}L`;
@@ -726,7 +774,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                                 }
                                             }
 
-                                            setFormData((prev: any) => ({
+                                            setFormData((prev) => ({
                                                 ...prev,
                                                 budget_range: budgetString,
                                             }));
@@ -740,20 +788,12 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                     <label htmlFor="nearbyplaces" className="block text-xs font-medium text-gray-700 mb-1">
                                         Nearby Places
                                     </label>
-                                    <textarea
-                                        id="nearbyplaces"
-                                        name="nearbyplaces"
-                                        value={formData.nearbyplaces}
-                                        onChange={handleNearbyLocationsChange}
-                                        rows={3}
-                                        placeholder="e.g. Near City Mall, beside Community Park"
-                                        className={sharedTextareaClass}
-                                    />
+                                    <textarea id="nearbyplaces" name="nearbyplaces" value={formData.nearbyplaces} onChange={handleNearbyLocationsChange} rows={3} placeholder="e.g. Near City Mall, beside Community Park" className={sharedTextareaClass} />
                                 </div>
 
                                 <div className="flex flex-col h-full">
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
-                                    <textarea name="notes" value={formData.notes} onChange={handleNotesChange} rows={3} placeholder="Add any buyer notess here..." className={sharedTextareaClass} />
+                                    <textarea name="notes" value={formData.notes} onChange={handleNotesChange} rows={3} placeholder="Add any buyer notes here..." className={sharedTextareaClass} />
                                 </div>
                             </div>
                         </div>
@@ -766,7 +806,10 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                         <button type="submit" disabled={isSubmitting} className="px-3 py-2 bg-blue-600 text-white rounded text-xs flex items-center gap-2">
                             {isSubmitting ? (
                                 <>
-                                    <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                    <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
                                     Transferring...
                                 </>
                             ) : (
