@@ -1,7 +1,8 @@
 // src/lib/sellerAPI.ts
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api/sellers"; // backend ka base url
+// const API_URL = "http://localhost:3000/api/sellers"; // backend ka base url
+const API_URL = import.meta.env.VITE_API_BASE_URL + "/api/sellers"; // backend ka base url
 
 export const sellerAPI = {
   // Get all sellers
