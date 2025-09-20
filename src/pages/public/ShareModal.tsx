@@ -138,7 +138,7 @@ export default function ShareModal({ url, onClose, title = 'Page Title', descrip
           {/* Native share button removed as requested */}
         </div>
 
-       
+
       </div>
     </div>
   );

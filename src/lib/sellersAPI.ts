@@ -2,7 +2,6 @@
 import axios from "axios";
 
 const API_URL = "http://localhost:3000/api/sellers"; // backend ka base url
-
 export const sellerAPI = {
   // Get all sellers
   getAll: async () => {

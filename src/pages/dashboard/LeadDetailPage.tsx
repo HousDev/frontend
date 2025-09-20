@@ -818,8 +818,8 @@ const LeadDetailPage: React.FC = () => {
           const execName = exec?.name || savedLead.assigned_executive_name || "Executive";
           
           await notificationAPI.createNotification({
-            leadId: Number(updatedLead.id), // ✅ Convert to string
-            userId: Number(newExec),        // ✅ Convert to string
+            leadId: Number(updatedLead.id), // ✅ Convert to number
+            userId: Number(newExec),        // ✅ Convert to number
             message: `Lead updated and assigned to ${execName}`,
             type: "lead_update",
             link: `/dashboard/leads/${updatedLead.id}`,
