@@ -1,3 +1,4 @@
+// SellerFormModal.tsx
 import Modal from "@/components/ui/Modal";
 import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
 import { usersAPI } from "@/lib/api";
@@ -8,12 +9,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAssignableExecutives } from "@/pages/utils/roleBasedOptions";
 import { ChevronDown } from "lucide-react";
 import PriceRangeSelector from "@/components/ui/PriceRangeSelector";
+import { sellerTransferAPI } from "@/lib/sellerTransferAPI";
 
 interface SellerFormModalProps {
     lead: any;
     onClose: () => void;
 }
-
 
 const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
     const { user } = useAuth();
@@ -51,64 +52,141 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
         })();
     }, []);
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const [formData, setFormData] = useState<any>({
         salutation: "",
         name: "",
         phone: "",
         whatsapp_number: "",
         email: "",
-        city: "",
-        state: "",
-        location: "",
         lead_source: "",
         lead_type: "",
         priority: "",
         status: "",
-        stage: "",
         created_at: "",
         created_by: "",
         last_contact: "",
         last_contacted_by: "",
-
         budget_range: "",
-        budget_range_readable: "",
-        budget_min: 0,
-        budget_max: 0,
-        preferred_unit_type: [] as string[],
-        preferred_location: [] as string[],
+        unit_type: "",
+        city: "",
+        location: "",
         property_subtype: "",
         property_type: "",
         assigned_executive: "",
-        buyer_remark: "",
-        nearbylocations: "",
-
+        notes: "",
+        nearbyplaces: "",
         carpetArea: "",
         society: "",
-
         updated_at: "",
-        seller_lead_status: "",
         is_active: true,
     });
-    console.log("🚀 Seller Form Data:", formData);
+    console.log("Rendering SellerFormModal with lead:", formData);
+    // helpers
     const getUserNameById = (id: string | number) => {
         if (!id) return "";
         const u = allUsers.find((x) => String(x.id) === String(id) || String(x._id) === String(id));
         return u?.name || u?.full_name || u?.username || "";
     };
 
+    // Convert various inputs to string format we want: "28L" for <1Cr, otherwise "2.50Cr"
+    const toLOrCrString = (params: { readable?: string; min?: number | string; max?: number | string }): string => {
+        const { readable, min, max } = params;
+
+        const parseNumber = (s: string | number | undefined): number | null => {
+            if (s == null || s === "") return null;
+            if (typeof s === "number") return s;
+            const cleaned = String(s).replace(/,/g, "").trim();
+            const m = cleaned.match(/-?[\d.]+/);
+            if (!m) return null;
+            const n = parseFloat(m[0]);
+            if (isNaN(n)) return null;
+            return n;
+        };
+
+        const normalize = (s?: string) => (s ? String(s).replace(/,/g, "").trim() : "");
+
+        // If explicit readable provided
+        if (readable) {
+            const r = normalize(readable).toLowerCase();
+
+            // ends with l, lakh, lakhs
+            if (/(l|lakh|lakhs)$/.test(r)) {
+                const n = parseNumber(r);
+                if (n != null) return `${Math.round(n)}L`;
+            }
+
+            // ends with cr or crore
+            if (/(cr|crore|crores)$/.test(r)) {
+                const n = parseNumber(r);
+                if (n != null) {
+                    return `${Number(n.toFixed(2))}Cr`;
+                }
+            }
+
+            // Range like "20 - 50" or "0.20 to 0.50"
+            const rangeMatch = String(readable).match(/([\d,.]+)\s*(?:-|to)\s*([\d,.]+)/i);
+            if (rangeMatch) {
+                const a = parseNumber(rangeMatch[1]);
+                const b = parseNumber(rangeMatch[2]);
+                const chosen = b != null ? b : a;
+                if (chosen != null) {
+                    // heuristics: if >=100 => given in L (e.g., 250 means 250L => 2.50Cr)
+                    if (chosen >= 100) {
+                        const cr = chosen / 100;
+                        return cr >= 1 ? `${Number(cr.toFixed(2))}Cr` : `${Math.round(cr * 100)}L`;
+                    }
+                    // if <1 treat as Crore
+                    if (chosen < 1) {
+                        return `${Math.round(chosen * 100)}L`;
+                    }
+                    return `${Number(chosen.toFixed(2))}Cr`;
+                }
+            }
+
+            // single numeric-like
+            const single = parseNumber(readable);
+            if (single != null) {
+                if (single >= 100) {
+                    const cr = single / 100;
+                    return cr >= 1 ? `${Number(cr.toFixed(2))}Cr` : `${Math.round(cr * 100)}L`;
+                }
+                if (single < 1) {
+                    return `${Math.round(single * 100)}L`;
+                }
+                return `${Number(single.toFixed(2))}Cr`;
+            }
+        }
+
+        // fallback to numeric max then min
+        const nMax = parseNumber(max as any);
+        const nMin = parseNumber(min as any);
+        const chosenNum = nMax != null ? nMax : nMin;
+
+        if (chosenNum != null) {
+            if (chosenNum >= 100) {
+                const cr = chosenNum / 100;
+                return cr >= 1 ? `${Number(cr.toFixed(2))}Cr` : `${Math.round(cr * 100)}L`;
+            }
+            if (chosenNum < 1) {
+                return `${Math.round(chosenNum * 100)}L`;
+            }
+            return `${Number(chosenNum.toFixed(2))}Cr`;
+        }
+
+        return "";
+    };
+
+    // Initialize form from lead
     useEffect(() => {
         if (!lead) return;
 
-        let budgetMin = 0;
-        let budgetMax = 0;
-        if (lead?.budget_min != null || lead?.budget_max != null) {
-            budgetMin = Number(lead.budget_min) || 0;
-            budgetMax = Number(lead.budget_max) || 0;
-        } else if (lead?.budget_range) {
-            const parts = String(lead.budget_range).split("-").map((p: string) => parseFloat(p) || 0);
-            budgetMin = parts[0] ?? 0;
-            budgetMax = parts[1] ?? parts[0] ?? 0;
-        }
+        const leadReadable = lead?.budget_range_readable ?? (lead?.budget_range ? String(lead.budget_range).trim() : null) ?? null;
+
+        const initialBudget = leadReadable
+            ? toLOrCrString({ readable: leadReadable, min: lead?.budget_min, max: lead?.budget_max })
+            : toLOrCrString({ min: lead?.budget_min, max: lead?.budget_max });
 
         setFormData((prev: any) => ({
             ...prev,
@@ -117,9 +195,6 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
             phone: lead.phone ?? "",
             whatsapp_number: lead.whatsapp_number ?? "",
             email: lead.email ?? "",
-            city: "",
-            state: lead.state ?? "",
-            location: lead.location ?? "",
             lead_source: lead.lead_source ?? "",
             lead_type: lead.lead_type ?? "",
             priority: lead.priority ?? "",
@@ -129,20 +204,16 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
             created_by: lead.created_by ?? "",
             last_contact: lead.last_contact ?? "",
             last_contacted_by: lead.last_contacted_by ?? "",
-
-            budget_range: lead.budget_range ?? (budgetMin || budgetMax ? `${budgetMin}-${budgetMax}` : ""),
-            budget_range_readable: lead.budget_range_readable ?? "",
-            budget_min: budgetMin,
-            budget_max: budgetMax,
-            preferred_unit_type: lead.preferred_unit_type ?? [],
-            preferred_location: lead.preferred_location ?? [],
+            budget_range: initialBudget || "",
+            unit_type: lead.unit_type ?? "",
+            location: lead.location ?? "",
+            city: lead.city ?? "",
             property_subtype: lead.property_subtype ?? "",
             property_type: lead.property_type ?? "",
             assigned_executive: lead.assigned_executive ?? "",
-            buyer_remark: lead.buyer_remark ?? "",
-            nearbylocations: lead.nearbylocations ?? "",
+            notes: lead.notes ?? "",
+            nearbyplaces: lead.nearbyplaces ?? "",
             updated_at: lead.updated_at ?? "",
-            seller_lead_status: lead.seller_lead_status ?? "",
             is_active: lead.is_active != null ? !!lead.is_active : true,
             carpetArea: lead.carpetArea ?? "",
             society: lead.society ?? "",
@@ -202,20 +273,19 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
         fetchMasters();
     }, []);
 
-    const locationOptions = getOptionNames(["location", "locations", "preferred_location", "locations_list"]);
+    const locationOptions = getOptionNames(["location", "locations", "locations_list"]);
     const unitTypeOptions = getOptionNames(["unit type", "unit_type", "unitType", "unit_types", "unitTypes"]);
     const propertySubtypeOptions = getOptionNames(["property subtype", "property_subtype", "propertySubtype", "property_subtypes"]);
     const propertyTypeOptions = getOptionNames(["property type", "property_type", "propertyType", "property_types"]);
     const cityOptions = getOptionNames(["city", "cities", "master_city"]);
     const societyOptions = getOptionNames(["society", "societies", "society_name", "master_society"]);
 
-    // ---- SHARED STYLES (unified look) ----
+    // Styles
     const wrapperClass = "border-2 border-green-400 rounded-lg p-3 mt-2 space-y-3 bg-white";
     const sharedControlClass = "w-full h-10 px-3 text-xs rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-600";
     const sharedReadOnlyClass = "w-full h-10 px-3 text-xs rounded-md border border-gray-200 bg-gray-100 text-gray-700 cursor-not-allowed";
     const sharedTextareaClass = "w-full px-3 py-2 text-xs rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-300 resize-none";
     const execButtonClass = "w-full flex items-center justify-between space-x-2 border border-gray-300 rounded-md h-10 px-2 text-xs bg-white hover:bg-gray-50";
-    // ---------------------------------------
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -230,14 +300,14 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
         });
     };
 
-    const handleRemarkChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const { value } = e.target;
-        setFormData((prev: any) => ({ ...prev, buyer_remark: value }));
+        setFormData((prev: any) => ({ ...prev, notes: value }));
     };
 
     const handleNearbyLocationsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const { value } = e.target;
-        setFormData((prev: any) => ({ ...prev, nearbylocations: value }));
+        setFormData((prev: any) => ({ ...prev, nearbyplaces: value }));
     };
 
     const handleUnitTypeToggle = () => {
@@ -269,27 +339,81 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
         return () => document.removeEventListener("click", onDocClick);
     }, [showUnitTypeDropdown, showLocationDropdown, showExecDropdown]);
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-
-        const parsedMin = Number(formData.budget_min) || 0;
-        const parsedMax = Number(formData.budget_max) || 0;
-
-        const { budget_range, budget_range_readable, ...rest } = formData;
-
-        const submissionData = {
-            ...rest,
-            budget_min: parsedMin,
-            budget_max: parsedMax,
-            updated_at: new Date().toISOString(),
-            seller_lead_status: formData.seller_lead_status,
+    // Build overrides
+    const buildOverrides = () => {
+        const overrides: any = {
+            property_type: formData.property_type || null,
+            property_subtype: formData.property_subtype || null,
+            unit_type: Array.isArray(formData.unit_type) ? formData.unit_type : formData.unit_type ? [formData.unit_type] : [],
+            location: Array.isArray(formData.location) ? formData.location : formData.location ? [formData.location] : [],
+            nearbyplaces: formData.nearbyplaces || null,
+            budget_range: formData.budget_range || null,
+            deal_value: formData.budget_range || null,
+            notes: formData.notes || null,
+            assigned_executive: formData.assigned_executive || null,
             is_active: formData.is_active !== undefined ? !!formData.is_active : true,
+            updated_at: new Date().toISOString(),
         };
 
-        console.log("🚀 Seller Form Submitted (min/max, ids only):", submissionData);
-        toast.success("Seller information saved successfully!");
-        onClose();
+        Object.keys(overrides).forEach((k) => {
+            const v = overrides[k];
+            if (v === undefined || v === null) {
+                delete overrides[k];
+            } else if (typeof v === "string" && v.trim() === "") {
+                delete overrides[k];
+            } else if (Array.isArray(v) && v.length === 0) {
+                delete overrides[k];
+            }
+        });
+
+        return overrides;
     };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+        const overrides = buildOverrides();
+
+        const payload = {
+            leadId: lead?.id,
+            overrides,
+            createdBy: user?.id,
+        };
+
+        console.log("Payload being sent to API:", payload); // 👈 yaha pe console karega
+
+        await sellerTransferAPI.transferToSeller(payload);
+
+        toast.success("Seller information transferred successfully!");
+        onClose();
+    } catch (err: any) {
+        console.error("Transfer to seller failed:", err);
+        const msg = err?.response?.data?.error || err?.message || "Transfer failed. Try again.";
+        toast.error(msg);
+    } finally {
+        setIsSubmitting(false);
+    }
+};
+
+
+    // derive initialMax for selector (in Crores)
+    const initialMaxFromForm = (() => {
+        const v = formData?.budget_range;
+        if (!v) return 0;
+        const s = String(v).trim().toLowerCase();
+        if (s.endsWith("l")) {
+            const n = parseFloat(s.replace(/[l\s]/g, "")) || 0;
+            return Number((n / 100).toFixed(3));
+        }
+        if (s.endsWith("cr")) {
+            return parseFloat(s.replace(/cr/i, "").trim()) || 0;
+        }
+        const parsed = parseFloat(s);
+        return Number(isNaN(parsed) ? 0 : parsed);
+    })();
 
     return (
         <Modal isOpen={true} onClose={onClose} title="Seller Form" width="max-w-4xl">
@@ -297,7 +421,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                 <form onSubmit={handleSubmit} className="space-y-3">
                     <div>
                         <div className="space-y-2 p-2">
-                            {/* First row: Salutation | Name | Phone | WhatsApp */}
+                            {/* First row */}
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                                 <div className="md:col-span-2">
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Salutation</label>
@@ -305,12 +429,12 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                 </div>
 
                                 <div className="md:col-span-3">
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1"> Full Name </label>
                                     <input type="text" name="name" value={formData.name} readOnly className={sharedReadOnlyClass} />
                                 </div>
 
                                 <div className="md:col-span-3">
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number </label>
                                     <input type="text" name="phone" value={formData.phone} readOnly className={sharedReadOnlyClass} />
                                 </div>
 
@@ -320,10 +444,10 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                 </div>
                             </div>
 
-                            {/* Second row: Email | Lead Source | Lead Type | Status | Created By */}
+                            {/* Second row */}
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end mt-2">
                                 <div className="md:col-span-3">
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Email Address</label>
                                     <input type="email" name="email" value={formData.email} readOnly className={sharedReadOnlyClass} />
                                 </div>
 
@@ -347,13 +471,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                     <input
                                         type="text"
                                         name="created_by"
-                                        value={
-                                            // prefer explicit name passed on lead, then try to resolve ID -> name, then fall back to raw ID or empty
-                                            (lead as any)?.created_by_name ||
-                                            getUserNameById(formData.created_by) ||
-                                            formData.created_by ||
-                                            ""
-                                        }
+                                        value={(lead as any)?.created_by_name || getUserNameById(formData.created_by) || formData.created_by || ""}
                                         readOnly
                                         className={sharedReadOnlyClass}
                                     />
@@ -459,82 +577,41 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                             {/* Unit Type | Society | Carpet Area */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3">
                                 <div>
-                                    <label className="block text-xs font-medium">Unit Type</label>
-                                    <div>
-                                        <div
-                                            ref={unitTypeButtonRef}
-                                            role="button"
-                                            tabIndex={0}
-                                            onClick={handleUnitTypeToggle}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter" || e.key === " ") {
-                                                    e.preventDefault();
-                                                    handleUnitTypeToggle();
-                                                }
-                                            }}
-                                            className={execButtonClass}
+                                    <label className="block text-xs font-medium mb-1">Unit Type</label>
+                                    <div className="relative">
+                                        <select
+                                            name="unit_type"
+                                            value={formData.unit_type || ""}
+                                            onChange={(e) =>
+                                                setFormData((prev: any) => ({
+                                                    ...prev,
+                                                    unit_type: e.target.value,
+                                                }))
+                                            }
+                                            className={`${sharedControlClass} appearance-none pr-8`}
                                         >
-                                            <div className="flex flex-wrap gap-1 text-xs">
-                                                {formData.preferred_unit_type?.length > 0 ? (
-                                                    formData.preferred_unit_type.map((item: string) => (
-                                                        <span key={item} className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded">
-                                                            <span>{item}</span>
-                                                            <span
-                                                                role="button"
-                                                                tabIndex={0}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleCheckboxChange("preferred_unit_type", item);
-                                                                }}
-                                                                onKeyDown={(e) => {
-                                                                    if ((e as any).key === "Enter" || (e as any).key === " ") {
-                                                                        e.preventDefault();
-                                                                        e.stopPropagation();
-                                                                        handleCheckboxChange("preferred_unit_type", item);
-                                                                    }
-                                                                }}
-                                                                className="ml-2 text-blue-600 hover:text-blue-800 text-xs cursor-pointer"
-                                                                aria-label={`Remove ${item}`}
-                                                            >
-                                                                ×
-                                                            </span>
-                                                        </span>
-                                                    ))
-                                                ) : (
-                                                    <span className="text-xs text-gray-500">Select Unit Types</span>
-                                                )}
-                                            </div>
-                                            <span className="ml-2 text-gray-400">
-                                                <ChevronDown className="w-4 h-4" />
-                                            </span>
-                                        </div>
-
-                                        {showUnitTypeDropdown && unitTypeButtonRef.current && (
-                                            <div
-                                                className="bg-white border rounded shadow-lg text-xs"
-                                                style={{
-                                                    position: "fixed",
-                                                    zIndex: 9999,
-                                                    top: unitTypeButtonRef.current.getBoundingClientRect().bottom + window.scrollY + 6,
-                                                    left: unitTypeButtonRef.current.getBoundingClientRect().left + window.scrollX,
-                                                    width: unitTypeButtonRef.current.getBoundingClientRect().width,
-                                                }}
-                                            >
-                                                {(unitTypeOptions.length > 0 ? unitTypeOptions : ["1BHK", "2BHK", "3BHK", "Villa"]).map((unitType) => (
-                                                    <label key={unitType} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer text-xs">
-                                                        <input type="checkbox" checked={formData.preferred_unit_type?.includes(unitType)} onChange={() => handleCheckboxChange("preferred_unit_type", unitType)} className="mr-2 h-3 w-3" />
-                                                        <span className="text-xs">{unitType}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        )}
+                                            <option value="">Select Unit Type</option>
+                                            {(unitTypeOptions.length > 0 ? unitTypeOptions : ["1BHK", "2BHK", "3BHK", "Villa"]).map((unitType) => (
+                                                <option key={unitType} value={unitType}>
+                                                    {unitType}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+                                            <ChevronDown className="w-4 h-4" />
+                                        </span>
                                     </div>
                                 </div>
 
                                 <div>
                                     <label className="block text-xs font-medium mb-1">Society Name</label>
                                     <div className="relative">
-                                        <select name="society" value={formData.society || ""} onChange={handleChange} className={`${sharedControlClass} appearance-none pr-8`}>
+                                        <select
+                                            name="society"
+                                            value={formData.society || ""}
+                                            onChange={handleChange}
+                                            className={`${sharedControlClass} appearance-none pr-8`}
+                                        >
                                             <option value="">Select Society Name</option>
                                             {societyOptions.length > 0 ? (
                                                 societyOptions.map((s) => (
@@ -565,9 +642,8 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                 </div>
                             </div>
 
-                            {/* CITY + LOCATION in one responsive row */}
+                            {/* CITY + LOCATION */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 items-start">
-                                {/* CITY SELECT (dynamic) */}
                                 <div>
                                     <label className="block text-xs font-medium mb-1">City</label>
                                     <div className="relative">
@@ -594,97 +670,65 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                                     </div>
                                 </div>
 
-                                {/* LOCATION MULTI-SELECT (dynamic) */}
                                 <div>
                                     <label className="block text-xs font-medium mb-1">Location</label>
-                                    <div>
-                                        <div
-                                            ref={locationButtonRef}
-                                            role="button"
-                                            tabIndex={0}
-                                            onClick={handleLocationToggle}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter" || e.key === " ") {
-                                                    e.preventDefault();
-                                                    handleLocationToggle();
-                                                }
-                                            }}
-                                            className={execButtonClass}
+                                    <div className="relative">
+                                        <select
+                                            name="location"
+                                            value={formData.location || ""}
+                                            onChange={(e) =>
+                                                setFormData((prev: any) => ({
+                                                    ...prev,
+                                                    location: e.target.value,
+                                                }))
+                                            }
+                                            className={`${sharedControlClass} appearance-none pr-8`}
                                         >
-                                            <div className="flex flex-wrap gap-1 text-xs">
-                                                {formData.preferred_location?.length > 0 ? (
-                                                    formData.preferred_location.map((item: string) => (
-                                                        <span key={item} className="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 text-xs rounded">
-                                                            <span>{item}</span>
-                                                            <span
-                                                                role="button"
-                                                                tabIndex={0}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleCheckboxChange("preferred_location", item);
-                                                                }}
-                                                                onKeyDown={(e) => {
-                                                                    if ((e as any).key === "Enter" || (e as any).key === " ") {
-                                                                        e.preventDefault();
-                                                                        e.stopPropagation();
-                                                                        handleCheckboxChange("preferred_location", item);
-                                                                    }
-                                                                }}
-                                                                className="ml-2 text-green-600 hover:text-green-800 cursor-pointer text-xs"
-                                                                aria-label={`Remove ${item}`}
-                                                            >
-                                                                ×
-                                                            </span>
-                                                        </span>
-                                                    ))
-                                                ) : (
-                                                    <span className="text-xs text-gray-500">Select Locations</span>
-                                                )}
-                                            </div>
-                                            <span className="text-gray-400 ml-2">
-                                                <ChevronDown className="w-4 h-4" />
-                                            </span>
-                                        </div>
-
-                                        {showLocationDropdown && locationButtonRef.current && (
-                                            <div
-                                                className="bg-white border rounded shadow-lg max-h-48 overflow-y-auto text-xs"
-                                                style={{
-                                                    position: "fixed",
-                                                    zIndex: 9999,
-                                                    top: locationButtonRef.current.getBoundingClientRect().bottom + window.scrollY + 6,
-                                                    left: locationButtonRef.current.getBoundingClientRect().left + window.scrollX,
-                                                    width: locationButtonRef.current.getBoundingClientRect().width,
-                                                }}
-                                            >
-                                                {(locationOptions.length > 0 ? locationOptions : ["Hinjewadi", "Baner", "Wakad", "Pune"]).map((location) => (
-                                                    <label key={location} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer text-xs">
-                                                        <input type="checkbox" checked={formData.preferred_location?.includes(location)} onChange={() => handleCheckboxChange("preferred_location", location)} className="mr-2 h-3 w-3" />
-                                                        <span className="text-xs">{location}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        )}
+                                            <option value="">Select Location</option>
+                                            {(locationOptions.length > 0 ? locationOptions : ["Hinjewadi", "Baner", "Wakad", "Pune"]).map((loc) => (
+                                                <option key={loc} value={loc}>
+                                                    {loc}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+                                            <ChevronDown className="w-4 h-4" />
+                                        </span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Price range */}
                             <div className="mt-3">
-                                <label className="block text-xs font-medium">Property Price</label>
+                                <label className="block text-xs font-medium">Budget(₹, Crores)</label>
                                 <div className="mt-2">
                                     <PriceRangeSelector
-                                        initialMax={Number(formData?.budget_max) || (formData?.budget_range ? parseFloat(String(formData.budget_range).split("-")[1]) || 4.95 : 4.95)}
-                                        max={50}
+                                        initialMax={initialMaxFromForm}
+                                        max={5}
                                         onChange={({ min, max: maxV, readable }) => {
-                                            const minNum = Number(min) || 0;
-                                            const maxNum = Number(maxV) || minNum;
+                                            const r = String(readable).trim();
+                                            let budgetString = r;
+
+                                            if (!/[lc]r?$/i.test(r)) {
+                                                const numeric = Number(maxV || 0);
+                                                if (numeric < 1) {
+                                                    budgetString = `${Math.round(numeric * 100)}L`;
+                                                } else {
+                                                    budgetString = `${Number(numeric.toFixed(2))}Cr`;
+                                                }
+                                            } else {
+                                                if (/l$/i.test(r)) {
+                                                    const n = parseFloat(r.replace(/l/i, "").trim()) || 0;
+                                                    budgetString = `${Math.round(n)}L`;
+                                                } else if (/cr$/i.test(r)) {
+                                                    const n = parseFloat(r.replace(/cr/i, "").trim()) || 0;
+                                                    budgetString = `${Number(n.toFixed(2))}Cr`;
+                                                }
+                                            }
+
                                             setFormData((prev: any) => ({
                                                 ...prev,
-                                                budget_min: minNum,
-                                                budget_max: maxNum,
-                                                budget_range: `${minNum}-${maxNum}`,
-                                                budget_range_readable: readable,
+                                                budget_range: budgetString,
                                             }));
                                         }}
                                     />
@@ -693,15 +737,23 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-3 mt-3 items-start">
                                 <div className="flex flex-col h-full">
-                                    <label htmlFor="nearbylocations" className="block text-xs font-medium text-gray-700 mb-1">
-                                        Nearby Location
+                                    <label htmlFor="nearbyplaces" className="block text-xs font-medium text-gray-700 mb-1">
+                                        Nearby Places
                                     </label>
-                                    <textarea id="nearbylocations" name="nearbylocations" value={formData.nearbylocations} onChange={handleNearbyLocationsChange} rows={3} placeholder="e.g. Near City Mall, beside Community Park" className={sharedTextareaClass} />
+                                    <textarea
+                                        id="nearbyplaces"
+                                        name="nearbyplaces"
+                                        value={formData.nearbyplaces}
+                                        onChange={handleNearbyLocationsChange}
+                                        rows={3}
+                                        placeholder="e.g. Near City Mall, beside Community Park"
+                                        className={sharedTextareaClass}
+                                    />
                                 </div>
 
                                 <div className="flex flex-col h-full">
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Seller Remark</label>
-                                    <textarea name="buyer_remark" value={formData.buyer_remark} onChange={handleRemarkChange} rows={3} placeholder="Add any buyer remarks here..." className={sharedTextareaClass} />
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+                                    <textarea name="notes" value={formData.notes} onChange={handleNotesChange} rows={3} placeholder="Add any buyer notess here..." className={sharedTextareaClass} />
                                 </div>
                             </div>
                         </div>
@@ -711,8 +763,15 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({ lead, onClose }) => {
                         <button type="button" onClick={onClose} className="px-3 py-2 bg-gray-300 rounded text-xs">
                             Cancel
                         </button>
-                        <button type="submit" className="px-3 py-2 bg-blue-600 text-white rounded text-xs">
-                            Transfer to Seller
+                        <button type="submit" disabled={isSubmitting} className="px-3 py-2 bg-blue-600 text-white rounded text-xs flex items-center gap-2">
+                            {isSubmitting ? (
+                                <>
+                                    <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                    Transferring...
+                                </>
+                            ) : (
+                                "Transfer to Seller"
+                            )}
                         </button>
                     </div>
                 </form>

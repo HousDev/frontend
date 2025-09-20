@@ -1,72 +1,74 @@
+// PriceRangeSelector.tsx
 import React, { useEffect, useRef, useState } from "react";
 
 interface PriceRangeSelectorProps {
-    initialMax?: number; // in Crores (e.g. 0.5 means 50L)
+    initialMax?: number; // in Crores
     max?: number; // max in Crores (default 5)
-    onChange?: (payload: { min: number; max: number; readable: string }) => void;
+    onChange?: (payload: { min: number; max: number; readable: string }) => void; // readable like "28L" or "2.50Cr"
     className?: string;
     sliderLimit?: number; // visual slider cap (default 5)
 }
 
 const CRORE_TO_RUPEE = 10_000_000;
-
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 2,
 });
 
+const toReadable = (valCr: number) => {
+    if (valCr <= 0) return "0L";
+    if (valCr < 1) {
+        const lacs = Math.round(valCr * 100);
+        return `${lacs}L`;
+    }
+    return `${Number(valCr.toFixed(2))}Cr`;
+};
+
+const formatRupeesFull = (valCr: number) => {
+    const rupees = valCr * CRORE_TO_RUPEE;
+    return currencyFormatter.format(Math.round(rupees * 100) / 100);
+};
+
+const clamp = (v: number, min = 0, max = Infinity) => Math.max(min, Math.min(max, v));
+
 const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
-    initialMax = 0.5, // Default set to 50L (0.5 Cr)
+    initialMax = 0,
     max = 5,
     onChange,
     className = "",
     sliderLimit = 5,
 }) => {
-    const clamp = (v: number) => (Number.isNaN(v) ? 0.5 : Math.max(0, v)); // Default to 0.5 if NaN
-    const sliderScale = sliderLimit > 0 ? sliderLimit : 5;
-    const initVal = clamp(Math.min(Math.max(0.5, initialMax), Math.max(max, sliderScale))); // Minimum 0.5
-    const [value, setValue] = useState<number>(Number(initVal.toFixed(3))); // in Cr
-
-    const [isDragging, setIsDragging] = useState<boolean>(false);
+    const sliderScale = Math.max(0.1, sliderLimit);
+    const start = clamp(initialMax, 0, Math.min(max, sliderScale));
+    const [value, setValue] = useState<number>(Number(start.toFixed(3)));
+    const [isDragging, setIsDragging] = useState(false);
     const sliderRef = useRef<HTMLDivElement | null>(null);
 
-    // Display text helper
-    const toDisplayText = (valCr: number) => {
-        if (valCr <= 0) return "0L";
-        if (valCr < 1) {
-            const lacs = +(valCr * 100).toFixed(1);
-            return `${lacs}L`;
-        }
-        return `${Number(valCr.toFixed(2))}Cr`;
-    };
-
-    const formatRupeesFull = (valCr: number) => {
-        const rupees = valCr * CRORE_TO_RUPEE;
-        return currencyFormatter.format(Math.round(rupees * 100) / 100);
-    };
-
     useEffect(() => {
-        const readable = `0 - ${toDisplayText(value)}`;
-        const minRupees = 0;
-        const maxRupees = Math.round(value * CRORE_TO_RUPEE);
-        onChange?.({ min: minRupees, max: maxRupees, readable });
+        const readable = toReadable(value);
+        onChange?.({ min: 0, max: Number(value.toFixed(3)), readable });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [value]);
 
-    // pointer helpers
+    const posFor = (val: number) => {
+        const v = clamp(val, 0, sliderScale);
+        return (v / sliderScale) * 100;
+    };
+    const position = posFor(value);
+
     const pointerToValue = (clientX: number) => {
-        const rect = sliderRef.current;
-        if (!rect) return 0.5; // Default to 50L
-        const bounds = rect.getBoundingClientRect();
-        const x = clientX - bounds.left;
-        const pct = Math.max(0, Math.min(1, x / bounds.width));
+        const el = sliderRef.current;
+        if (!el) return 0;
+        const rect = el.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const pct = clamp(x / rect.width, 0, 1);
         return Number((pct * sliderScale).toFixed(3));
     };
 
     const handleTrackPointerDown = (clientX: number) => {
         const v = pointerToValue(clientX);
-        setValue(Number(Math.min(max, v).toFixed(3)));
+        setValue(Number(clamp(v, 0, max).toFixed(3)));
         setIsDragging(true);
     };
 
@@ -78,7 +80,7 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
     const handlePointerMove = (clientX: number | null) => {
         if (!isDragging || !sliderRef.current || clientX === null) return;
         const newVal = pointerToValue(clientX);
-        setValue(Number(Math.min(max, Math.max(0, newVal)).toFixed(3)));
+        setValue(Number(clamp(newVal, 0, max).toFixed(3)));
     };
 
     const handlePointerUp = () => setIsDragging(false);
@@ -107,59 +109,48 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
             window.removeEventListener("touchmove", onTouchMove);
             window.removeEventListener("touchend", onTouchEnd);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isDragging, value, sliderScale]);
 
-    const posFor = (val: number) => {
-        const v = Math.min(val, sliderScale);
-        return (v / sliderScale) * 100;
-    };
-    const position = posFor(value);
-
-    // Manual input parser
+    // manual input parsing (support "50L", "0.50Cr", "2", "2Cr")
     const parseManualInput = (text: string) => {
-        const raw = text.trim();
-        if (raw === "") return 0.5; // Default to 50L if empty
-        const lower = raw.toLowerCase();
-
-        if (/[l]$/.test(lower)) {
-            const num = parseFloat(lower.replace(/[l]$/, "").trim());
-            return Number((num / 100).toFixed(3)); // Lacs → Cr
+        const raw = (text || "").trim().toLowerCase();
+        if (raw === "") return 0;
+        if (/^[\d,.]+\s*l$/.test(raw)) {
+            const n = parseFloat(raw.replace(/[,l\s]/g, ""));
+            if (Number.isNaN(n)) return 0;
+            return Number((n / 100).toFixed(3));
         }
-
-        if (/(cr|c)$/.test(lower)) {
-            const num = parseFloat(lower.replace(/(cr|c)$/, "").trim());
-            return Number(num.toFixed(3));
+        if (/^[\d,.]+\s*(cr|c)$/.test(raw)) {
+            const n = parseFloat(raw.replace(/[,crc\s]/g, ""));
+            return Number(isNaN(n) ? 0 : n.toFixed(3));
         }
-
-        const num = parseFloat(raw);
-        if (Number.isNaN(num)) return 0.5; // Default to 50L if invalid
-
-        if (value < 1) return Number((num / 100).toFixed(3)); // treat as Lacs
-        return Number(num.toFixed(3)); // treat as Crores
+        const n = parseFloat(raw.replace(/,/g, ""));
+        if (Number.isNaN(n)) return 0;
+        // treat plain numbers as Crores by default
+        return Number(n.toFixed(3));
     };
 
-    const manualDisplay = value < 1 ? String(Number((value * 100).toFixed(1))) : String(Number(value.toFixed(2)));
+    const [manualInput, setManualInput] = useState<string>(() => (value < 1 ? `${Math.round(value * 100)}L` : `${value.toFixed(2)}Cr`));
+
+    useEffect(() => {
+        setManualInput(value < 1 ? `${Math.round(value * 100)}L` : `${value.toFixed(2)}Cr`);
+    }, [value]);
 
     return (
         <div className={`w-full ${className}`}>
-            {/* 50-50 Split Layout */}
             <div className="flex items-center gap-6">
-                {/* Left Side - Slider (50%) */}
                 <div className="w-1/2">
                     <div className="relative">
-                        {/* Label above handle */}
                         <div className="relative h-6 mb-2 pointer-events-none">
                             <div
                                 className="absolute text-xs font-medium text-gray-700 transform -translate-x-1/2 bg-white px-2 py-1 rounded-md shadow-sm border whitespace-nowrap"
-                                style={{ left: `${position}%`, top: "0" }}
+                                style={{ left: `${position}%`, top: 0 }}
                                 aria-hidden
                             >
-                                {toDisplayText(value)}
+                                {value <= 0 ? "0L" : value < 1 ? `${Math.round(value * 100)}L` : `${Number(value.toFixed(2))}Cr`}
                             </div>
                         </div>
 
-                        {/* Track */}
                         <div
                             ref={sliderRef}
                             className="relative h-2 bg-gray-200 rounded-full cursor-pointer"
@@ -195,16 +186,16 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
                                         e.preventDefault();
                                     }
                                 }}
-                                onKeyDown={(e) => {
-                                    if (e.key === "ArrowLeft" || e.key === "ArrowDown")
-                                        setValue((v) => Number(Math.max(0, Number((v - 0.01).toFixed(3)))));
-                                    if (e.key === "ArrowRight" || e.key === "ArrowUp")
-                                        setValue((v) => Number(Math.min(max, Number((v + 0.01).toFixed(3)))));
+                                onKeyDown={(e: React.KeyboardEvent) => {
+                                    const step = 0.01;
+                                    if (e.key === "ArrowLeft" || e.key === "ArrowDown") setValue((v) => Number(clamp(v - step, 0, max).toFixed(3)));
+                                    if (e.key === "ArrowRight" || e.key === "ArrowUp") setValue((v) => Number(clamp(v + step, 0, max).toFixed(3)));
+                                    if (e.key === "Home") setValue(0);
+                                    if (e.key === "End") setValue(Number(max.toFixed(3)));
                                 }}
                             />
                         </div>
 
-                        {/* Start/End labels */}
                         <div className="flex justify-between text-xs text-gray-600 mt-1">
                             <span>₹0</span>
                             <span>₹{sliderScale}Cr</span>
@@ -212,51 +203,32 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
                     </div>
                 </div>
 
-                {/* Right Side - Other Details (50%) */}
-                {/* --- SMALL CHANGE: ensure the right side also takes 1/2 width to match left --- */}
                 <div className="w-1/2 flex items-center gap-4">
-                    {/* Manual Input */}
-                    {/* --- SMALL CHANGE: give a fixed equal width and center content vertically --- */}
-                    <div className="flex flex-col w-48 py-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Maximum Budget
-                        </label>
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 flex-1 w-48 flex flex-col justify-center">
+                        <div className="text-xs font-medium text-gray-700">Selected:</div>
+                        <div className="text-sm font-bold text-purple-600">{formatRupeesFull(value)}</div>
+                        <div className="text-xs text-gray-600">{toReadable(value)}</div>
+                    </div>
+
+                    <div className="flex flex-col">
+                        <label className="text-[10px] text-gray-600 mb-1">Manual</label>
                         <input
-                            type="text"
-                            value={manualDisplay}
-                            onChange={(e) => {
-                                const parsedCr = parseManualInput(e.target.value);
-                                setValue(Number(Math.min(max, Math.max(0, parsedCr)).toFixed(3)));
-                            }}
-                            onBlur={(e) => {
-                                const parsedCr = parseManualInput(e.target.value);
-                                setValue(Number(Math.min(max, Math.max(0, parsedCr)).toFixed(3)));
+                            className="text-xs px-2 py-1 border rounded w-28"
+                            value={manualInput}
+                            onChange={(e) => setManualInput(e.target.value)}
+                            onBlur={() => {
+                                const parsed = parseManualInput(manualInput);
+                                const sanitized = clamp(parsed, 0, max);
+                                setValue(Number(sanitized.toFixed(3)));
                             }}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") {
-                                    const parsedCr = parseManualInput((e.target as HTMLInputElement).value);
-                                    setValue(Number(Math.min(max, Math.max(0, parsedCr)).toFixed(3)));
-                                    (e.target as HTMLInputElement).blur();
+                                    const parsed = parseManualInput(manualInput);
+                                    const sanitized = clamp(parsed, 0, max);
+                                    setValue(Number(sanitized.toFixed(3)));
                                 }
                             }}
-                            className="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                            placeholder="50"
                         />
-                        <div className="text-xs text-gray-500 mt-1">
-                            {value < 1 ? "L (Lakh)" : "Cr (Crore)"}
-                        </div>
-                    </div>
-
-                    {/* Selected Range Display */}
-                    {/* --- SMALL CHANGE: make this the same width and vertical padding to match the input box --- */}
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg px-2 py-2 flex-1 w-48 flex flex-col justify-center">
-                        <div className="text-xs font-medium text-gray-700">Selected Range:</div>
-                        <div className="text-sm font-bold text-purple-600">
-                            {formatRupeesFull(value)}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                            ₹0 - {toDisplayText(value)}
-                        </div>
                     </div>
                 </div>
             </div>
