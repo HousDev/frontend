@@ -1670,7 +1670,10 @@ const ActivitiesTab = ({ buyer, onAddActivity, onEditActivity }: any) => {
 // --- keep your existing imports (React, useState, useEffect, icons like Layers, TrendingUp, Tag, Play, AlertCircle, Calendar, CheckCircle2, User, Clock, Plus, Edit, Bell, CalendarIcon etc.)
 // --- keep your existing imports (React, useState, useEffect, icons like Layers, TrendingUp, Tag, Play, AlertCircle, Calendar, CheckCircle2, User, Clock, Plus, Edit, Bell, CalendarIcon etc.)
 
-/** Followup interface (same as yours) */
+
+
+
+/** Followup interface (updated with created/updated fields) */
 export interface Followup {
   id: string;
   description: string;
@@ -1686,7 +1689,6 @@ export interface Followup {
   category?: "sales" | "presales";
   transferredFromLead?: boolean;
 
-  // NEW fields requested
   buyerLeadStage?: string | null;
   buyerLeadStatus?: string | null;
   customRemark?: string | null;
@@ -1695,6 +1697,11 @@ export interface Followup {
   scheduleDate?: string | null;
   scheduleTime?: string | null;
   transferredAt?: string | null;
+
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  createdBy?: string | null;
+  updatedBy?: string | null;
 }
 
 interface FollowupsTabProps {
@@ -1703,7 +1710,6 @@ interface FollowupsTabProps {
   onEditFollowup: (followup: any) => void;
 }
 
-/** Status / Priority configs (unchanged) */
 const getStatusConfig = () => ({
   pending: { bg: "bg-orange-100", text: "text-orange-700", label: "Pending", icon: "⏳" },
   scheduled: { bg: "bg-blue-100", text: "text-blue-700", label: "Scheduled", icon: "📅" },
@@ -1730,7 +1736,6 @@ const getPriorityConfig = () => ({
   minimal: { border: "border-l-gray-400", bg: "bg-gray-50", text: "text-gray-700", badge: "bg-gray-100" }
 });
 
-/** Field config now includes the icon component and a color class used for icon badge */
 const getFieldConfig = () => ({
   buyerLeadStage: { label: "Lead Stage", icon: Layers, color: "bg-indigo-100 text-indigo-700", priority: 1 },
   buyerLeadStatus: { label: "Lead Status", icon: TrendingUp, color: "bg-blue-100 text-blue-700", priority: 2 },
@@ -1741,7 +1746,11 @@ const getFieldConfig = () => ({
   transferredAt: { label: "Transferred", icon: CheckCircle2, color: "bg-orange-100 text-orange-700", priority: 7 },
   assignedTo: { label: "Assigned To", icon: User, color: "bg-teal-100 text-teal-700", priority: 8 },
   type: { label: "Type", icon: Clock, color: "bg-gray-100 text-gray-700", priority: 9 },
-  priority: { label: "Priority", icon: Flag, color: "bg-gray-100 text-gray-700", priority: 11 }
+  priority: { label: "Priority", icon: Flag, color: "bg-gray-100 text-gray-700", priority: 11 },
+  createdAt: { label: "Created", icon: Calendar, color: "bg-gray-50 text-gray-700", priority: 90 },
+  updatedAt: { label: "Updated", icon: Calendar, color: "bg-gray-50 text-gray-700", priority: 91 },
+  createdBy: { label: "Created By", icon: User, color: "bg-gray-50 text-gray-700", priority: 92 },
+  updatedBy: { label: "Updated By", icon: User, color: "bg-gray-50 text-gray-700", priority: 93 }
 });
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -1840,7 +1849,6 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
     if (!priority) return null;
     const normalized = priority.toString().toLowerCase();
     const cfg = (priorityConfig as any)[normalized] || priorityConfig.normal;
-    // Capitalize first letter for nicer display: "Medium"
     const label = `${(priority || "").toString().charAt(0).toUpperCase() + (priority || "").toString().slice(1)}`;
     return (
       <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${cfg.badge} ${cfg.text}`}>
@@ -1849,17 +1857,11 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
     );
   };
 
-  // -----------------------
-  // NEW renderDynamicFields
-  // -----------------------
   const renderDynamicFields = (followup: Followup) => {
-    // top fields (2-column grid). include status + priority here instead of header
     const topFields: { key: string; value: any }[] = [
       { key: "buyerLeadStage", value: followup.buyerLeadStage },
-      // show buyerLeadStatus (lead status) preferably
       { key: "buyerLeadStatus", value: followup.buyerLeadStatus ?? getFollowupStatusBadge(followup.status) },
       { key: "priority", value: followup.priority ? getPriorityBadge(followup.priority) : null },
-      // status as badge (redundant removed by above preference but keep 'status' field to show mapped badge if needed)
       { key: "followupType", value: followup.followupType ?? followup.type },
       { key: "assignedTo", value: followup.assignedTo },
       {
@@ -1870,21 +1872,27 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
             ? `${formatDate(followup.date)}${followup.time ? ` • ${formatTime(followup.time)}` : ""}`
             : null
       },
-      // transferredAt (we try to pick earliest transfer in normalizer - see mapAndNormalize)
       ...(followup.transferredAt ? [{
         key: "transferredAt",
         value: `${formatDate(followup.transferredAt)}${followup.transferredAt ? ` • ${formatTime(followup.transferredAt)}` : ""}`
-      }] : []),
-      // type (we will render 'type' bigger in render)
+      }] : [])
     ].filter(f => f.value !== null && f.value !== undefined && f.value !== "");
 
-    // bottom fields: always rendered as full-width rows in order: nextAction then customRemark
-    const bottomFields = [
+    const bottomFields: { key: string; value: any }[] = [
       { key: "nextAction", value: followup.nextAction },
       { key: "customRemark", value: followup.customRemark ?? followup.remark }
     ].filter(f => f.value !== null && f.value !== undefined && f.value !== "");
 
-    // sort topFields by priority from fieldConfig (if defined), keep special fields ordering stable for status/priority/type
+    if (followup.category === "sales") {
+      const createdVal = followup.createdAt ? `${formatDate(followup.createdAt)}${formatTime(followup.createdAt) ? ` • ${formatTime(followup.createdAt)}` : ""}` : null;
+      const updatedVal = followup.updatedAt ? `${formatDate(followup.updatedAt)}${formatTime(followup.updatedAt) ? ` • ${formatTime(followup.updatedAt)}` : ""}` : null;
+
+      if (createdVal) bottomFields.push({ key: "createdAt", value: createdVal });
+      if (followup.createdBy) bottomFields.push({ key: "createdBy", value: followup.createdBy });
+      if (updatedVal) bottomFields.push({ key: "updatedAt", value: updatedVal });
+      if (followup.updatedBy) bottomFields.push({ key: "updatedBy", value: followup.updatedBy });
+    }
+
     topFields.sort((a, b) => {
       const pa = (fieldConfig as any)[a.key]?.priority ?? 99;
       const pb = (fieldConfig as any)[b.key]?.priority ?? 99;
@@ -1894,11 +1902,8 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
     const renderFieldRow = (field: any, fullRow: boolean) => {
       const cfg = (fieldConfig as any)[field.key];
       const IconComp = cfg?.icon;
-      // render icon a bit larger for 'type'
       const iconSize = field.key === "type" ? 16 : 14;
       const iconEl = IconComp ? React.createElement(IconComp, { size: iconSize, className: "inline-block" }) : null;
-
-      // when fullRow === true, we want it to occupy full width (one row)
       const wrapperClass = fullRow ? "md:col-span-2 flex items-start space-x-2" : "flex items-start space-x-2";
 
       if (!cfg) {
@@ -1910,7 +1915,6 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         );
       }
 
-      // custom rendering for 'type' to make it bigger
       if (field.key === "type") {
         return (
           <div key={field.key} className={wrapperClass}>
@@ -1925,7 +1929,6 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         );
       }
 
-      // for fields that already render React elements (status/priority badges), handle them
       const isElement = React.isValidElement(field.value);
 
       return (
@@ -1945,51 +1948,84 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
 
     return (
       <>
-        {/* top fields rendered in 2-column grid */}
         {topFields.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
             {topFields.map((f) => renderFieldRow(f, false))}
           </div>
         )}
 
-        {/* bottom fields always full-width rows (in order) */}
         {bottomFields.length > 0 && (
           <div className="mt-2 space-y-2 text-xs">
-            {bottomFields.map((f) => {
-              const cfg = (fieldConfig as any)[f.key];
-              const IconComp = cfg?.icon;
-              const iconEl = IconComp ? React.createElement(IconComp, { size: 14, className: "inline-block" }) : null;
-              return (
-                <div key={f.key} className="flex items-start space-x-2">
-                  {cfg ? (
-                    <>
-                      <div className="w-32 flex items-center text-xs text-gray-500">
-                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full mr-2 ${cfg.color}`}>
-                          {iconEl}
-                        </span>
-                        <span>{cfg.label}:</span>
-                      </div>
-                      <div className="font-medium text-xs flex-1 break-words whitespace-pre-wrap">{f.value}</div>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-gray-500 w-32">{f.key}:</span>
-                      <span className="font-medium flex-1 break-words whitespace-pre-wrap">{f.value}</span>
-                    </>
-                  )}
-                </div>
-              );
-            })}
+            {/* normal bottom fields (nextAction, remark) */}
+            {bottomFields
+              .filter(f => !["createdAt", "createdBy", "updatedAt", "updatedBy"].includes(f.key))
+              .map((f) => {
+                const cfg = (fieldConfig as any)[f.key];
+                const IconComp = cfg?.icon;
+                const iconEl = IconComp ? React.createElement(IconComp, { size: 14, className: "inline-block" }) : null;
+                return (
+                  <div key={f.key} className="flex items-start space-x-2">
+                    {cfg ? (
+                      <>
+                        <div className="w-32 flex items-center text-xs text-gray-500">
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full mr-2 ${cfg.color}`}>
+                            {iconEl}
+                          </span>
+                          <span>{cfg.label}:</span>
+                        </div>
+                        <div className="font-medium text-xs flex-1 break-words whitespace-pre-wrap">{f.value}</div>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-gray-500 w-32">{f.key}:</span>
+                        <span className="font-medium flex-1 break-words whitespace-pre-wrap">{f.value}</span>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+
+            {/* created/updated meta fields in 2-column grid */}
+            {followup.category === "sales" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {["createdAt", "createdBy", "updatedAt", "updatedBy"].map((key) => {
+                  const f = bottomFields.find(b => b.key === key);
+                  if (!f) return null;
+                  const cfg = (fieldConfig as any)[key];
+                  const IconComp = cfg?.icon;
+                  const iconEl = IconComp ? React.createElement(IconComp, { size: 14, className: "inline-block" }) : null;
+                  return (
+                    <div key={f.key} className="flex items-start space-x-2">
+                      {cfg ? (
+                        <>
+                          <div className="w-28 flex items-center text-xs text-gray-500">
+                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full mr-1 ${cfg.color}`}>
+                              {iconEl}
+                            </span>
+                            <span>{cfg.label}:</span>
+                          </div>
+                          <div className="font-medium text-xs flex-1 break-words whitespace-pre-wrap">{f.value}</div>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-gray-500 w-28">{f.key}:</span>
+                          <span className="font-medium flex-1 break-words whitespace-pre-wrap">{f.value}</span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </>
     );
   };
-  // -----------------------
-  // end renderDynamicFields
-  // -----------------------
 
-  // Normalizer
+  // -----------------------
+  // Normalizer (updated: prioritize createdByName / updatedByName)
+  // -----------------------
   const mapAndNormalize = (arr: any[]) =>
     (arr || []).map((f: any) => {
       const transferredFromLead =
@@ -2012,7 +2048,6 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         (f.createdBy || f.created_by) ??
         null;
 
-      // attempt to discover earliest transfer date if there is a transfer history array
       let transferredAtRaw =
         f.transferredAt ??
         f.transferred_at ??
@@ -2020,7 +2055,6 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         f.transfer_history?.map?.((t: any) => t.date || t.transferredAt || t.transferred_at)?.filter(Boolean)?.sort()?.[0] ??
         null;
 
-      // If transfers are objects with ISO strings, pick earliest by Date
       if (!transferredAtRaw && Array.isArray(f.transfers) && f.transfers.length > 0) {
         const dates = f.transfers.map((t: any) => new Date(t.date || t.transferredAt || t.transferred_at)).filter(d => !isNaN(d.getTime()));
         if (dates.length > 0) transferredAtRaw = dates.sort((a: Date, b: Date) => a.getTime() - b.getTime())[0].toISOString();
@@ -2030,6 +2064,21 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         const dates = f.transfer_history.map((t: any) => new Date(t.date || t.transferredAt || t.transferred_at)).filter(d => !isNaN(d.getTime()));
         if (dates.length > 0) transferredAtRaw = dates.sort((a: Date, b: Date) => a.getTime() - b.getTime())[0].toISOString();
       }
+
+      // --- CREATED / UPDATED: prefer name fields if available ---
+      const createdAtRaw = f.createdAt ?? f.created_at ?? f.created_at_iso ?? f.createdOn ?? f.created_on ?? null;
+      const updatedAtRaw = f.updatedAt ?? f.updated_at ?? f.updated_at_iso ?? f.updatedOn ?? f.updated_on ?? null;
+
+      // Prefer explicit "Name" fields for display. If name not present, fallback to id/string fields.
+      const createdByRaw =
+        f.createdByName ?? f.created_by_name ??
+        f.createdBy ?? f.created_by ??
+        f.creator_name ?? f.creator ?? null;
+
+      const updatedByRaw =
+        f.updatedByName ?? f.updated_by_name ??
+        f.updatedBy ?? f.updated_by ??
+        f.updater_name ?? f.updater ?? null;
 
       return {
         id:
@@ -2051,7 +2100,6 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         category: transferredFromLead ? "presales" : "sales",
         transferredFromLead,
 
-        // NEW fields explicitly mapped
         buyerLeadStage: f.buyerLeadStage ?? f.buyer_lead_stage ?? null,
         buyerLeadStatus: f.buyerLeadStatus ?? f.buyer_lead_status ?? null,
         customRemark: f.customRemark ?? f.custom_remark ?? null,
@@ -2059,6 +2107,12 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         nextAction: f.nextAction ?? f.next_action ?? null,
         scheduleDate: f.scheduleDate ?? f.schedule_date ?? null,
         scheduleTime: f.scheduleTime ?? f.schedule_time ?? null,
+
+        createdAt: createdAtRaw ?? null,
+        updatedAt: updatedAtRaw ?? null,
+        // prefer name fields for display
+        createdBy: createdByRaw ?? null,
+        updatedBy: updatedByRaw ?? null
       } as Followup;
     });
 
@@ -2076,6 +2130,7 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
       try {
         // replace buyerFollowupAPI.getAll with your actual API call
         const res = await (buyerFollowupAPI?.getAll?.({ buyerId, page: 1, limit: 200 }) ?? Promise.resolve({ data: buyer?.followups ?? [] }));
+       console.log("first",res)
         const raw =
           res?.data ??
           res ??
@@ -2131,6 +2186,10 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         </button>
       </div>
 
+      {/* show title for active tab like you requested */}
+      {activeTab === "presales" && <h3 className="text-sm font-semibold text-gray-800">Presales History</h3>}
+      {activeTab === "sales" && <h3 className="text-sm font-semibold text-gray-800">Sales History</h3>}
+
       {loading ? (
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-600 border-t-transparent"></div>
@@ -2143,11 +2202,6 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         </div>
       ) : filteredFollowups.length > 0 ? (
         <>
-          {/* Presales History title when presales tab active */}
-          {activeTab === "presales" && (
-            <h3 className="text-sm font-semibold text-gray-800">Presales History</h3>
-          )}
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredFollowups.map((followup, idx) => {
               const key = followup.id ?? `${idx}-${(followup.description ?? "followup").slice(0, 20)}`;
@@ -2157,15 +2211,18 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
                 <div key={key} className={`border-l-4 rounded-lg p-4 transition-all duration-200 hover:shadow-md ${getPriorityColor(followup.priority)}`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex justify-between items-center text-[11px]">
+                      {/* Badge: show Pre-Sales or Sales depending on category */}
                       {followup.category === "presales" && (
                         <span className="px-2 py-0.5 text-[10px] rounded-full bg-indigo-100 text-indigo-700 font-medium flex items-center">
                           📋 <span className="ml-1">Pre-Sales</span>
                         </span>
                       )}
-
-
+                      {followup.category === "sales" && (
+                        <span className="px-2 py-0.5 text-[10px] rounded-full bg-amber-100 text-amber-700 font-medium flex items-center">
+                          💼 <span className="ml-1">Sales</span>
+                        </span>
+                      )}
                     </div>
-
 
                     <div className="flex items-center space-x-2 ml-2">
                       <span className="text-[10px] text-gray-500 whitespace-nowrap">
@@ -2180,7 +2237,6 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
                         )}
                       </span>
 
-                      {/* EDIT button hidden when followup is presales */}
                       {followup.category !== "presales" && (
                         <button
                           onClick={() => {
@@ -2197,7 +2253,6 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
                     </div>
                   </div>
 
-                  {/* renderDynamicFields produces its own grid + bottom full-width rows */}
                   {dynamicFields}
 
                   {followup.reminder && (
@@ -2234,6 +2289,8 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
     </div>
   );
 };
+
+
 
 
 
