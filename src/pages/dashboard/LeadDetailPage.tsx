@@ -1393,9 +1393,9 @@ const LeadDetailPage: React.FC = () => {
         <BuyerFormModal lead={lead} followups={followups} onClose={() => setShowBuyerComponent(false)} />
       )}
 
-      {/* {showSellerComponent && lead && (
+      {showSellerComponent && lead && (
         <SellerFormModal lead={lead} followups={followups} onClose={() => setShowSellerComponent(false)} />
-      )} */}
+      )}
 
       <AddLeadModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSave={handleSaveLead} lead={lead || undefined} />
     </div>
