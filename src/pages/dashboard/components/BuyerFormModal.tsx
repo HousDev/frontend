@@ -3,6 +3,9 @@ import React, { useEffect, useRef, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
 import { usersAPI } from "@/lib/api";
+import { buyerTransferAPI } from "@/lib/buyerTransferAPI";
+import { notificationAPI } from "@/lib/notificationAPI"; // ✅ Import notification API
+
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "@/contexts/AuthContext";
@@ -51,9 +54,15 @@ interface BuyerFormModalProps {
   lead: Lead;
   followups?: Followup[]; // optional; will NOT be rendered — only console.logged
   onClose: () => void;
+  onTransferSuccess?: (transferredBuyer: any) => void; // ✅ Optional callback for successful transfer
 }
 
-const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, followups = [], onClose }) => {
+const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
+  lead,
+  followups = [],
+  onClose,
+  onTransferSuccess
+}) => {
   const { user } = useAuth();
 
   // UI toggles & refs
@@ -69,6 +78,9 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, followups = [], o
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({} as any);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [presalesUsers, setPresalesUsers] = useState<any[]>([]);
+
+  // ✅ Add loading state for form submission
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // form data
   const [formData, setFormData] = useState<any>({
@@ -113,7 +125,7 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, followups = [], o
     console.info("BuyerFormModal received followups:", followups);
   }, [followups]);
 
-  // load users / presales list
+  // ✅ Load users / presales list with proper normalization
   useEffect(() => {
     (async () => {
       try {
@@ -121,12 +133,20 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, followups = [], o
         const users = resp?.data || [];
         setAllUsers(users);
 
-        const execs = users.filter(
-          (u: any) =>
-            (String(u.department || "").toLowerCase() === "presales" ||
-              String(u.department || "").toLowerCase() === "pre-sales") &&
-            (String(u.role || "").toLowerCase() === "executive" || String(u.role || "").toLowerCase() === "presales_executive")
-        );
+        // ✅ Use same normalization as getAssignableExecutives
+        const norm = (s: any) =>
+          (s ?? "")
+            .toString()
+            .trim()
+            .toLowerCase()
+            .replace(/[\s-_/]+/g, "");
+
+        const execs = users.filter((u: any) => {
+          const dept = norm(u?.department || u?.department_name);
+          const role = norm(u?.role || u?.role_name);
+          return dept === "presales" && role === "executive";
+        });
+
         setPresalesUsers(execs);
       } catch (err) {
         console.error("Failed to load users:", err);
@@ -223,7 +243,7 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, followups = [], o
   const getUserNameById = (id: string | number) => {
     if (!id) return "";
     const u = allUsers.find((x) => String(x.id) === String(id) || String(x._id) === String(id));
-    return u?.name || u?.full_name || u?.username || "";
+    return u?.name || u?.full_name || u?.username || `${u?.first_name || ""} ${u?.last_name || ""}`.trim() || "";
   };
 
   // simple classes used in UI
@@ -232,8 +252,7 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, followups = [], o
   const innerTextareaClass = "w-full border rounded px-2 py-1 text-xs bg-white focus:outline-none focus:border-green-600 resize-none";
   const execButtonClass = "w-full flex items-center justify-between space-x-1 border rounded p-1 text-xs bg-white hover:bg-gray-50";
 
-
-  // replace existing getAssignedExecName (if present) with this:
+  // ✅ Enhanced getAssignedExecName with better name resolution
   const getAssignedExecName = () => {
     const leadExecName = (lead as any)?.assigned_executive_name;
     if (leadExecName && String(leadExecName).trim() !== "" && leadExecName.toLowerCase() !== "unassigned") {
@@ -244,24 +263,52 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, followups = [], o
       const exec = presalesUsers.find(
         (u) => String(u.id) === String(formData.assigned_executive) || String(u._id) === String(formData.assigned_executive)
       );
-      return exec?.name || getUserNameById(formData.assigned_executive) || "Unassigned";
+      if (exec) {
+        return exec.name || exec.full_name || `${exec.first_name || ""} ${exec.last_name || ""}`.trim() || "Executive";
+      }
+      return getUserNameById(formData.assigned_executive) || "Unassigned";
     }
     return "Unassigned";
   };
 
-  // and in the JSX where label is:
-  <button type="button" onClick={() => setShowExecDropdown(!showExecDropdown)} className={execButtonClass}>
-    <span className="truncate text-xs">{(lead as any).assigned_executive_name || getAssignedExecName()}</span>
-    <ChevronDown className="w-3 h-3 flex-shrink-0" />
-  </button>
-
-
+  // ✅ Fixed handleExecAssign with proper notification support
   const handleExecAssign = async (execId: string) => {
     try {
+      const previousExec = formData.assigned_executive;
+      
       setFormData((prev: any) => ({ ...prev, assigned_executive: execId }));
       setShowExecDropdown(false);
-      const name = getUserNameById(execId) || presalesUsers.find((u) => String(u.id) === String(execId))?.name || "Executive";
-      toast.success(`Buyer assigned to ${name}`);
+      
+      // Get executive name for display - only if execId is not empty
+      if (execId && execId.trim() !== "") {
+        const exec = presalesUsers.find((u) => String(u.id) === String(execId));
+        const execName = exec?.name || exec?.full_name || `${exec?.first_name || ""} ${exec?.last_name || ""}`.trim() || getUserNameById(execId) || "Executive";
+        
+        // ✅ Send notification if executive is being assigned (not unassigned) and it's a different executive
+        if (execId !== previousExec) {
+          try {
+            // ✅ Fix: Ensure leadId and userId are strings, not numbers
+            await notificationAPI.createNotification({
+              leadId: String(lead.id), // ✅ Convert to string
+              userId: String(execId),   // ✅ Convert to string  
+              message: `Buyer lead assigned to ${execName}`,
+              type: "buyer_assign",
+              link: `/dashboard/leads/${lead.id}`,
+            });
+            
+            console.log("✅ Assignment notification sent to executive:", execName);
+          } catch (notifErr) {
+            console.error("Failed to send notification:", notifErr);
+            // Don't fail the assignment for notification error
+            toast.warn("Executive assigned but notification failed to send");
+          }
+        }
+        
+        toast.success(`Buyer assigned to ${execName}`);
+      } else {
+        // Unassigning executive
+        toast.success("Executive assignment removed");
+      }
     } catch (err) {
       console.error("Error assigning executive:", err);
       toast.error("Failed to assign. Please try again.");
@@ -320,33 +367,143 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, followups = [], o
     return () => document.removeEventListener("click", onDocClick);
   }, [showUnitTypeDropdown, showLocationDropdown, showExecDropdown]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ✅ Fixed handleSubmit with proper notification support
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isSubmitting) return; // Prevent double submission
 
     const parsedMin = Number(formData.budget_min) || 0;
     const parsedMax = Number(formData.budget_max) || 0;
 
-    const { budget_range, budget_range_readable, ...rest } = formData;
-
-    const submissionData = {
-      ...rest,
-      budget_min: parsedMin,
-      budget_max: parsedMax,
-      updated_at: new Date().toISOString(),
-      is_active: formData.is_active !== undefined ? !!formData.is_active : true,
+    // Build requirements object from form fields
+    const requirements = {
+      propertyType: formData.property_type || null,
+      property_subtype: formData.property_subtype || null,
+      unitTypes: Array.isArray(formData.preferred_unit_type) ? formData.preferred_unit_type : [],
+      preferredLocations: Array.isArray(formData.preferred_location) ? formData.preferred_location : [],
+      nearbylocations: formData.nearbylocations ?
+        (typeof formData.nearbylocations === 'string'
+          ? formData.nearbylocations.split(',').map(s => s.trim()).filter(s => s)
+          : formData.nearbylocations
+        ) : []
     };
 
-    // NOTE: We intentionally DO NOT send followups here.
-    // followups are only logged to console per requirement.
-    console.log("✅ Buyer Form Submission (payload):", submissionData);
+    const {
+      budget_range,
+      budget_range_readable,
+      property_type,
+      property_subtype,
+      preferred_unit_type,
+      preferred_location,
+      nearbylocations,
+      ...rest
+    } = formData;
 
-    toast.success("Buyer information saved successfully!");
-    onClose();
+    // Prepare overrides data (buyer-specific fields)
+    const overrides = {
+      budget_min: parsedMin,
+      budget_max: parsedMax,
+
+      // Send requirements as structured object that backend will convert to JSON
+      requirements: requirements,
+
+      assigned_executive: formData.assigned_executive || null,
+      updated_at: new Date().toISOString(),
+      is_active: formData.is_active !== undefined ? !!formData.is_active : true,
+
+      // Include any other buyer-specific overrides
+      remark: formData.remark || "",
+      // Add any other fields that should override the original lead data
+    };
+
+    try {
+      setIsSubmitting(true);
+
+      console.log("🚀 Starting buyer transfer...");
+      console.log("📋 Lead ID:", lead.id);
+      console.log("📋 Requirements Object:", requirements);
+      console.log("🔄 Overrides:", overrides);
+
+      // ✅ Call the buyer transfer API
+      const response = await buyerTransferAPI.transferToBuyer({
+        leadId: lead.id,
+        overrides: overrides,
+        createdBy: user?.id, // Use current user's ID
+      });
+
+      console.log("✅ Buyer transfer successful:", response);
+
+      // ✅ Send notification to assigned executive after successful transfer
+      if (formData.assigned_executive && formData.assigned_executive.trim() !== "") {
+        try {
+          const exec = presalesUsers.find((u) => String(u.id) === String(formData.assigned_executive));
+          const execName = exec?.name || exec?.full_name || `${exec?.first_name || ""} ${exec?.last_name || ""}`.trim() || "Executive";
+          
+          // ✅ Fix: Use string IDs and handle response properly
+          await notificationAPI.createNotification({
+            leadId: String(lead.id), // ✅ Convert to string
+            userId: String(formData.assigned_executive), // ✅ Convert to string
+            message: `New buyer transferred and assigned to ${execName}`,
+            type: "buyer_transfer",
+            link: `/dashboard/buyers/${response?.data?.id || response?.id || lead.id}`, // Link to buyer profile if available
+          });
+
+          console.log("✅ Transfer notification sent to executive:", execName);
+        } catch (notifErr) {
+          console.error("Failed to send transfer notification:", notifErr);
+          console.error("Notification error details:", notifErr?.response?.data || notifErr?.message);
+          // Don't fail the whole operation for notification error
+        }
+      }
+
+      // ✅ Send notification to lead creator about the transfer (if different from current user)
+      if (lead.created_by && String(lead.created_by) !== String(user?.id)) {
+        try {
+          await notificationAPI.createNotification({
+            leadId: String(lead.id), // ✅ Convert to string
+            userId: String(lead.created_by), // ✅ Convert to string
+            message: `Your lead "${lead.name}" has been transferred to buyer`,
+            type: "lead_transfer",
+            link: `/dashboard/buyers/${response?.data?.id || response?.id || lead.id}`,
+          });
+
+          console.log("✅ Transfer notification sent to lead creator");
+        } catch (notifErr) {
+          console.error("Failed to send creator notification:", notifErr);
+          console.error("Creator notification error details:", notifErr?.response?.data || notifErr?.message);
+          // Don't fail the operation
+        }
+      }
+
+      toast.success("Lead successfully transferred to buyer!");
+
+      // ✅ Call success callback if provided
+      if (onTransferSuccess && response) {
+        onTransferSuccess(response);
+      }
+
+      // Close the modal
+      onClose();
+
+    } catch (error) {
+      console.error("❌ Buyer transfer failed:", error);
+
+      // Handle different error scenarios
+      if (error?.response?.data?.message) {
+        toast.error(`Transfer failed: ${error.response.data.message}`);
+      } else if (error?.message) {
+        toast.error(`Transfer failed: ${error.message}`);
+      } else {
+        toast.error("Failed to transfer lead to buyer. Please try again.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-
   return (
-    <Modal isOpen={true} onClose={onClose} title="Buyer Form" width="max-w-4xl">
+    <Modal isOpen={true} onClose={onClose} title="Transfer to Buyer" width="max-w-4xl">
       <div className="text-xs">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
@@ -467,11 +624,42 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, followups = [], o
                             if (!execs || execs.length === 0) {
                               return <div className="px-2 py-2 text-xs text-gray-500">No executives available</div>;
                             }
-                            return execs.map((exec: any) => (
-                              <button key={exec.id} type="button" onClick={() => handleExecAssign(exec.id)} className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${String(formData.assigned_executive) === String(exec.id) ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-800"}`}>
-                                {exec.name}
-                              </button>
-                            ));
+                            return (
+                              <>
+                                {/* ✅ Unassigned option */}
+                                <button 
+                                  key="unassigned" 
+                                  type="button" 
+                                  onClick={() => handleExecAssign("")} 
+                                  className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${
+                                    !formData.assigned_executive || formData.assigned_executive === ""
+                                      ? "bg-blue-50 text-blue-600 font-medium"
+                                      : "text-gray-800"
+                                  }`}
+                                >
+                                  Unassigned
+                                </button>
+                                
+                                {/* ✅ Available executives */}
+                                {execs.map((exec: any) => (
+                                  <button 
+                                    key={exec.id} 
+                                    type="button" 
+                                    onClick={() => handleExecAssign(String(exec.id))} // ✅ Ensure string conversion
+                                    className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${
+                                      String(formData.assigned_executive) === String(exec.id) 
+                                        ? "bg-blue-50 text-blue-600 font-medium" 
+                                        : "text-gray-800"
+                                    }`}
+                                  >
+                                    {exec.name}
+                                    {exec.selfOnly && (
+                                      <span className="text-[10px] text-gray-400 ml-1">(Self)</span>
+                                    )}
+                                  </button>
+                                ))}
+                              </>
+                            );
                           })()}
                         </div>
                       </div>
@@ -588,8 +776,31 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({ lead, followups = [], o
 
           {/* Buttons */}
           <div className="flex justify-end gap-2 mt-1">
-            <button type="button" onClick={onClose} className="px-3 py-1 bg-gray-300 rounded text-xs">Cancel</button>
-            <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded text-xs">Transfer to Buyer</button>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="px-3 py-1 bg-gray-300 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-3 py-1 bg-blue-600 text-white rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </>
+              ) : (
+                "Transfer to Buyer"
+              )}
+            </button>
           </div>
         </form>
       </div>
