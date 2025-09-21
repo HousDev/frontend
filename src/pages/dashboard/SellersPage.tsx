@@ -294,7 +294,7 @@ const handleExportAllFiltered = () => {
       try {
         // Delete each seller individually
         for (const id of selectedSellers) {
-          await sellerAPI.delete(id);
+          await sellerAPI.delete(String(id));
         }
 
         // Update local state
@@ -467,7 +467,7 @@ const handleExportAllFiltered = () => {
   const handleDeleteSeller = async (sellerId: number) => {
     if (window.confirm("Are you sure you want to delete this seller?")) {
       try {
-        await sellerAPI.delete(sellerId);
+        await sellerAPI.delete(String(sellerId));
 
         setSellers((prev) => prev.filter((s) => s.id !== sellerId));
 
@@ -499,12 +499,12 @@ const handleExportAllFiltered = () => {
         }
 
         // optional: check existence (if your API supports it)
-        const existsResp = sellerAPI.getById ? await sellerAPI.getById(id).catch(() => null) : null;
+        const existsResp = sellerAPI.getById ? await sellerAPI.getById(String(id)).catch(() => null) : null;
         const exists = !!unwrap(existsResp);
 
         try {
           const resp = exists
-            ? await sellerAPI.update(id, sellerData)
+            ? await sellerAPI.update(String(id), sellerData)
             : await sellerAPI.create(sellerData); // fallback create if not found
           savedBody = unwrap(resp);
 

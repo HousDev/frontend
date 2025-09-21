@@ -352,7 +352,8 @@ export const dashboardAPI = {
 export const publicAPI = {
   getPublicProperties: async (params?: any) => {
     const publicAxios = axios.create({
-      baseURL: API_BASE_URL,
+      // baseURL: API_BASE_URL,
+      baseURL: API_BASE_PROD_URL,
       timeout: 10000,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -362,7 +363,8 @@ export const publicAPI = {
 
   getPublicProperty: async (id: string) => {
     const publicAxios = axios.create({
-      baseURL: API_BASE_URL,
+      // baseURL: API_BASE_URL,
+      baseURL: API_BASE_PROD_URL,
       timeout: 10000,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -372,7 +374,8 @@ export const publicAPI = {
 
   searchPublicProperties: async (data: any) => {
     const publicAxios = axios.create({
-      baseURL: API_BASE_URL,
+      // baseURL: API_BASE_URL,
+      baseURL: API_BASE_PROD_URL,
       timeout: 10000,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -382,7 +385,8 @@ export const publicAPI = {
 
   submitContactForm: async (data: any) => {
     const publicAxios = axios.create({
-      baseURL: API_BASE_URL,
+      // baseURL: API_BASE_URL,
+      baseURL: API_BASE_PROD_URL,
       timeout: 10000,
       headers: { 'Content-Type': 'application/json' },
     });
