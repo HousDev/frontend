@@ -8,6 +8,7 @@ const API_BASE_PROD_URL ='https://investordeal.in/api/';
 
 export const api = axios.create({
   baseURL: API_BASE_PROD_URL,
+  // baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

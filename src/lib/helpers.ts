@@ -3,6 +3,8 @@
 
 // export const API_BASE =
 //   (import.meta as any)?.env?.VITE_API_URL || "http://localhost:3000";
+
+
 export const API_BASE_PROD_URL =
   (import.meta as any)?.env?.VITE_API_BASE_PROD_URL || "http://investordeal.in/api/";
 
@@ -10,6 +12,7 @@ export const API_BASE_PROD_URL =
 export const FILE_BASE = (() => {
   try {
     const u = new URL(API_BASE_PROD_URL);
+    // const u = new URL(API_BASE);
     const cleanPath = u.pathname.replace(/\/api\/?$/, "").replace(/\/+$/, "");
     u.pathname = cleanPath || "/";
     u.search = "";
