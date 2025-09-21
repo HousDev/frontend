@@ -1,15 +1,13 @@
 // src/lib/api.ts
 import axios, { AxiosRequestHeaders } from 'axios';
 
-// API base URL
-// const API_BASE_URL = 'http://localhost:3000/api/';
 
-// Vite: use import.meta.env
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://localhost:3000/api/';
+// const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://localhost:3000/api/';
 
-// Create axios instance
+const API_BASE_PROD_URL = (import.meta.env.VITE_API_BASE_PROD_URL as string) ?? 'http://investordeal.in/api/';
+
 export const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_PROD_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

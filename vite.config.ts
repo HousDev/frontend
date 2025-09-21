@@ -35,11 +35,12 @@ export default defineConfig({
     allowedHosts: ['investordeal.in', 'localhost'],
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        // target: "http://localhost:3000",
+        target: "http://investordeal.in",
         changeOrigin: true,
       },
       "/uploads": {
-        target: "http://localhost:3000",
+        target: "http://investordeal.in",
         changeOrigin: true,
       },
     },
