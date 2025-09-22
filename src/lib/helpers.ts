@@ -1,18 +1,18 @@
 // src/lib/helpers.ts
 
 
-// export const API_BASE =
-//   (import.meta as any)?.env?.VITE_API_URL || "http://localhost:3000";
+export const API_BASE =
+  (import.meta as any)?.env?.VITE_API_URL || "http://localhost:3000";
 
 
-export const API_BASE_PROD_URL =
-  (import.meta as any)?.env?.VITE_API_BASE_PROD_URL || "http://investordeal.in/api/";
+// export const API_BASE_PROD_URL =
+//   (import.meta as any)?.env?.VITE_API_BASE_PROD_URL || "http://investordeal.in/api/";   //for server
 
-// FILE base (origin for static /uploads). Strip trailing /api or /api/* from API_BASE.
+
 export const FILE_BASE = (() => {
   try {
-    const u = new URL(API_BASE_PROD_URL);
-    // const u = new URL(API_BASE);
+    // const u = new URL(API_BASE_PROD_URL);   //for server
+    const u = new URL(API_BASE);
     const cleanPath = u.pathname.replace(/\/api\/?$/, "").replace(/\/+$/, "");
     u.pathname = cleanPath || "/";
     u.search = "";
@@ -24,8 +24,8 @@ export const FILE_BASE = (() => {
   } catch {
     return typeof window !== "undefined"
       ? window.location.origin
-      : "http://investordeal.in";
-      // : "http://localhost:3000";
+      // : "http://investordeal.in";  //for server
+      : "http://localhost:3000";
   }
 })();
 
