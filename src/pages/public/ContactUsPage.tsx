@@ -199,26 +199,26 @@ const ContactUsPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-20">
+      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6">
+            <h2 className="text-3xl font-bold mb-3">
               Get in Touch
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl mx-auto">
+            </h2>
+            <p className="text-xl  mb-2 text-blue-100 max-w-3xl mx-auto">
               Ready to find your dream property or sell your current one? Our expert team is here to help you every step of the way.
             </p>
-            <div className="flex items-center justify-center space-x-8 mt-12">
+            <div className="flex items-center justify-center space-x-8 mt-6">
               <div className="text-center">
-                <div className="text-3xl font-bold mb-2">2-4 Hours</div>
+                <div className="text-2xl font-bold mb-2">2-4 Hours</div>
                 <div className="text-blue-200">Response Time</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold mb-2">24/7</div>
+                <div className="text-2xl font-bold mb-2">24/7</div>
                 <div className="text-blue-200">Support Available</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold mb-2">98%</div>
+                <div className="text-2xl font-bold mb-2">98%</div>
                 <div className="text-blue-200">Satisfaction Rate</div>
               </div>
             </div>
@@ -227,14 +227,14 @@ const ContactUsPage = () => {
       </section>
 
       {/* Contact Form & Info Section */}
-      <section className="py-20">
+      <section className="py-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Contact Form */}
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900 mb-2">Send us a Message</h2>
+                  <h2 className="text-3xl font-bold text-gray-800 mb-2">Send us a Message</h2>
                   <p className="text-gray-600">
                     Fill out the form below and we'll get back to you within 24 hours with personalized assistance.
                   </p>
@@ -402,7 +402,7 @@ const ContactUsPage = () => {
                     <div key={index} className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
                       <div className="flex items-start space-x-4">
                         <div className={`p-3 rounded-xl ${info.color === 'green' ? 'bg-gradient-to-r from-green-500 to-emerald-600' : info.color === 'blue' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : info.color === 'purple' ? 'bg-gradient-to-r from-purple-500 to-pink-600' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}`}>
-                          <Icon className="text-white" size={24} />
+                          <Icon className="text-white" size={20} />
                         </div>
                         <div>
                           <h3 className="text-xl font-bold text-gray-900 mb-2">{info.title}</h3>
@@ -445,10 +445,10 @@ const ContactUsPage = () => {
       </section>
 
       {/* Office Locations */}
-      <section className="py-20 bg-white">
+      <section className="py-5 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Office Locations</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Office Locations</h2>
             <p className="text-xl text-gray-600">Visit us at our offices across major cities</p>
           </div>
 
@@ -485,10 +485,10 @@ const ContactUsPage = () => {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-5 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Frequently Asked Questions</h2>
             <p className="text-xl text-gray-600">Quick answers to common questions</p>
           </div>
 
@@ -504,15 +504,15 @@ const ContactUsPage = () => {
       </section>
 
       {/* Social Media & Additional Contact */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+      <section className="py-5 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-4xl font-bold mb-6">Stay Connected</h2>
+            <h2 className="text-3xl font-bold mb-6">Stay Connected</h2>
             <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
               Follow us on social media for the latest updates, property listings, and real estate tips
             </p>
 
-            <div className="flex items-center justify-center space-x-6 mb-12">
+            <div className="flex items-center justify-center space-x-6 mb-6">
               {[
                 { icon: Facebook, href: '#', label: 'Facebook' },
                 { icon: Twitter, href: '#', label: 'Twitter' },
@@ -528,7 +528,7 @@ const ContactUsPage = () => {
                     rel="noopener noreferrer"
                     className="p-4 bg-white bg-opacity-10 rounded-xl hover:bg-opacity-20 transition-all group"
                   >
-                    <Icon size={24} className="group-hover:scale-110 transition-transform" />
+                    <Icon size={20} className="group-hover:scale-110 transition-transform" />
                   </a>
                 );
               })}

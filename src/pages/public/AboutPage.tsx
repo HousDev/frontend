@@ -118,27 +118,25 @@ const AboutUsPage = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-20">
+      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-5xl font-bold mb-6">About
-              &nbsp;{companyName}
-            </h1>
-            <p className="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
+            <h2 className="text-3xl font-bold mb-4">About&nbsp;{companyName}</h2>
+            <p className="text-xl text-blue-100 mb-4 max-w-3xl mx-auto">
               India's most trusted real estate platform, connecting millions of buyers, sellers, and renters
               with verified properties and expert guidance since 2010.
             </p>
             <div className="flex items-center justify-center space-x-8">
               <div className="text-center">
-                <div className="text-3xl font-bold">15+</div>
+                <div className="text-xl font-bold">15+</div>
                 <div className="text-blue-200">Years Experience</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold">10K+</div>
+                <div className="text-xl font-bold">10K+</div>
                 <div className="text-blue-200">Properties Sold</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold">25K+</div>
+                <div className="text-xl font-bold">25K+</div>
                 <div className="text-blue-200">Happy Customers</div>
               </div>
             </div>
@@ -147,11 +145,11 @@ const AboutUsPage = () => {
       </section>
 
       {/* Mission & Vision */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-5 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-6">Our Mission</h2>
+              <h2 className="text-3xl font-bold text-gray-800 mb-6">Our Mission</h2>
               <p className="text-lg text-gray-700 mb-6 leading-relaxed">
                 To make real estate transactions transparent, efficient, and accessible for everyone.
                 We leverage technology and expertise to simplify the complex process of buying,
@@ -182,13 +180,13 @@ const AboutUsPage = () => {
                 alt="Our Mission"
                 className="rounded-2xl shadow-2xl"
               />
-              <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-xl shadow-lg">
+              <div className="absolute -bottom-2 -left-2 bg-white p-2 rounded-xl shadow-lg">
                 <div className="flex items-center space-x-3">
                   <div className="p-3 bg-blue-100 rounded-lg">
-                    <TrendingUp className="text-blue-600" size={24} />
+                    <TrendingUp className="text-blue-600" size={20} />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-gray-900">98%</div>
+                    <div className="text-xl font-bold text-gray-800">98%</div>
                     <div className="text-sm text-gray-600">Customer Satisfaction</div>
                   </div>
                 </div>
@@ -199,22 +197,21 @@ const AboutUsPage = () => {
       </section>
 
       {/* Statistics */}
-      <section className="py-20">
+      <section className="py-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Impact in Numbers</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Impact in Numbers</h2>
             <p className="text-xl text-gray-600">Trusted by thousands of customers across India</p>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {stats.map((stat, index) => {
               const Icon = stat.icon;
               return (
                 <div key={index} className="text-center group">
-                  <div className="bg-gradient-to-r from-blue-500 to-purple-600 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                    <Icon className="text-white" size={32} />
+                  <div className="bg-gradient-to-r from-blue-500 to-purple-600 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <Icon className="text-white" size={20} />
                   </div>
-                  <div className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</div>
+                  <div className="text-2xl font-bold text-gray-900 mb-2">{stat.value}</div>
                   <div className="text-gray-600">{stat.label}</div>
                 </div>
               );
@@ -224,21 +221,21 @@ const AboutUsPage = () => {
       </section>
 
       {/* Our Values */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-5 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Core Values</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Core Values</h2>
             <p className="text-xl text-gray-600">The principles that guide everything we do</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 8">
             {values.map((value, index) => {
               const Icon = value.icon;
               return (
-                <div key={index} className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
+                <div key={index} className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow">
                   <div className="flex items-start space-x-4">
                     <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-xl">
-                      <Icon className="text-white" size={24} />
+                      <Icon className="text-white" size={20} />
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-gray-900 mb-3">{value.title}</h3>
@@ -253,10 +250,10 @@ const AboutUsPage = () => {
       </section>
 
       {/* Our Team */}
-      <section className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Meet Our Expert Team</h2>
+      <section className="py-5">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Meet Our Expert Team</h2>
             <p className="text-xl text-gray-600">Experienced professionals dedicated to your success</p>
           </div>
 
@@ -284,10 +281,10 @@ const AboutUsPage = () => {
       </section>
 
       {/* Company Timeline */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-5 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Journey</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Journey</h2>
             <p className="text-xl text-gray-600">Milestones that shaped our success story</p>
           </div>
 
@@ -317,17 +314,17 @@ const AboutUsPage = () => {
       </section>
 
       {/* Why Choose Us */}
-      <section className="py-20">
+      <section className="py-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose ResaleExpert?</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Why Choose&nbsp;{companyName}?</h2>
             <p className="text-xl text-gray-600">What makes us the preferred choice for real estate</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center group">
-              <div className="bg-gradient-to-r from-green-500 to-emerald-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
-                <Shield className="text-white" size={28} />
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                <Shield className="text-white" size={20} />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">100% Verified Properties</h3>
               <p className="text-gray-700">
@@ -337,8 +334,8 @@ const AboutUsPage = () => {
             </div>
 
             <div className="text-center group">
-              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
-                <Zap className="text-white" size={28} />
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                <Zap className="text-white" size={20} />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">AI-Powered Matching</h3>
               <p className="text-gray-700">
@@ -348,8 +345,8 @@ const AboutUsPage = () => {
             </div>
 
             <div className="text-center group">
-              <div className="bg-gradient-to-r from-purple-500 to-pink-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
-                <Handshake className="text-white" size={28} />
+              <div className="bg-gradient-to-r from-purple-500 to-pink-600 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                <Handshake className="text-white" size={20} />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">End-to-End Support</h3>
               <p className="text-gray-700">
@@ -362,33 +359,33 @@ const AboutUsPage = () => {
       </section>
 
       {/* Awards & Recognition */}
-      <section className="py-20 bg-gradient-to-r from-blue-50 to-purple-50">
+      <section className="py-5 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Awards & Recognition</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Awards & Recognition</h2>
             <p className="text-xl text-gray-600">Industry recognition for our excellence</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white rounded-2xl p-8 text-center shadow-lg">
-              <div className="bg-gradient-to-r from-yellow-400 to-orange-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Crown className="text-white" size={28} />
+            <div className="bg-white rounded-xl p-8 text-center shadow-lg">
+              <div className="bg-gradient-to-r from-yellow-400 to-orange-500 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Crown className="text-white" size={20} />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">Best Real Estate Platform 2023</h3>
               <p className="text-gray-600">Property Awards India</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-8 text-center shadow-lg">
-              <div className="bg-gradient-to-r from-green-400 to-emerald-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Award className="text-white" size={28} />
+            <div className="bg-white rounded-xl p-8 text-center shadow-lg">
+              <div className="bg-gradient-to-r from-green-400 to-emerald-500 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Award className="text-white" size={20} />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">Customer Choice Award 2022</h3>
               <p className="text-gray-600">Real Estate Excellence Awards</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-8 text-center shadow-lg">
-              <div className="bg-gradient-to-r from-blue-400 to-indigo-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Rocket className="text-white" size={28} />
+            <div className="bg-white rounded-xl p-8 text-center shadow-lg">
+              <div className="bg-gradient-to-r from-blue-400 to-indigo-500 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Rocket className="text-white" size={20} />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">Innovation in PropTech 2021</h3>
               <p className="text-gray-600">Technology Innovation Awards</p>
@@ -398,32 +395,32 @@ const AboutUsPage = () => {
       </section>
 
       {/* Contact CTA */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+      <section className="py-5 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold mb-4">Ready to Start Your Real Estate Journey?</h2>
+          <h2 className="text-3xl font-bold mb-4">Ready to Start Your Real Estate Journey?</h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
             Join thousands of satisfied customers who have found their dream properties with ResaleExpert
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-            <button className="bg-white text-blue-600 px-8 py-4 rounded-xl font-bold hover:bg-gray-100 transition-colors">
+            <button className="bg-white text-blue-600 px-3 py-2 rounded-xl font-bold hover:bg-gray-100 transition-colors">
               Browse Properties
             </button>
-            <button className="border-2 border-white text-white px-8 py-4 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-colors">
+            <button className="border-2 border-white text-white px-3 py-2 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-colors">
               Contact Us Today
             </button>
           </div>
 
-          <div className="mt-12 flex items-center justify-center space-x-8 text-blue-100">
+          <div className="mt-5 flex items-center justify-center space-x-8 text-blue-100">
             <div className="flex items-center space-x-2">
-              <Phone size={20} />
+              <Phone size={16} />
               <span>+91 99999 99999</span>
             </div>
             <div className="flex items-center space-x-2">
-              <Mail size={20} />
+              <Mail size={16} />
               <span>info@resaleexpert.in</span>
             </div>
             <div className="flex items-center space-x-2">
-              <MapPin size={20} />
+              <MapPin size={16} />
               <span>Mumbai, India</span>
             </div>
           </div>
