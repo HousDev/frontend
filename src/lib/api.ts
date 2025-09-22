@@ -2,13 +2,13 @@
 import axios, { AxiosRequestHeaders } from 'axios';
 
 
-// const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://localhost:3000/api/';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://localhost:3000/api/';
 
-const API_BASE_PROD_URL ='https://investordeal.in/api/';
+// const API_BASE_PROD_URL ='http://investordeal.in/api/'; // for server
 
 export const api = axios.create({
-  baseURL: API_BASE_PROD_URL,
-  // baseURL: API_BASE_URL,
+  // baseURL: API_BASE_PROD_URL,  //for server
+  baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
