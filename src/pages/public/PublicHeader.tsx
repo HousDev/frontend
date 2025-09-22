@@ -41,7 +41,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   const { isAuthenticated = false } = auth;
 
   const settings = (useSystemSettings() ?? {}) as SystemSettingsShape;
-  const companyName = settings.systemSettings?.company_name ?? 'ResaleExpert';
+  const companyName = settings.systemSettings?.company_name;
   const companyLogo = settings.systemSettings?.company_logo;
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -152,20 +152,17 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
               {companyLogo ? (
                 <img
                   src={companyLogo}
-                  alt={`${companyName} Logo`}
+                  alt={`${companyName}`} 
                   className="h-10 w-auto object-contain rounded-lg shadow-sm bg-white p-1"
                 />
               ) : (
-                <>
-                  <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <span className="text-white font-bold">RE</span>
-                  </div>
+                  <div className="flex items-center space-x-3">
                   <div className="hidden sm:block">
                     <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
                       {companyName}
                     </h1>
                   </div>
-                </>
+                 </div> 
               )}
             </Link>
 
@@ -194,7 +191,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                         onClick={() => handleNavClick(item.id)}
                         style={{ color: item.textColor }}
                         className={cn(
-                          'flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all text-sm font-medium',
+                          'flex items-center space-x-2 px-3 py-2 rounded-xl transition-all text-sm font-medium',
                           isActive
                             ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
                             : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
@@ -212,7 +209,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleSellPropertyClick}
-                className="hidden sm:flex items-center space-x-2 bg-[#e68130] opacity-1 text-white px-5 py-2.5 rounded-xl hover:bg-[#e67310] transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                className="hidden sm:flex items-center space-x-2 bg-[#e68130] opacity-1 text-white px-3 py-2 rounded-xl hover:bg-[#e67310] transition-all text-sm font-medium shadow-md hover:shadow-lg"
                 aria-label="Sell property"
               >
                 <span className="font-semibold">Sell Property</span>
@@ -247,7 +244,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                       </Link>
                       <Link
                         to="/register"
-                        className="bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:from-[#092e45] hover:to-[#071f2e] transition-colors shadow-md hover:shadow-lg"
+                        className="bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-3 py-2 rounded-xl text-sm font-medium hover:from-[#092e45] hover:to-[#071f2e] transition-colors shadow-md hover:shadow-lg"
                       >
                         Get Started
                       </Link>
@@ -441,8 +438,6 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
       </main>
 
       <PublicFooter />
-
-      // in PublicHeader (usage)
       <PublicSellPropertyForm
         isOpen={isSellerModalOpen}
         onClose={() => setIsSellerModalOpen(false)}

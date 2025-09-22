@@ -30,6 +30,7 @@ import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import viewsAPI from '@/lib/viewAPI';
+import PublicSellPropertyForm from './PublicSellPropertyForm';
 
 interface Property {
   id: number;
@@ -85,6 +86,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   const [suggestions, setSuggestions] = useState<MasterOption[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const [isSellerModalOpen, setIsSellerModalOpen] = useState<boolean>(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -360,6 +363,27 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     navigate(finalURL);
   };
 
+  // Fix: call the handler or fallback to modal
+  const handleSellPropertyClick = () => {
+    if (onAuthAction) {
+      onAuthAction('sell');
+    } else {
+      setIsSellerModalOpen(true);
+    }
+  };
+
+  // Minimal handler so PublicSellPropertyForm onSubmit has something meaningful to call.
+  // You can replace this with actual save logic / API call as needed.
+  const handleSellerSave = async (formData: any) => {
+    try {
+      console.log('Selling form submitted (stub):', formData);
+      // TODO: call your API to save the seller/property info
+      setIsSellerModalOpen(false);
+      // maybe navigate to a thank-you page or show toast
+    } catch (err) {
+      console.error('Error saving seller/property:', err);
+    }
+  };
 
   // Enhanced navigation function used on click property cards (keeps previous behavior)
   const handleNavigateToProperty = async (property: Property) => {
@@ -448,7 +472,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12  sm:py-20 md:py-28">
 
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-2">
+            <h1 className="text-3xl font-bold mb-2">
               Find Your <span className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">Dream Property</span>
             </h1>
             <p className="text-blue-100 mb-6">AI-powered property search in Mumbai's premium locations</p>
@@ -683,31 +707,34 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       </section>
 
       {/* AI Insights */}
-      <section className="py-12 bg-gray-50">
+      <section className="py-2 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center space-x-2 mb-4"><Brain className="text-purple-600" size={28} /><h2 className="text-2xl font-bold">AI Market Intelligence</h2></div>
+          <div className="text-center mb-2">
+            <div className="flex items-center justify-center space-x-2 mb-2">
+              <Brain className="text-purple-600" size={26} />
+              <h2 className="text-3xl font-bold text-gray-800 mb-0">AI Market Intelligence</h2>
+            </div>
             <p className="text-gray-600">Real-time market analysis powered by advanced AI algorithms</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white p-6 rounded-xl shadow"><TrendingUp className="text-green-600" /><h3 className="font-semibold mt-2">Price Trends</h3><div className="text-sm text-gray-500">Andheri West +12.5%</div></div>
-            <div className="bg-white p-6 rounded-xl shadow"><Target className="text-blue-600" /><h3 className="font-semibold mt-2">Best ROI</h3><div className="text-sm text-gray-500">Bandra West 18.2%</div></div>
-            <div className="bg-white p-6 rounded-xl shadow"><BarChart3 className="text-purple-600" /><h3 className="font-semibold mt-2">Market Heat</h3><div className="text-sm text-gray-500">Powai - Hot</div></div>
-            <div className="bg-white p-6 rounded-xl shadow"><Sparkles className="text-orange-600" /><h3 className="font-semibold mt-2">AI Score</h3><div className="text-sm text-gray-500">Avg 92/100</div></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-white p-6 rounded-xl shadow"><TrendingUp className="text-green-600" /><h3 className="font-semibold mt-1">Price Trends</h3><div className="text-sm text-gray-500">Andheri West +12.5%</div></div>
+            <div className="bg-white p-6 rounded-xl shadow"><Target className="text-blue-600" /><h3 className="font-semibold mt-1">Best ROI</h3><div className="text-sm text-gray-500">Bandra West 18.2%</div></div>
+            <div className="bg-white p-6 rounded-xl shadow"><BarChart3 className="text-purple-600" /><h3 className="font-semibold mt-1">Market Heat</h3><div className="text-sm text-gray-500">Powai - Hot</div></div>
+            <div className="bg-white p-6 rounded-xl shadow"><Sparkles className="text-orange-600" /><h3 className="font-semibold mt-1">AI Score</h3><div className="text-sm text-gray-500">Avg 92/100</div></div>
           </div>
 
-          <div className="text-center mt-8">
-            <button onClick={() => internalAuthAction('subscribe')} className="bg-purple-600 text-white px-6 py-2 rounded-lg">Get Full AI Report</button>
+          <div className="text-center mt-4">
+            <button onClick={() => internalAuthAction('subscribe')} className="bg-purple-600 text-white px-2 py-1 rounded-lg">Get Full AI Report</button>
             <SubscriptionModal isOpen={isSubOpen} onClose={() => setIsSubOpen(false)} />
           </div>
         </div>
       </section>
 
       {/* Featured properties cards */}
-      <section className="py-12 bg-white">
+      <section className="py-5 bg-white">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold">Featured Properties</h2>
+          <div className="text-center mb-4">
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">Featured Properties</h2>
             <p className="text-gray-600">Handpicked premium properties with AI recommendations</p>
           </div>
 
@@ -805,31 +832,39 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               ))}
             </div>
           )}
-          <div className="text-center mt-8">
-            <Link to="/properties"><button onClick={() => onPageChange && onPageChange('properties')} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl">View All Properties</button></Link>
+          <div className="text-center mt-4">
+            <Link to="/properties"><button onClick={() => onPageChange && onPageChange('properties')} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-2 py-1 rounded-xl">View All Properties</button></Link>
           </div>
         </div>
       </section>
 
       {/* Sell CTA / Footer minimal */}
-      <section className="py-12 bg-gradient-to-r from-green-600 to-emerald-600 text-white">
+      <section className="py-8 bg-gradient-to-r from-green-600 to-emerald-600 text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
             <div>
               <h2 className="text-2xl font-bold mb-2">Sell Your Property with AI Pricing</h2>
               <p className="text-green-100 mb-4">Get the best price with our AI-powered valuation and reach verified buyers instantly.</p>
               <div className="flex gap-4">
-                <button onClick={() => onAuthAction && onAuthAction('sell')} className="bg-white text-green-600 px-4 py-2 rounded-lg">List My Property</button>
-                <button className="border border-white px-4 py-2 rounded-lg">Free Valuation</button>
+                {/* FIXED: use handleSellPropertyClick so modal fallback works */}
+                <button onClick={handleSellPropertyClick} className="bg-white text-green-600 px-2 py-1 rounded-lg">List My Property</button>
+                <button className="border border-white px-2 py-1 rounded-lg">Free Valuation</button>
               </div>
             </div>
             <div className="relative">
               <img src="https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Sell" className="rounded-xl shadow-lg" />
-              <div className="absolute -bottom-6 -left-6 bg-white p-3 rounded-xl shadow"> <DollarSign className="text-green-600" /> <div className="text-sm">₹500Cr+ Properties Sold</div></div>
+              <div className="absolute -bottom-3 -left-3 bg-white p-1 rounded-xl shadow"> <DollarSign className="text-green-600" /> <div className="text-sm">₹500Cr+ Properties Sold</div></div>
             </div>
           </div>
         </div>
       </section>
+
+      {/* Put modal INSIDE the root container so JSX is valid */}
+      <PublicSellPropertyForm
+        isOpen={isSellerModalOpen}
+        onClose={() => setIsSellerModalOpen(false)}
+        onSubmit={handleSellerSave}
+      />
     </div>
   );
 };

@@ -28,6 +28,7 @@ import {
   Bot,
   Rocket
 } from 'lucide-react';
+import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 
 const ServicesPage = () => {
   const coreServices = [
@@ -271,28 +272,27 @@ const ServicesPage = () => {
       description: 'Successful completion with post-service support'
     }
   ];
-
+    const { systemSettings } = useSystemSettings();
+    const companyName = systemSettings?.company_name;
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-20">
+      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6">
-              Complete Real Estate
-              <span className="block bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
-                Solutions
-              </span>
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-4xl mx-auto leading-relaxed">
+            <h2 className="text-3xl font-bold mb-6">
+              Complete Real Estate Solutions
+            
+            </h2>
+            <p className="text-xl mb-4 text-blue-100 max-w-4xl mx-auto leading-relaxed">
               From property search to final registration, we provide end-to-end real estate services 
               with expert guidance and transparent pricing
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-              <button className="bg-white text-blue-600 px-8 py-4 rounded-xl font-bold hover:bg-gray-100 transition-all shadow-lg">
+              <button className="bg-white text-blue-600 px-2 py-1 rounded-xl font-bold hover:bg-gray-100 transition-all shadow-lg">
                 Get Free Consultation
               </button>
-              <button className="border-2 border-white text-white px-8 py-4 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-all">
+              <button className="border-2 border-white text-white px-2 py-1 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-all">
                 View All Services
               </button>
             </div>
@@ -301,10 +301,10 @@ const ServicesPage = () => {
       </section>
 
       {/* Core Services */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-5 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Core Services</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Core Services</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Comprehensive real estate solutions tailored to your specific needs
             </p>
@@ -315,12 +315,12 @@ const ServicesPage = () => {
               const Icon = service.icon;
               return (
                 <div key={service.id} className="bg-white rounded-2xl shadow-lg p-8 hover:shadow-xl transition-all group">
-                  <div className="flex items-start space-x-4 mb-6">
+                  <div className="flex items-start space-x-4 mb-4">
                     <div className={`p-4 bg-gradient-to-r from-${service.color}-500 to-${service.color}-600 rounded-2xl group-hover:shadow-lg transition-all`}>
-                      <Icon className="text-white" size={32} />
+                      <Icon className="text-white" size={22} />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">{service.title}</h3>
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">{service.title}</h3>
                       <p className={`text-${service.color}-600 font-semibold mb-3`}>{service.subtitle}</p>
                       <p className="text-gray-700 leading-relaxed">{service.description}</p>
                     </div>
@@ -379,10 +379,10 @@ const ServicesPage = () => {
       </section>
 
       {/* Additional Services */}
-      <section className="py-20 bg-white">
+      <section className="py-5 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Additional Services</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Additional Services</h2>
             <p className="text-xl text-gray-600">Specialized services to enhance your property experience</p>
           </div>
 
@@ -391,8 +391,8 @@ const ServicesPage = () => {
               const Icon = service.icon;
               return (
                 <div key={index} className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-all group text-center">
-                  <div className="bg-gradient-to-r from-gray-100 to-gray-200 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:from-blue-100 group-hover:to-purple-100 transition-all">
-                    <Icon className="text-gray-600 group-hover:text-blue-600" size={28} />
+                  <div className="bg-gradient-to-r from-gray-100 to-gray-200 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:from-blue-100 group-hover:to-purple-100 transition-all">
+                    <Icon className="text-gray-600 group-hover:text-blue-600" size={20} />
                   </div>
                   <h3 className="text-lg font-bold text-gray-900 mb-2">{service.title}</h3>
                   <p className="text-gray-600 text-sm mb-4">{service.description}</p>
@@ -408,10 +408,10 @@ const ServicesPage = () => {
       </section>
 
       {/* Why Choose Us */}
-      <section className="py-20 bg-gradient-to-r from-blue-50 to-purple-50">
+      <section className="py-5 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose ResaleExpert?</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose&nbsp;{companyName}?</h2>
             <p className="text-xl text-gray-600">Excellence backed by experience and innovation</p>
           </div>
 
@@ -420,11 +420,11 @@ const ServicesPage = () => {
               const Icon = reason.icon;
               return (
                 <div key={index} className="text-center group">
-                  <div className="bg-white w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all">
-                    <Icon className="text-blue-600" size={32} />
+                  <div className="bg-white w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all">
+                    <Icon className="text-blue-600" size={20} />
                   </div>
-                  <div className="text-3xl font-bold text-gray-900 mb-2">{reason.stat}</div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{reason.title}</h3>
+                  <div className="text-xl font-bold text-gray-800 mb-2">{reason.stat}</div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">{reason.title}</h3>
                   <p className="text-gray-600">{reason.description}</p>
                 </div>
               );
@@ -434,18 +434,18 @@ const ServicesPage = () => {
       </section>
 
       {/* Service Process */}
-      <section className="py-20 bg-white">
+      <section className="py-5 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Service Process</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Service Process</h2>
             <p className="text-xl text-gray-600">Simple, transparent, and efficient workflow</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {serviceProcess.map((step, index) => (
               <div key={index} className="text-center group">
-                <div className="relative mb-6">
-                  <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto text-white font-bold text-xl group-hover:shadow-lg transition-all">
+                <div className="relative mb-2">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto text-white font-bold text-xl group-hover:shadow-lg transition-all">
                     {step.step}
                   </div>
                   {index < serviceProcess.length - 1 && (
@@ -461,10 +461,10 @@ const ServicesPage = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-5 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Client Success Stories</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Client Success Stories</h2>
             <p className="text-xl text-gray-600">What our clients say about our services</p>
           </div>
 
@@ -522,10 +522,10 @@ const ServicesPage = () => {
       </section>
 
       {/* Pricing Plans */}
-      <section className="py-20 bg-white">
+      <section className="py-5 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Transparent Pricing</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Transparent Pricing</h2>
             <p className="text-xl text-gray-600">Choose the plan that works best for you</p>
           </div>
 
@@ -628,10 +628,10 @@ const ServicesPage = () => {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-5 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Frequently Asked Questions</h2>
             <p className="text-xl text-gray-600">Get answers to common questions about our services</p>
           </div>
 
@@ -668,9 +668,9 @@ const ServicesPage = () => {
       </section>
 
       {/* Call to Action */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+      <section className="py-5 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">
+          <h2 className="text-3xl font-bold mb-6">
             Ready to Get Started?
           </h2>
           <p className="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
@@ -678,15 +678,15 @@ const ServicesPage = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-            <button className="bg-white text-blue-600 px-8 py-4 rounded-xl font-bold hover:bg-gray-100 transition-all shadow-lg">
+            <button className="bg-white text-blue-600 px-3 py-2 rounded-xl font-bold hover:bg-gray-100 transition-all shadow-lg">
               Get Free Consultation
             </button>
-            <button className="border-2 border-white text-white px-8 py-4 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-all">
+            <button className="border-2 border-white text-white px-3 py-2 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-all">
               Call Now: +91 99999 99999
             </button>
           </div>
 
-          <div className="mt-12 flex items-center justify-center space-x-8 text-blue-100">
+          <div className="mt-6 flex items-center justify-center space-x-8 text-blue-100">
             <div className="flex items-center space-x-2">
               <Phone size={20} />
               <span>24/7 Support</span>
