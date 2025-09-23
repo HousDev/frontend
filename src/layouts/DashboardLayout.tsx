@@ -47,7 +47,8 @@ import {
   Calculator,
   Archive,
   Bookmark,
-  Info
+  Info,
+  PanelBottom
 } from 'lucide-react';
 import { FaEarthAsia } from 'react-icons/fa6';
 import { useAuth } from '@/contexts/AuthContext';
@@ -247,7 +248,10 @@ const DashboardLayout = () => {
         key: 'cms',
         submenu: [
           { name: 'Blog Manager', href: '/dashboard/blog-manager', icon: Edit3, colorClass: navTextClass },
-          { name: 'About', href: '/dashboard/about', icon: Info, colorClass: navTextClass }
+          { name: 'About Manager', href: '/dashboard/about-cms', icon: Info, colorClass: navTextClass },
+          { name: 'Contact Manager', href: '/dashboard/contact-cms', icon: Phone, colorClass: navTextClass },
+          { name: 'Service Manager', href: '/dashboard/service-cms', icon: Shield, colorClass: navTextClass },
+          { name: 'Footer Manager', href: '/dashboard/footer-cms', icon: PanelBottom, colorClass: navTextClass },
         ]
       },
       {

@@ -67,9 +67,12 @@ import PublicHeader from './pages/public/PublicHeader';
 import BlogManagement from './pages/dashboard/BlogManagement';
 import AITraining from './pages/dashboard/AITraining';
 import ScrollToTop from './components/ui/ScrollToTop';
-import BlogDetailPage from './pages/public/BlogDetailPage';
 import ContactMessagesManagement from './pages/dashboard/ContactMessagesManagement';
 import { Helmet } from "react-helmet";
+import AboutPageCMS from './pages/dashboard/AboutPageCMS';
+import ContactPageCMS from './pages/dashboard/ContactPageCMS';
+import FooterPagesCMS from './pages/dashboard/FooterPagesCMS';
+import ServicesPageCMS from './pages/dashboard/ServicesPageCMS';
 
 function App() {
   useDynamicHead(); // ✅ Automatically set favicon + title
@@ -104,7 +107,6 @@ function App() {
                   <Route path='/' element={<PublicHeader />} >
                     <Route index element={<HomePage />} />
                     <Route path="properties" element={<PublicPropertiesPage />} />
-                    {/* <Route path="properties/:id" element={<PublicPropertyDetailPage />} /> */}
                     <Route path="properties/:slug" element={<PublicPropertyDetailPage />} />
                     <Route path="about" element={<AboutPage />} />
                     <Route path='blogs' element={<BlogsPage />} />
@@ -150,7 +152,7 @@ function App() {
                     <Route path="seller" element={<SellerDashboard />} />
                     <Route path="buyer" element={<BuyerDashboard />} />
 
-                    {/* Core CRM features */}
+                    {/* Core CRM/CMS features */}
                     <Route path="leads" element={<LeadsPage />} />
                     <Route path="leads/:id" element={<LeadDetailPage />} />
                     <Route path="buyers" element={<BuyersPage />} />
@@ -158,7 +160,15 @@ function App() {
                     <Route path="properties/:id" element={<PropertyDetailPage />} />
                     <Route path="sellers" element={<SellersPage />} />
                     <Route path="document-center" element={<DocumentCenter />} />
+
+                    {/* CMS Features */}
+
                     <Route path='blog-manager' element={<BlogManagement />} />
+                    <Route path='about-cms' element={<AboutPageCMS />} />
+                    <Route path='contact-cms' element={<ContactPageCMS />} /> 
+                    <Route path='footer-cms' element={<FooterPagesCMS />} />
+                    <Route path='service-cms'element={<ServicesPageCMS/>}/>
+
                     <Route path='contact-messages' element={<ContactMessagesManagement />} />
                     <Route path='ai-training' element={<AITraining />} />
                     <Route path='template-center' element={<TemplateCenter />} />

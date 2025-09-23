@@ -135,6 +135,7 @@
 //       } else {
 //         list = [];
 //       }
+      
 
 //       const normalized = list.map((p: any) => ({
 //         id: p.id ?? p._id ?? p.slug ?? `LOCAL_${Date.now()}`,
@@ -672,10 +673,8 @@
 //                 </div>
 //               </div>
 //               <div className="flex items-center space-x-2">
-//                 <button onClick={() => handleEditPost(post)} className="text-blue-600 hover:text-blue-700" title="Edit"><Edit size={16} /></button>
-//                 <button onClick={() => handlePreviewPost(post)} className="text-blue-600 hover:text-blue-700" title="Preview"><Eye size={16} /></button>
-//                 <button onClick={() => openCommentsForPost(post)} className="text-gray-600 hover:text-gray-700" title="View Comments"><MessageSquare size={16} /></button>
-//                 <button onClick={() => handleDeletePost(post.id!)} className="text-red-600 hover:text-red-700" title="Delete"><Trash2 size={16} /></button>
+//                 <button onClick={() => handlePreviewPost(post)} className="text-blue-600 hover:text-blue-700" title="Preview"><Eye size={20} /></button>
+//                 <button onClick={() => handleEditPost(post)} className="text-blue-600 hover:text-blue-700" title="Edit"><Edit size={20} /></button>
 //               </div>
 //             </div>
 //           ))}
@@ -806,11 +805,11 @@
 //                     </td>
 //                     <td className="py-3 px-4">
 //                       <div className="flex items-center space-x-2">
-//                         <button onClick={() => handleEditPost(post)} className="text-blue-600 hover:text-blue-700 p-1" title="Edit"><Edit size={16} /></button>
-//                         <button onClick={() => handlePreviewPost(post)} className="text-blue-600 hover:text-blue-700 p-1" title="Preview"><Eye size={16} /></button>
-//                         <button onClick={() => openCommentsForPost(post)} className="text-gray-600 hover:text-gray-700 p-1" title="Comments"><MessageSquare size={16} /></button>
-//                         <button onClick={() => rewriteWithAI(post.id!)} className="text-purple-600 hover:text-purple-700 p-1" title="AI Rewrite"><Wand2 size={16} /></button>
-//                         <button onClick={() => handleDeletePost(post.id!)} className="text-red-600 hover:text-red-700 p-1" title="Delete"><Trash2 size={16} /></button>
+//                         <button onClick={() => handleEditPost(post)} className="text-blue-600 hover:text-blue-700 p-1" title="Edit"><Edit size={20} /></button>
+//                         <button onClick={() => handlePreviewPost(post)} className="text-blue-600 hover:text-blue-700 p-1" title="Preview"><Eye size={20} /></button>
+//                         <button onClick={() => openCommentsForPost(post)} className="text-gray-600 hover:text-gray-700 p-1" title="Comments"><MessageSquare size={20} /></button>
+//                         <button onClick={() => rewriteWithAI(post.id!)} className="text-purple-600 hover:text-purple-700 p-1" title="AI Rewrite"><Wand2 size={20} /></button>
+//                         <button onClick={() => handleDeletePost(post.id!)} className="text-red-600 hover:text-red-700 p-1" title="Delete"><Trash2 size={20} /></button>
 //                       </div>
 //                     </td>
 //                   </tr>
@@ -1203,7 +1202,6 @@
 //               </div>
 
 //               <div className="flex items-center space-x-2">
-//                 <button onClick={() => openPreviewInNewWindow(previewPost)} className="px-3 py-1 border rounded-md text-sm">Open in new window</button>
 //                 <button onClick={closePreviewModal} className="p-2 rounded-md hover:bg-gray-100">
 //                   <X size={16} />
 //                 </button>
@@ -1268,6 +1266,7 @@
 //     </div>
 //   );
 // };
+
 
 // src/components/blogManager/BlogManagement.tsx
 import React, { useState, useEffect, useCallback } from 'react';
@@ -1406,7 +1405,7 @@ const BlogManagement: React.FC = () => {
       } else {
         list = [];
       }
-      
+
 
       const normalized = list.map((p: any) => ({
         id: p.id ?? p._id ?? p.slug ?? `LOCAL_${Date.now()}`,
@@ -1777,25 +1776,12 @@ const BlogManagement: React.FC = () => {
     }
   };
 
-  const rewriteWithAI = async (postId: string | number) => {
+  // UPDATED: open AI writer modal and pass selectedPost so AIBlogWriter can operate in "rewrite" mode
+  const rewriteWithAI = (postId: string | number) => {
     const post = (Array.isArray(posts) ? posts : []).find(p => String(p.id) === String(postId));
     if (!post) return;
-
-    try {
-      const updatedContent = post.content + '\n\n*[AI Enhanced: Content improved for better readability and SEO]*';
-      setPosts(prev => (Array.isArray(prev) ? prev.map(p => (String(p.id) === String(postId) ? { ...p, content: updatedContent, updatedAt: new Date().toISOString() } : p)) : prev));
-      toast.success('Content rewritten with AI (local).');
-
-      try {
-        await blogsAPI.updatePost(postId, { content: updatedContent, updatedAt: new Date().toISOString() });
-        toast.success('Content saved to backend.');
-      } catch (err) {
-        console.warn('Failed to persist AI rewrite to backend', err);
-        toast.error('AI rewrite succeeded locally but failed to persist to server.');
-      }
-    } catch (error) {
-      toast.error('AI rewrite failed');
-    }
+    setSelectedPost(post);
+    setShowAIWriter(true);
   };
 
   const postsArray = Array.isArray(posts) ? posts : [];
@@ -1878,7 +1864,7 @@ const BlogManagement: React.FC = () => {
         <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <button
-            onClick={() => setShowAIWriter(true)}
+            onClick={() => { setSelectedPost(null); setShowAIWriter(true); }}
             className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 rounded-xl hover:shadow-lg transition-all text-left"
           >
             <Bot className="mb-2" size={24} />
@@ -1944,8 +1930,8 @@ const BlogManagement: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <button onClick={() => handleEditPost(post)} className="text-blue-600 hover:text-blue-700" title="Edit"><Edit size={16} /></button>
-                <button onClick={() => handlePreviewPost(post)} className="text-blue-600 hover:text-blue-700" title="Preview"><Eye size={16} /></button>
+                <button onClick={() => handlePreviewPost(post)} className="text-blue-600 hover:text-blue-700" title="Preview"><Eye size={20} /></button>
+                <button onClick={() => handleEditPost(post)} className="text-blue-600 hover:text-blue-700" title="Edit"><Edit size={20} /></button>
               </div>
             </div>
           ))}
@@ -2076,11 +2062,11 @@ const BlogManagement: React.FC = () => {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center space-x-2">
-                        <button onClick={() => handleEditPost(post)} className="text-blue-600 hover:text-blue-700 p-1" title="Edit"><Edit size={16} /></button>
-                        <button onClick={() => handlePreviewPost(post)} className="text-blue-600 hover:text-blue-700 p-1" title="Preview"><Eye size={16} /></button>
-                        <button onClick={() => openCommentsForPost(post)} className="text-gray-600 hover:text-gray-700 p-1" title="Comments"><MessageSquare size={16} /></button>
-                        <button onClick={() => rewriteWithAI(post.id!)} className="text-purple-600 hover:text-purple-700 p-1" title="AI Rewrite"><Wand2 size={16} /></button>
-                        <button onClick={() => handleDeletePost(post.id!)} className="text-red-600 hover:text-red-700 p-1" title="Delete"><Trash2 size={16} /></button>
+                        <button onClick={() => handleEditPost(post)} className="text-blue-600 hover:text-blue-700 p-1" title="Edit"><Edit size={20} /></button>
+                        <button onClick={() => handlePreviewPost(post)} className="text-blue-600 hover:text-blue-700 p-1" title="Preview"><Eye size={20} /></button>
+                        <button onClick={() => openCommentsForPost(post)} className="text-gray-600 hover:text-gray-700 p-1" title="Comments"><MessageSquare size={20} /></button>
+                        <button onClick={() => rewriteWithAI(post.id!)} className="text-purple-600 hover:text-purple-700 p-1" title="AI Rewrite"><Wand2 size={20} /></button>
+                        <button onClick={() => handleDeletePost(post.id!)} className="text-red-600 hover:text-red-700 p-1" title="Delete"><Trash2 size={20} /></button>
                       </div>
                     </td>
                   </tr>
@@ -2394,6 +2380,7 @@ const BlogManagement: React.FC = () => {
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'content' && renderContentManagement()}
           {activeTab === 'comments' && renderCommentsTab()}
+          {/* PASS rewritePost so AIBlogWriter can handle rewriting when selectedPost is set */}
           {activeTab === 'ai-writer' && <AIBlogWriter onGenerate={generateAIContent} isGenerating={isGenerating} />}
           {activeTab === 'ai-tools' && renderAITools()}
           {activeTab === 'rss' && (
@@ -2428,7 +2415,10 @@ const BlogManagement: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
               <AIBlogWriter
                 isOpen={true}
-                onClose={() => setShowAIWriter(false)}
+                onClose={() => {
+                  setShowAIWriter(false);
+                  setSelectedPost(null); // clear selected when modal closes
+                }}
                 onGenerate={generateAIContent}
                 isGenerating={isGenerating}
               />

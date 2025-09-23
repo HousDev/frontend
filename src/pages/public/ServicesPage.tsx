@@ -368,9 +368,15 @@ const ServicesPage = () => {
                     </div>
                   </div>
 
-                  <button className={`w-full bg-gradient-to-r from-${service.color}-600 to-${service.color}-700 text-white py-3 px-6 rounded-xl font-semibold hover:from-${service.color}-700 hover:to-${service.color}-800 transition-all group-hover:shadow-lg`}>
+                  <button
+                    className={`w-full py-3 px-6 rounded-xl font-semibold transition-all group-hover:shadow-lg ${service.id === 'investment-advisory'
+                        ? 'bg-pink-500 text-white hover:bg-pink-600'
+                        : `bg-${service.color}-500 text-white hover:bg-${service.color}-600`
+                      }`}
+                  >
                     Get Started
                   </button>
+
                 </div>
               );
             })}
