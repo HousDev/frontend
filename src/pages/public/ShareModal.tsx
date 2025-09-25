@@ -48,8 +48,8 @@ export default function ShareModal({ url, onClose, title = 'Page Title', descrip
   const mail = `mailto:?subject=${encode(safeTitle)}&body=${encode(shareTextWithUrl)}`;
 
   // === IMPORTANT: the fixed URL you asked to copy ===
-  // const forcedCopyUrl = 'http://localhost:5173/properties/57-commercial-2bhk-commercial-plot-mumbai?tf=d00937b3-edcf-48f6-b700-d58b786e8131';
-  const forcedCopyUrl = 'http://investordeal.in/properties/57-commercial-2bhk-commercial-plot-mumbai?tf=d00937b3-edcf-48f6-b700-d58b786e8131';  // for server
+  const forcedCopyUrl = 'http://localhost:5173/properties/57-commercial-2bhk-commercial-plot-mumbai?tf=d00937b3-edcf-48f6-b700-d58b786e8131';
+  // const forcedCopyUrl = 'http://investordeal.in/properties/57-commercial-2bhk-commercial-plot-mumbai?tf=d00937b3-edcf-48f6-b700-d58b786e8131';  // for server
 
   // Copy to clipboard function
   const copyLink = async () => {

@@ -41,7 +41,7 @@ export default defineConfig({
       },
       "/uploads": {
        target: "http://localhost:3000",
-        // target: "http://investordeal.in"  // for server
+        // target: "http://investordeal.in" ,  // for server
         changeOrigin: true,
       },
     },

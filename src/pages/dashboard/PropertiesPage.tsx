@@ -14,8 +14,9 @@ import { propertiesAPI } from '../../lib/propertiesAPI';
 import { toast } from 'react-toastify';
 import PropertyFormModal from './components/PropertyFormModal';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
-// import { getImageUrl, FILE_BASE, API_BASE } from "@/lib/helpers";
-import { getImageUrl, FILE_BASE, API_BASE_PROD_URL } from "@/lib/helpers";  //for server
+
+import { getImageUrl, FILE_BASE, API_GLOBAL_BASE } from "@/lib/helpers";
+
 import PropertyFilterModal from './PropertyFilterModal';
 
 /* ---------------------- Types ---------------------- */

@@ -1,18 +1,13 @@
-// src/lib/helpers.ts
+// ✅ Global API_BASE (auto pick dev/prod)
+export const API_GLOBAL_BASE =
+  import.meta.env.MODE === "production"
+    ? "https://investordeal.in/api/"
+    : "http://localhost:3000";
 
-
-// export const API_BASE =
-  // (import.meta as any)?.env?.VITE_API_URL || "http://localhost:3000";
-
-
-export const API_BASE_PROD_URL =
-  (import.meta as any)?.env?.VITE_API_BASE_PROD_URL || "http://investordeal.in/api/";   //for server
-
-
-export const FILE_BASE = (() => {
+// ✅ File base (uploads)
+export const FILE_BASE: string = (() => {
   try {
-    const u = new URL(API_BASE_PROD_URL);   //for server
-    // const u = new URL(API_BASE);
+    const u = new URL(API_GLOBAL_BASE);
     const cleanPath = u.pathname.replace(/\/api\/?$/, "").replace(/\/+$/, "");
     u.pathname = cleanPath || "/";
     u.search = "";
@@ -24,15 +19,11 @@ export const FILE_BASE = (() => {
   } catch {
     return typeof window !== "undefined"
       ? window.location.origin
-      : "http://investordeal.in";  //for server
-      // : "http://localhost:3000";
+      : "https://investordeal.in"; // fallback
   }
 })();
 
-/**
- * Convert any backend photo value into a public URL the browser can load.
- * Uses FILE_BASE (origin for /uploads), not API_BASE.
- */
+/** Normalize image path into full URL */
 export function getImageUrl(raw: string | null | undefined): string | null {
   if (!raw || typeof raw !== "string") return null;
   const clean = raw.replace(/\\/g, "/").trim();
@@ -42,8 +33,8 @@ export function getImageUrl(raw: string | null | undefined): string | null {
   if (clean.startsWith("uploads/")) return `${FILE_BASE}/${clean}`;
   if (clean.startsWith("properties/")) return `${FILE_BASE}/uploads/${clean}`;
   if (clean.startsWith("/properties/")) return `${FILE_BASE}/uploads${clean}`;
-  if (!clean.includes("/"))
-    return `${FILE_BASE}/uploads/properties/${clean}`;
+  if (!clean.includes("/")) return `${FILE_BASE}/uploads/properties/${clean}`;
 
   return `${FILE_BASE}/uploads/${clean.replace(/^\/+/, "")}`;
 }
+
