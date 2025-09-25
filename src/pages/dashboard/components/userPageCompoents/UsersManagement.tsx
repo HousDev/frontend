@@ -149,6 +149,17 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     return [];
   };
 
+  // 🔥 Function to check if buyer/seller already has an account created
+  const hasAccountCreated = (buyerSellerId: string | number, type: 'buyer' | 'seller'): boolean => {
+    return allUsers.some(user => {
+      if (type === 'buyer') {
+        return String(user.buyer_id) === String(buyerSellerId) && user.role?.toLowerCase() === 'buyer';
+      } else {
+        return String(user.seller_id) === String(buyerSellerId) && user.role?.toLowerCase() === 'seller';
+      }
+    });
+  };
+
   // fetch buyers and sellers separate lists
   useEffect(() => {
     const fetchBuyersAndSellers = async () => {
@@ -742,9 +753,9 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
                 {createPrefill?.seller_id && <input type="hidden" name="seller_id" value={String(createPrefill.seller_id)} />}
               </div>
 
-              <div className="flex justify-end space-x-3 mt-6">
+              <div className="flex justify-end space-x-1 mt-6 ">
                 <Button type="button" variant="outline" onClick={() => { setShowCreateModalLocal(false); setCreatePrefill(null); }}>Cancel</Button>
-                <Button type="submit" disabled={localCreating}>{localCreating ? 'Creating...' : 'Create Account'}</Button>
+                <Button  type="submit" disabled={localCreating}>{localCreating ? 'Creating...' : 'Create Account'}</Button>
               </div>
             </form>
           </div>
@@ -878,94 +889,115 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.length > 0 ? filteredUsers.map(user => (
-                  <tr key={String(user.id)} className="hover:bg-gray-50">
-                    {(activeTab !== 'buyers' && activeTab !== 'sellers') && (
+                {filteredUsers.length > 0 ? filteredUsers.map(user => {
+                  // 🔥 Check if account is already created for this buyer/seller
+                  const accountAlreadyExists = (activeTab === 'buyers' || activeTab === 'sellers') && 
+                    hasAccountCreated(user.id!, activeTab === 'buyers' ? 'buyer' : 'seller');
+
+                  return (
+                    <tr key={String(user.id)} className="hover:bg-gray-50">
+                      {(activeTab !== 'buyers' && activeTab !== 'sellers') && (
+                        <td className="px-6 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedUsers.some(x => String(x) === String(user.id))}
+                            onChange={() => handleSelectUser(user.id)}
+                          />
+                        </td>
+                      )}
                       <td className="px-6 py-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedUsers.some(x => String(x) === String(user.id))}
-                          onChange={() => handleSelectUser(user.id)}
-                        />
+                        <div className="flex items-center space-x-3">
+                          {user.avatar ? (
+                            <img src={String(user.avatar)} alt={`${user.first_name} avatar`} className="h-10 w-10 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                              {((user.first_name?.[0] || '') + (user.last_name?.[0] || '')).toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{user.salutation ? user.salutation + ' ' : ''}{user.first_name} {user.last_name}</p>
+                            {user.username && <p className="text-sm text-gray-500">@{user.username}</p>}
+                            {user.dob && <p className="text-xs text-gray-400">DOB: {new Date(user.dob).toLocaleDateString()}</p>}
+                            {/* 🔥 Show account status for buyers/sellers */}
+                            {(activeTab === 'buyers' || activeTab === 'sellers') && (
+                              <p className={`text-xs ${accountAlreadyExists ? 'text-green-600' : 'text-orange-600'}`}>
+                                {accountAlreadyExists ? '✓ Account Created' : '○ No Account'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </td>
-                    )}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        {user.avatar ? (
-                          <img src={String(user.avatar)} alt={`${user.first_name} avatar`} className="h-10 w-10 rounded-full object-cover" />
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2"><Mail className="h-3 w-3 text-gray-400" /><span className="text-sm text-gray-900">{user.email}</span></div>
+                          {user.phone && <div className="flex items-center space-x-2"><Phone className="h-3 w-3 text-gray-400" /><span className="text-sm text-gray-900">{user.phone}</span></div>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleColor(user.role)}`}>{user.role}</span>
+                        {user.department && <div className="text-xs text-gray-400">Dept: {user.department}</div>}
+                        {user.designation && <div className="text-xs text-gray-400">Desig: {user.designation}</div>}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-2">
+                          {user.is_active ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
+                          <span className={`text-sm ${user.is_active ? 'text-green-700' : 'text-red-700'}`}>{user.is_active ? 'Active' : 'Inactive'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">
+                          <div>{user.total_leads || 0} leads</div>
+                          <div className="text-xs text-gray-500">{user.total_properties || 0} properties</div>
+                          {user.total_revenue !== undefined && user.total_revenue !== null
+                            ? <div className="text-xs text-gray-500">{formatCurrency(user.total_revenue)} revenue</div>
+                            : null}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-xs text-gray-900 space-y-1">
+                          <div className="flex items-center space-x-1"><Calendar className="h-3 w-3 text-gray-400" /><span>Created: {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</span></div>
+                          <div className="flex items-center space-x-1"><Activity className="h-3 w-3 text-gray-400" /><span>Last Login: {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}</span></div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {(activeTab === 'buyers' || activeTab === 'sellers') ? (
+                          <div className="flex items-center justify-end space-x-2">
+                            <Button 
+                              onClick={() => startCreateAccount(activeTab === 'buyers' ? 'buyer' : 'seller', buildPrefillFromUser(user))} 
+                              size="sm" 
+                              disabled={accountAlreadyExists}
+                              className={`${accountAlreadyExists 
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed hover:bg-gray-300' 
+                                : 'bg-green-600 hover:bg-green-700 text-white'
+                              }`}
+                            >
+                              <Plus className="h-3 w-3 mr-1" /> 
+                              {accountAlreadyExists ? 'Account Exists' : 'Create Account'}
+                            </Button>
+                          </div>
                         ) : (
-                          <div className="h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                            {((user.first_name?.[0] || '') + (user.last_name?.[0] || '')).toUpperCase()}
+                          <div className="flex items-center justify-end space-x-2">
+                            <div>
+                              <Button variant="outline" size="sm"><Eye className="h-3 w-3" /></Button>
+                              <Button variant="outline" size="sm" onClick={() => onEditUser(user)}><Edit className="h-3 w-3" /></Button>
+                              <Button variant="outline" size="sm" onClick={() => handleShareUser(user)} className="text-blue-600"><Share2 className="h-3 w-3" /></Button>
+                            </div>
+                            <div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggleUserStatus(user.id, user.is_active)}
+                                className={user.is_active ? 'text-red-600' : 'text-green-600'}>
+                                {user.is_active ? 'Deactivate' : 'Activate'}
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleDeleteUser(user.id)} className="text-red-600"><Trash2 className="h-3 w-3" /></Button>
+                            </div>
                           </div>
                         )}
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{user.salutation ? user.salutation + ' ' : ''}{user.first_name} {user.last_name}</p>
-                          {user.username && <p className="text-sm text-gray-500">@{user.username}</p>}
-                          {user.dob && <p className="text-xs text-gray-400">DOB: {new Date(user.dob).toLocaleDateString()}</p>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-2"><Mail className="h-3 w-3 text-gray-400" /><span className="text-sm text-gray-900">{user.email}</span></div>
-                        {user.phone && <div className="flex items-center space-x-2"><Phone className="h-3 w-3 text-gray-400" /><span className="text-sm text-gray-900">{user.phone}</span></div>}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleColor(user.role)}`}>{user.role}</span>
-                      {user.department && <div className="text-xs text-gray-400">Dept: {user.department}</div>}
-                      {user.designation && <div className="text-xs text-gray-400">Desig: {user.designation}</div>}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        {user.is_active ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
-                        <span className={`text-sm ${user.is_active ? 'text-green-700' : 'text-red-700'}`}>{user.is_active ? 'Active' : 'Inactive'}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">
-                        <div>{user.total_leads || 0} leads</div>
-                        <div className="text-xs text-gray-500">{user.total_properties || 0} properties</div>
-                        {user.total_revenue !== undefined && user.total_revenue !== null
-                          ? <div className="text-xs text-gray-500">{formatCurrency(user.total_revenue)} revenue</div>
-                          : null}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-xs text-gray-900 space-y-1">
-                        <div className="flex items-center space-x-1"><Calendar className="h-3 w-3 text-gray-400" /><span>Created: {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</span></div>
-                        <div className="flex items-center space-x-1"><Activity className="h-3 w-3 text-gray-400" /><span>Last Login: {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}</span></div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {(activeTab === 'buyers' || activeTab === 'sellers') ? (
-                        <div className="flex items-center justify-end space-x-2">
-                          <Button onClick={() => startCreateAccount(activeTab === 'buyers' ? 'buyer' : 'seller', buildPrefillFromUser(user))} size="sm" className="bg-green-600 hover:bg-green-700 text-white">
-                            <Plus className="h-3 w-3 mr-1" /> Create Account
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-end space-x-2">
-                          <div>
-                            <Button variant="outline" size="sm"><Eye className="h-3 w-3" /></Button>
-                            <Button variant="outline" size="sm" onClick={() => onEditUser(user)}><Edit className="h-3 w-3" /></Button>
-                            <Button variant="outline" size="sm" onClick={() => handleShareUser(user)} className="text-blue-600"><Share2 className="h-3 w-3" /></Button>
-                          </div>
-                          <div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleToggleUserStatus(user.id, user.is_active)}
-                              className={user.is_active ? 'text-red-600' : 'text-green-600'}>
-                              {user.is_active ? 'Deactivate' : 'Activate'}
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleDeleteUser(user.id)} className="text-red-600"><Trash2 className="h-3 w-3" /></Button>
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                )) : (
+                      </td>
+                    </tr>
+                  );
+                }) : (
                   <tr>
                     <td colSpan={8} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center">
