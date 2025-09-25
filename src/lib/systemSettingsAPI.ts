@@ -1,25 +1,7 @@
-// // src/lib/systemSettingsAPI.ts
-
-// import { api } from "./api";
-
-// export const systemSettingsAPI = {
-//   // ✅ Get system settings
-//   getSettings: async () => {
-//         const response = await api.get("/system-settings");
-//         console.log("my all data systemSettingsAPI.ts",response.data)
-//     return response.data;
-//   },
-
-//   // ✅ Save / Update system settings (supports FormData)
-//   saveSettings: async (data: any) => {
-//     const response = await api.post("/system-settings", data);
-//     return response.data;
-//   },
-// };
-
-// export default systemSettingsAPI;
 
 
+
+// src/lib/systemSettingsAPI.ts
 import { api } from "./api";
 
 export const systemSettingsAPI = {
@@ -37,10 +19,19 @@ export const systemSettingsAPI = {
   },
 
   // Private POST (unchanged)
+  // saveSettings: async (data: any) => {
+  //   const response = await api.post("/system-settings", data);
+  //   return response.data;
+  // },
+
   saveSettings: async (data: any) => {
-    const response = await api.post("/system-settings", data);
-    return response.data;
-  },
+  const isFormData = data instanceof FormData;
+  const response = await api.post("/system-settings", data, {
+    headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+  });
+  return response.data;
+}
+
 };
 
 export default systemSettingsAPI;

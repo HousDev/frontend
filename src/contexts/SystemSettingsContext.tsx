@@ -639,10 +639,10 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({
       const storedSettings = getStoredSettings();
       if (storedSettings) {
         setSystemSettings(storedSettings);
-        toast.warn("Using cached system settings due to connection error");
+        // toast.warn("Using cached system settings due to connection error");
       } else {
         setSystemSettings(DEFAULT_SYSTEM_SETTINGS);
-        toast.warn("Using default system settings due to connection error");
+        // toast.warn("Using default system settings due to connection error");
       }
     } finally {
       setLoading(false);
