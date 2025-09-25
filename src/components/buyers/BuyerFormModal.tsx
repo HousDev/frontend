@@ -49,6 +49,7 @@ const buildFormStateFromBuyer = (b: any) => {
     salutation: b?.salutation ?? 'Mr.',
     name: b?.name ?? '',
     phone: b?.phone ?? '',
+    dob: b?.dob ?? '',
     // accept both shapes
     whatsapp_number: b?.whatsapp_number ?? b?.whatsapp ?? '',
     email: b?.email ?? '',
@@ -565,6 +566,18 @@ const BuyerFormModal = ({
                       placeholder="Enter email address"
                     />
                   </div>
+                  <div className="md:col-span-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      DOB <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dob}
+                      onChange={(e) => setFormData(prev => ({ ...prev, dob: e.target.value }))}
+                      className="border border-gray-300 rounded w-full h-8 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+
                 </div>
               </div>
 
