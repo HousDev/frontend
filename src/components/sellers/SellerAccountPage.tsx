@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Bell, User, Home, Activity, Eye, BarChart3, Users, Handshake, CreditCard, Calculator, TrendingUp, DollarSign, Building, MapPin, Phone, Mail, MessageCircle, Calendar, Star, Target, Award, Shield, Zap, Bot, Brain, Lightbulb, PieChart, LineChart, BarChart, TrendingDown, Plus, Edit, Share, Download, Settings, Filter, Search, RefreshCw, Clock, CheckCircle, AlertCircle, FileText, Camera, Video, Globe, Heart, Bookmark, Send, Printer, ExternalLink, ChevronRight, ChevronDown, X, Save, Upload, Link, Copy, QrCode, Percent, IndianRupee, Banknote, Wallet, PiggyBank, TrendingDown as TrendingUpDown, Calculator as CalcIcon, Coins, Receipt, FileCheck, Briefcase, Crown, Gem, Flame, Rocket, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  ArrowLeft, Users, Eye, Target, Bot, Brain, FileText, Plus, Upload, Settings, Menu, X,
+} from 'lucide-react';
+
 import SellerAccountSidebar from './SellerAccountSidebar';
 import NotificationBell from './NotificationBell';
 import PropertyCard from './PropertyCard';
 import SellerActivityTimeline from './SellerActivityTimeline';
-import ActivityTimeline from './ActivityTimeline';
 import VisitDetails from './VisitDetails';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import VendorDirectory from './VendorDirectory';
@@ -16,10 +18,45 @@ import DocumentsManagement from './DocumentsManagement';
 import { normalizeStage, safe } from '@/pages/utils/uiSafe';
 import PropertyFormModal from '@/pages/dashboard/components/PropertyFormModal';
 
+/* ======================== MAIN PAGE ======================== */
 
 const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [notifications, setNotifications] = useState([
+  const [activeTab, setActiveTab] = useState<
+    'dashboard' | 'properties' | 'activities' | 'visits' | 'analytics' | 'vendors' | 'deals' | 'transactions' | 'calculators' | 'documents'
+  >('dashboard');
+
+  // ---- Mobile sidebar (hamburger) state ----
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const openMobileSidebar = useCallback(() => setIsMobileSidebarOpen(true), []);
+  const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), []);
+  const sidebarRef = useRef<HTMLDivElement | null>(null);
+
+  // Close on ESC
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setIsMobileSidebarOpen(false);
+    if (isMobileSidebarOpen) window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isMobileSidebarOpen]);
+
+  // Close when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!isMobileSidebarOpen) return;
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isMobileSidebarOpen]);
+
+  // Wrap tab change so mobile drawer closes after navigating
+  const handleTabChange = useCallback((tabId: any) => {
+    setActiveTab(tabId);
+    closeMobileSidebar();
+  }, [closeMobileSidebar]);
+
+  const [notifications, setNotifications] = useState<any[]>([
     {
       id: 1,
       type: 'property_inquiry',
@@ -62,11 +99,11 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
     }
   ]);
 
-  const [unreadCount, setUnreadCount] = useState(
-    notifications.filter(n => !n.read).length
+  // Derive unread count from notifications
+  const unreadCount = useMemo(
+    () => notifications.filter(n => !n.read).length,
+    [notifications]
   );
-
-  
 
   // Simulate live notifications
   useEffect(() => {
@@ -82,9 +119,8 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
         actionUrl: '/dashboard'
       };
 
-      if (Math.random() > 0.7) { // 30% chance every 30 seconds
-        setNotifications(prev => [newNotification, ...prev.slice(0, 9)]);
-        setUnreadCount(prev => prev + 1);
+      if (Math.random() > 0.7) {
+        setNotifications(prev => [newNotification, ...prev].slice(0, 10));
       }
     }, 30000);
 
@@ -95,62 +131,146 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
     setNotifications(prev => prev.map(n =>
       n.id === notificationId ? { ...n, read: true } : n
     ));
-    setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    setUnreadCount(0);
   };
 
   const deleteNotification = (notificationId: number) => {
-    const notification = notifications.find(n => n.id === notificationId);
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
-    if (notification && !notification.read) {
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    }
   };
 
-  return (
-    <div className="h-full flex bg-gray-50">
-      {/* Sidebar */}
-      <SellerAccountSidebar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        seller={seller}
-        unreadCount={unreadCount}
-      />
+  // Safe initials & labels
+  const sellerName: string = seller?.name || '';
+  const firstLetter = sellerName?.[0]?.toUpperCase?.() || '?';
+  const salutation = seller?.salutation ? `${seller.salutation} ` : '';
+  const locationStr = [seller?.location, seller?.city].filter(Boolean).join(', ');
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+  return (
+    <div className="h-screen w-full bg-gray-50 flex overflow-hidden">
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:block w-68 shrink-0 bg-white border-r sticky top-0 h-screen overflow-y-auto">
+        <SellerAccountSidebar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          seller={seller}
+          unreadCount={unreadCount}
+        />
+      </aside>
+
+      {/* Mobile Drawer + Overlay */}
+      <div
+        className={`fixed inset-0 z-40 md:hidden ${isMobileSidebarOpen ? 'block' : 'hidden'}`}
+        aria-hidden={!isMobileSidebarOpen}
+      >
+        {/* Overlay */}
+        <div
+          className="absolute inset-0 bg-black/40 backdrop-blur-[1px] transition-opacity"
+          onClick={closeMobileSidebar}
+        />
+
+        {/* Drawer */}
+        <div
+          ref={sidebarRef}
+          className={`absolute left-0 top-0 h-full w-72 max-w-[85vw] bg-white border-r shadow-xl transform transition-transform duration-300 ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            } relative`}   // 👈 make it relative so the X can be absolutely positioned
+          role="dialog"
+          aria-modal="true"
+          aria-label="Seller menu"
+        >
+          {/* Close (X) at top-right inside drawer */}
+          <button
+            className="absolute top-2 right-2 p-2 rounded-md hover:bg-gray-100"
+            onClick={closeMobileSidebar}
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
+
+          <SellerAccountSidebar
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            seller={seller}
+            unreadCount={unreadCount}
+          />
+        </div>
+      </div>
+
+
+      {/* Main area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Sticky Header */}
+        <header className="sticky top-0 z-30 bg-gradient-to-r from-purple-500 to-pink-600 px-4 md:px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            {/* Left */}
+            <div className="flex items-center space-x-3 md:space-x-4">
+              {/* Hamburger (mobile only) */}
+              <button
+                onClick={openMobileSidebar}
+                className="p-2 rounded-lg bg-white/90 text-gray-700 hover:bg-white transition-colors md:hidden"
+                aria-label="Open menu"
+              >
+                <Menu size={20} />
+              </button>
+
               <button
                 onClick={onBack}
-                className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                className="p-2 rounded-lg bg-white/90 text-gray-700 hover:bg-white transition-colors hidden sm:inline-flex"
+                aria-label="Back"
               >
                 <ArrowLeft size={20} />
               </button>
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                  {seller.name.charAt(0)}
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">{seller.salutation} {seller.name}</h1>
-                  <div className="flex items-center space-x-3 text-sm text-gray-600">
-                    <span>Seller Account</span>
-                    <span>•</span>
-                    <span>{seller.location}, {seller.city}</span>
-                    <span>•</span>
-                    <span className="text-green-600 font-medium">Active</span>
+
+              <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+                {/* text column */}
+                <div className="min-w-0 max-w-[70vw] sm:max-w-[60vw] md:max-w-none">
+                  <h1 className="text-base sm:text-lg md:text-xl font-bold text-white leading-tight truncate">
+                    Welcome, {salutation}{sellerName || 'Seller'}
+                  </h1>
+
+                  <p className="text-purple-100 text-[10px] sm:text-[11px] md:text-xs leading-snug">
+                    Your personalized property selling dashboard
+                  </p>
+
+                  {/* meta row: becomes 2-line on tiny screens, inline on sm+ */}
+                  <div className="flex  gap-x-2 md:gap-x-3 gap-y-0.5 text-[11px] sm:text-xs md:text-sm text-white/95 mt-1">
+                    <span className="shrink-0">Seller Account</span>
+
+                    {locationStr && (
+                      <>
+                        {/* show bullet only when space allows */}
+                        <span className="hidden sm:inline">•</span>
+                        <span
+                          className="truncate max-w-[65vw] sm:max-w-[32ch]"
+                          title={locationStr}
+                        >
+                          {locationStr}
+                        </span>
+                      </>
+                    )}
+
+                    {/* status */}
+                    <span className="hidden sm:inline">•</span>
+                    <span
+                      className={`font-medium ${seller?.is_active ? 'text-green-300' : 'text-red-200'
+                        }`}
+                    >
+                      {seller?.is_active ? 'Active' : 'Inactive'}
+                    </span>
                   </div>
                 </div>
               </div>
+
             </div>
 
-            <div className="flex items-center space-x-4">
+            {/* Right */}
+            <div className="flex items-center space-x-2 md:space-x-3">
+              <div className="text-right hidden sm:block">
+                <div className="text-sm font-bold text-white">{seller?.seller?.leadScore ?? 92}</div>
+                <div className="text-purple-100 text-xs">Profile Score</div>
+              </div>
+
               <NotificationBell
                 notifications={notifications}
                 unreadCount={unreadCount}
@@ -158,15 +278,19 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
                 onMarkAllAsRead={markAllAsRead}
                 onDeleteNotification={deleteNotification}
               />
-              <button className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors">
+
+              <button
+                className="p-2 rounded-lg bg-white/90 text-gray-700 hover:bg-white transition-colors"
+                aria-label="Settings"
+              >
                 <Settings size={20} />
               </button>
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Tab Content */}
-        <div className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-y-auto">
           {activeTab === 'dashboard' && <DashboardTab seller={seller} />}
           {activeTab === 'properties' && <PropertiesTab seller={seller} onUpdateSeller={onUpdateSeller} />}
           {activeTab === 'activities' && <ActivitiesTab seller={seller} />}
@@ -177,93 +301,64 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
           {activeTab === 'transactions' && <TransactionsTab seller={seller} />}
           {activeTab === 'calculators' && <CalculatorsTab seller={seller} />}
           {activeTab === 'documents' && <DocumentsTab seller={seller} />}
-        </div>
+        </main>
       </div>
     </div>
   );
 };
 
-/* ---------------- Dashboard Tab (replace your current one) ---------------- */
+/* ======================== DASHBOARD TAB ======================== */
+
 const DashboardTab = ({ seller }: any) => {
-  // ---------- AI suggestions (same as yours) ----------
   const [aiSuggestions] = useState([
     { id: 1, type: "price_optimization", title: "Price Optimization Suggestion", description: "Consider reducing price by 3% to attract more buyers", impact: "High", confidence: 85, action: "Adjust pricing strategy" },
-    { id: 2, type: "marketing_boost",    title: "Marketing Enhancement",        description: "Add professional photos to increase inquiry rate by 40%", impact: "Medium", confidence: 92, action: "Schedule photoshoot" },
-    { id: 3, type: "timing_advice",       title: "Market Timing",                description: "Current market conditions favor sellers in your area",     impact: "High", confidence: 78, action: "Accelerate marketing" },
+    { id: 2, type: "marketing_boost", title: "Marketing Enhancement", description: "Add professional photos to increase inquiry rate by 40%", impact: "Medium", confidence: 92, action: "Schedule photoshoot" },
+    { id: 3, type: "timing_advice", title: "Market Timing", description: "Current market conditions favor sellers in your area", impact: "High", confidence: 78, action: "Accelerate marketing" },
   ]);
 
-  // ---------- Properties array (if already present on seller) ----------
   const properties = Array.isArray(seller?.properties) ? seller.properties : [];
 
-  // ---------- OPTION A: Compute counts from seller.properties ----------
   const computed = useMemo(() => {
     const totalProps = properties.length;
     let inquiries = 0, visits = 0, hotLeads = 0;
-
     for (const p of properties) {
       inquiries += Number(p?.inquiries ?? 0);
-      visits    += Number(p?.visits ?? 0);
-      hotLeads  += Number(p?.hotLeads ?? p?.hot_leads ?? 0);
+      visits += Number(p?.visits ?? 0);
+      hotLeads += Number(p?.hotLeads ?? p?.hot_leads ?? 0);
     }
     return { totalProps, inquiries, visits, hotLeads };
   }, [properties]);
 
-
-  const [agg, setAgg] = useState<{properties?: number; inquiries?: number; visits?: number; leads?: number}>({});
-
-
-  // ---------- Tailwind-safe color classes ----------
-  const colorClass = {
-    blue:   { bg: "bg-blue-100",   text: "text-blue-600" },
-    green:  { bg: "bg-green-100",  text: "text-green-600" },
-    purple: { bg: "bg-purple-100", text: "text-purple-600" },
-    red:    { bg: "bg-red-100",    text: "text-red-600" },
-  } as const;
-
   const stats = [
-    { label: "Properties Listed", value: String(agg.properties ?? computed.totalProps), icon: Home,  color: "blue",   change: "" },
-    { label: "Total Inquiries",   value: String(agg.inquiries  ?? computed.inquiries),  icon: Users, color: "green",  change: "" },
-    { label: "Site Visits",       value: String(agg.visits     ?? computed.visits),     icon: Eye,   color: "purple", change: "" },
-    { label: "Hot Leads",         value: String(agg.leads      ?? computed.hotLeads),   icon: Target,color: "red",    change: "" },
+    { label: "Properties Listed", value: String(computed.totalProps), icon: () => <span className="font-semibold">🏠</span>, color: "blue" },
+    { label: "Total Inquiries", value: String(computed.inquiries), icon: Users, color: "green" },
+    { label: "Site Visits", value: String(computed.visits), icon: Eye, color: "purple" },
+    { label: "Hot Leads", value: String(computed.hotLeads), icon: Target, color: "red" },
   ] as const;
 
-  const recentActivities = [
-    { id: 1, type: "inquiry",  title: "New inquiry from Amit Patel",  description: "Interested in Skyline Towers property", timestamp: "2 hours ago", priority: "high" },
-    { id: 2, type: "visit",    title: "Property visit completed",     description: "Priya Shah visited Ocean Heights property", timestamp: "5 hours ago", priority: "medium" },
-    { id: 3, type: "document", title: "Mandate agreement signed",     description: "Digital signature completed for PROP001", timestamp: "1 day ago", priority: "low" },
-  ];
+  const colorClass = {
+    blue: { bg: "bg-blue-100", text: "text-blue-600" },
+    green: { bg: "bg-green-100", text: "text-green-600" },
+    purple: { bg: "bg-purple-100", text: "text-purple-600" },
+    red: { bg: "bg-red-100", text: "text-red-600" },
+  } as const;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold mb-2">Welcome, {seller.name}! 👋</h2>
-            <p className="text-purple-100 text-lg">Your personalized property selling dashboard</p>
-          </div>
-          <div className="text-right">
-            <div className="text-4xl font-bold">{seller.leadScore || 92}</div>
-            <div className="text-purple-100">Profile Score</div>
-          </div>
-        </div>
-      </div>
-
+    <div className="p-4 md:p-6 space-y-6">
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          const cc = colorClass[stat.color];
+          const Icon: any = stat.icon;
+          const cc = colorClass[stat.color as keyof typeof colorClass];
           return (
-            <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+            <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
-                  {stat.change ? <p className="text-sm text-green-600 mt-1">{stat.change}</p> : null}
+                  <p className="text-xs md:text-sm font-medium text-gray-600">{stat.label}</p>
+                  <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
                 </div>
-                <div className={`p-3 rounded-xl ${cc.bg}`}>
-                  <Icon className={cc.text} size={24} />
+                <div className={`p-2 md:p-3 rounded-xl ${cc.bg}`}>
+                  {typeof Icon === 'function' ? <Icon className={cc.text} size={22} /> : <Icon className={cc.text} size={22} />}
                 </div>
               </div>
             </div>
@@ -271,45 +366,44 @@ const DashboardTab = ({ seller }: any) => {
         })}
       </div>
 
-      {/* AI Suggestions (unchanged) */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
+      {/* AI Suggestions */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+        <div className="flex items-center justify-between mb-4 md:mb-6">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
-              <Bot className="text-white" size={20} />
+              <Bot className="text-white" size={18} />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">AI Recommendations</h3>
+            <h3 className="text-base md:text-lg font-semibold text-gray-900">AI Recommendations</h3>
           </div>
-          <button className="text-sm text-purple-600 hover:text-purple-800 font-medium">View All</button>
+          <button className="text-xs md:text-sm text-purple-600 hover:text-purple-800 font-medium">View All</button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           {aiSuggestions.map((suggestion) => (
-            <div key={suggestion.id} className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
-              <div className="flex items-start justify-between mb-3">
+            <div key={suggestion.id} className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3 md:p-4 border border-purple-100">
+              <div className="flex items-start justify-between mb-2 md:mb-3">
                 <div className="flex items-center space-x-2">
-                  <Brain className="text-purple-600" size={16} />
-                  <span className="text-sm font-medium text-purple-800">{suggestion.type.replace("_", " ").toUpperCase()}</span>
+                  <Brain className="text-purple-600" size={14} />
+                  <span className="text-xs md:text-sm font-medium text-purple-800">{suggestion.type.replace("_", " ").toUpperCase()}</span>
                 </div>
-                <span className="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded-full">
+                <span className="text-[10px] md:text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded-full">
                   {suggestion.confidence}% confidence
                 </span>
               </div>
-              <h4 className="font-semibold text-gray-900 mb-2">{suggestion.title}</h4>
-              <p className="text-sm text-gray-700 mb-3">{suggestion.description}</p>
+              <h4 className="font-semibold text-gray-900 mb-1.5 md:mb-2 text-sm md:text-base">{suggestion.title}</h4>
+              <p className="text-xs md:text-sm text-gray-700 mb-2 md:mb-3">{suggestion.description}</p>
               <div className="flex items-center justify-between">
                 <span
-                  className={`text-xs px-2 py-1 rounded-full ${
-                    suggestion.impact === "High"
-                      ? "bg-red-100 text-red-700"
-                      : suggestion.impact === "Medium"
+                  className={`text-[10px] md:text-xs px-2 py-1 rounded-full ${suggestion.impact === "High"
+                    ? "bg-red-100 text-red-700"
+                    : suggestion.impact === "Medium"
                       ? "bg-orange-100 text-orange-700"
                       : "bg-green-100 text-green-700"
-                  }`}
+                    }`}
                 >
                   {suggestion.impact} Impact
                 </span>
-                <button className="text-xs bg-purple-600 text-white px-3 py-1 rounded-full hover:bg-purple-700 transition-colors">
+                <button className="text-[10px] md:text-xs bg-purple-600 text-white px-3 py-1 rounded-full hover:bg-purple-700 transition-colors">
                   {suggestion.action}
                 </button>
               </div>
@@ -318,36 +412,34 @@ const DashboardTab = ({ seller }: any) => {
         </div>
       </div>
 
-      {/* Recent Activities (unchanged) */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Recent Activities</h3>
-          <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">View All Activities</button>
+      {/* Recent Activities */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+        <div className="flex items-center justify-between mb-4 md:mb-6">
+          <h3 className="text-base md:text-lg font-semibold text-gray-900">Recent Activities</h3>
+          <button className="text-xs md:text-sm text-blue-600 hover:text-blue-800 font-medium">View All Activities</button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 md:space-y-4">
           {[
-            { id: 1, type: "inquiry",  title: "New inquiry from Amit Patel",  description: "Interested in Skyline Towers property", timestamp: "2 hours ago", priority: "high" },
-            { id: 2, type: "visit",    title: "Property visit completed",     description: "Priya Shah visited Ocean Heights property", timestamp: "5 hours ago", priority: "medium" },
-            { id: 3, type: "document", title: "Mandate agreement signed",     description: "Digital signature completed for PROP001", timestamp: "1 day ago", priority: "low" },
+            { id: 1, type: "inquiry", title: "New inquiry from Amit Patel", description: "Interested in Skyline Towers property", timestamp: "2 hours ago", priority: "high" },
+            { id: 2, type: "visit", title: "Property visit completed", description: "Priya Shah visited Ocean Heights property", timestamp: "5 hours ago", priority: "medium" },
+            { id: 3, type: "document", title: "Mandate agreement signed", description: "Digital signature completed for PROP001", timestamp: "1 day ago", priority: "low" },
           ].map((activity) => (
-            <div key={activity.id} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
+            <div key={activity.id} className="flex items-start space-x-3 md:space-x-4 p-3 md:p-4 bg-gray-50 rounded-lg">
               <div
-                className={`p-2 rounded-lg ${
-                  activity.type === "inquiry" ? "bg-blue-100" : activity.type === "visit" ? "bg-green-100" : "bg-purple-100"
-                }`}
+                className={`p-2 rounded-lg ${activity.type === "inquiry" ? "bg-blue-100" : activity.type === "visit" ? "bg-green-100" : "bg-purple-100"
+                  }`}
               >
-                {activity.type === "inquiry" ? <Users className="text-blue-600" size={16} /> : activity.type === "visit" ? <Eye className="text-green-600" size={16} /> : <FileText className="text-purple-600" size={16} />}
+                {activity.type === "inquiry" ? <Users className="text-blue-600" size={14} /> : activity.type === "visit" ? <Eye className="text-green-600" size={14} /> : <FileText className="text-purple-600" size={14} />}
               </div>
-              <div className="flex-1">
-                <h4 className="font-medium text-gray-900">{activity.title}</h4>
-                <p className="text-sm text-gray-600">{activity.description}</p>
-                <p className="text-xs text-gray-500 mt-1">{activity.timestamp}</p>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-medium text-gray-900 text-sm md:text-base">{activity.title}</h4>
+                <p className="text-xs md:text-sm text-gray-600">{activity.description}</p>
+                <p className="text-[10px] md:text-xs text-gray-500 mt-1">{activity.timestamp}</p>
               </div>
               <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  activity.priority === "high" ? "bg-red-100 text-red-700" : activity.priority === "medium" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
-                }`}
+                className={`px-2 py-1 rounded-full text-[10px] md:text-xs font-medium ${activity.priority === "high" ? "bg-red-100 text-red-700" : activity.priority === "medium" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
+                  }`}
               >
                 {activity.priority}
               </span>
@@ -359,8 +451,8 @@ const DashboardTab = ({ seller }: any) => {
   );
 };
 
-// Properties Tab Component
-// API property -> UI shape mapper
+/* ======================== PROPERTIES TAB ======================== */
+
 const mapApiPropertyToUI = (api: any) => ({
   id: String(api.id ?? api.property_id ?? api._id ?? "-"),
   address: safe(api.address) as string,
@@ -386,7 +478,7 @@ const mapApiPropertyToUI = (api: any) => ({
   lastActivity: api.last_activity ?? api.updated_at ?? api.created_at ?? null,
 });
 
-const PropertiesTab = ({ seller }: any) => {
+const PropertiesTab = ({ seller, onUpdateSeller }: any) => {
   const [list, setList] = useState(
     (Array.isArray(seller?.properties) ? seller.properties : []).map(mapApiPropertyToUI)
   );
@@ -396,7 +488,6 @@ const PropertiesTab = ({ seller }: any) => {
   const handleCloseModal = () => setIsModalOpen(false);
 
   const handlePropertySubmit = (createdOrUpdated: any) => {
-    // normalize API shape → UI shape
     const ui = mapApiPropertyToUI(createdOrUpdated);
     setList(prev => {
       const idx = prev.findIndex(p => p.id === ui.id);
@@ -407,23 +498,25 @@ const PropertiesTab = ({ seller }: any) => {
       }
       return [ui, ...prev];
     });
+    onUpdateSeller?.(ui);
+    handleCloseModal();
   };
 
   return (
     <>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">My Properties</h2>
-          <div className="flex items-center space-x-3">
+      <div className="p-4 md:p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">My Properties</h2>
+          <div className="flex items-center gap-2">
             <button
               onClick={handleOpenModal}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
             >
               <Plus size={16} />
               <span>Add Property</span>
             </button>
             <button
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
             >
               <Upload size={16} />
               <span>Bulk Upload</span>
@@ -431,7 +524,7 @@ const PropertiesTab = ({ seller }: any) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {list.length > 0 ? (
             list.map((property) => <PropertyCard key={property.id} property={property} />)
           ) : (
@@ -452,77 +545,54 @@ const PropertiesTab = ({ seller }: any) => {
   );
 };
 
+/* ======================== SIMPLE TABS ======================== */
 
-// Activities Tab Component
-const ActivitiesTab = ({ seller }: any) => {
-  return (
-    <div className="p-6">
-      <SellerActivityTimeline seller={seller} />
-    </div>
-  );
-};
+const ActivitiesTab = ({ seller }: any) => (
+  <div className="p-4 md:p-6">
+    <SellerActivityTimeline seller={seller} />
+  </div>
+);
 
-// Visits Tab Component
-const VisitsTab = ({ seller }: any) => {
-  return (
-    <div className="p-6">
-      <VisitDetails seller={seller} />
-    </div>
-  );
-};
+const VisitsTab = ({ seller }: any) => (
+  <div className="p-4 md:p-6">
+    <VisitDetails seller={seller} />
+  </div>
+);
 
-// Analytics Tab Component
-const AnalyticsTab = ({ seller }: any) => {
-  return (
-    <div className="p-6">
-      <AnalyticsDashboard seller={seller} />
-    </div>
-  );
-};
+const AnalyticsTab = ({ seller }: any) => (
+  <div className="p-4 md:p-6">
+    <AnalyticsDashboard seller={seller} />
+  </div>
+);
 
-// Vendors Tab Component
-const VendorsTab = ({ seller }: any) => {
-  return (
-    <div className="p-6">
-      <VendorDirectory seller={seller} />
-    </div>
-  );
-};
+const VendorsTab = ({ seller }: any) => (
+  <div className="p-4 md:p-6">
+    <VendorDirectory seller={seller} />
+  </div>
+);
 
-// Deals Tab Component
-const DealsTab = ({ seller }: any) => {
-  return (
-    <div className="p-6">
-      <DealsManagement seller={seller} />
-    </div>
-  );
-};
+const DealsTab = ({ seller }: any) => (
+  <div className="p-4 md:p-6">
+    <DealsManagement seller={seller} />
+  </div>
+);
 
-// Transactions Tab Component
-const TransactionsTab = ({ seller }: any) => {
-  return (
-    <div className="p-6">
-      <TransactionHistory seller={seller} />
-    </div>
-  );
-};
+const TransactionsTab = ({ seller }: any) => (
+  <div className="p-4 md:p-6">
+    <TransactionHistory seller={seller} />
+  </div>
+);
 
-// Calculators Tab Component
-const CalculatorsTab = ({ seller }: any) => {
-  return (
-    <div className="p-6">
-      <FinancialCalculators seller={seller} />
-    </div>
-  );
-};
+const CalculatorsTab = ({ seller }: any) => (
+  <div className="p-4 md:p-6">
+    <FinancialCalculators seller={seller} />
+  </div>
+);
 
-// Documents Tab Component
-const DocumentsTab = ({ seller }: any) => {
-  return (
-    <div className="p-6">
-      <DocumentsManagement seller={seller} />
-    </div>
-  );
-};
+const DocumentsTab = ({ seller }: any) => (
+  <div className="p-4 md:p-6">
+    <DocumentsManagement seller={seller} />
+  </div>
+);
 
 export default SellerAccountPage;

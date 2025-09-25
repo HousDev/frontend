@@ -33,9 +33,9 @@ export const followupAPI = {
    // Get followups by leadId
 getFollowupsByLeadId: async (leadId: string) => {
   try {
-    console.log(`[API CALL] GET /followups/getByLeadId/${leadId}`);
+    // console.log(`[API CALL] GET /followups/getByLeadId/${leadId}`);
     const response = await api.get(`/followups/getByLeadId/${leadId}`);
-    console.log("[API RESPONSE]", response.data);
+    // console.log("[API RESPONSE]", response.data);
     return response.data;
   } catch (error: any) {
     if (error?.response?.status === 404) {
@@ -48,9 +48,9 @@ getFollowupsByLeadId: async (leadId: string) => {
 
   
   getFollowupCountByLeadId: async (leadId: string) => {
-    console.log(`[API CALL] GET /followups/count/${leadId}`);
+    // console.log(`[API CALL] GET /followups/count/${leadId}`);
     const response = await api.get(`/followups/countByLeadId/${leadId}`);
-    console.log("[API RESPONSE]", response.data);
+    // console.log("[API RESPONSE]", response.data);
     return response.data;
   },
 };

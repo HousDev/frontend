@@ -71,6 +71,10 @@ import BlogDetailPage from './pages/public/BlogDetailPage';
 import ContactMessagesManagement from './pages/dashboard/ContactMessagesManagement';
 import { Helmet } from "react-helmet";
 
+// 🎯 Buyer Portal Components
+import StandaloneBuyerAccountPage from './components/buyers/StandaloneBuyerAccountPage';
+import StandaloneSellerAccountPage from './components/sellers/StandaloneSellerAccountPage';
+
 function App() {
   useDynamicHead(); // ✅ Automatically set favicon + title
   return (
@@ -100,17 +104,33 @@ function App() {
               <ScrollToTop smooth={false} />
               <div className="min-h-screen bg-gray-50">
                 <Routes>
+                  {/* 🎯 SEPARATE BUYER PORTAL ROUTES */}
+                  
+                  <Route
+                    path="/buyer-dashboard/:id"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneBuyerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                 
+                  <Route
+                    path="/seller-dashboard/:id"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneSellerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   {/* Public Routes */}
                   <Route path='/' element={<PublicHeader />} >
                     <Route index element={<HomePage />} />
                     <Route path="properties" element={<PublicPropertiesPage />} />
-                    {/* <Route path="properties/:id" element={<PublicPropertyDetailPage />} /> */}
                     <Route path="properties/:slug" element={<PublicPropertyDetailPage />} />
                     <Route path="about" element={<AboutPage />} />
                     <Route path='blogs' element={<BlogsPage />} />
-
                     <Route path="/blogs/:slug" element={<BlogsPage />} />
-
                     <Route path="services" element={<ServicesPage />} />
                     <Route path="contact" element={<ContactUsPage />} />
                   </Route>
@@ -133,7 +153,7 @@ function App() {
                     }
                   />
 
-                  {/* Protected Dashboard Routes */}
+                  {/* Protected Dashboard Routes (EXISTING - NO CHANGE) */}
                   <Route
                     path="/dashboard/*"
                     element={
@@ -147,16 +167,18 @@ function App() {
                     <Route path="admin" element={<AdminDashboard />} />
                     <Route path="manager" element={<ManagerDashboard />} />
                     <Route path="agent" element={<AgentDashboard />} />
-                    <Route path="seller" element={<SellerDashboard />} />
-                    <Route path="buyer" element={<BuyerDashboard />} />
+                    {/* <Route path="seller" element={<SellerDashboard />} /> */}
+                    {/* <Route path="buyer" element={<BuyerDashboard />} /> */}
 
                     {/* Core CRM features */}
                     <Route path="leads" element={<LeadsPage />} />
                     <Route path="leads/:id" element={<LeadDetailPage />} />
                     <Route path="buyers" element={<BuyersPage />} />
+                    <Route path="buyers-account/:id" element={<StandaloneBuyerAccountPage />} />
                     <Route path="properties" element={<PropertiesPage />} />
                     <Route path="properties/:id" element={<PropertyDetailPage />} />
                     <Route path="sellers" element={<SellersPage />} />
+                    <Route path="sellers-account/:id" element={<StandaloneSellerAccountPage />} />
                     <Route path="document-center" element={<DocumentCenter />} />
                     <Route path='blog-manager' element={<BlogManagement />} />
                     <Route path='contact-messages' element={<ContactMessagesManagement />} />

@@ -323,7 +323,7 @@
 
 //   const handleBackToList = () => {
 //     setCurrentBuyerView(null);
-//     setCurrentBuyerAccount(null);
+//    
 //     setCurrentBuyerIndex(0);
 //     setShowBuyerForm(false);
 //   };
@@ -1209,6 +1209,7 @@ import ImportBuyersModal from '../../components/buyers/ImportBuyersModal';
 import { buyerAPI } from '@/lib/buyerAPI';
 import BuyerSidebarFilter from './components/BuyerSidebarFilter';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 
 type UIBuyer = {
   id: number | string;
@@ -1267,6 +1268,7 @@ type UIBuyer = {
 };
 
 const BuyersPage = () => {
+   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBuyers, setSelectedBuyers] = useState<Array<number | string>>([]);
@@ -1673,10 +1675,13 @@ const BuyersPage = () => {
     setCurrentBuyerIndex(index >= 0 ? index : 0);
     setCurrentBuyerView(buyer);
   };
-  const handleBuyerAccount = (buyer: UIBuyer) => setCurrentBuyerAccount(buyer);
+  const handleBuyerAccount = (buyer: UIBuyer) => {
+    // Navigate to the separate route instead of setting state
+    navigate(`/dashboard/buyers-account/${buyer.id}`);
+  };
   const handleBackToList = () => {
-    setCurrentBuyerView(null);
-    setCurrentBuyerAccount(null);
+  
+   setCurrentBuyerView(null);
     setCurrentBuyerIndex(0);
     setShowBuyerForm(false);
   };
@@ -1858,9 +1863,7 @@ const BuyersPage = () => {
   if (currentBuyerView) {
     return (
       <div className="buyers-page">
-        {currentBuyerAccount ? (
-          <BuyerAccountPage buyer={currentBuyerAccount} onBack={() => setCurrentBuyerAccount(null)} />
-        ) : currentBuyerView ? (
+       
           <BuyerViewPage
             buyer={currentBuyerView}
             onBack={handleBackToList}
@@ -1875,7 +1878,7 @@ const BuyersPage = () => {
               setCurrentBuyerView(updatedBuyer);
             }}
           />
-        ) : <div />}
+        ) : <div />
 
         {showBuyerForm && (
           <BuyerFormModal
@@ -1896,18 +1899,7 @@ const BuyersPage = () => {
     );
   }
 
-  if (currentBuyerAccount) {
-    return (
-      <BuyerAccountPage
-        buyer={currentBuyerAccount}
-        onBack={handleBackToList}
-        onUpdateBuyer={(updatedBuyer: UIBuyer) => {
-          setBuyers(prev => prev.map(b => b.id === updatedBuyer.id ? updatedBuyer : b));
-          setCurrentBuyerAccount(updatedBuyer);
-        }}
-      />
-    );
-  }
+ 
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
