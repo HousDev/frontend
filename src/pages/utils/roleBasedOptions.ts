@@ -72,12 +72,12 @@ export function getAssignableExecutives(user: any, presalesUsers: any[]) {
   );
 
   // Debug logging
-  console.log("🔍 getAssignableExecutives Debug:", {
-    userRole: role,
-    userDept: dept,
-    originalUser: user,
-    presalesUsersCount: presalesUsers.length
-  });
+  // console.log("🔍 getAssignableExecutives Debug:", {
+  //   userRole: role,
+  //   userDept: dept,
+  //   originalUser: user,
+  //   presalesUsersCount: presalesUsers.length
+  // });
 
   // Executive (Presales) → सिर्फ खुद
   if (role === "executive" && dept === "presales") {
@@ -110,7 +110,7 @@ export function getAssignableExecutives(user: any, presalesUsers: any[]) {
   }
 
   // Default → सभी executives (fallback - यह हटा सकते हैं)
-  console.log("⚠️ No role match - showing all executives as fallback");
+  // console.log("⚠️ No role match - showing all executives as fallback");
   return presalesUsers.map((u: any) => ({
     id: u.id,
     name: u.name || u.full_name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || "Executive",

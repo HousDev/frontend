@@ -1,7 +1,7 @@
-// src/components/PublicHeader.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
-import { User, Menu, X } from 'lucide-react';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { User as UserIcon, Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
@@ -14,22 +14,25 @@ type PublicHeaderProps = {
   onAuthAction?: (action: 'login' | 'signup' | 'sell' | string) => void;
 };
 
-/**
- * Minimal interfaces that match the parts of your contexts used here.
- * Replace these with your real exported types if available.
- */
-interface AuthContextShape {
-  isAuthenticated: boolean;
-  // add other auth fields you actually use
-}
+type AnyUser = {
+  role?: string;
+  salutation?: string;
+  first_name?: string;
+  last_name?: string;
+};
 
-interface SystemSettingsShape {
-  systemSettings?: {
-    company_name?: string;
-    company_logo?: string;
-    // add other settings you actually use
-  };
-}
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null;
+
+const hasBuyerId = (
+  u: unknown
+): u is { role: 'buyer'; buyer_id: string | number } =>
+  isObject(u) && (u as any).role === 'buyer' && typeof (u as any).buyer_id !== 'undefined';
+
+const hasSellerId = (
+  u: unknown
+): u is { role: 'seller'; seller_id: string | number } =>
+  isObject(u) && (u as any).role === 'seller' && typeof (u as any).seller_id !== 'undefined';
 
 const PublicHeader: React.FC<PublicHeaderProps> = ({
   currentPage = null,
@@ -37,37 +40,52 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   onAuthAction,
 }) => {
   const location = useLocation();
-  const auth = (useAuth() ?? {}) as AuthContextShape;
-  const { isAuthenticated = false } = auth;
-
-  const settings = (useSystemSettings() ?? {}) as SystemSettingsShape;
-  const companyName = settings.systemSettings?.company_name;
-  const companyLogo = settings.systemSettings?.company_logo;
-
+  const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
+  const { systemSettings } = useSystemSettings();
+  const companyName = systemSettings?.company_name ?? 'ResaleExpert';
+  const companyLogo = systemSettings?.company_logo;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState<boolean>(false);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false); // default: false
-
-  // Seller modal state
+  const [isAdmin, setIsAdmin] = useState<boolean>(false); 
   const [isSellerModalOpen, setIsSellerModalOpen] = useState<boolean>(false);
-
-  // dropdown ref for outside clicks
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
-
-  // Sampled image color used for nav
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
   const navTextColor = '#0c3854';
-
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (!dropdownRef.current) return;
+    if (!isAuthenticated || !user) return;
+
+    const path = location.pathname;
+    const isPublicAuthPage = path === '/login' || path === '/register';
+    if (!isPublicAuthPage) return;
+
+    if (hasBuyerId(user)) {
+      navigate(`/buyer-dashboard/${String(user.buyer_id)}`, { replace: true });
+    } else if (hasSellerId(user)) {
+      navigate(`/seller-dashboard/${String(user.seller_id)}`, { replace: true });
+    }
+  }, [isAuthenticated, user, location.pathname, navigate]);
+
+  const getDashboardPath = (): string => {
+    if (!isAuthenticated || !user) return '/login';
+
+    if (hasBuyerId(user)) return `/buyer-dashboard/${String(user.buyer_id)}`;
+    if (hasSellerId(user)) return `/seller-dashboard/${String(user.seller_id)}`;
+    return '/dashboard';
+  };
+
+  const dashboardHref = getDashboardPath();
+
+  // Close user dropdown on outside click
+  useEffect(() => {
+    function handleOutsideClick(e: MouseEvent) {
+      if (!userMenuRef.current) return;
       const target = e.target as Node | null;
-      if (target && !dropdownRef.current.contains(target)) {
-        setOpenDropdown(null);
+      if (target && !userMenuRef.current.contains(target)) {
+        setIsUserDropdownOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
   const navigationItems: { id: string; label: string; href?: string; textColor?: string }[] = [
@@ -80,10 +98,9 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   ];
 
   // Handle nav clicks - if href present, Link handles navigation.
-  const handleNavClick = (pageId: string, href?: string) => {
+  const handleNavClick = (pageId: string, _href?: string) => {
     onPageChange?.(pageId);
     setIsMobileMenuOpen(false);
-    setOpenDropdown(null);
   };
 
   const isActivePage = (itemId: string, itemHref?: string) => {
@@ -103,7 +120,6 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   const handleSellerSave = async (sellerData: any) => {
     try {
       console.log('Saving seller:', sellerData);
-      // Replace alert with your toast/UI flow as needed
       alert('Seller information saved successfully!');
       setIsSellerModalOpen(false);
     } catch (error) {
@@ -111,6 +127,16 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
       alert('Failed to save seller information. Please try again.');
     }
   };
+
+  // Build display name from user (salutation + name)
+  const displayName = (() => {
+    if (!user) return 'User';
+    const salutation = (user as AnyUser)?.salutation as string | undefined;
+    const first = (user as AnyUser)?.first_name as string | undefined;
+    const last = (user as AnyUser)?.last_name as string | undefined;
+    const parts = [salutation, first, last].filter(Boolean);
+    return parts.length ? parts.join(' ') : 'User';
+  })();
 
   return (
     <>
@@ -151,9 +177,9 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
             <Link to="/" className="flex items-center space-x-3">
               {companyLogo ? (
                 <img
-                  src={companyLogo}
-                  alt={`${companyName}`} 
-                  className="h-10 w-auto object-contain rounded-lg"
+                  src={companyLogo as string}
+                  alt={`${companyName} Logo`}
+                  className="h-10 w-auto object-contain rounded-lg shadow-sm bg-white p-1"
                 />
               ) : (
                   <div className="flex items-center space-x-3">
@@ -167,19 +193,19 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
             </Link>
 
             {/* Desktop nav */}
-            <nav className="hidden lg:flex items-center space-x-1" ref={dropdownRef}>
+            <nav className="hidden lg:flex items-center space-x-1">
               {navigationItems.map((item) => {
-                const isActive = isActivePage(item.id, item.href);
+                const active = isActivePage(item.id, item.href);
                 return (
                   <div key={item.id} className="relative">
                     {item.href ? (
                       <Link
                         to={item.href}
                         onClick={() => handleNavClick(item.id, item.href)}
-                        style={{ color: isActive ? undefined : item.textColor }}
+                        style={{ color: active ? undefined : item.textColor }}
                         className={cn(
                           'flex items-center space-x-2 px-3 mx-2 py-1.5 rounded-xl transition-all text-sm font-medium',
-                          isActive
+                          active
                             ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
                             : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
                         )}
@@ -191,8 +217,8 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                         onClick={() => handleNavClick(item.id)}
                         style={{ color: item.textColor }}
                         className={cn(
-                          'flex items-center space-x-2 px-3 py-2 rounded-xl transition-all text-sm font-medium',
-                          isActive
+                          'flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all text-sm font-medium',
+                          active
                             ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
                             : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
                         )}
@@ -254,34 +280,34 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
               ) : (
                 <div className="flex items-center space-x-4">
                   <Link
-                    to="/dashboard"
+                    to={dashboardHref}
                     className="flex items-center space-x-2 bg-[#0c3854] text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[#0b3858]/95 transition-colors shadow-md hover:shadow-lg"
                   >
-                    <User className="h-4 w-4" />
+                    <UserIcon className="h-4 w-4" />
                     <span>Dashboard</span>
                   </Link>
 
-                  <div
-                    className="relative"
-                    onMouseEnter={() => setIsUserDropdownOpen(true)}
-                    onMouseLeave={() => setIsUserDropdownOpen(false)}
-                    aria-haspopup="true"
-                  >
+                  {/* User menu (click to open) */}
+                  <div className="relative" ref={userMenuRef}>
                     <button
+                      type="button"
+                      onClick={() => setIsUserDropdownOpen((s) => !s)}
+                      aria-haspopup="true"
+                      aria-expanded={isUserDropdownOpen}
                       className="w-10 h-10 bg-gradient-to-r from-orange-100 to-blue-100 rounded-xl flex items-center justify-center border border-orange-200"
-                      aria-label="User menu"
                     >
-                      <User className="text-[#0b3855]" size={16} />
+                      <UserIcon className="text-[#0b3855]" size={16} />
                     </button>
 
                     {isUserDropdownOpen && (
                       <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50">
                         <div className="px-4 py-3 border-b border-gray-100">
-                          <div className="text-sm font-semibold text-gray-900">John Doe</div>
+                          <div className="text-sm font-semibold text-gray-900">{displayName}</div>
                           <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full inline-block mt-1">
                             {isAdmin ? 'Admin User' : 'Premium Member'}
                           </div>
                         </div>
+
                         {isAdmin && (
                           <>
                             <button
@@ -298,14 +324,22 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                             </button>
                           </>
                         )}
+
                         <button className="w-full text-left px-4 py-3 hover:bg-yellow-50 text-sm flex items-center space-x-3 text-gray-700 hover:text-yellow-600">
                           <span>Upgrade Plan</span>
                         </button>
                         <button className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center space-x-3 text-gray-700">
                           <span>Settings</span>
                         </button>
+
                         <div className="border-t border-gray-100 mt-2 pt-2">
-                          <button className="w-full text-left px-4 py-3 hover:bg-red-50 text-sm flex items-center space-x-3 text-red-600">
+                          <button
+                            onClick={async () => {
+                              await logout();
+                              window.location.href = '/login';
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-red-50 text-sm flex items-center space-x-3 text-red-600"
+                          >
                             <span>Logout</span>
                           </button>
                         </div>
@@ -343,7 +377,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
           <div className="lg:hidden bg-white border-t border-gray-200 shadow-lg">
             <div className="px-4 py-4 space-y-2">
               {navigationItems.map((item) => {
-                const isActive = isActivePage(item.id, item.href);
+                const active = isActivePage(item.id, item.href);
                 return item.href ? (
                   <Link
                     key={item.id}
@@ -352,7 +386,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                     style={{ color: item.textColor }}
                     className={cn(
                       'w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-left',
-                      isActive
+                      active
                         ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
                         : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
                     )}
@@ -366,7 +400,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                     style={{ color: item.textColor }}
                     className={cn(
                       'w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-left',
-                      isActive
+                      active
                         ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
                         : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
                     )}
@@ -420,10 +454,10 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                   )
                 ) : (
                   <Link
-                    to="/dashboard"
+                    to={dashboardHref}
                     className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-4 py-3 rounded-xl font-medium text-sm"
                   >
-                    <User className="h-4 w-4" />
+                    <UserIcon className="h-4 w-4" />
                     <span>Dashboard</span>
                   </Link>
                 )}
@@ -443,7 +477,6 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
         onClose={() => setIsSellerModalOpen(false)}
         onSubmit={handleSellerSave}
       />
-
     </>
   );
 };

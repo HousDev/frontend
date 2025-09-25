@@ -214,13 +214,13 @@ const ActivityTimeline = ({ seller }: any) => {
 
   const getActivityIcon = (type: string) => {
     switch (type) {
-      case 'property_visit': return <Eye className="text-green-600" size={20} />;
-      case 'property_revisit': return <Eye className="text-blue-600" size={20} />;
-      case 'property_inquiry': return <Users className="text-blue-600" size={20} />;
-      case 'property_maintenance': return <Settings className="text-orange-600" size={20} />;
-      case 'property_photography': return <Camera className="text-purple-600" size={20} />;
-      case 'property_inspection': return <Shield className="text-indigo-600" size={20} />;
-      default: return <Activity className="text-gray-600" size={20} />;
+      case 'property_visit': return <Eye className="text-green-600" size={16} />;
+      case 'property_revisit': return <Eye className="text-blue-600" size={16} />;
+      case 'property_inquiry': return <Users className="text-blue-600" size={16} />;
+      case 'property_maintenance': return <Settings className="text-orange-600" size={16} />;
+      case 'property_photography': return <Camera className="text-purple-600" size={16} />;
+      case 'property_inspection': return <Shield className="text-indigo-600" size={16} />;
+      default: return <Activity className="text-gray-600" size={16} />;
     }
   };
 
@@ -266,37 +266,38 @@ const ActivityTimeline = ({ seller }: any) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-6 pb-2 sm:pb-4 lg:pb-6 pt-0
+">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Activity Timeline</h2>
-          <p className="text-gray-600 mt-1">Complete history of property interactions</p>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Activity Timeline</h2>
+          <p className="text-xs text-gray-600 mt-1">Complete history of property interactions</p>
         </div>
-        <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-          <Plus size={16} />
+        <button className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs">
+          <Plus size={14} />
           <span>Add Activity</span>
         </button>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex flex-col lg:flex-row lg:items-center space-y-3 lg:space-y-0 lg:space-x-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+      <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4">
+        <div className="flex flex-col space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
             <input
               type="text"
               placeholder="Search activities..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
             />
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
             >
               {activityTypes.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -307,7 +308,7 @@ const ActivityTimeline = ({ seller }: any) => {
             <select
               value={filterPeriod}
               onChange={(e) => setFilterPeriod(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
             >
               {timePeriods.map((period) => (
                 <option key={period.value} value={period.value}>
@@ -320,84 +321,86 @@ const ActivityTimeline = ({ seller }: any) => {
       </div>
 
       {/* Activity Timeline */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {filteredActivities.map((activity, index) => (
-          <div key={activity.id} className={`bg-white rounded-xl border-l-4 ${getPriorityColor(activity.priority)} shadow-sm hover:shadow-md transition-all`}>
-            <div className="p-6">
+          <div key={activity.id} className={`bg-white rounded-lg border-l-4 ${getPriorityColor(activity.priority)} shadow-sm hover:shadow-md transition-all`}>
+            <div className="p-3 sm:p-4">
               {/* Activity Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start space-x-4">
-                  <div className="p-3 bg-gray-50 rounded-xl">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start space-x-3 flex-1 min-w-0">
+                  <div className="p-2 bg-gray-50 rounded-lg flex-shrink-0">
                     {getActivityIcon(activity.type)}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="font-semibold text-gray-900 text-lg">{activity.title}</h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        activity.priority === 'high' ? 'bg-red-100 text-red-700' :
-                        activity.priority === 'medium' ? 'bg-orange-100 text-orange-700' :
-                        'bg-green-100 text-green-700'
-                      }`}>
-                        {activity.priority} priority
-                      </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        activity.status === 'new' ? 'bg-blue-100 text-blue-700' :
-                        activity.status === 'active' ? 'bg-orange-100 text-orange-700' :
-                        activity.status === 'scheduled' ? 'bg-purple-100 text-purple-700' :
-                        'bg-green-100 text-green-700'
-                      }`}>
-                        {activity.status}
-                      </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-2">
+                      <h3 className="font-semibold text-gray-900 text-xs sm:text-sm truncate">{activity.title}</h3>
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          activity.priority === 'high' ? 'bg-red-100 text-red-700' :
+                          activity.priority === 'medium' ? 'bg-orange-100 text-orange-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {activity.priority}
+                        </span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          activity.status === 'new' ? 'bg-blue-100 text-blue-700' :
+                          activity.status === 'active' ? 'bg-orange-100 text-orange-700' :
+                          activity.status === 'scheduled' ? 'bg-purple-100 text-purple-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {activity.status}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-gray-700 mb-2">{activity.description}</p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
+                    <p className="text-gray-700 mb-2 text-xs">{activity.description}</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-4 text-xs text-gray-600">
                       <div className="flex items-center space-x-1">
-                        <Calendar size={12} />
+                        <Calendar size={10} />
                         <span>{formatTimestamp(activity.timestamp)}</span>
                       </div>
                       <div className="flex items-center space-x-1">
-                        <Building size={12} />
-                        <span>{activity.property}</span>
+                        <Building size={10} />
+                        <span className="truncate">{activity.property}</span>
                       </div>
                       <div className="flex items-center space-x-1">
-                        <User size={12} />
+                        <User size={10} />
                         <span>{activity.visitor}</span>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 flex-shrink-0">
                   <button
                     onClick={() => setExpandedActivity(expandedActivity === activity.id ? null : activity.id)}
                     className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
                   >
-                    {expandedActivity === activity.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    {expandedActivity === activity.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   </button>
                   <div className="relative group">
                     <button className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
-                      <MoreHorizontal size={16} />
+                      <MoreHorizontal size={14} />
                     </button>
                     <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 w-48">
                       <div className="p-2">
                         <button
                           onClick={() => handleQuickAction('schedule', activity)}
-                          className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                          className="w-full flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded"
                         >
-                          <Calendar size={14} />
+                          <Calendar size={12} />
                           <span>Schedule Follow-up</span>
                         </button>
                         <button
                           onClick={() => handleQuickAction('update', activity)}
-                          className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                          className="w-full flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded"
                         >
-                          <Edit size={14} />
+                          <Edit size={12} />
                           <span>Update Activity</span>
                         </button>
                         <button
                           onClick={() => handleQuickAction('notes', activity)}
-                          className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                          className="w-full flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded"
                         >
-                          <FileText size={14} />
+                          <FileText size={12} />
                           <span>Add Notes</span>
                         </button>
                       </div>
@@ -407,39 +410,39 @@ const ActivityTimeline = ({ seller }: any) => {
               </div>
 
               {/* Activity Summary */}
-              <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Visitor</div>
-                    <div className="font-medium text-gray-900">{activity.visitor}</div>
+                    <div className="font-medium text-gray-900 text-xs">{activity.visitor}</div>
                     <div className="text-xs text-gray-600">{activity.visitType.replace('_', ' ')}</div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Date</div>
-                    <div className="font-medium text-gray-900">{formatTimestamp(activity.timestamp).split(',')[0]}</div>
+                    <div className="font-medium text-gray-900 text-xs">{formatTimestamp(activity.timestamp).split(',')[0]}</div>
                     <div className="text-xs text-gray-600">{formatTimestamp(activity.timestamp).split(',')[1]}</div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Status</div>
-                    <div className="font-medium text-gray-900 capitalize">{activity.status}</div>
+                    <div className="font-medium text-gray-900 capitalize text-xs">{activity.status}</div>
                     <div className="text-xs text-gray-600">{activity.priority} priority</div>
                   </div>
                 </div>
                 {activity.remarks && (
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Remarks</div>
-                    <div className="text-sm text-gray-700">{activity.remarks}</div>
+                    <div className="text-xs text-gray-700">{activity.remarks}</div>
                   </div>
                 )}
               </div>
 
               {/* Expanded Details */}
               {expandedActivity === activity.id && (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {/* Activity Details */}
-                  <div className="bg-indigo-50 rounded-xl p-4">
-                    <h4 className="font-semibold text-indigo-900 mb-3">Visit Details</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div className="bg-indigo-50 rounded-lg p-3">
+                    <h4 className="font-semibold text-indigo-900 mb-3 text-xs">Visit Details</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                       {Object.entries(activity.details).map(([key, value]) => (
                         <div key={key}>
                           <span className="text-indigo-700 font-medium">
@@ -465,34 +468,34 @@ const ActivityTimeline = ({ seller }: any) => {
 
                   {/* Activity Actions */}
                   {activity.type === 'property_visit' && (
-                    <div className="bg-green-50 rounded-xl p-4">
-                      <h4 className="font-semibold text-green-900 mb-3">Visit Outcome</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="bg-green-50 rounded-lg p-3">
+                      <h4 className="font-semibold text-green-900 mb-3 text-xs">Visit Outcome</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <span className="text-sm text-green-700">Rating:</span>
+                          <span className="text-xs text-green-700">Rating:</span>
                           <div className="flex items-center space-x-1 mt-1">
                             {Array.from({ length: 5 }, (_, i) => (
                               <Star
                                 key={i}
-                                size={14}
+                                size={12}
                                 className={i < Math.floor(activity.details.rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}
                               />
                             ))}
-                            <span className="text-sm font-medium ml-2">{activity.details.rating}/5</span>
+                            <span className="text-xs font-medium ml-2">{activity.details.rating}/5</span>
                           </div>
                         </div>
                         <div>
-                          <span className="text-sm text-green-700">Outcome:</span>
-                          <div className="text-sm font-medium text-green-900 mt-1 capitalize">{activity.details.visitOutcome}</div>
+                          <span className="text-xs text-green-700">Outcome:</span>
+                          <div className="text-xs font-medium text-green-900 mt-1 capitalize">{activity.details.visitOutcome}</div>
                         </div>
                       </div>
                     </div>
                   )}
 
                   {activity.type === 'property_revisit' && (
-                    <div className="bg-blue-50 rounded-xl p-4">
-                      <h4 className="font-semibold text-blue-900 mb-3">Revisit Information</h4>
-                      <div className="space-y-2 text-sm">
+                    <div className="bg-blue-50 rounded-lg p-3">
+                      <h4 className="font-semibold text-blue-900 mb-3 text-xs">Revisit Information</h4>
+                      <div className="space-y-2 text-xs">
                         <div className="flex justify-between">
                           <span className="text-blue-700">Previous Visit:</span>
                           <span className="font-medium text-blue-900">{activity.details.previousVisitDate}</span>
@@ -512,10 +515,10 @@ const ActivityTimeline = ({ seller }: any) => {
       </div>
 
       {filteredActivities.length === 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <Activity className="mx-auto text-gray-300 mb-4" size={48} />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No activities found</h3>
-          <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+          <Activity className="mx-auto text-gray-300 mb-4" size={36} />
+          <h3 className="text-sm font-semibold text-gray-900 mb-2">No activities found</h3>
+          <p className="text-xs text-gray-500">Try adjusting your search or filter criteria</p>
         </div>
       )}
     </div>

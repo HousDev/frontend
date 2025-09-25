@@ -1,20 +1,40 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { ArrowLeft, User, Building, FileText, SlidersHorizontal, CreditCard, Calculator, TrendingUp, Target, Bot, Calendar, Phone, Mail, MessageCircle, MapPin, DollarSign, Eye, Download, Upload, Share, Plus, Edit, Trash2, Star, Award, CheckCircle, AlertCircle, Bell, Shield, Crown, Gem, Heart, Bookmark, Flag, Tag, Link, ExternalLink, Copy, Send, Printer, Archive, RefreshCw, Filter, Search, SortAsc, Grid, List, Maximize2, MoreHorizontal, Settings, Activity, BarChart3, PieChart, Home, Car, Wifi, Dumbbell, TreePine, Waves, Zap, Flame, Droplets, Snowflake, Sun, Moon, Wind, Mountain, Flower, Coffee, Clock, Users, Globe, Smartphone, Laptop, Headphones, Camera, Video, Music, Book, Briefcase, ShoppingBag, Gift, Plane, Train, Bus, Bike, Truck } from 'lucide-react';
-import PropertySuggestionModal from './PropertySuggestionModal';
-import LoanApplicationModal from './LoanApplicationModal';
-import EMICalculatorModal from './EMICalculatorModal';
-import PropertyMatchModal from './PropertyMatchModal';
-import VisitModal from './VisitModal';
-import { useProperties } from '@/hooks/properties';
 
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { ArrowLeft, User, Building, FileText, SlidersHorizontal, CreditCard, Calculator, TrendingUp, Target, Bot, Calendar, Phone, Mail, MessageCircle, MapPin, DollarSign, Eye, Download, Upload, Share, Plus, Edit, Trash2, Star, Award, CheckCircle, AlertCircle, Bell, Shield, Crown, Gem, Heart, Bookmark, Flag, Tag, Link, ExternalLink, Copy, Send, Printer, Archive, RefreshCw, Filter, Search, SortAsc, Grid, List, Maximize2, MoreHorizontal, Settings, Activity, BarChart3, PieChart, Home, Car, Wifi, Dumbbell, TreePine, Waves, Zap, Flame, Droplets, Snowflake, Sun, Moon, Wind, Mountain, Flower, Coffee, Clock, Users, Globe, Smartphone, Laptop, Headphones, Camera, Video, Music, Book, Briefcase, ShoppingBag, Gift, Plane, Train, Bus, Bike, Truck, X, Menu, LogOut } from 'lucide-react';
+import PropertySuggestionModal from './PropertySuggestionModal'; import LoanApplicationModal from './LoanApplicationModal'; import EMICalculatorModal from './EMICalculatorModal'; import PropertyMatchModal from './PropertyMatchModal'; import VisitModal from './VisitModal'; import { useProperties } from '@/hooks/properties'; import { useAuth } from '@/contexts/AuthContext';
 
 const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
+  const { logout } = useAuth();
+
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showSidebar, setShowSidebar] = useState(false);
+
   const [showPropertySuggestions, setShowPropertySuggestions] = useState(false);
   const [showLoanApplication, setShowLoanApplication] = useState(false);
   const [showEMICalculator, setShowEMICalculator] = useState(false);
   const [showPropertyMatch, setShowPropertyMatch] = useState(false);
   const [showVisitModal, setShowVisitModal] = useState(false);
+
+  const sidebarRef = useRef<HTMLDivElement | null>(null);
+
+  // Close on ESC
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setShowSidebar(false);
+    if (showSidebar) window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showSidebar]);
+
+  // Close on click outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!showSidebar) return;
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
+        setShowSidebar(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showSidebar]);
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
@@ -35,135 +55,114 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
   };
 
   return (
-    <div className="h-screen min-h-[100svh] flex bg-gray-50 overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-80 shrink-0 bg-white border-r border-gray-200 flex flex-col h-full overflow-y-auto scrollbar-hide">
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
+    <div className="h-screen w-full bg-gray-50 flex overflow-hidden relative">
+      {/* Sidebar (desktop always visible) */}
+      <aside className="hidden md:flex w-80 shrink-0 bg-white border-r flex-col h-full">
+        {/* Sidebar content */}
+        <SidebarContent
+          buyer={buyer}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          logout={logout}
+          setShowPropertySuggestions={setShowPropertySuggestions}
+          setShowEMICalculator={setShowEMICalculator}
+        />
+      </aside>
+
+      {/* Mobile Drawer + Overlay */}
+      {showSidebar && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-[1px] transition-opacity"
+            onClick={() => setShowSidebar(false)}
+          />
+          <div
+            ref={sidebarRef}
+            className={`absolute left-0 top-0 h-full w-72 max-w-[85vw] bg-white border-r shadow-xl transform transition-transform duration-300 ${showSidebar ? 'translate-x-0' : '-translate-x-full'
+              } relative`}
+          >
             <button
-              onClick={onBack}
-              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+              className="absolute top-2 right-2 p-2 rounded-md hover:bg-gray-100"
+              onClick={() => setShowSidebar(false)}
+              aria-label="Close menu"
             >
-              <ArrowLeft size={16} />
+              <X size={18} />
             </button>
-            <div>
-              <h2 className="text-base font-bold text-gray-900">Buyer Portal</h2>
-              <p className="text-xs text-gray-600">{buyer.name}</p>
-            </div>
+            <SidebarContent
+              buyer={buyer}
+              activeTab={activeTab}
+              setActiveTab={(id) => {
+                setActiveTab(id);
+                setShowSidebar(false);
+              }}
+              logout={logout}
+              setShowPropertySuggestions={setShowPropertySuggestions}
+              setShowEMICalculator={setShowEMICalculator}
+            />
           </div>
         </div>
-
-        {/* Buyer Profile Summary */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-              {buyer.name.charAt(0)}
-            </div>
-            <div>
-              <div className="font-semibold text-sm text-gray-900">
-                {buyer.salutation} {buyer.name}
-              </div>
-              <div className="text-xs text-gray-600">{buyer.city}, {buyer.state}</div>
-            </div>
-          </div>
-
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Budget:</span>
-              <span className="font-medium text-green-600">
-                {formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Preferred Units</span>
-              <span className="font-medium">
-                {Array.isArray(buyer.requirements?.unitTypes)
-                  ? buyer.requirements.unitTypes.join(", ")
-                  : buyer.requirements?.unitTypes || "—"}
-              </span>
-
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Lead Score:</span>
-              <span className="font-medium text-purple-600">{buyer.leadScore}/100</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-4">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors text-left mb-1 text-sm ${activeTab === tab.id
-                  ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-              >
-                <Icon size={16} />
-                <span className="font-medium">{tab.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Quick Actions */}
-        <div className="p-4 border-t border-gray-200">
-          <div className="space-y-2 text-sm">
-            <button
-              onClick={() => setShowPropertySuggestions(true)}
-              className="w-full flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all"
-            >
-              <Bot size={14} />
-              <span>AI Property Search</span>
-            </button>
-            <button
-              onClick={() => setShowEMICalculator(true)}
-              className="w-full flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Calculator size={14} />
-              <span>EMI Calculator</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden text-sm">
-        {activeTab === 'dashboard' && <DashboardTab buyer={buyer} />}
-        {activeTab === 'properties' && (
-          <PropertySearchTab
-            buyer={buyer}
-            onShowPropertySuggestions={() => setShowPropertySuggestions(true)}
-            onShowPropertyMatch={() => setShowPropertyMatch(true)}
-          />
-        )}
-        {activeTab === 'shortlist' && <ShortlistTab buyer={buyer} />}
-        {activeTab === 'visits' && (
-          <VisitsTab
-            buyer={buyer}
-            onScheduleVisit={() => setShowVisitModal(true)}
-          />
-        )}
-        {activeTab === 'loans' && (
-          <LoanCenterTab
-            buyer={buyer}
-            onShowLoanApplication={() => setShowLoanApplication(true)}
-          />
-        )}
-        {activeTab === 'calculators' && (
-          <CalculatorsTab
-            buyer={buyer}
-            onShowEMICalculator={() => setShowEMICalculator(true)}
-          />
-        )}
-        {activeTab === 'insights' && <MarketInsightsTab buyer={buyer} />}
-        {activeTab === 'documents' && <MyDocumentsTab buyer={buyer} />}
-        {activeTab === 'profile' && <ProfileTab buyer={buyer} onUpdateBuyer={onUpdateBuyer} />}
+      <div className="flex-1 min-w-0 h-full flex flex-col">
+
+
+        {/* Welcome Section */}
+        <div className="bg-gradient-to-r from-purple-500 to-pink-600 text-white">
+          <header className="sticky top-0 z-30 bg-gradient-to-r from-purple-500 to-pink-600 px-4 md:px-6 py-4">
+            <div className="flex items-center justify-between">
+              {/* Left: Hamburger + Titles */}
+              <div className="flex items-center gap-3">
+                {/* Mobile menu button */}
+                <button
+                  onClick={() => setShowSidebar(true)}
+                  className="p-2 rounded-lg bg-white/90 text-gray-700 hover:bg-white transition-colors md:hidden"
+                  aria-label="Open menu"
+                >
+                  <Menu size={20} />
+                </button>
+
+                <div>
+                  <h2 className="text-base sm:text-lg md:text-xl font-bold text-white leading-tight truncate">Welcome, {buyer.name}!</h2>
+                  <p className="text-xs text-purple-100">Your personalized property search dashboard</p>
+                  <h2 className="flex  gap-x-2 md:gap-x-3 gap-y-0.5 text-[11px] sm:text-xs md:text-sm text-white/95 mt-1">Buyer Account</h2>
+                </div>
+              </div>
+
+              {/* Right: Profile Score */}
+              <div className="text-right">
+                <div className="text-xl font-bold">{buyer.leadScore || "-"}</div>
+                <div className="text-xs text-purple-100">Profile Score</div>
+              </div>
+            </div>
+          </header>
+
+        </div>
+
+        {/* Tabs Content */}
+        <main className="flex-1 overflow-y-auto text-sm">
+          {activeTab === 'dashboard' && <DashboardTab buyer={buyer} />}
+          {activeTab === 'properties' && (
+            <PropertySearchTab
+              buyer={buyer}
+              onShowPropertySuggestions={() => setShowPropertySuggestions(true)}
+              onShowPropertyMatch={() => setShowPropertyMatch(true)}
+            />
+          )}
+          {activeTab === 'shortlist' && <ShortlistTab buyer={buyer} />}
+          {activeTab === 'visits' && (
+            <VisitsTab buyer={buyer} onScheduleVisit={() => setShowVisitModal(true)} />
+          )}
+          {activeTab === 'loans' && (
+            <LoanCenterTab buyer={buyer} onShowLoanApplication={() => setShowLoanApplication(true)} />
+          )}
+          {activeTab === 'calculators' && (
+            <CalculatorsTab buyer={buyer} onShowEMICalculator={() => setShowEMICalculator(true)} />
+          )}
+          {activeTab === 'insights' && <MarketInsightsTab buyer={buyer} />}
+          {activeTab === 'documents' && <MyDocumentsTab buyer={buyer} />}
+          {activeTab === 'profile' && <ProfileTab buyer={buyer} onUpdateBuyer={onUpdateBuyer} />}
+        </main>
       </div>
 
       {/* Modals */}
@@ -174,7 +173,6 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
           buyer={buyer}
         />
       )}
-
       {showLoanApplication && (
         <LoanApplicationModal
           isOpen={showLoanApplication}
@@ -183,7 +181,6 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
           onUpdateBuyer={onUpdateBuyer}
         />
       )}
-
       {showEMICalculator && (
         <EMICalculatorModal
           isOpen={showEMICalculator}
@@ -191,7 +188,6 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
           buyer={buyer}
         />
       )}
-
       {showPropertyMatch && (
         <PropertyMatchModal
           isOpen={showPropertyMatch}
@@ -199,7 +195,6 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
           buyer={buyer}
         />
       )}
-
       {showVisitModal && (
         <VisitModal
           isOpen={showVisitModal}
@@ -212,7 +207,119 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
         />
       )}
     </div>
+  );
+};
 
+
+
+/* ================= Sidebar Content Component ================= */
+const SidebarContent = ({ buyer, activeTab, setActiveTab, logout, setShowPropertySuggestions, setShowEMICalculator }: any) => {
+  const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'properties', label: 'Property Search', icon: Building },
+    { id: 'shortlist', label: 'My Shortlist', icon: Heart },
+    { id: 'visits', label: 'Site Visits', icon: Calendar },
+    { id: 'loans', label: 'Loan Center', icon: CreditCard },
+    { id: 'calculators', label: 'Calculators', icon: Calculator },
+    { id: 'insights', label: 'Market Insights', icon: TrendingUp },
+    { id: 'documents', label: 'My Documents', icon: FileText },
+    { id: 'profile', label: 'Profile', icon: User }
+  ];
+
+  const formatCurrency = (amount: number) => {
+    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+    return `₹${amount.toLocaleString('en-IN')}`;
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="p-6 border-b border-gray-200 shrink-0">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+            {buyer.name.charAt(0)}
+          </div>
+          <div>
+            <div className="font-semibold text-sm text-gray-900">
+              {buyer.salutation} {buyer.name}
+            </div>
+            <div className="text-xs text-gray-600">{buyer.city}, {buyer.state}</div>
+          </div>
+        </div>
+        <div className="space-y-2 text-xs">
+          <div className="flex justify-between">
+            <span className="text-gray-500">Budget:</span>
+            <span className="font-medium text-green-600">
+              {formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Preferred Units</span>
+            <span className="font-medium">
+              {Array.isArray(buyer.requirements?.unitTypes)
+                ? buyer.requirements.unitTypes.join(", ")
+                : buyer.requirements?.unitTypes || "—"}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Lead Score:</span>
+            <span className="font-medium text-purple-600">{buyer.leadScore}/100</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <nav className="flex-1 overflow-y-auto px-4 py-3">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors text-left mb-1 text-sm ${activeTab === tab.id
+                ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+            >
+              <Icon size={16} />
+              <span className="font-medium">{tab.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Bottom */}
+      <div className="p-4 border-t border-gray-200 shrink-0">
+        <div className="space-y-2 text-sm">
+         
+          <button
+            onClick={() => setShowPropertySuggestions(true)}
+            className="w-full flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all"
+          >
+            <Bot size={14} />
+            <span>AI Property Search</span>
+          </button>
+          <button
+            onClick={() => setShowEMICalculator(true)}
+            className="w-full flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Calculator size={14} />
+            <span>EMI Calculator</span>
+          </button>
+           <button
+            onClick={async () => {
+              await logout();
+              window.location.href = '/login';
+            }}
+            className="w-full flex items-center gap-2 px-2 py-1.5 text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+          >
+            <LogOut size={15} />
+            <span className="text-sm">Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -232,144 +339,134 @@ const DashboardTab = ({ buyer }: any) => {
   ];
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold mb-1">Welcome, {buyer.name}!</h2>
-            <p className="text-xs text-purple-100">Your personalized property search dashboard</p>
-          </div>
-          <div className="text-right">
-            <div className="text-xl font-bold">{buyer.leadScore}</div>
-            <div className="text-xs text-purple-100">Profile Score</div>
-          </div>
-        </div>
-      </div>
+    <div className="">
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-gray-600">{stat.label}</p>
-                  <p className="text-lg font-bold text-gray-900 mt-0.5">{stat.value}</p>
-                </div>
-                <div className={`p-2 rounded-lg bg-${stat.color}-100`}>
-                  <Icon className={`text-${stat.color}-600`} size={18} />
+      <div className=' px-4 md:px-6 py-4 z-30 top-0 sticky'>
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {stats.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-600">{stat.label}</p>
+                    <p className="text-lg font-bold text-gray-900 mt-0.5">{stat.value}</p>
+                  </div>
+                  <div className={`p-2 rounded-lg bg-${stat.color}-100`}>
+                    <Icon className={`text-${stat.color}-600`} size={18} />
+                  </div>
                 </div>
               </div>
+            );
+          })}
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Property Search</h3>
+            <div className="space-y-2">
+              <button className="w-full text-xs bg-gradient-to-r from-purple-500 to-pink-600 text-white py-1.5 px-3 rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all">
+                AI Property Suggestions
+              </button>
+              <button className="w-full text-xs bg-blue-600 text-white py-1.5 px-3 rounded-lg hover:bg-blue-700 transition-colors">
+                Browse All Properties
+              </button>
+              <button className="w-full text-xs bg-green-600 text-white py-1.5 px-3 rounded-lg hover:bg-green-700 transition-colors">
+                Schedule Site Visit
+              </button>
             </div>
-          );
-        })}
-      </div>
+          </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Property Search</h3>
-          <div className="space-y-2">
-            <button className="w-full text-xs bg-gradient-to-r from-purple-500 to-pink-600 text-white py-1.5 px-3 rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all">
-              AI Property Suggestions
-            </button>
-            <button className="w-full text-xs bg-blue-600 text-white py-1.5 px-3 rounded-lg hover:bg-blue-700 transition-colors">
-              Browse All Properties
-            </button>
-            <button className="w-full text-xs bg-green-600 text-white py-1.5 px-3 rounded-lg hover:bg-green-700 transition-colors">
-              Schedule Site Visit
-            </button>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Financial Tools</h3>
+            <div className="space-y-2">
+              <button className="w-full text-xs bg-orange-600 text-white py-1.5 px-3 rounded-lg hover:bg-orange-700 transition-colors">
+                EMI Calculator
+              </button>
+              <button className="w-full text-xs bg-indigo-600 text-white py-1.5 px-3 rounded-lg hover:bg-indigo-700 transition-colors">
+                Loan Application
+              </button>
+              <button className="w-full text-xs bg-teal-600 text-white py-1.5 px-3 rounded-lg hover:bg-teal-700 transition-colors">
+                Affordability Calculator
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Market Analysis</h3>
+            <div className="space-y-2">
+              <button className="w-full text-xs bg-cyan-600 text-white py-1.5 px-3 rounded-lg hover:bg-cyan-700 transition-colors">
+                Price Trends
+              </button>
+              <button className="w-full text-xs bg-pink-600 text-white py-1.5 px-3 rounded-lg hover:bg-pink-700 transition-colors">
+                Area Analysis
+              </button>
+              <button className="w-full text-xs bg-violet-600 text-white py-1.5 px-3 rounded-lg hover:bg-violet-700 transition-colors">
+                Investment Insights
+              </button>
+            </div>
           </div>
         </div>
 
+        {/* Recent Activity */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Financial Tools</h3>
-          <div className="space-y-2">
-            <button className="w-full text-xs bg-orange-600 text-white py-1.5 px-3 rounded-lg hover:bg-orange-700 transition-colors">
-              EMI Calculator
-            </button>
-            <button className="w-full text-xs bg-indigo-600 text-white py-1.5 px-3 rounded-lg hover:bg-indigo-700 transition-colors">
-              Loan Application
-            </button>
-            <button className="w-full text-xs bg-teal-600 text-white py-1.5 px-3 rounded-lg hover:bg-teal-700 transition-colors">
-              Affordability Calculator
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Market Analysis</h3>
-          <div className="space-y-2">
-            <button className="w-full text-xs bg-cyan-600 text-white py-1.5 px-3 rounded-lg hover:bg-cyan-700 transition-colors">
-              Price Trends
-            </button>
-            <button className="w-full text-xs bg-pink-600 text-white py-1.5 px-3 rounded-lg hover:bg-pink-700 transition-colors">
-              Area Analysis
-            </button>
-            <button className="w-full text-xs bg-violet-600 text-white py-1.5 px-3 rounded-lg hover:bg-violet-700 transition-colors">
-              Investment Insights
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Recent Activity</h3>
-        {buyer.activities?.length > 0 ? (
-          <div className="space-y-2">
-            {buyer.activities.slice(0, 5).map((activity: any) => (
-              <div key={activity.id} className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg">
-                <div className="p-1.5 bg-blue-100 rounded-lg">
-                  <Activity className="text-blue-600" size={14} />
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Recent Activity</h3>
+          {buyer.activities?.length > 0 ? (
+            <div className="space-y-2">
+              {buyer.activities.slice(0, 5).map((activity: any) => (
+                <div key={activity.id} className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg">
+                  <div className="p-1.5 bg-blue-100 rounded-lg">
+                    <Activity className="text-blue-600" size={14} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs font-medium text-gray-900">{activity.description}</div>
+                    <div className="text-[10px] text-gray-600">{activity.date} • {activity.time}</div>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <div className="text-xs font-medium text-gray-900">{activity.description}</div>
-                  <div className="text-[10px] text-gray-600">{activity.date} • {activity.time}</div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <Activity className="mx-auto text-gray-300 mb-3" size={36} />
+              <p className="text-xs text-gray-500">No recent activities</p>
+            </div>
+          )}
+        </div>
+
+        {/* Recommended Properties */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-900">Recommended for You</h3>
+            <button className="text-xs text-purple-600 hover:text-purple-800 font-medium">
+              View All
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {buyer.matchedProperties?.slice(0, 2).map((property: any) => (
+              <div key={property.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-1.5">
+                  <h4 className="text-xs font-semibold text-gray-900">{property.title}</h4>
+                  <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-medium">
+                    {property.matchScore}% Match
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-600 mb-1.5">{property.address}</p>
+                <div className="text-sm font-bold text-green-600 mb-2">{formatCurrency(property.price)}</div>
+                <div className="flex space-x-1.5">
+                  <button className="flex-1 text-xs bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 transition-colors">
+                    View Details
+                  </button>
+                  <button className="flex-1 text-xs bg-green-600 text-white py-1 px-2 rounded hover:bg-green-700 transition-colors">
+                    Schedule Visit
+                  </button>
                 </div>
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-center py-6">
-            <Activity className="mx-auto text-gray-300 mb-3" size={36} />
-            <p className="text-xs text-gray-500">No recent activities</p>
-          </div>
-        )}
-      </div>
-
-      {/* Recommended Properties */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">Recommended for You</h3>
-          <button className="text-xs text-purple-600 hover:text-purple-800 font-medium">
-            View All
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {buyer.matchedProperties?.slice(0, 2).map((property: any) => (
-            <div key={property.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-1.5">
-                <h4 className="text-xs font-semibold text-gray-900">{property.title}</h4>
-                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-medium">
-                  {property.matchScore}% Match
-                </span>
-              </div>
-              <p className="text-[11px] text-gray-600 mb-1.5">{property.address}</p>
-              <div className="text-sm font-bold text-green-600 mb-2">{formatCurrency(property.price)}</div>
-              <div className="flex space-x-1.5">
-                <button className="flex-1 text-xs bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 transition-colors">
-                  View Details
-                </button>
-                <button className="flex-1 text-xs bg-green-600 text-white py-1 px-2 rounded hover:bg-green-700 transition-colors">
-                  Schedule Visit
-                </button>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </div>
@@ -451,7 +548,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
   const [shortlisted, setShortlisted] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-const filtersRef = useRef<HTMLDivElement | null>(null);
+  const filtersRef = useRef<HTMLDivElement | null>(null);
   // first load → all properties
   useEffect(() => {
     fetchProperties();
@@ -480,7 +577,7 @@ const filtersRef = useRef<HTMLDivElement | null>(null);
     // optional: collapse the filter panel after searching
     // setShowFilters(false);
     setHasSearched(true);
-     setShowFilters(true);
+    setShowFilters(true);
   };
 
   const handleResetFilters = async () => {
@@ -637,27 +734,27 @@ const filtersRef = useRef<HTMLDivElement | null>(null);
             </button>
 
             {/* Filters Toggle */}
-         <button
-  onClick={() => {
-    if (showFilters) {
-      // already open → hide
-      setShowFilters(false);
-    } else {
-      // closed → open + scroll
-      setShowFilters(true);
-      requestAnimationFrame(() => {
-        filtersRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      });
-    }
-  }}
-  className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700 transition"
->
-  <SlidersHorizontal size={14} className="text-white" />
-  <span>{showFilters ? "Hide Filters" : "Search Filters"}</span>
-</button>
+            <button
+              onClick={() => {
+                if (showFilters) {
+                  // already open → hide
+                  setShowFilters(false);
+                } else {
+                  // closed → open + scroll
+                  setShowFilters(true);
+                  requestAnimationFrame(() => {
+                    filtersRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  });
+                }
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700 transition"
+            >
+              <SlidersHorizontal size={14} className="text-white" />
+              <span>{showFilters ? "Hide Filters" : "Search Filters"}</span>
+            </button>
 
 
           </div>
@@ -670,109 +767,109 @@ const filtersRef = useRef<HTMLDivElement | null>(null);
 
 
         {/* Filters form (collapsible) */}
-        <div ref={filtersRef} className="scroll-mt-20">  
-        {showFilters && (
-          <div className="mt-2">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Location</label>
-                <input
-                  type="text"
-                  value={searchFilters.location}
-                  onChange={(e) => setSearchFilters({ ...searchFilters, location: e.target.value })}
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                  placeholder="Enter location (e.g., hinjewadi)"
-                />
+        <div ref={filtersRef} className="scroll-mt-20">
+          {showFilters && (
+            <div className="mt-2">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={searchFilters.location}
+                    onChange={(e) => setSearchFilters({ ...searchFilters, location: e.target.value })}
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                    placeholder="Enter location (e.g., hinjewadi)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Min Price</label>
+                  <input
+                    type="number"
+                    placeholder="500000"
+                    value={searchFilters.minPrice ?? ""}
+                    onChange={(e) =>
+                      setSearchFilters({
+                        ...searchFilters,
+                        minPrice: e.target.value === "" ? null : Number(e.target.value),
+                      })
+                    }
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Max Price</label>
+                  <input
+                    type="number"
+                    placeholder="1000000"
+                    value={searchFilters.maxPrice ?? ""}
+                    onChange={(e) =>
+                      setSearchFilters({
+                        ...searchFilters,
+                        maxPrice: e.target.value === "" ? null : Number(e.target.value),
+                      })
+                    }
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Unit Types</label>
+                  <input
+                    type="text"
+                    value={searchFilters.unitTypes.join(",")}
+                    onChange={(e) =>
+                      setSearchFilters({
+                        ...searchFilters,
+                        unitTypes: e.target.value
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                    placeholder="1BHK,2BHK,3BHK"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Sort</label>
+                  <select
+                    value={searchFilters.sort}
+                    onChange={(e) =>
+                      setSearchFilters({
+                        ...searchFilters,
+                        sort: e.target.value as SortKey,
+                      })
+                    }
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                  >
+                    <option value="newest">Newest</option>
+                    <option value="low_to_high">Price: Low to High</option>
+                    <option value="high_to_low">Price: High to Low</option>
+                    <option value="medium">Price: Mid</option>
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Min Price</label>
-                <input
-                  type="number"
-                  placeholder="500000"
-                  value={searchFilters.minPrice ?? ""}
-                  onChange={(e) =>
-                    setSearchFilters({
-                      ...searchFilters,
-                      minPrice: e.target.value === "" ? null : Number(e.target.value),
-                    })
-                  }
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Max Price</label>
-                <input
-                  type="number"
-                  placeholder="1000000"
-                  value={searchFilters.maxPrice ?? ""}
-                  onChange={(e) =>
-                    setSearchFilters({
-                      ...searchFilters,
-                      maxPrice: e.target.value === "" ? null : Number(e.target.value),
-                    })
-                  }
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Unit Types</label>
-                <input
-                  type="text"
-                  value={searchFilters.unitTypes.join(",")}
-                  onChange={(e) =>
-                    setSearchFilters({
-                      ...searchFilters,
-                      unitTypes: e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                  placeholder="1BHK,2BHK,3BHK"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Sort</label>
-                <select
-                  value={searchFilters.sort}
-                  onChange={(e) =>
-                    setSearchFilters({
-                      ...searchFilters,
-                      sort: e.target.value as SortKey,
-                    })
-                  }
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+              {/* Actions */}
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <button
+                  onClick={handleResetFilters}
+                  className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  <option value="newest">Newest</option>
-                  <option value="low_to_high">Price: Low to High</option>
-                  <option value="high_to_low">Price: High to Low</option>
-                  <option value="medium">Price: Mid</option>
-                </select>
+                  Reset
+                </button>
+                <button
+                  onClick={handleSearch}
+                  className="px-4 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Search Properties
+                </button>
               </div>
             </div>
-
-            {/* Actions */}
-            <div className="mt-3 flex items-center justify-end gap-2">
-              <button
-                onClick={handleResetFilters}
-                className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Reset
-              </button>
-              <button
-                onClick={handleSearch}
-                className="px-4 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
-              >
-                Search Properties
-              </button>
-            </div>
-          </div>
-        )}
+          )}
         </div>
       </div>
 

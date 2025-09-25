@@ -1,10 +1,12 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+// components/auth/ProtectedRoute.tsx
+import React, { ReactNode } from 'react';
+import { Navigate, useLocation, matchPath } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
+
 interface ProtectedRouteProps {
-  children: React.ReactNode;
+  children: ReactNode;
   roles?: string[];
 }
 
@@ -20,22 +22,58 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles }) => {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // If roles were explicitly required for this route, enforce them first.
   if (roles && !hasRole(roles)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
-          <p className="text-gray-600">You don't have permission to access this page.</p>
-        </div>
-      </div>
-    );
+    return <Navigate to="/" replace />;
   }
 
-  return <>{children}</>;
+  const path = location.pathname;
+
+  // Admin/Manager/Agent: full access
+  if (hasRole(['admin', 'manager', 'agent'])) {
+    return <>{children}</>;
+  }
+
+  // Buyer: only /buyer-dashboard/:id, AND must own that id
+  if (hasRole('buyer')) {
+    const buyerMatch = matchPath('/buyer-dashboard/:id', path);
+    if (!buyerMatch || !buyerMatch.params?.id) {
+      return <Navigate to="/" replace />;
+    }
+
+    const paramId = String(buyerMatch.params.id);
+    const buyerId = user?.buyer_id != null ? String(user.buyer_id) : '';
+
+    if (!buyerId || buyerId !== paramId) {
+      return <Navigate to="/" replace />;
+    }
+
+    return <>{children}</>;
+  }
+
+  // Seller: only /seller-dashboard/:id, AND must own that id
+  if (hasRole('seller')) {
+    const sellerMatch = matchPath('/seller-dashboard/:id', path);
+    if (!sellerMatch || !sellerMatch.params?.id) {
+      return <Navigate to="/" replace />;
+    }
+
+    const paramId = String(sellerMatch.params.id);
+    const sellerId = user?.seller_id != null ? String(user.seller_id) : '';
+
+    if (!sellerId || sellerId !== paramId) {
+      return <Navigate to="/" replace />;
+    }
+
+    return <>{children}</>;
+  }
+
+  // Any other role -> home
+  return <Navigate to="/" replace />;
 };
 
 export default ProtectedRoute;

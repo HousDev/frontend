@@ -35,6 +35,7 @@ import ImportLeadsModal from "../../components/sellers/ImportLeadsModal";
 import { sellerAPI } from "@/lib/sellersAPI";
 import { toast } from "react-toastify";
 import SellerSidebarFilter from "./components/SellerSidebarFilter";
+import { useNavigate } from "react-router-dom";
 
 // ---------- Helpers ----------
 const safe = <T,>(v: T | null | undefined, fallback: string | number = "-") =>
@@ -100,7 +101,7 @@ type UISeller = {
 };
 
 // Map API seller -> UI seller shape
-const mapApiSellerToUI = (api: any): UISeller => ({
+export const mapApiSellerToUI = (api: any): UISeller => ({
   id: Number(api.id ?? api.seller_id ?? api._id),
   salutation: safe(api.salutation, "Mr.") as string,
   name: safe(api.name, "-") as string,
@@ -156,6 +157,7 @@ const mapApiSellerToUI = (api: any): UISeller => ({
 
 // ---------- Component ----------
 const SellersPage: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSellers, setSelectedSellers] = useState<number[]>([]);
@@ -451,9 +453,9 @@ const handleExportAllFiltered = () => {
   //   setCurrentSellerAccount(seller);
   // };
 
-  const handleSellerAccount = (sellerId: number) => {
-    const fullSeller = sellers.find(s => s.id === sellerId);
-    if (fullSeller) setCurrentSellerAccount(fullSeller);
+   const handleSellerAccount = (sellerId: number) => {
+    // Navigate to the standalone seller account page
+    navigate(`/dashboard/sellers-account/${sellerId}`);
   };
 
 

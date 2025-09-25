@@ -235,54 +235,55 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
       exportedAt: new Date().toISOString(),
     };
 
-    // Replace with real export (CSV/PDF) in production
-    // eslint-disable-next-line no-console
     console.log('Exporting analytics:', analyticsData);
     alert('Analytics report exported successfully!');
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-6 pb-2 sm:pb-4 lg:pb-6 pt-0
+">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h2>
-          <p className="text-gray-600 mt-1">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Analytics Dashboard</h2>
+          <p className="text-xs text-gray-600 mt-1">
             Comprehensive performance insights and AI-powered recommendations
           </p>
         </div>
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 text-sm text-gray-500">
-            <Clock size={14} />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+          <div className="flex items-center space-x-2 text-xs text-gray-500">
+            <Clock size={12} />
             <span>Last updated: {lastUpdated.toLocaleTimeString()}</span>
           </div>
-          <button
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`p-2 rounded-lg transition-colors ${autoRefresh ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
-              }`}
-            title={autoRefresh ? 'Auto-refresh enabled' : 'Auto-refresh disabled'}
-          >
-            <RefreshCw size={16} className={autoRefresh ? 'animate-spin' : ''} />
-          </button>
-          <button
-            onClick={exportAnalytics}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Download size={16} />
-            <span>Export Report</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`p-2 rounded-lg transition-colors ${autoRefresh ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
+                }`}
+              title={autoRefresh ? 'Auto-refresh enabled' : 'Auto-refresh disabled'}
+            >
+              <RefreshCw size={14} className={autoRefresh ? 'animate-spin' : ''} />
+            </button>
+            <button
+              onClick={exportAnalytics}
+              className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
+            >
+              <Download size={14} />
+              <span className="hidden sm:inline">Export Report</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex items-center space-x-4">
+      <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
           <div className="flex items-center space-x-2">
-            <Calendar size={16} className="text-gray-500" />
+            <Calendar size={14} className="text-gray-500" />
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value as Period)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
             >
               {periods.map((period) => (
                 <option key={period.value} value={period.value}>
@@ -292,11 +293,11 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
             </select>
           </div>
           <div className="flex items-center space-x-2">
-            <Building size={16} className="text-gray-500" />
+            <Building size={14} className="text-gray-500" />
             <select
               value={selectedProperty}
               onChange={(e) => setSelectedProperty(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
             >
               {properties.map((property) => (
                 <option key={property.value} value={property.value}>
@@ -309,7 +310,7 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
       </div>
 
       {/* Performance Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {performanceMetrics.map((metric, index) => {
           const Icon = metric.icon;
           const isPositive = metric.trend === 'up';
@@ -318,24 +319,23 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
           return (
             <div
               key={index}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-xl ${colors.bg100}`}>
-                  {/* size prop is allowed now by IconComponent type */}
-                  <Icon size={24} className={colors.text600} />
+              <div className="flex items-center justify-between mb-3">
+                <div className={`p-2 rounded-lg ${colors.bg100}`}>
+                  <Icon size={18} className={colors.text600} />
                 </div>
                 <div
                   className={`flex items-center space-x-1 ${isPositive ? 'text-green-600' : 'text-red-600'
                     }`}
                 >
-                  {isPositive ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
-                  <span className="text-sm font-medium">{metric.change}</span>
+                  {isPositive ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+                  <span className="text-xs font-medium">{metric.change}</span>
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">{metric.label}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{metric.value}</p>
+                <p className="text-xs font-medium text-gray-600">{metric.label}</p>
+                <p className="text-sm sm:text-base font-bold text-gray-900 mt-1">{metric.value}</p>
                 <p className="text-xs text-gray-500 mt-2">{metric.description}</p>
               </div>
             </div>
@@ -344,26 +344,26 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
       </div>
 
       {/* AI Insights Section */}
-      <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-200 p-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl">
-            <Bot className="text-white" size={24} />
+      <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-4 sm:p-6">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
+            <Bot className="text-white" size={18} />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-900">AI-Powered Insights</h3>
-            <p className="text-gray-600">
+            <h3 className="text-sm font-bold text-gray-900">AI-Powered Insights</h3>
+            <p className="text-xs text-gray-600">
               Smart recommendations to optimize your property performance
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {aiInsights.map((insight, index) => (
-            <div key={index} className="bg-white rounded-xl p-4 border border-purple-100">
-              <div className="flex items-start justify-between mb-3">
+            <div key={index} className="bg-white rounded-lg p-3 border border-purple-100">
+              <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center space-x-2">
-                  <Brain className="text-purple-600" size={16} />
-                  <span className="text-sm font-medium text-purple-800 uppercase tracking-wide">
+                  <Brain className="text-purple-600" size={14} />
+                  <span className="text-xs font-medium text-purple-800 uppercase tracking-wide">
                     {insight.type.replace('_', ' ')}
                   </span>
                 </div>
@@ -383,9 +383,9 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
                   </span>
                 </div>
               </div>
-              <h4 className="font-semibold text-gray-900 mb-2">{insight.title}</h4>
-              <p className="text-sm text-gray-700 mb-3">{insight.insight}</p>
-              <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2 px-4 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all text-sm font-medium">
+              <h4 className="font-semibold text-gray-900 mb-2 text-xs">{insight.title}</h4>
+              <p className="text-xs text-gray-700 mb-3">{insight.insight}</p>
+              <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2 px-4 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all text-xs font-medium">
                 {insight.action}
               </button>
             </div>
@@ -394,18 +394,18 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
       </div>
 
       {/* Market Position Analysis */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Target className="mr-2 text-blue-600" size={20} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+            <Target className="mr-2 text-blue-600" size={16} />
             Market Position
           </h3>
 
           <div className="space-y-4">
-            <div className="bg-blue-50 rounded-lg p-4">
+            <div className="bg-blue-50 rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-700">Price Percentile</span>
-                <span className="text-lg font-bold text-blue-900">
+                <span className="text-xs font-medium text-blue-700">Price Percentile</span>
+                <span className="text-sm font-bold text-blue-900">
                   {marketAnalysis.pricePosition.percentile}th
                 </span>
               </div>
@@ -422,13 +422,13 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="text-center p-3 bg-green-50 rounded-lg">
-                <div className="text-lg font-bold text-green-600">
+                <div className="text-xs sm:text-sm font-bold text-green-600">
                   {formatCurrency(marketAnalysis.pricePosition.marketPrice)}
                 </div>
                 <div className="text-xs text-green-700">Market Average</div>
               </div>
               <div className="text-center p-3 bg-purple-50 rounded-lg">
-                <div className="text-lg font-bold text-purple-600">
+                <div className="text-xs sm:text-sm font-bold text-purple-600">
                   {formatCurrency(marketAnalysis.pricePosition.yourPrice)}
                 </div>
                 <div className="text-xs text-purple-700">Your Price</div>
@@ -437,7 +437,7 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
 
             <div className="text-center">
               <span
-                className={`text-sm font-medium ${marketAnalysis.pricePosition.difference.startsWith('+')
+                className={`text-xs font-medium ${marketAnalysis.pricePosition.difference.startsWith('+')
                     ? 'text-green-600'
                     : 'text-red-600'
                   }`}
@@ -448,37 +448,37 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <TrendingUp className="mr-2 text-green-600" size={20} />
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+            <TrendingUp className="mr-2 text-green-600" size={16} />
             Demand Analysis
           </h3>
 
           <div className="space-y-4">
             <div className="text-center">
-              <div className="text-4xl font-bold text-green-600 mb-2">
+              <div className="text-2xl font-bold text-green-600 mb-2">
                 {marketAnalysis.demandLevel.score}
               </div>
-              <div className="text-sm text-green-700 font-medium">
+              <div className="text-xs text-green-700 font-medium">
                 {marketAnalysis.demandLevel.level} Demand
               </div>
             </div>
 
             <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-700">Demand Factors:</div>
+              <div className="text-xs font-medium text-gray-700">Demand Factors:</div>
               {marketAnalysis.demandLevel.factors.map((factor, index) => (
                 <div key={index} className="flex items-center space-x-2">
-                  <CheckCircle className="text-green-500" size={12} />
-                  <span className="text-sm text-gray-700">{factor}</span>
+                  <CheckCircle className="text-green-500" size={10} />
+                  <span className="text-xs text-gray-700">{factor}</span>
                 </div>
               ))}
             </div>
 
             <div className="bg-green-50 rounded-lg p-3 text-center">
-              <div className="text-sm font-medium text-green-700">Market Trend</div>
+              <div className="text-xs font-medium text-green-700">Market Trend</div>
               <div className="flex items-center justify-center space-x-1 mt-1">
-                <TrendingUp className="text-green-600" size={14} />
-                <span className="text-sm font-bold text-green-800 capitalize">
+                <TrendingUp className="text-green-600" size={12} />
+                <span className="text-xs font-bold text-green-800 capitalize">
                   {marketAnalysis.demandLevel.trend}
                 </span>
               </div>
@@ -488,31 +488,31 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
       </div>
 
       {/* Traffic Sources */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Globe className="mr-2 text-blue-600" size={20} />
+      <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+          <Globe className="mr-2 text-blue-600" size={16} />
           Traffic Sources
         </h3>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {trafficSources.map((source, index) => {
             const colors = colorMap[source.color];
             return (
               <div
                 key={index}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
               >
                 <div className="flex items-center space-x-3">
-                  <div className={`w-4 h-4 rounded-full ${colors.dot}`} />
+                  <div className={`w-3 h-3 rounded-full ${colors.dot}`} />
                   <div>
-                    <div className="font-medium text-gray-900">{source.source}</div>
-                    <div className="text-sm text-gray-600">
+                    <div className="font-medium text-gray-900 text-xs">{source.source}</div>
+                    <div className="text-xs text-gray-600">
                       {source.views} views • {source.inquiries} inquiries
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-bold text-gray-900">{source.percentage}%</div>
+                  <div className="text-sm font-bold text-gray-900">{source.percentage}%</div>
                   <div className="text-xs text-gray-500">of total traffic</div>
                 </div>
               </div>
@@ -522,21 +522,21 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
       </div>
 
       {/* Visitor Demographics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h4 className="font-semibold text-gray-900 mb-4">Age Groups</h4>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+          <h4 className="font-semibold text-gray-900 mb-4 text-xs">Age Groups</h4>
           <div className="space-y-3">
             {visitorDemographics.ageGroups.map((group, index) => (
               <div key={index} className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">{group.range} years</span>
+                <span className="text-xs text-gray-700">{group.range} years</span>
                 <div className="flex items-center space-x-2">
-                  <div className="w-20 bg-gray-200 rounded-full h-2">
+                  <div className="w-16 bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-blue-500 h-2 rounded-full"
                       style={{ width: `${group.percentage}%` }}
                     />
                   </div>
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-xs font-medium text-gray-900">
                     {group.percentage}%
                   </span>
                 </div>
@@ -545,20 +545,20 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h4 className="font-semibold text-gray-900 mb-4">Budget Ranges</h4>
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+          <h4 className="font-semibold text-gray-900 mb-4 text-xs">Budget Ranges</h4>
           <div className="space-y-3">
             {visitorDemographics.budgetRanges.map((range, index) => (
               <div key={index} className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">{range.range}</span>
+                <span className="text-xs text-gray-700">{range.range}</span>
                 <div className="flex items-center space-x-2">
-                  <div className="w-20 bg-gray-200 rounded-full h-2">
+                  <div className="w-16 bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-green-500 h-2 rounded-full"
                       style={{ width: `${range.percentage}%` }}
                     />
                   </div>
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-xs font-medium text-gray-900">
                     {range.percentage}%
                   </span>
                 </div>
@@ -567,20 +567,20 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h4 className="font-semibold text-gray-900 mb-4">Visitor Locations</h4>
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+          <h4 className="font-semibold text-gray-900 mb-4 text-xs">Visitor Locations</h4>
           <div className="space-y-3">
             {visitorDemographics.locations.map((location, index) => (
               <div key={index} className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">{location.area}</span>
+                <span className="text-xs text-gray-700">{location.area}</span>
                 <div className="flex items-center space-x-2">
-                  <div className="w-20 bg-gray-200 rounded-full h-2">
+                  <div className="w-16 bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-purple-500 h-2 rounded-full"
                       style={{ width: `${location.percentage}%` }}
                     />
                   </div>
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-xs font-medium text-gray-900">
                     {location.percentage}%
                   </span>
                 </div>
@@ -591,32 +591,32 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
       </div>
 
       {/* Competitor Analysis */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <BarChart3 className="mr-2 text-orange-600" size={20} />
+      <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+          <BarChart3 className="mr-2 text-orange-600" size={16} />
           Competitor Analysis
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center p-4 bg-orange-50 rounded-xl">
-            <div className="text-2xl font-bold text-orange-600">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="text-center p-3 bg-orange-50 rounded-lg">
+            <div className="text-lg sm:text-xl font-bold text-orange-600">
               {marketAnalysis.competitorAnalysis.similarProperties}
             </div>
-            <div className="text-sm text-orange-700 mt-1">Similar Properties</div>
+            <div className="text-xs text-orange-700 mt-1">Similar Properties</div>
             <div className="text-xs text-orange-600 mt-2">In your area</div>
           </div>
-          <div className="text-center p-4 bg-blue-50 rounded-xl">
-            <div className="text-2xl font-bold text-blue-600">
+          <div className="text-center p-3 bg-blue-50 rounded-lg">
+            <div className="text-lg sm:text-xl font-bold text-blue-600">
               {formatCurrency(marketAnalysis.competitorAnalysis.averagePrice)}
             </div>
-            <div className="text-sm text-blue-700 mt-1">Average Price</div>
+            <div className="text-xs text-blue-700 mt-1">Average Price</div>
             <div className="text-xs text-blue-600 mt-2">Competitor pricing</div>
           </div>
-          <div className="text-center p-4 bg-green-50 rounded-xl">
-            <div className="text-2xl font-bold text-green-600">
+          <div className="text-center p-3 bg-green-50 rounded-lg">
+            <div className="text-lg sm:text-xl font-bold text-green-600">
               {marketAnalysis.competitorAnalysis.yourDaysOnMarket}
             </div>
-            <div className="text-sm text-green-700 mt-1">Days on Market</div>
+            <div className="text-xs text-green-700 mt-1">Days on Market</div>
             <div className="text-xs text-green-600 mt-2">
               vs {marketAnalysis.competitorAnalysis.averageDaysOnMarket} avg
             </div>
@@ -625,19 +625,19 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
       </div>
 
       {/* Performance Recommendations */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <BarChart3 className="mr-2 text-yellow-600" size={20} />
+      <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+          <BarChart3 className="mr-2 text-yellow-600" size={16} />
           Performance Recommendations
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-green-50 rounded-lg p-4">
+          <div className="bg-green-50 rounded-lg p-3">
             <div className="flex items-center space-x-2 mb-2">
-              <CheckCircle className="text-green-600" size={16} />
-              <span className="font-medium text-green-800">What's Working Well</span>
+              <CheckCircle className="text-green-600" size={14} />
+              <span className="font-medium text-green-800 text-xs">What's Working Well</span>
             </div>
-            <ul className="text-sm text-green-700 space-y-1">
+            <ul className="text-xs text-green-700 space-y-1">
               <li>• High inquiry rate (23% above average)</li>
               <li>• Good visitor conversion (65%)</li>
               <li>• Competitive pricing strategy</li>
@@ -645,12 +645,12 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
             </ul>
           </div>
 
-          <div className="bg-orange-50 rounded-lg p-4">
+          <div className="bg-orange-50 rounded-lg p-3">
             <div className="flex items-center space-x-2 mb-2">
-              <AlertCircle className="text-orange-600" size={16} />
-              <span className="font-medium text-orange-800">Areas for Improvement</span>
+              <AlertCircle className="text-orange-600" size={14} />
+              <span className="font-medium text-orange-800 text-xs">Areas for Improvement</span>
             </div>
-            <ul className="text-sm text-orange-700 space-y-1">
+            <ul className="text-xs text-orange-700 space-y-1">
               <li>• Add professional photography</li>
               <li>• Create virtual tour</li>
               <li>• Optimize listing descriptions</li>
