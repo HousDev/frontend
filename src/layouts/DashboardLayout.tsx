@@ -46,7 +46,9 @@ import {
   TrendingUp,
   Calculator,
   Archive,
-  Bookmark
+  Bookmark,
+  Info,
+  PanelBottom
 } from 'lucide-react';
 import { FaEarthAsia } from 'react-icons/fa6';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,6 +58,7 @@ import ActivityTrackerModal from './ActivityTrackerModal';
 import NotificationPanel from './NotificationPanel';
 import { notificationAPI } from '@/lib/notificationAPI';
 import UserProfileMenu from './UserProfileMenu';
+
 
 // DashboardLayout with unified menu color (#0b3855)
 const DashboardLayout = () => {
@@ -243,7 +246,13 @@ const DashboardLayout = () => {
         colorClass: navTextClass,
         type: 'dropdown',
         key: 'cms',
-        submenu: [{ name: 'Blog Manager', href: '/dashboard/blog-manager', icon: Edit3, colorClass: navTextClass }]
+        submenu: [
+          { name: 'Blog Manager', href: '/dashboard/blog-manager', icon: Edit3, colorClass: navTextClass },
+          { name: 'About Manager', href: '/dashboard/about-cms', icon: Info, colorClass: navTextClass },
+          { name: 'Contact Manager', href: '/dashboard/contact-cms', icon: Phone, colorClass: navTextClass },
+          { name: 'Service Manager', href: '/dashboard/service-cms', icon: Shield, colorClass: navTextClass },
+          { name: 'Footer Manager', href: '/dashboard/footer-cms', icon: PanelBottom, colorClass: navTextClass },
+        ]
       },
       {
         name: 'CRM',
@@ -523,7 +532,7 @@ const DashboardLayout = () => {
   if (!user) return <Navigate to="/login" replace />;
 
   const companyLogo = systemSettings?.company_logo;
-  const companyName = systemSettings?.company_name || 'Resale Expert';
+  const companyName = systemSettings?.company_name;
 
   // Sidebar component with unified nav color
   const SidebarComponent = useMemo(() => {
@@ -532,12 +541,12 @@ const DashboardLayout = () => {
         {/* Modern header with blue gradient */}
         <div className="flex items-center h-16 px-6 border-b border-slate-200 ">
           {companyLogo ? (
-            <img src={companyLogo} alt="Company Logo" className="h-10 max-h-10 flex-1 object-contain" />
+            <img
+              src={companyLogo}
+              alt={`${companyName}`}
+              className="h-10 max-h-10 flex-1 object-contain" />
           ) : (
             <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Building className="h-6 w-6 text-white" />
-              </div>
               <div className="hidden sm:block">
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
                   {companyName}

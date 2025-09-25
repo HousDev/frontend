@@ -114,7 +114,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose }
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
 
@@ -178,15 +178,15 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose }
                     </div>
                   )}
 
-                  <div className="text-center mb-6">
-                    <div className={`w-16 h-16 bg-gradient-to-r from-${plan.color}-500 to-${plan.color}-600 rounded-2xl flex items-center justify-center mx-auto mb-4`}>
-                      <Icon className="text-white" size={28} />
+                  <div className="text-center mb-2">
+                    <div className={`w-10 h-10 bg-gradient-to-r from-${plan.color}-500 to-${plan.color}-600 rounded-2xl flex items-center justify-center mx-auto mb-4`}>
+                      <Icon className="text-white" size={20} />
                     </div>
                     <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                     <p className="text-gray-600 text-sm mb-4">{plan.description}</p>
                     
                     <div className="mb-4">
-                      <div className="text-4xl font-bold text-gray-900">
+                      <div className="text-3xl font-bold text-gray-900">
                         ₹{price.toLocaleString()}
                       </div>
                       <div className="text-sm text-gray-600">
@@ -279,14 +279,14 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose }
           <div className="flex space-x-4">
             <button
               onClick={onClose}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-2 py-1 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Maybe Later
             </button>
             <button
               onClick={handleSubscribe}
               disabled={isProcessing}
-              className="px-8 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              className="px-2 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
               {isProcessing ? (
                 <>

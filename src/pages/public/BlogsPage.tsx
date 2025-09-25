@@ -11,21 +11,21 @@ import {
   Heart,
   MessageSquare,
 } from "lucide-react";
-import BlogDetailPage from "./BlogDetailPage";
+import BlogDetailPage, { BlogPost as DetailBlogPost } from "@/pages/public/BlogDetailPage";
 import blogsAPI from "@/lib/blogsAPI";
 import { useNavigate, useParams } from "react-router-dom";
 
-interface BlogPost {
+export interface BlogPost {
   id: number | string;
   title: string;
-  excerpt: string;
-  content: string;
-  author: string;
-  date: string; // ISO
-  category: string;
-  readTime: string;
+  excerpt?: string;
+  content?: string;
+  author?: string;
+  date?: string; // ISO
+  category?: string;
+  readTime?: string;
   image?: string;
-  tags: string[];
+  tags?: string[];
   views?: number;
   likes?: number;
   comments?: number;
@@ -33,8 +33,8 @@ interface BlogPost {
   slug?: string;
 }
 export interface BlogDetailPageProps {
-  slug: string;
-  post?: BlogPost; // <-- make this optional so BlogsPage can pass selectedPostObj
+  slug?: string;
+  post?: BlogPost;
   loading?: boolean;
   onBack?: () => void;
 }
@@ -185,16 +185,11 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
           slug: post.slug ?? selectedPostSlug,
           title: post.title ?? "Untitled",
           excerpt:
-            post.excerpt ??
-            (typeof post.content === "string" ? (post.content.slice(0, 160) + (post.content.length > 160 ? "…" : "")) : ""),
+            post.excerpt ?? (typeof post.content === "string" ? (post.content.slice(0, 160) + (post.content.length > 160 ? "…" : "")) : ""),
           content: post.content ?? "",
           author: post.author ?? "Admin",
           date:
-            post.publishedAt ??
-            post.published_at ??
-            post.createdAt ??
-            post.created_at ??
-            new Date().toISOString(),
+            post.publishedAt ?? post.published_at ?? post.createdAt ?? post.created_at ?? new Date().toISOString(),
           category: post.category ?? "Uncategorized",
           readTime: post.readTime ? String(post.readTime) : post.read_time ? String(post.read_time) : "5 min read",
           image: post.featuredImage ?? post.featured_image ?? post.image ?? "",
@@ -237,13 +232,13 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
     arr.sort((a, b) => {
       switch (sortBy) {
         case "oldest":
-          return new Date(a.date).getTime() - new Date(b.date).getTime();
+          return new Date(a.date ?? "").getTime() - new Date(b.date ?? "").getTime();
         case "popular":
           return (b.views || 0) - (a.views || 0);
         case "trending":
           return (b.likes || 0) - (a.likes || 0);
         default:
-          return new Date(b.date).getTime() - new Date(a.date).getTime();
+          return new Date(b.date ?? "").getTime() - new Date(a.date ?? "").getTime();
       }
     });
     return arr;
@@ -285,12 +280,16 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-20">
+      <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">Real Estate Insights & News</h1>
-          <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl mx-auto">
-            Stay informed with the latest trends, tips, and expert analysis in the real estate industry
+          <h2 className="text-3xl font-bold mb-6">
+            Real Estate Insights & News
+          </h2>
+          <p className="text-xl mb-10 text-blue-100 max-w-3xl mx-auto leading-relaxed">
+            Stay informed with the latest market trends, expert tips, and property updates.
+            From buying and selling guidance to investment insights and design ideas — everything you need in one place.
           </p>
+
         </div>
       </div>
 
@@ -305,7 +304,7 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
             <div className="md:flex">
               {featuredPost.image ? (
                 <div className="md:w-1/2">
-                  <img src={featuredPost.image} alt={featuredPost.title} className="w-full h-64 md:h-full object-cover" />
+                  <img src={featuredPost.image} alt={featuredPost.title} className="w-full h-50 md:h-full object-cover" />
                 </div>
               ) : null}
               <div className="md:w-1/2 p-8">
@@ -313,12 +312,12 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
                   <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">Featured</span>
                   <span className="ml-3 text-gray-500 text-sm">{featuredPost.category}</span>
                 </div>
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">{featuredPost.title}</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-4">{featuredPost.title}</h2>
                 <p className="text-gray-600 mb-6 leading-relaxed">{featuredPost.excerpt}</p>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4 text-sm text-gray-500">
                     <div className="flex items-center"><User className="w-4 h-4 mr-1" />{featuredPost.author}</div>
-                    <div className="flex items-center"><Calendar className="w-4 h-4 mr-1" />{new Date(featuredPost.date).toLocaleDateString()}</div>
+                    <div className="flex items-center"><Calendar className="w-4 h-4 mr-1" />{new Date(featuredPost.date ?? "").toLocaleDateString()}</div>
                     <div className="flex items-center"><Clock className="w-4 h-4 mr-1" />{featuredPost.readTime}</div>
                   </div>
                   <button onClick={() => handlePostClick(featuredPost)} className="flex items-center text-blue-600 hover:text-blue-700 font-medium transition-colors">
@@ -331,7 +330,7 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
         ) : null}
 
         {/* Search & Filters */}
-        <div className="py-6">
+        <div className="py-2">
           <div className="flex flex-col md:flex-row gap-4 mb-8">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -406,7 +405,7 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900">{post.author}</p>
-                          <p className="text-xs text-gray-500">{new Date(post.date).toLocaleDateString()}</p>
+                          <p className="text-xs text-gray-500">{new Date(post.date ?? "").toLocaleDateString()}</p>
                         </div>
                       </div>
 
@@ -427,8 +426,8 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
         </div>
 
         {/* Newsletter */}
-        <div className="mt-16 bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl p-8 md:p-12 text-center">
-          <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">Stay Updated with Our Newsletter</h3>
+        <div className="mt-5 mb-5 bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl p-8 md:p-12 text-center">
+          <h2 className="text-2xl font-bold text-white mb-2">Stay Updated with Our Newsletter</h2>
           <p className="text-blue-100 mb-8 max-w-2xl mx-auto">Get the latest real estate insights, market updates, and expert tips delivered directly to your inbox.</p>
           <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
             <input type="email" placeholder="Enter your email" className="flex-1 px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600" />

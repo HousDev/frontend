@@ -936,12 +936,12 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center bg-white bg-opacity-95 p-6 rounded-xl shadow-lg border border-gray-200">
-                      <Lock className="text-blue-600 mx-auto mb-3" size={32} />
+                      <Lock className="text-blue-600 mx-auto mb-3" size={20} />
                       <h3 className="text-lg font-bold text-gray-900 mb-2">Premium AI Insights</h3>
                       <p className="text-gray-600 mb-4">Get detailed recommendations and market analysis</p>
                       <button
                         onClick={() => handlePaywallOpen('ai-recommendations')}
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-2 py-1 rounded-lg font-semibold hover:shadow-lg transition-all"
                       >
                         Unlock for ₹299
                       </button>
@@ -1209,12 +1209,12 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center bg-white bg-opacity-95 p-4 rounded-xl shadow-lg border border-gray-200">
-                      <Crown className="text-purple-600 mx-auto mb-2" size={28} />
+                      <Crown className="text-purple-600 mx-auto mb-2" size={20} />
                       <h4 className="font-bold text-gray-900 mb-1">Investment Analysis</h4>
                       <p className="text-xs text-gray-600 mb-3">Get AI-powered investment insights</p>
                       <button
                         onClick={() => handlePaywallOpen('ai-investment')}
-                        className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg font-semibold text-sm hover:shadow-lg transition-all"
+                        className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-2 py-1 rounded-lg font-semibold text-sm hover:shadow-lg transition-all"
                       >
                         Unlock ₹299
                       </button>

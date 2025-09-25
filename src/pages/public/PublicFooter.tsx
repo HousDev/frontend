@@ -1,12 +1,12 @@
 import React from 'react';
-import { 
-  Home, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Facebook, 
-  Twitter, 
-  Instagram, 
+import {
+  Home,
+  Phone,
+  Mail,
+  MapPin,
+  Facebook,
+  Twitter,
+  Instagram,
   Linkedin,
   Youtube,
   Building,
@@ -55,9 +55,9 @@ const PublicFooter = ({ onPageChange }: any) => {
   ];
 
 
-   const { systemSettings } = useSystemSettings();
-    const companyName = systemSettings?.company_name;
-    const companyLogo = systemSettings?.company_logo;
+  const { systemSettings } = useSystemSettings();
+  const companyName = systemSettings?.company_name;
+  const companyLogo = systemSettings?.company_logo;
   return (
     <footer className="bg-gray-900 text-white">
       {/* Main Footer */}
@@ -68,24 +68,20 @@ const PublicFooter = ({ onPageChange }: any) => {
             <div className="flex items-center space-x-3 mb-6">
               <Link to="/" className="flex items-center space-x-2">
                 <div className="flex items-center h-16 px-6 border-b space-x-3">
-                  {/* ✅ अगर logo है तो सिर्फ logo दिखे */}
                   {companyLogo ? (
                     <img
                       src={companyLogo}
-                      alt="Company Logo"
+                      alt={`${companyName}`}
                       className="h-10 w-25 object-contain rounded-xs shadow-sm bg-white p-1"
                     />
                   ) : (
-                      <>
-                        <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-                          <Building className="h-6 w-6 text-white" />
-                        </div>
-                        <div className="hidden sm:block">
-                          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
-                            {companyName}
-                          </h1>
-                        </div>
-                      </>
+                    <div className="flex items-center space-x-3">
+                      <div className="hidden sm:block">
+                        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
+                          {companyName}
+                        </h1>
+                      </div>
+                    </div>
                   )}
                 </div>
               </Link>
@@ -94,7 +90,7 @@ const PublicFooter = ({ onPageChange }: any) => {
             <p className="text-gray-300 mb-6 leading-relaxed">
               Your Trusted Real Estate Partner
             </p>
-            
+
             {/* Trust Indicators */}
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
@@ -220,7 +216,7 @@ const PublicFooter = ({ onPageChange }: any) => {
             <div className="text-gray-400 text-sm mb-4 md:mb-0">
               © {currentYear} &nbsp;{companyName}&nbsp;. All rights reserved. | Designed with ❤️ for better real estate experience.
             </div>
-            
+
             {/* Social Links */}
             <div className="flex items-center space-x-4">
               <span className="text-gray-400 text-sm mr-2">Follow us:</span>

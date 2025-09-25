@@ -182,16 +182,13 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                   className="h-10 w-auto object-contain rounded-lg shadow-sm bg-white p-1"
                 />
               ) : (
-                <>
-                  <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <span className="text-white font-bold">RE</span>
-                  </div>
+                  <div className="flex items-center space-x-3">
                   <div className="hidden sm:block">
                     <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
                       {companyName}
                     </h1>
                   </div>
-                </>
+                 </div> 
               )}
             </Link>
 
@@ -238,7 +235,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleSellPropertyClick}
-                className="hidden sm:flex items-center space-x-2 bg-[#e68130] opacity-1 text-white px-5 py-2.5 rounded-xl hover:bg-[#e67310] transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                className="hidden sm:flex items-center space-x-2 bg-[#e68130] opacity-1 text-white px-3 py-2 rounded-xl hover:bg-[#e67310] transition-all text-sm font-medium shadow-md hover:shadow-lg"
                 aria-label="Sell property"
               >
                 <span className="font-semibold">Sell Property</span>
@@ -273,7 +270,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                       </Link>
                       <Link
                         to="/register"
-                        className="bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:from-[#092e45] hover:to-[#071f2e] transition-colors shadow-md hover:shadow-lg"
+                        className="bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-3 py-2 rounded-xl text-sm font-medium hover:from-[#092e45] hover:to-[#071f2e] transition-colors shadow-md hover:shadow-lg"
                       >
                         Get Started
                       </Link>
