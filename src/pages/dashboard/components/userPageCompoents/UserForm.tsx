@@ -69,10 +69,29 @@ const UserForm: React.FC<UserFormProps> = ({
 }) => {
   if (!visible) return null;
 
+  const roles = masters.role || [];
+  const designations = masters.designation || [];
+  const departments = masters.department || [];
+  const bloodGroups = masters['blood groups'] || [];
+  const salutations = masters.salutation || masters['salutation'] || [];
+
+  // Add useEffect to populate newUser with editingUser data when in edit mode
+  useEffect(() => {
+    if (editingUser && visible) {
+      console.log('🔄 Populating form with editingUser data:', editingUser);
+      setNewUser({
+        ...editingUser,
+        password: '', // Reset password for edit mode
+      });
+    }
+  }, [editingUser, visible, setNewUser]);
+
   // Console-only debugging: show buyer_id/seller_id (value + type) whenever editingUser/newUser change
   useEffect(() => {
-    console.log('📌 UserForm mounted/updated — editingUser:', editingUser);
-    console.log('📌 UserForm mounted/updated — newUser:', newUser);
+    console.log('EditingUser salutation:', editingUser?.salutation);
+    console.log('NewUser salutation:', newUser?.salutation);
+    console.log('Available salutations:', salutations.map(s => s.value));
+    console.log('Matched salutations value:', salutations.find(s => s.value === editingUser?.salutation)?.value);
 
     if (editingUser) {
       console.log('🔎 editingUser IDs:', {
@@ -80,6 +99,7 @@ const UserForm: React.FC<UserFormProps> = ({
         buyer_id_type: editingUser.buyer_id === null ? 'null' : typeof editingUser.buyer_id,
         seller_id: editingUser.seller_id,
         seller_id_type: editingUser.seller_id === null ? 'null' : typeof editingUser.seller_id,
+        salutation: editingUser.salutation,
       });
     }
 
@@ -88,14 +108,9 @@ const UserForm: React.FC<UserFormProps> = ({
       buyer_id_type: newUser.buyer_id === null ? 'null' : typeof newUser.buyer_id,
       seller_id: newUser.seller_id,
       seller_id_type: newUser.seller_id === null ? 'null' : typeof newUser.seller_id,
+      salutation: newUser.salutation,
     });
-  }, [editingUser, newUser]);
-
-  const roles = masters.role || [];
-  const designations = masters.designation || [];
-  const departments = masters.department || [];
-  const bloodGroups = masters['blood groups'] || [];
-  const salutations = masters.salutation || masters['salutation'] || [];
+  }, [editingUser, newUser, salutations]);
 
   const defaultDisabled =
     !newUser.salutation ||

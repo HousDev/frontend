@@ -800,6 +800,7 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
                             size="sm"
                             max={ISO_18Y_BACK}
                           />
+                           {ageError && <span className="ml-2 text-red-600 text-xs">• {ageError}</span>}
                         </div>
                         <div>
                           <label className="block text-[10px] font-medium text-gray-700 mb-1">
@@ -847,7 +848,7 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
         <div className="p-6 border-t bg-gray-50">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500">
-              {ageError && <span className="ml-2 text-red-600">• {ageError}</span>}
+             
               {masterLoading && <span className="ml-2">• Loading master data…</span>}
             </div>
             <div className="flex items-center justify-end space-x-3">
