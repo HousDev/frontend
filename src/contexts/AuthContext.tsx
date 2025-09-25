@@ -1,28 +1,214 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
+// import React, {
+//   createContext,
+//   useContext,
+//   useEffect,
+//   useState,
+//   ReactNode,
+// } from "react";
+// import { authAPI } from "@/lib/api";
+
+// interface User {
+//   id: string;
+//   username: string;
+//   email: string;
+//   first_name: string;
+//   last_name: string;
+//   role: "admin" | "manager" | "agent" | "seller" | "buyer";
+//   phone?: string;
+//   avatar?: string;
+//   is_active: boolean;
+// }
+
+// interface AuthContextType {
+//   user: User | null;
+//   loading: boolean;
+//   login: (credentials: { username: string; password: string }) => Promise<void>;
+//   register: (userData: {
+//     username: string;
+//     email: string;
+//     password: string;
+//     first_name: string;
+//     last_name: string;
+//     phone?: string;
+//     role?: string;
+//   }) => Promise<void>;
+//   logout: () => Promise<void>;
+//   isAuthenticated: boolean;
+//   hasRole: (roles: string | string[]) => boolean;
+//   updateUser: (updatedUser: Partial<User>) => void; // ✅ added
+// }
+
+// const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// export const useAuth = () => {
+//   const context = useContext(AuthContext);
+//   if (context === undefined) {
+//     throw new Error("useAuth must be used within an AuthProvider");
+//   }
+//   return context;
+// };
+
+// interface AuthProviderProps {
+//   children: ReactNode;
+// }
+
+// export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+//   const [user, setUser] = useState<User | null>(null);
+//   const [loading, setLoading] = useState(true);
+
+//   // ✅ Initialize auth state from localStorage
+//   useEffect(() => {
+//     const initializeAuth = async () => {
+//       try {
+//         const token = localStorage.getItem("token");
+//         const storedUser = localStorage.getItem("user");
+
+//         if (token && storedUser) {
+//           const userData = JSON.parse(storedUser);
+//           setUser(userData);
+//         }
+//       } catch (error) {
+//         console.error("Auth initialization error:", error);
+//         localStorage.removeItem("token");
+//         localStorage.removeItem("user");
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     initializeAuth();
+//   }, []);
+
+//   // ✅ Login function
+//   const login = async (credentials: { username: string; password: string }) => {
+//     try {
+//       const response = await authAPI.login(credentials);
+
+//       if (response.success && response.data) {
+//         const { user: userData, accessToken } = response.data;
+
+//         localStorage.setItem("token", accessToken);
+//         localStorage.setItem("user", JSON.stringify(userData));
+
+//         setUser(userData);
+//       } else {
+//         throw new Error(response.message || "Login failed");
+//       }
+//     } catch (error: any) {
+//       console.error("❌ [LOGIN] Error:", error);
+//       throw new Error(
+//         error.response?.data?.message || error.message || "Login failed"
+//       );
+//     }
+//   };
+
+//   // ✅ Register function
+//   const register = async (userData: {
+//     username: string;
+//     email: string;
+//     password: string;
+//     first_name: string;
+//     last_name: string;
+//     phone?: string;
+//     role?: string;
+//   }) => {
+//     try {
+//       const response = await authAPI.register(userData);
+
+//       if (response.success && response.data) {
+//         const { user: newUser, accessToken } = response.data;
+
+//         localStorage.setItem("token", accessToken);
+//         localStorage.setItem("user", JSON.stringify(newUser));
+//         setUser(newUser);
+//       } else {
+//         throw new Error(response.message || "Registration failed");
+//       }
+//     } catch (error: any) {
+//       console.error("❌ [REGISTER] Error:", error);
+//       throw new Error(
+//         error.response?.data?.message ||
+//         error.message ||
+//         "Registration failed"
+//       );
+//     }
+//   };
+
+//   // ✅ Logout function (⚡ systemSettings ko clear nahi karna)
+//   const logout = async () => {
+//     try {
+//       await authAPI.logout();
+//     } catch (error) {
+//       console.error("Logout error:", error);
+//     } finally {
+//       localStorage.removeItem("token");
+//       localStorage.removeItem("user");
+//       setUser(null);
+//       // ⚠️ systemSettings ko deliberately clear nahi kiya
+//     }
+//   };
+
+//   // ✅ Role checker
+//   const hasRole = (roles: string | string[]): boolean => {
+//     if (!user) return false;
+//     const allowedRoles = Array.isArray(roles) ? roles : [roles];
+//     return allowedRoles.includes(user.role);
+//   };
+
+//   // ✅ Update user globally (e.g. after profile/avatar update)
+//   const updateUser = (updatedUser: Partial<User>) => {
+//     setUser((prev) => {
+//       if (!prev) return prev;
+
+//       const newUser = { ...prev, ...updatedUser };
+
+//       // Save updated user in localStorage
+//       localStorage.setItem("user", JSON.stringify(newUser));
+
+//       return newUser;
+//     });
+//   };
+
+//   const value: AuthContextType = {
+//     user,
+//     loading,
+//     login,
+//     register,
+//     logout,
+//     isAuthenticated: !!user,
+//     hasRole,
+//     updateUser, // ✅ now available in context
+//   };
+
+//   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+// };
+
+// export default AuthProvider;
+
+
+
+
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { authAPI } from "@/lib/api";
 
-interface User {
+export interface User {
   id: string;
   username: string;
   email: string;
   first_name: string;
   last_name: string;
-  role: "admin" | "manager" | "agent";
+  role: "admin" | "manager" | "agent" | "buyer" | "seller";
   phone?: string;
   avatar?: string;
   is_active: boolean;
+  buyer_id?: string | number;
+  seller_id?: string | number;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (credentials: { username: string; password: string }) => Promise<void>;
+  login: (credentials: { username: string; password: string }) => Promise<User>;
   register: (userData: {
     username: string;
     email: string;
@@ -31,20 +217,19 @@ interface AuthContextType {
     last_name: string;
     phone?: string;
     role?: string;
-  }) => Promise<void>;
+
+  }) => Promise<User>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   hasRole: (roles: string | string[]) => boolean;
-  updateUser: (updatedUser: Partial<User>) => void; // ✅ added
+  updateUser: (updatedUser: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 };
 
@@ -56,16 +241,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Initialize auth state from localStorage
+  // Initialize auth state from localStorage
   useEffect(() => {
-    const initializeAuth = async () => {
+    const initializeAuth = () => {
       try {
         const token = localStorage.getItem("token");
         const storedUser = localStorage.getItem("user");
-
         if (token && storedUser) {
-          const userData = JSON.parse(storedUser);
-          setUser(userData);
+          setUser(JSON.parse(storedUser));
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
@@ -75,34 +258,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setLoading(false);
       }
     };
-
     initializeAuth();
   }, []);
 
-  // ✅ Login function
-  const login = async (credentials: { username: string; password: string }) => {
+  // Login function
+  const login = async (credentials: { username: string; password: string }): Promise<User> => {
     try {
       const response = await authAPI.login(credentials);
+      if (!response.success || !response.data) throw new Error(response.message || "Login failed");
 
-      if (response.success && response.data) {
-        const { user: userData, accessToken } = response.data;
+      const { user: userData, accessToken } = response.data;
 
-        localStorage.setItem("token", accessToken);
-        localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("token", accessToken);
+      localStorage.setItem("user", JSON.stringify(userData));
+      setUser(userData);
 
-        setUser(userData);
-      } else {
-        throw new Error(response.message || "Login failed");
-      }
+      return userData;
     } catch (error: any) {
       console.error("❌ [LOGIN] Error:", error);
-      throw new Error(
-        error.response?.data?.message || error.message || "Login failed"
-      );
+      throw new Error(error?.response?.data?.message || error.message || "Login failed");
     }
   };
 
-  // ✅ Register function
+  // Register function
   const register = async (userData: {
     username: string;
     email: string;
@@ -111,31 +289,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     last_name: string;
     phone?: string;
     role?: string;
-  }) => {
+  }): Promise<User> => {
     try {
       const response = await authAPI.register(userData);
+      if (!response.success || !response.data) throw new Error(response.message || "Registration failed");
 
-      if (response.success && response.data) {
-        const { user: newUser, accessToken } = response.data;
+      const { user: newUser, accessToken } = response.data;
+      localStorage.setItem("token", accessToken);
+      localStorage.setItem("user", JSON.stringify(newUser));
+      setUser(newUser);
 
-        localStorage.setItem("token", accessToken);
-        localStorage.setItem("user", JSON.stringify(newUser));
-        setUser(newUser);
-      } else {
-        throw new Error(response.message || "Registration failed");
-      }
+      return newUser;
     } catch (error: any) {
       console.error("❌ [REGISTER] Error:", error);
-      throw new Error(
-        error.response?.data?.message ||
-        error.message ||
-        "Registration failed"
-      );
+      throw new Error(error?.response?.data?.message || error.message || "Registration failed");
     }
   };
 
-  // ✅ Logout function (⚡ systemSettings ko clear nahi karna)
-  const logout = async () => {
+  // Logout function
+  const logout = async (): Promise<void> => {
     try {
       await authAPI.logout();
     } catch (error) {
@@ -144,27 +316,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       setUser(null);
-      // ⚠️ systemSettings ko deliberately clear nahi kiya
     }
   };
 
-  // ✅ Role checker
+  // Role checker (case-insensitive)
   const hasRole = (roles: string | string[]): boolean => {
     if (!user) return false;
-    const allowedRoles = Array.isArray(roles) ? roles : [roles];
-    return allowedRoles.includes(user.role);
+    const allowedRoles = Array.isArray(roles) ? roles.map(r => r.toLowerCase()) : [roles.toLowerCase()];
+    return allowedRoles.includes(user.role.toLowerCase());
   };
 
-  // ✅ Update user globally (e.g. after profile/avatar update)
-  const updateUser = (updatedUser: Partial<User>) => {
-    setUser((prev) => {
+  // Update user globally
+  const updateUser = (updatedUser: Partial<User>): void => {
+    setUser(prev => {
       if (!prev) return prev;
-
       const newUser = { ...prev, ...updatedUser };
-
-      // Save updated user in localStorage
       localStorage.setItem("user", JSON.stringify(newUser));
-
       return newUser;
     });
   };
@@ -177,10 +344,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     isAuthenticated: !!user,
     hasRole,
-    updateUser, // ✅ now available in context
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export default AuthProvider;
+

@@ -49,7 +49,8 @@ import {
   Bot,
   Brain,
   Lightbulb,
-  X
+  X,
+  Menu
 } from 'lucide-react';
 
 const DocumentsManagement = ({ seller }: any) => {
@@ -60,6 +61,15 @@ const DocumentsManagement = ({ seller }: any) => {
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [showOTPModal, setShowOTPModal] = useState(false);
   const [showESignModal, setShowESignModal] = useState(false);
+
+  // Sample seller data if not provided
+  const defaultSeller = {
+    name: 'John Doe',
+    phone: '+91 9876543210',
+    email: 'john@example.com'
+  };
+  
+  const currentSeller = seller || defaultSeller;
 
   // Sample documents for the seller
   const documents = [
@@ -79,8 +89,8 @@ const DocumentsManagement = ({ seller }: any) => {
       tracking_history: [
         { action: 'Document Created', timestamp: '2025-01-12T10:00:00Z', user: 'Admin User', status: 'completed' },
         { action: 'Sent for Review', timestamp: '2025-01-12T10:30:00Z', user: 'Admin User', status: 'completed' },
-        { action: 'Reviewed by Seller', timestamp: '2025-01-12T14:00:00Z', user: seller.name, status: 'completed' },
-        { action: 'OTP Verification', timestamp: '2025-01-12T14:30:00Z', user: seller.name, status: 'pending' }
+        { action: 'Reviewed by Seller', timestamp: '2025-01-12T14:00:00Z', user: currentSeller.name, status: 'completed' },
+        { action: 'OTP Verification', timestamp: '2025-01-12T14:30:00Z', user: currentSeller.name, status: 'pending' }
       ],
       shared_channels: ['email', 'whatsapp'],
       approval_required: false,
@@ -105,8 +115,8 @@ const DocumentsManagement = ({ seller }: any) => {
       tracking_history: [
         { action: 'Document Created', timestamp: '2025-01-10T09:00:00Z', user: 'Manager User', status: 'completed' },
         { action: 'Shared with Parties', timestamp: '2025-01-10T09:30:00Z', user: 'Manager User', status: 'completed' },
-        { action: 'OTP Verified', timestamp: '2025-01-10T15:00:00Z', user: seller.name, status: 'completed' },
-        { action: 'E-Sign Pending', timestamp: '2025-01-10T15:30:00Z', user: seller.name, status: 'active' }
+        { action: 'OTP Verified', timestamp: '2025-01-10T15:00:00Z', user: currentSeller.name, status: 'completed' },
+        { action: 'E-Sign Pending', timestamp: '2025-01-10T15:30:00Z', user: currentSeller.name, status: 'active' }
       ],
       shared_channels: ['email', 'whatsapp', 'sms'],
       approval_required: false,
@@ -190,10 +200,10 @@ const DocumentsManagement = ({ seller }: any) => {
   ];
 
   const documentTabs = [
-    { id: 'all', label: 'All Documents', count: documents.length },
-    { id: 'pending', label: 'Pending Action', count: documents.filter(d => d.status !== 'completed').length },
-    { id: 'completed', label: 'Completed', count: documents.filter(d => d.status === 'completed').length },
-    { id: 'signatures', label: 'Pending Signatures', count: documents.filter(d => !d.esign_completed).length }
+    { id: 'all', label: 'All Docs', count: documents.length },
+    { id: 'pending', label: 'Pending', count: documents.filter(d => d.status !== 'completed').length },
+    { id: 'completed', label: 'Done', count: documents.filter(d => d.status === 'completed').length },
+    { id: 'signatures', label: 'Sign', count: documents.filter(d => !d.esign_completed).length }
   ];
 
   const filteredDocuments = documents.filter(doc => {
@@ -211,18 +221,18 @@ const DocumentsManagement = ({ seller }: any) => {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      'pending_signature': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Pending Signature', icon: Clock },
-      'otp_verified': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'OTP Verified', icon: Shield },
-      'shared': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Shared', icon: Send },
-      'completed': { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed', icon: CheckCircle },
-      'pending_approval': { bg: 'bg-red-100', text: 'text-red-700', label: 'Pending Approval', icon: AlertCircle }
+      'pending_signature': { bg: 'bg-orange-50', text: 'text-orange-600', label: 'Pending Sign', icon: Clock },
+      'otp_verified': { bg: 'bg-blue-50', text: 'text-blue-600', label: 'OTP Done', icon: Shield },
+      'shared': { bg: 'bg-purple-50', text: 'text-purple-600', label: 'Shared', icon: Send },
+      'completed': { bg: 'bg-green-50', text: 'text-green-600', label: 'Complete', icon: CheckCircle },
+      'pending_approval': { bg: 'bg-red-50', text: 'text-red-600', label: 'Need Approval', icon: AlertCircle }
     };
     
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.shared;
     const Icon = config.icon;
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
-        <Icon size={14} className="mr-1" />
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+        <Icon size={10} className="mr-1" />
         {config.label}
       </span>
     );
@@ -230,9 +240,9 @@ const DocumentsManagement = ({ seller }: any) => {
 
   const getPriorityBadge = (priority: string) => {
     const priorityConfig = {
-      'high': { bg: 'bg-red-100', text: 'text-red-700', label: 'High' },
-      'medium': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Medium' },
-      'low': { bg: 'bg-green-100', text: 'text-green-700', label: 'Low' }
+      'high': { bg: 'bg-red-50', text: 'text-red-600', label: 'High' },
+      'medium': { bg: 'bg-yellow-50', text: 'text-yellow-600', label: 'Medium' },
+      'low': { bg: 'bg-green-50', text: 'text-green-600', label: 'Low' }
     };
     
     const config = priorityConfig[priority as keyof typeof priorityConfig];
@@ -282,7 +292,7 @@ const DocumentsManagement = ({ seller }: any) => {
     try {
       // Simulate OTP sending
       await new Promise(resolve => setTimeout(resolve, 1000));
-      alert(`OTP sent to ${seller.phone} for document verification`);
+      alert(`OTP sent to ${currentSeller.phone} for document verification`);
       
       const otp = prompt('Enter OTP received on your phone:');
       if (otp && otp === '123456') { // Simulate OTP verification
@@ -330,109 +340,109 @@ const DocumentsManagement = ({ seller }: any) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-6 pb-2 sm:pb-4 lg:pb-6 pt-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Document Management</h2>
-          <p className="text-gray-600 mt-1">Manage all your property-related documents</p>
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Documents</h2>
+          <p className="text-xs text-gray-600 mt-1">Manage property documents</p>
         </div>
-        <div className="flex items-center space-x-3">
-          <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-            <Upload size={16} />
-            <span>Upload Document</span>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+          <button className="flex items-center justify-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs">
+            <Upload size={14} />
+            <span>Upload</span>
           </button>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-            <Plus size={16} />
-            <span>Create New</span>
+          <button className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs">
+            <Plus size={14} />
+            <span>Create</span>
           </button>
         </div>
       </div>
 
       {/* Document Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-3 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm">Total Documents</p>
-              <p className="text-2xl font-bold">{documents.length}</p>
+              <p className="text-blue-100 text-xs">Total</p>
+              <p className="text-lg font-bold">{documents.length}</p>
             </div>
-            <FileText size={24} className="text-blue-200" />
+            <FileText size={16} className="text-blue-200" />
           </div>
-          <div className="text-blue-100 text-xs mt-2">Across all properties</div>
+          <div className="text-blue-100 text-xs mt-1">All docs</div>
         </div>
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-4 text-white">
+        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-3 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100 text-sm">Pending Action</p>
-              <p className="text-2xl font-bold">{documents.filter(d => d.status !== 'completed').length}</p>
+              <p className="text-orange-100 text-xs">Pending</p>
+              <p className="text-lg font-bold">{documents.filter(d => d.status !== 'completed').length}</p>
             </div>
-            <Clock size={24} className="text-orange-200" />
+            <Clock size={16} className="text-orange-200" />
           </div>
-          <div className="text-orange-100 text-xs mt-2">Require your attention</div>
+          <div className="text-orange-100 text-xs mt-1">Need action</div>
         </div>
-        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 text-white">
+        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-3 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm">Completed</p>
-              <p className="text-2xl font-bold">{documents.filter(d => d.status === 'completed').length}</p>
+              <p className="text-green-100 text-xs">Done</p>
+              <p className="text-lg font-bold">{documents.filter(d => d.status === 'completed').length}</p>
             </div>
-            <CheckCircle size={24} className="text-green-200" />
+            <CheckCircle size={16} className="text-green-200" />
           </div>
-          <div className="text-green-100 text-xs mt-2">Successfully processed</div>
+          <div className="text-green-100 text-xs mt-1">Completed</div>
         </div>
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-3 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm">This Month</p>
-              <p className="text-2xl font-bold">{documents.filter(d => new Date(d.created_date).getMonth() === new Date().getMonth()).length}</p>
+              <p className="text-purple-100 text-xs">This Month</p>
+              <p className="text-lg font-bold">{documents.filter(d => new Date(d.created_date).getMonth() === new Date().getMonth()).length}</p>
             </div>
-            <TrendingUp size={24} className="text-purple-200" />
+            <TrendingUp size={16} className="text-purple-200" />
           </div>
-          <div className="text-purple-100 text-xs mt-2">Documents created</div>
+          <div className="text-purple-100 text-xs mt-1">New docs</div>
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex flex-col lg:flex-row lg:items-center space-y-3 lg:space-y-0 lg:space-x-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+      <div className="bg-white rounded-lg border border-gray-200 p-3">
+        <div className="flex flex-col space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
             <input
               type="text"
-              placeholder="Search documents by title, property, or document ID..."
+              placeholder="Search documents..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
             />
           </div>
-          <div className="flex items-center space-x-3">
-            <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-              <Filter size={16} />
-              <span>Advanced Filters</span>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+            <button className="flex items-center justify-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs">
+              <Filter size={14} />
+              <span>Filters</span>
             </button>
-            <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-              <Download size={16} />
-              <span>Export All</span>
+            <button className="flex items-center justify-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs">
+              <Download size={14} />
+              <span>Export</span>
             </button>
           </div>
         </div>
 
         {/* Document Tabs */}
-        <div className="mt-4">
-          <div className="flex space-x-1">
+        <div className="mt-3">
+          <div className="flex space-x-1 overflow-x-auto pb-2">
             {documentTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors whitespace-nowrap text-xs ${
                   activeTab === tab.id
                     ? 'bg-blue-100 text-blue-700 border border-blue-200'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 <span className="font-medium">{tab.label}</span>
-                <span className={`px-2 py-0.5 rounded-full text-xs ${
+                <span className={`px-1.5 py-0.5 rounded-full text-xs ${
                   activeTab === tab.id ? 'bg-blue-200' : 'bg-gray-200'
                 }`}>
                   {tab.count}
@@ -444,47 +454,49 @@ const DocumentsManagement = ({ seller }: any) => {
       </div>
 
       {/* Documents List */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {filteredDocuments.map((document) => (
-          <div key={document.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start space-x-4">
-                  <div className="p-3 bg-blue-100 rounded-xl">
-                    <FileText className="text-blue-600" size={20} />
+          <div key={document.id} className="bg-white rounded-lg border border-gray-200 shadow-sm">
+            <div className="p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
+                <div className="flex items-start space-x-3">
+                  <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                    <FileText className="text-blue-600" size={16} />
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="font-semibold text-gray-900 text-lg">{document.title}</h3>
-                      {getStatusBadge(document.status)}
-                      {getPriorityBadge(document.priority)}
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-gray-600 mb-3">
-                      <div className="flex items-center space-x-1">
-                        <Building size={12} />
-                        <span>{document.property}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Calendar size={12} />
-                        <span>Created: {document.created_date}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <User size={12} />
-                        <span>By: {document.created_by}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mb-2">
+                      <h3 className="font-semibold text-gray-900 text-xs sm:text-sm truncate">{document.title}</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {getStatusBadge(document.status)}
+                        {getPriorityBadge(document.priority)}
                       </div>
                     </div>
-                    <div className="text-sm text-gray-700 mb-2">
-                      <span className="font-medium">Document ID:</span> {document.document_id}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs text-gray-600 mb-2">
+                      <div className="flex items-center space-x-1">
+                        <Building size={10} />
+                        <span className="truncate">{document.property}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Calendar size={10} />
+                        <span>{document.created_date}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <User size={10} />
+                        <span className="truncate">{document.created_by}</span>
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-700">
-                      <span className="font-medium">Next Action:</span> {document.next_action}
+                    <div className="text-xs text-gray-700 mb-1">
+                      <span className="font-medium">ID:</span> {document.document_id}
+                    </div>
+                    <div className="text-xs text-gray-700">
+                      <span className="font-medium">Next:</span> {document.next_action}
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-blue-600">{document.progress}%</div>
-                  <div className="text-sm text-gray-500">Progress</div>
-                  <div className="w-20 bg-gray-200 rounded-full h-2 mt-2">
+                <div className="text-center sm:text-right flex-shrink-0">
+                  <div className="text-lg font-bold text-blue-600">{document.progress}%</div>
+                  <div className="text-xs text-gray-500 mb-2">Progress</div>
+                  <div className="w-16 sm:w-20 bg-gray-200 rounded-full h-2 mx-auto sm:mx-0">
                     <div 
                       className="bg-blue-500 h-2 rounded-full transition-all"
                       style={{ width: `${document.progress}%` }}
@@ -494,34 +506,34 @@ const DocumentsManagement = ({ seller }: any) => {
               </div>
 
               {/* Document Details */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div className="bg-gray-50 rounded-lg p-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3 mt-3">
+                <div className="bg-gray-50 rounded-lg p-2">
                   <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Template</div>
-                  <div className="font-medium text-gray-900">{document.template}</div>
+                  <div className="font-medium text-gray-900 text-xs">{document.template}</div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Verification Status</div>
-                  <div className="flex items-center space-x-2">
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">OTP Status</div>
+                  <div className="flex items-center space-x-1">
                     {document.otp_verified ? (
-                      <CheckCircle className="text-green-500" size={14} />
+                      <CheckCircle className="text-green-500" size={12} />
                     ) : (
-                      <Clock className="text-orange-500" size={14} />
+                      <Clock className="text-orange-500" size={12} />
                     )}
-                    <span className="text-sm font-medium">
-                      {document.otp_verified ? 'OTP Verified' : 'OTP Pending'}
+                    <span className="text-xs font-medium">
+                      {document.otp_verified ? 'Verified' : 'Pending'}
                     </span>
                   </div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">E-Signature</div>
-                  <div className="flex items-center space-x-2">
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">E-Sign</div>
+                  <div className="flex items-center space-x-1">
                     {document.esign_completed ? (
-                      <CheckCircle className="text-green-500" size={14} />
+                      <CheckCircle className="text-green-500" size={12} />
                     ) : (
-                      <Clock className="text-orange-500" size={14} />
+                      <Clock className="text-orange-500" size={12} />
                     )}
-                    <span className="text-sm font-medium">
-                      {document.esign_completed ? 'Signed' : 'Pending'}
+                    <span className="text-xs font-medium">
+                      {document.esign_completed ? 'Done' : 'Pending'}
                     </span>
                   </div>
                 </div>
@@ -529,9 +541,9 @@ const DocumentsManagement = ({ seller }: any) => {
 
               {/* Shared Channels */}
               {document.shared_channels.length > 0 && (
-                <div className="mb-4">
+                <div className="mb-3">
                   <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Shared Via</div>
-                  <div className="flex space-x-2">
+                  <div className="flex flex-wrap gap-1">
                     {document.shared_channels.map((channel: string, index: number) => (
                       <span key={index} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
                         {channel}
@@ -542,60 +554,60 @@ const DocumentsManagement = ({ seller }: any) => {
               )}
 
               {/* Action Buttons */}
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleDocumentAction('view', document)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center space-x-1 px-2 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
                 >
-                  <Eye size={14} />
+                  <Eye size={12} />
                   <span>View</span>
                 </button>
                 <button
                   onClick={() => handleDocumentAction('track', document)}
-                  className="flex items-center space-x-2 px-3 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
+                  className="flex items-center space-x-1 px-2 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-xs"
                 >
-                  <BarChart3 size={14} />
+                  <BarChart3 size={12} />
                   <span>Track</span>
                 </button>
                 {document.approval_required && (
                   <button
                     onClick={approveDocument}
-                    className="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    className="flex items-center space-x-1 px-2 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs"
                   >
-                    <CheckCircle size={14} />
+                    <CheckCircle size={12} />
                     <span>Approve</span>
                   </button>
                 )}
                 {!document.otp_verified && (
                   <button
                     onClick={() => handleDocumentAction('otp', document)}
-                    className="flex items-center space-x-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                    className="flex items-center space-x-1 px-2 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-xs"
                   >
-                    <Shield size={14} />
-                    <span>OTP Verify</span>
+                    <Shield size={12} />
+                    <span>OTP</span>
                   </button>
                 )}
                 {document.otp_verified && !document.esign_completed && (
                   <button
                     onClick={() => handleDocumentAction('esign', document)}
-                    className="flex items-center space-x-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    className="flex items-center space-x-1 px-2 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs"
                   >
-                    <Award size={14} />
-                    <span>E-Sign</span>
+                    <Award size={12} />
+                    <span>Sign</span>
                   </button>
                 )}
                 <button
                   onClick={() => handleDocumentAction('download', document)}
-                  className="flex items-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="flex items-center space-x-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs"
                 >
-                  <Download size={14} />
-                  <span>Download</span>
+                  <Download size={12} />
+                  <span>Get</span>
                 </button>
                 <button
                   onClick={() => handleDocumentAction('share', document)}
-                  className="flex items-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="flex items-center space-x-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs"
                 >
-                  <Share size={14} />
+                  <Share size={12} />
                   <span>Share</span>
                 </button>
               </div>
@@ -605,10 +617,10 @@ const DocumentsManagement = ({ seller }: any) => {
       </div>
 
       {filteredDocuments.length === 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <FileText className="mx-auto text-gray-300 mb-4" size={48} />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No documents found</h3>
-          <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+          <FileText className="mx-auto text-gray-300 mb-4" size={32} />
+          <h3 className="text-sm font-semibold text-gray-900 mb-2">No documents found</h3>
+          <p className="text-xs text-gray-500">Try adjusting your search or filter criteria</p>
         </div>
       )}
 
@@ -638,7 +650,7 @@ const DocumentsManagement = ({ seller }: any) => {
       {showOTPModal && selectedDocument && (
         <OTPVerificationModal 
           document={selectedDocument}
-          seller={seller}
+          seller={currentSeller}
           onVerify={initiateOTPVerification}
           onClose={() => {
             setShowOTPModal(false);
@@ -651,7 +663,7 @@ const DocumentsManagement = ({ seller }: any) => {
       {showESignModal && selectedDocument && (
         <ESignModal 
           document={selectedDocument}
-          seller={seller}
+          seller={currentSeller}
           onSign={initiateESign}
           onClose={() => {
             setShowESignModal(false);
@@ -666,38 +678,40 @@ const DocumentsManagement = ({ seller }: any) => {
 // Document Viewer Modal
 const DocumentViewerModal = ({ document, onClose }: any) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+        <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-gray-900">{document.title}</h3>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
-              <X size={20} />
+            <h3 className="text-sm sm:text-lg font-semibold text-gray-900 truncate pr-4">{document.title}</h3>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded flex-shrink-0">
+              <X size={16} />
             </button>
           </div>
         </div>
         
-        <div className="p-6 max-h-[70vh] overflow-y-auto">
-          <div className="bg-gray-50 rounded-lg p-6 min-h-96">
+        <div className="p-4 max-h-[60vh] overflow-y-auto">
+          <div className="bg-gray-50 rounded-lg p-4 min-h-64">
             <div className="text-center">
-              <FileText className="mx-auto text-gray-400 mb-4" size={64} />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Document Preview</h3>
-              <p className="text-gray-600">Document ID: {document.document_id}</p>
-              <p className="text-gray-600">Type: {document.template}</p>
-              <p className="text-gray-600">Property: {document.property}</p>
+              <FileText className="mx-auto text-gray-400 mb-4" size={48} />
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Document Preview</h3>
+              <div className="space-y-1 text-xs text-gray-600">
+                <p><span className="font-medium">ID:</span> {document.document_id}</p>
+                <p><span className="font-medium">Type:</span> {document.template}</p>
+                <p><span className="font-medium">Property:</span> {document.property}</p>
+              </div>
             </div>
           </div>
         </div>
         
-        <div className="p-6 border-t border-gray-200">
-          <div className="flex justify-end space-x-3">
+        <div className="p-4 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-xs"
             >
               Close
             </button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs">
               Download PDF
             </button>
           </div>
@@ -710,37 +724,37 @@ const DocumentViewerModal = ({ document, onClose }: any) => {
 // Document Tracking Modal
 const DocumentTrackingModal = ({ document, onClose }: any) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+        <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-gray-900">Document Tracking</h3>
+            <h3 className="text-sm sm:text-lg font-semibold text-gray-900">Document Tracking</h3>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
-              <X size={20} />
+              <X size={16} />
             </button>
           </div>
         </div>
         
-        <div className="p-6 max-h-[60vh] overflow-y-auto">
-          <div className="space-y-4">
+        <div className="p-4 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-3">
             {document.tracking_history.map((entry: any, index: number) => (
-              <div key={index} className="flex items-start space-x-4">
-                <div className={`p-2 rounded-full ${
+              <div key={index} className="flex items-start space-x-3">
+                <div className={`p-2 rounded-full flex-shrink-0 ${
                   entry.status === 'completed' ? 'bg-green-100' :
                   entry.status === 'active' ? 'bg-blue-100' :
                   'bg-orange-100'
                 }`}>
                   {entry.status === 'completed' ? (
-                    <CheckCircle className="text-green-600" size={16} />
+                    <CheckCircle className="text-green-600" size={12} />
                   ) : entry.status === 'active' ? (
-                    <Clock className="text-blue-600" size={16} />
+                    <Clock className="text-blue-600" size={12} />
                   ) : (
-                    <AlertCircle className="text-orange-600" size={16} />
+                    <AlertCircle className="text-orange-600" size={12} />
                   )}
                 </div>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">{entry.action}</div>
-                  <div className="text-sm text-gray-600">by {entry.user}</div>
+                  <div className="font-medium text-gray-900 text-xs">{entry.action}</div>
+                  <div className="text-xs text-gray-600">by {entry.user}</div>
                   <div className="text-xs text-gray-500">{new Date(entry.timestamp).toLocaleString()}</div>
                 </div>
               </div>
@@ -748,10 +762,10 @@ const DocumentTrackingModal = ({ document, onClose }: any) => {
           </div>
         </div>
         
-        <div className="p-6 border-t border-gray-200">
+        <div className="p-4 border-t border-gray-200">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
           >
             Close
           </button>
@@ -764,40 +778,40 @@ const DocumentTrackingModal = ({ document, onClose }: any) => {
 // OTP Verification Modal
 const OTPVerificationModal = ({ document, seller, onVerify, onClose }: any) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-gray-900">OTP Verification</h3>
+            <h3 className="text-sm font-semibold text-gray-900">OTP Verification</h3>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
-              <X size={20} />
+              <X size={16} />
             </button>
           </div>
         </div>
         
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <div className="p-4 bg-orange-100 rounded-full w-16 h-16 mx-auto mb-4">
-              <Shield className="text-orange-600" size={32} />
+        <div className="p-4">
+          <div className="text-center mb-4">
+            <div className="p-3 bg-orange-100 rounded-full w-12 h-12 mx-auto mb-3">
+              <Shield className="text-orange-600" size={24} />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Verify Your Identity</h3>
-            <p className="text-gray-600">We'll send an OTP to your registered mobile number</p>
-            <p className="text-sm text-gray-500 mt-2">{seller.phone}</p>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Verify Identity</h3>
+            <p className="text-xs text-gray-600 mb-2">OTP will be sent to your phone</p>
+            <p className="text-xs text-gray-500">{seller.phone}</p>
           </div>
           
-          <div className="space-y-4">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-2">Document Details</h4>
-              <div className="text-sm text-blue-800">
-                <div>Document: {document.title}</div>
-                <div>ID: {document.document_id}</div>
-                <div>Property: {document.property}</div>
+          <div className="space-y-3">
+            <div className="bg-blue-50 rounded-lg p-3">
+              <h4 className="font-medium text-blue-900 mb-2 text-xs">Document Details</h4>
+              <div className="text-xs text-blue-800 space-y-1">
+                <div><span className="font-medium">Doc:</span> {document.title}</div>
+                <div><span className="font-medium">ID:</span> {document.document_id}</div>
+                <div><span className="font-medium">Property:</span> {document.property}</div>
               </div>
             </div>
             
             <button
               onClick={onVerify}
-              className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium"
+              className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium text-xs"
             >
               Send OTP
             </button>
@@ -811,53 +825,55 @@ const OTPVerificationModal = ({ document, seller, onVerify, onClose }: any) => {
 // E-Sign Modal
 const ESignModal = ({ document, seller, onSign, onClose }: any) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-gray-900">Digital Signature</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Digital Signature</h3>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
-              <X size={20} />
+              <X size={16} />
             </button>
           </div>
         </div>
         
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <div className="p-4 bg-purple-100 rounded-full w-16 h-16 mx-auto mb-4">
-              <Award className="text-purple-600" size={32} />
+        <div className="p-4">
+          <div className="text-center mb-4">
+            <div className="p-3 bg-purple-100 rounded-full w-12 h-12 mx-auto mb-3">
+              <Award className="text-purple-600" size={24} />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Digital Signature</h3>
-            <p className="text-gray-600">Complete the document with your digital signature</p>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Digital Signature</h3>
+            <p className="text-xs text-gray-600">Sign document digitally</p>
           </div>
           
-          <div className="space-y-4">
-            <div className="bg-purple-50 rounded-lg p-4">
-              <h4 className="font-medium text-purple-900 mb-2">Signature Details</h4>
-              <div className="text-sm text-purple-800">
-                <div>Signer: {seller.name}</div>
-                <div>Document: {document.document_id}</div>
-                <div>Method: Aadhaar OTP</div>
+          <div className="space-y-3">
+            <div className="bg-purple-50 rounded-lg p-3">
+              <h4 className="font-medium text-purple-900 mb-2 text-xs">Signature Details</h4>
+              <div className="text-xs text-purple-800 space-y-1">
+                <div><span className="font-medium">Signer:</span> {seller.name}</div>
+                <div><span className="font-medium">Document:</span> {document.document_id}</div>
+                <div><span className="font-medium">Method:</span> Aadhaar OTP</div>
               </div>
             </div>
             
-            <div className="bg-yellow-50 rounded-lg p-4">
+            <div className="bg-yellow-50 rounded-lg p-3">
               <div className="flex items-start space-x-2">
-                <AlertCircle className="text-yellow-600 mt-0.5" size={16} />
-                <div className="text-sm text-yellow-800">
+                <AlertCircle className="text-yellow-600 mt-0.5 flex-shrink-0" size={12} />
+                <div className="text-xs text-yellow-800">
                   <div className="font-medium mb-1">Important:</div>
-                  <div>• Ensure you have your Aadhaar card ready</div>
-                  <div>• OTP will be sent to your Aadhaar-linked mobile</div>
-                  <div>• Digital signature is legally binding</div>
+                  <ul className="space-y-0.5 list-disc list-inside">
+                    <li>Have Aadhaar card ready</li>
+                    <li>OTP sent to Aadhaar phone</li>
+                    <li>Legally binding signature</li>
+                  </ul>
                 </div>
               </div>
             </div>
             
             <button
               onClick={onSign}
-              className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium text-xs"
             >
-              Proceed with E-Signature
+              Proceed with E-Sign
             </button>
           </div>
         </div>
