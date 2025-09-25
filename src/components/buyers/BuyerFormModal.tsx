@@ -10,6 +10,7 @@ import { getMasterDropdownOptions } from '@/lib/useMasterData';
 import BudgetInput from '@/pages/dashboard/components/BudgetInput';
 import { buyerAPI } from '@/lib/buyerAPI';
 import { toast } from 'react-toastify';
+import DOBStepCalendar from '../ui/DOBStepCalendar';
 
 // ------------------------------
 // Helpers
@@ -210,6 +211,20 @@ const MultiSelectDropdown = ({
   );
 };
 
+
+// ---------- date helpers ----------
+const TODAY = new Date();
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const toISODate = (d: Date) =>
+  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const EIGHTEEN_YEARS_BACK = new Date(
+  TODAY.getFullYear() - 18,
+  TODAY.getMonth(),
+  TODAY.getDate()
+);
+const ISO_18Y_BACK = toISODate(EIGHTEEN_YEARS_BACK);
+
+
 // ------------------------------
 // Main Component
 // ------------------------------
@@ -231,7 +246,22 @@ const BuyerFormModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState(() => buildFormStateFromBuyer(buyer || {}));
+  const calcAge = (iso?: string) => {
+    if (!iso) return 0;
+    const d = new Date(iso);
+    const today = new Date();
+    let a = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) a--;
+    return a;
+  };
 
+  const age = useMemo(() => calcAge(formData.dob), [formData.dob]);
+
+  // empty DOB par error mat dikhao; filled ho aur <18 ho to error
+  const ageError = formData.dob
+    ? (age < 18 ? 'Buyer must be at least 18 years old' : '')
+    : '';
   useEffect(() => {
     if (!isOpen) return;
     (async () => {
@@ -432,6 +462,10 @@ const BuyerFormModal = ({
     }
   };
 
+  // ---- Age helpers (INSIDE BuyerFormModal, return se pehle) ----
+
+
+
   const getLabel = (key: string, val: any) =>
     (getMasterOptions(key).find((o: any) => o.value === val)?.label ?? val);
 
@@ -567,16 +601,19 @@ const BuyerFormModal = ({
                     />
                   </div>
                   <div className="md:col-span-1">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      DOB <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.dob}
-                      onChange={(e) => setFormData(prev => ({ ...prev, dob: e.target.value }))}
-                      className="border border-gray-300 rounded w-full h-8 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                    <DOBStepCalendar
+                      value={formData.dob || ''}
+                      onChange={(iso) => setFormData(prev => ({ ...prev, dob: iso }))}
+                      label="Date of Birth"
+                      placeholder="Select date of birth"
+                      size="sm"
+                      max={ISO_18Y_BACK}
                     />
+                    {ageError && <p className="mt-1 text-[11px] text-red-600">{ageError}</p>}
                   </div>
+
+
+
 
                 </div>
               </div>
