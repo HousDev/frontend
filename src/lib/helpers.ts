@@ -1,7 +1,7 @@
 // ✅ Global API_BASE (auto pick dev/prod)
 export const API_GLOBAL_BASE =
   import.meta.env.MODE === "production"
-    ? "https://investordeal.in/api/"
+    ? "http://investordeal.in/api/"
     : "http://localhost:3000";
 
 // ✅ File base (uploads)
@@ -19,7 +19,7 @@ export const FILE_BASE: string = (() => {
   } catch {
     return typeof window !== "undefined"
       ? window.location.origin
-      : "https://investordeal.in"; // fallback
+      : "http://investordeal.in"; // fallback
   }
 })();
 
