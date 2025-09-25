@@ -19,7 +19,8 @@ import {
   DollarSign,
   Users,
   Award,
-  Shield
+  Shield,
+  IndianRupee
 } from 'lucide-react';
 import SubscriptionModal from '@/components/subscription/SubscriptionModal';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -853,12 +854,177 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </div>
             <div className="relative">
               <img src="https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Sell" className="rounded-xl shadow-lg" />
-              <div className="absolute -bottom-3 -left-3 bg-white p-1 rounded-xl shadow"> <DollarSign className="text-green-600" /> <div className="text-sm">₹500Cr+ Properties Sold</div></div>
+              <div className="absolute -bottom-2 -left-2 bg-white p-1 rounded-xl shadow"> < IndianRupee className="text-green-600" />
+                <div className="text-sm text-gray-600">₹500Cr+ Properties Sold</div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
+      {/* Why Choose Us - Compact */}
+      <section className="py-5 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl sm:text-3xl font-bold text-gray-800 mb-4">Why Choose ResaleExpert?</h2>
+            <p className="text-gray-600">AI-powered real estate platform trusted by thousands</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center group">
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:shadow-lg transition-all">
+                <Shield className="text-white" size={20} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">100% Verified</h3>
+              <p className="text-gray-600 text-sm">
+                Every property verified for legal compliance and authenticity.
+              </p>
+            </div>
+
+            <div className="text-center group">
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:shadow-lg transition-all">
+                <Brain className="text-white" size={20} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">AI-Powered</h3>
+              <p className="text-gray-600 text-sm">
+                Smart property matching based on your preferences and budget.
+              </p>
+            </div>
+
+            <div className="text-center group">
+              <div className="bg-gradient-to-r from-purple-500 to-pink-600 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:shadow-lg transition-all">
+                <Users className="text-white" size={20} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">Expert Support</h3>
+              <p className="text-gray-600 text-sm">
+                Dedicated real estate experts guide you throughout the process.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats - Compact */}
+      <section className="py-8 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
+            <div className="group">
+              <div className="bg-blue-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Home className="text-blue-600" size={20} />
+              </div>
+              <div className="text-2xl font-bold text-gray-900">10K+</div>
+              <div className="text-gray-600 text-sm">Properties</div>
+            </div>
+            <div className="group">
+              <div className="bg-green-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Users className="text-green-600" size={20} />
+              </div>
+              <div className="text-2xl font-bold text-gray-900">25K+</div>
+              <div className="text-gray-600 text-sm">Customers</div>
+            </div>
+            <div className="group">
+              <div className="bg-orange-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Award className="text-orange-600" size={20} />
+              </div>
+              <div className="text-2xl font-bold text-gray-900">15+</div>
+              <div className="text-gray-600 text-sm">Years</div>
+            </div>
+            <div className="group">
+              <div className="bg-purple-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Star className="text-purple-600" size={20} />
+              </div>
+              <div className="text-2xl font-bold text-gray-900">4.9★</div>
+              <div className="text-gray-600 text-sm">Rating</div>
+            </div>
+          </div>
+        </div>
+      </section>
+      {/* Testimonials - Compact */}
+      <section className="py-5 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl sm:text-3xl font-bold text-gray-800 mb-4">Customer Success Stories</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                name: 'Rajesh Kumar',
+                text: 'Found my dream home in 2 weeks with AI matching!',
+                rating: 5,
+                property: '3BHK Andheri'
+              },
+              {
+                name: 'Priya Sharma',
+                text: 'Sold my property 20% above market rate with their AI pricing.',
+                rating: 5,
+                property: 'Villa Koregaon'
+              },
+              {
+                name: 'Amit Patel',
+                text: 'Seamless process from search to registration.',
+                rating: 5,
+                property: '2BHK Gurgaon'
+              }
+            ].map((testimonial, index) => (
+              <div key={index} className="bg-white rounded-xl p-6 shadow-lg">
+                <div className="flex items-center space-x-1 mb-3">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <Star key={i} size={14} className="text-yellow-400 fill-current" />
+                  ))}
+                </div>
+                <p className="text-gray-700 mb-4 text-sm italic">"{testimonial.text}"</p>
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">
+                    {testimonial.name.split(' ').map(n => n[0]).join('')}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900 text-sm">{testimonial.name}</div>
+                    <div className="text-xs text-gray-500">{testimonial.property}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      {/* CTA - Compact */}
+      <section className="py-5 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+            Ready to Find Your Perfect Property?
+          </h2>
+          <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
+            Join thousands who found their dream properties with AI-powered search
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+            <button
+              onClick={() => onPageChange('properties')}
+              className="bg-white text-blue-600 px-2 py-1 rounded-xl font-bold hover:bg-gray-100 transition-all"
+            >
+              Browse Properties
+            </button>
+            <button
+              onClick={() => onAuthAction('sell')}
+              className="border-2 border-white text-white px-2 py-1 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-all"
+            >
+              Share Requirement
+            </button>
+          </div>
+
+          <div className="mt-8 flex items-center justify-center space-x-6 text-blue-100 text-sm">
+            <div className="flex items-center space-x-1">
+              <Phone size={16} />
+              <span>+91 99999 99999</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Shield size={16} />
+              <span>100% Verified</span>
+            </div>
+          </div>
+        </div>
+      </section>
       {/* Put modal INSIDE the root container so JSX is valid */}
       <PublicSellPropertyForm
         isOpen={isSellerModalOpen}

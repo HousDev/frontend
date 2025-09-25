@@ -153,7 +153,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                 <img
                   src={companyLogo}
                   alt={`${companyName}`} 
-                  className="h-10 w-auto object-contain rounded-lg shadow-sm bg-white p-1"
+                  className="h-10 w-auto object-contain rounded-lg"
                 />
               ) : (
                   <div className="flex items-center space-x-3">
