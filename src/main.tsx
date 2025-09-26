@@ -4,6 +4,7 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import './index.css'
 import App from './App.tsx'
 import { SystemSettingsProvider } from "@/contexts/SystemSettingsContext";
+import 'react-phone-input-2/lib/style.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

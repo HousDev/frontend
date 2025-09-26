@@ -17,6 +17,7 @@ interface User {
   email: string;
   first_name: string;
   last_name: string;
+  salutation?: string;
   password?: string;
   role: string;
   phone?: string;
@@ -45,6 +46,7 @@ const UsersPage: React.FC = () => {
     email: '',
     first_name: '',
     last_name: '',
+    salutation: '',
     password: '',
     role: '',
     phone: '',
@@ -59,8 +61,6 @@ const UsersPage: React.FC = () => {
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
   const [masterLoading, setMasterLoading] = useState(true);
   const [refreshUsers, setRefreshUsers] = useState(0);
-
-  // For showing generated password after create/update
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [showGeneratedPassword, setShowGeneratedPassword] = useState(false);
 
@@ -82,17 +82,21 @@ const UsersPage: React.FC = () => {
 
   // Called by UsersManagement when "Create Account" button is clicked in buyers/sellers table
   const handleOpenCreateFromChild = async ({ role, prefill }: { role: 'buyer' | 'seller', prefill?: Partial<User> }) => {
+    console.log("🔄 Opening create form with prefill:", { role, prefill });
     resetForm();
 
+    // Set prefilled data but make it editable
     setNewUser(prev => ({
       ...prev,
       role,
       email: prefill?.email ?? '',
       first_name: prefill?.first_name ?? '',
       last_name: prefill?.last_name ?? '',
+      salutation: prefill?.salutation ?? '',
       phone: prefill?.phone ?? '',
       username: prefill?.username ?? '',
-      // important: propagate buyer_id / seller_id into newUser state so UserForm + submit can use them
+      dob: prefill?.dob ?? '',
+      // Preserve buyer_id/seller_id for linking
       buyer_id: prefill?.buyer_id ?? (role === 'buyer' ? prefill?.id ?? null : null),
       seller_id: prefill?.seller_id ?? (role === 'seller' ? prefill?.id ?? null : null),
     }));
@@ -169,6 +173,10 @@ const UsersPage: React.FC = () => {
       errors.role = 'Role is required';
     }
 
+    if (!newUser.salutation) {
+      errors.salutation = 'Salutation is required';
+    }
+
     if (newUser.username && newUser.username.length < 3) {
       errors.username = 'Username must be at least 3 characters long';
     }
@@ -187,12 +195,13 @@ const UsersPage: React.FC = () => {
         ...newUser,
         username: newUser.username || null,
         phone: newUser.phone || null,
+        salutation: newUser.salutation ? getLabelFromValue('salutation', newUser.salutation) : null,
         designation: newUser.designation ? getLabelFromValue('designation', newUser.designation) : null,
         department: newUser.department ? getLabelFromValue('department', newUser.department) : null,
         role: newUser.role ? getLabelFromValue('role', newUser.role) : newUser.role,
         blood_group: newUser.blood_group ? getLabelFromValue('blood groups', newUser.blood_group) : null,
         dob: newUser.dob || null,
-        // include buyer_id/seller_id and preserve types (number or string) or null
+        // Include buyer_id/seller_id and preserve types (number or string) or null
         buyer_id: toNullableId(newUser.buyer_id ?? null),
         seller_id: toNullableId(newUser.seller_id ?? null),
       };
@@ -204,8 +213,10 @@ const UsersPage: React.FC = () => {
       let response;
       if (isEdit) {
         response = await usersAPI.updateUser(editingUser!.id, userData);
+        console.log("✅ User updated:", editingUser!.id);
       } else {
         response = await usersAPI.createUser({ ...userData, is_active: true });
+        console.log("✅ User created with data sync");
       }
 
       if (response.success) {
@@ -224,7 +235,7 @@ const UsersPage: React.FC = () => {
         toast.error(response.message || `Failed to ${isEdit ? 'update' : 'create'} user`);
       }
     } catch (err: any) {
-      console.error(`Error ${isEdit ? 'updating' : 'creating'} user:`, err);
+      console.error(`❌ Error ${isEdit ? 'updating' : 'creating'} user:`, err.message);
       if (err?.response?.data?.message) {
         const msg = err.response.data.message;
         if (msg.includes('email already exists')) {
@@ -256,14 +267,13 @@ const UsersPage: React.FC = () => {
       first_name: userToEdit.first_name,
       last_name: userToEdit.last_name,
       password: '',
-      // convert label back to value for select (if using labels/values)
+      salutation: getValueFromLabel('salutation', userToEdit.salutation || ''),
       role: getValueFromLabel('role', userToEdit.role),
       phone: userToEdit.phone || '',
       designation: getValueFromLabel('designation', userToEdit.designation || ''),
       department: getValueFromLabel('department', userToEdit.department || ''),
       dob: formattedDob,
       blood_group: getValueFromLabel('blood groups', userToEdit.blood_group || ''),
-      // important: include buyer_id & seller_id so form state (and subsequent submit) has them
       buyer_id: userToEdit.buyer_id ?? null,
       seller_id: userToEdit.seller_id ?? null,
     });
@@ -277,6 +287,7 @@ const UsersPage: React.FC = () => {
       email: '',
       first_name: '',
       last_name: '',
+      salutation: '',
       password: '',
       role: '',
       phone: '',

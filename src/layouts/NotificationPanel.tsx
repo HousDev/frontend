@@ -1,30 +1,25 @@
 // src/components/NotificationPanel.tsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Bell,
-  Users,
-  Eye,
-  TrendingUp,
-  FileText,
-  Check,
-  Trash2,
-  X
-} from "lucide-react";
+import { Bell, Users, Eye, TrendingUp, FileText, Check, Trash2, X } from "lucide-react";
 import { notificationAPI } from "@/lib/notificationAPI";
 import { useAuth } from "@/contexts/AuthContext";
 
+type UILevel = "low" | "medium" | "high";
+
+// ⬇️ Raw item matches your DB columns (snake_case)
 type RawNotification = {
   id: number | string;
-  type: string;
-  lead_name?: string | null;
-  message?: string | null;
-  created_at?: string | null;
-  is_read?: 0 | 1 | boolean;
-  link?: string | null;
-  [key: string]: any;
+  lead_id: string;                 // UUID
+  user_id: number | string;
+  message: string | null;
+  type: string | null;
+  link: string | null;
+  is_read: 0 | 1 | "0" | "1" | boolean | "true" | "false" | null;
+  priority: UILevel | null;
+  created_at: string | null;       // "YYYY-MM-DD HH:mm:ss"
+  updated_at: string | null;       // "YYYY-MM-DD HH:mm:ss"
+  [k: string]: any;
 };
-
-type UILevel = "low" | "medium" | "high";
 
 export type NotificationItem = {
   id: number;
@@ -32,22 +27,67 @@ export type NotificationItem = {
   message: string;
   type: string;
   priority: UILevel;
-  timestamp: string;
+  timestamp: string;               // ALWAYS created_at
   read: boolean;
   link?: string | null;
   color?: string;
 };
 
-const toNumberId = (id: number | string) => (typeof id === "number" ? id : Number(id));
+const toNumberId = (val: number | string) => {
+  const n = typeof val === "number" ? val : Number(val);
+  return Number.isFinite(n) ? n : Math.floor(Math.random() * 1e9);
+};
+
+const normalizeRead = (v: RawNotification["is_read"]): boolean => {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v === 1;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    return s === "1" || s === "true";
+  }
+  return false;
+};
+
+/** Parse "YYYY-MM-DD HH:mm:ss" (UTC) safely; accept ISO as well. */
+const parseDbTimestampToDate = (ts?: string | null): Date => {
+  if (!ts) return new Date(NaN);
+  if (/[tT]|\+|Z$/.test(ts)) return new Date(ts); // ISO-ish
+  const m = ts.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
+  if (m) {
+    const [, y, mo, d, h, mi, s] = m;
+    return new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +s));
+  }
+  return new Date(ts);
+};
+
+const formatAbsoluteLocal = (date: Date) => {
+  if (Number.isNaN(date.getTime())) return "Unknown time";
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone: "Asia/Kolkata", // force IST
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
+
+const formatRelative = (timestamp: string) => {
+  const when = parseDbTimestampToDate(timestamp);
+  if (Number.isNaN(when.getTime())) return "Unknown time";
+  const diffMin = Math.floor((Date.now() - when.getTime()) / 60000);
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  const diffD = Math.floor(diffH / 24);
+  return `${diffD}d ago`;
+};
 
 interface NotificationPanelProps {
-  // If provided, component becomes controlled for notifications (won't fetch)
   notifications?: NotificationItem[];
-  // Optional callback from parent to close/hide the panel
   onClose?: () => void;
-  // Optional userId override (useful if parent already has user id)
   userId?: number | string;
-  // If true forces fetch even when notifications prop present
   forceFetch?: boolean;
 }
 
@@ -60,16 +100,16 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
   const { user } = useAuth();
   const currentUserId = userIdProp ?? user?.id;
 
-  // Controlled vs uncontrolled mode
   const isControlled = Array.isArray(controlledNotifications) && !forceFetch;
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(
-    controlledNotifications ? controlledNotifications : []
+    controlledNotifications ?? []
   );
   const [loading, setLoading] = useState<boolean>(!isControlled);
   const [error, setError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
-  // Sync controlled notifications if parent updates them
+  // sync for controlled mode
   useEffect(() => {
     if (controlledNotifications && !forceFetch) {
       setNotifications(controlledNotifications);
@@ -77,21 +117,14 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     }
   }, [controlledNotifications, forceFetch]);
 
-  // Fetch only when uncontrolled
+  // fetch for uncontrolled mode
   useEffect(() => {
     if (isControlled) return;
 
     let mounted = true;
 
-    if (!currentUserId) {
-      setNotifications([]);
-      setLoading(false);
-      return;
-    }
-
     const uid = Number(currentUserId);
-    if (Number.isNaN(uid)) {
-      console.warn("NotificationPanel: user.id is not a number, skipping fetch:", currentUserId);
+    if (!currentUserId || Number.isNaN(uid)) {
       setNotifications([]);
       setLoading(false);
       return;
@@ -102,31 +135,50 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
       setError(null);
       try {
         const res = await notificationAPI.getUserNotifications(uid);
-        const apiData: RawNotification[] =
-          Array.isArray(res?.notifications) ? res.notifications : res?.notifications ? [res.notifications] : [];
+        // Accept array or single object
+        const rows: RawNotification[] = Array.isArray(res?.notifications)
+          ? res.notifications
+          : res?.notifications
+          ? [res.notifications]
+          : [];
 
-        const formatted: NotificationItem[] = apiData.map((n) => {
-          const id = Number.isFinite(toNumberId(n.id)) ? toNumberId(n.id) : Math.floor(Math.random() * 1e9);
-          const type = n.type ?? "general";
+        const formatted: NotificationItem[] = rows.map((n) => {
+          const id = toNumberId(n.id);
+          const type = (n.type ?? "general").toString();
+
           const title =
-            type === "lead_assign" ? `Lead Assigned:` : type === "property_inquiry" ? "Property Inquiry" : type;
-          const message = `${n.lead_name ? n.lead_name + " - " : ""}${n.message ?? ""}`;
+            type === "lead_assign"
+              ? "Lead Assigned"
+              : type === "property_inquiry"
+              ? "Property Inquiry"
+              : type === "visit_scheduled"
+              ? "Visit Scheduled"
+              : type === "price_suggestion"
+              ? "Price Suggestion"
+              : type === "document_ready"
+              ? "Document Ready"
+              : type;
+
+          // ✅ Use DB message directly
+          const message = n.message ?? "";
+
+          // ✅ ALWAYS created_at for display/sorting; fallback to updated_at if missing
+          const timestamp = n.created_at ?? n.updated_at ?? "1970-01-01 00:00:00";
+
           return {
             id,
             title,
             message,
             type,
-            priority: "medium" as UILevel,
-            timestamp: n.created_at ?? new Date().toISOString(),
-            read: n.is_read === 1 || n.is_read === true,
-            link: n.link ?? undefined,
+            priority: (n.priority as UILevel) ?? "medium",
+            timestamp,
+            read: normalizeRead(n.is_read),
+            link: n.link ?? null,
             color: "green",
           };
         });
 
-        if (mounted) {
-          setNotifications(formatted);
-        }
+        if (mounted) setNotifications(formatted);
       } catch (err: any) {
         console.error("❌ Error fetching notifications:", err);
         if (mounted) setError(err?.message ?? "Failed to fetch notifications");
@@ -141,46 +193,36 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     };
   }, [currentUserId, isControlled]);
 
-  // mark single as read (optimistic)
   const markAsRead = useCallback(async (id: number) => {
-    // in controlled mode, prefer calling parent handler (not present here),
-    // so we still update local copy for immediate UX. Parent should reconcile.
+    // optimistic
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-
     try {
       await notificationAPI.markAsRead(id);
+      // DO NOT modify timestamp; we keep created_at-based time intact
     } catch (err) {
       console.error("❌ Error marking as read:", err);
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: false } : n)));
     }
   }, []);
 
-  // delete (local only)
   const deleteNotification = useCallback((id: number) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
-    // optionally call API delete here if available
+    // optionally: await notificationAPI.delete(id)
   }, []);
 
-  // markAllAsRead accepts userId param and calls API with it
-  const markAllAsRead = useCallback(
-    async (userId: number) => {
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      try {
-        await notificationAPI.markAllAsRead(userId);
-      } catch (err) {
-        console.error("❌ Error marking all as read:", err);
-        // Consider re-fetching if you want to revert on failure
-      }
-    },
-    []
-  );
+  const markAllAsRead = useCallback(async (uid: number) => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await notificationAPI.markAllAsRead(uid);
+    } catch (err) {
+      console.error("❌ Error marking all as read:", err);
+    }
+  }, []);
 
   const viewNotification = useCallback(
     async (id: number, link?: string | null) => {
       await markAsRead(id);
-      if (typeof window !== "undefined" && link) {
-        window.location.href = link;
-      }
+      if (link && typeof window !== "undefined") window.location.href = link;
     },
     [markAsRead]
   );
@@ -215,18 +257,19 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    const now = new Date();
-    const parsed = new Date(timestamp);
-    if (Number.isNaN(parsed.getTime())) return "Unknown time";
-    const diffInMinutes = Math.floor((now.getTime() - parsed.getTime()) / (1000 * 60));
-    if (diffInMinutes < 1) return "Just now";
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-    return `${Math.floor(diffInMinutes / 1440)}d ago`;
-  };
-
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
+
+  // ✅ Sort by created_at (stored in n.timestamp)
+  const displayedNotifications = useMemo(() => {
+    const sorted = [...notifications].sort((a, b) => {
+      const da = parseDbTimestampToDate(a.timestamp).getTime();
+      const db = parseDbTimestampToDate(b.timestamp).getTime();
+      return db - da;
+    });
+    return sorted.slice(0, showAll ? 10 : 5);
+  }, [notifications, showAll]);
+
+  const canToggleViewAll = notifications.length > 5;
 
   return (
     <div className="relative z-50 bg-white shadow-md rounded-xl border border-gray-200 w-full max-w-2xl mx-auto">
@@ -236,11 +279,22 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
         </div>
 
         <div className="flex items-center space-x-3">
+          {canToggleViewAll && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              title={showAll ? "Show latest 5" : "Show latest 10"}
+            >
+              {showAll ? "View less" : "View all"}
+            </button>
+          )}
+
           {onClose && (
             <button onClick={onClose} className="p-1 rounded hover:bg-gray-100" title="Close">
               <X size={16} />
             </button>
           )}
+
           {unreadCount > 0 && currentUserId && (
             <button
               onClick={() => {
@@ -262,80 +316,94 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
           <li className="p-4 text-center text-gray-500 text-sm">Loading notifications...</li>
         ) : error ? (
           <li className="p-4 text-center text-red-500 text-sm">{error}</li>
-        ) : notifications.length === 0 ? (
+        ) : displayedNotifications.length === 0 ? (
           <li className="p-4 text-center text-gray-500 text-sm">No notifications yet</li>
         ) : (
-          notifications.map((n) => (
-            <li
-              key={n.id}
-              onClick={() => viewNotification(n.id, n.link)}
-              className={`p-4 flex space-x-3 transition-colors border-l-4 ${getPriorityColor(
-                n.priority
-              )} ${!n.read ? "bg-blue-50" : ""} hover:bg-gray-100 cursor-pointer`}
-            >
-              <div className="p-2 rounded-lg shadow-sm flex items-center justify-center min-w-[36px]">
-                {getNotificationIcon(n.type)}
-              </div>
+          displayedNotifications.map((n) => {
+            const parsedDate = parseDbTimestampToDate(n.timestamp);
+            const absoluteTooltip = formatAbsoluteLocal(parsedDate);
+            const relative = formatRelative(n.timestamp);
 
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <div className="min-w-0">
-                    <h4 className={`text-sm font-medium ${!n.read ? "text-gray-900" : "text-gray-700"}`}>{n.title}</h4>
-                    <p className="text-xs text-gray-600 truncate">{n.message}</p>
-                    <div className="flex items-center space-x-2 mt-2">
-                      <span className="text-xs text-gray-500">{formatTimestamp(n.timestamp)}</span>
-                      {n.priority && (
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full ${
-                            n.priority === "high" ? "bg-red-100 text-red-700" : n.priority === "medium" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
-                          }`}
-                        >
-                          {n.priority}
+            return (
+              <li
+                key={n.id}
+                onClick={() => viewNotification(n.id, n.link)}
+                className={`p-4 flex space-x-3 transition-colors border-l-4 ${getPriorityColor(
+                  n.priority
+                )} ${!n.read ? "bg-blue-50" : ""} hover:bg-gray-100 cursor-pointer`}
+              >
+                <div className="p-2 rounded-lg shadow-sm flex items-center justify-center min-w-[36px]">
+                  {getNotificationIcon(n.type)}
+                </div>
+
+                <div className="flex-1">
+                  <div className="flex justify-between items-start">
+                    <div className="min-w-0">
+                      <h4 className={`text-sm font-medium ${!n.read ? "text-gray-900" : "text-gray-700"}`}>
+                        {n.title}
+                      </h4>
+                      <p className="text-xs text-gray-600 truncate">{n.message}</p>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <span className="text-xs text-gray-500" title={absoluteTooltip}>
+                          {relative}
                         </span>
-                      )}
+                        {n.priority && (
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              n.priority === "high"
+                                ? "bg-red-100 text-red-700"
+                                : n.priority === "medium"
+                                ? "bg-orange-100 text-orange-700"
+                                : "bg-green-100 text-green-700"
+                            }`}
+                          >
+                            {n.priority}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex space-x-1 ml-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        viewNotification(n.id, n.link);
-                      }}
-                      className="p-1 text-green-600 hover:bg-green-100 rounded"
-                      title="View"
-                    >
-                      <Eye size={14} />
-                    </button>
-
-                    {!n.read && (
+                    <div className="flex space-x-1 ml-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          markAsRead(n.id);
+                          viewNotification(n.id, n.link);
                         }}
-                        className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                        title="Mark as read"
+                        className="p-1 text-green-600 hover:bg-green-100 rounded"
+                        title="View"
                       >
-                        <Check size={14} />
+                        <Eye size={14} />
                       </button>
-                    )}
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteNotification(n.id);
-                      }}
-                      className="p-1 text-red-600 hover:bg-red-100 rounded"
-                      title="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                      {!n.read && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsRead(n.id);
+                          }}
+                          className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                          title="Mark as read"
+                        >
+                          <Check size={14} />
+                        </button>
+                      )}
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNotification(n.id);
+                        }}
+                        className="p-1 text-red-600 hover:bg-red-100 rounded"
+                        title="Delete"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </li>
-          ))
+              </li>
+            );
+          })
         )}
       </ul>
     </div>

@@ -36,6 +36,7 @@ import { sellerAPI } from "@/lib/sellersAPI";
 import { toast } from "react-toastify";
 import SellerSidebarFilter from "./components/SellerSidebarFilter";
 import { useNavigate } from "react-router-dom";
+import TableLoader from "@/components/ui/TableLoader";
 
 // ---------- Helpers ----------
 const safe = <T,>(v: T | null | undefined, fallback: string | number = "-") =>
@@ -178,7 +179,7 @@ const SellersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const clearSelection = () => setSelectedSellers([]);
-  // Advanced Filters
+
   const [filters, setFilters] = useState({
     dateFrom: "",
     dateTo: "",
@@ -192,61 +193,70 @@ const SellersPage: React.FC = () => {
   });
 
   useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        setErrMsg(null);
-        const data = await sellerAPI.getAll(); // -> array of sellers from your API
-        const ui = Array.isArray(data) ? data.map(mapApiSellerToUI) : [];
-        setSellers(ui);
-        // for visual confirmation
-        // eslint-disable-next-line no-console
-        console.log("seller in component:", data);
-      } catch (err: any) {
-        // eslint-disable-next-line no-console
-        console.error("Error fetching sellers:", err);
-        setErrMsg("Failed to fetch sellers. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const fetchSellers = async () => {
+    try {
+      setLoading(true);
+      const apiSellers = await sellerAPI.getAll();
+      const normalized = Array.isArray(apiSellers)
+        ? apiSellers.map(mapApiSellerToUI)
+        : [];
+      setSellers(normalized);
+    } catch (err) {
+      console.error("Error fetching sellers:", err);
+      setSellers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchSellers();
+}, []);
 
-const handleExportAllFiltered = () => {
-  if (filteredSellers.length === 0) {
-    alert("No sellers to export based on current filters.");
-    return;
-  }
 
-  // Use `filteredSellers` which contains all matching sellers across all pages
-  const rows = filteredSellers.map(s => ({
-    id: s.id,
-    name: `${s.salutation} ${s.name}`.trim(),
-    phone: s.phone,
-    email: s.email,
-    location: s.location,
-    source: s.source,
-    priority: s.priority,
-    stage: s.stage,
-    status: s.status,
-    assigned: s.assigned,
-    created_at: s.created_at ?? "",
-  }));
+  const formatDOB = (val: string | null) => {
+    if (!val) return ' - ';
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return ' - ';
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`; // ✅ use slash separator
+  };
 
-  const headers = Object.keys(rows[0]);
-  const csv = [
-    headers.join(","),
-    ...rows.map(r => headers.map(h => `"${String((r as any)[h] ?? "").replace(/"/g, '""')}"`).join(",")),
-  ].join("\n");
+  const handleExportAllFiltered = () => {
+    if (filteredSellers.length === 0) {
+      alert("No sellers to export based on current filters.");
+      return;
+    }
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `filtered_sellers.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-};
+    // Use `filteredSellers` which contains all matching sellers across all pages
+    const rows = filteredSellers.map(s => ({
+      id: s.id,
+      name: `${s.salutation} ${s.name}`.trim(),
+      phone: s.phone,
+      email: s.email,
+      location: s.location,
+      source: s.source,
+      priority: s.priority,
+      stage: s.stage,
+      status: s.status,
+      assigned: s.assigned,
+      created_at: s.created_at ?? "",
+    }));
+
+    const headers = Object.keys(rows[0]);
+    const csv = [
+      headers.join(","),
+      ...rows.map(r => headers.map(h => `"${String((r as any)[h] ?? "").replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `filtered_sellers.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleBulkAssign = () => {
     // TODO: open Assign modal / API call
@@ -309,7 +319,6 @@ const handleExportAllFiltered = () => {
     }
   };
 
-
   const tabs = useMemo(() => {
     const count = (pred: (s: UISeller) => boolean) =>
       sellers.filter(pred).length;
@@ -350,7 +359,6 @@ const handleExportAllFiltered = () => {
       },
     ];
   }, [sellers]);
-
 
   const sources = useMemo(() => {
     const set = new Set<string>(["all"]);
@@ -401,17 +409,14 @@ const handleExportAllFiltered = () => {
           seller.priority === "high" &&
           seller.stage === "deal_negotiation");
 
-
       const matchesFilters =
         (filters.source === "all" || seller.source === filters.source) &&
         (filters.stage === "all" || seller.stage === filters.stage) &&
         (filters.priority === "all" || seller.priority === filters.priority) &&
         (filters.assigned === "all" || seller.assigned === filters.assigned) &&
-        // (filters.status === "all" ||
-        //   (seller.status || "").toLowerCase() === filters.status);
         (filters.status === "all" ||
           (filters.status === "active" && seller.isActive) ||
-          (filters.status === "inactive" && !seller.isActive))
+          (filters.status === "inactive" && !seller.isActive));
       const createdAt = seller.created_at ? new Date(seller.created_at) : null;
       const fromOk =
         !filters.dateFrom ||
@@ -453,11 +458,10 @@ const handleExportAllFiltered = () => {
   //   setCurrentSellerAccount(seller);
   // };
 
-   const handleSellerAccount = (sellerId: number) => {
+  const handleSellerAccount = (sellerId: number) => {
     // Navigate to the standalone seller account page
     navigate(`/dashboard/sellers-account/${sellerId}`);
   };
-
 
   const handleBackToList = () => {
     setCurrentSellerView(null);
@@ -564,9 +568,6 @@ const handleExportAllFiltered = () => {
     }
   };
 
-
-
-
   const handleSellerSelection = (sellerId: number) => {
     setSelectedSellers((prev) =>
       prev.includes(sellerId)
@@ -598,6 +599,7 @@ const handleExportAllFiltered = () => {
       setCurrentSellerView(filteredSellers[prevIndex]);
     }
   };
+
   // ✅ if you are storing is_active as BOOLEAN (0/1) in MySQL:
   const getStatusBadge = (isActive: boolean | number) => {
     const active = typeof isActive === "number" ? isActive === 1 : isActive;
@@ -614,7 +616,6 @@ const handleExportAllFiltered = () => {
       </span>
     );
   };
-
 
   const getStageBadge = (stage: string) => {
     const stageConfig: any = {
@@ -799,13 +800,13 @@ const handleExportAllFiltered = () => {
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-           <button 
-  onClick={handleExportAllFiltered}
-  className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
->
-  <Download size={14} />
-  <span>Export</span>
-</button>
+            <button
+              onClick={handleExportAllFiltered}
+              className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+            >
+              <Download size={14} />
+              <span>Export</span>
+            </button>
           </div>
         </div>
 
@@ -902,7 +903,6 @@ const handleExportAllFiltered = () => {
           </div>
         )}
 
-
         {/* Advanced Filters */}
         <SellerSidebarFilter
           isOpen={showFilters}
@@ -916,38 +916,44 @@ const handleExportAllFiltered = () => {
           assignedUsers={assignedUsers}
           statuses={statuses}
         />
-
       </div>
 
-      {/* Loading / Error */}
-      {loading && <div className="p-4 text-sm text-gray-600">Loading sellers…</div>}
-      {errMsg && !loading && <div className="p-4 text-sm text-red-600">{errMsg}</div>}
-
-      {/* Table */}
-      {!loading && !errMsg && (
-        <div className="flex-1 overflow-auto">
-          <div className="bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 sticky top-0">
+      {/* Table: render ALWAYS so the TableLoader row can show */}
+      <div className="flex-1 overflow-auto">
+        <div className="bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                <th className="px-3 py-2 text-left w-8">
+                  <input
+                    type="checkbox"
+                    checked={selectedSellers.length === paginatedSellers.length && paginatedSellers.length > 0}
+                    onChange={handleSelectAll}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Seller Details</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Contact & Location</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Business Info</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Progress & Activity</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {loading ? (
+                // ✅ Only TableLoader
+                <TableLoader colSpan={7} message="Loading sellers..." size="lg" />
+              ) : errMsg ? (
+                // ✅ Error row inside the table
                 <tr>
-                  <th className="px-3 py-2 text-left w-8">
-                    <input
-                      type="checkbox"
-                      checked={selectedSellers.length === paginatedSellers.length && paginatedSellers.length > 0}
-                      onChange={handleSelectAll}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Seller Details</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Contact & Location</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Business Info</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Progress & Activity</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <td colSpan={7} className="px-3 py-8 text-center text-sm text-red-600">
+                    {errMsg}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {paginatedSellers.map((seller) => (
+              ) : paginatedSellers.length > 0 ? (
+                // ✅ Normal rows
+                paginatedSellers.map((seller) => (
                   <tr key={seller.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-3 py-3">
                       <input
@@ -957,6 +963,7 @@ const handleExportAllFiltered = () => {
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                     </td>
+
                     <td className="px-3 py-3">
                       <div className="flex items-center space-x-3">
                         <div className="p-1.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
@@ -964,18 +971,19 @@ const handleExportAllFiltered = () => {
                         </div>
                         <div>
                           <div className="font-semibold text-gray-900 text-sm">
-                            {safe(seller.salutation)} {safe(seller.name)}
+                            <div>{safe(seller.salutation)} {safe(seller.name)}</div>
+                            {seller.seller_dob && (
+                              <div className="text-gray-500 text-xs">{formatDOB(seller.seller_dob)}</div>
+                            )}
                           </div>
                           <div className="flex items-center space-x-1 mt-1">
-
-                            {getStatusBadge(seller.isActive)}  {/* seller.isActive = 1/0 ya true/false */}
-
-
+                            {getStatusBadge(seller.isActive)}
                             {getLeadScore(seller.leadScore)}
                           </div>
                         </div>
                       </div>
                     </td>
+
                     <td className="px-3 py-3">
                       <div className="space-y-1">
                         <div className="flex items-center space-x-1 text-xs">
@@ -988,12 +996,11 @@ const handleExportAllFiltered = () => {
                         </div>
                         <div className="flex items-center space-x-1 text-xs">
                           <MapPin size={10} className="text-gray-400" />
-                          <span>
-                            {safe(seller.location)}{seller.city ? `, ${seller.city}` : ""}
-                          </span>
+                          <span>{safe(seller.location)}{seller.city ? `, ${seller.city}` : ""}</span>
                         </div>
                       </div>
                     </td>
+
                     <td className="px-3 py-3">
                       <div className="space-y-1">
                         <div className="text-xs">
@@ -1007,6 +1014,7 @@ const handleExportAllFiltered = () => {
                         </div>
                       </div>
                     </td>
+
                     <td className="px-3 py-3">
                       <div className="space-y-2">
                         {getStageBadge(seller.stage)}
@@ -1019,6 +1027,7 @@ const handleExportAllFiltered = () => {
                         <div className="text-xs text-gray-500">Last: {toDate(seller.lastActivity)}</div>
                       </div>
                     </td>
+
                     <td className="px-3 py-3">
                       <div className="space-y-1">
                         <div className="flex items-center space-x-2 text-xs">
@@ -1045,6 +1054,7 @@ const handleExportAllFiltered = () => {
                         )}
                       </div>
                     </td>
+
                     <td className="px-3 py-3">
                       <div className="flex items-center space-x-1">
                         <button
@@ -1099,19 +1109,19 @@ const handleExportAllFiltered = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
-                {paginatedSellers.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500">
-                      No sellers found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              ) : (
+                // ✅ Empty state
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500">
+                    No sellers found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
       {/* Pagination */}
       {!loading && !errMsg && (
@@ -1169,7 +1179,6 @@ const handleExportAllFiltered = () => {
       )}
 
       {/* Modals */}
-
       {showSellerForm && (
         <SellerFormModal
           key={editingSeller ? `edit-${editingSeller.id}` : 'create'}
@@ -1181,9 +1190,7 @@ const handleExportAllFiltered = () => {
           }}
           onSave={handleSaveSeller}
         />
-
       )}
-
 
       {showImportLeads && (
         <ImportLeadsModal isOpen={showImportLeads} onClose={() => setShowImportLeads(false)} onImport={() => { }} />

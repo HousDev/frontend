@@ -58,6 +58,180 @@ const TABS = [
 
 const LOCAL_STORAGE_TAB_KEY = 'users-management-active-tab';
 
+// LocalCreateModal Component for editable prefill data
+const LocalCreateModal: React.FC<{
+  createAccountTypeLocal: 'buyer' | 'seller';
+  createPrefill: Partial<User> | null;
+  localCreating: boolean;
+  onSubmit: (data: Partial<User>) => void;
+  onClose: () => void;
+}> = ({ createAccountTypeLocal, createPrefill, localCreating, onSubmit, onClose }) => {
+  const [formData, setFormData] = useState<Partial<User>>({
+    salutation: createPrefill?.salutation || '',
+    first_name: createPrefill?.first_name || '',
+    last_name: createPrefill?.last_name || '',
+    email: createPrefill?.email || '',
+    phone: createPrefill?.phone || '',
+    username: createPrefill?.username || '',
+    dob: createPrefill?.dob || '',
+    password: '',
+    buyer_id: createPrefill?.buyer_id ?? null,
+    seller_id: createPrefill?.seller_id ?? null,
+  });
+
+  // Update form data when prefill changes
+  useEffect(() => {
+    if (createPrefill) {
+      console.log("🔄 LocalCreateModal prefill updated:", createPrefill);
+      setFormData({
+        salutation: createPrefill.salutation || '',
+        first_name: createPrefill.first_name || '',
+        last_name: createPrefill.last_name || '',
+        email: createPrefill.email || '',
+        phone: createPrefill.phone || '',
+        username: createPrefill.username || '',
+        dob: createPrefill.dob || '',
+        password: '',
+        buyer_id: createPrefill.buyer_id ?? null,
+        seller_id: createPrefill.seller_id ?? null,
+      });
+    }
+  }, [createPrefill]);
+
+  const handleInputChange = (field: keyof User, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Create {createAccountTypeLocal === 'buyer' ? 'Buyer' : 'Seller'} Account
+        </h3>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            {/* Prefill info banner */}
+            {(formData.buyer_id || formData.seller_id) && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <p className="text-xs text-yellow-800 font-medium">
+                  🔗 Linking to {createAccountTypeLocal}: {formData.buyer_id || formData.seller_id}
+                  <br />You can edit the prefilled data below.
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Salutation</label>
+                <select
+                  value={formData.salutation || ''}
+                  onChange={(e) => handleInputChange('salutation', e.target.value)}
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Select --</option>
+                  <option value="Mr">Mr</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Dr">Dr</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                <input 
+                  type="text"
+                  value={formData.first_name || ''}
+                  onChange={(e) => handleInputChange('first_name', e.target.value)}
+                  required 
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                <input 
+                  type="text"
+                  value={formData.last_name || ''}
+                  onChange={(e) => handleInputChange('last_name', e.target.value)}
+                  required 
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+              <input 
+                type="email" 
+                value={formData.email || ''}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                required 
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <input 
+                type="tel"
+                value={formData.phone || ''}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+              <input 
+                type="text"
+                value={formData.username || ''}
+                onChange={(e) => handleInputChange('username', e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+              <input
+                type="date"
+                value={formData.dob || ''}
+                onChange={(e) => handleInputChange('dob', e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+              <input 
+                type="password" 
+                value={formData.password || ''}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+                required 
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                placeholder="Enter password for new user"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2 mt-6">
+            <Button type="button" variant="outline" onClick={onClose} disabled={localCreating}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={localCreating || !formData.first_name || !formData.last_name || !formData.email || !formData.password}>
+              {localCreating ? 'Creating...' : 'Create Account'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const UsersManagement: React.FC<UsersManagementProps> = ({
   onEditUser,
   refreshTrigger,
@@ -78,31 +252,69 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
   const [selectedUsers, setSelectedUsers] = useState<Array<string | number>>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
 
-  // 🔥 Tab state ko localStorage se initialize karenge
+  // Tab state from localStorage
   const [activeTab, setActiveTab] = useState<'all' | 'buyers' | 'sellers' | 'buyer-accounts' | 'seller-accounts'>(() => {
     const savedTab = localStorage.getItem(LOCAL_STORAGE_TAB_KEY) as any;
     return (savedTab && TABS.find(t => t.id === savedTab)) ? savedTab : 'all';
   });
 
-  // 🔥 Tab change par localStorage update karenge
-  const handleTabChange = (tabId: any) => {
-    setActiveTab(tabId);
-    localStorage.setItem(LOCAL_STORAGE_TAB_KEY, tabId);
-  };
-
-  // sharing modal
+  // Modals state
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharingUser, setSharingUser] = useState<User | null>(null);
-
-  // create-account modal fallback
   const [showCreateModalLocal, setShowCreateModalLocal] = useState(false);
   const [createAccountTypeLocal, setCreateAccountTypeLocal] = useState<'buyer' | 'seller'>('buyer');
   const [createPrefill, setCreatePrefill] = useState<Partial<User> | null>(null);
   const [localCreating, setLocalCreating] = useState(false);
 
-  const getOriginalPassword = (userId?: string | number) => {
-    if (userId === undefined || userId === null) return '';
-    return userPasswords[String(userId)] || '';
+  // FIXED: Utility functions for proper date handling
+  const formatDateForAPI = (dateValue: string | Date | null | undefined): string | null => {
+    if (!dateValue) return null;
+    
+    // If it's already a YYYY-MM-DD string, return as-is
+    if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      return dateValue;
+    }
+    
+    // If it's a Date object, convert using local date components (no timezone conversion)
+    if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
+      const year = dateValue.getFullYear();
+      const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+      const day = String(dateValue.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    // Try parsing string and rebuild with local components
+    if (typeof dateValue === 'string') {
+      try {
+        const date = new Date(dateValue);
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+      } catch {
+        // Fallback: if string looks like a date, try to extract YYYY-MM-DD
+        const match = String(dateValue).match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (match) {
+          return `${match[1]}-${match[2]}-${match[3]}`;
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  const formatDateForInput = (dateValue: string | Date | null | undefined): string => {
+    if (!dateValue) return '';
+    
+    // If it's already a YYYY-MM-DD string, return as-is
+    if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      return dateValue;
+    }
+    
+    // Convert using formatDateForAPI which handles timezone properly
+    return formatDateForAPI(dateValue) || '';
   };
 
   const splitFullName = (fullName?: string) => {
@@ -135,7 +347,8 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       total_leads: data.total_leads || 0,
       total_properties: data.total_properties || 0,
       total_revenue: data.total_revenue || 0,
-      dob: data.dob,
+      // FIXED: Use consistent DOB handling without timezone conversion
+      dob: formatDateForAPI(data.dob), 
       blood_group: data.blood_group,
       buyer_id: data.buyer_id ?? (role === 'buyer' ? data.id : null),
       seller_id: data.seller_id ?? (role === 'seller' ? data.id : null),
@@ -149,7 +362,16 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     return [];
   };
 
-  // 🔥 Function to check if buyer/seller already has an account created
+  const handleTabChange = (tabId: any) => {
+    setActiveTab(tabId);
+    localStorage.setItem(LOCAL_STORAGE_TAB_KEY, tabId);
+  };
+
+  const getOriginalPassword = (userId?: string | number) => {
+    if (userId === undefined || userId === null) return '';
+    return userPasswords[String(userId)] || '';
+  };
+
   const hasAccountCreated = (buyerSellerId: string | number, type: 'buyer' | 'seller'): boolean => {
     return allUsers.some(user => {
       if (type === 'buyer') {
@@ -160,7 +382,20 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     });
   };
 
-  // fetch buyers and sellers separate lists
+  const buildPrefillFromUser = (u: Partial<User>): Partial<User> => ({
+    salutation: u.salutation,
+    first_name: u.first_name,
+    last_name: u.last_name,
+    email: u.email,
+    phone: u.phone,
+    username: u.username,
+    // FIXED: Use formatDateForInput for proper date handling
+    dob: formatDateForInput(u.dob),
+    buyer_id: u.buyer_id ?? (u.role === 'buyer' ? u.id ?? null : null),
+    seller_id: u.seller_id ?? (u.role === 'seller' ? u.id ?? null : null),
+  });
+
+  // Fetch buyers and sellers data
   useEffect(() => {
     const fetchBuyersAndSellers = async () => {
       try {
@@ -168,9 +403,10 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         const rawBuyersData = normalizeListResponse<any>(bResp);
         const normalizedBuyersData = rawBuyersData.map((buyer: any) => normalizeBuyerSellerData(buyer, 'buyer'));
         setBuyersData(normalizedBuyersData);
+       
       } catch (err) {
-        console.error('Error fetching buyers:', err);
-        toast.error('Failed to load buyers data');
+        toast.error('❌ Error fetching buyers:', err);
+       
       }
 
       try {
@@ -178,9 +414,10 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         const rawSellersData = normalizeListResponse<any>(sResp);
         const normalizedSellersData = rawSellersData.map((seller: any) => normalizeBuyerSellerData(seller, 'seller'));
         setSellersData(normalizedSellersData);
+        
       } catch (err) {
-        console.error('Error fetching sellers:', err);
-        toast.error('Failed to load sellers data');
+        toast.error('❌Failed to load sellers data', err);
+      
       }
     };
     fetchBuyersAndSellers();
@@ -217,40 +454,29 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
             total_leads: u.total_leads,
             total_properties: u.total_properties,
             total_revenue: u.total_revenue,
-            dob: u.dob,
+            // FIXED: Use consistent DOB handling
+            dob: formatDateForAPI(u.dob),
             blood_group: u.blood_group,
             buyer_id: u.buyer_id ?? null,
             seller_id: u.seller_id ?? null,
           } as User;
         });
         setAllUsers(users);
+       
       } else {
         toast.error('Failed to load users');
       }
     } catch (err: any) {
-      console.error('Error fetching users:', err);
+    
       toast.error(err?.response?.data?.message || 'Failed to load users');
     } finally {
       setLoading(false);
     }
   };
 
-  const toNullableId = (v: unknown): string | number | null => {
-    if (v === null || v === undefined || v === '') return null;
-    if (typeof v === 'number') return Number.isNaN(v) ? null : v;
-    if (typeof v === 'string') {
-      const trimmed = v.trim();
-      if (/^-?\d+$/.test(trimmed)) {
-        const n = Number(trimmed);
-        return Number.isNaN(n) ? trimmed : n;
-      }
-      return trimmed;
-    }
-    const n = Number(v as any);
-    return Number.isNaN(n) ? null : n;
-  };
-
   const startCreateAccount = async (type: 'buyer' | 'seller', prefill?: Partial<User>) => {
+    console.log("🎯 Starting create account:", { type, prefill });
+    
     const enrichedPrefill: Partial<User> = {
       ...prefill,
       role: type,
@@ -264,10 +490,12 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         handleTabChange(type === 'buyer' ? 'buyer-accounts' : 'seller-accounts');
         fetchUsers();
       } catch (err) {
-        console.error('onCreateUser handler failed', err);
+        console.error('❌ onCreateUser handler failed', err);
       }
       return;
     }
+    
+    // Fallback local modal
     setCreateAccountTypeLocal(type);
     setCreatePrefill(enrichedPrefill);
     setShowCreateModalLocal(true);
@@ -282,6 +510,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       const rawSellerId = accountData.seller_id ?? prefill.seller_id ?? null;
 
       const payload: any = {
+        salutation: accountData.salutation, 
         first_name: accountData.first_name,
         last_name: accountData.last_name,
         email: accountData.email,
@@ -290,6 +519,8 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         password: accountData.password || undefined,
         role: createAccountTypeLocal,
         is_active: accountData.is_active !== undefined ? accountData.is_active : defaultIsActive,
+        // FIXED: Use formatDateForAPI for proper date handling
+        dob: formatDateForAPI(accountData.dob),
         buyer_id: rawBuyerId === null ? null : (typeof rawBuyerId === 'string' && /^\d+$/.test(rawBuyerId) ? Number(rawBuyerId) : rawBuyerId),
         seller_id: rawSellerId === null ? null : (typeof rawSellerId === 'string' && /^\d+$/.test(rawSellerId) ? Number(rawSellerId) : rawSellerId),
       };
@@ -298,43 +529,48 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       if (!resp?.success) throw new Error(resp?.message || 'Failed to create user');
       const createdUser: User = resp.data;
 
-      if (createAccountTypeLocal === 'buyer') {
-        if (!payload.buyer_id) {
-          try {
-            const buyerResp = await buyerAPI.create({
-              name: `${accountData.first_name || ''} ${accountData.last_name || ''}`.trim(),
-              email: accountData.email,
-              phone: accountData.phone,
-              user_id: createdUser.id
-            });
-            if (buyerResp?.success && buyerResp.data?.id) {
-              await usersAPI.updateUser(String(createdUser.id!), { buyer_id: buyerResp.data.id });
-              createdUser.buyer_id = buyerResp.data.id;
-            }
-          } catch (err) {
-            console.warn('Buyer creation failed (user created)', err);
+      console.log("✅ Account created successfully:", createdUser.id);
+
+      // Create corresponding buyer/seller record if needed
+      if (createAccountTypeLocal === 'buyer' && !payload.buyer_id) {
+        try {
+          const buyerResp = await buyerAPI.create({
+            salutation: accountData.salutation, 
+            name: `${accountData.first_name || ''} ${accountData.last_name || ''}`.trim(),
+            email: accountData.email,
+            phone: accountData.phone,
+            // FIXED: Use formatDateForAPI for proper date handling
+            dob: formatDateForAPI(accountData.dob), 
+            user_id: createdUser.id
+          });
+          if (buyerResp?.success && buyerResp.data?.id) {
+            await usersAPI.updateUser(String(createdUser.id!), { buyer_id: buyerResp.data.id });
+            createdUser.buyer_id = buyerResp.data.id;
           }
+        } catch (err) {
+          console.warn('⚠️ Buyer creation failed (user created):', err);
         }
-      } else {
-        if (!payload.seller_id) {
-          try {
-            const sellerResp = await sellerAPI.create({
-              name: `${accountData.first_name || ''} ${accountData.last_name || ''}`.trim(),
-              email: accountData.email,
-              phone: accountData.phone,
-              user_id: createdUser.id
-            });
-            if (sellerResp?.success && sellerResp.data?.id) {
-              await usersAPI.updateUser(String(createdUser.id!), { seller_id: sellerResp.data.id });
-              createdUser.seller_id = sellerResp.data.id;
-            }
-          } catch (err) {
-            console.warn('Seller creation failed (user created)', err);
+      } else if (createAccountTypeLocal === 'seller' && !payload.seller_id) {
+        try {
+          const sellerResp = await sellerAPI.create({
+            salutation: accountData.salutation, 
+            name: `${accountData.first_name || ''} ${accountData.last_name || ''}`.trim(),
+            email: accountData.email,
+            phone: accountData.phone,
+            // FIXED: Use formatDateForAPI for proper date handling
+            dob: formatDateForAPI(accountData.dob), 
+            user_id: createdUser.id
+          });
+          if (sellerResp?.success && sellerResp.data?.id) {
+            await usersAPI.updateUser(String(createdUser.id!), { seller_id: sellerResp.data.id });
+            createdUser.seller_id = sellerResp.data.id;
           }
+        } catch (err) {
+          console.warn('⚠️ Seller creation failed (user created):', err);
         }
       }
 
-      toast.success('Account created');
+      toast.success('Account created successfully');
 
       setAllUsers(prev => {
         const exists = prev.some(u => String(u.id) === String(createdUser.id));
@@ -343,19 +579,20 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         }
         return [createdUser, ...prev];
       });
+      
       handleTabChange(createAccountTypeLocal === 'buyer' ? 'buyer-accounts' : 'seller-accounts');
-
       setShowCreateModalLocal(false);
       setCreatePrefill(null);
       fetchUsers();
     } catch (err: any) {
-      console.error('Error creating account (local):', err);
+      console.error('❌ Error creating account (local):', err);
       toast.error(err?.response?.data?.message || err.message || 'Failed to create account');
     } finally {
       setLocalCreating(false);
     }
   };
 
+  // Share functionality
   const handleShareUser = (u: User) => {
     setSharingUser(u);
     setShowShareModal(true);
@@ -406,6 +643,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     });
   };
 
+  // Filtering and data management
   const getFilteredUsers = () => {
     const activeTabConfig = TABS.find(t => t.id === activeTab) ?? TABS[0];
 
@@ -475,6 +713,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     return counts;
   };
 
+  // Selection handling
   useEffect(() => {
     setSelectedUsers([]);
     setShowBulkActions(false);
@@ -505,166 +744,105 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     }
   };
 
+  // Bulk actions
   const handleBulkAction = async (action: 'activate' | 'deactivate' | 'delete') => {
     if (action === 'delete' && !window.confirm(`Delete ${selectedUsers.length} users?`)) return;
 
-    if (action !== 'delete') {
-      const active = action === 'activate';
-      setAllUsers(prev => prev.map(u => selectedUsers.some(id => String(id) === String(u.id)) ? { ...u, is_active: active } : u));
-
-      // 🔥 Update buyers/sellers data separately for instant UI updates
-      setBuyersData(prev => prev.map(u => selectedUsers.some(id => String(id) === String(u.id)) ? { ...u, is_active: active } : u));
-      setSellersData(prev => prev.map(u => selectedUsers.some(id => String(id) === String(u.id)) ? { ...u, is_active: active } : u));
-    } else {
-      setAllUsers(prev => prev.filter(u => !selectedUsers.some(id => String(id) === String(u.id))));
-      setBuyersData(prev => prev.filter(u => !selectedUsers.some(id => String(id) === String(u.id))));
-      setSellersData(prev => prev.filter(u => !selectedUsers.some(id => String(id) === String(u.id))));
-    }
-
     try {
       for (const id of selectedUsers) {
-        // 🔥 Fix TypeScript error by converting to string
-        if (action === 'delete') await usersAPI.deleteUser(String(id));
-        else await usersAPI.updateUser(String(id), { is_active: action === 'activate' });
+        if (action === 'delete') {
+          await usersAPI.deleteUser(String(id));
+        } else {
+          await usersAPI.updateUser(String(id), { is_active: action === 'activate' });
+        }
       }
-      toast.success(`Bulk ${action} completed`);
+      
+      toast.success(`Bulk ${action} completed successfully`);
+      console.log(`✅ Bulk ${action} completed for ${selectedUsers.length} users`);
+      
       setSelectedUsers([]);
       setShowBulkActions(false);
+      fetchUsers();
 
-      // 🔥 Instant API refresh after bulk action
-      const refreshPromises = [fetchUsers()];
-
+      // Refresh buyer/seller data if needed
       if (activeTab === 'buyers' || activeTab === 'buyer-accounts') {
-        refreshPromises.push(
-          buyerAPI.getAll().then(bResp => {
-            const rawBuyersData = normalizeListResponse<any>(bResp);
-            const normalizedBuyersData = rawBuyersData.map((buyer: any) => normalizeBuyerSellerData(buyer, 'buyer'));
-            setBuyersData(normalizedBuyersData);
-          }).catch(err => console.error('Error refreshing buyers:', err))
-        );
+        const bResp = await buyerAPI.getAll();
+        const rawBuyersData = normalizeListResponse<any>(bResp);
+        setBuyersData(rawBuyersData.map((buyer: any) => normalizeBuyerSellerData(buyer, 'buyer')));
       }
 
       if (activeTab === 'sellers' || activeTab === 'seller-accounts') {
-        refreshPromises.push(
-          sellerAPI.getAll().then(sResp => {
-            const rawSellersData = normalizeListResponse<any>(sResp);
-            const normalizedSellersData = rawSellersData.map((seller: any) => normalizeBuyerSellerData(seller, 'seller'));
-            setSellersData(normalizedSellersData);
-          }).catch(err => console.error('Error refreshing sellers:', err))
-        );
+        const sResp = await sellerAPI.getAll();
+        const rawSellersData = normalizeListResponse<any>(sResp);
+        setSellersData(rawSellersData.map((seller: any) => normalizeBuyerSellerData(seller, 'seller')));
       }
-
-      await Promise.all(refreshPromises);
     } catch (err) {
-      console.error('Bulk action error', err);
-      toast.error('Bulk action failed');
+      console.error(`❌ Bulk ${action} error:`, err);
+      toast.error(`Bulk ${action} failed`);
       fetchUsers();
     }
   };
 
-  // 🔥 Enhanced toggle function for instant updates across all data sources
+  // Individual user actions
   const handleToggleUserStatus = async (userId?: string | number, isActive?: boolean) => {
     if (userId === undefined || userId === null) return;
 
     const newStatus = !isActive;
-
-    // 🔥 Update all data sources instantly for immediate UI feedback
-    setAllUsers(prev => prev.map(u => String(u.id) === String(userId) ? { ...u, is_active: newStatus } : u));
-    setBuyersData(prev => prev.map(u => String(u.id) === String(userId) ? { ...u, is_active: newStatus } : u));
-    setSellersData(prev => prev.map(u => String(u.id) === String(userId) ? { ...u, is_active: newStatus } : u));
-
     try {
-      // 🔥 Fix TypeScript error by converting to string
       await usersAPI.updateUser(String(userId), { is_active: newStatus });
-      toast.success(`User ${newStatus ? 'activated' : 'deactivated'}`);
-
-      // 🔥 Instant API calls after status update
-      const refreshPromises = [fetchUsers()];
-
-      // Check which data source needs refresh based on current tab
+      toast.success(`User ${newStatus ? 'activated' : 'deactivated'} successfully`);
+      console.log(`✅ User ${userId} ${newStatus ? 'activated' : 'deactivated'}`);
+      
+      // Refresh all data to maintain sync
+      fetchUsers();
+      
       if (activeTab === 'buyers' || activeTab === 'buyer-accounts') {
-        refreshPromises.push(
-          buyerAPI.getAll().then(bResp => {
-            const rawBuyersData = normalizeListResponse<any>(bResp);
-            const normalizedBuyersData = rawBuyersData.map((buyer: any) => normalizeBuyerSellerData(buyer, 'buyer'));
-            setBuyersData(normalizedBuyersData);
-          }).catch(err => console.error('Error refreshing buyers:', err))
-        );
+        const bResp = await buyerAPI.getAll();
+        const rawBuyersData = normalizeListResponse<any>(bResp);
+        setBuyersData(rawBuyersData.map((buyer: any) => normalizeBuyerSellerData(buyer, 'buyer')));
       }
 
       if (activeTab === 'sellers' || activeTab === 'seller-accounts') {
-        refreshPromises.push(
-          sellerAPI.getAll().then(sResp => {
-            const rawSellersData = normalizeListResponse<any>(sResp);
-            const normalizedSellersData = rawSellersData.map((seller: any) => normalizeBuyerSellerData(seller, 'seller'));
-            setSellersData(normalizedSellersData);
-          }).catch(err => console.error('Error refreshing sellers:', err))
-        );
+        const sResp = await sellerAPI.getAll();
+        const rawSellersData = normalizeListResponse<any>(sResp);
+        setSellersData(rawSellersData.map((seller: any) => normalizeBuyerSellerData(seller, 'seller')));
       }
-
-      // Wait for all refresh operations
-      await Promise.all(refreshPromises);
     } catch (err) {
-      console.error('Error toggling user status', err);
+      console.error(`❌ Error toggling user ${userId} status:`, err);
       toast.error('Failed to update user status');
-      // If API fails, revert the optimistic update by refetching
-      fetchUsers();
     }
   };
 
   const handleDeleteUser = async (userId?: string | number) => {
     if (userId === undefined || userId === null) return;
-    if (!window.confirm('Delete this user?')) return;
-
-    // Store previous state for rollback
-    const prevAllUsers = allUsers;
-    const prevBuyersData = buyersData;
-    const prevSellersData = sellersData;
-
-    // 🔥 Optimistic remove from all data sources
-    setAllUsers(prev => prev.filter(u => String(u.id) !== String(userId)));
-    setBuyersData(prev => prev.filter(u => String(u.id) !== String(userId)));
-    setSellersData(prev => prev.filter(u => String(u.id) !== String(userId)));
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
 
     try {
-      // 🔥 Fix TypeScript error by converting to string
       await usersAPI.deleteUser(String(userId));
-      toast.success('User deleted');
-
-      // 🔥 Instant API refresh after delete
-      const refreshPromises = [fetchUsers()];
-
+      toast.success('User deleted successfully');
+      console.log(`✅ User ${userId} deleted`);
+      
+      // Refresh all data
+      fetchUsers();
+      
       if (activeTab === 'buyers' || activeTab === 'buyer-accounts') {
-        refreshPromises.push(
-          buyerAPI.getAll().then(bResp => {
-            const rawBuyersData = normalizeListResponse<any>(bResp);
-            const normalizedBuyersData = rawBuyersData.map((buyer: any) => normalizeBuyerSellerData(buyer, 'buyer'));
-            setBuyersData(normalizedBuyersData);
-          }).catch(err => console.error('Error refreshing buyers:', err))
-        );
+        const bResp = await buyerAPI.getAll();
+        const rawBuyersData = normalizeListResponse<any>(bResp);
+        setBuyersData(rawBuyersData.map((buyer: any) => normalizeBuyerSellerData(buyer, 'buyer')));
       }
 
       if (activeTab === 'sellers' || activeTab === 'seller-accounts') {
-        refreshPromises.push(
-          sellerAPI.getAll().then(sResp => {
-            const rawSellersData = normalizeListResponse<any>(sResp);
-            const normalizedSellersData = rawSellersData.map((seller: any) => normalizeBuyerSellerData(seller, 'seller'));
-            setSellersData(normalizedSellersData);
-          }).catch(err => console.error('Error refreshing sellers:', err))
-        );
+        const sResp = await sellerAPI.getAll();
+        const rawSellersData = normalizeListResponse<any>(sResp);
+        setSellersData(rawSellersData.map((seller: any) => normalizeBuyerSellerData(seller, 'seller')));
       }
-
-      await Promise.all(refreshPromises);
     } catch (err) {
-      console.error('Error deleting user', err);
+      console.error(`❌ Error deleting user ${userId}:`, err);
       toast.error('Failed to delete user');
-      // Rollback on error
-      setAllUsers(prevAllUsers);
-      setBuyersData(prevBuyersData);
-      setSellersData(prevSellersData);
     }
   };
 
+  // Utility functions for display
   const getRoleColor = (role?: string) => {
     switch (role?.toLowerCase()) {
       case 'admin': return 'bg-red-100 text-red-800';
@@ -682,20 +860,23 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(amount);
   };
 
+  // FIXED: Helper function to format date for display (avoids timezone issues)
+  const formatDateForDisplay = (dateValue?: string | null) => {
+    if (!dateValue) return 'N/A';
+    
+    // If it's a YYYY-MM-DD string, parse and format safely
+    if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      const [year, month, day] = dateValue.split('-');
+      const date = new Date(Number(year), Number(month) - 1, Number(day));
+      return date.toLocaleDateString();
+    }
+    
+    return 'N/A';
+  };
+
   const roles = masters.role || [];
   const availableRoles = activeTab === 'all' ? roles : [];
   const activeTabConfig = TABS.find(t => t.id === activeTab)!;
-
-  const buildPrefillFromUser = (u: Partial<User>): Partial<User> => ({
-    salutation: u.salutation,
-    first_name: u.first_name,
-    last_name: u.last_name,
-    email: u.email,
-    phone: u.phone,
-    username: u.username,
-    buyer_id: u.buyer_id ?? (u.role === 'buyer' ? u.id ?? null : null),
-    seller_id: u.seller_id ?? (u.role === 'seller' ? u.id ?? null : null),
-  });
 
   return (
     <div className="space-y-6">
@@ -710,12 +891,14 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
               e.preventDefault();
               const f = new FormData(e.target as HTMLFormElement);
               const payload = {
+                salutation: (f.get('salutation') as string) || (createPrefill?.salutation || ''),
                 first_name: (f.get('first_name') as string) || (createPrefill?.first_name || ''),
                 last_name: (f.get('last_name') as string) || (createPrefill?.last_name || ''),
                 email: (f.get('email') as string) || (createPrefill?.email || ''),
                 phone: (f.get('phone') as string) || (createPrefill?.phone || ''),
                 username: (f.get('username') as string) || (createPrefill?.username || ''),
                 password: (f.get('password') as string),
+                dob: (f.get('dob') as string) || (createPrefill?.dob || ''),
                 buyer_id: createPrefill?.buyer_id ?? null,
                 seller_id: createPrefill?.seller_id ?? null,
               };
@@ -723,6 +906,21 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
             }}>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Salutation</label>
+                    <select
+                      name="salutation"
+                      defaultValue={createPrefill?.salutation || ""}
+                      className="w-full px-3 py-2 border rounded"
+                    >
+                      <option value="">-- Select --</option>
+                      <option value="Mr">Mr</option>
+                      <option value="Mrs">Mrs</option>
+                      <option value="Ms">Ms</option>
+                      <option value="Dr">Dr</option>
+                    </select>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
                     <input name="first_name" defaultValue={createPrefill?.first_name || ''} required className="w-full px-3 py-2 border rounded" />
@@ -745,6 +943,15 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
                   <input name="username" defaultValue={createPrefill?.username || ''} className="w-full px-3 py-2 border rounded" />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    name="dob"
+                    defaultValue={createPrefill?.dob || ''}
+                    className="w-full px-3 py-2 border rounded"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
                   <input name="password" type="password" required className="w-full px-3 py-2 border rounded" />
                 </div>
@@ -755,7 +962,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
 
               <div className="flex justify-end space-x-1 mt-6 ">
                 <Button type="button" variant="outline" onClick={() => { setShowCreateModalLocal(false); setCreatePrefill(null); }}>Cancel</Button>
-                <Button  type="submit" disabled={localCreating}>{localCreating ? 'Creating...' : 'Create Account'}</Button>
+                <Button type="submit" disabled={localCreating}>{localCreating ? 'Creating...' : 'Create Account'}</Button>
               </div>
             </form>
           </div>
@@ -890,8 +1097,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUsers.length > 0 ? filteredUsers.map(user => {
-                  // 🔥 Check if account is already created for this buyer/seller
-                  const accountAlreadyExists = (activeTab === 'buyers' || activeTab === 'sellers') && 
+                  const accountAlreadyExists = (activeTab === 'buyers' || activeTab === 'sellers') &&
                     hasAccountCreated(user.id!, activeTab === 'buyers' ? 'buyer' : 'seller');
 
                   return (
@@ -917,8 +1123,8 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
                           <div>
                             <p className="text-sm font-medium text-gray-900">{user.salutation ? user.salutation + ' ' : ''}{user.first_name} {user.last_name}</p>
                             {user.username && <p className="text-sm text-gray-500">@{user.username}</p>}
-                            {user.dob && <p className="text-xs text-gray-400">DOB: {new Date(user.dob).toLocaleDateString()}</p>}
-                            {/* 🔥 Show account status for buyers/sellers */}
+                            {/* FIXED: Use formatDateForDisplay for proper date display */}
+                            {user.dob && <p className="text-xs text-gray-400">DOB: {formatDateForDisplay(user.dob)}</p>}
                             {(activeTab === 'buyers' || activeTab === 'sellers') && (
                               <p className={`text-xs ${accountAlreadyExists ? 'text-green-600' : 'text-orange-600'}`}>
                                 {accountAlreadyExists ? '✓ Account Created' : '○ No Account'}
@@ -962,16 +1168,16 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
                       <td className="px-6 py-4 text-right">
                         {(activeTab === 'buyers' || activeTab === 'sellers') ? (
                           <div className="flex items-center justify-end space-x-2">
-                            <Button 
-                              onClick={() => startCreateAccount(activeTab === 'buyers' ? 'buyer' : 'seller', buildPrefillFromUser(user))} 
-                              size="sm" 
+                            <Button
+                              onClick={() => startCreateAccount(activeTab === 'buyers' ? 'buyer' : 'seller', buildPrefillFromUser(user))}
+                              size="sm"
                               disabled={accountAlreadyExists}
-                              className={`${accountAlreadyExists 
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed hover:bg-gray-300' 
+                              className={`${accountAlreadyExists
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed hover:bg-gray-300'
                                 : 'bg-green-600 hover:bg-green-700 text-white'
-                              }`}
+                                }`}
                             >
-                              <Plus className="h-3 w-3 mr-1" /> 
+                              <Plus className="h-3 w-3 mr-1" />
                               {accountAlreadyExists ? 'Account Exists' : 'Create Account'}
                             </Button>
                           </div>

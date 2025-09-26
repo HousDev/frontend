@@ -50,14 +50,13 @@ const buildFormStateFromBuyer = (b: any) => {
     salutation: b?.salutation ?? 'Mr.',
     name: b?.name ?? '',
     phone: b?.phone ?? '',
-    dob: b?.dob ?? '',
-    // accept both shapes
+    // FIX: Ensure dob is properly extracted from all possible field names
+    dob: b?.dob ?? b?.buyer_dob ?? ISO_18Y_BACK, // Add fallback to ISO_18Y_BACK
     whatsapp_number: b?.whatsapp_number ?? b?.whatsapp ?? '',
     email: b?.email ?? '',
     state: b?.state ?? '',
     city: b?.city ?? '',
     location: b?.location ?? '',
-    // accept both shapes
     buyer_lead_priority: b?.buyer_lead_priority ?? b?.priority ?? '',
     buyer_lead_source: b?.buyer_lead_source ?? b?.source ?? '',
     buyer_lead_stage: b?.buyer_lead_stage ?? b?.stage ?? '',
@@ -86,11 +85,9 @@ const buildFormStateFromBuyer = (b: any) => {
     },
   };
 };
-
 const dedupeByValue = (opts: any[] = []) =>
   Array.from(new Map(opts.map(o => [o?.value, o])).values());
 
-// Convert any incoming label/value into the canonical option.value (case-insensitive)
 const toCanonical = (opts: { value: any; label: any }[] = [], incoming: any) => {
   if (incoming === null || incoming === undefined) return '';
   const s = String(incoming).trim();
@@ -102,27 +99,20 @@ const toCanonical = (opts: { value: any; label: any }[] = [], incoming: any) => 
   const byLabel = opts.find(o => String(o.label).toLowerCase() === s.toLowerCase());
   if (byLabel) return byLabel.value;
 
-  return s; // fallback: leave as-is
+  return s;
 };
 
-// Canonicalize an array of incoming values/labels to the available options
 const arrToCanonical = (opts: { value: any; label: any }[] = [], arr: any[] = []) =>
   (Array.isArray(arr) ? arr : [])
     .map(v => toCanonical(opts, v))
     .filter(Boolean);
 
-// Helper function to check if two phone numbers are same (ignoring country code)
 const arePhoneNumbersSame = (phone1: string, phone2: string) => {
   if (!phone1 || !phone2) return false;
-
-  // Remove all non-digit characters
   const digits1 = String(phone1).replace(/\D/g, '');
   const digits2 = String(phone2).replace(/\D/g, '');
-
-  // Get last 10 digits for comparison (typical Indian mobile number)
   const last10_1 = digits1.slice(-10);
   const last10_2 = digits2.slice(-10);
-
   return last10_1 === last10_2 && last10_1.length === 10;
 };
 
@@ -211,7 +201,6 @@ const MultiSelectDropdown = ({
   );
 };
 
-
 // ---------- date helpers ----------
 const TODAY = new Date();
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -223,7 +212,6 @@ const EIGHTEEN_YEARS_BACK = new Date(
   TODAY.getDate()
 );
 const ISO_18Y_BACK = toISODate(EIGHTEEN_YEARS_BACK);
-
 
 // ------------------------------
 // Main Component
@@ -246,6 +234,7 @@ const BuyerFormModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState(() => buildFormStateFromBuyer(buyer || {}));
+
   const calcAge = (iso?: string) => {
     if (!iso) return 0;
     const d = new Date(iso);
@@ -258,10 +247,10 @@ const BuyerFormModal = ({
 
   const age = useMemo(() => calcAge(formData.dob), [formData.dob]);
 
-  // empty DOB par error mat dikhao; filled ho aur <18 ho to error
   const ageError = formData.dob
     ? (age < 18 ? 'Buyer must be at least 18 years old' : '')
     : '';
+
   useEffect(() => {
     if (!isOpen) return;
     (async () => {
@@ -277,25 +266,28 @@ const BuyerFormModal = ({
     })();
   }, [isOpen]);
 
+
+  // FIXED: Reset form data when buyer changes and modal opens
   useEffect(() => {
-    const newFormData = buildFormStateFromBuyer(buyer || {});
-    setFormData(newFormData);
+    if (isOpen) {
+      const newFormData = buildFormStateFromBuyer(buyer || {});
+      setFormData(newFormData);
 
-    // Set sameAsPhone toggle based on whether phone and whatsapp numbers are same
-    if (buyer && buyer.phone && (buyer.whatsapp_number || buyer.whatsapp)) {
-      const phoneSame = arePhoneNumbersSame(buyer.phone, buyer.whatsapp_number || buyer.whatsapp);
-      setSameAsPhone(phoneSame);
-    } else {
-      setSameAsPhone(false);
-    }
+      // Set sameAsPhone toggle based on whether phone and whatsapp numbers are same
+      if (buyer && buyer.phone && (buyer.whatsapp_number || buyer.whatsapp)) {
+        const phoneSame = arePhoneNumbersSame(buyer.phone, buyer.whatsapp_number || buyer.whatsapp);
+        setSameAsPhone(phoneSame);
+      } else {
+        setSameAsPhone(false);
+      }
 
-    if (buyer && buyer.id) {
-      // edit mode
-      console.log('BuyerFormModal: EDIT MODE', buyer);
-    } else {
-      console.log('BuyerFormModal: CREATE MODE');
+      if (buyer && buyer.id) {
+        console.log('BuyerFormModal: EDIT MODE', buyer, 'DOB:', buyer.dob);
+      } else {
+        console.log('BuyerFormModal: CREATE MODE');
+      }
     }
-  }, [buyer]);
+  }, [isOpen, buyer]); // Added isOpen dependency
 
   const getMasterOptions = (key: string) => dedupeByValue(masters?.[key] || []);
 
@@ -303,7 +295,6 @@ const BuyerFormModal = ({
   useEffect(() => {
     if (!isOpen || masterLoading) return;
 
-    // Get raw requirements from buyer (handles both shapes)
     const buyerReqs = parseMaybeJSON(buyer?.requirements) || buyer?.requirements || {};
 
     setFormData(prev => {
@@ -319,15 +310,11 @@ const BuyerFormModal = ({
 
       const updatedData = {
         ...prev,
-
-        // Canonicalize top-level business fields + salutation
         salutation: toCanonical(salutationOpts, prev.salutation ?? buyer?.salutation),
         buyer_lead_source: toCanonical(getMasterOptions('buyer lead source'), prev.buyer_lead_source ?? buyer?.buyer_lead_source ?? buyer?.source),
         buyer_lead_priority: toCanonical(getMasterOptions('lead priority'), prev.buyer_lead_priority ?? buyer?.buyer_lead_priority ?? buyer?.priority),
         buyer_lead_stage: toCanonical(getMasterOptions('buyer lead stage'), prev.buyer_lead_stage ?? buyer?.buyer_lead_stage ?? buyer?.stage),
         buyer_lead_status: toCanonical(getMasterOptions('buyer lead status'), prev.buyer_lead_status ?? buyer?.buyer_lead_status ?? buyer?.status),
-
-        // Canonicalize nested requirements
         requirements: {
           ...prev.requirements,
           propertyType: toCanonical(propertyTypeOpts, prev.requirements?.propertyType ?? buyerReqs?.propertyType ?? ''),
@@ -354,7 +341,6 @@ const BuyerFormModal = ({
     setFormData(prev => {
       const updated = { ...prev, phone: value };
       if (sameAsPhone) {
-        // Remove country code and non-digits, keep last 10 digits typical for IN
         const digits = String(value).replace(/\D/g, '');
         const last10 = digits.slice(-10);
         (updated as any).whatsapp_number = last10;
@@ -435,7 +421,6 @@ const BuyerFormModal = ({
         ...formData,
         budget_min: minBudget,
         budget_max: maxBudget,
-        // Stringify nested for MySQL storage
         requirements: JSON.stringify(formData.requirements || {}),
         financials: JSON.stringify(formData.financials || {}),
         created_at: buyer?.created_at || new Date().toISOString(),
@@ -451,7 +436,6 @@ const BuyerFormModal = ({
         toast.success("Buyer created successfully!");
       }
       if (onSave) onSave((response as any)?.data || response);
-      //  toast.success("Buyer saved successfully!");
       onClose?.();
     } catch (error: any) {
       console.error('Error saving buyer:', error);
@@ -461,10 +445,6 @@ const BuyerFormModal = ({
       setIsSubmitting(false);
     }
   };
-
-  // ---- Age helpers (INSIDE BuyerFormModal, return se pehle) ----
-
-
 
   const getLabel = (key: string, val: any) =>
     (getMasterOptions(key).find((o: any) => o.value === val)?.label ?? val);
@@ -600,9 +580,11 @@ const BuyerFormModal = ({
                       placeholder="Enter email address"
                     />
                   </div>
+
+                  {/* FIXED: DOB Field */}
                   <div className="md:col-span-1">
                     <DOBStepCalendar
-                      value={formData.dob || ''}
+                      value={formData.dob || ISO_18Y_BACK} // Add fallback to ISO_18Y_BACK
                       onChange={(iso) => setFormData(prev => ({ ...prev, dob: iso }))}
                       label="Date of Birth"
                       placeholder="Select date of birth"
@@ -610,11 +592,8 @@ const BuyerFormModal = ({
                       max={ISO_18Y_BACK}
                     />
                     {ageError && <p className="mt-1 text-[11px] text-red-600">{ageError}</p>}
+
                   </div>
-
-
-
-
                 </div>
               </div>
 
@@ -731,14 +710,12 @@ const BuyerFormModal = ({
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <BudgetInput
-                    // label="Minimum Budget"
                     value={formData.budget_min}
                     onChange={(v: any) => handleBudgetChange('budget_min', v)}
                     onFocus={() => handleBudgetFocus('minBudget')}
                     error={touched.minBudget && !formData.budget_min ? 'Minimum budget is required' : ''}
                   />
                   <BudgetInput
-                    // label="Maximum Budget"
                     value={formData.budget_max}
                     onChange={(v: any) => handleBudgetChange('budget_max', v)}
                     onFocus={() => handleBudgetFocus('maxBudget')}
@@ -760,7 +737,7 @@ const BuyerFormModal = ({
                         Property Type
                       </label>
                       <select
-                        value={formData?.requirements?.propertyType || ""}   // 🔥 safe fallback
+                        value={formData?.requirements?.propertyType || ""}
                         onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
@@ -779,13 +756,6 @@ const BuyerFormModal = ({
                           </option>
                         ))}
                       </select>
-
-                      {/* 🔽 Niche user ka selected property dikhao
-                      {formData?.requirements?.propertyType && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Selected Property: <b>{formData.requirements.propertyType}</b>
-                        </p>
-                      )} */}
                     </div>
 
                     <div>

@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { sellerAPI } from '@/lib/sellersAPI';
 import SellerAccountPage from './SellerAccountPage';
+import { toast } from 'react-toastify';
 
 const StandaloneSellerAccountPage = () => {
   const { id } = useParams();
@@ -28,7 +29,6 @@ const StandaloneSellerAccountPage = () => {
       try {
   setLoading(true);
   const sellerData = await sellerAPI.getById(id);
-  console.log("seller data", sellerData);
   if (isMounted) {
     setSeller({
       ...sellerData.data.seller,
@@ -38,7 +38,7 @@ const StandaloneSellerAccountPage = () => {
     setError(null);
   }
 } catch (err) {
-  console.error("Error fetching seller:", err);
+  toast.error("Error fetching seller:", err);
   if (isMounted) {
     setError("Failed to load seller data");
     setSeller(null);
@@ -58,7 +58,7 @@ const StandaloneSellerAccountPage = () => {
       const savedSeller = await sellerAPI.update(id, updatedSeller);
       setSeller(savedSeller);
     } catch (err) {
-      console.error('Error updating seller:', err);
+      toast.error('Error updating seller:', err);
     }
   };
 

@@ -75,42 +75,14 @@ const UserForm: React.FC<UserFormProps> = ({
   const bloodGroups = masters['blood groups'] || [];
   const salutations = masters.salutation || masters['salutation'] || [];
 
-  // Add useEffect to populate newUser with editingUser data when in edit mode
-  useEffect(() => {
-    if (editingUser && visible) {
-      console.log('🔄 Populating form with editingUser data:', editingUser);
-      setNewUser({
-        ...editingUser,
-        password: '', // Reset password for edit mode
-      });
-    }
-  }, [editingUser, visible, setNewUser]);
 
-  // Console-only debugging: show buyer_id/seller_id (value + type) whenever editingUser/newUser change
-  useEffect(() => {
-    console.log('EditingUser salutation:', editingUser?.salutation);
-    console.log('NewUser salutation:', newUser?.salutation);
-    console.log('Available salutations:', salutations.map(s => s.value));
-    console.log('Matched salutations value:', salutations.find(s => s.value === editingUser?.salutation)?.value);
-
-    if (editingUser) {
-      console.log('🔎 editingUser IDs:', {
-        buyer_id: editingUser.buyer_id,
-        buyer_id_type: editingUser.buyer_id === null ? 'null' : typeof editingUser.buyer_id,
-        seller_id: editingUser.seller_id,
-        seller_id_type: editingUser.seller_id === null ? 'null' : typeof editingUser.seller_id,
-        salutation: editingUser.salutation,
-      });
-    }
-
-    console.log('🔎 newUser IDs:', {
-      buyer_id: newUser.buyer_id,
-      buyer_id_type: newUser.buyer_id === null ? 'null' : typeof newUser.buyer_id,
-      seller_id: newUser.seller_id,
-      seller_id_type: newUser.seller_id === null ? 'null' : typeof newUser.seller_id,
-      salutation: newUser.salutation,
-    });
-  }, [editingUser, newUser, salutations]);
+useEffect(() => {
+  if (editingUser) {
+   
+  } else if (newUser.buyer_id || newUser.seller_id) {
+   
+  }
+}, [editingUser, newUser.buyer_id, newUser.seller_id, newUser.role, newUser.salutation]);
 
   const defaultDisabled =
     !newUser.salutation ||
@@ -121,12 +93,12 @@ const UserForm: React.FC<UserFormProps> = ({
     !newUser.dob ||
     (!editingUser && !newUser.password);
 
-  // helper when role changes to keep buyer_id/seller_id consistent
+  // Helper when role changes to keep buyer_id/seller_id consistent
   const handleRoleChange = (value: string) => {
-    // notify parent generic change handler
+    // Notify parent generic change handler
     handleInputChange('role', value);
 
-    // update IDs accordingly: keep whichever id exists for that role, clear the other
+    // Update IDs accordingly: keep whichever id exists for that role, clear the other
     if (value.toLowerCase() === 'buyer') {
       setNewUser({
         ...newUser,
@@ -134,6 +106,7 @@ const UserForm: React.FC<UserFormProps> = ({
         buyer_id: newUser.buyer_id ?? null,
         seller_id: null,
       });
+      
     } else if (value.toLowerCase() === 'seller') {
       setNewUser({
         ...newUser,
@@ -141,6 +114,7 @@ const UserForm: React.FC<UserFormProps> = ({
         seller_id: newUser.seller_id ?? null,
         buyer_id: null,
       });
+      
     } else {
       setNewUser({
         ...newUser,
@@ -148,6 +122,7 @@ const UserForm: React.FC<UserFormProps> = ({
         buyer_id: null,
         seller_id: null,
       });
+     
     }
   };
 
@@ -280,7 +255,7 @@ const UserForm: React.FC<UserFormProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    DOB <span className="text-red-500">*</span>
+                    Date of Birth <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -424,6 +399,8 @@ const UserForm: React.FC<UserFormProps> = ({
                   </div>
                 )}
               </div>
+
+              
             </div>
 
             {/* Buttons */}

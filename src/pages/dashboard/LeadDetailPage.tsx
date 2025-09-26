@@ -844,98 +844,158 @@ const LeadDetailPage: React.FC = () => {
   };
 
   // ✅ Enhanced Save handler for followups with notification support
-  const handleFollowupSave = async (data: FollowupForm & { lead_id?: string }) => {
-    if (!lead?.id) {
-      toast.error("Lead not loaded.");
-      return;
-    }
+// ✅ Fixed handleFollowupSave function with proper error separation
+const handleFollowupSave = async (data: FollowupForm & { lead_id?: string }) => {
+  if (!lead?.id) {
+    toast.error("Lead not loaded.");
+    return;
+  }
 
+  let followupSavedSuccessfully = false;
+  let isUpdate = false;
+
+  try {
+    console.log("🚀 Starting followup save process...");
+    
+    const scheduledISO = data.scheduleDate
+      ? `${data.scheduleDate}T${(data.scheduleTime || "00:00")}:00`
+      : null;
+
+    const followupPayload = {
+      leadId: data.lead_id ?? lead.id,
+      type: data.followupType,
+      stage: data.leadStage,
+      status: data.leadStatus,
+      remark: data.remark,
+      customRemark: data.customRemark,
+      nextAction: data.nextAction,
+      scheduledDate: scheduledISO,
+      priority: data.priority
+    };
+
+    console.log("📝 Followup payload:", followupPayload);
+
+    // Step 1: Create/Update followup - THIS IS THE MAIN OPERATION
     try {
-      const scheduledISO = data.scheduleDate
-        ? `${data.scheduleDate}T${(data.scheduleTime || "00:00")}:00`
-        : null;
-
-      const followupPayload = {
-        leadId: data.lead_id ?? lead.id,
-        type: data.followupType,
-        stage: data.leadStage,
-        status: data.leadStatus,
-        remark: data.remark,
-        customRemark: data.customRemark,
-        nextAction: data.nextAction,
-        scheduledDate: scheduledISO,
-        priority: data.priority
-      };
-
       let response;
-
+      
       if (editingFollowup) {
+        console.log("🔄 Updating existing followup:", editingFollowup.id);
         response = await followupAPI.updateFollowup(editingFollowup.id, {
           ...followupPayload,
           updated_by: user?.id,
         });
-        toast.success("Follow-up updated successfully!");
+        isUpdate = true;
         setEditingFollowup(null);
       } else {
+        console.log("➕ Creating new followup");
         response = await followupAPI.createFollowup({
           ...followupPayload,
           updated_by: user?.id,
         });
-        toast.success("Follow-up saved successfully!");
+        isUpdate = false;
       }
 
       console.log("✅ Followup API Response:", response);
+      followupSavedSuccessfully = true;
 
-      // update lead
+    } catch (followupError) {
+      console.error("❌ Followup save/update failed:", followupError);
+      // This is the main operation failure - show error and return
+      const action = editingFollowup ? "update" : "save";
+      toast.error(`Failed to ${action} follow-up. Please try again.`);
+      return; // Don't continue if main operation failed
+    }
+
+    // If we reach here, followup was saved successfully
+    console.log("✅ Followup saved successfully, proceeding with additional operations...");
+
+    // Step 2: Update lead (this can fail but shouldn't affect success)
+    try {
+      console.log("🔄 Updating lead with new stage/status/priority...");
       await leadsAPI.updateLead(lead.id, {
         stage: data.leadStage,
         status: data.leadStatus,
         priority: data.priority,
         updated_by: user?.id,
       });
+      console.log("✅ Lead updated successfully");
+    } catch (leadUpdateErr) {
+      console.error("⚠️ Lead update failed (non-critical):", leadUpdateErr);
+      // Continue anyway, followup was saved
+    }
 
-      // ✅ Send notification to assigned executive about followup
-      if (lead.assigned_executive && lead.assigned_executive.trim() !== "") {
-        try {
-          const exec = presalesUsers.find(u => String(u.id) === String(lead.assigned_executive));
-          const execName = exec?.name || lead.assigned_executive_name || "Executive";
-          
-          await notificationAPI.createNotification({
-            leadId: Number(lead.id), // ✅ Convert to string
-            userId: Number(lead.assigned_executive), // ✅ Convert to string
-            message: `New follow-up added for lead "${lead.name}" by ${user?.first_name  || 'User'}`,
-            type: "followup_add",
-            link: `/dashboard/leads/${lead.id}`,
-          });
-          
-          console.log("✅ Followup notification sent to executive:", execName);
-        } catch (notifErr) {
-          console.error("Failed to send followup notification:", notifErr);
-          console.error("Followup notification error details:", notifErr?.response?.data || notifErr?.message);
-          // Don't fail the followup for notification error
-        }
+    // Step 3: Send notification (this can fail but shouldn't affect success)
+    if (lead.assigned_executive && lead.assigned_executive.trim() !== "") {
+      try {
+        console.log("📧 Sending notification to assigned executive...");
+        const exec = presalesUsers.find(u => String(u.id) === String(lead.assigned_executive));
+        const execName = exec?.name || lead.assigned_executive_name || "Executive";
+        
+        await notificationAPI.createNotification({
+          leadId: Number(lead.id),
+          userId: Number(lead.assigned_executive),
+          message: `New follow-up added for lead "${lead.name}" by ${user?.first_name || 'User'}`,
+          type: "followup_add",
+          link: `/dashboard/leads/${lead.id}`,
+        });
+        
+        console.log("✅ Notification sent to executive:", execName);
+      } catch (notifErr) {
+        console.error("⚠️ Notification failed (non-critical):", notifErr);
+        // Don't show warning toast, just log it
       }
+    }
 
-      // Local sync
+    // Step 4: Update local state (this shouldn't fail)
+    try {
+      console.log("🔄 Updating local state...");
       setLead((prev) =>
         prev
-          ? { ...prev, stage: data.leadStage || prev.stage, status: data.leadStatus || prev.status, priority: data.priority }
+          ? { 
+              ...prev, 
+              stage: data.leadStage || prev.stage, 
+              status: data.leadStatus || prev.status, 
+              priority: data.priority 
+            }
           : prev
       );
-
       setIsFollowupModalOpen(false);
-
-      // Refresh followups
-      try {
-        await fetchFollowups();
-      } catch (fetchErr) {
-        console.error("⚠️ Failed to refresh followups:", fetchErr);
-      }
-    } catch (err) {
-      console.error("❌ Failed to save followup:", err);
-      toast.error("Failed to save follow-up. Please try again.");
+      console.log("✅ Local state updated");
+    } catch (stateErr) {
+      console.error("⚠️ State update failed (non-critical):", stateErr);
     }
-  };
+
+    // Step 5: Refresh followups (this can fail but shouldn't affect success)
+    try {
+      console.log("🔄 Refreshing followups list...");
+      await fetchFollowups();
+      console.log("✅ Followups refreshed");
+    } catch (fetchErr) {
+      console.error("⚠️ Followups refresh failed (non-critical):", fetchErr);
+      // Continue anyway, followup was saved
+    }
+
+  } catch (unexpectedError) {
+    console.error("❌ Unexpected error in handleFollowupSave:", unexpectedError);
+    // This should not happen if we handled all cases above
+    if (!followupSavedSuccessfully) {
+      const action = editingFollowup ? "update" : "save";
+      toast.error(`Failed to ${action} follow-up. Please try again.`);
+      return;
+    }
+  }
+
+  // ✅ Show success message only if followup was saved successfully
+  if (followupSavedSuccessfully) {
+    console.log("🎉 Showing success message");
+    if (isUpdate) {
+      toast.success("Follow-up updated successfully!");
+    } else {
+      toast.success("Follow-up saved successfully!");
+    }
+  }
+};
 
   const formatDateShort = (iso?: string | null) => {
     if (!iso) return "-";
