@@ -13,9 +13,11 @@ import AddLeadModal from './components/AddLeadModal';
 import ImportLeadsModal from './components/ImportLeadsModal';
 import FilterModal from './components/FilterModal';
 import { leadsAPI, usersAPI } from '@/lib/api';
-import { filterLeadsByRole } from '../utils/roleBasedLeadFilter';
-import { canAddLead, canDeleteLead, canEditLead, canExportLeads, canImportLeads, canViewLead } from '../utils/rolePermissions';
+
+
 import { notificationAPI } from '@/lib/notificationAPI';
+import { filterLeadsByRole } from '@/utils/roleBasedLeadFilter';
+import { canAddLead, canDeleteLead, canEditLead, canExportLeads, canImportLeads, canViewLead } from '@/utils/rolePermissions';
 
 interface Lead {
   id: string;

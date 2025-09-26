@@ -13,7 +13,8 @@ import {
   Flame,
 
 } from "lucide-react";
-import { safe } from "@/pages/utils/uiSafe";
+import { safe } from "@/utils/uiSafe";
+
 
 const formatCurrency = (amount?: number) => {
   const n = Number(amount ?? 0);

@@ -168,10 +168,6 @@ const AgentDashboard: React.FC = () => {
             propertiesAPI.getProperties({ agent_id: user?.id, limit: 1 }).catch((e: any) => { console.warn("propertiesAPI.getProperties error", e); return null; }),
           ]);
 
-          console.log("leads list raw response:", leadsResp);
-          console.log("activities list raw response:", activitiesResp);
-          console.log("props list raw response:", propsResp);
-
           // Normalize arrays
           const leadsData = parseResp(leadsResp);
           const leadsArray = Array.isArray(leadsData) ? leadsData : Array.isArray(leadsData?.data) ? leadsData.data : null;

@@ -750,10 +750,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
       if (mode === 'edit' && propertyId) {
         result = await propertiesAPI.updateProperty(String(propertyId), payload);
-        toast.success('Property updated successfully ✅');
       } else {
         result = await propertiesAPI.createProperty(payload);
-        toast.success('Property created successfully 🎉');
       }
 
       onSubmit(result);

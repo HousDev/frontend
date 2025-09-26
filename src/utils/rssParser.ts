@@ -1,5 +1,7 @@
 // src/pages/utils/rssParser.ts
-import { RSSArticle, BlogPost } from '../../types/blog';
+
+import { BlogPost, RSSArticle } from "@/types/blog";
+
 
 export class RSSParser {
   private static readonly CORS_PROXIES = [

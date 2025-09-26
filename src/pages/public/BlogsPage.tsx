@@ -280,12 +280,12 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-5">
+      <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-6">
+          <h2 className="text-2xl font-bold mb-3">
             Real Estate Insights & News
           </h2>
-          <p className="text-xl mb-10 text-blue-100 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-lg mb-10 text-blue-100 max-w-3xl mx-auto leading-relaxed">
             Stay informed with the latest market trends, expert tips, and property updates.
             From buying and selling guidance to investment insights and design ideas — everything you need in one place.
           </p>

@@ -280,11 +280,11 @@ const ServicesPage = () => {
       <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-6">
+            <h2 className="text-2xl font-bold mb-3">
               Complete Real Estate Solutions
             
             </h2>
-            <p className="text-xl mb-4 text-blue-100 max-w-4xl mx-auto leading-relaxed">
+            <p className="text-lg mb-4 text-blue-100 max-w-4xl mx-auto leading-relaxed">
               From property search to final registration, we provide end-to-end real estate services 
               with expert guidance and transparent pricing
             </p>
@@ -301,11 +301,11 @@ const ServicesPage = () => {
       </section>
 
       {/* Core Services */}
-      <section className="py-5 bg-gray-50">
+      <section className="py-3 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Core Services</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Our Core Services</h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
               Comprehensive real estate solutions tailored to your specific needs
             </p>
           </div>
@@ -385,11 +385,11 @@ const ServicesPage = () => {
       </section>
 
       {/* Additional Services */}
-      <section className="py-5 bg-white">
+      <section className="py-3 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Additional Services</h2>
-            <p className="text-xl text-gray-600">Specialized services to enhance your property experience</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Additional Services</h2>
+            <p className="text-lg text-gray-600">Specialized services to enhance your property experience</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -414,11 +414,11 @@ const ServicesPage = () => {
       </section>
 
       {/* Why Choose Us */}
-      <section className="py-5 bg-gradient-to-r from-blue-50 to-purple-50">
+      <section className="py-3 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose&nbsp;{companyName}?</h2>
-            <p className="text-xl text-gray-600">Excellence backed by experience and innovation</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Why Choose&nbsp;{companyName}?</h2>
+            <p className="text-lg text-gray-600">Excellence backed by experience and innovation</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -440,11 +440,11 @@ const ServicesPage = () => {
       </section>
 
       {/* Service Process */}
-      <section className="py-5 bg-white">
+      <section className="py-3 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Service Process</h2>
-            <p className="text-xl text-gray-600">Simple, transparent, and efficient workflow</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Our Service Process</h2>
+            <p className="text-lg text-gray-600">Simple, transparent, and efficient workflow</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -467,11 +467,11 @@ const ServicesPage = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="py-5 bg-gray-50">
+      <section className="py-3 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Client Success Stories</h2>
-            <p className="text-xl text-gray-600">What our clients say about our services</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Client Success Stories</h2>
+            <p className="text-lg text-gray-600">What our clients say about our services</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -528,11 +528,11 @@ const ServicesPage = () => {
       </section>
 
       {/* Pricing Plans */}
-      <section className="py-5 bg-white">
+      <section className="py-3 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Transparent Pricing</h2>
-            <p className="text-xl text-gray-600">Choose the plan that works best for you</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Transparent Pricing</h2>
+            <p className="text-lg text-gray-600">Choose the plan that works best for you</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -634,11 +634,11 @@ const ServicesPage = () => {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-5 bg-gray-50">
+      <section className="py-3 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Frequently Asked Questions</h2>
-            <p className="text-xl text-gray-600">Get answers to common questions about our services</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently Asked Questions</h2>
+            <p className="text-lg text-gray-600">Get answers to common questions about our services</p>
           </div>
 
           <div className="space-y-6">
@@ -674,12 +674,12 @@ const ServicesPage = () => {
       </section>
 
       {/* Call to Action */}
-      <section className="py-5 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+      <section className="py-3 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-6">
+          <h2 className="text-2xl font-bold mb-6">
             Ready to Get Started?
           </h2>
-          <p className="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
+          <p className="text-lg text-blue-100 mb-8 max-w-3xl mx-auto">
             Let our experts help you with your real estate needs. Get a free consultation today!
           </p>
           
