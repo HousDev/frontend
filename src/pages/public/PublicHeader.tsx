@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { User as UserIcon, Menu, X } from 'lucide-react';
@@ -19,20 +18,37 @@ type AnyUser = {
   salutation?: string;
   first_name?: string;
   last_name?: string;
+  buyer_id?: string | number | null;
+  seller_id?: string | number | null;
 };
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null;
 
-const hasBuyerId = (
-  u: unknown
-): u is { role: 'buyer'; buyer_id: string | number } =>
-  isObject(u) && (u as any).role === 'buyer' && typeof (u as any).buyer_id !== 'undefined';
+// Updated type guards to be more flexible and handle different cases
+const hasBuyerId = (u: unknown): u is { role: string; buyer_id: string | number } => {
+  if (!isObject(u)) return false;
+  const user = u as AnyUser;
+  const role = user.role?.toLowerCase();
+  const buyerId = user.buyer_id;
+  return role === 'buyer' && buyerId !== null && buyerId !== undefined && buyerId !== '';
+};
 
-const hasSellerId = (
-  u: unknown
-): u is { role: 'seller'; seller_id: string | number } =>
-  isObject(u) && (u as any).role === 'seller' && typeof (u as any).seller_id !== 'undefined';
+const hasSellerId = (u: unknown): u is { role: string; seller_id: string | number } => {
+  if (!isObject(u)) return false;
+  const user = u as AnyUser;
+  const role = user.role?.toLowerCase();
+  const sellerId = user.seller_id;
+  return role === 'seller' && sellerId !== null && sellerId !== undefined && sellerId !== '';
+};
+
+// Check if user is admin/manager (roles that should go to main dashboard)
+const isAdminRole = (u: unknown): boolean => {
+  if (!isObject(u)) return false;
+  const user = u as AnyUser;
+  const role = user.role?.toLowerCase();
+  return ['admin', 'manager', 'executive', 'team leader', 'agent', 'staff'].includes(role || '');
+};
 
 const PublicHeader: React.FC<PublicHeaderProps> = ({
   currentPage = null,
@@ -51,29 +67,76 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   const [isSellerModalOpen, setIsSellerModalOpen] = useState<boolean>(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const navTextColor = '#0c3854';
+
+  // Updated navigation logic to handle all roles properly
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
     const path = location.pathname;
     const isPublicAuthPage = path === '/login' || path === '/register';
-    if (!isPublicAuthPage) return;
+    
+    // Only redirect from auth pages OR if user is trying to access a dashboard they shouldn't
+    if (!isPublicAuthPage && !path.includes('dashboard')) return;
 
+    console.log('Navigation logic - User:', user, 'Path:', path); // Debug log
+
+    // Check for buyer with buyer_id
     if (hasBuyerId(user)) {
-      navigate(`/buyer-dashboard/${String(user.buyer_id)}`, { replace: true });
-    } else if (hasSellerId(user)) {
-      navigate(`/seller-dashboard/${String(user.seller_id)}`, { replace: true });
+      const buyerDashPath = `/buyer-dashboard/${String((user as any).buyer_id)}`;
+      if (path !== buyerDashPath) {
+        navigate(buyerDashPath, { replace: true });
+      }
+      return;
+    }
+    
+    // Check for seller with seller_id
+    if (hasSellerId(user)) {
+      const sellerDashPath = `/seller-dashboard/${String((user as any).seller_id)}`;
+      if (path !== sellerDashPath) {
+        navigate(sellerDashPath, { replace: true });
+      }
+      return;
+    }
+
+    // For all other authenticated users (admin, manager, executive, etc.)
+    if (isAdminRole(user) || user) {
+      if (path !== '/dashboard') {
+        console.log('Navigating to general dashboard for role:', (user as any).role); // Debug log
+        navigate('/dashboard', { replace: true });
+      }
+      return;
     }
   }, [isAuthenticated, user, location.pathname, navigate]);
 
+  // Updated dashboard path function
   const getDashboardPath = (): string => {
     if (!isAuthenticated || !user) return '/login';
 
-    if (hasBuyerId(user)) return `/buyer-dashboard/${String(user.buyer_id)}`;
-    if (hasSellerId(user)) return `/seller-dashboard/${String(user.seller_id)}`;
+    console.log('getDashboardPath - User:', user); // Debug log
+
+    if (hasBuyerId(user)) {isAuthenticated
+      return `/buyer-dashboard/${String((user as any).buyer_id)}`;
+    }
+    
+    if (hasSellerId(user)) {
+      return `/seller-dashboard/${String((user as any).seller_id)}`;
+    }
+    
+    // For all other authenticated users
     return '/dashboard';
   };
 
   const dashboardHref = getDashboardPath();
+
+  // Update isAdmin state based on user role
+  useEffect(() => {
+    if (user) {
+      const userRole = (user as AnyUser).role?.toLowerCase();
+      setIsAdmin(userRole === 'admin' || userRole === 'manager');
+    } else {
+      setIsAdmin(false);
+    }
+  }, [user]);
 
   // Close user dropdown on outside click
   useEffect(() => {
@@ -137,6 +200,9 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
     const parts = [salutation, first, last].filter(Boolean);
     return parts.length ? parts.join(' ') : 'User';
   })();
+
+  // Get user role for display
+  const userRole = isAuthenticated && user ? (user as AnyUser).role : '';
 
   return (
     <>
@@ -304,37 +370,21 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                         <div className="px-4 py-3 border-b border-gray-100">
                           <div className="text-sm font-semibold text-gray-900">{displayName}</div>
                           <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full inline-block mt-1">
-                            {isAdmin ? 'Admin User' : 'Premium Member'}
+                            {userRole ? `${userRole.charAt(0).toUpperCase() + userRole.slice(1)} User` : 'User'}
                           </div>
                         </div>
 
-                        {isAdmin && (
-                          <>
-                            <button
-                              onClick={() => onPageChange?.('admin-ai')}
-                              className="w-full text-left px-4 py-3 hover:bg-orange-50 text-sm flex items-center space-x-3 text-gray-700 hover:text-orange-600"
-                            >
-                              <span>AI Training Panel</span>
-                            </button>
-                            <button
-                              onClick={() => onPageChange?.('admin-dashboard')}
-                              className="w-full text-left px-4 py-3 hover:bg-blue-50 text-sm flex items-center space-x-3 text-gray-700 hover:text-[#0b3855]"
-                            >
-                              <span>Admin Dashboard</span>
-                            </button>
-                          </>
-                        )}
+                       
 
                         <button className="w-full text-left px-4 py-3 hover:bg-yellow-50 text-sm flex items-center space-x-3 text-gray-700 hover:text-yellow-600">
                           <span>Upgrade Plan</span>
                         </button>
-                        <button className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center space-x-3 text-gray-700">
-                          <span>Settings</span>
-                        </button>
+                     
 
                         <div className="border-t border-gray-100 mt-2 pt-2">
                           <button
                             onClick={async () => {
+                              setIsUserDropdownOpen(false);
                               await logout();
                               window.location.href = '/login';
                             }}

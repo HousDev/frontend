@@ -59,6 +59,83 @@ import NotificationPanel from './NotificationPanel';
 import { notificationAPI } from '@/lib/notificationAPI';
 import UserProfileMenu from './UserProfileMenu';
 
+// 1) put these helpers near the top of DashboardLayout (outside the component is fine)
+type UILevel = "low" | "medium" | "high";
+
+type RawNotification = {
+  id: number | string;
+  lead_id?: string | null;
+  user_id?: number | string;
+  message?: string | null;
+  type?: string | null;
+  link?: string | null;
+  is_read?: 0 | 1 | "0" | "1" | boolean | "true" | "false" | null;
+  priority?: UILevel | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  [k: string]: any;
+};
+
+type NotificationItem = {
+  id: number;
+  title: string;
+  message: string;
+  type: string;
+  priority: UILevel;
+  timestamp: string;      // ALWAYS created_at
+  read: boolean;          // normalized
+  link?: string | null;
+  color?: string;
+};
+
+const toNumberId = (val: number | string) => {
+  const n = typeof val === "number" ? val : Number(val);
+  return Number.isFinite(n) ? n : Math.floor(Math.random() * 1e9);
+};
+
+const normalizeRead = (v: RawNotification["is_read"]): boolean => {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v === 1;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    return s === "1" || s === "true";
+  }
+  return false;
+};
+
+const mapRawToUI = (n: RawNotification): NotificationItem => {
+  const id = toNumberId(n.id);
+  const type = (n.type ?? "general").toString();
+
+  const title =
+    type === "lead_assign"
+      ? "Lead Assigned"
+      : type === "property_inquiry"
+      ? "Property Inquiry"
+      : type === "visit_scheduled"
+      ? "Visit Scheduled"
+      : type === "price_suggestion"
+      ? "Price Suggestion"
+      : type === "document_ready"
+      ? "Document Ready"
+      : type;
+
+  return {
+    id,
+    title,
+    message: n.message ?? "",
+    type,
+    priority: (n.priority as UILevel) ?? "medium",
+    // ✅ always created_at for display/sorting; fallback to updated/epoch if missing
+    timestamp: n.created_at ?? n.updated_at ?? "1970-01-01 00:00:00",
+    read: normalizeRead(n.is_read),
+    link: n.link ?? null,
+    color: "green",
+  };
+};
+
+
+
 
 // DashboardLayout with unified menu color (#0b3855)
 const DashboardLayout = () => {
@@ -71,8 +148,6 @@ const DashboardLayout = () => {
   const [totalWorkTime, setTotalWorkTime] = useState(0);
   const [breakStartTime, setBreakStartTime] = useState(null);
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState(new Set());
@@ -91,6 +166,9 @@ const DashboardLayout = () => {
   const mobileTimersRef = useRef(null);
 
   const NotificationPanelAny = NotificationPanel;
+// 2) state types: make them UI notifications
+const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+const [unreadCount, setUnreadCount] = useState(0);
 
   // Unified nav color (from image)
   const navColorHex = '#0b3855';
@@ -359,46 +437,56 @@ const DashboardLayout = () => {
   }, []);
 
   // notifications polling
-  useEffect(() => {
-    let interval;
-    const fetchNotifications = async () => {
-      try {
-        if (!user?.id) return;
-        const userIdNum = Number(user.id);
-        if (Number.isNaN(userIdNum)) return;
-        const res = await notificationAPI.getUserNotifications(userIdNum);
-        const list = res?.notifications || [];
-        setNotifications((prev) => (JSON.stringify(prev) !== JSON.stringify(list) ? list : prev));
-        const newUnreadCount = list.filter((n) => !n.is_read).length;
-        setUnreadCount((prev) => (prev !== newUnreadCount ? newUnreadCount : prev));
-      } catch (err) {
-        console.error('❌ Error fetching notifications:', err);
-      }
-    };
+// 3) notifications polling: map -> UI, compute unread from .read
+useEffect(() => {
+  let interval: any;
 
-    if (user?.id) {
-      fetchNotifications();
-      interval = setInterval(fetchNotifications, 10000);
+  const fetchNotifications = async () => {
+    try {
+      if (!user?.id) return;
+      const userIdNum = Number(user.id);
+      if (Number.isNaN(userIdNum)) return;
+
+      const res = await notificationAPI.getUserNotifications(userIdNum);
+      const list: RawNotification[] = Array.isArray(res?.notifications)
+        ? res.notifications
+        : res?.notifications
+        ? [res.notifications]
+        : [];
+
+      const ui = list.map(mapRawToUI);
+
+      setNotifications((prev) => (JSON.stringify(prev) !== JSON.stringify(ui) ? ui : prev));
+      const newUnread = ui.filter((n) => !n.read).length;
+      setUnreadCount((prev) => (prev !== newUnread ? newUnread : prev));
+    } catch (err) {
+      console.error("❌ Error fetching notifications:", err);
     }
+  };
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [user?.id]);
+  if (user?.id) {
+    fetchNotifications();
+    interval = setInterval(fetchNotifications, 10000);
+  }
+  return () => interval && clearInterval(interval);
+}, [user?.id]);
 
-  const handleBellClick = useCallback(async () => {
-    setOpen((prev) => !prev);
-    if (unreadCount > 0 && user?.id) {
-      try {
-        const userIdNum = Number(user.id);
-        if (!Number.isNaN(userIdNum)) await notificationAPI.markAllAsRead(userIdNum);
-        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-        setUnreadCount(0);
-      } catch (err) {
-        console.error('❌ Error marking notifications as read:', err);
-      }
+  // 4) bell click: call API, then update local to read:true (UI shape)
+const handleBellClick = useCallback(async () => {
+  setOpen((prev) => !prev);
+  if (unreadCount > 0 && user?.id) {
+    try {
+      const userIdNum = Number(user.id);
+      if (!Number.isNaN(userIdNum)) await notificationAPI.markAllAsRead(userIdNum);
+
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error("❌ Error marking notifications as read:", err);
     }
-  }, [unreadCount, user?.id]);
+  }
+}, [unreadCount, user?.id]);
+
 
   useEffect(() => {
     loginTimeRef.current = loginTime;
@@ -779,11 +867,19 @@ const DashboardLayout = () => {
                   {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-gradient-to-br from-orange-500 to-orange-600 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-lg animate-pulse font-semibold">{unreadCount}</span>}
                 </button>
 
-                {open && (
-                  <div className="absolute right-0 mt-2 z-50 w-80 md:right-0 lg:right-0 sm:right-2">
-                    <NotificationPanelAny notifications={notifications} onClose={closeNotificationPanel} />
-                  </div>
-                )}
+                {/* // 5) render panel with normalized items (controlled mode works now) */}
+{open && (
+  <div className="absolute right-0 mt-2 z-50 w-80 md:right-0 lg:right-0 sm:right-2">
+    <NotificationPanelAny
+      notifications={notifications}
+      onClose={closeNotificationPanel}
+      // OR: remove notifications prop & pass forceFetch with userId to let panel fetch itself
+      // userId={user?.id}
+      // forceFetch
+    />
+  </div>
+)}
+
               </div>
 
               <UserProfileMenu />

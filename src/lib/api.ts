@@ -91,7 +91,19 @@ export const authAPI = {
     const response = await api.post('/auth/logout');
     return response.data;
   },
+
+  // ✅ Ye add karo
+  getCurrentUser: async () => {
+    const response = await api.get('/auth/me'); // ya backend route jahan user detail milta ho
+    return response.data;
+  },
+   // ✅ Get Profile
+  getProfile: async () => {
+    const response = await api.get('/auth/profile');
+    return response.data;
+  },
 };
+
 
 // Users API
 export const usersAPI = {
@@ -145,7 +157,7 @@ export const usersAPI = {
     return response.data;
   },
   filterData: async (params?: any) => {
-    console.log("filter data called", params); // move before return
+    
     const response = await api.get('/users/filter', { params });
     return response.data;
   },
@@ -163,6 +175,12 @@ export const usersAPI = {
     const response = await api.delete('/users/remove-avatar');
     return response.data;
   },
+
+getUserById: async (userId: string | number) => {
+  const response = await api.get(`/users/get-user-by/${userId}`);
+  return response.data;
+},
+
 
 };
 
