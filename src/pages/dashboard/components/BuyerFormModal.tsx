@@ -9,9 +9,10 @@ import { notificationAPI } from "@/lib/notificationAPI";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAssignableExecutives } from "@/pages/utils/roleBasedOptions";
+
 import { ChevronDown } from "lucide-react";
 import BudgetRangeSelector from "@/components/ui/BudgetRangeSelector";
+import { getAssignableExecutives } from "@/utils/roleBasedOptions";
 
 
 type Lead = {

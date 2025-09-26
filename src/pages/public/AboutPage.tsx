@@ -118,11 +118,11 @@ const AboutUsPage = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-5">
+      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-4">About&nbsp;{companyName}</h2>
-            <p className="text-xl text-blue-100 mb-4 max-w-3xl mx-auto">
+            <h2 className="text-2xl font-bold mb-4">About&nbsp;{companyName}</h2>
+            <p className="text-lg text-blue-100 mb-4 max-w-3xl mx-auto">
               India's most trusted real estate platform, connecting millions of buyers, sellers, and renters
               with verified properties and expert guidance since 2010.
             </p>
@@ -145,11 +145,11 @@ const AboutUsPage = () => {
       </section>
 
       {/* Mission & Vision */}
-      <section className="py-5 bg-gray-50">
+      <section className="py-3 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-6">Our Mission</h2>
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Our Mission</h2>
               <p className="text-lg text-gray-700 mb-6 leading-relaxed">
                 To make real estate transactions transparent, efficient, and accessible for everyone.
                 We leverage technology and expertise to simplify the complex process of buying,
@@ -174,33 +174,33 @@ const AboutUsPage = () => {
                 </div>
               </div>
             </div>
-            <div className="relative">
+            <div className="relative inline-block">
+              {/* Image */}
               <img
                 src="https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600"
                 alt="Our Mission"
-                className="rounded-2xl shadow-2xl"
+                className="rounded-2xl shadow-xl w-full object-cover"
               />
-              <div className="absolute -bottom-2 -left-2 bg-white p-2 rounded-xl shadow-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 bg-blue-100 rounded-lg">
-                    <TrendingUp className="text-blue-600" size={20} />
-                  </div>
-                  <div>
-                    <div className="text-xl font-bold text-gray-800">98%</div>
-                    <div className="text-sm text-gray-600">Customer Satisfaction</div>
-                  </div>
-                </div>
+
+              {/* Badge - Left Bottom (pill style) */}
+              <div className="absolute -bottom-4 left-4 bg-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 border border-gray-200">
+                <TrendingUp className="text-blue-600 w-5 h-5" />
+                <span className="text-sm font-medium text-gray-700">
+                  98% Customer Satisfaction
+                </span>
               </div>
             </div>
+
+
           </div>
         </div>
       </section>
 
       {/* Statistics */}
-      <section className="py-5">
+      <section className="py-3">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Impact in Numbers</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Our Impact in Numbers</h2>
             <p className="text-xl text-gray-600">Trusted by thousands of customers across India</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -221,10 +221,10 @@ const AboutUsPage = () => {
       </section>
 
       {/* Our Values */}
-      <section className="py-5 bg-gray-50">
+      <section className="py-3 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Core Values</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Our Core Values</h2>
             <p className="text-xl text-gray-600">The principles that guide everything we do</p>
           </div>
 
@@ -250,10 +250,10 @@ const AboutUsPage = () => {
       </section>
 
       {/* Our Team */}
-      <section className="py-5">
+      <section className="py-3">
         <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Meet Our Expert Team</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Meet Our Expert Team</h2>
             <p className="text-xl text-gray-600">Experienced professionals dedicated to your success</p>
           </div>
 
@@ -281,10 +281,10 @@ const AboutUsPage = () => {
       </section>
 
       {/* Company Timeline */}
-      <section className="py-5 bg-gray-50">
+      <section className="py-3 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Journey</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Our Journey</h2>
             <p className="text-xl text-gray-600">Milestones that shaped our success story</p>
           </div>
 
@@ -314,10 +314,10 @@ const AboutUsPage = () => {
       </section>
 
       {/* Why Choose Us */}
-      <section className="py-5">
+      <section className="py-3">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Why Choose&nbsp;{companyName}?</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Why Choose&nbsp;{companyName}?</h2>
             <p className="text-xl text-gray-600">What makes us the preferred choice for real estate</p>
           </div>
 
@@ -359,10 +359,10 @@ const AboutUsPage = () => {
       </section>
 
       {/* Awards & Recognition */}
-      <section className="py-5 bg-gradient-to-r from-blue-50 to-purple-50">
+      <section className="py-3 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Awards & Recognition</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Awards & Recognition</h2>
             <p className="text-xl text-gray-600">Industry recognition for our excellence</p>
           </div>
 
@@ -395,9 +395,9 @@ const AboutUsPage = () => {
       </section>
 
       {/* Contact CTA */}
-      <section className="py-5 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+      <section className="py-3 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to Start Your Real Estate Journey?</h2>
+          <h2 className="text-2xl font-bold mb-4">Ready to Start Your Real Estate Journey?</h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
             Join thousands of satisfied customers who have found their dream properties with ResaleExpert
           </p>

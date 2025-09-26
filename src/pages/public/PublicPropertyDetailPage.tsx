@@ -758,7 +758,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
 
                 <div className="mt-3 md:mt-0 md:ml-4 text-left md:text-right flex-shrink-0">
-                  <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-green-600 leading-tight">
+                  <div className="text-xl font-bold text-green-600 leading-tight">
                     {formatCurrency(property?.price)}
                   </div>
                   <div className="text-sm sm:text-base text-gray-500 mt-1">

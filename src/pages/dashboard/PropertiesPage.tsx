@@ -1263,7 +1263,7 @@ const PropertiesPage = () => {
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           {/* <h3 className="font-bold text-gray-900 text-lg">{dash(property.title)}</h3> */}
-                          <div className=" font-bold text-gray-900 text-lg">
+                          <div className=" text-xs font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
                             {(property.type && property.type !== ' - ') && <span className="mr-2">{property.type}</span>}
                             {(property.unitType && property.unitType !== ' - ') && <span className="mr-2"> {property.unitType}</span>}
                             {(property.subtype && property.subtype !== ' - ') && <span className="mr-2"> {property.subtype}</span>}
@@ -1273,7 +1273,7 @@ const PropertiesPage = () => {
                       </div>
 
                       {/* Price */}
-                      <div className="text-2xl font-bold text-green-600 mb-2">
+                      <div className="text-xl font-bold text-green-600 mb-2">
                         {formatCurrency(property.budget)}
                       </div>
 
@@ -1587,18 +1587,13 @@ const PropertiesPage = () => {
           mode={editingProperty ? 'edit' : 'create'}
           propertyId={editingProperty?.id}
           initialData={editingProperty ? buildInitialData(editingProperty) : null}
-          onSubmit={(result) => {
-            const normalized = normalizeProperty(result, properties.length);
-            if (editingProperty) {
-              setProperties(prev => prev.map(p => (p.id === normalized.id ? normalized : p)));
-              toast.success('Property updated successfully');
-            } else {
-              setProperties(prev => [...prev, normalized]);
-              toast.success('Property created successfully');
-            }
+          onSubmit={async () => {
+            await loadProperties();   // ✅ API se fresh reload
+            toast.success(editingProperty ? 'Property updated successfully' : 'Property created successfully');
           }}
         />
       )}
+
       {showBuyerMatching && selectedProperty && (
         <BuyerMatchingModal
           isOpen={showBuyerMatching}

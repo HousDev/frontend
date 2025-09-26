@@ -15,8 +15,9 @@ import TransactionHistory from './TransactionHistory';
 import FinancialCalculators from './FinancialCalculators';
 import AIPropertySuggestions from './AIPropertySuggestions';
 import DocumentsManagement from './DocumentsManagement';
-import { normalizeStage, safe } from '@/pages/utils/uiSafe';
+
 import PropertyFormModal from '@/pages/dashboard/components/PropertyFormModal';
+import { normalizeStage, safe } from '@/utils/uiSafe';
 
 /* ======================== MAIN PAGE ======================== */
 

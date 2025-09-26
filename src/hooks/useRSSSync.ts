@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RSSSource, BlogPost } from '../types/blog';
-import RSSParser from '@/pages/utils/rssParser';
+import RSSParser from '@/utils/rssParser';
+
 
 
 export const useRSSSync = (sources: RSSSource[], onNewPosts: (posts: BlogPost[]) => void) => {

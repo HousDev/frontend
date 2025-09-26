@@ -177,11 +177,8 @@ const DashboardPage: React.FC = () => {
       // 1) Try main dashboard stats endpoint
       try {
         const resp = await dashboardAPI.getStats().catch(e => {
-          console.warn('dashboardAPI.getStats error', e);
           return null;
         });
-
-        console.log('dashboardAPI.getStats raw response:', resp);
 
         if (resp) {
           const payload = resp?.data ?? resp;
@@ -222,11 +219,6 @@ const DashboardPage: React.FC = () => {
           propertiesAPI.getProperties({ limit: 50 }).catch(e => { console.warn('properties list error', e); return null; }),
           activitiesAPI.getUpcoming({ limit: 20 }).catch(e => { console.warn('activities list error', e); return null; }),
         ]);
-
-        console.log('leads list raw response:', leadsResp);
-        console.log('properties list raw response:', propsResp);
-        console.log('activities list raw response:', activitiesResp);
-
         // Normalize leads list
         if (leadsResp) {
           const data = leadsResp.data ?? leadsResp;
@@ -270,7 +262,6 @@ const DashboardPage: React.FC = () => {
         // Try leadsAPI.getStats as a fallback for total leads (if present)
         try {
           const leadsStatsResp = await leadsAPI.getStats().catch(e => { console.warn('leadsAPI.getStats error', e); return null; });
-          console.log('leadsAPI.getStats raw response:', leadsStatsResp);
           const lp = leadsStatsResp?.data ?? leadsStatsResp;
           const totalLeads =
             lp?.overview?.total_leads ??

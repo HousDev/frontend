@@ -116,7 +116,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   }, []);
 
   const { systemSettings } = useSystemSettings();
-  const companyName = systemSettings?.company_name || 'ResaleExpert';
+  const companyName = systemSettings?.company_name;
 
   const fetchPropertyViews = async (propertyId: number): Promise<{ total_views: number }> => {
     try {
@@ -708,12 +708,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       </section>
 
       {/* AI Insights */}
-      <section className="py-2 bg-gray-50">
+      <section className="py-3 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-2">
             <div className="flex items-center justify-center space-x-2 mb-2">
-              <Brain className="text-purple-600" size={26} />
-              <h2 className="text-3xl font-bold text-gray-800 mb-0">AI Market Intelligence</h2>
+              <h2 className="text-2xl font-bold text-gray-800 mb-0">AI Market Intelligence</h2>
             </div>
             <p className="text-gray-600">Real-time market analysis powered by advanced AI algorithms</p>
           </div>
@@ -732,10 +731,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       </section>
 
       {/* Featured properties cards */}
-      <section className="py-5 bg-white">
+      <section className="py-3 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-4">
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">Featured Properties</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Featured Properties</h2>
             <p className="text-gray-600">Handpicked premium properties with AI recommendations</p>
           </div>
 
@@ -776,7 +775,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-2">
                       <div className="pr-4">
-                        <div className="font-bold text-gray-900 text-lg">
+                        <div className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
                           {[property.type, property.unitType, property.subtype].filter(Boolean).join('  ') || ' - '}
                         </div>
                       </div>
@@ -784,7 +783,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <div className="text-3xl font-bold text-green-600">{formatPrice(property.price)}</div>
+                        <div className="text-xl font-bold text-green-600">{formatPrice(property.price)}</div>
                         <div className="text-sm text-gray-500">{property.unitType || property.type} • {property.square_feet ?? property.area ?? ' - '} sq ft</div>
                       </div>
                       <div className="text-right">
@@ -852,21 +851,32 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 <button className="border border-white px-2 py-1 rounded-lg">Free Valuation</button>
               </div>
             </div>
-            <div className="relative">
-              <img src="https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Sell" className="rounded-xl shadow-lg" />
-              <div className="absolute -bottom-2 -left-2 bg-white p-1 rounded-xl shadow"> < IndianRupee className="text-green-600" />
-                <div className="text-sm text-gray-600">₹500Cr+ Properties Sold</div>
+            <div className="relative inline-block">
+              {/* Image */}
+              <img
+                src="https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600"
+                alt="Sell"
+                className="rounded-2xl shadow-xl w-full object-cover"
+              />
+
+              {/* Badge - Left Bottom */}
+              <div className="absolute -bottom-4 left-4 bg-white px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 border border-gray-100">
+                <IndianRupee className="text-green-600 w-5 h-5" />
+                <span className="text-sm font-semibold text-gray-700">
+                  ₹500Cr+ Properties Sold
+                </span>
               </div>
             </div>
+
           </div>
         </div>
       </section>
 
       {/* Why Choose Us - Compact */}
-      <section className="py-5 bg-gray-50">
+      <section className="py-3 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
-            <h2 className="text-3xl sm:text-3xl font-bold text-gray-800 mb-4">Why Choose ResaleExpert?</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Why Choose &nbsp;{companyName}?</h2>
             <p className="text-gray-600">AI-powered real estate platform trusted by thousands</p>
           </div>
 
@@ -905,7 +915,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       </section>
 
       {/* Stats - Compact */}
-      <section className="py-8 bg-white">
+      <section className="py-3 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
             <div className="group">
@@ -943,7 +953,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       <section className="py-5 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
-            <h2 className="text-3xl sm:text-3xl font-bold text-gray-800 mb-4">Customer Success Stories</h2>
+            <h2 className="text-2xl  font-bold text-gray-800 mb-4">Customer Success Stories</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -989,9 +999,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         </div>
       </section>
       {/* CTA - Compact */}
-      <section className="py-5 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+      <section className="py-3 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+          <h2 className="text-2xl font-bold mb-4">
             Ready to Find Your Perfect Property?
           </h2>
           <p className="text-blue-100 mb-6 max-w-2xl mx-auto">

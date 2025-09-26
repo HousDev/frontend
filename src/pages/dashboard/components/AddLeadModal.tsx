@@ -7,8 +7,9 @@ import { FaWhatsapp } from 'react-icons/fa';
 import { masterDataAPI } from '@/lib/mastersAPI';
 import { usersAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAssignableExecutives } from '@/pages/utils/roleBasedOptions';
+
 import { toast } from 'react-toastify';
+import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 
 interface MasterOption {
   value: string;

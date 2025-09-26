@@ -32,9 +32,11 @@ import BuyerFormModal from "./components/BuyerFormModal";
 
 import AddLeadModal from "./components/AddLeadModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAssignableExecutives } from "../utils/roleBasedOptions";
-import { canDeleteLead } from "../utils/rolePermissions";
+
+
 import SellerFormModal from "./components/SellerFormModel";
+import { getAssignableExecutives } from "@/utils/roleBasedOptions";
+import { canDeleteLead } from "@/utils/rolePermissions";
 
 /* ===================== Types ===================== */
 type UserRole = "admin" | "manager" | "agent";

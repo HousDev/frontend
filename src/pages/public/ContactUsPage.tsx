@@ -199,26 +199,26 @@ const ContactUsPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-5">
+      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-3">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-3">
+            <h2 className="text-2xl font-bold mb-3">
               Get in Touch
             </h2>
-            <p className="text-xl  mb-2 text-blue-100 max-w-3xl mx-auto">
+            <p className="text-lg  mb-2 text-blue-100 max-w-3xl mx-auto">
               Ready to find your dream property or sell your current one? Our expert team is here to help you every step of the way.
             </p>
             <div className="flex items-center justify-center space-x-8 mt-6">
               <div className="text-center">
-                <div className="text-2xl font-bold mb-2">2-4 Hours</div>
+                <div className="text-xl font-bold mb-2">2-4 Hours</div>
                 <div className="text-blue-200">Response Time</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold mb-2">24/7</div>
+                <div className="text-xl font-bold mb-2">24/7</div>
                 <div className="text-blue-200">Support Available</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold mb-2">98%</div>
+                <div className="text-xl font-bold mb-2">98%</div>
                 <div className="text-blue-200">Satisfaction Rate</div>
               </div>
             </div>
@@ -227,14 +227,14 @@ const ContactUsPage = () => {
       </section>
 
       {/* Contact Form & Info Section */}
-      <section className="py-5">
+      <section className="py-3">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Contact Form */}
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-800 mb-2">Send us a Message</h2>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Send us a Message</h2>
                   <p className="text-gray-600">
                     Fill out the form below and we'll get back to you within 24 hours with personalized assistance.
                   </p>
@@ -389,7 +389,7 @@ const ContactUsPage = () => {
             {/* Contact Information */}
             <div className="space-y-8">
               <div>
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">Contact Information</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
                 <p className="text-gray-600 mb-8">
                   Multiple ways to reach us. Choose what works best for you.
                 </p>
@@ -445,10 +445,10 @@ const ContactUsPage = () => {
       </section>
 
       {/* Office Locations */}
-      <section className="py-5 bg-white">
+      <section className="py-3 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Our Office Locations</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Our Office Locations</h2>
             <p className="text-xl text-gray-600">Visit us at our offices across major cities</p>
           </div>
 
@@ -485,10 +485,10 @@ const ContactUsPage = () => {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-5 bg-gray-50">
+      <section className="py-3 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Frequently Asked Questions</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently Asked Questions</h2>
             <p className="text-xl text-gray-600">Quick answers to common questions</p>
           </div>
 
@@ -504,11 +504,11 @@ const ContactUsPage = () => {
       </section>
 
       {/* Social Media & Additional Contact */}
-      <section className="py-5 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+      <section className="py-3 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-6">Stay Connected</h2>
-            <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+            <h2 className="text-2xl font-bold mb-6">Stay Connected</h2>
+            <p className="text-lg text-blue-100 mb-8 max-w-2xl mx-auto">
               Follow us on social media for the latest updates, property listings, and real estate tips
             </p>
 

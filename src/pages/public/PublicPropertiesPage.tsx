@@ -1055,15 +1055,15 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-5">
+      <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-3">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-4">Explore Premium Properties</h2>
-            <p className="text-lg text-blue-100 mb-6 max-w-2xl mx-auto">
+            <h2 className="text-2xl font-bold mb-3">Explore Premium Properties</h2>
+            <p className="text-lg text-blue-100 mb-2 max-w-2xl mx-auto">
               Discover verified properties from trusted sellers across top locations
             </p>
             {/* Compact Buy / Rent + property-type buttons row (HomePage-style) */}
-            <div className="mt-6 flex items-center gap-3 mb-6 justify-center">
+            <div className="mt-2 flex items-center gap-3 mb-2 justify-center">
               <button
                 type="button"
                 onClick={() => setTransactionType('buy')}
@@ -1115,7 +1115,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             {/* HEADER SEARCH: HomePage-style (city dropdown, locality chips, property type, search) */}
             <form
               onSubmit={handleHeaderSearchSubmit}
-              className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-4 shadow-xl max-w-5xl mx-auto"
+              className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-2 shadow-xl max-w-5xl mx-auto"
             >
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
                 {/* City dropdown */}
@@ -1181,8 +1181,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                       className="pl-10 pr-16 h-10 w-full text-sm bg-white/10 text-white placeholder-white outline-none focus:ring-1 focus:ring-gray-400 rounded-lg"
                       placeholder={
                         Array.isArray(masterLocation) && masterLocation.length > 0
-                          ? `Type locality (autosuggest). Press Enter to add or choose suggestion. ${5 - localities.length} slots left`
-                          : `Type locality (free text). Press Enter to add. ${5 - localities.length} slots left`
+                          ? `Type locality ..........`
+                          : `Type locality ..........`
                       }
                       aria-autocomplete="list"
                       aria-haspopup="listbox"
@@ -1273,7 +1273,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
       {/* AI Recommendations */}
       {showAIRecommendations && !loading && allProperties.length > 0 && (
-        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3">
+        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white py-1">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -1326,7 +1326,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         {/* Advanced Filters panel (now will appear directly under header and is scrolled into) */}
         {showFilters && (
           <div ref={filtersRef} className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 text-xs">Advanced Filters</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Advanced Filters</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
               <select value={selectedLocation} onChange={(e) => {
                 const v = e.target.value || '';
@@ -1524,12 +1524,12 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
                       <div className="p-6">
                         <div className="mb-3">
-                          <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{composedTitle}</h3>
+                          <h3 className="text-xs font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{composedTitle}</h3>
                           <div className="flex items-center text-gray-600 text-sm mb-1"><MapPin size={14} className="mr-1" /><span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span></div>
                         </div>
 
                         <div className="mb-4">
-                          <div className="text-2xl font-bold text-green-600">{formatCurrency(property.price)}</div>
+                          <div className="text-xl font-bold text-green-600">{formatCurrency(property.price)}</div>
                           <div className="text-xs text-gray-500">{property.type || property.property_type} • {property.area || property.square_feet} sq ft</div>
                         </div>
 
