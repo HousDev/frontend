@@ -72,12 +72,12 @@ export function getAssignableExecutives(user: any, presalesUsers: any[]) {
   );
 
   // Debug logging
-  // console.log("🔍 getAssignableExecutives Debug:", {
-  //   userRole: role,
-  //   userDept: dept,
-  //   originalUser: user,
-  //   presalesUsersCount: presalesUsers.length
-  // });
+  console.log("🔍 getAssignableExecutives Debug:", {
+    userRole: role,
+    userDept: dept,
+    originalUser: user,
+    presalesUsersCount: presalesUsers.length
+  });
 
   // Executive (Presales) → सिर्फ खुद
   if (role === "executive" && dept === "presales") {

@@ -63,6 +63,7 @@ import { propertiesAPI } from '@/lib/propertiesAPI';
 import PropertyDetailsShareModal from '../properties/PropertyDetailsShareModal';
 import BuyerFollowupModal from './BuyerFollowupModal';
 import { buyerFollowupAPI } from '@/lib/buyerFollowupAPI';
+import { toast } from 'react-toastify';
 
 const BuyerViewPage = ({
   buyer,
@@ -102,7 +103,6 @@ const BuyerViewPage = ({
   };
 
   useEffect(() => {
-    // console.log("🟢 BuyerFormModal mounted with buyer:", buyer);
   }, [buyer]);
 
   const getStatusBadge = (status: string, size: string = 'text-xs') => {
@@ -362,7 +362,7 @@ ResaleExpert Team`;
             </button>
             <button
               onClick={() => {
-                console.log("🔵 BuyerViewPage Edit button clicked for:", buyer);
+
                 onEdit(buyer);
               }}
               className="flex items-center space-x-1 md:space-x-2 px-3 md:px-4 py-1 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -944,7 +944,7 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
         const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
         if (isMounted) setProperties(list ?? []);
       } catch (err) {
-        console.error("Error fetching property:", err);
+        toast.error("Error fetching property:", err);
         if (isMounted) {
           setProperties([]);
           setPropsError("Could not load properties");
@@ -971,8 +971,7 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
   const hasAny = (haystack: string[], needles: string[]) =>
     needles.some((n) => haystack.some((h) => h.includes(n)));
 
-  // --------- requirements snapshot ----------
-  console.log("first", buyer)  //yeha tak buyer aaa rha hai
+
   const req = buyer?.requirements || {};
   const reqUnitTypes = toArr(req.unitTypes).map(norm);
   const reqLocs = toArr(req.preferredLocations).map(norm);
@@ -1428,11 +1427,12 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
                     <div className="mt-3 flex items-center gap-2">
                       <button
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
-                        onClick={() => (onVisitClick ? onVisitClick(property) : console.log("Visit", property))}
+                        onClick={() => onVisitClick?.(property)}
                       >
                         <Calendar size={14} />
                         <span>Visit</span>
                       </button>
+
 
                       <button
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs"
@@ -2130,7 +2130,7 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
       try {
         // replace buyerFollowupAPI.getAll with your actual API call
         const res = await (buyerFollowupAPI?.getAll?.({ buyerId, page: 1, limit: 200 }) ?? Promise.resolve({ data: buyer?.followups ?? [] }));
-       console.log("first",res)
+        
         const raw =
           res?.data ??
           res ??
@@ -2139,7 +2139,7 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         const list = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : raw ?? [];
         if (!cancelled) setFollowups(mapAndNormalize(list));
       } catch (err: any) {
-        console.warn("Error fetching followups by buyerId:", err);
+        toast.warn("Error fetching followups by buyerId:", err);
         if (!cancelled) {
           setError(err?.message ?? String(err));
           setFollowups(mapAndNormalize(buyer?.followups ?? []));

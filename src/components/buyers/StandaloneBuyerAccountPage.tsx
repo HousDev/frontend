@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { buyerAPI } from '@/lib/buyerAPI';
 import BuyerAccountPage from '@/components/buyers/BuyerAccountPage';
+import { toast } from 'react-toastify';
 
 const StandaloneBuyerAccountPage = () => {
   const { id } = useParams();
@@ -25,13 +26,13 @@ const StandaloneBuyerAccountPage = () => {
         setLoading(true);
         // ensure this API method exists in your lib; rename to buyerAPI.get if needed
         const buyerData = await buyerAPI.getById(id);
-        console.log("buyerdat",buyerData)
+       
         const normalized = buyerData ? buyerData : null;
-        console.log("normlaie",normalized)
+       
         setBuyer(normalized);
         setError(null);
       } catch (err) {
-        console.error('Error fetching buyer:', err);
+        
         setError('Failed to load buyer data');
         setBuyer(null);
       } finally {
@@ -50,7 +51,7 @@ const StandaloneBuyerAccountPage = () => {
       await buyerAPI.update(id, updatedBuyer);
       setBuyer(updatedBuyer);
     } catch (err) {
-      console.error('Error updating buyer:', err);
+      toast.error('Error updating buyer:', err);
     }
   };
 
