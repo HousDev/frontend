@@ -272,7 +272,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       builtYear: p?.builtYear ?? p?.year_built ?? p?.construction_year ?? '',
       facing: p?.facing ?? p?.direction ?? '',
       agent: {
-        name: p?.agent?.name ??  p?.seller_name ?? '',
+        name: p?.agent?.name ?? p?.seller_name ?? '',
         phone: p?.agent?.phone ?? p?.broker?.phone ?? p?.contact_phone ?? ''
       },
       aiScore: p?.aiScore ?? p?.score,
@@ -495,6 +495,36 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       }
     } catch (err) { /* ignore */ }
   };
+  // --- Like (shortlist) toggle with localStorage persistence
+  const likeKeyFor = (p: any) => {
+    const numericId = resolvePropertyIdNumber(p);
+    const slugId = p?.raw?.slug ?? p?.id ?? 'unknown';
+    return `liked_property_${numericId ?? slugId}`;
+  };
+
+  const [liked, setLiked] = useState(false);
+
+  useEffect(() => {
+    if (!property) return;
+    try {
+      const val = localStorage.getItem(likeKeyFor(property));
+      setLiked(val === '1');
+    } catch { }
+  }, [property]);
+
+  const toggleLiked = (e?: React.MouseEvent) => {
+    if (e) { e.stopPropagation(); e.preventDefault(); }
+    if (!property) return;
+    const key = likeKeyFor(property);
+    setLiked((prev) => {
+      const next = !prev;
+      try {
+        if (next) localStorage.setItem(key, '1');
+        else localStorage.removeItem(key);
+      } catch { }
+      return next;
+    });
+  };
 
   // When property is set, trigger view recording once
   useEffect(() => {
@@ -537,17 +567,20 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   if (!property) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center py-12">
           <Home className="mx-auto text-gray-300 mb-4" size={64} />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Property Not Found</h2>
-          <p className="text-gray-600 mb-6">The property you're looking for doesn't exist.</p>
+          <p className="text-gray-600 mb-6">
+            The property you're looking for doesn't exist.
+          </p>
           <button
             onClick={handleBack}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-6 py-3 rounded-lg font-semibold shadow-md transition-colors duration-300"
           >
             Back to Properties
           </button>
         </div>
+
       </div>
     );
   }
@@ -613,27 +646,31 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white shadow-sm border-b pt-20
+      
+      " style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-3">
+          <div className="flex items-center justify-between ">
             <button
               onClick={handleBack}
-              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors text-sm"
+              className="flex items-center text-[#E6761D] hover:text-[#CC6A1A] transition-colors text-sm font-medium"
             >
               <ArrowLeft size={18} className="mr-1" />
               Back to Properties
             </button>
+
+
             <div className="flex items-center space-x-2">
-              <button className="p-2 text-gray-600 hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100">
+              <button className="p-2 text-white hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100">
                 <Heart size={18} />
               </button>
               <button
                 onClick={() => setOpen(true)}
-                className="p-2 text-gray-600 hover:text-blue-500 transition-colors rounded-lg hover:bg-gray-100"
+                className="p-2 text-white hover:text-blue-500 transition-colors rounded-lg hover:bg-gray-100"
               >
                 <Share size={18} />
               </button>
-              <button className="p-2 text-gray-600 hover:text-yellow-500 transition-colors rounded-lg hover:bg-gray-100">
+              <button className="p-2 text-white hover:text-yellow-500 transition-colors rounded-lg hover:bg-gray-100">
                 <Bookmark size={18} />
               </button>
             </div>
@@ -648,72 +685,117 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Image Gallery */}
-            <div className="relative w-full h-80 md:h-[420px] lg:h-[520px] bg-gray-900">
+            <div className="relative w-full h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden">
+              {/* Main image */}
               <img
                 src={images[currentImageIndex]}
-                alt={property?.title || 'Property Image'}
-                className="w-full h-full object-cover" // ensures uniform slot, crops if aspect mismatch
+                alt={property?.title || "Property Image"}
+                className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-black bg-opacity-20" />
+              <div className="absolute inset-0 bg-black/25" />
 
-              {/* Left Arrow */}
+              {/* === TOP-LEFT overlay (Title + Badges + Location) === */}
+              <div className="absolute top-3 left-3 z-20 text-white max-w-[85%] flex flex-col gap-1">
+                {/* Title / Type / Subtype */}
+                <div className="font-bold text-lg sm:text-xl truncate drop-shadow">
+                  {property?.type && <span className="mr-2">{property.type}</span>}
+                  {unitType && <span className="mr-2">{unitType}</span>}
+                  {subtype && <span className="mr-2">{subtype}</span>}
+                </div>
+
+                {/* Location */}
+                <div className="flex items-center text-sm sm:text-base drop-shadow">
+                  <MapPin className="w-4 h-4 mr-1 shrink-0" />
+                  <span className="truncate">
+                    {displayOrDash(property?.locationNormalized)}
+                  </span>
+                </div>
+
+                {/* Badges */}
+                <div className="flex items-center gap-2 mt-1">
+                  {property?.featured && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full
+                          text-[11px] font-bold uppercase tracking-wide text-white
+                          shadow-sm ring-1 ring-black/5
+                          bg-gradient-to-r from-orange-500 to-red-500">
+                      <Zap className="w-3.5 h-3.5" />
+                      FEATURED
+                    </span>
+                  )}
+                  {property?.verified && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full
+                          text-[11px] font-bold uppercase tracking-wide text-white
+                          shadow-sm ring-1 ring-black/5 bg-green-500">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      VERIFIED
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* === TOP-RIGHT Like === */}
+              <button
+                onClick={toggleLiked}
+                className="absolute top-3 right-3 z-20 p-2 rounded-full
+               bg-white/90 backdrop-blur shadow-sm ring-1 ring-black/5
+               hover:bg-white transition"
+                aria-label={liked ? 'Remove from shortlist' : 'Add to shortlist'}
+              >
+                <Heart className={liked ? 'w-4 h-4 text-red-500 fill-current' : 'w-4 h-4 text-gray-700'} />
+              </button>
+
+              {/* Arrows */}
               {images.length > 1 && (
-                <button
-                  onClick={() =>
-                    setCurrentImageIndex(
-                      (prev) => (prev - 1 + images.length) % images.length
-                    )
-                  }
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-60 text-white p-2 rounded-full z-10 transition"
-                >
-                  <ChevronLeft size={20} />
-                </button>
+                <>
+                  <button
+                    onClick={() => setCurrentImageIndex((p) => (p - 1 + images.length) % images.length)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2
+                   bg-black/40 hover:bg-black/60 text-white p-2 rounded-full z-20 transition"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button
+                    onClick={() => setCurrentImageIndex((p) => (p + 1) % images.length)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2
+                   bg-black/40 hover:bg-black/60 text-white p-2 rounded-full z-20 transition"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </>
               )}
 
-              {/* Right Arrow */}
-              {images.length > 1 && (
-                <button
-                  onClick={() =>
-                    setCurrentImageIndex((prev) => (prev + 1) % images.length)
-                  }
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-60 text-white p-2 rounded-full z-10 transition"
-                >
-                  <ChevronRight size={20} />
-                </button>
-              )}
+              {/* Counter */}
+              <div className="absolute bottom-3 right-3 z-20 bg-black/55 text-white px-2 py-1 rounded-full text-xs">
+                {currentImageIndex + 1} / {images.length}
+              </div>
 
-              {/* Image Navigation Dots */}
+              {/* Dots */}
               {images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                  {images.map((_: any, index: number) => (
+                <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
+                  {images.map((_, idx) => (
                     <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`w-3 h-3 rounded-full transition-colors ${index === currentImageIndex ? 'bg-white' : 'bg-white bg-opacity-50'
+                      key={idx}
+                      onClick={() => setCurrentImageIndex(idx)}
+                      className={`w-3 h-3 rounded-full transition-colors ${idx === currentImageIndex ? "bg-white" : "bg-white/50"
                         }`}
                     />
                   ))}
                 </div>
               )}
 
-              {/* Image Counter */}
-              <div className="absolute top-3 right-3 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full text-xs">
-                {currentImageIndex + 1} / {images.length}
-              </div>
-
               {/* View Options */}
-              <div className="absolute bottom-3 right-3 flex space-x-2">
-                <button className="bg-white bg-opacity-90 text-gray-900 px-3 py-1.5 rounded-lg flex items-center space-x-1 hover:bg-white transition-colors text-sm">
+              <div className="absolute bottom-12 right-3 z-20 flex space-x-2">
+                <button className="bg-white/95 text-gray-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white transition text-sm">
                   <Camera size={16} />
                   <span className="text-sm">Photos</span>
                 </button>
-                <button className="bg-white bg-opacity-90 text-gray-900 px-3 py-1.5 rounded-lg flex items-center space-x-1 hover:bg-white transition-colors text-sm">
+                <button className="bg-white/95 text-gray-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white transition text-sm">
                   <Video size={16} />
                   <span className="text-sm">Tour</span>
                 </button>
               </div>
             </div>
+
 
 
             {/* Property Header */}

@@ -511,7 +511,11 @@ function tabCountClass(active: boolean, color: string) {
 /* ---------------------- Component ---------------------- */
 
 const PropertiesPage = () => {
-  const [activeTab, setActiveTab] = useState('all');
+ const [activeTab, setActiveTab] = useState<string>(() => {
+  const sp = new URLSearchParams(window.location.search);
+  return sp.get('listTab') || localStorage.getItem('prop_list_tab') || 'all';
+});
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProperties, setSelectedProperties] = useState<(number | string)[]>([]);
   const [showPropertyForm, setShowPropertyForm] = useState(false);
@@ -534,6 +538,15 @@ const PropertiesPage = () => {
 
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
+useEffect(() => {
+  if (!activeTab) return;
+  localStorage.setItem('prop_list_tab', activeTab);
+  const url = new URL(window.location.href);
+  url.searchParams.set('listTab', activeTab);
+  window.history.replaceState({}, '', url.toString());
+}, [activeTab]);
+
+
 
   useEffect(() => {
     const fetchMasters = async () => {
@@ -579,16 +592,16 @@ const PropertiesPage = () => {
       throw new Error('propertiesAPI.getProperties is not a function (check import/path).');
     }
     if (import.meta.env?.MODE !== 'production') {
-      console.log('[FETCH] calling propertiesAPI.getProperties()…');
+      // console.log('[FETCH] calling propertiesAPI.getProperties()…');
     }
     const raw = await withTimeout(propertiesAPI.getProperties(), 12000);
     const list = Array.isArray(raw) ? raw : raw?.data || [];
     if (import.meta.env?.MODE !== 'production') {
-      console.log('[FETCH OK] raw count:', list.length);
+      // console.log('[FETCH OK] raw count:', list.length);
     }
     const mapped = list.map((r: any, idx: number) => normalizeProperty(r, idx));
     if (import.meta.env?.MODE !== 'production') {
-      console.log('[FETCH MAP] normalized count:', mapped.length);
+      // console.log('[FETCH MAP] normalized count:', mapped.length);
     }
     return mapped;
   };
@@ -639,6 +652,15 @@ const PropertiesPage = () => {
     window.addEventListener('online', backOnline);
     return () => window.removeEventListener('online', backOnline);
   }, []);
+useEffect(() => {
+  if (!currentPropertyView) return;
+  const fresh = properties.find(pp =>
+    String(pp.id) === String(currentPropertyView.id)
+  );
+  if (fresh && fresh.updated_at !== currentPropertyView.updated_at) {
+    setCurrentPropertyView(fresh);
+  }
+}, [properties]); // deps: properties
 
   const tabs = useMemo(
     () => [
@@ -691,8 +713,32 @@ const PropertiesPage = () => {
 
   const handleAddProperty = () => { setEditingProperty(null); setShowPropertyForm(true); };
   const handleEditProperty = (property: UIProperty) => { setEditingProperty(property); setShowPropertyForm(true); };
-  const handleViewProperty = (property: UIProperty) => setCurrentPropertyView(property);
-  const handleBackToList = () => setCurrentPropertyView(null);
+const handleViewProperty = (property: UIProperty) => {
+  setCurrentPropertyView(property);
+  const url = new URL(window.location.href);
+  url.searchParams.set('view', String(property.id));
+  // (PV ka ?tab alag handle hoga — isse mat छेड़ो)
+  window.history.replaceState({}, '', url.toString());
+};
+
+ const handleBackToList = () => {
+  setCurrentPropertyView(null);
+  const url = new URL(window.location.href);
+  url.searchParams.delete('view');
+  url.searchParams.delete('tab'); // PV ka tab param list pe aane par clear
+  window.history.replaceState({}, '', url.toString());
+};
+
+useEffect(() => {
+  if (loading || error) return;
+  const sp = new URLSearchParams(window.location.search);
+  const viewId = sp.get('view');
+  if (viewId && !currentPropertyView) {
+    const p = properties.find(pp => String(pp.id) === viewId || String(pp.propertyId) === viewId);
+    if (p) setCurrentPropertyView(p);
+  }
+}, [loading, error, properties, currentPropertyView]);
+
 
   const handleDeleteProperty = async (propertyId: number | string) => {
     if (window.confirm("Are you sure you want to delete this property?")) {
@@ -946,6 +992,13 @@ const PropertiesPage = () => {
         onEdit={handleEditProperty}
         onBuyerMatching={handleBuyerMatching}
         onViewBuyers={handleViewBuyers}
+        // ✅ IMPORTANT: pass this
+    onUpdateProperty={(p) => {
+      // current view turant update
+      setCurrentPropertyView(p);
+      // list me bhi same id ko update karo
+      setProperties(prev => prev.map(x => x.id === p.id ? { ...x, ...p } : x));
+    }}
       />
     );
   }

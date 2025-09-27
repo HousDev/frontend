@@ -228,25 +228,31 @@ const RolesPermissionsPage: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link to="/dashboard/settings">
-            <Button variant="outline">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Left side: Back + Title */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-3 sm:gap-0">
+          <Link to="/dashboard/settings" className="w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto flex items-center justify-center sm:justify-start">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Settings
             </Button>
           </Link>
+
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Roles & Permissions</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              Roles & Permissions
+            </h1>
+            <p className="text-gray-600 mt-1 text-sm sm:text-base">
               Manage user roles and their access permissions
             </p>
           </div>
         </div>
+
+        {/* Right side: Add Role */}
         {activeTab === 'roles' && (
           <Button
             onClick={() => setShowAddRole(true)}
-            className="flex items-center space-x-2"
+            className="flex items-center justify-center sm:justify-start space-x-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             <span>Add Role</span>
@@ -254,17 +260,17 @@ const RolesPermissionsPage: React.FC = () => {
         )}
       </div>
 
+
       {/* Tabs */}
       <div className="bg-white rounded-lg shadow">
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8" aria-label="Tabs">
             <button
               onClick={() => setActiveTab('roles')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'roles'
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'roles'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               <div className="flex items-center space-x-2">
                 <Shield className="h-4 w-4" />
@@ -273,11 +279,10 @@ const RolesPermissionsPage: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('permissions')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'permissions'
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'permissions'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               <div className="flex items-center space-x-2">
                 <Lock className="h-4 w-4" />
@@ -430,7 +435,7 @@ const RolesPermissionsPage: React.FC = () => {
                         {resourcePermissions.map((permission) => {
                           const currentPermissions = editingRole ? editingRole.permissions : newRole.permissions;
                           const isChecked = hasPermission(permission.id, currentPermissions);
-                          
+
                           return (
                             <label key={permission.id} className="flex items-center space-x-2 cursor-pointer">
                               <input

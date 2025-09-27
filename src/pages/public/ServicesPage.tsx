@@ -1,10 +1,10 @@
 import React from 'react';
-import { 
-  Home, 
-  Building, 
-  CreditCard, 
-  FileText, 
-  Shield, 
+import {
+  Home,
+  Building,
+  CreditCard,
+  FileText,
+  Shield,
   Users,
   CheckCircle,
   ArrowRight,
@@ -49,7 +49,7 @@ const ServicesPage = () => {
       ],
       process: [
         'Requirement Analysis',
-        'Property Shortlisting', 
+        'Property Shortlisting',
         'Site Visits & Evaluation',
         'Price Negotiation',
         'Legal Verification',
@@ -272,30 +272,51 @@ const ServicesPage = () => {
       description: 'Successful completion with post-service support'
     }
   ];
-    const { systemSettings } = useSystemSettings();
-    const companyName = systemSettings?.company_name;
+  const { systemSettings } = useSystemSettings();
+  const companyName = systemSettings?.company_name;
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-5">
+      <section className=" text-white py-5 pt-28"
+        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-3">
+            <h2 className="text-3xl font-bold mb-3 text-[#E6761D]">
               Complete Real Estate Solutions
-            
+
             </h2>
             <p className="text-lg mb-4 text-blue-100 max-w-4xl mx-auto leading-relaxed">
-              From property search to final registration, we provide end-to-end real estate services 
+              From property search to final registration, we provide end-to-end real estate services
               with expert guidance and transparent pricing
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-              <button className="bg-white text-blue-600 px-2 py-1 rounded-xl font-bold hover:bg-gray-100 transition-all shadow-lg">
+              {/* Button 1 */}
+              <button
+                className="w-full sm:w-auto px-5 py-3 rounded-xl font-semibold text-white transition-all shadow-lg"
+                style={{ backgroundColor: '#E6761D' }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = '#CC6A1A')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = '#E6761D')}
+              >
                 Get Free Consultation
               </button>
-              <button className="border-2 border-white text-white px-2 py-1 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-all">
+
+              {/* Button 2 */}
+              <button
+                className="w-full sm:w-auto px-5 py-3 rounded-xl font-semibold border-2 text-white transition-all"
+                style={{ borderColor: '#ffffff', backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#E6761D';
+                  (e.currentTarget as HTMLButtonElement).style.color = '#ffffff';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+                  (e.currentTarget as HTMLButtonElement).style.color = '#ffffff';
+                }}
+              >
                 View All Services
               </button>
             </div>
+
           </div>
         </div>
       </section>
@@ -370,8 +391,8 @@ const ServicesPage = () => {
 
                   <button
                     className={`w-full py-3 px-6 rounded-xl font-semibold transition-all group-hover:shadow-lg ${service.id === 'investment-advisory'
-                        ? 'bg-pink-500 text-white hover:bg-pink-600'
-                        : `bg-${service.color}-500 text-white hover:bg-${service.color}-600`
+                      ? 'bg-pink-500 text-white hover:bg-pink-600'
+                      : `bg-${service.color}-500 text-white hover:bg-${service.color}-600`
                       }`}
                   >
                     Get Started
@@ -485,7 +506,7 @@ const ServicesPage = () => {
                 image: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=200'
               },
               {
-                name: 'Priya Sharma', 
+                name: 'Priya Sharma',
                 service: 'Property Selling',
                 text: 'Sold my property 20% above market rate with their expert marketing strategies.',
                 rating: 5,
@@ -682,7 +703,7 @@ const ServicesPage = () => {
           <p className="text-lg text-blue-100 mb-8 max-w-3xl mx-auto">
             Let our experts help you with your real estate needs. Get a free consultation today!
           </p>
-          
+
           <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
             <button className="bg-white text-blue-600 px-3 py-2 rounded-xl font-bold hover:bg-gray-100 transition-all shadow-lg">
               Get Free Consultation

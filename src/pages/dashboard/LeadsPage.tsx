@@ -7,7 +7,6 @@ import { SiWhatsapp } from "react-icons/si";
 import { useAuth } from '@/contexts/AuthContext';
 import Button from '@/components/ui/Button';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { toast } from '@/hooks/useToast';
 import Pagination from '@/components/ui/Pagination';
 import AddLeadModal from './components/AddLeadModal';
 import ImportLeadsModal from './components/ImportLeadsModal';
@@ -18,6 +17,7 @@ import { leadsAPI, usersAPI } from '@/lib/api';
 import { notificationAPI } from '@/lib/notificationAPI';
 import { filterLeadsByRole } from '@/utils/roleBasedLeadFilter';
 import { canAddLead, canDeleteLead, canEditLead, canExportLeads, canImportLeads, canViewLead } from '@/utils/rolePermissions';
+import { toast } from 'react-toastify';
 
 interface Lead {
   id: string;
@@ -341,56 +341,93 @@ const priorityOptions = useMemo(() => ([
   }, [filteredLeads, currentPage, itemsPerPage]);
 
 
-  const handleAddLead = async (newLeadData: any) => {
-    try {
-      const response = await leadsAPI.createLead(newLeadData);
+// const handleAddLead = async (newLeadData: any) => {
+//   try {
+//     // 1) Create on server
+//     await leadsAPI.createLead(newLeadData);
 
-      const createdRaw = response?.data?.data ?? response?.data ?? null;
-      const created: any = {
-        ...newLeadData,
-        ...createdRaw,
-      };
+//     // 2) Immediately refetch full list (instant fresh data)
+//     await fetchLeads();          // <- aapka upar defined fetchLeads()
 
-      if (!created.id) {
-        created.id =
-          createdRaw?._id ??
-          (typeof crypto?.randomUUID === "function"
-            ? crypto.randomUUID()
-            : String(Date.now()));
-      }
-      if (!created.created_at) {
-        created.created_at = new Date().toISOString();
-      }
-      if (!created.status) {
-        created.status = "new";
-      }
+//     // 3) (Optional) Make sure user can see it right away
+//     setActiveTab('all');
+//     setCurrentPage(1);
 
-      setAllLeads((prev) => [created, ...prev]);
-      setCurrentPage(1);
+//     // 4) Send notification if assigned (use the data you submitted)
+//     if (newLeadData.assigned_executive && newLeadData.assigned_executive_name) {
+//       await notificationAPI.createNotification({
+//         leadId: undefined, // server refetch se correct id aa jayegi UI me
+//         userId: newLeadData.assigned_executive,
+//         message: `New lead assigned to ${newLeadData.assigned_executive_name}`,
+//       });
+//     }
 
-      // 🔔 Agar executive assign hai to notification bhejo
-      if (created.assigned_executive && created.assigned_executive_name) {
-        await notificationAPI.createNotification({
-          leadId: created.id,
-          userId: created.assigned_executive,
-          message: `New lead assigned to ${created.assigned_executive_name}`,
-        });
-      }
+//     toast.success("Lead added successfully");
+//     setShowAddLeadModal(false);
+//   } catch (error: any) {
+//     console.error("Error adding lead:", error);
+//     if (error?.response?.status === 409) {
+//       toast.error(error?.response?.data?.message || "Duplicate entry found");
+//     } else {
+//       toast.error("Failed to add lead");
+//     }
+//     // error pe modal open hi rakho
+//   }
+// };
 
-      toast.success("Lead added successfully");
-      setShowAddLeadModal(false); // ✅ केवल success होने पर बंद करो
-    } catch (error: any) {
-      console.error("Error adding lead:", error);
-      if (error?.response?.status === 409) {
-        toast.error(error?.response?.data?.message || "Duplicate entry found");
-        // ❌ Modal बंद मत करो
-      } else {
-        toast.error("Failed to add lead");
-      }
+
+// ADD — create on server, create notification (if assigned), then refetch list
+const handleAddLead = async (newLeadData: any) => {
+  try {
+    // 1) Create on server
+    const res = await leadsAPI.createLead(newLeadData);
+    const created = res?.data?.data ?? res?.data ?? {};
+
+    // 2) Resolve the new lead's id
+    const createdId =
+      created.id ??
+      created._id ??
+      (typeof crypto?.randomUUID === "function"
+        ? crypto.randomUUID()
+        : String(Date.now()));
+
+    // 3) If assigned, create a notification (like edit flow)
+    if (newLeadData.assigned_executive) {
+      const assigneeId = newLeadData.assigned_executive;
+      const assigneeName =
+        newLeadData.assigned_executive_name ??
+        created.assigned_executive_name ??
+        "User"; // fallback
+
+      await notificationAPI.createNotification({
+        leadId: createdId,
+        userId: assigneeId,
+        message: `New lead assigned to You`,
+        type: "lead_assign",
+        link: `/dashboard/leads/${createdId}`,
+      });
+
+      // 🔔 Toast for assignment
+      toast.success(`Lead assigned Succesfully`);
     }
-  };
 
+    // 4) Refetch (fresh data in table)
+    await fetchLeads();
+    setActiveTab("all");
+    setCurrentPage(1);
 
+    // ✅ Final success toast
+    toast.success("Lead added successfully");
+    setShowAddLeadModal(false);
+  } catch (error: any) {
+    console.error("Error adding lead:", error);
+    if (error?.response?.status === 409) {
+      toast.error(error?.response?.data?.message || "Duplicate entry found");
+    } else {
+      toast.error("Failed to add lead");
+    }
+  }
+};
 
 
   const handleEditLead = async (updatedLeadData: any) => {

@@ -739,32 +739,57 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     return fd;
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-    try {
-      setLoading(true);
-      setErrorBanner(null);
+const handleSubmit = async () => {
+  if (!validateForm()) return;
+  try {
+    setLoading(true);
+    setErrorBanner(null);
 
-      const payload = buildPayload();
-      let result;
+    const payload = buildPayload();
+    let result;
 
-      if (mode === 'edit' && propertyId) {
-        result = await propertiesAPI.updateProperty(String(propertyId), payload);
-      } else {
-        result = await propertiesAPI.createProperty(payload);
-      }
+    if (mode === 'edit' && propertyId) {
+      // 1) Update
+      result = await propertiesAPI.updateProperty(String(propertyId), payload);
 
-      onSubmit(result);
-      onClose?.();
-    } catch (e: any) {
-      console.error(e);
-      const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
-      setErrorBanner(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
+      // 2) Refetch ALL + THIS property (make sure to CALL the functions)
+      await Promise.all([
+        propertiesAPI.getProperties(),              // <-- () matters
+        propertiesAPI.getProperty(String(propertyId)),
+      ]);
+    } else {
+      // 1) Create
+      result = await propertiesAPI.createProperty(payload);
+
+      // Try to find the new id from response for a precise refetch
+      const created = result?.data?.data ?? result?.data ?? result;
+      const newId =
+        created?.id ??
+        created?._id ??
+        null;
+
+      // 2) Refetch ALL + (optionally) the newly created property
+      await Promise.all([
+        propertiesAPI.getProperties(),              // refresh list
+        newId ? propertiesAPI.getProperty(String(newId)) : Promise.resolve(),
+      ]);
     }
-  };
+
+    onSubmit(result);
+    onClose?.();
+  } catch (e: any) {
+    console.error(e);
+    const msg =
+      e?.response?.data?.message ||
+      e?.message ||
+      `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
+    setErrorBanner(msg);
+    toast.error(msg);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   /* ---------- options helper ---------- */
 

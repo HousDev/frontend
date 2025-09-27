@@ -16,7 +16,6 @@ import {
   Target,
   Sparkles,
   TrendingUp,
-  DollarSign,
   Users,
   Award,
   Shield,
@@ -32,6 +31,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import viewsAPI from '@/lib/viewAPI';
 import PublicSellPropertyForm from './PublicSellPropertyForm';
+import { FaWhatsapp } from 'react-icons/fa6';
 
 interface Property {
   id: number;
@@ -62,16 +62,14 @@ interface Property {
   created_at?: string | null;
   public_views?: number | null;
   total_views?: number;
+  agent?: { phone?: string };
 }
 
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
-  const [searchQuery, setSearchQuery] = useState(''); // free text (kept but not used)
-  // City now from dropdown
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
-  // Localities input + array of localities (max 5)
   const [localityInput, setLocalityInput] = useState('');
   const [localities, setLocalities] = useState<string[]>([]);
-
   const [selectedBudget, setSelectedBudget] = useState('');
   const [selectedPropertyType, setSelectedPropertyType] = useState('');
   const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
@@ -79,7 +77,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [isSubOpen, setIsSubOpen] = useState(false);
   const [currentPropertyView, setCurrentPropertyView] = useState<any | null>(null);
-
   const [viewedProperties, setViewedProperties] = useState<Set<number>>(new Set());
 
   const [masterLoading, setMasterLoading] = useState(true);
@@ -97,7 +94,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const queryParams = new URLSearchParams(location.search);
   const filterParamKey =
     queryParams.has('filterToken') ? 'filterToken' :
-      (queryParams.has('tf') ? 'tf' : undefined);
+    (queryParams.has('tf') ? 'tf' : undefined);
   const filterToken = filterParamKey ? (queryParams.get(filterParamKey) as string | null) ?? undefined : undefined;
 
   useEffect(() => {
@@ -140,9 +137,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
 
         const mapped = await Promise.all(rawList.map(async (p: any) => {
-          const images = Array.isArray(p.amenities)
-            ? p.photos?.map((ph: string) => ph.replace(/\\/g, '/')) ?? []
-            : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
+          const images: string[] =
+            Array.isArray(p.photos)
+              ? p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'))
+              : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
 
           const city = p.city_name || p.city || p.town || p.cityName || '';
           const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
@@ -194,7 +192,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             possessionYear: p.possession_year ?? p.possessionYear ?? null,
             property_status: p.property_status ?? p.status ?? '',
             created_at: p.created_at ?? null,
-            public_views: p.public_views ?? null
+            public_views: p.public_views ?? null,
+            agent: { phone: p.agent_phone || p.agent?.phone || p.owner_phone || '' }
           } as Property;
         }));
 
@@ -243,7 +242,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   const masterCity: MasterOption[] = findMasterOptions(['city']);
   const propertyTypeOptions: MasterOption[] = findMasterOptions(['property type', 'property_type', 'propertytype', 'type', 'property']);
-  // NEW: try to find location/locality masters
   const masterLocation: MasterOption[] = findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']);
 
   const formatPrice = (price: any) => {
@@ -254,14 +252,13 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     return `₹${num.toLocaleString('en-IN')}`;
   };
 
-  // State for Buy/Rent toggle (only Buy works; Rent disabled)
+  const formatCurrency = (price: any) => formatPrice(price);
+
   const [transactionType, setTransactionType] = useState<'buy' | 'rent'>('buy');
 
-  // Helper: add a locality (max 5)
   const addLocality = (value?: string) => {
     const v = (value ?? localityInput ?? '').toString().trim();
     if (!v) return;
-    // normalise: remove extra spaces and trailing commas
     const normalized = v.replace(/\s{2,}/g, ' ').replace(/(^,|,$)/g, '').trim();
     if (!normalized) return;
     if (localities.includes(normalized)) {
@@ -271,7 +268,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       return;
     }
     if (localities.length >= 5) {
-      // could show toast - console for now
       console.warn('Maximum 5 localities allowed');
       setLocalityInput('');
       setSuggestions([]);
@@ -288,33 +284,28 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     setLocalities(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Suggestion handling
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
-    // if we have masterLocation options and user typed something, filter suggestions
     const q = (localityInput || '').trim().toLowerCase();
     if (!q || !Array.isArray(masterLocation) || masterLocation.length === 0) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
-    // filter by label or value
     const matched = masterLocation
       .filter(opt => {
         const label = (opt.label || '').toString().toLowerCase();
         const value = (opt.value || '').toString().toLowerCase();
         return label.includes(q) || value.includes(q);
       })
-      .slice(0, 10); // limit
+      .slice(0, 10);
     setSuggestions(matched);
     setShowSuggestions(matched.length > 0);
   }, [localityInput, masterLocation]);
 
-  // When user clicks Search: navigate to PublicPropertiesPage with query params
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    // Only Buy search is enabled — if rent selected, do nothing (or show disabled)
     if (transactionType === 'rent') {
       console.warn('Rent search not implemented yet. Only Buy is active.');
       return;
@@ -322,35 +313,28 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
     const params: Record<string, string> = {};
 
-    // City must come from dropdown; only include if set
     if (selectedCity) {
       params.city = selectedCity;
     }
 
-    // If localities present, send them as comma-separated WITHOUT spaces
     if (localities.length > 0) {
       params.location = localities.join(',');
     }
 
-    // Only send propertyType if present
     if (selectedPropertyType) {
       params.propertyType = selectedPropertyType;
     }
 
-    // Only send budget if present
     if (selectedBudget) {
       params.budget = selectedBudget;
     }
 
-    // mark this as a buy / available search so backend can filter by status if it supports
     params.status = 'Available';
 
-    // preserve existing filter token if present
     if (filterToken && filterParamKey) {
       params[filterParamKey] = filterToken;
     }
 
-    // Build search string (only include keys that have values)
     const searchParams = new URLSearchParams();
     Object.keys(params).forEach(k => {
       const v = (params as any)[k];
@@ -364,7 +348,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     navigate(finalURL);
   };
 
-  // Fix: call the handler or fallback to modal
   const handleSellPropertyClick = () => {
     if (onAuthAction) {
       onAuthAction('sell');
@@ -373,20 +356,15 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     }
   };
 
-  // Minimal handler so PublicSellPropertyForm onSubmit has something meaningful to call.
-  // You can replace this with actual save logic / API call as needed.
   const handleSellerSave = async (formData: any) => {
     try {
       console.log('Selling form submitted (stub):', formData);
-      // TODO: call your API to save the seller/property info
       setIsSellerModalOpen(false);
-      // maybe navigate to a thank-you page or show toast
     } catch (err) {
       console.error('Error saving seller/property:', err);
     }
   };
 
-  // Enhanced navigation function used on click property cards (keeps previous behavior)
   const handleNavigateToProperty = async (property: Property) => {
     const id = property.id;
     const slug = property.slug;
@@ -460,23 +438,25 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   return (
     <div className="min-h-screen">
-      {/* hero/search - increased height so carousel/bg is taller */}
-      <section className="relative bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white overflow-hidden ">
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+      {/* hero/search */}
+      <section className="relative bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white overflow-hidden min-h-[calc(100vh-80px)] md:min-h-[calc(100vh-80px)]">
+        <div className="absolute inset-0 bg-black/30"></div>
         {featuredProperties.length > 0 && (
           <div
             className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
-            style={{ backgroundImage: `url(${featuredProperties[featuredIndex]?.images?.[0] || ''})`, filter: 'brightness(0.35)' }}
+            style={{
+              backgroundImage: `url(${featuredProperties[featuredIndex]?.images?.[0] || ''})`,
+              filter: 'brightness(0.35)',
+            }}
           />
         )}
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12  sm:py-20 md:py-28">
-
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 md:py-28">
           <div className="text-center">
             <h1 className="text-3xl font-bold mb-2">
-              Find Your <span className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">Dream Property</span>
+              Find Your <span className="block bg-clip-text text-[#E6761D]">Dream Property</span>
             </h1>
-            <p className="text-blue-100 mb-6">AI-powered property search in Mumbai's premium locations</p>
+            <p className="text-blue-100 mb-6">AI-powered property search in Pune's premium locations</p>
 
             {/* Row: Buy/Rent + PropertyType */}
             <div className="flex flex-col items-center gap-3 mb-6 md:flex-row md:justify-center">
@@ -486,7 +466,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   type="button"
                   onClick={() => setTransactionType("buy")}
                   className={`px-4 py-1 rounded-full ${transactionType === "buy"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-[#E6761D] text-white"
                     : "bg-gray-100 text-gray-700"
                     }`}
                 >
@@ -556,7 +536,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     value={selectedCity}
                     onChange={(e) => setSelectedCity(e.target.value)}
                     disabled={masterLoading}
-                    className="appearance-none px-3 py-2 border z-100 rounded-lg w-full bg-transparent text-white border-white/30 focus:outline-none focus:ring-1 focus:ring-white"
+                    className="appearance-none px-3 py-2 border z-10 rounded-lg w-full bg-transparent text-white border-white/30 focus:outline-none focus:ring-1 focus:ring-white"
                   >
                     <option value="" className="bg-gray-900 text-white">{masterLoading ? "Loading cities..." : "Select city"}</option>
                     {masterCity.map((o) => (
@@ -595,17 +575,16 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     onBlur={() => {
                       setTimeout(() => setShowSuggestions(false), 120);
                     }}
-                    className="pl-10 pr-24 py-2 border rounded-lg w-full bg-white/20 text-white placeholder-white outline-none focus:ring-1 focus:ring-gray-400"
-                    placeholder={
-                      Array.isArray(masterLocation) && masterLocation.length > 0
-                        ? "Type locality (autosuggest). Enter to add"
-                        : "Type locality (free text). Enter to add"
-                    }
+                    className="pl-10 pr-16 h-10 w-full text-sm bg-white/10 text-white placeholder-white/70 outline-none focus:ring-1 focus:ring-gray-400 rounded-lg"
+                    placeholder="Search properties by locality or area"
                   />
                   <button
                     type="button"
                     onClick={() => addLocality()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-blue-600/90 text-white px-3 py-1 rounded-lg text-sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 
+             bg-[#0b3856] hover:bg-[#0c3854] 
+             text-white px-3 py-1 rounded-lg text-sm 
+             transition-colors duration-300"
                   >
                     Add
                   </button>
@@ -632,13 +611,12 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                       ))}
                     </ul>
                   )}
-
                 </div>
 
                 {/* Search button */}
                 <button
                   type="submit"
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg w-full md:w-28 text-sm"
+                  className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg w-full md:w-28 text-sm transition-colors duration-300"
                 >
                   Search
                 </button>
@@ -655,7 +633,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     <button
                       type="button"
                       onClick={() => removeLocality(idx)}
-                      className="text-gray-500 hover:text-gray-800"
+                      className="text-gray-200 hover:text-white"
                     >
                       &times;
                     </button>
@@ -666,13 +644,12 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 )}
               </div>
             </form>
-
           </div>
         </div>
 
         {featuredProperties.length > 0 && (
           <>
-            {/* Dots (Hide on mobile, show from sm+) */}
+            {/* Dots */}
             <div className="hidden sm:flex absolute bottom-4 left-1/2 -translate-x-1/2 space-x-2">
               {featuredProperties.map((_, i) => (
                 <button
@@ -683,7 +660,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               ))}
             </div>
 
-            {/* Left Button (Hide on mobile) */}
+            {/* Left Button */}
             <button
               onClick={() =>
                 setFeaturedIndex(
@@ -695,7 +672,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               <ChevronLeft className="text-white" />
             </button>
 
-            {/* Right Button (Hide on mobile) */}
+            {/* Right Button */}
             <button
               onClick={() => setFeaturedIndex((i) => (i + 1) % featuredProperties.length)}
               className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/20 rounded-full"
@@ -704,7 +681,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </button>
           </>
         )}
-
       </section>
 
       {/* AI Insights */}
@@ -724,7 +700,13 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           </div>
 
           <div className="text-center mt-4">
-            <button onClick={() => internalAuthAction('subscribe')} className="bg-purple-600 text-white px-2 py-1 rounded-lg">Get Full AI Report</button>
+            <button
+              onClick={() => internalAuthAction('subscribe')}
+              className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg font-medium transition-colors duration-300"
+            >
+              Get Full AI Report
+            </button>
+
             <SubscriptionModal isOpen={isSubOpen} onClose={() => setIsSubOpen(false)} />
           </div>
         </div>
@@ -746,7 +728,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 <div key={property.id} className="bg-white rounded-2xl shadow-lg overflow-hidden group">
                   <div className="relative">
                     {property.images && property.images.length ? (
-                      <img src={property.images[0]} alt={property.title} className="w-full h-48 object-cover group-hover:scale-105 transition-transform" />
+                      <img
+                        src={property.images[0]}
+                        alt={property.title || 'Property image'}
+                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
+                      />
                     ) : (
                       <div className="h-48 bg-gray-200 flex items-center justify-center"><Building className="text-gray-400" /></div>
                     )}
@@ -788,7 +774,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                       </div>
                       <div className="text-right">
                         <div className="text-sm text-gray-500">Price per sq ft</div>
-                        <div className="font-semibold text-gray-900">₹{Math.round((property.price || 0) / (property.square_feet || property.area || 1)).toLocaleString()}</div>
+                        <div className="font-semibold text-gray-900">
+                          ₹{Math.round((property.price || 0) / (property.square_feet || property.area || 1)).toLocaleString()}
+                        </div>
                       </div>
                     </div>
 
@@ -811,7 +799,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                         <div className="flex-1">
                           <button
                             onClick={() => handleNavigateToProperty(property)}
-                            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                            className="w-full bg-[#E6761D] text-white py-2 rounded-lg hover:bg-[#CC6A1A] transition-colors"
                           >
                             View Details
                           </button>
@@ -822,68 +810,131 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                         </button>
                       )}
 
-                      <button className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors group">
-                        <Phone className="text-green-600 group-hover:text-green-700" size={20} />
+                      {/* Call Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (property.agent?.phone) {
+                            window.open(`tel:${property.agent.phone}`);
+                          }
+                        }}
+                        className="p-3 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
+                        title="Call"
+                      >
+                        <Phone size={18} />
+                      </button>
+
+                      {/* WhatsApp Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const msgTitle = property.title || [property.unitType, property.type].filter(Boolean).join(' ') || 'a property';
+                          const loc = property.location || property.city || 'your listed property location';
+                          const message = `Hi, I'm interested in ${msgTitle} at ${loc}. Price: ${formatCurrency(property.price)}. Can you share more details?`;
+                          const phone = (property.agent?.phone || '').replace(/\D/g, '');
+                          if (phone) {
+                            window.open(
+                              `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+                              '_blank'
+                            );
+                          }
+                        }}
+                        className="p-3 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
+                        title="WhatsApp"
+                      >
+                        <FaWhatsapp size={18} />
                       </button>
                     </div>
-
                   </div>
                 </div>
               ))}
             </div>
           )}
           <div className="text-center mt-4">
-            <Link to="/properties"><button onClick={() => onPageChange && onPageChange('properties')} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-2 py-1 rounded-xl">View All Properties</button></Link>
+            <Link to="/properties">
+              <button
+                onClick={() => onPageChange && onPageChange('properties')}
+                className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-xl font-medium transition-colors duration-300"
+              >
+                View All Properties
+              </button>
+            </Link>
           </div>
         </div>
       </section>
 
       {/* Sell CTA / Footer minimal */}
-      <section className="py-8 bg-gradient-to-r from-green-600 to-emerald-600 text-white">
+      <section
+        className="py-8 text-white"
+        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
+      >
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+            {/* Left Content */}
             <div>
-              <h2 className="text-2xl font-bold mb-2">Sell Your Property with AI Pricing</h2>
-              <p className="text-green-100 mb-4">Get the best price with our AI-powered valuation and reach verified buyers instantly.</p>
+              <h2 className="text-2xl font-bold mb-2">
+                Sell Your Property with AI Pricing
+              </h2>
+              <p className="text-gray-200 mb-4">
+                Get the best price with our AI-powered valuation and reach verified buyers instantly.
+              </p>
               <div className="flex gap-4">
-                {/* FIXED: use handleSellPropertyClick so modal fallback works */}
-                <button onClick={handleSellPropertyClick} className="bg-white text-green-600 px-2 py-1 rounded-lg">List My Property</button>
-                <button className="border border-white px-2 py-1 rounded-lg">Free Valuation</button>
+                {/* Primary CTA */}
+                <button
+                  onClick={handleSellPropertyClick}
+                  className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg font-medium shadow-md transition-colors duration-300"
+                >
+                  List My Property
+                </button>
+
+                {/* Secondary CTA */}
+                <button
+                  className="w-full sm:w-auto border-2 border-white px-5 py-3 rounded-lg font-medium text-white 
+             hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white 
+             transition-colors duration-300"
+                >
+                  Free Valuation
+                </button>
               </div>
             </div>
+
+            {/* Right Image */}
             <div className="relative inline-block">
-              {/* Image */}
               <img
                 src="https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600"
                 alt="Sell"
                 className="rounded-2xl shadow-xl w-full object-cover"
               />
 
-              {/* Badge - Left Bottom */}
+              {/* Badge */}
               <div className="absolute -bottom-4 left-4 bg-white px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 border border-gray-100">
-                <IndianRupee className="text-green-600 w-5 h-5" />
+                <IndianRupee className="text-[#0b3856] w-5 h-5" />
                 <span className="text-sm font-semibold text-gray-700">
                   ₹500Cr+ Properties Sold
                 </span>
               </div>
             </div>
-
           </div>
         </div>
       </section>
 
       {/* Why Choose Us - Compact */}
-      <section className="py-3 bg-gray-50">
+      <section className="py-10 bg-gray-50 border-t border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Why Choose &nbsp;{companyName}?</h2>
-            <p className="text-gray-600">AI-powered real estate platform trusted by thousands</p>
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">
+              Why Choose&nbsp;{companyName}?
+            </h2>
+            <p className="text-gray-600">
+              AI-powered real estate platform trusted by thousands
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Card 1 */}
             <div className="text-center group">
-              <div className="bg-gradient-to-r from-green-500 to-emerald-600 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:shadow-lg transition-all">
-                <Shield className="text-white" size={20} />
+              <div className="bg-[#E6761D] w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-colors duration-300 shadow-md">
+                <Shield className="text-white" size={22} />
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-3">100% Verified</h3>
               <p className="text-gray-600 text-sm">
@@ -891,9 +942,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               </p>
             </div>
 
+            {/* Card 2 */}
             <div className="text-center group">
-              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:shadow-lg transition-all">
-                <Brain className="text-white" size={20} />
+              <div className="bg-[#E6761D] w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-colors duration-300 shadow-md">
+                <Brain className="text-white" size={22} />
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-3">AI-Powered</h3>
               <p className="text-gray-600 text-sm">
@@ -901,9 +953,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               </p>
             </div>
 
+            {/* Card 3 */}
             <div className="text-center group">
-              <div className="bg-gradient-to-r from-purple-500 to-pink-600 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:shadow-lg transition-all">
-                <Users className="text-white" size={20} />
+              <div className="bg-[#E6761D] w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-colors duration-300 shadow-md">
+                <Users className="text-white" size={22} />
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-3">Expert Support</h3>
               <p className="text-gray-600 text-sm">
@@ -949,11 +1002,18 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           </div>
         </div>
       </section>
+
       {/* Testimonials - Compact */}
-      <section className="py-5 bg-gray-50">
+      <section
+        className="py-10 text-white border-b border-white"
+        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl  font-bold text-gray-800 mb-4">Customer Success Stories</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-bold mb-3">Customer Success Stories</h2>
+            <p className="text-sm text-gray-200">
+              See how our AI-powered solutions are helping people buy & sell properties smarter
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -962,31 +1022,39 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 name: 'Rajesh Kumar',
                 text: 'Found my dream home in 2 weeks with AI matching!',
                 rating: 5,
-                property: '3BHK Andheri'
+                property: '3BHK Andheri',
               },
               {
                 name: 'Priya Sharma',
                 text: 'Sold my property 20% above market rate with their AI pricing.',
                 rating: 5,
-                property: 'Villa Koregaon'
+                property: 'Villa Koregaon',
               },
               {
                 name: 'Amit Patel',
                 text: 'Seamless process from search to registration.',
                 rating: 5,
-                property: '2BHK Gurgaon'
-              }
+                property: '2BHK Gurgaon',
+              },
             ].map((testimonial, index) => (
-              <div key={index} className="bg-white rounded-xl p-6 shadow-lg">
+              <div
+                key={index}
+                className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border-t-4 border-[#E6761D]"
+              >
+                {/* Stars */}
                 <div className="flex items-center space-x-1 mb-3">
                   {Array.from({ length: 5 }, (_, i) => (
-                    <Star key={i} size={14} className="text-yellow-400 fill-current" />
+                    <Star key={i} size={14} className="text-[#E6761D] fill-current" />
                   ))}
                 </div>
+
+                {/* Testimonial text */}
                 <p className="text-gray-700 mb-4 text-sm italic">"{testimonial.text}"</p>
+
+                {/* User info */}
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">
-                    {testimonial.name.split(' ').map(n => n[0]).join('')}
+                  <div className="w-10 h-10 bg-[#E6761D] rounded-full flex items-center justify-center text-white font-bold text-sm">
+                    {testimonial.name.split(' ').map((n) => n[0]).join('')}
                   </div>
                   <div>
                     <div className="font-semibold text-gray-900 text-sm">{testimonial.name}</div>
@@ -998,44 +1066,51 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           </div>
         </div>
       </section>
+
       {/* CTA - Compact */}
-      <section className="py-3 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+      <section
+        className="py-8 text-white"
+        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-2xl font-bold mb-4">
             Ready to Find Your Perfect Property?
           </h2>
-          <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
+          <p className="text-gray-300 mb-6 max-w-2xl mx-auto">
             Join thousands who found their dream properties with AI-powered search
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+            {/* Primary CTA */}
             <button
               onClick={() => onPageChange('properties')}
-              className="bg-white text-blue-600 px-2 py-1 rounded-xl font-bold hover:bg-gray-100 transition-all"
+              className="w-full sm:w-auto bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-3 rounded-xl font-semibold shadow-md transition-colors duration-300"
             >
               Browse Properties
             </button>
+
+            {/* Secondary CTA */}
             <button
-              onClick={() => onAuthAction('sell')}
-              className="border-2 border-white text-white px-2 py-1 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-all"
+              className="w-full sm:w-auto px-5 py-3 rounded-xl font-semibold border-2 border-white text-white transition-colors duration-300 hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white"
             >
-              Share Requirement
+              View All Services
             </button>
           </div>
 
-          <div className="mt-8 flex items-center justify-center space-x-6 text-blue-100 text-sm">
-            <div className="flex items-center space-x-1">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-6 text-gray-300 text-sm">
+            <div className="flex items-center space-x-2">
               <Phone size={16} />
               <span>+91 99999 99999</span>
             </div>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-2">
               <Shield size={16} />
               <span>100% Verified</span>
             </div>
           </div>
         </div>
       </section>
-      {/* Put modal INSIDE the root container so JSX is valid */}
+
+      {/* Modal */}
       <PublicSellPropertyForm
         isOpen={isSellerModalOpen}
         onClose={() => setIsSellerModalOpen(false)}

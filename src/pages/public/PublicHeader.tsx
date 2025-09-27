@@ -7,6 +7,14 @@ import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import PublicFooter from './PublicFooter';
 import PublicSellPropertyForm from './PublicSellPropertyForm';
 
+/* ---------------- Colors ---------------- */
+const colors = {
+  brand: '#E6761D',
+  brandHover: '#CC6A1A',
+  accent: '#0b3856',
+  navText: '#0c3854',
+};
+
 type PublicHeaderProps = {
   currentPage?: string | null;
   onPageChange?: (pageId: string) => void;
@@ -25,13 +33,12 @@ type AnyUser = {
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null;
 
-// Updated type guards to be more flexible and handle different cases
 const hasBuyerId = (u: unknown): u is { role: string; buyer_id: string | number } => {
   if (!isObject(u)) return false;
   const user = u as AnyUser;
   const role = user.role?.toLowerCase();
   const buyerId = user.buyer_id;
-  return role === 'buyer' && buyerId !== null && buyerId !== undefined && buyerId !== '';
+  return role === 'buyer' && buyerId != null && buyerId !== '';
 };
 
 const hasSellerId = (u: unknown): u is { role: string; seller_id: string | number } => {
@@ -39,10 +46,9 @@ const hasSellerId = (u: unknown): u is { role: string; seller_id: string | numbe
   const user = u as AnyUser;
   const role = user.role?.toLowerCase();
   const sellerId = user.seller_id;
-  return role === 'seller' && sellerId !== null && sellerId !== undefined && sellerId !== '';
+  return role === 'seller' && sellerId != null && sellerId !== '';
 };
 
-// Check if user is admin/manager (roles that should go to main dashboard)
 const isAdminRole = (u: unknown): boolean => {
   if (!isObject(u)) return false;
   const user = u as AnyUser;
@@ -59,109 +65,89 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
   const { systemSettings } = useSystemSettings();
-  const companyName = systemSettings?.company_name ?? 'ResaleExpert';
-  const companyLogo = systemSettings?.company_logo;
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState<boolean>(false);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false); 
-  const [isSellerModalOpen, setIsSellerModalOpen] = useState<boolean>(false);
-  const userMenuRef = useRef<HTMLDivElement | null>(null);
-  const navTextColor = '#0c3854';
 
-  // Updated navigation logic to handle all roles properly
+  const companyName = systemSettings?.company_name ?? 'ResaleExpert';
+  const companyLogo = systemSettings?.company_logo as string | undefined;       // colored logo
+  const CompanyWhiteLogo = systemSettings?.footer_logo as string | undefined;   // white logo (used on transparent)
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  /* ------------ Only HOME has scroll-driven transparency ------------ */
+  const isHome = location.pathname === '/';
+  const [isSolid, setIsSolid] = useState<boolean>(!isHome); // non-home starts solid
+
+  useEffect(() => {
+    if (isHome) {
+      const handle = () => setIsSolid(window.scrollY > 10 || isMobileMenuOpen);
+      handle(); // set once
+      window.addEventListener('scroll', handle, { passive: true });
+      return () => window.removeEventListener('scroll', handle);
+    } else {
+      // other pages are always solid; no scroll listener
+      setIsSolid(true);
+    }
+  }, [isHome, isMobileMenuOpen]);
+
+  /* ---------------- Navigation logic ---------------- */
   useEffect(() => {
     if (!isAuthenticated || !user) return;
-
     const path = location.pathname;
     const isPublicAuthPage = path === '/login' || path === '/register';
-    
-    // Only redirect from auth pages OR if user is trying to access a dashboard they shouldn't
     if (!isPublicAuthPage && !path.includes('dashboard')) return;
 
-    console.log('Navigation logic - User:', user, 'Path:', path); // Debug log
-
-    // Check for buyer with buyer_id
     if (hasBuyerId(user)) {
       const buyerDashPath = `/buyer-dashboard/${String((user as any).buyer_id)}`;
-      if (path !== buyerDashPath) {
-        navigate(buyerDashPath, { replace: true });
-      }
+      if (path !== buyerDashPath) navigate(buyerDashPath, { replace: true });
       return;
     }
-    
-    // Check for seller with seller_id
     if (hasSellerId(user)) {
       const sellerDashPath = `/seller-dashboard/${String((user as any).seller_id)}`;
-      if (path !== sellerDashPath) {
-        navigate(sellerDashPath, { replace: true });
-      }
+      if (path !== sellerDashPath) navigate(sellerDashPath, { replace: true });
       return;
     }
-
-    // For all other authenticated users (admin, manager, executive, etc.)
     if (isAdminRole(user) || user) {
-      if (path !== '/dashboard') {
-        console.log('Navigating to general dashboard for role:', (user as any).role); // Debug log
-        navigate('/dashboard', { replace: true });
-      }
-      return;
+      if (path !== '/dashboard') navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, user, location.pathname, navigate]);
 
-  // Updated dashboard path function
   const getDashboardPath = (): string => {
     if (!isAuthenticated || !user) return '/login';
-
-    console.log('getDashboardPath - User:', user); // Debug log
-
-    if (hasBuyerId(user)) {isAuthenticated
-      return `/buyer-dashboard/${String((user as any).buyer_id)}`;
-    }
-    
-    if (hasSellerId(user)) {
-      return `/seller-dashboard/${String((user as any).seller_id)}`;
-    }
-    
-    // For all other authenticated users
+    if (hasBuyerId(user)) return `/buyer-dashboard/${String((user as any).buyer_id)}`;
+    if (hasSellerId(user)) return `/seller-dashboard/${String((user as any).seller_id)}`;
     return '/dashboard';
   };
-
   const dashboardHref = getDashboardPath();
 
-  // Update isAdmin state based on user role
   useEffect(() => {
     if (user) {
       const userRole = (user as AnyUser).role?.toLowerCase();
       setIsAdmin(userRole === 'admin' || userRole === 'manager');
-    } else {
-      setIsAdmin(false);
-    }
+    } else setIsAdmin(false);
   }, [user]);
 
-  // Close user dropdown on outside click
   useEffect(() => {
-    function handleOutsideClick(e: MouseEvent) {
+    const handleOutsideClick = (e: MouseEvent) => {
       if (!userMenuRef.current) return;
       const target = e.target as Node | null;
-      if (target && !userMenuRef.current.contains(target)) {
-        setIsUserDropdownOpen(false);
-      }
-    }
+      if (target && !userMenuRef.current.contains(target)) setIsUserDropdownOpen(false);
+    };
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  const navigationItems: { id: string; label: string; href?: string; textColor?: string }[] = [
-    { id: 'home', label: 'Home', href: '/', textColor: navTextColor },
-    { id: 'properties', label: 'Properties', href: '/properties', textColor: navTextColor },
-    { id: 'services', label: 'Services', href: '/services', textColor: navTextColor },
-    { id: 'about', label: 'About', href: '/about', textColor: navTextColor },
-    { id: 'blogs', label: 'Blogs', href: '/blogs', textColor: navTextColor },
-    { id: 'contact', label: 'Contact', href: '/contact', textColor: navTextColor },
+  const navigationItems: { id: string; label: string; href?: string }[] = [
+    { id: 'home', label: 'Home', href: '/' },
+    { id: 'properties', label: 'Properties', href: '/properties' },
+    { id: 'services', label: 'Services', href: '/services' },
+    { id: 'about', label: 'About', href: '/about' },
+    { id: 'blogs', label: 'Blogs', href: '/blogs' },
+    { id: 'contact', label: 'Contact', href: '/contact' },
   ];
 
-  // Handle nav clicks - if href present, Link handles navigation.
-  const handleNavClick = (pageId: string, _href?: string) => {
+  const handleNavClick = (pageId: string) => {
     onPageChange?.(pageId);
     setIsMobileMenuOpen(false);
   };
@@ -173,13 +159,11 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   };
 
   const handleSellPropertyClick = () => {
-    if (onAuthAction) {
-      onAuthAction('sell');
-    } else {
-      setIsSellerModalOpen(true);
-    }
+    if (onAuthAction) onAuthAction('sell');
+    else setIsSellerModalOpen(true);
   };
 
+  const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
   const handleSellerSave = async (sellerData: any) => {
     try {
       console.log('Saving seller:', sellerData);
@@ -191,7 +175,6 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
     }
   };
 
-  // Build display name from user (salutation + name)
   const displayName = (() => {
     if (!user) return 'User';
     const salutation = (user as AnyUser)?.salutation as string | undefined;
@@ -201,60 +184,57 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
     return parts.length ? parts.join(' ') : 'User';
   })();
 
-  // Get user role for display
   const userRole = isAuthenticated && user ? (user as AnyUser).role : '';
+
+  // Colors by mode
+  const linkColor = isSolid ? colors.navText : '#ffffff';
+  const borderColor = isSolid ? colors.navText : '#ffffff';
+  const hoverText = '#E6761D';
+
+  // Decide which logo to render:
+  // - Home: default (transparent) -> white logo; scrolled (solid) -> normal logo
+  // - Other pages: always normal logo
+  const logoSrc = (() => {
+    const colorLogo = companyLogo || CompanyWhiteLogo; // fallback to whatever exists
+    const whiteLogo = CompanyWhiteLogo || companyLogo; // fallback to whatever exists
+    if (isHome) return isSolid ? colorLogo : whiteLogo;
+    return colorLogo;
+  })();
 
   return (
     <>
-      {/* Top bar */}
-      <div className="bg-gradient-to-r from-blue-800 to-orange-500 text-white py-1.5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between text-xs sm:text-sm">
-            <div className="flex items-center space-x-4">
-              <div className="hidden sm:flex items-center space-x-1">
-                <span className="text-xs font-medium">📞</span>
-                <span>+91 99999 99999</span>
-              </div>
-              <div className="hidden md:flex items-center space-x-1">
-                <span className="text-xs font-medium">✉️</span>
-                <span>info@resaleexpert.in</span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-1">
-                <span className="text-yellow-300">★</span>
-                <span className="hidden sm:inline">4.9/5</span>
-                <span className="sm:hidden">★4.9</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <span className="text-green-300">✓</span>
-                <span className="hidden sm:inline">Verified</span>
-                <span className="sm:hidden">✓</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Header */}
-      <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      {/* Transparent only on home; solid elsewhere */}
+      <header
+        className={cn(
+          'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
+          isSolid
+            ? 'bg-white backdrop-blur supports-[backdrop-filter]:backdrop-blur border-b border-gray-200 shadow-sm'
+            : 'bg-transparent'
+        )}
+      >
+        <div className="w-full px-4 sm:px-6 lg:px-10">
+          <div className="flex items-center justify-between h-20">
             <Link to="/" className="flex items-center space-x-3">
-              {companyLogo ? (
+              {logoSrc ? (
                 <img
-                  src={companyLogo as string}
+                  src={logoSrc}
                   alt={`${companyName} Logo`}
-                  className="h-10 w-auto object-contain rounded-lg shadow-sm bg-white p-1"
+                  className={cn(
+                    'h-16 w-auto object-contain rounded-lg p-1 transition-shadow',
+                    isSolid ? 'bg-white shadow-sm' : 'bg-white/10 backdrop-blur-sm'
+                  )}
                 />
               ) : (
-                  <div className="flex items-center space-x-3">
-                  <div className="hidden sm:block">
-                    <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
-                      {companyName}
-                    </h1>
-                  </div>
-                 </div> 
+                <h1
+                  className="text-2xl font-bold bg-clip-text text-transparent"
+                  style={{
+                    backgroundImage: isSolid
+                      ? `linear-gradient(to right, ${colors.navText}, ${colors.brand})`
+                      : `linear-gradient(to right, #ffffff, ${colors.brand})`,
+                  }}
+                >
+                  {companyName}
+                </h1>
               )}
             </Link>
 
@@ -262,32 +242,46 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
             <nav className="hidden lg:flex items-center space-x-1">
               {navigationItems.map((item) => {
                 const active = isActivePage(item.id, item.href);
+                const base =
+                  'flex items-center mx-4 py-1 text-[16px] xl:text-[17px] font-medium border-b-2 transition-all duration-300 ease-in-out';
                 return (
                   <div key={item.id} className="relative">
                     {item.href ? (
                       <Link
                         to={item.href}
-                        onClick={() => handleNavClick(item.id, item.href)}
-                        style={{ color: active ? undefined : item.textColor }}
-                        className={cn(
-                          'flex items-center space-x-2 px-3 mx-2 py-1.5 rounded-xl transition-all text-sm font-medium',
-                          active
-                            ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
-                            : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
-                        )}
+                        onClick={() => handleNavClick(item.id)}
+                        aria-current={active ? 'page' : undefined}
+                        style={{ color: active ? hoverText : linkColor }}
+                        className={cn(base, active ? 'border-[#E6761D]' : 'border-transparent')}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = hoverText;
+                          e.currentTarget.classList.add('border-[#E6761D]');
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = active ? hoverText : linkColor;
+                          e.currentTarget.classList.remove('border-[#E6761D]');
+                          e.currentTarget.classList.add('border-transparent');
+                        }}
                       >
                         <span>{item.label}</span>
                       </Link>
                     ) : (
                       <button
                         onClick={() => handleNavClick(item.id)}
-                        style={{ color: item.textColor }}
-                        className={cn(
-                          'flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all text-sm font-medium',
-                          active
-                            ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
-                            : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
-                        )}
+                        aria-current={active ? 'page' : undefined}
+                        style={{ color: active ? hoverText : linkColor }}
+                        className={cn(base, active ? 'border-[#E6761D]' : 'border-transparent')}
+                        onMouseEnter={(e) => {
+                          const el = e.currentTarget as HTMLButtonElement;
+                          el.style.color = hoverText;
+                          el.classList.add('border-[#E6761D]');
+                        }}
+                        onMouseLeave={(e) => {
+                          const el = e.currentTarget as HTMLButtonElement;
+                          el.style.color = active ? hoverText : linkColor;
+                          el.classList.remove('border-[#E6761D]');
+                          el.classList.add('border-transparent');
+                        }}
                       >
                         <span>{item.label}</span>
                       </button>
@@ -301,7 +295,10 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleSellPropertyClick}
-                className="hidden sm:flex items-center space-x-2 bg-[#e68130] opacity-1 text-white px-3 py-2 rounded-xl hover:bg-[#e67310] transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                className="hidden sm:flex items-center space-x-2 text-white px-4 py-2.5 rounded-xl transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                style={{ backgroundColor: colors.brand }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = colors.brandHover)}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = colors.brand)}
                 aria-label="Sell property"
               >
                 <span className="font-semibold">Sell Property</span>
@@ -313,14 +310,32 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                     <>
                       <button
                         onClick={() => onAuthAction('login')}
-                        style={{ color: navTextColor, borderColor: navTextColor }}
-                        className="border px-5 py-2.5 rounded-xl hover:bg-[#f7fbfd] transition-all text-sm font-medium"
+                        className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors duration-300 border"
+                        style={{
+                          color: linkColor,
+                          borderColor: borderColor,
+                          backgroundColor: 'transparent',
+                        }}
+                        onMouseEnter={(e) => {
+                          const el = e.currentTarget;
+                          el.style.backgroundColor = colors.brand;
+                          el.style.color = '#ffffff';
+                          el.style.borderColor = colors.brand;
+                        }}
+                        onMouseLeave={(e) => {
+                          const el = e.currentTarget;
+                          el.style.backgroundColor = 'transparent';
+                          el.style.color = linkColor;
+                          el.style.borderColor = borderColor;
+                        }}
                       >
                         Login
                       </button>
+
                       <button
                         onClick={() => onAuthAction('signup')}
-                        className="bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-5 py-2.5 rounded-xl hover:from-[#092e45] hover:to-[#071f2e] transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                        className="text-white px-5 py-2.5 rounded-xl transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                        style={{ background: `linear-gradient(to right, ${colors.accent}, ${colors.navText})` }}
                       >
                         Sign Up
                       </button>
@@ -329,14 +344,40 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                     <>
                       <Link
                         to="/login"
-                        style={{ color: navTextColor }}
-                        className="flex items-center space-x-1 px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:text-[#07304a]"
+                        className="flex items-center space-x-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors duration-300 border"
+                        style={{
+                          color: linkColor,
+                          borderColor: borderColor,
+                          backgroundColor: 'transparent',
+                        }}
+                        onMouseEnter={(e) => {
+                          const el = e.currentTarget;
+                          el.style.backgroundColor = colors.brand;
+                          el.style.color = '#ffffff';
+                          (el.style as any).borderColor = colors.brand;
+                        }}
+                        onMouseLeave={(e) => {
+                          const el = e.currentTarget;
+                          el.style.backgroundColor = 'transparent';
+                          el.style.color = linkColor;
+                          (el.style as any).borderColor = borderColor;
+                        }}
                       >
                         <span>Login</span>
                       </Link>
+
                       <Link
                         to="/register"
-                        className="bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-3 py-2 rounded-xl text-sm font-medium hover:from-[#092e45] hover:to-[#071f2e] transition-colors shadow-md hover:shadow-lg"
+                        className="text-white px-3.5 py-2.5 rounded-xl text-sm font-medium transition-shadow shadow-md hover:shadow-lg"
+                        style={{ background: 'linear-gradient(to right, #072c42, #092a3a)' }} // darker accent
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLAnchorElement).style.background =
+                            'linear-gradient(to right, #0b3856, #0c3854)'; // slightly lighter on hover
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLAnchorElement).style.background =
+                            'linear-gradient(to right, #072c42, #092a3a)'; // dark default
+                        }}
                       >
                         Get Started
                       </Link>
@@ -347,39 +388,41 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                 <div className="flex items-center space-x-4">
                   <Link
                     to={dashboardHref}
-                    className="flex items-center space-x-2 bg-[#0c3854] text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[#0b3858]/95 transition-colors shadow-md hover:shadow-lg"
+                    className="flex items-center space-x-2 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-md hover:shadow-lg"
+                    style={{ backgroundColor: colors.navText }}
                   >
                     <UserIcon className="h-4 w-4" />
                     <span>Dashboard</span>
                   </Link>
 
-                  {/* User menu (click to open) */}
+                  {/* User menu */}
                   <div className="relative" ref={userMenuRef}>
                     <button
                       type="button"
                       onClick={() => setIsUserDropdownOpen((s) => !s)}
                       aria-haspopup="true"
                       aria-expanded={isUserDropdownOpen}
-                      className="w-10 h-10 bg-gradient-to-r from-orange-100 to-blue-100 rounded-xl flex items-center justify-center border border-orange-200"
+                      className="w-10 h-10 rounded-xl flex items-center justify-center border"
+                      style={{
+                        background: `linear-gradient(to right, ${colors.brand}1A, ${colors.accent}1A)`,
+                        borderColor: `${colors.brand}4D`,
+                      }}
                     >
-                      <UserIcon className="text-[#0b3855]" size={16} />
+                      <UserIcon style={{ color: colors.navText }} size={16} />
                     </button>
 
                     {isUserDropdownOpen && (
                       <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50">
                         <div className="px-4 py-3 border-b border-gray-100">
                           <div className="text-sm font-semibold text-gray-900">{displayName}</div>
-                          <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full inline-block mt-1">
+                          <div className="text-xs text-orange-700 bg-orange-50 px-2 py-1 rounded-full inline-block mt-1">
                             {userRole ? `${userRole.charAt(0).toUpperCase() + userRole.slice(1)} User` : 'User'}
                           </div>
                         </div>
 
-                       
-
-                        <button className="w-full text-left px-4 py-3 hover:bg-yellow-50 text-sm flex items-center space-x-3 text-gray-700 hover:text-yellow-600">
+                        <button className="w-full text-left px-4 py-3 text-sm flex items-center space-x-3 text-gray-700 hover:text-orange-700 hover:bg-orange-50">
                           <span>Upgrade Plan</span>
                         </button>
-                     
 
                         <div className="border-t border-gray-100 mt-2 pt-2">
                           <button
@@ -388,7 +431,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                               await logout();
                               window.location.href = '/login';
                             }}
-                            className="w-full text-left px-4 py-3 hover:bg-red-50 text-sm flex items-center space-x-3 text-red-600"
+                            className="w-full text-left px-4 py-3 text-sm flex items-center space-x-3 text-red-600 hover:bg-red-50"
                           >
                             <span>Logout</span>
                           </button>
@@ -403,7 +446,12 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
               {!isAuthenticated && onPageChange && (
                 <button
                   onClick={() => onPageChange('admin-ai')}
-                  className="hidden md:block text-xs bg-orange-100 text-orange-700 px-3 py-2 rounded-full hover:bg-orange-200 transition-colors border border-orange-300"
+                  className="hidden md:block text-xs px-3 py-2 rounded-full transition-colors border"
+                  style={{
+                    backgroundColor: 'rgba(230,118,29,0.10)',
+                    color: colors.brandHover,
+                    borderColor: 'rgba(230,118,29,0.30)',
+                  }}
                 >
                   Admin Panel
                 </button>
@@ -412,7 +460,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
               {/* Mobile menu toggle */}
               <button
                 onClick={() => setIsMobileMenuOpen((s) => !s)}
-                className="lg:hidden p-2 rounded-xl text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                className={cn('lg:hidden p-2 rounded-xl transition-colors', isSolid ? 'text-gray-700' : 'text-white')}
                 aria-label={isMobileMenuOpen ? 'Close mobile menu' : 'Open mobile menu'}
                 aria-expanded={isMobileMenuOpen}
               >
@@ -422,23 +470,24 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
           </div>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile menu (solid for readability) */}
         {isMobileMenuOpen && (
           <div className="lg:hidden bg-white border-t border-gray-200 shadow-lg">
             <div className="px-4 py-4 space-y-2">
               {navigationItems.map((item) => {
                 const active = isActivePage(item.id, item.href);
+                const base =
+                  'w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-left border-b text-base';
                 return item.href ? (
                   <Link
                     key={item.id}
                     to={item.href}
-                    onClick={() => handleNavClick(item.id, item.href)}
-                    style={{ color: item.textColor }}
+                    onClick={() => handleNavClick(item.id)}
+                    aria-current={active ? 'page' : undefined}
+                    style={{ color: active ? '#E6761D' : colors.navText }}
                     className={cn(
-                      'w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-left',
-                      active
-                        ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
-                        : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
+                      base,
+                      active ? 'border-[#E6761D]' : 'border-transparent hover:text-[#E6761D] hover:border-[#E6761D]'
                     )}
                   >
                     <span className="font-medium">{item.label}</span>
@@ -447,12 +496,11 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                   <button
                     key={item.id}
                     onClick={() => handleNavClick(item.id)}
-                    style={{ color: item.textColor }}
+                    aria-current={active ? 'page' : undefined}
+                    style={{ color: active ? '#E6761D' : colors.navText }}
                     className={cn(
-                      'w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-left',
-                      active
-                        ? 'bg-gradient-to-r from-orange-50 to-blue-50 border border-orange-200 text-[#0b3855]'
-                        : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-blue-50 hover:text-[#0b3855]'
+                      base,
+                      active ? 'border-[#E6761D]' : 'border-transparent hover:text-[#E6761D] hover:border-[#E6761D]'
                     )}
                   >
                     <span className="font-medium">{item.label}</span>
@@ -463,7 +511,8 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
               <div className="pt-4 border-t border-gray-200 space-y-3">
                 <button
                   onClick={handleSellPropertyClick}
-                  className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-3 rounded-xl font-medium text-sm shadow-md"
+                  className="w-full flex items-center justify-center space-x-2 text-white px-4 py-3 rounded-xl font-medium text-sm shadow-md"
+                  style={{ backgroundColor: colors.brand }}
                 >
                   <span>Sell Property</span>
                 </button>
@@ -473,14 +522,16 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                     <div className="flex space-x-3">
                       <button
                         onClick={() => onAuthAction('login')}
-                        style={{ borderColor: navTextColor, color: navTextColor }}
-                        className="flex-1 border px-4 py-3 rounded-xl font-medium text-sm"
+                        className="flex-1 border px-4 py-3 rounded-xl font-medium text-sm transition-colors duration-300"
+                        style={{ color: colors.navText, borderColor }}
                       >
                         Login
                       </button>
+
                       <button
                         onClick={() => onAuthAction('signup')}
-                        className="flex-1 bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-4 py-3 rounded-xl font-medium text-sm"
+                        className="flex-1 text-white px-4 py-3 rounded-xl font-medium text-sm"
+                        style={{ background: `linear-gradient(to right, ${colors.accent}, ${colors.navText})` }}
                       >
                         Sign Up
                       </button>
@@ -489,14 +540,24 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                     <div className="flex space-x-3">
                       <Link
                         to="/login"
-                        style={{ color: navTextColor, borderColor: navTextColor }}
-                        className="flex-1 text-center border px-4 py-3 rounded-xl font-medium text-sm"
+                        className="flex-1 text-center border px-4 py-3 rounded-xl font-medium text-sm transition-colors duration-300"
+                        style={{ color: colors.navText, borderColor }}
                       >
                         Login
                       </Link>
+
                       <Link
                         to="/register"
-                        className="flex-1 text-center bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-4 py-3 rounded-xl font-medium text-sm"
+                        className="flex-1 text-center text-white px-4 py-3 rounded-xl font-medium text-sm shadow-md hover:shadow-lg"
+                        style={{ background: 'linear-gradient(to right, #072c42, #092a3a)' }} // dark default
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLAnchorElement).style.background =
+                            'linear-gradient(to right, #0b3856, #0c3854)'; // slightly lighter on hover
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLAnchorElement).style.background =
+                            'linear-gradient(to right, #072c42, #092a3a)'; // back to dark
+                        }}
                       >
                         Get Started
                       </Link>
@@ -504,8 +565,9 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                   )
                 ) : (
                   <Link
-                    to={dashboardHref}
-                    className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-[#0b3855] to-[#092e45] text-white px-4 py-3 rounded-xl font-medium text-sm"
+                    to={getDashboardPath()}
+                    className="w-full flex items-center justify-center space-x-2 text-white px-4 py-3 rounded-xl font-medium text-sm"
+                    style={{ background: `linear-gradient(to right, ${colors.accent}, ${colors.navText})` }}
                   >
                     <UserIcon className="h-4 w-4" />
                     <span>Dashboard</span>
@@ -517,7 +579,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
         )}
       </header>
 
-      <main className="flex-1">
+      <main className="flex-1 ">
         <Outlet />
       </main>
 

@@ -199,7 +199,7 @@ const LeadDetailPage: React.FC = () => {
           await notificationAPI.createNotification({
             leadId: Number(lead.id), // ✅ Convert to string
             userId: Number(execId),   // ✅ Convert to string
-            message: `Lead assigned to ${execName}`,
+             message: `lead assign to you ${lead.name || "-"}`,
             type: "lead_assign",
             link: `/dashboard/leads/${lead.id}`,
           });

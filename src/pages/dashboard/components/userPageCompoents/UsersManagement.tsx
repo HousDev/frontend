@@ -143,55 +143,55 @@ const LocalCreateModal: React.FC<{
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
-                <input 
+                <input
                   type="text"
                   value={formData.first_name || ''}
                   onChange={(e) => handleInputChange('first_name', e.target.value)}
-                  required 
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                  required
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
-                <input 
+                <input
                   type="text"
                   value={formData.last_name || ''}
                   onChange={(e) => handleInputChange('last_name', e.target.value)}
-                  required 
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                  required
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-              <input 
-                type="email" 
+              <input
+                type="email"
                 value={formData.email || ''}
                 onChange={(e) => handleInputChange('email', e.target.value)}
-                required 
-                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                required
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-              <input 
+              <input
                 type="tel"
                 value={formData.phone || ''}
                 onChange={(e) => handleInputChange('phone', e.target.value)}
-                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-              <input 
+              <input
                 type="text"
                 value={formData.username || ''}
                 onChange={(e) => handleInputChange('username', e.target.value)}
-                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -207,12 +207,12 @@ const LocalCreateModal: React.FC<{
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 value={formData.password || ''}
                 onChange={(e) => handleInputChange('password', e.target.value)}
-                required 
-                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                required
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter password for new user"
               />
             </div>
@@ -269,12 +269,12 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
   // FIXED: Utility functions for proper date handling
   const formatDateForAPI = (dateValue: string | Date | null | undefined): string | null => {
     if (!dateValue) return null;
-    
+
     // If it's already a YYYY-MM-DD string, return as-is
     if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
       return dateValue;
     }
-    
+
     // If it's a Date object, convert using local date components (no timezone conversion)
     if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
       const year = dateValue.getFullYear();
@@ -282,7 +282,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       const day = String(dateValue.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     }
-    
+
     // Try parsing string and rebuild with local components
     if (typeof dateValue === 'string') {
       try {
@@ -301,18 +301,18 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         }
       }
     }
-    
+
     return null;
   };
 
   const formatDateForInput = (dateValue: string | Date | null | undefined): string => {
     if (!dateValue) return '';
-    
+
     // If it's already a YYYY-MM-DD string, return as-is
     if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
       return dateValue;
     }
-    
+
     // Convert using formatDateForAPI which handles timezone properly
     return formatDateForAPI(dateValue) || '';
   };
@@ -348,7 +348,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       total_properties: data.total_properties || 0,
       total_revenue: data.total_revenue || 0,
       // FIXED: Use consistent DOB handling without timezone conversion
-      dob: formatDateForAPI(data.dob), 
+      dob: formatDateForAPI(data.dob),
       blood_group: data.blood_group,
       buyer_id: data.buyer_id ?? (role === 'buyer' ? data.id : null),
       seller_id: data.seller_id ?? (role === 'seller' ? data.id : null),
@@ -403,10 +403,10 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         const rawBuyersData = normalizeListResponse<any>(bResp);
         const normalizedBuyersData = rawBuyersData.map((buyer: any) => normalizeBuyerSellerData(buyer, 'buyer'));
         setBuyersData(normalizedBuyersData);
-       
+
       } catch (err) {
         toast.error('❌ Error fetching buyers:', err);
-       
+
       }
 
       try {
@@ -414,10 +414,10 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         const rawSellersData = normalizeListResponse<any>(sResp);
         const normalizedSellersData = rawSellersData.map((seller: any) => normalizeBuyerSellerData(seller, 'seller'));
         setSellersData(normalizedSellersData);
-        
+
       } catch (err) {
         toast.error('❌Failed to load sellers data', err);
-      
+
       }
     };
     fetchBuyersAndSellers();
@@ -462,12 +462,12 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
           } as User;
         });
         setAllUsers(users);
-       
+
       } else {
         toast.error('Failed to load users');
       }
     } catch (err: any) {
-    
+
       toast.error(err?.response?.data?.message || 'Failed to load users');
     } finally {
       setLoading(false);
@@ -476,7 +476,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
 
   const startCreateAccount = async (type: 'buyer' | 'seller', prefill?: Partial<User>) => {
     console.log("🎯 Starting create account:", { type, prefill });
-    
+
     const enrichedPrefill: Partial<User> = {
       ...prefill,
       role: type,
@@ -494,7 +494,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       }
       return;
     }
-    
+
     // Fallback local modal
     setCreateAccountTypeLocal(type);
     setCreatePrefill(enrichedPrefill);
@@ -510,7 +510,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       const rawSellerId = accountData.seller_id ?? prefill.seller_id ?? null;
 
       const payload: any = {
-        salutation: accountData.salutation, 
+        salutation: accountData.salutation,
         first_name: accountData.first_name,
         last_name: accountData.last_name,
         email: accountData.email,
@@ -535,12 +535,12 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       if (createAccountTypeLocal === 'buyer' && !payload.buyer_id) {
         try {
           const buyerResp = await buyerAPI.create({
-            salutation: accountData.salutation, 
+            salutation: accountData.salutation,
             name: `${accountData.first_name || ''} ${accountData.last_name || ''}`.trim(),
             email: accountData.email,
             phone: accountData.phone,
             // FIXED: Use formatDateForAPI for proper date handling
-            dob: formatDateForAPI(accountData.dob), 
+            dob: formatDateForAPI(accountData.dob),
             user_id: createdUser.id
           });
           if (buyerResp?.success && buyerResp.data?.id) {
@@ -553,12 +553,12 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       } else if (createAccountTypeLocal === 'seller' && !payload.seller_id) {
         try {
           const sellerResp = await sellerAPI.create({
-            salutation: accountData.salutation, 
+            salutation: accountData.salutation,
             name: `${accountData.first_name || ''} ${accountData.last_name || ''}`.trim(),
             email: accountData.email,
             phone: accountData.phone,
             // FIXED: Use formatDateForAPI for proper date handling
-            dob: formatDateForAPI(accountData.dob), 
+            dob: formatDateForAPI(accountData.dob),
             user_id: createdUser.id
           });
           if (sellerResp?.success && sellerResp.data?.id) {
@@ -579,7 +579,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         }
         return [createdUser, ...prev];
       });
-      
+
       handleTabChange(createAccountTypeLocal === 'buyer' ? 'buyer-accounts' : 'seller-accounts');
       setShowCreateModalLocal(false);
       setCreatePrefill(null);
@@ -756,10 +756,10 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
           await usersAPI.updateUser(String(id), { is_active: action === 'activate' });
         }
       }
-      
+
       toast.success(`Bulk ${action} completed successfully`);
       console.log(`✅ Bulk ${action} completed for ${selectedUsers.length} users`);
-      
+
       setSelectedUsers([]);
       setShowBulkActions(false);
       fetchUsers();
@@ -792,10 +792,10 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       await usersAPI.updateUser(String(userId), { is_active: newStatus });
       toast.success(`User ${newStatus ? 'activated' : 'deactivated'} successfully`);
       console.log(`✅ User ${userId} ${newStatus ? 'activated' : 'deactivated'}`);
-      
+
       // Refresh all data to maintain sync
       fetchUsers();
-      
+
       if (activeTab === 'buyers' || activeTab === 'buyer-accounts') {
         const bResp = await buyerAPI.getAll();
         const rawBuyersData = normalizeListResponse<any>(bResp);
@@ -821,10 +821,10 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       await usersAPI.deleteUser(String(userId));
       toast.success('User deleted successfully');
       console.log(`✅ User ${userId} deleted`);
-      
+
       // Refresh all data
       fetchUsers();
-      
+
       if (activeTab === 'buyers' || activeTab === 'buyer-accounts') {
         const bResp = await buyerAPI.getAll();
         const rawBuyersData = normalizeListResponse<any>(bResp);
@@ -863,14 +863,14 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
   // FIXED: Helper function to format date for display (avoids timezone issues)
   const formatDateForDisplay = (dateValue?: string | null) => {
     if (!dateValue) return 'N/A';
-    
+
     // If it's a YYYY-MM-DD string, parse and format safely
     if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
       const [year, month, day] = dateValue.split('-');
       const date = new Date(Number(year), Number(month) - 1, Number(day));
       return date.toLocaleDateString();
     }
-    
+
     return 'N/A';
   };
 
@@ -1000,30 +1000,52 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         </div>
       )}
 
-      {/* Tabs + actions */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="border-b border-gray-200">
-          <div className="flex justify-between items-center px-6 py-4">
-            <nav className="flex space-x-8" aria-label="Tabs">
-              {TABS.map(tab => {
-                const isActive = activeTab === (tab.id as any);
-                const count = userCounts[tab.id] || 0;
-                const Icon = (tab.id === 'all' ? UsersIcon : UserPlus);
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => handleTabChange(tab.id as any)}
-                    className={`${isActive ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'} py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}>
-                    <Icon className="h-4 w-4" />
-                    <span>{tab.name}</span>
-                    <span className={`${isActive ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'} rounded-full px-2 py-1 text-xs font-medium`}>{count}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+      <nav
+        className="flex -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide"
+        aria-label="Tabs"
+      >
+        <div className="flex gap-3 sm:gap-8 min-w-full sm:min-w-0">
+          {TABS.map((tab) => {
+            const isActive = activeTab === (tab.id as any);
+            const count = userCounts[tab.id] || 0;
+            const Icon = tab.id === 'all' ? UsersIcon : UserPlus;
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id as any)}
+                aria-current={isActive ? 'page' : undefined}
+                className={[
+                  // layout
+                  'shrink-0 flex items-center gap-2',
+                  'py-2.5 sm:py-3 px-2 sm:px-1',
+                  // underline
+                  'border-b-2',
+                  isActive
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                  // typography
+                  'font-medium text-sm',
+                  // a11y/focus
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50 rounded'
+                ].join(' ')}
+              >
+                <Icon className="h-4 w-4 sm:h-4 sm:w-4" />
+                <span className="whitespace-nowrap">{tab.name}</span>
+                <span
+                  className={[
+                    'rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-semibold',
+                    isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                  ].join(' ')}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </nav>
+
 
       {/* Bulk actions */}
       {showBulkActions && (

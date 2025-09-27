@@ -34,6 +34,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import { useNavigate, useLocation } from 'react-router-dom';
 import viewsAPI from '@/lib/viewAPI';
+import { FaWhatsapp } from 'react-icons/fa';
 
 interface Property {
   id: number;
@@ -1055,10 +1056,11 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-3">
+      <div className="  py-5 pt-28"
+       style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-3">Explore Premium Properties</h2>
+            <h2 className="text-3xl font-bold mb-3 text-[#E6761D]">Explore Premium Properties</h2>
             <p className="text-lg text-blue-100 mb-2 max-w-2xl mx-auto">
               Discover verified properties from trusted sellers across top locations
             </p>
@@ -1178,11 +1180,11 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                       onBlur={() => {
                         setTimeout(() => setShowSuggestions(false), 120);
                       }}
-                      className="pl-10 pr-16 h-10 w-full text-sm bg-white/10 text-white placeholder-white outline-none focus:ring-1 focus:ring-gray-400 rounded-lg"
+                      className="pl-10 pr-16 h-10 w-full text-sm bg-white/10 text-white placeholder-white/70 outline-none focus:ring-1 focus:ring-gray-400 rounded-lg"
                       placeholder={
                         Array.isArray(masterLocation) && masterLocation.length > 0
-                          ? `Type locality ..........`
-                          : `Type locality ..........`
+                          ? `Search properties by locality or area`
+                          : `Search properties by locality or area`
                       }
                       aria-autocomplete="list"
                       aria-haspopup="listbox"
@@ -1261,7 +1263,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                 ))}
                 {localities.length < 5 && (
                   <div className="text-xs text-white px-2 py-1">
-                    {5 - localities.length} more locality slots available
+                    {1 - localities.length} Add up to 1 localities.
                   </div>
                 )}
               </div>
@@ -1291,7 +1293,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         {/* Advanced Filters: toggled under header — use ref to scroll into view */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 flex gap-2">{filteredProperties.length} Properties Found
+            {/* <h2 className="text-2xl font-bold text-gray-900 flex gap-2">{filteredProperties.length} Properties Found */}
+            <h2 className="text-2xl font-bold text-gray-900 flex gap-2"> Properties Found
               <div className="flex items-center space-x-2 ml-3">
                 <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}><Grid size={18} /></button>
                 <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}><List size={18} /></button>
@@ -1570,17 +1573,58 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
-                            <div className="flex-1">
-                              <button onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all text-sm">View Details</button>
-                            </div>
-                          ) : (
-                            <button disabled aria-disabled="true" title="Details not available – missing backend slug" className="w-full bg-gray-300 text-gray-600 py-2 px-3 rounded-lg cursor-not-allowed">View Details</button>
-                          )}
+  {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
+    <div className="flex-1">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleNavigateToProperty(property);
+        }}
+        className="w-full bg-[#E6761D] hover:bg-[#CC6A1A] text-white py-2 px-3 rounded-lg font-medium transition-colors duration-300 text-sm shadow-md"
+      >
+        View Details
+      </button>
+    </div>
+  ) : (
+    <button
+      disabled
+      aria-disabled="true"
+      title="Details not available – missing backend slug"
+      className="w-full bg-gray-300 text-gray-600 py-2 px-3 rounded-lg cursor-not-allowed text-sm"
+    >
+      View Details
+    </button>
+  )}
+{/* Call Button */}
+<button
+  onClick={(e) => {
+    e.stopPropagation();
+    window.open(`tel:${property.agent?.phone}`);
+  }}
+  className="p-2 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
+>
+  <Phone size={16} />
+</button>
 
-                          <button onClick={(e) => { e.stopPropagation(); window.open(`tel:${property.agent?.phone}`); }} className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"><Phone size={16} /></button>
-                          <button onClick={(e) => { e.stopPropagation(); const message = `Hi, I'm interested in ${property.title} at ${property.location}. Price: ${formatCurrency(property.price)}. Can you share more details?`; window.open(`https://wa.me/${(property.agent?.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank'); }} className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"><MessageCircle size={16} /></button>
-                        </div>
+
+{/* WhatsApp Button */}
+<button
+  onClick={(e) => {
+    e.stopPropagation();
+    const message = `Hi, I'm interested in ${property.title} at ${property.location}. Price: ${formatCurrency(property.price)}. Can you share more details?`;
+    window.open(
+      `https://wa.me/${(property.agent?.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(message)}`,
+      '_blank'
+    );
+  }}
+  className="p-2 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
+>
+  <FaWhatsapp size={16} />
+</button>
+
+
+</div>
+
                       </div>
                     </div>
                   );
