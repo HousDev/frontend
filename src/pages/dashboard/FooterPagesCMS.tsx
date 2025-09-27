@@ -1023,46 +1023,55 @@ const FooterPagesCMS = () => {
             />
 
             {/* Header */}
-            <div className="bg-white shadow-sm border-b">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
-                        <div className="flex items-center space-x-4">
-                            <PanelBottom className="text-blue-600" size={24} />
-                            <h1 className="text-xl font-semibold text-gray-900">Footer Management</h1>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                            <button
-                                onClick={() => importInputRef.current.click()}
-                                className="flex items-center space-x-2 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
-                            >
-                                <Upload size={16} />
-                                <span>Import</span>
-                            </button>
-                            <button
-                                onClick={handleExportData}
-                                className="flex items-center space-x-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                            >
-                                <Download size={16} />
-                                <span>Export</span>
-                            </button>
-                            <button
-                                onClick={() => setIsPreviewMode(true)}
-                                className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                            >
-                                <Eye size={16} />
-                                <span>Preview</span>
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                            >
-                                <Save size={16} />
-                                <span>Save Changes</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div className="bg-white shadow-sm border-b">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-3">
+      {/* Left: Title */}
+      <div className="flex items-center space-x-3 min-w-0">
+        <PanelBottom className="text-blue-600 shrink-0" size={24} />
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
+          Footer Management
+        </h1>
+      </div>
+
+      {/* Right: Actions */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+        <button
+          onClick={() => importInputRef?.current?.click()}
+          className="flex items-center justify-center space-x-2 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 w-full sm:w-auto whitespace-nowrap"
+        >
+          <Upload size={16} />
+          <span>Import</span>
+        </button>
+
+        <button
+          onClick={handleExportData}
+          className="flex items-center justify-center space-x-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full sm:w-auto whitespace-nowrap"
+        >
+          <Download size={16} />
+          <span>Export</span>
+        </button>
+
+        <button
+          onClick={() => setIsPreviewMode(true)}
+          className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 w-full sm:w-auto whitespace-nowrap"
+        >
+          <Eye size={16} />
+          <span>Preview</span>
+        </button>
+
+        <button
+          onClick={handleSave}
+          className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 w-full sm:w-auto whitespace-nowrap"
+        >
+          <Save size={16} />
+          <span>Save Changes</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">

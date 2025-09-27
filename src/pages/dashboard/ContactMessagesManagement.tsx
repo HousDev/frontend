@@ -564,259 +564,312 @@ const ContactMessagesManagement = () => {
 
     // List view
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 ">
             {/* Header */}
-            <div className="bg-white shadow-lg border-b border-gray-200">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
-                        <div className="flex items-center space-x-4">
-                            <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-lg">
-                                <MessageCircle className="text-white" size={24} />
-                            </div>
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900">Contact Messages</h1>
-                                <p className="text-sm text-gray-500">Manage all contact form submissions</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                            <button
-                                onClick={fetchMessages}
-                                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all duration-200"
-                            >
-                                <RefreshCw size={20} />
-                            </button>
-                            <button className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all duration-200 border border-gray-200">
-                                <Download size={18} />
-                                <span>Export</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+         <div className="bg-white shadow-md border-b border-gray-200">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 items-center h-16 gap-4">
+      
+      {/* Left Section */}
+      <div className="flex items-center space-x-4">
+        <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-md">
+          <MessageCircle className="text-white" size={24} />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Contact Messages</h1>
+          <p className="text-sm text-gray-500">Manage all contact form submissions</p>
+        </div>
+      </div>
+
+      {/* Right Section */}
+      <div className="flex items-center justify-end space-x-2">
+        {/* Refresh */}
+        <button
+          onClick={fetchMessages}
+          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+          aria-label="Refresh Messages"
+        >
+          <RefreshCw size={20} />
+        </button>
+
+        {/* Export */}
+        <button className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 border border-gray-300 rounded-lg transition-colors duration-200">
+          <Download size={18} />
+          <span>Export</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 
             {/* Stats */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-8 lg:grid-cols-5">
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200 hover:shadow-xl transition-all duration-300">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600 mb-1">Total Messages</p>
-                                <p className="text-3xl font-bold text-gray-900">{messages.length}</p>
-                                <p className="text-xs text-gray-500 mt-1">All inquiries</p>
-                            </div>
-                            <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl">
-                                <MessageCircle className="text-white" size={28} />
-                            </div>
-                        </div>
-                    </div>
+           <div className="max-w-7xl mx-auto   py-6 sm:py-8 mt-6">
 
-                    {Object.entries(statusConfig).map(([status, config]) => {
-                        const IconComponent = config.icon;
-                        return (
-                            <div key={status} className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200 hover:shadow-xl transition-all duration-300">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600 mb-1">{config.label}</p>
-                                        <p className="text-3xl font-bold text-gray-900">{config.count}</p>
-                                        <p className="text-xs text-gray-500 mt-1">{config.description}</p>
-                                    </div>
-                                    <div className={`p-3 rounded-xl ${config.bgColor} border ${config.color.includes('border-blue') ? 'border-blue-200' : config.color.includes('border-emerald') ? 'border-emerald-200' : config.color.includes('border-amber') ? 'border-amber-200' : 'border-purple-200'}`}>
-                                        <IconComponent size={28} className={config.color.includes('text-blue') ? 'text-blue-600' : config.color.includes('text-emerald') ? 'text-emerald-600' : config.color.includes('text-amber') ? 'text-amber-600' : 'text-purple-600'} />
-                                    </div>
-                                </div>
-                                <div className="mt-4">
-                                    <div className="w-full bg-gray-200 rounded-full h-2">
-                                        <div
-                                            className={`h-2 rounded-full ${config.dotColor}`}
-                                            style={{ width: `${messages.length > 0 ? (config.count / messages.length) * 100 : 0}%` }}
-                                        ></div>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+  {/* ===== Stats ===== */}
+  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
+    <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-200 hover:shadow-xl transition-all duration-300">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Total Messages</p>
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{messages.length}</p>
+          <p className="text-[11px] sm:text-xs text-gray-500 mt-1">All inquiries</p>
+        </div>
+        <div className="p-2.5 sm:p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl">
+          <MessageCircle className="text-white" size={24} />
+        </div>
+      </div>
+    </div>
 
-                {/* Filters */}
-                <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-200">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-4">
-                        <div className="flex-1 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                                <input
-                                    type="text"
-                                    placeholder="Search messages..."
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm font-medium"
-                            >
-                                <option value="all">All Status</option>
-                                <option value="new">New Messages</option>
-                                <option value="replied">Replied</option>
-                                <option value="in-progress">In Progress</option>
-                                <option value="resolved">Resolved</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Messages List */}
-                <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
-                    <div className="divide-y divide-gray-200">
-                        {currentMessages.map((message) => (
-                            <div
-                                key={message.id}
-                                className={`p-6 hover:bg-gray-50 cursor-pointer transition-all duration-200 border-l-4 ${priorityColors[message.priority] || 'border-l-gray-300 bg-white'}`}
-                                onClick={() => openDetail(message)}
-                            >
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center space-x-3 mb-3">
-                                            <h3 className="text-lg font-semibold text-gray-900 truncate">{message.name}</h3>
-                                            <span className={`px-3 py-1 rounded-xl text-xs font-medium ${statusConfig[message.status]?.color || 'bg-gray-100 text-gray-700'}`}>
-                                                <div className="flex items-center space-x-1">
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${statusConfig[message.status]?.dotColor || 'bg-gray-400'}`}></div>
-                                                    <span>{statusConfig[message.status]?.label || message.status}</span>
-                                                </div>
-                                            </span>
-                                            {message.isStarred && (
-                                                <Star size={16} className="text-yellow-500" fill="currentColor" />
-                                            )}
-                                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${message.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
-                                                    message.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-                                                        'bg-green-100 text-green-700 border border-green-200'
-                                                }`}>
-                                                {message.priority}
-                                            </span>
-                                        </div>
-
-                                        <h4 className="text-base font-medium text-gray-800 mb-3 truncate">{message.subject}</h4>
-
-                                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{message.message}</p>
-
-                                        <div className="flex items-center space-x-6 text-sm text-gray-500">
-                                            <div className="flex items-center space-x-2">
-                                                <Mail size={14} />
-                                                <span>{message.email}</span>
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                                <Phone size={14} />
-                                                <span>{message.phone}</span>
-                                            </div>
-                                            {message.propertyType && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Home size={14} />
-                                                    <span>{message.propertyType}</span>
-                                                </div>
-                                            )}
-                                            {message.assignedTo && (
-                                                <div className="flex items-center space-x-2">
-                                                    <User size={14} />
-                                                    <span>Assigned to {message.assignedTo}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col items-end space-y-3 ml-6">
-                                        <span className="text-sm text-gray-500 font-medium">{formatDate(message.timestamp)}</span>
-                                        <div className="flex items-center space-x-2">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    window.open(`tel:${message.phone}`);
-                                                }}
-                                                className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-xl transition-all duration-200 border border-green-200"
-                                            >
-                                                <Phone size={16} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    window.open(`mailto:${message.email}`);
-                                                }}
-                                                className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-xl transition-all duration-200 border border-blue-200"
-                                            >
-                                                <Mail size={16} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    toggleStar(message.id);
-                                                }}
-                                                className={`p-2 rounded-xl transition-all duration-200 border ${message.isStarred
-                                                    ? 'text-yellow-500 bg-yellow-100 border-yellow-200'
-                                                    : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50 border-gray-200'
-                                                    }`}
-                                            >
-                                                <Star size={16} fill={message.isStarred ? 'currentColor' : 'none'} />
-                                            </button>
-                                        </div>
-                                        {message.replies && message.replies.length > 0 && (
-                                            <div className="flex items-center space-x-2 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
-                                                <MessageSquare size={12} />
-                                                <span>{message.replies.length} replies</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{indexOfFirstMessage + 1}</span> to{' '}
-                                        <span className="font-medium">{Math.min(indexOfLastMessage, filteredMessages.length)}</span> of{' '}
-                                        <span className="font-medium">{filteredMessages.length}</span> messages
-                                    </p>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <button
-                                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                        disabled={currentPage === 1}
-                                        className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
-                                    >
-                                        Previous
-                                    </button>
-
-                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                        <button
-                                            key={page}
-                                            onClick={() => setCurrentPage(page)}
-                                            className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 ${currentPage === page
-                                                ? 'bg-blue-600 text-white shadow-lg'
-                                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                                                }`}
-                                        >
-                                            {page}
-                                        </button>
-                                    ))}
-
-                                    <button
-                                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                        disabled={currentPage === totalPages}
-                                        className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
-                                    >
-                                        Next
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
+    {Object.entries(statusConfig).map(([status, config]) => {
+      const IconComponent = config.icon;
+      return (
+        <div key={status} className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-200 hover:shadow-xl transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">{config.label}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{config.count}</p>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-1 truncate">{config.description}</p>
             </div>
+            <div
+              className={`p-2.5 sm:p-3 rounded-xl ${config.bgColor} border ${
+                config.color.includes('border-blue') ? 'border-blue-200'
+                : config.color.includes('border-emerald') ? 'border-emerald-200'
+                : config.color.includes('border-amber') ? 'border-amber-200'
+                : 'border-purple-200'
+              }`}
+            >
+              <IconComponent
+                size={24}
+                className={
+                  config.color.includes('text-blue') ? 'text-blue-600'
+                  : config.color.includes('text-emerald') ? 'text-emerald-600'
+                  : config.color.includes('text-amber') ? 'text-amber-600'
+                  : 'text-purple-600'
+                }
+              />
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2">
+              <div
+                className={`h-1.5 sm:h-2 rounded-full ${config.dotColor}`}
+                style={{ width: `${messages.length > 0 ? (config.count / messages.length) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+
+  {/* ===== Filters ===== */}
+  <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8 border border-gray-200">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 items-center">
+      <div className="sm:col-span-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search messages..."
+            className="w-full pl-10 pr-3 py-2.5 sm:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm text-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm font-medium text-sm"
+        >
+          <option value="all">All Status</option>
+          <option value="new">New Messages</option>
+          <option value="replied">Replied</option>
+          <option value="in-progress">In Progress</option>
+          <option value="resolved">Resolved</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  {/* ===== Messages List ===== */}
+  <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
+    <div className="divide-y divide-gray-200">
+      {currentMessages.map((message) => (
+        <div
+          key={message.id}
+          className={`p-4 sm:p-6 hover:bg-gray-50 cursor-pointer transition-all duration-200 border-l-4 ${priorityColors[message.priority] || 'border-l-gray-300 bg-white'}`}
+          onClick={() => openDetail(message)}
+        >
+          {/* Top section becomes stacked on small screens */}
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-4">
+            {/* Left */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate max-w-[60%] sm:max-w-none">
+                  {message.name}
+                </h3>
+
+                <span className={`px-2.5 py-1 rounded-xl text-[11px] sm:text-xs font-medium ${statusConfig[message.status]?.color || 'bg-gray-100 text-gray-700'}`}>
+                  <span className="inline-flex items-center gap-1">
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusConfig[message.status]?.dotColor || 'bg-gray-400'}`} />
+                    {statusConfig[message.status]?.label || message.status}
+                  </span>
+                </span>
+
+                {message.isStarred && (
+                  <Star size={14} className="text-yellow-500" fill="currentColor" />
+                )}
+
+                <span
+                  className={`px-2 py-0.5 text-[11px] sm:text-xs rounded-full font-medium ${
+                    message.priority === 'high'
+                      ? 'bg-red-100 text-red-700 border border-red-200'
+                      : message.priority === 'medium'
+                      ? 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                      : 'bg-green-100 text-green-700 border border-green-200'
+                  }`}
+                >
+                  {message.priority}
+                </span>
+              </div>
+
+              <h4 className="text-sm sm:text-base font-medium text-gray-800 mb-2 sm:mb-3 truncate">
+                {message.subject}
+              </h4>
+
+              <p className="text-gray-600 text-sm mb-3 sm:mb-4 line-clamp-2">
+                {message.message}
+              </p>
+
+              {/* Meta row wraps on small screens */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm text-gray-500">
+                <div className="inline-flex items-center gap-1.5 min-w-0">
+                  <Mail size={14} />
+                  <span className="truncate">{message.email}</span>
+                </div>
+                <div className="inline-flex items-center gap-1.5">
+                  <Phone size={14} />
+                  <span>{message.phone}</span>
+                </div>
+                {message.propertyType && (
+                  <div className="inline-flex items-center gap-1.5">
+                    <Home size={14} />
+                    <span>{message.propertyType}</span>
+                  </div>
+                )}
+                {message.assignedTo && (
+                  <div className="inline-flex items-center gap-1.5">
+                    <User size={14} />
+                    <span>Assigned to {message.assignedTo}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right (actions/time) */}
+            <div className="flex md:flex-col items-center md:items-end justify-between gap-3 md:gap-2">
+              <span className="text-xs sm:text-sm text-gray-500 font-medium whitespace-nowrap">
+                {formatDate(message.timestamp)}
+              </span>
+
+              <div className="flex flex-wrap items-center gap-2 justify-end">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(`tel:${message.phone}`);
+                  }}
+                  className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-xl transition-all duration-200 border border-green-200"
+                >
+                  <Phone size={16} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(`mailto:${message.email}`);
+                  }}
+                  className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-xl transition-all duration-200 border border-blue-200"
+                >
+                  <Mail size={16} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleStar(message.id);
+                  }}
+                  className={`p-2 rounded-xl transition-all duration-200 border ${
+                    message.isStarred
+                      ? 'text-yellow-500 bg-yellow-100 border-yellow-200'
+                      : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50 border-gray-200'
+                  }`}
+                >
+                  <Star size={16} fill={message.isStarred ? 'currentColor' : 'none'} />
+                </button>
+              </div>
+
+              {message.replies && message.replies.length > 0 && (
+                <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
+                  <MessageSquare size={12} />
+                  <span>{message.replies.length} replies</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {/* ===== Pagination ===== */}
+    {totalPages > 1 && (
+      <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-xs sm:text-sm text-gray-700">
+            Showing <span className="font-medium">{indexOfFirstMessage + 1}</span> to{' '}
+            <span className="font-medium">{Math.min(indexOfLastMessage, filteredMessages.length)}</span> of{' '}
+            <span className="font-medium">{filteredMessages.length}</span> messages
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 sm:px-4 py-2 text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
+            >
+              Previous
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-2.5 sm:px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
+                  currentPage === page
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 sm:px-4 py-2 text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+
         </div>
     );
 };

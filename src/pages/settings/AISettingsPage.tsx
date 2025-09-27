@@ -81,7 +81,15 @@ const AISettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'scoring' | 'recommendations' | 'chatbot' | 'communications' | 'analytics'>('scoring');
+type TabKey = "scoring" | "recommendations" | "chatbot" | "communications" | "analytics";
 
+   const tabs: { key: TabKey; label: string; icon: JSX.Element }[] = [
+    { key: "scoring", label: "Lead Scoring", icon: <Target className="h-4 w-4" /> },
+    { key: "recommendations", label: "Recommendations", icon: <Building className="h-4 w-4" /> },
+    { key: "chatbot", label: "Chatbot", icon: <MessageSquare className="h-4 w-4" /> },
+    { key: "communications", label: "Auto Communications", icon: <Mail className="h-4 w-4" /> },
+    { key: "analytics", label: "Predictive Analytics", icon: <TrendingUp className="h-4 w-4" /> },
+  ];
   useEffect(() => {
     fetchAISettings();
   }, []);
@@ -150,7 +158,7 @@ const AISettingsPage: React.FC = () => {
 
   const handleSaveSettings = async () => {
     if (!settings) return;
-    
+
     try {
       setSaving(true);
       // Mock API call - replace with actual implementation
@@ -166,7 +174,7 @@ const AISettingsPage: React.FC = () => {
 
   const updateSettings = (section: keyof AISettings, field: string, value: any) => {
     if (!settings) return;
-    
+
     setSettings({
       ...settings,
       [section]: {
@@ -178,7 +186,7 @@ const AISettingsPage: React.FC = () => {
 
   const updateNestedSettings = (section: keyof AISettings, nestedSection: string, field: string, value: any) => {
     if (!settings) return;
-    
+
     setSettings({
       ...settings,
       [section]: {
@@ -212,34 +220,48 @@ const AISettingsPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="py-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        {/* Left side: Back button + Heading */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
           <Link to="/dashboard/settings">
-            <Button variant="outline">
+            <Button variant="outline" className="flex items-center">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Settings
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">AI Settings</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">AI Settings</h1>
+            <p className="text-gray-600 mt-1 text-sm sm:text-base">
               Configure AI features and automation
             </p>
           </div>
         </div>
-        <div className="flex space-x-3">
-          <Button variant="outline" onClick={fetchAISettings}>
+
+        {/* Right side: Action buttons */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-3 justify-end">
+          <Button
+            variant="outline"
+            onClick={fetchAISettings}
+            className="flex items-center justify-center w-full sm:w-auto"
+          >
             <RotateCcw className="h-4 w-4 mr-2" />
             Reset
           </Button>
-          <Button onClick={handleSaveSettings} disabled={saving}>
+          <Button
+            onClick={handleSaveSettings}
+            disabled={saving}
+            className="flex items-center justify-center w-full sm:w-auto"
+          >
             <Save className="h-4 w-4 mr-2" />
             {saving ? 'Saving...' : 'Save Settings'}
           </Button>
         </div>
+
       </div>
+
+
 
       {/* AI Features Overview */}
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 border border-blue-200">
@@ -276,81 +298,34 @@ const AISettingsPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8" aria-label="Tabs">
-            <button
-              onClick={() => setActiveTab('scoring')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'scoring'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Target className="h-4 w-4" />
-                <span>Lead Scoring</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('recommendations')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'recommendations'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Building className="h-4 w-4" />
-                <span>Recommendations</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('chatbot')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'chatbot'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <MessageSquare className="h-4 w-4" />
-                <span>Chatbot</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('communications')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'communications'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Mail className="h-4 w-4" />
-                <span>Auto Communications</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'analytics'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4" />
-                <span>Predictive Analytics</span>
-              </div>
-            </button>
-          </nav>
-        </div>
+     <div className="bg-white rounded-lg shadow">
+  <div className="border-b border-gray-200">
+      <nav
+        className="flex space-x-4 overflow-x-auto no-scrollbar px-4 py-2"
+        aria-label="Tabs"
+      >
+        {tabs.map(({ key, label, icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`flex items-center space-x-2 py-2 px-3 border-b-2 font-medium text-sm flex-shrink-0 transition-colors ${
+              activeTab === key
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            {icon}
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+    </div>
 
-        <div className="p-6">
+        {/* Content */}
+        <div className="p-4 sm:p-6 space-y-6">
           {activeTab === 'scoring' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h3 className="text-lg font-semibold text-gray-900">Lead Scoring Configuration</h3>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -359,13 +334,13 @@ const AISettingsPage: React.FC = () => {
                     onChange={(e) => updateSettings('lead_scoring', 'enabled', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-blue-600 relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:bg-white after:border after:border-gray-300 after:rounded-full after:transition-all peer-checked:after:translate-x-full"></div>
                 </label>
               </div>
 
               {settings.lead_scoring.enabled && (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Scoring Model</label>
                       <select
@@ -388,40 +363,56 @@ const AISettingsPage: React.FC = () => {
                         max="1"
                         step="0.05"
                         value={settings.lead_scoring.confidence_threshold}
-                        onChange={(e) => updateSettings('lead_scoring', 'confidence_threshold', parseFloat(e.target.value))}
+                        onChange={(e) =>
+                          updateSettings('lead_scoring', 'confidence_threshold', parseFloat(e.target.value))
+                        }
                         className="w-full"
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <div className="flex items-center space-x-2 mb-3">
-                      <input
-                        type="checkbox"
-                        checked={settings.lead_scoring.auto_update_scores}
-                        onChange={(e) => updateSettings('lead_scoring', 'auto_update_scores', e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <label className="text-sm font-medium text-gray-700">Auto-update scores when new data is available</label>
-                    </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <input
+                      type="checkbox"
+                      checked={settings.lead_scoring.auto_update_scores}
+                      onChange={(e) =>
+                        updateSettings('lead_scoring', 'auto_update_scores', e.target.checked)
+                      }
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label className="text-sm font-medium text-gray-700">
+                      Auto-update scores when new data is available
+                    </label>
                   </div>
 
+                  {/* Scoring factors */}
                   <div>
-                    <h4 className="text-md font-medium text-gray-900 mb-4">Scoring Factors (Total: {Object.values(settings.lead_scoring.factors).reduce((a, b) => a + b, 0)}%)</h4>
+                    <h4 className="text-md font-medium text-gray-900 mb-4">
+                      Scoring Factors (Total:{' '}
+                      {Object.values(settings.lead_scoring.factors).reduce((a, b) => a + b, 0)}%)
+                    </h4>
                     <div className="space-y-4">
                       {Object.entries(settings.lead_scoring.factors).map(([factor, weight]) => (
-                        <div key={factor} className="flex items-center justify-between">
-                          <label className="text-sm text-gray-700 capitalize">
-                            {factor.replace('_', ' ')}
-                          </label>
+                        <div
+                          key={factor}
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                        >
+                          <label className="text-sm text-gray-700 capitalize">{factor.replace('_', ' ')}</label>
                           <div className="flex items-center space-x-3">
                             <input
                               type="range"
                               min="0"
                               max="50"
                               value={weight}
-                              onChange={(e) => updateNestedSettings('lead_scoring', 'factors', factor, parseInt(e.target.value))}
-                              className="w-32"
+                              onChange={(e) =>
+                                updateNestedSettings(
+                                  'lead_scoring',
+                                  'factors',
+                                  factor,
+                                  parseInt(e.target.value)
+                                )
+                              }
+                              className="w-full sm:w-32"
                             />
                             <span className="text-sm text-gray-900 w-8">{weight}%</span>
                           </div>
@@ -663,7 +654,7 @@ const AISettingsPage: React.FC = () => {
                       <div>
                         <h4 className="text-sm font-medium text-yellow-800">Premium Feature</h4>
                         <p className="text-sm text-yellow-700 mt-1">
-                          Predictive analytics requires advanced AI models and significant computational resources. 
+                          Predictive analytics requires advanced AI models and significant computational resources.
                           Some features may require additional subscription tiers.
                         </p>
                       </div>

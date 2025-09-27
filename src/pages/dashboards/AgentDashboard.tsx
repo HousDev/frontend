@@ -14,7 +14,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { dashboardAPI,activitiesAPI } from "@/lib/api";
+import { dashboardAPI, activitiesAPI } from "@/lib/api";
 import Button from "@/components/ui/Button";
 import { propertiesAPI } from "@/lib/propertiesAPI";
 import { leadsAPI } from "@/lib/leadAPI";
@@ -96,139 +96,155 @@ const AgentDashboard: React.FC = () => {
     const fetchAgentData = async () => {
       if (isMounted) setLoading(true);
 
-      // 1) Try the agent stats endpoint
-      let agentPayload: any = null;
+      // ---- helpers ----
+      const toTS = (d?: string | number | Date) => (d ? new Date(d).getTime() : 0);
+      const pickRecent5 = <T extends Record<string, any>>(
+        arr: T[] | null | undefined,
+        keyA: keyof T, // primary date key
+        keyB?: keyof T // fallback date key
+      ) => {
+        if (!Array.isArray(arr)) return [];
+        return [...arr]
+          .sort((x, y) => (toTS(y?.[keyA] ?? (keyB ? y?.[keyB] : undefined)) - toTS(x?.[keyA] ?? (keyB ? x?.[keyB] : undefined))))
+          .slice(0, 5);
+      };
+      const getArray = (raw: any): any[] | null =>
+        Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : null;
+
       try {
-        const resp = await dashboardAPI.getAgentStats().catch((e: any) => {
-          console.warn("dashboardAPI.getAgentStats error:", e);
-          return null;
-        });
-        console.log("dashboardAPI.getAgentStats raw response:", resp);
-        agentPayload = parseResp(resp);
-
-        // If explicit success:false in payload, treat as no payload
-        if (agentPayload?.success === false) {
-          console.warn("getAgentStats returned success:false:", agentPayload.message ?? agentPayload);
-          agentPayload = null;
-        }
-      } catch (err) {
-        console.warn("Error calling getAgentStats:", err);
-        agentPayload = null;
-      }
-
-      // 2) If agentPayload valid and contains expected fields, use it
-      if (agentPayload && (agentPayload.my_leads || agentPayload.my_properties || agentPayload.monthly_targets)) {
-        const normalized: AgentStats = {
-          my_leads: {
-            total_leads:
-              agentPayload.my_leads?.total_leads ??
-              agentPayload.myLeads?.total_leads ??
-              agentPayload.my_leads?.total ??
-              agentPayload.total_leads ??
-              emptyAgentStats.my_leads!.total_leads,
-            new_leads:
-              agentPayload.my_leads?.new_leads ??
-              agentPayload.new_leads ??
-              0,
-            hot_leads:
-              agentPayload.my_leads?.hot_leads ?? agentPayload.hot_leads ?? 0,
-            converted_leads:
-              agentPayload.my_leads?.converted_leads ?? agentPayload.converted_leads ?? 0,
-            conversion_rate:
-              agentPayload.my_leads?.conversion_rate ?? agentPayload.conversion_rate ?? 0,
-          },
-          my_properties: {
-            total_listings:
-              agentPayload.my_properties?.total_listings ??
-              agentPayload.properties?.total_listings ??
-              agentPayload.total_listings ??
-              0,
-            active_listings:
-              agentPayload.my_properties?.active_listings ?? 0,
-            sold_this_month:
-              agentPayload.my_properties?.sold_this_month ?? 0,
-          },
-          monthly_targets: {
-            leads_target: agentPayload.monthly_targets?.leads_target ?? 0,
-            leads_achieved: agentPayload.monthly_targets?.leads_achieved ?? 0,
-            sales_target: agentPayload.monthly_targets?.sales_target ?? 0,
-            sales_achieved: agentPayload.monthly_targets?.sales_achieved ?? 0,
-          },
-          upcoming_activities: agentPayload.upcoming_activities ?? 0,
-          today_followups: agentPayload.today_followups ?? 0,
-        };
-        if (isMounted) setStats(prev => ({ ...prev, ...normalized }));
-      } else {
-        // 3) Fallback: fetch lists (my leads, properties, activities) and derive counts + recent lists.
-        console.warn("Agent stats endpoint missing or unexpected — using list-based fallbacks");
+        // 1) Try the agent stats endpoint
+        let agentPayload: any = null;
         try {
-          const [leadsResp, activitiesResp, propsResp] = await Promise.all([
-            leadsAPI.getLeads({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("leadsAPI.getLeads error", e); return null; }),
-            activitiesAPI.getUpcoming({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("activitiesAPI.getUpcoming error", e); return null; }),
-            propertiesAPI.getProperties({ agent_id: user?.id, limit: 1 }).catch((e: any) => { console.warn("propertiesAPI.getProperties error", e); return null; }),
-          ]);
+          const resp = await dashboardAPI.getAgentStats().catch((e: any) => {
+            console.warn("dashboardAPI.getAgentStats error:", e);
+            return null;
+          });
+          console.log("dashboardAPI.getAgentStats raw response:", resp);
+          agentPayload = parseResp(resp);
 
-          // Normalize arrays
-          const leadsData = parseResp(leadsResp);
-          const leadsArray = Array.isArray(leadsData) ? leadsData : Array.isArray(leadsData?.data) ? leadsData.data : null;
-
-          const activitiesData = parseResp(activitiesResp);
-          const activitiesArray = Array.isArray(activitiesData) ? activitiesData : Array.isArray(activitiesData?.data) ? activitiesData.data : null;
-
-          const propsData = parseResp(propsResp);
-          const propsArray = Array.isArray(propsData) ? propsData : Array.isArray(propsData?.data) ? propsData.data : null;
-
-          if (isMounted) {
-            if (Array.isArray(leadsArray)) {
-              setMyLeads(leadsArray);
-              setStats(prev => ({
-                ...prev,
-                my_leads: {
-                  ...prev.my_leads,
-                  total_leads: leadsArray.length,
-                  new_leads: prev.my_leads?.new_leads ?? 0,
-                },
-              }));
-            }
-            if (Array.isArray(activitiesArray)) {
-              setUpcomingActivities(activitiesArray);
-              setStats(prev => ({ ...prev, upcoming_activities: activitiesArray.length }));
-            }
-            if (Array.isArray(propsArray)) {
-              setStats(prev => ({
-                ...prev,
-                my_properties: {
-                  ...prev.my_properties,
-                  total_listings: propsArray.length,
-                },
-              }));
-            }
+          if (agentPayload?.success === false) {
+            console.warn("getAgentStats returned success:false:", agentPayload.message ?? agentPayload);
+            agentPayload = null;
           }
         } catch (err) {
-          console.warn("Fallback list-based agent totals failed:", err);
-          showErrorOnce("Failed to load agent dashboard data");
+          console.warn("Error calling getAgentStats:", err);
+          agentPayload = null;
         }
+
+        // 2) If agentPayload valid, normalize & use
+        if (agentPayload && (agentPayload.my_leads || agentPayload.my_properties || agentPayload.monthly_targets)) {
+          const normalized: AgentStats = {
+            my_leads: {
+              total_leads:
+                agentPayload.my_leads?.total_leads ??
+                agentPayload.myLeads?.total_leads ??
+                agentPayload.my_leads?.total ??
+                agentPayload.total_leads ??
+                emptyAgentStats.my_leads!.total_leads,
+              new_leads:
+                agentPayload.my_leads?.new_leads ??
+                agentPayload.new_leads ??
+                0,
+              hot_leads:
+                agentPayload.my_leads?.hot_leads ?? agentPayload.hot_leads ?? 0,
+              converted_leads:
+                agentPayload.my_leads?.converted_leads ?? agentPayload.converted_leads ?? 0,
+              conversion_rate:
+                agentPayload.my_leads?.conversion_rate ?? agentPayload.conversion_rate ?? 0,
+            },
+            my_properties: {
+              total_listings:
+                agentPayload.my_properties?.total_listings ??
+                agentPayload.properties?.total_listings ??
+                agentPayload.total_listings ??
+                0,
+              active_listings:
+                agentPayload.my_properties?.active_listings ?? 0,
+              sold_this_month:
+                agentPayload.my_properties?.sold_this_month ?? 0,
+            },
+            monthly_targets: {
+              leads_target: agentPayload.monthly_targets?.leads_target ?? 0,
+              leads_achieved: agentPayload.monthly_targets?.leads_achieved ?? 0,
+              sales_target: agentPayload.monthly_targets?.sales_target ?? 0,
+              sales_achieved: agentPayload.monthly_targets?.sales_achieved ?? 0,
+            },
+            upcoming_activities: agentPayload.upcoming_activities ?? 0,
+            today_followups: agentPayload.today_followups ?? 0,
+          };
+          if (isMounted) setStats(prev => ({ ...prev, ...normalized }));
+        } else {
+          // 3) Fallback: fetch lists and derive counts
+          console.warn("Agent stats endpoint missing or unexpected — using list-based fallbacks");
+          try {
+            const [leadsResp, activitiesResp, propsResp] = await Promise.all([
+              leadsAPI.getLeads({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("leadsAPI.getLeads error", e); return null; }),
+              activitiesAPI.getUpcoming({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("activitiesAPI.getUpcoming error", e); return null; }),
+              propertiesAPI.getProperties({ agent_id: user?.id, limit: 1 }).catch((e: any) => { console.warn("propertiesAPI.getProperties error", e); return null; }),
+            ]);
+
+            const leadsArray = getArray(parseResp(leadsResp));
+            const activitiesArray = getArray(parseResp(activitiesResp));
+            const propsArray = getArray(parseResp(propsResp));
+
+            if (isMounted) {
+              if (Array.isArray(leadsArray)) {
+                const latest5 = pickRecent5(leadsArray, "created_at");
+                setMyLeads(latest5); // enforce top 5
+                setStats(prev => ({
+                  ...prev,
+                  my_leads: {
+                    ...prev.my_leads,
+                    total_leads: leadsArray.length,
+                    new_leads: prev.my_leads?.new_leads ?? 0,
+                  },
+                }));
+              }
+              if (Array.isArray(activitiesArray)) {
+                const latest5 = pickRecent5(activitiesArray, "scheduled_at", "created_at");
+                setUpcomingActivities(latest5); // enforce top 5
+                setStats(prev => ({ ...prev, upcoming_activities: activitiesArray.length }));
+              }
+              if (Array.isArray(propsArray)) {
+                setStats(prev => ({
+                  ...prev,
+                  my_properties: {
+                    ...prev.my_properties,
+                    total_listings: propsArray.length,
+                  },
+                }));
+              }
+            }
+          } catch (err) {
+            console.warn("Fallback list-based agent totals failed:", err);
+            showErrorOnce("Failed to load agent dashboard data");
+          }
+        }
+
+        // 4) Always refresh recent lists (server might have newer)
+        try {
+          const [leadsRespFull, activitiesRespFull] = await Promise.all([
+            leadsAPI.getLeads({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("leadsAPI.getLeads error", e); return null; }),
+            activitiesAPI.getUpcoming({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("activitiesAPI.getUpcoming error", e); return null; }),
+          ]);
+
+          const leadsArr = getArray(parseResp(leadsRespFull));
+          if (Array.isArray(leadsArr) && isMounted) {
+            setMyLeads(pickRecent5(leadsArr, "created_at")); // enforce top 5 consistently
+          }
+
+          const actsArr = getArray(parseResp(activitiesRespFull));
+          if (Array.isArray(actsArr) && isMounted) {
+            setUpcomingActivities(pickRecent5(actsArr, "scheduled_at", "created_at")); // enforce top 5 consistently
+          }
+        } catch (err) {
+          console.warn("Error fetching recent lists:", err);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
       }
-
-      // 4) Regardless, ensure recent leads and activities are set from endpoints if available
-      try {
-        const [leadsRespFull, activitiesRespFull] = await Promise.all([
-          leadsAPI.getLeads({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("leadsAPI.getLeads error", e); return null; }),
-          activitiesAPI.getUpcoming({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("activitiesAPI.getUpcoming error", e); return null; }),
-        ]);
-        const leadsData = parseResp(leadsRespFull);
-        const leadsArr = Array.isArray(leadsData) ? leadsData : Array.isArray(leadsData?.data) ? leadsData.data : null;
-        if (Array.isArray(leadsArr) && isMounted) setMyLeads(leadsArr);
-
-        const actsData = parseResp(activitiesRespFull);
-        const actsArr = Array.isArray(actsData) ? actsData : Array.isArray(actsData?.data) ? actsData.data : null;
-        if (Array.isArray(actsArr) && isMounted) setUpcomingActivities(actsArr);
-      } catch (err) {
-        console.warn("Error fetching recent lists:", err);
-      }
-
-      if (isMounted) setLoading(false);
     };
+
 
     // Only fetch when user exists (auth ready)
     if (user) {
@@ -293,30 +309,37 @@ const AgentDashboard: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0">
+        {/* Greeting Section */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
             {getGreeting()}, {user?.first_name ?? "Agent"}!
           </h1>
-          <p className="text-gray-600 mt-1">Here's your daily performance overview</p>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">
+            Here's your daily performance overview
+          </p>
         </div>
-        <div className="flex space-x-3">
+
+        {/* Button Group */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-3">
           <Link to="/dashboard/leads">
-            <Button className="flex items-center space-x-2">
+            <Button className="flex items-center space-x-2 w-full">
               <Plus className="h-4 w-4" />
               <span>Add Lead</span>
             </Button>
           </Link>
           <Link to="/dashboard/activities">
-            <Button variant="outline" className="flex items-center space-x-2">
+            <Button variant="outline" className="flex items-center space-x-2 w-full">
               <Calendar className="h-4 w-4" />
               <span>Schedule Activity</span>
             </Button>
           </Link>
         </div>
+
       </div>
 
-      {/* Priority Alerts */}
+
+      {/* Priority Alerts
       {stats?.today_followups && stats.today_followups > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
           <div className="flex items-center space-x-2">
@@ -329,7 +352,7 @@ const AgentDashboard: React.FC = () => {
             </Link>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Performance Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -429,105 +452,6 @@ const AgentDashboard: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* My Recent Leads */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">My Recent Leads</h3>
-            <Link to="/dashboard/leads" className="text-blue-600 hover:text-blue-800">
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-
-          <div className="space-y-3">
-            {myLeads.length > 0 ? (
-              myLeads.map((lead) => (
-                <div
-                  key={lead.id ?? `${lead.first_name}-${lead.last_name}-${Math.random()}`}
-                  className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                        {((lead.first_name?.[0] || "") + (lead.last_name?.[0] || "")).toUpperCase()}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">{lead.first_name} {lead.last_name}</p>
-                        <p className="text-sm text-gray-600 flex items-center">
-                          <Mail className="h-3 w-3 mr-1" />
-                          {lead.email ?? "-"}
-                        </p>
-                        {lead.phone && (
-                          <p className="text-sm text-gray-600 flex items-center">
-                            <Phone className="h-3 w-3 mr-1" />
-                            {lead.phone}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getLeadStatusColor(lead.status)}`}>
-                      {lead.status ?? "New"}
-                    </span>
-                    <p className="text-xs text-gray-500 mt-1">{safeDate(lead.created_at)}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No recent leads</p>
-                <Link to="/dashboard/leads">
-                  <Button className="mt-3">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Your First Lead
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Upcoming Activities */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Upcoming Activities</h3>
-            <Link to="/dashboard/activities" className="text-blue-600 hover:text-blue-800">
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-
-          <div className="space-y-3">
-            {upcomingActivities.length > 0 ? (
-              upcomingActivities.map((activity) => (
-                <div key={activity.id ?? JSON.stringify(activity)} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg">
-                  <div className="h-2 w-2 bg-blue-500 rounded-full" />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{activity.title ?? activity.description ?? "Untitled"}</p>
-                    <p className="text-sm text-gray-600">{new Date(activity.scheduled_at ?? activity.created_at ?? Date.now()).toLocaleString()}</p>
-                  </div>
-                  <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">{activity.type ?? "Task"}</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No upcoming activities</p>
-                <Link to="/dashboard/activities">
-                  <Button className="mt-3">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Schedule Activity
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
@@ -561,6 +485,142 @@ const AgentDashboard: React.FC = () => {
           </Link>
         </div>
       </div>
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        {/* My Recent Leads */}
+        <section className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">My Recent Leads</h3>
+            <Link
+              to="/dashboard/leads"
+              aria-label="Go to Leads"
+              className="inline-flex items-center justify-center rounded-md text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {myLeads.length > 0 ? (
+              myLeads.map((lead) => (
+                <div
+                  key={lead.id ?? `${lead.first_name}-${lead.last_name}-${lead.created_at ?? ''}`}
+                  className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start sm:items-center gap-3">
+                        <div className="h-10 w-10 sm:h-11 sm:w-11 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
+                          {((lead.first_name?.[0] || '') + (lead.last_name?.[0] || '')).toUpperCase()}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">
+                            {(lead.first_name ?? '') + ' ' + (lead.last_name ?? '')}
+                          </p>
+
+                          <div className="mt-0.5 space-y-0.5">
+                            <p className="text-sm text-gray-600 flex items-center min-w-0">
+                              <Mail className="h-3 w-3 mr-1 shrink-0" />
+                              <span className="truncate">{lead.email ?? '-'}</span>
+                            </p>
+
+                            {lead.phone && (
+                              <p className="text-sm text-gray-600 flex items-center min-w-0">
+                                <Phone className="h-3 w-3 mr-1 shrink-0" />
+                                <span className="truncate">{lead.phone}</span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span
+                        className={`inline-block px-2 py-1 text-[10px] sm:text-xs font-medium rounded-full ${getLeadStatusColor(
+                          lead.status
+                        )}`}
+                      >
+                        {lead.status ?? 'New'}
+                      </span>
+                      <p className="text-[10px] sm:text-xs text-gray-500 mt-1">{safeDate(lead.created_at)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <Users className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                <p className="text-gray-500 text-sm sm:text-base">No recent leads</p>
+                <Link to="/dashboard/leads">
+                  <Button className="mt-3">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Your First Lead
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Upcoming Activities */}
+        <section className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">Upcoming Activities</h3>
+            <Link
+              to="/dashboard/activities"
+              aria-label="Go to Activities"
+              className="inline-flex items-center justify-center rounded-md text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {upcomingActivities.length > 0 ? (
+              upcomingActivities.map((activity) => (
+                <div
+                  key={activity.id ?? JSON.stringify(activity)}
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 border border-gray-200 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="h-2 w-2 bg-blue-500 rounded-full shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 truncate">
+                        {activity.title ?? activity.description ?? 'Untitled'}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {new Date(activity.scheduled_at ?? activity.created_at ?? Date.now()).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="sm:ml-auto">
+                    <span className="inline-block px-2 py-1 text-[10px] sm:text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                      {activity.type ?? 'Task'}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <Calendar className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                <p className="text-gray-500 text-sm sm:text-base">No upcoming activities</p>
+                <Link to="/dashboard/activities">
+                  <Button className="mt-3">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Schedule Activity
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+
+
     </div>
   );
 };

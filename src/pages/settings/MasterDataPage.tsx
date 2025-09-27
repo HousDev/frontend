@@ -759,7 +759,7 @@ export default function MasterDataPage(): JSX.Element {
 
       {/* Tabs */}
       <nav className="bg-white border-b">
-        <div className="px-3 py-2 flex gap-2 overflow-x-auto">
+        <div className="px-3 py-2 flex gap-2 overflow-x-auto overflow-y-hidden no-scrollbar">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -770,9 +770,10 @@ export default function MasterDataPage(): JSX.Element {
                 setSelectedValueIds([]);
                 setSearchTerm("");
               }}
-              className={`px-3 py-1 rounded-lg text-xs whitespace-nowrap ${
-                t.id === activeId ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
+              className={`flex-shrink-0 px-3 py-1 rounded-lg text-xs whitespace-nowrap transition-colors duration-200 ${t.id === activeId
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
             >
               {t.title}
             </button>
@@ -780,345 +781,396 @@ export default function MasterDataPage(): JSX.Element {
         </div>
       </nav>
 
+
       {/* Content */}
-      <main className="p-4">
-        {currentView === "list" ? (
-          <>
-            {/* Header with Create button */}
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-semibold">{activeTab.title}</h2>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+    <main className="p-3 sm:p-4">
+  {currentView === "list" ? (
+    <>
+      {/* Header with Create button */}
+      <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between mb-4 sm:mb-6">
+        <h2 className="text-base sm:text-lg font-semibold truncate">{activeTab.title}</h2>
 
-                {!isConnectedRemarkTab && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setImportType("master");
-                          setIsImportModalOpen(true);
-                        }}
-                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-xs"
-                      >
-                        <Upload size={14} />
-                        Import {activeTab.title}
-                      </button>
-                    </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
 
-                    <button
-                      onClick={handleMasterExport}
-                      disabled={!filteredMasterItems.length}
-                      className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 disabled:opacity-50 text-xs"
-                    >
-                      <Download size={14} />
-                      Export
-                    </button>
-                  </>
-                )}
-
+          {!isConnectedRemarkTab && (
+            <>
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-2 text-xs"
+                  onClick={() => {
+                    setImportType("master");
+                    setIsImportModalOpen(true);
+                  }}
+                  className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
                 >
-                  <Plus size={14} />
-                  {isConnectedRemarkTab ? "Add Connected Remark" : `Create ${activeTab.title} types`}
+                  <Upload size={14} />
+                  <span className="whitespace-nowrap">Import {activeTab.title}</span>
                 </button>
               </div>
+
+              <button
+                onClick={handleMasterExport}
+                disabled={!filteredMasterItems.length}
+                className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+              >
+                <Download size={14} />
+                <span className="whitespace-nowrap">Export</span>
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-xs"
+          >
+            <Plus size={14} />
+            <span className="whitespace-nowrap">
+              {isConnectedRemarkTab ? "Add Connected Remark" : `Create ${activeTab.title} types`}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="text-center py-10 sm:py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
+          <p className="mt-2 text-gray-500 text-sm">Loading...</p>
+        </div>
+      ) : isConnectedRemarkTab ? (
+        <div className="bg-white rounded-lg shadow-sm">
+          {filteredConnectedRemarks.length === 0 ? (
+            <div className="text-center py-10 sm:py-12 text-gray-500">
+              <Plus size={40} className="mx-auto mb-3 opacity-50" />
+              {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No connected remarks created yet</p>}
             </div>
-
-            {/* Loading State */}
-            {isLoading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-gray-500">Loading...</p>
-              </div>
-            ) : isConnectedRemarkTab ? (
-              <div className="bg-white rounded-lg shadow-sm">
-                {filteredConnectedRemarks.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <Plus size={48} className="mx-auto mb-4 opacity-50" />
-                    {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No connected remarks created yet</p>}
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b bg-gray-50">
-                          <th className="text-left p-3 font-medium text-xs">#</th>
-                          <th className="text-left p-3 font-medium text-xs">Master Tab Id</th>
-                          <th className="text-left p-3 font-medium text-xs"> Master Type 1</th>
-                          <th className="text-left p-3 font-medium text-xs">Master Value 1</th>
-                          <th className="text-left p-3 font-medium text-xs">Master Type 2</th>
-                          <th className="text-left p-3 font-medium text-xs">Master Value 2</th>
-                          <th className="text-left p-3 font-medium text-xs">Remarks</th>
-                          <th className="text-left p-3 font-medium text-xs">Status</th>
-                          <th className="text-left p-3 font-medium text-xs">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredConnectedRemarks.map((remark, index) => (
-                          <tr key={remark.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3 text-gray-600 text-xs">{index + 1}</td>
-                            <td className="p-3 font-medium text-xs">{remark.tab_id || remark.tabId || "N/A"}</td>
-                            <td className="p-3 font-medium text-xs">{remark.type1Name || "N/A"}</td>
-                            <td className="p-3 font-medium text-xs">{remark.value1Name || "N/A"}</td>
-                            <td className="p-3 font-medium text-xs">{remark.type2Name || "N/A"}</td>
-                            <td className="p-3 font-medium text-xs">{remark.value2Name || "N/A"}</td>
-                            <td className="p-3 font-medium text-xs max-w-xs">
-                              {(() => {
-                                if (!remark.remarks || (Array.isArray(remark.remarks) && remark.remarks.length === 0)) {
-                                  return <span className="text-gray-400">No remarks</span>;
-                                }
-
-                                if (Array.isArray(remark.remarks)) {
+          ) : (
+            <div className="w-full overflow-x-auto">
+              <table className="min-w-[800px] w-full border-collapse">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">#</th>
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Tab Id</th>
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Type 1</th>
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Value 1</th>
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Type 2</th>
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Value 2</th>
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Remarks</th>
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredConnectedRemarks.map((remark, index) => (
+                    <tr key={remark.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3 text-gray-600 text-xs">{index + 1}</td>
+                      <td className="p-3 font-medium text-xs">{remark.tab_id || remark.tabId || "N/A"}</td>
+                      <td className="p-3 font-medium text-xs">{remark.type1Name || "N/A"}</td>
+                      <td className="p-3 font-medium text-xs">{remark.value1Name || "N/A"}</td>
+                      <td className="p-3 font-medium text-xs">{remark.type2Name || "N/A"}</td>
+                      <td className="p-3 font-medium text-xs">{remark.value2Name || "N/A"}</td>
+                      <td className="p-3 font-medium text-xs max-w-xs">
+                        {(() => {
+                          if (!remark.remarks || (Array.isArray(remark.remarks) && remark.remarks.length === 0)) {
+                            return <span className="text-gray-400">No remarks</span>;
+                          }
+                          if (Array.isArray(remark.remarks)) {
+                            return (
+                              <ol className="list-decimal list-inside space-y-1">
+                                {remark.remarks.map((remarkText, idx) => {
+                                  const text =
+                                    typeof remarkText === "object" && remarkText !== null
+                                      ? (remarkText as any).note || (remarkText as any).text || (remarkText as any).remark || "Empty remark"
+                                      : String(remarkText || "Empty remark");
                                   return (
-                                    <ol className="list-decimal list-inside space-y-1">
-                                      {remark.remarks.map((remarkText, idx) => {
-                                        const text =
-                                          typeof remarkText === "object" && remarkText !== null
-                                            ? (remarkText as any).note || (remarkText as any).text || (remarkText as any).remark || "Empty remark"
-                                            : String(remarkText || "Empty remark");
-                                        return (
-                                          <li key={idx} className="text-xs text-gray-700 break-words">
-                                            {text}
-                                          </li>
-                                        );
-                                      })}
-                                    </ol>
+                                    <li key={idx} className="text-[11px] sm:text-xs text-gray-700 break-words">
+                                      {text}
+                                    </li>
                                   );
-                                }
-
-                                // remark.remarks might be an object or string here
-                                if (typeof remark.remarks === "object" && remark.remarks !== null) {
-                                  const r = remark.remarks as Record<string, any>;
-                                  const text = r.note || r.text || r.remark || "Empty remark";
-                                  return <span className="text-xs text-gray-700">{text}</span>;
-                                }
-
-                                return <span className="text-xs text-gray-700">{String(remark.remarks ?? "Empty remark")}</span>;
-                              })()}
-                            </td>
-                            <td className="p-3">
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-medium ${
-                                  remark.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                }`}
-                              >
-                                {remark.status}
-                              </span>
-                            </td>
-                            <td className="p-3">
-                              <div className="flex gap-2">
-                                <button onClick={() => handleEditConnectedRemark(remark)} className="p-1 text-blue-600 hover:bg-blue-100 rounded">
-                                  <Edit2 size={14} />
-                                </button>
-                                <button onClick={() => handleDeleteConnectedRemark(remark.id)} className="p-1 text-red-600 hover:bg-red-100 rounded">
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                {filteredMasterItems.length === 0 ? (
-                  <div className="col-span-full text-center py-12 text-gray-500">
-                    <Plus size={48} className="mx-auto mb-4 opacity-50" />
-                    {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No {activeTab.title} types created yet</p>}
-                  </div>
-                ) : (
-                  filteredMasterItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-white p-2 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() => handleCardClick(item)}
-                    >
-                      <div className="flex justify-between items-start mb-1">
-                        <h3 className="font-semibold text-sm">{item.name}</h3>
-                        <div className="flex gap-1">
+                                })}
+                              </ol>
+                            );
+                          }
+                          if (typeof remark.remarks === "object" && remark.remarks !== null) {
+                            const r = remark.remarks as Record<string, any>;
+                            const text = r.note || r.text || r.remark || "Empty remark";
+                            return <span className="text-[11px] sm:text-xs text-gray-700">{text}</span>;
+                          }
+                          return (
+                            <span className="text-[11px] sm:text-xs text-gray-700">
+                              {String(remark.remarks ?? "Empty remark")}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2 py-1 rounded text-[11px] sm:text-xs font-medium ${
+                            remark.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {remark.status}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex gap-2">
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(item);
-                            }}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                            onClick={() => handleEditConnectedRemark(remark)}
+                            className="p-1 text-blue-600 hover:bg-blue-100 rounded"
                           >
                             <Edit2 size={14} />
                           </button>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(item.id);
-                            }}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                            onClick={() => handleDeleteConnectedRemark(remark.id)}
+                            className="p-1 text-red-600 hover:bg-red-100 rounded"
                           >
                             <Trash2 size={14} />
                           </button>
                         </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                            item.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                          }`}
-                        >
-                          {item.status === "Active" ? <CheckCircle size={12} /> : <XCircle size={12} />}
-                          {item.status}
-                        </span>
-                        <span className="text-xs text-gray-500">{item.valueCount} values</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="mb-6">
-              <button onClick={handleBackToList} className="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-4">
-                <ArrowLeft size={20} />
-                Back to {activeTab.title}
-              </button>
-
-              <div className="bg-white rounded-lg p-6 shadow-sm">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h2 className="text-sm font-semibold">{selectedMaster?.name}</h2>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium mt-2 ${
-                        selectedMaster?.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                      }`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+          {filteredMasterItems.length === 0 ? (
+            <div className="col-span-full text-center py-10 sm:py-12 text-gray-500">
+              <Plus size={40} className="mx-auto mb-3 opacity-50" />
+              {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No {activeTab.title} types created yet</p>}
+            </div>
+          ) : (
+            filteredMasterItems.map((item) => (
+              <div
+                key={item.id}
+                className="bg-white p-2 sm:p-3 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => handleCardClick(item)}
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <h3 className="font-semibold text-sm sm:text-[15px]">{item.name}</h3>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(item);
+                      }}
+                      className="p-1 text-blue-600 hover:bg-blue-50 rounded"
                     >
-                      {selectedMaster?.status === "Active" ? <CheckCircle size={12} /> : <XCircle size={12} />}
-                      {selectedMaster?.status}
-                    </span>
-                  </div>
-
-                  <div className="flex gap-2 items-center">
-                    {!isConnectedRemarkTab && selectedValueIds.length > 0 && (
-                      <button onClick={handleBulkDelete} className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-xs">
-                        <Trash2 size={14} />
-                        Delete Selected ({selectedValueIds.length})
-                      </button>
-                    )}
-
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-
-                    {!isConnectedRemarkTab && (
-                      <>
-                        <button
-                          onClick={() => {
-                            setImportType("values");
-                            setIsImportModalOpen(true);
-                          }}
-                          disabled={!selectedMaster}
-                          className={`bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-xs ${!selectedMaster ? "opacity-50 cursor-not-allowed" : ""}`}
-                        >
-                          <Upload size={14} />
-                          Import {activeTab.title} Values
-                        </button>
-
-                        <button onClick={handleExport} disabled={!selectedMaster?.values?.length} className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 disabled:opacity-50 text-xs">
-                          <Download size={14} />
-                          Export
-                        </button>
-                      </>
-                    )}
-
-                    {!isConnectedRemarkTab && (
-                      <button onClick={() => setIsValueModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-xs">
-                        <Plus size={14} />
-                        Add Value
-                      </button>
-                    )}
+                      <Edit2 size={14} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(item.id);
+                      }}
+                      className="p-1 text-red-600 hover:bg-red-50 rounded"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
 
-                {isValuesLoading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-2 text-gray-500 text-sm">Loading values...</p>
-                  </div>
-                ) : filteredValues.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    {selectedMaster?.values?.length === 0 ? (
-                      <>
-                        <Plus size={32} className="mx-auto mb-2 opacity-50" />
-                        <p>No values added yet</p>
-                      </>
-                    ) : (
-                      <p>No values found matching "{searchTerm}"</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b bg-gray-50">
-                          <th className="text-left p-3 font-medium text-xs">
-                            <div className="flex items-center gap-2">
-                              <input type="checkbox" checked={isAllSelected} onChange={toggleSelectAll} className="h-4 w-4" />
-                              <span>#</span>
-                            </div>
-                          </th>
-                          <th className="text-left p-3 font-medium text-xs">Value</th>
-                          <th className="text-left p-3 font-medium text-xs">Status</th>
-                          <th className="text-left p-3 font-medium text-xs">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredValues.map((value, index) => (
-                          <tr key={value.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3 text-gray-600 text-xs flex items-center gap-2">
-                              <input type="checkbox" checked={selectedValueIds.includes(value.id)} onChange={() => toggleSelectValue(value.id)} />
-                              {index + 1}
-                            </td>
-                            <td className="p-3 font-medium text-xs">{value.value}</td>
-                            <td className="p-3">
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${value.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                {value.status}
-                              </span>
-                            </td>
-                            <td className="p-3">
-                              <div className="flex gap-2">
-                                <button onClick={() => handleEditValue(value)} className="p-1 text-blue-600 hover:bg-blue-100 rounded">
-                                  <Edit2 size={14} />
-                                </button>
-                                <button onClick={() => handleDeleteValue(value.id)} className="p-1 text-red-600 hover:bg-red-100 rounded">
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium ${
+                      item.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {item.status === "Active" ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                    {item.status}
+                  </span>
+                  <span className="text-[11px] sm:text-xs text-gray-500">{item.valueCount} values</span>
+                </div>
               </div>
+            ))
+          )}
+        </div>
+      )}
+    </>
+  ) : (
+    <>
+      <div className="mb-4 sm:mb-6">
+        <button
+          onClick={handleBackToList}
+          className="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-3 sm:mb-4"
+        >
+          <ArrowLeft size={18} className="sm:size-5" />
+          <span className="text-sm sm:text-base">Back to {activeTab.title}</span>
+        </button>
+
+        <div className="bg-white rounded-lg p-4 sm:p-6 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6">
+            <div>
+              <h2 className="text-sm sm:text-base font-semibold">{selectedMaster?.name}</h2>
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium mt-2 ${
+                  selectedMaster?.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                }`}
+              >
+                {selectedMaster?.status === "Active" ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                {selectedMaster?.status}
+              </span>
             </div>
-          </>
-        )}
-      </main>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap">
+              {!isConnectedRemarkTab && selectedValueIds.length > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
+                >
+                  <Trash2 size={14} />
+                  <span className="whitespace-nowrap">Delete Selected ({selectedValueIds.length})</span>
+                </button>
+              )}
+
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+
+              {!isConnectedRemarkTab && (
+                <>
+                  <button
+                    onClick={() => {
+                      setImportType("values");
+                      setIsImportModalOpen(true);
+                    }}
+                    disabled={!selectedMaster}
+                    className={`w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs ${
+                      !selectedMaster ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    <Upload size={14} />
+                    <span className="whitespace-nowrap">Import {activeTab.title} Values</span>
+                  </button>
+
+                  <button
+                    onClick={handleExport}
+                    disabled={!selectedMaster?.values?.length}
+                    className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                  >
+                    <Download size={14} />
+                    <span className="whitespace-nowrap">Export</span>
+                  </button>
+                </>
+              )}
+
+              {!isConnectedRemarkTab && (
+                <button
+                  onClick={() => setIsValueModalOpen(true)}
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
+                >
+                  <Plus size={14} />
+                  <span className="whitespace-nowrap">Add Value</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {isValuesLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto" />
+              <p className="mt-2 text-gray-500 text-sm">Loading values...</p>
+            </div>
+          ) : filteredValues.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {selectedMaster?.values?.length === 0 ? (
+                <>
+                  <Plus size={32} className="mx-auto mb-2 opacity-50" />
+                  <p>No values added yet</p>
+                </>
+              ) : (
+                <p>
+                  No values found matching{" "}
+                  <span className="font-medium">&quot;{searchTerm}&quot;</span>
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="w-full overflow-x-auto">
+              <table className="min-w-[600px] w-full border-collapse">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          onChange={toggleSelectAll}
+                          className="h-4 w-4"
+                        />
+                        <span>#</span>
+                      </div>
+                    </th>
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Value</th>
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
+                    <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredValues.map((value, index) => (
+                    <tr key={value.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3 text-gray-600 text-xs">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedValueIds.includes(value.id)}
+                            onChange={() => toggleSelectValue(value.id)}
+                            className="h-4 w-4"
+                          />
+                          {index + 1}
+                        </div>
+                      </td>
+                      <td className="p-3 font-medium text-xs">{value.value}</td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2 py-1 rounded text-[11px] sm:text-xs font-medium ${
+                            value.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {value.status}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditValue(value)}
+                            className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteValue(value.id)}
+                            className="p-1 text-red-600 hover:bg-red-100 rounded"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )}
+</main>
+
 
       <Modal
         isOpen={isModalOpen}

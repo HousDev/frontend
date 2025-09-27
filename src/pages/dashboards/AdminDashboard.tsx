@@ -222,28 +222,33 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-600 mt-1">System overview and management controls</p>
-        </div>
-        <div className="flex space-x-3">
-          <Link to="/dashboard/settings/roles-permissions">
-            <Button className="flex items-center space-x-2">
-              <Shield className="h-4 w-4" />
-              <span>Manage Roles</span>
-            </Button>
-          </Link>
-          <Link to="/dashboard/settings">
-            <Button variant="outline" className="flex items-center space-x-2">
-              <Settings className="h-4 w-4" />
-              <span>System Settings</span>
-            </Button>
-          </Link>
-        </div>
-      </div>
+<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+  {/* Title & Description */}
+  <div>
+    <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+    <p className="text-sm md:text-base text-gray-600 mt-1">System overview and management controls</p>
+  </div>
 
-      {/* System Health Alert */}
+  {/* Action Buttons */}
+ <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-3 w-full md:w-auto">
+  <Link to="/dashboard/settings/roles-permissions" className="w-full">
+    <Button className="flex items-center justify-center space-x-2 w-full">
+      <Shield className="h-4 w-4" />
+      <span>Manage Roles</span>
+    </Button>
+  </Link>
+  <Link to="/dashboard/settings" className="w-full">
+    <Button variant="outline" className="flex items-center justify-center space-x-2 w-full">
+      <Settings className="h-4 w-4" />
+      <span>System Settings</span>
+    </Button>
+  </Link>
+</div>
+
+</div>
+
+
+      {/* System Health Alert
       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
         <div className="flex items-center space-x-2">
           <CheckCircle className="h-5 w-5 text-green-600" />
@@ -251,7 +256,7 @@ const AdminDashboard: React.FC = () => {
             System Status: {stats.system_health ?? "Healthy"}
           </span>
         </div>
-      </div>
+      </div> */}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

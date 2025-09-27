@@ -726,16 +726,31 @@ const BlogManagement: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold text-gray-900">All Posts ({filteredPosts.length})</h3>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowPostEditor(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          {/* Title */}
+          <h3 className="text-lg font-bold text-gray-900">
+            All Posts ({filteredPosts.length})
+          </h3>
+
+          {/* Actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setShowPostEditor(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            >
               <Plus size={18} />
               <span>New Post</span>
             </button>
-            <button onClick={() => loadPosts()} className="px-3 py-2 border rounded-md">Refresh</button>
+
+            <button
+              onClick={() => loadPosts()}
+              className="px-3 py-2 border rounded-md hover:bg-gray-100 transition-colors"
+            >
+              Refresh
+            </button>
           </div>
         </div>
+
 
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -826,148 +841,231 @@ const BlogManagement: React.FC = () => {
   );
 
   const renderCommentsTab = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-900">Comments</h3>
-          <div className="flex items-center gap-2">
-            <select
-              value={activeCommentsPost?.id ?? ''}
-              onChange={(e) => {
-                const pid = e.target.value;
-                const p = posts.find(x => String(x.id) === String(pid));
-                setActiveCommentsPost(p || null);
-                loadCommentsForPost(pid || undefined);
-              }}
-              className="px-3 py-2 border rounded-md"
-            >
-              <option value="">-- Select Post --</option>
-              {postsArray.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
-            <button onClick={() => { if (activeCommentsPost) loadCommentsForPost(activeCommentsPost.id); }} className="px-3 py-2 border rounded-md">Refresh</button>
-            <button onClick={() => setActiveCommentsPost(null)} className="px-3 py-2 border rounded-md">Clear</button>
-          </div>
+ <div className="space-y-6">
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+    {/* Header */}
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+      <h3 className="text-base sm:text-lg font-bold text-gray-900">Comments</h3>
+
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+        <select
+          value={activeCommentsPost?.id ?? ''}
+          onChange={(e) => {
+            const pid = e.target.value;
+            const p = posts.find(x => String(x.id) === String(pid));
+            setActiveCommentsPost(p || null);
+            loadCommentsForPost(pid || undefined);
+          }}
+          className="px-3 py-2 border rounded-md w-full sm:w-64"
+        >
+          <option value="">-- Select Post --</option>
+          {postsArray.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.title}
+            </option>
+          ))}
+        </select>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => { if (activeCommentsPost) loadCommentsForPost(activeCommentsPost.id); }}
+            className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w-full sm:w-auto"
+          >
+            Refresh
+          </button>
+          <button
+            onClick={() => setActiveCommentsPost(null)}
+            className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w-full sm:w-auto"
+          >
+            Clear
+          </button>
         </div>
+      </div>
+    </div>
 
-        {!activeCommentsPost && (
-          <div className="text-center py-8">
-            <MessageSquare size={48} className="mx-auto text-gray-300 mb-4" />
-            <h4 className="font-semibold text-gray-900 mb-2">No post selected</h4>
-            <p className="text-gray-600 mb-4">Select a post above to view and reply to comments.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
-              {postsArray.slice(0, 6).map(p => (
-                <button key={p.id} onClick={() => openCommentsForPost(p)} className="px-4 py-2 border rounded-lg text-left hover:shadow-sm">
-                  <div className="font-medium">{p.title}</div>
-                  <div className="text-xs text-gray-500">{p.author} • {new Date(p.createdAt || Date.now()).toLocaleDateString()}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+    {/* Empty state (responsive grid already added earlier) */}
+    {!activeCommentsPost && (
+      <div className="text-center py-8 px-4">
+        <MessageSquare size={48} className="mx-auto text-gray-300 mb-4" />
+        <h4 className="font-semibold text-gray-900 mb-2">No post selected</h4>
+        <p className="text-gray-600 mb-5">
+          Select a post above to view and reply to comments.
+        </p>
 
-        {activeCommentsPost && (
-          <div>
-            <div className="mb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-lg font-semibold">{activeCommentsPost.title}</h4>
-                  <div className="text-xs text-gray-500">{activeCommentsPost.author} • {new Date(activeCommentsPost.createdAt || Date.now()).toLocaleDateString()}</div>
-                </div>
-                <div>
-                  {/* FIXED: replaced `void || something` chaining with explicit block so both setters run */}
-                  <button
-                    onClick={() => {
-                      setShowPostEditor(true);
-                      setSelectedPost(activeCommentsPost);
-                    }}
-                    className="px-3 py-2 border rounded-md mr-2"
-                  >
-                    Edit Post
-                  </button>
-                  <button onClick={() => openPreviewInNewWindow(activeCommentsPost)} className="px-3 py-2 border rounded-md">Open Post</button>
-                </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+          {(postsArray ?? []).slice(0, 6).map((p) => (
+            <button
+              key={p.id}
+              onClick={() => openCommentsForPost(p)}
+              className="px-4 py-3 border rounded-lg text-left hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            >
+              <div className="font-medium text-gray-900 truncate">{p.title ?? 'Untitled'}</div>
+              <div className="text-xs text-gray-500 mt-1 truncate">
+                {p.author ?? 'Unknown'} • {new Date(p.createdAt || Date.now()).toLocaleDateString()}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Active post + comments */}
+    {activeCommentsPost && (
+      <div>
+        {/* Post header */}
+        <div className="mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h4 className="text-base sm:text-lg font-semibold truncate">{activeCommentsPost.title}</h4>
+              <div className="text-xs text-gray-500">
+                {activeCommentsPost.author} • {new Date(activeCommentsPost.createdAt || Date.now()).toLocaleDateString()}
               </div>
             </div>
 
-            <div className="mb-4">
-              <CommentComposer
-                onPost={(text, author, email) => postNewCommentOnActivePost(text, author, email)}
-                posting={false}
-              />
-            </div>
-
-            <div className="space-y-4">
-              {loadingComments && <div className="text-gray-600">Loading comments...</div>}
-              {!loadingComments && commentsForPost.length === 0 && <div className="text-gray-600">No comments yet.</div>}
-              {!loadingComments && commentsForPost.map(comment => (
-                <div key={comment.id} className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-700">
-                          {String(comment.author || 'U').split(' ').map(n => n[0]).join('')}
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">{comment.author}</div>
-                          <div className="text-xs text-gray-500">{new Date(comment.createdAt).toLocaleString()}</div>
-                        </div>
-                      </div>
-
-                      <div className="text-gray-700 mb-3">{comment.content}</div>
-
-                      <div className="flex items-center space-x-3 text-xs text-gray-500">
-                        <button onClick={() => toggleReplyBox(comment.id)} className="flex items-center gap-1 hover:text-blue-600">
-                          <CornerUpLeft size={14} /> Reply
-                        </button>
-                        <button onClick={() => { /* optionally implement like */ }} className="hover:text-green-600">Like ({comment.likes || 0})</button>
-                      </div>
-
-                      {/* Replies */}
-                      {Array.isArray(comment.replies) && comment.replies.length > 0 && (
-                        <div className="mt-4 ml-10 space-y-3">
-                          {comment.replies.map(reply => (
-                            <div key={reply.id} className="bg-gray-50 p-3 rounded-lg">
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-xs">{String(reply.author || 'U')[0]}</div>
-                                  <div className="text-sm">
-                                    <div className="font-medium text-gray-900">{reply.author}</div>
-                                    <div className="text-xs text-gray-500">{new Date(reply.createdAt).toLocaleString()}</div>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-gray-700 text-sm">{reply.content}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Reply box */}
-                      {replyState[comment.id]?.open && (
-                        <div className="mt-3 ml-10">
-                          <textarea
-                            value={replyState[comment.id]?.text || ''}
-                            onChange={(e) => setReplyText(comment.id, e.target.value)}
-                            rows={3}
-                            className="w-full px-3 py-2 border rounded-md"
-                            placeholder="Write a reply..."
-                          />
-                          <div className="flex gap-2 mt-2">
-                            <button onClick={() => submitReply(comment.id)} className="px-3 py-1.5 bg-blue-600 text-white rounded-md">Reply</button>
-                            <button onClick={() => toggleReplyBox(comment.id)} className="px-3 py-1.5 border rounded-md">Cancel</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => {
+                  setShowPostEditor(true);
+                  setSelectedPost(activeCommentsPost);
+                }}
+                className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Edit Post
+              </button>
+              <button
+                onClick={() => openPreviewInNewWindow(activeCommentsPost)}
+                className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Open Post
+              </button>
             </div>
           </div>
-        )}
+        </div>
 
+        {/* Composer */}
+        <div className="mb-4">
+          <CommentComposer
+            onPost={(text, author, email) => postNewCommentOnActivePost(text, author, email)}
+            posting={false}
+          />
+        </div>
+
+        {/* Comments list */}
+        <div className="space-y-4">
+          {loadingComments && (
+            <div className="text-gray-600">Loading comments...</div>
+          )}
+
+          {!loadingComments && commentsForPost.length === 0 && (
+            <div className="text-gray-600">No comments yet.</div>
+          )}
+
+          {!loadingComments &&
+            commentsForPost.map((comment) => (
+              <div key={comment.id} className="border rounded-lg p-4">
+                <div className="flex items-start justify-between">
+                  <div className="w-full">
+                    {/* Author row */}
+                    <div className="flex items-start sm:items-center gap-3 mb-2">
+                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-700 shrink-0">
+                        {String(comment.author || 'U')
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-medium text-gray-900 truncate">
+                          {comment.author}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(comment.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="text-gray-700 mb-3 break-words">
+                      {comment.content}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                      <button
+                        onClick={() => toggleReplyBox(comment.id)}
+                        className="flex items-center gap-1 hover:text-blue-600"
+                      >
+                        <CornerUpLeft size={14} /> Reply
+                      </button>
+                      <button
+                        onClick={() => { /* optionally implement like */ }}
+                        className="hover:text-green-600"
+                      >
+                        Like ({comment.likes || 0})
+                      </button>
+                    </div>
+
+                    {/* Replies */}
+                    {Array.isArray(comment.replies) && comment.replies.length > 0 && (
+                      <div className="mt-4 sm:ml-10 space-y-3">
+                        {comment.replies.map((reply) => (
+                          <div key={reply.id} className="bg-gray-50 p-3 rounded-lg">
+                            <div className="flex items-start gap-2 mb-1">
+                              <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-xs shrink-0">
+                                {String(reply.author || 'U')[0]}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  {reply.author}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(reply.createdAt).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-gray-700 text-sm break-words">
+                              {reply.content}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Reply box */}
+                    {replyState[comment.id]?.open && (
+                      <div className="mt-3 sm:ml-10">
+                        <textarea
+                          value={replyState[comment.id]?.text || ''}
+                          onChange={(e) => setReplyText(comment.id, e.target.value)}
+                          rows={3}
+                          className="w-full px-3 py-2 border rounded-md"
+                          placeholder="Write a reply..."
+                        />
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <button
+                            onClick={() => submitReply(comment.id)}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-md"
+                          >
+                            Reply
+                          </button>
+                          <button
+                            onClick={() => toggleReplyBox(comment.id)}
+                            className="px-3 py-1.5 border rounded-md"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+        </div>
       </div>
-    </div>
+    )}
+  </div>
+</div>
+
   );
 
   const renderAITools = () => (
@@ -1102,24 +1200,29 @@ const BlogManagement: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Blog Management Center</h1>
           <p className="text-gray-600">Comprehensive blog management with AI-powered tools</p>
         </div>
-
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
-          <div className="flex border-b border-gray-200 overflow-x-auto">
+          {/* Tabs container - always single row with horizontal scroll */}
+          <div className="flex flex-nowrap border-b border-gray-200 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-6 py-4 font-medium transition-colors whitespace-nowrap min-w-0 ${activeTab === tab.id ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}
+                  className={`flex items-center space-x-2 px-5 py-3 sm:px-6 sm:py-4 font-medium transition-colors whitespace-nowrap shrink-0
+            ${activeTab === tab.id
+                      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
                 >
-                  <Icon size={18} />
-                  <span>{tab.label}</span>
+                  <Icon size={18} className="shrink-0" />
+                  <span className="truncate">{tab.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
+
 
         <div>
           {activeTab === 'dashboard' && renderDashboard()}

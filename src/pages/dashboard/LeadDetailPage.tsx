@@ -174,7 +174,7 @@ const LeadDetailPage: React.FC = () => {
         );
         setPreSalesUsers(execs);
       } catch (err) {
-        console.error("Failed to load executives:", err);
+        toast.error("Failed to load executives:", err);
       }
     })();
   }, []);
@@ -182,40 +182,40 @@ const LeadDetailPage: React.FC = () => {
   // ✅ Fixed handleExecAssign with proper notification support
   const handleExecAssign = async (execId: string, execName: string) => {
     if (!lead) return;
-    
+
     try {
       const previousExec = lead.assigned_executive;
-      
+
       // Update local state first for immediate UI feedback
       setLead({ ...lead, assigned_executive: execId, assigned_executive_name: execName });
       setShowExecDropdown(false);
-      
+
       // Call API to update assignment
       await leadsAPI.assignToExecutive(lead.id, { assigned_executive: execId });
-      
+
       // ✅ Send notification if executive is being assigned (not unassigned) and it's a different executive
       if (execId && execId.trim() !== "" && execId !== previousExec) {
         try {
           await notificationAPI.createNotification({
             leadId: Number(lead.id), // ✅ Convert to string
             userId: Number(execId),   // ✅ Convert to string
-             message: `lead assign to you ${lead.name || "-"}`,
+            message: `lead assign to you ${lead.name || "-"}`,
             type: "lead_assign",
             link: `/dashboard/leads/${lead.id}`,
           });
+
           
-          console.log("✅ Assignment notification sent to executive:", execName);
         } catch (notifErr) {
-          console.error("Failed to send notification:", notifErr);
-          console.error("Notification error details:", notifErr?.response?.data || notifErr?.message);
+        
+          toast.error("Notification error details:", notifErr?.response?.data || notifErr?.message);
           // Don't fail the assignment for notification error
           toast.warn("Lead assigned but notification failed to send");
         }
       }
-      
+
       toast.success(`Lead assigned to ${execName}`);
     } catch (err) {
-      console.error("Error assigning executive:", err);
+    toast.error("Error assigning executive:", err);
       // Revert local state on error
       if (lead) {
         setLead({ ...lead, assigned_executive: lead.assigned_executive, assigned_executive_name: lead.assigned_executive_name });
@@ -323,12 +323,12 @@ const LeadDetailPage: React.FC = () => {
     } catch (e: any) {
       const status = e?.response?.status || e?.status;
       if (status === 404 || status === 204) {
-        console.warn("No followups found for lead:", leadToUse);
+       
         setFollowups([]);
         setFollowupsError(null);
         return [];
       } else {
-        console.error("Error fetching followups:", e);
+        toast.error("Error fetching followups:", e);
         setFollowupsError("Failed to fetch follow-ups");
         setFollowups([]);
         return [];
@@ -351,7 +351,7 @@ const LeadDetailPage: React.FC = () => {
       await followupAPI.deleteFollowup(followupId);
       toast.success("Follow-up deleted successfully");
     } catch (e) {
-      console.error("Delete follow-up failed:", e);
+      toast.error("Delete follow-up failed:", e);
       setFollowups(prev); // rollback
       toast.error("Failed to delete follow-up. Please try again.");
     }
@@ -374,7 +374,7 @@ const LeadDetailPage: React.FC = () => {
             const resp = await usersAPI.getAllUsers?.();
             setPreSalesUsers(resp?.data || []);
           } catch (e) {
-            console.warn("Could not fetch presales users inside fetchLead:", e);
+            toast.warn("Could not fetch presales users inside fetchLead:", e);
           }
         }
 
@@ -450,7 +450,7 @@ const LeadDetailPage: React.FC = () => {
           setLead(leadData);
         }
       } catch (err) {
-        console.error("Error fetching lead details:", err);
+        toast.error("Error fetching lead details:", err);
         setError("Failed to fetch lead details");
       } finally {
         setLoading(false);
@@ -482,7 +482,7 @@ const LeadDetailPage: React.FC = () => {
             const values = await masterDataAPI.getMasterValues(masterType.id);
             return values;
           } catch (err) {
-            console.error(`❌ Error fetching values for ${masterType.name}:`, err);
+            toast.error(`❌ Error fetching values for ${masterType.name}:`, err);
             return [];
           }
         })
@@ -518,7 +518,7 @@ const LeadDetailPage: React.FC = () => {
             return organizedData[key];
           }
         }
-        console.warn("⚠️ No agent data found in organizedData");
+       
         return [];
       };
 
@@ -553,7 +553,7 @@ const LeadDetailPage: React.FC = () => {
         })),
       }));
     } catch (err: any) {
-      console.error("❌ Failed to load master data:", err);
+      toast.error("❌ Failed to load master data:", err);
       setError(
         `Failed to load dropdown options: ${err instanceof Error ? err.message : String(err)}`
       );
@@ -573,7 +573,7 @@ const LeadDetailPage: React.FC = () => {
         setFollowups(allFollowups);
       }
     } catch (err) {
-      console.error("Failed to load followups before transfer:", err);
+      toast.error("Failed to load followups before transfer:", err);
       toast.error("Unable to load follow-ups. Try again.");
     }
   };
@@ -590,7 +590,7 @@ const LeadDetailPage: React.FC = () => {
       // open seller modal
       setShowSellerComponent(true);
     } catch (err) {
-      console.error("Failed to load followups before transfer to seller:", err);
+      toast.error("Failed to load followups before transfer to seller:", err);
       toast.error("Unable to load follow-ups. Try again.");
     }
   };
@@ -722,17 +722,17 @@ const LeadDetailPage: React.FC = () => {
   // ✅ Fixed handleAgentAssign with proper notification support  
   const handleAgentAssign = async (agentId: string, agentName: string) => {
     if (!lead) return;
-    
+
     try {
       const previousAgent = lead.assigned_executive;
-      
+
       // Update local state first for immediate UI feedback
       setLead({ ...lead, assigned_executive: agentId, assigned_executive_name: agentName });
       setShowAgentDropdown(false);
-      
+
       // Call API to update assignment
       await leadsAPI.updateLead(lead.id, { assigned_executive: agentId });
-      
+
       // ✅ Send notification if agent is being assigned (not unassigned) and it's a different agent
       if (agentId && agentId.trim() !== "" && agentId !== previousAgent) {
         try {
@@ -743,19 +743,19 @@ const LeadDetailPage: React.FC = () => {
             type: "lead_assign",
             link: `/dashboard/leads/${lead.id}`,
           });
+
           
-          console.log("✅ Agent assignment notification sent to:", agentName);
         } catch (notifErr) {
-          console.error("Failed to send agent notification:", notifErr);
-          console.error("Agent notification error details:", notifErr?.response?.data || notifErr?.message);
+        
+          toast.error("Agent notification error details:", notifErr?.response?.data || notifErr?.message);
           // Don't fail the assignment for notification error
           toast.warn("Agent assigned but notification failed to send");
         }
       }
-      
+
       toast.success(`Lead assigned to ${agentName}`);
     } catch (error) {
-      console.error("Error assigning agent:", error);
+      toast.error("Error assigning agent:", error);
       // Revert local state on error
       if (lead) {
         setLead({ ...lead, assigned_executive: lead.assigned_executive, assigned_executive_name: lead.assigned_executive_name });
@@ -793,7 +793,7 @@ const LeadDetailPage: React.FC = () => {
           toast.error("Failed to delete lead ❌");
         }
       } catch (error) {
-        console.error("❌ Error deleting lead:", error);
+       
         toast.error("Error deleting lead");
       }
     }
@@ -802,11 +802,11 @@ const LeadDetailPage: React.FC = () => {
   // ✅ Enhanced handleSaveLead with notification support for assignment changes
   const handleSaveLead = async (updatedLead: Lead | null) => {
     if (!updatedLead) return;
-    
+
     try {
       const previousExec = lead?.assigned_executive;
       const newExec = updatedLead.assigned_executive;
-      
+
       const response = await leadsAPI.updateLead(updatedLead.id!, updatedLead);
       const savedLead = response?.data || response;
 
@@ -818,7 +818,7 @@ const LeadDetailPage: React.FC = () => {
         try {
           const exec = presalesUsers.find(u => String(u.id) === String(newExec));
           const execName = exec?.name || savedLead.assigned_executive_name || "Executive";
-          
+
           await notificationAPI.createNotification({
             leadId: Number(updatedLead.id), // ✅ Convert to number
             userId: Number(newExec),        // ✅ Convert to number
@@ -826,11 +826,11 @@ const LeadDetailPage: React.FC = () => {
             type: "lead_update",
             link: `/dashboard/leads/${updatedLead.id}`,
           });
-          
-          console.log("✅ Lead update notification sent to executive:", execName);
+
+         
         } catch (notifErr) {
-          console.error("Failed to send lead update notification:", notifErr);
-          console.error("Update notification error details:", notifErr?.response?.data || notifErr?.message);
+          
+          toast.error("Update notification error details:", notifErr?.response?.data || notifErr?.message);
           // Don't fail the update for notification error
         }
       }
@@ -838,164 +838,189 @@ const LeadDetailPage: React.FC = () => {
       setIsEditModalOpen(false);
       toast.success("Lead details updated successfully!");
     } catch (error) {
-      console.error("❌ Error saving lead:", error);
+      toast.error("❌ Error saving lead:", error);
       toast.error("Failed to save lead. Please try again.");
     }
   };
 
-  // ✅ Enhanced Save handler for followups with notification support
-// ✅ Fixed handleFollowupSave function with proper error separation
-const handleFollowupSave = async (data: FollowupForm & { lead_id?: string }) => {
-  if (!lead?.id) {
-    toast.error("Lead not loaded.");
-    return;
-  }
-
-  let followupSavedSuccessfully = false;
-  let isUpdate = false;
-
-  try {
-    console.log("🚀 Starting followup save process...");
-    
-    const scheduledISO = data.scheduleDate
-      ? `${data.scheduleDate}T${(data.scheduleTime || "00:00")}:00`
-      : null;
-
-    const followupPayload = {
-      leadId: data.lead_id ?? lead.id,
-      type: data.followupType,
-      stage: data.leadStage,
-      status: data.leadStatus,
-      remark: data.remark,
-      customRemark: data.customRemark,
-      nextAction: data.nextAction,
-      scheduledDate: scheduledISO,
-      priority: data.priority
-    };
-
-    console.log("📝 Followup payload:", followupPayload);
-
-    // Step 1: Create/Update followup - THIS IS THE MAIN OPERATION
-    try {
-      let response;
-      
-      if (editingFollowup) {
-        console.log("🔄 Updating existing followup:", editingFollowup.id);
-        response = await followupAPI.updateFollowup(editingFollowup.id, {
-          ...followupPayload,
-          updated_by: user?.id,
-        });
-        isUpdate = true;
-        setEditingFollowup(null);
-      } else {
-        console.log("➕ Creating new followup");
-        response = await followupAPI.createFollowup({
-          ...followupPayload,
-          updated_by: user?.id,
-        });
-        isUpdate = false;
-      }
-
-      console.log("✅ Followup API Response:", response);
-      followupSavedSuccessfully = true;
-
-    } catch (followupError) {
-      console.error("❌ Followup save/update failed:", followupError);
-      // This is the main operation failure - show error and return
-      const action = editingFollowup ? "update" : "save";
-      toast.error(`Failed to ${action} follow-up. Please try again.`);
-      return; // Don't continue if main operation failed
-    }
-
-    // If we reach here, followup was saved successfully
-    console.log("✅ Followup saved successfully, proceeding with additional operations...");
-
-    // Step 2: Update lead (this can fail but shouldn't affect success)
-    try {
-      console.log("🔄 Updating lead with new stage/status/priority...");
-      await leadsAPI.updateLead(lead.id, {
-        stage: data.leadStage,
-        status: data.leadStatus,
-        priority: data.priority,
-        updated_by: user?.id,
-      });
-      console.log("✅ Lead updated successfully");
-    } catch (leadUpdateErr) {
-      console.error("⚠️ Lead update failed (non-critical):", leadUpdateErr);
-      // Continue anyway, followup was saved
-    }
-
-    // Step 3: Send notification (this can fail but shouldn't affect success)
-    if (lead.assigned_executive && lead.assigned_executive.trim() !== "") {
-      try {
-        console.log("📧 Sending notification to assigned executive...");
-        const exec = presalesUsers.find(u => String(u.id) === String(lead.assigned_executive));
-        const execName = exec?.name || lead.assigned_executive_name || "Executive";
-        
-        await notificationAPI.createNotification({
-          leadId: Number(lead.id),
-          userId: Number(lead.assigned_executive),
-          message: `New follow-up added for lead "${lead.name}" by ${user?.first_name || 'User'}`,
-          type: "followup_add",
-          link: `/dashboard/leads/${lead.id}`,
-        });
-        
-        console.log("✅ Notification sent to executive:", execName);
-      } catch (notifErr) {
-        console.error("⚠️ Notification failed (non-critical):", notifErr);
-        // Don't show warning toast, just log it
-      }
-    }
-
-    // Step 4: Update local state (this shouldn't fail)
-    try {
-      console.log("🔄 Updating local state...");
-      setLead((prev) =>
-        prev
-          ? { 
-              ...prev, 
-              stage: data.leadStage || prev.stage, 
-              status: data.leadStatus || prev.status, 
-              priority: data.priority 
-            }
-          : prev
-      );
-      setIsFollowupModalOpen(false);
-      console.log("✅ Local state updated");
-    } catch (stateErr) {
-      console.error("⚠️ State update failed (non-critical):", stateErr);
-    }
-
-    // Step 5: Refresh followups (this can fail but shouldn't affect success)
-    try {
-      console.log("🔄 Refreshing followups list...");
-      await fetchFollowups();
-      console.log("✅ Followups refreshed");
-    } catch (fetchErr) {
-      console.error("⚠️ Followups refresh failed (non-critical):", fetchErr);
-      // Continue anyway, followup was saved
-    }
-
-  } catch (unexpectedError) {
-    console.error("❌ Unexpected error in handleFollowupSave:", unexpectedError);
-    // This should not happen if we handled all cases above
-    if (!followupSavedSuccessfully) {
-      const action = editingFollowup ? "update" : "save";
-      toast.error(`Failed to ${action} follow-up. Please try again.`);
+  const handleFollowupSave = async (data: FollowupForm & { lead_id?: string }) => {
+    if (!lead?.id) {
+      toast.error("Lead not loaded.");
       return;
     }
-  }
 
-  // ✅ Show success message only if followup was saved successfully
-  if (followupSavedSuccessfully) {
-    console.log("🎉 Showing success message");
-    if (isUpdate) {
-      toast.success("Follow-up updated successfully!");
-    } else {
-      toast.success("Follow-up saved successfully!");
+    let followupSavedSuccessfully = false;
+    let isUpdate = false;
+    let savedFollowupData = null; // Store the saved followup for immediate UI update
+
+    try {
+      
+
+      const scheduledISO = data.scheduleDate
+        ? `${data.scheduleDate}T${(data.scheduleTime || "00:00")}:00`
+        : null;
+
+      const followupPayload = {
+        leadId: data.lead_id ?? lead.id,
+        type: data.followupType,
+        stage: data.leadStage,
+        status: data.leadStatus,
+        remark: data.remark,
+        customRemark: data.customRemark,
+        nextAction: data.nextAction,
+        scheduledDate: scheduledISO,
+        priority: data.priority
+      };
+
+     
+
+      // Step 1: Create/Update followup - THIS IS THE MAIN OPERATION
+      try {
+        let response;
+
+        if (editingFollowup) {
+          
+          response = await followupAPI.updateFollowup(editingFollowup.id, {
+            ...followupPayload,
+            updated_by: user?.id,
+          });
+          isUpdate = true;
+          setEditingFollowup(null);
+
+          // For updates, use the existing followup structure with updated data
+          savedFollowupData = {
+            ...editingFollowup,
+            ...followupPayload,
+            updatedAt: new Date().toISOString(),
+          };
+        } else {
+          
+          response = await followupAPI.createFollowup({
+            ...followupPayload,
+            updated_by: user?.id,
+          });
+          isUpdate = false;
+
+          // For new followups, create the structure immediately
+          savedFollowupData = {
+            id: response?.data?.id || response?.id || `temp-${Date.now()}`, // Use returned ID or temp ID
+            leadId: followupPayload.leadId,
+            type: followupPayload.type,
+            stage: followupPayload.stage,
+            status: followupPayload.status,
+            remark: followupPayload.remark,
+            customRemark: followupPayload.customRemark,
+            nextAction: followupPayload.nextAction,
+            scheduledDate: scheduledISO,
+            createdAt: new Date().toISOString(),
+            priority: followupPayload.priority,
+            createdByFirstName: user?.first_name || "",
+            createdByLastName: user?.last_name || "",
+            ...response?.data, // Merge any additional data from API response
+          };
+        }
+
+       
+        followupSavedSuccessfully = true;
+
+      } catch (followupError) {
+        toast.error("❌ Followup save/update failed:", followupError);
+        const action = editingFollowup ? "update" : "save";
+        toast.error(`Failed to ${action} follow-up. Please try again.`);
+        return;
+      }
+
+      // ✅ IMMEDIATELY UPDATE UI STATE - Don't wait for API calls
+      if (savedFollowupData) {
+        if (isUpdate) {
+          // Update existing followup in the list
+          setFollowups(prevFollowups =>
+            prevFollowups.map(f =>
+              f.id === editingFollowup?.id ? savedFollowupData : f
+            )
+          );
+        } else {
+          // Add new followup to the top of the list
+          setFollowups(prevFollowups => [savedFollowupData, ...prevFollowups]);
+        }
+      }
+
+      // Step 2: Update lead (this can fail but shouldn't affect success)
+      try {
+        
+        await leadsAPI.updateLead(lead.id, {
+          stage: data.leadStage,
+          status: data.leadStatus,
+          priority: data.priority,
+          updated_by: user?.id,
+        });
+       
+
+        // Update lead state immediately
+        setLead((prev) =>
+          prev
+            ? {
+              ...prev,
+              stage: data.leadStage || prev.stage,
+              status: data.leadStatus || prev.status,
+              priority: data.priority
+            }
+            : prev
+        );
+      } catch (leadUpdateErr) {
+        toast.error("⚠️ Lead update failed (non-critical):", leadUpdateErr);
+      }
+
+      // Step 3: Send notification (this can fail but shouldn't affect success)
+      if (lead.assigned_executive && lead.assigned_executive.trim() !== "") {
+        try {
+         
+          const exec = presalesUsers.find(u => String(u.id) === String(lead.assigned_executive));
+          const execName = exec?.name || lead.assigned_executive_name || "Executive";
+
+          await notificationAPI.createNotification({
+            leadId: Number(lead.id),
+            userId: Number(lead.assigned_executive),
+            message: `New follow-up added for lead "${lead.name}" by ${user?.first_name || 'User'}`,
+            type: "followup_add",
+            link: `/dashboard/leads/${lead.id}`,
+          });
+
+         
+        } catch (notifErr) {
+          toast.error("⚠️ Notification failed (non-critical):", notifErr);
+        }
+      }
+
+      // ✅ Close modal and show success message
+      setIsFollowupModalOpen(false);
+
+      if (isUpdate) {
+        toast.success("Follow-up updated successfully!");
+      } else {
+        toast.success("Follow-up saved successfully!");
+      }
+
+      // Step 4: Background refresh to sync with server (optional, for data consistency)
+      try {
+        
+        setTimeout(async () => {
+          await fetchFollowups();
+        
+        }, 1000); // Refresh after 1 second in background
+      } catch (fetchErr) {
+        toast.error("⚠️ Background refresh failed (non-critical):", fetchErr);
+      }
+
+    } catch (unexpectedError) {
+      
+      if (!followupSavedSuccessfully) {
+        const action = editingFollowup ? "update" : "save";
+        toast.error(`Failed to ${action} follow-up. Please try again.`);
+        return;
+      }
     }
-  }
-};
+  };
 
   const formatDateShort = (iso?: string | null) => {
     if (!iso) return "-";
@@ -1085,28 +1110,50 @@ const handleFollowupSave = async (data: FollowupForm & { lead_id?: string }) => 
               <span>Back to Leads</span>
             </button>
 
-            <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2">
-              <button onClick={handleEdit} className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 transition-colors bg-white">
+            <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-4 gap-2">
+              <button
+                onClick={handleEdit}
+                className="flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 transition-colors bg-white"
+              >
                 <FiEdit className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Edit</span>
               </button>
+
               {canDeleteLead(user) && (
-                <button onClick={handleDelete} className="flex items-center gap-1 px-2 py-1 text-xs border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors bg-white">
+                <button
+                  onClick={handleDelete}
+                  className="flex items-center justify-center gap-1 px-2 py-1 text-xs border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors bg-white"
+                >
                   <FiTrash2 className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Delete</span>
                 </button>
               )}
 
-              <button onClick={handlePreviousLead} disabled={currentLeadIndex <= 0} className={`flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex <= 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"}`}>
+              <button
+                onClick={handlePreviousLead}
+                disabled={currentLeadIndex <= 0}
+                className={`flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex <= 0
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:bg-gray-50"
+                  }`}
+              >
                 <ArrowLeftToLine className="w-4 h-4" />
                 <span className="hidden sm:inline">Previous</span>
               </button>
 
-              <button onClick={handleNextLead} disabled={currentLeadIndex >= allLeads.length - 1} className={`flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex >= allLeads.length - 1 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"}`}>
+              <button
+                onClick={handleNextLead}
+                disabled={currentLeadIndex >= allLeads.length - 1}
+                className={`flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex >= allLeads.length - 1
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:bg-gray-50"
+                  }`}
+              >
                 <span className="hidden sm:inline">Next</span>
                 <ArrowRightToLine className="w-4 h-4" />
               </button>
             </div>
+
           </div>
 
           {/* Header Info */}
@@ -1168,8 +1215,8 @@ const handleFollowupSave = async (data: FollowupForm & { lead_id?: string }) => 
                               key={exec.id}
                               onClick={() => handleExecAssign(String(exec.id), exec.name)} // ✅ Ensure string conversion
                               className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${lead.assigned_executive === String(exec.id)
-                                  ? "bg-blue-50 text-blue-600 font-medium"
-                                  : "text-gray-800"
+                                ? "bg-blue-50 text-blue-600 font-medium"
+                                : "text-gray-800"
                                 }`}
                             >
                               {exec.name}

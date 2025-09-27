@@ -18,6 +18,8 @@ import {
   MoreHorizontal,
   Bell,
   AlertTriangle,
+  X,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { activitiesAPI } from '@/lib/api';
@@ -55,6 +57,7 @@ const ActivitiesPage: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [showAddActivity, setShowAddActivity] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [newActivity, setNewActivity] = useState({
     type: 'task',
     title: '',
@@ -70,6 +73,8 @@ const ActivitiesPage: React.FC = () => {
     fetchActivities();
   }, [searchTerm, statusFilter, typeFilter, priorityFilter, dateFilter]);
 
+
+  
   const fetchActivities = async () => {
     try {
       setLoading(true);
@@ -101,7 +106,7 @@ const ActivitiesPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching activities:', error);
-      toast.error('Failed to load activities');
+      // toast.error('Failed to load activities');
     } finally {
       setLoading(false);
     }
@@ -231,152 +236,166 @@ const ActivitiesPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Activities</h1>
-          <p className="text-gray-600 mt-1">
-            Manage your tasks, meetings, and follow-ups
-          </p>
-        </div>
-        <div className="flex space-x-3">
-          <div className="flex space-x-1">
+    <div className="min-h-screen bg-gray-50">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-4 sm:space-y-0">
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Activities</h1>
+            <p className="text-gray-600 mt-1 text-sm sm:text-base">
+              Manage your tasks, meetings, and follow-ups
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+            <div className="flex space-x-1">
+              <Button
+                variant={viewMode === 'list' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="flex-1 sm:flex-none"
+              >
+                List
+              </Button>
+              <Button
+                variant={viewMode === 'calendar' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('calendar')}
+                className="flex-1 sm:flex-none"
+              >
+                Calendar
+              </Button>
+            </div>
             <Button
-              variant={viewMode === 'list' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('list')}
+              onClick={() => setShowAddActivity(true)}
+              className="flex items-center justify-center space-x-2 w-full sm:w-auto"
             >
-              List
-            </Button>
-            <Button
-              variant={viewMode === 'calendar' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('calendar')}
-            >
-              Calendar
+              <Plus className="h-4 w-4" />
+              <span className="hidden xs:inline">Add Activity</span>
+              <span className="xs:hidden">Add</span>
             </Button>
           </div>
-          <Button
-            onClick={() => setShowAddActivity(true)}
-            className="flex items-center space-x-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Activity</span>
-          </Button>
         </div>
-      </div>
 
-      {/* Alerts */}
-      {getOverdueActivities().length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-            <span className="text-red-800 font-medium">
-              You have {getOverdueActivities().length} overdue activities!
-            </span>
+        {/* Alerts */}
+        {getOverdueActivities().length > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
+            <div className="flex items-start space-x-2">
+              <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <span className="text-red-800 font-medium text-sm sm:text-base">
+                You have {getOverdueActivities().length} overdue activities!
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {getUpcomingActivities().length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <Bell className="h-5 w-5 text-blue-600" />
-            <span className="text-blue-800 font-medium">
-              You have {getUpcomingActivities().length} activities due today/tomorrow
-            </span>
+        {getUpcomingActivities().length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+            <div className="flex items-start space-x-2">
+              <Bell className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <span className="text-blue-800 font-medium text-sm sm:text-base">
+                You have {getUpcomingActivities().length} activities due today/tomorrow
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Add Activity Modal */}
-      {showAddActivity && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Activity</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                <select
-                  value={newActivity.type}
-                  onChange={(e) => setNewActivity({ ...newActivity, type: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="task">Task</option>
-                  <option value="call">Phone Call</option>
-                  <option value="email">Email</option>
-                  <option value="meeting">Meeting</option>
-                  <option value="viewing">Property Viewing</option>
-                  <option value="follow_up">Follow-up</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                <input
-                  type="text"
-                  value={newActivity.title}
-                  onChange={(e) => setNewActivity({ ...newActivity, title: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  placeholder="Activity title"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={newActivity.description}
-                  onChange={(e) => setNewActivity({ ...newActivity, description: e.target.value })}
-                  rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  placeholder="Activity description"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                <select
-                  value={newActivity.priority}
-                  onChange={(e) => setNewActivity({ ...newActivity, priority: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date/Time</label>
-                <input
-                  type="datetime-local"
-                  value={newActivity.scheduled_at}
-                  onChange={(e) => setNewActivity({ ...newActivity, scheduled_at: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
-              </div>
-              <div className="flex space-x-3">
-                <Button
-                  onClick={handleAddActivity}
-                  disabled={!newActivity.title || !newActivity.description}
-                  className="flex-1"
-                >
-                  Create Activity
-                </Button>
+        {/* Add Activity Modal */}
+        {showAddActivity && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Add New Activity</h3>
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setShowAddActivity(false)}
-                  className="flex-1"
+                  className="p-1"
                 >
-                  Cancel
+                  <X className="h-4 w-4" />
                 </Button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                  <select
+                    value={newActivity.type}
+                    onChange={(e) => setNewActivity({ ...newActivity, type: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm sm:text-base"
+                  >
+                    <option value="task">Task</option>
+                    <option value="call">Phone Call</option>
+                    <option value="email">Email</option>
+                    <option value="meeting">Meeting</option>
+                    <option value="viewing">Property Viewing</option>
+                    <option value="follow_up">Follow-up</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={newActivity.title}
+                    onChange={(e) => setNewActivity({ ...newActivity, title: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm sm:text-base"
+                    placeholder="Activity title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={newActivity.description}
+                    onChange={(e) => setNewActivity({ ...newActivity, description: e.target.value })}
+                    rows={3}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm sm:text-base resize-none"
+                    placeholder="Activity description"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <select
+                    value={newActivity.priority}
+                    onChange={(e) => setNewActivity({ ...newActivity, priority: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm sm:text-base"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date/Time</label>
+                  <input
+                    type="datetime-local"
+                    value={newActivity.scheduled_at}
+                    onChange={(e) => setNewActivity({ ...newActivity, scheduled_at: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm sm:text-base"
+                  />
+                </div>
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
+                  <Button
+                    onClick={handleAddActivity}
+                    disabled={!newActivity.title || !newActivity.description}
+                    className="flex-1 order-1 sm:order-none"
+                  >
+                    Create Activity
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAddActivity(false)}
+                    className="flex-1 order-2 sm:order-none"
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-4">
-          <div className="flex-1">
+        {/* Search and Filters */}
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="space-y-4">
+            {/* Search Bar */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -384,158 +403,193 @@ const ActivitiesPage: React.FC = () => {
                 placeholder="Search activities..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
               />
             </div>
-          </div>
-          <div className="flex space-x-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Types</option>
-              <option value="task">Task</option>
-              <option value="call">Call</option>
-              <option value="email">Email</option>
-              <option value="meeting">Meeting</option>
-              <option value="viewing">Viewing</option>
-              <option value="follow_up">Follow-up</option>
-            </select>
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Dates</option>
-              <option value="today">Today</option>
-              <option value="this_week">This Week</option>
-              <option value="overdue">Overdue</option>
-            </select>
+            
+            {/* Filter Toggle for Mobile */}
+            <div className="sm:hidden">
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+                className="w-full flex items-center justify-between"
+              >
+                <div className="flex items-center space-x-2">
+                  <Filter className="h-4 w-4" />
+                  <span>Filters</span>
+                </div>
+                <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+              </Button>
+            </div>
+
+            {/* Filters */}
+            <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 ${showFilters ? 'block' : 'hidden sm:grid'}`}>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+              >
+                <option value="all">All Types</option>
+                <option value="task">Task</option>
+                <option value="call">Call</option>
+                <option value="email">Email</option>
+                <option value="meeting">Meeting</option>
+                <option value="viewing">Viewing</option>
+                <option value="follow_up">Follow-up</option>
+              </select>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+              >
+                <option value="all">All Priorities</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+              >
+                <option value="all">All Dates</option>
+                <option value="today">Today</option>
+                <option value="this_week">This Week</option>
+                <option value="overdue">Overdue</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Activities List */}
-      <div className="bg-white rounded-lg shadow">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <LoadingSpinner size="lg" />
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {activities.length > 0 ? (
-              activities.map((activity) => (
-                <div key={activity.id} className="p-6 hover:bg-gray-50">
-                  <div className="flex items-start space-x-4">
-                    <div className="mt-1">
-                      {getActivityIcon(activity.type)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <h3 className="text-lg font-medium text-gray-900">{activity.title}</h3>
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(activity.status)}`}>
-                              {activity.status || 'Pending'}
-                            </span>
-                            {activity.priority && (
-                              <span className={`text-sm font-medium ${getPriorityColor(activity.priority)}`}>
-                                {activity.priority.toUpperCase()}
-                              </span>
-                            )}
-                            {isOverdue(activity.scheduled_at) && activity.status !== 'completed' && (
-                              <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-1 rounded">
-                                OVERDUE
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-gray-700 mt-1">{activity.description}</p>
-                          <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                            <div className="flex items-center space-x-1">
-                              <Clock className="h-4 w-4" />
-                              <span>{new Date(activity.scheduled_at).toLocaleString()}</span>
+        {/* Activities List */}
+        <div className="bg-white rounded-lg shadow">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <LoadingSpinner size="lg" />
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {activities.length > 0 ? (
+                activities.map((activity) => (
+                  <div key={activity.id} className="p-4 sm:p-6 hover:bg-gray-50">
+                    <div className="flex flex-col sm:flex-row sm:items-start space-y-3 sm:space-y-0 sm:space-x-4">
+                      <div className="flex items-start space-x-3 sm:space-x-4 flex-1">
+                        <div className="mt-1 flex-shrink-0">
+                          {getActivityIcon(activity.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col space-y-2">
+                            <div className="flex flex-wrap items-start gap-2">
+                              <h3 className="text-base sm:text-lg font-medium text-gray-900 break-words">
+                                {activity.title}
+                              </h3>
+                              <div className="flex flex-wrap gap-2">
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${getStatusColor(activity.status)}`}>
+                                  {activity.status || 'Pending'}
+                                </span>
+                                {activity.priority && (
+                                  <span className={`text-xs font-medium px-2 py-1 rounded-full bg-gray-100 whitespace-nowrap ${getPriorityColor(activity.priority)}`}>
+                                    {activity.priority.toUpperCase()}
+                                  </span>
+                                )}
+                                {isOverdue(activity.scheduled_at) && activity.status !== 'completed' && (
+                                  <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-1 rounded whitespace-nowrap">
+                                    OVERDUE
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            {activity.lead_name && (
+                            <p className="text-gray-700 text-sm sm:text-base break-words">{activity.description}</p>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0 text-xs sm:text-sm text-gray-500">
                               <div className="flex items-center space-x-1">
-                                <Users className="h-4 w-4" />
-                                <span>Lead: {activity.lead_name}</span>
+                                <Clock className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                <span className="break-words">{new Date(activity.scheduled_at).toLocaleString()}</span>
                               </div>
-                            )}
-                            {activity.property_title && (
-                              <div className="flex items-center space-x-1">
-                                <Building className="h-4 w-4" />
-                                <span>Property: {activity.property_title}</span>
-                              </div>
-                            )}
-                            <span>Created by {activity.created_by}</span>
+                              {activity.lead_name && (
+                                <div className="flex items-center space-x-1">
+                                  <Users className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                  <span className="break-words">Lead: {activity.lead_name}</span>
+                                </div>
+                              )}
+                              {activity.property_title && (
+                                <div className="flex items-center space-x-1">
+                                  <Building className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                  <span className="break-words">Property: {activity.property_title}</span>
+                                </div>
+                              )}
+                              <span className="break-words">Created by {activity.created_by}</span>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          {activity.status !== 'completed' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCompleteActivity(activity.id)}
-                              className="flex items-center space-x-1"
-                            >
-                              <CheckCircle className="h-3 w-3" />
-                              <span>Complete</span>
-                            </Button>
-                          )}
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex flex-row sm:flex-col lg:flex-row items-center gap-2 sm:items-end lg:items-center flex-shrink-0">
+                        {activity.status !== 'completed' && (
                           <Button
                             variant="outline"
                             size="sm"
-                            className="flex items-center space-x-1"
+                            onClick={() => handleCompleteActivity(activity.id)}
+                            className="flex items-center space-x-1 text-xs sm:text-sm flex-1 sm:flex-none lg:flex-1 xl:flex-none min-w-0"
                           >
-                            <Edit className="h-3 w-3" />
-                            <span>Edit</span>
+                            <CheckCircle className="h-3 w-3 flex-shrink-0" />
+                            <span className="hidden xs:inline truncate">Complete</span>
+                            <span className="xs:hidden">✓</span>
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteActivity(activity.id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center space-x-1 text-xs sm:text-sm flex-1 sm:flex-none lg:flex-1 xl:flex-none min-w-0"
+                        >
+                          <Edit className="h-3 w-3 flex-shrink-0" />
+                          <span className="hidden xs:inline truncate">Edit</span>
+                          <span className="xs:hidden">✏️</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteActivity(activity.id)}
+                          className="text-red-600 hover:text-red-800 flex items-center justify-center p-2 min-w-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-12 px-4">
+                  <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No activities found</h3>
+                  <p className="text-gray-500 mb-4 text-sm sm:text-base">
+                    {searchTerm || statusFilter !== 'all' || typeFilter !== 'all'
+                      ? 'Try adjusting your search criteria'
+                      : 'Get started by creating your first activity'}
+                  </p>
+                  <Button
+                    onClick={() => setShowAddActivity(true)}
+                    className="flex items-center space-x-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Create First Activity</span>
+                  </Button>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-12">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No activities found</h3>
-                <p className="text-gray-500 mb-4">
-                  {searchTerm || statusFilter !== 'all' || typeFilter !== 'all'
-                    ? 'Try adjusting your search criteria'
-                    : 'Get started by creating your first activity'}
-                </p>
-                <Button
-                  onClick={() => setShowAddActivity(true)}
-                  className="flex items-center space-x-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Create First Activity</span>
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

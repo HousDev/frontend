@@ -451,7 +451,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           />
         )}
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 md:py-28">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 mt-10 lg:mt-0 sm:px-6 lg:px-8 py-12 sm:py-20 md:py-28">
           <div className="text-center">
             <h1 className="text-3xl font-bold mb-2">
               Find Your <span className="block bg-clip-text text-[#E6761D]">Dream Property</span>
@@ -538,9 +538,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     disabled={masterLoading}
                     className="appearance-none px-3 py-2 border z-10 rounded-lg w-full bg-transparent text-white border-white/30 focus:outline-none focus:ring-1 focus:ring-white"
                   >
-                    <option value="" className="bg-gray-900 text-white">{masterLoading ? "Loading cities..." : "Select city"}</option>
+                    <option value="" className="bg-[#0b3856] text-white">{masterLoading ? "Loading cities..." : "Select city"}</option>
                     {masterCity.map((o) => (
-                      <option key={o.value} value={o.value} className="bg-gray-900 text-white">
+                      <option key={o.value} value={o.value} className="bg-[#0b3856] text-white">
                         {o.label}
                       </option>
                     ))}
@@ -578,7 +578,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     className="pl-10 pr-16 h-10 w-full text-sm bg-white/10 text-white placeholder-white/70 outline-none focus:ring-1 focus:ring-gray-400 rounded-lg"
                     placeholder="Search properties by locality or area"
                   />
-                  <button
+                  {/* <button
                     type="button"
                     onClick={() => addLocality()}
                     className="absolute right-2 top-1/2 -translate-y-1/2 
@@ -587,13 +587,13 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
              transition-colors duration-300"
                   >
                     Add
-                  </button>
+                  </button> */}
 
                   {/* Suggestions */}
                   {showSuggestions && suggestions.length > 0 && (
                     <ul
                       className="absolute left-0 right-0 mt-1 max-h-32 lg:max-w-60 overflow-auto 
-               bg-gray-700 border rounded-lg shadow-lg z-[200] custom-scroll"
+               bg-[#0b3856] border rounded-lg shadow-lg z-[200] custom-scroll"
                     >
                       {suggestions.map((s, idx) => (
                         <li
@@ -616,7 +616,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 {/* Search button */}
                 <button
                   type="submit"
-                  className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg w-full md:w-28 text-sm transition-colors duration-300"
+                  className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg w-full md:w-28 text-base transition-colors duration-300"
                 >
                   Search
                 </button>
@@ -640,7 +640,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   </div>
                 ))}
                 {localities.length === 0 && (
-                  <div className="text-xs text-gray-100">Add up to 5 localities.</div>
+                  <div className="text-xs text-gray-100">Add up to 1 localities.</div>
                 )}
               </div>
             </form>
@@ -738,7 +738,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     )}
 
                     <div className="absolute top-4 left-4">
-                      <span className={`px-3 py-1 rounded-full text-white text-sm ${property.badge === 'Premium' ? 'bg-blue-500' : 'bg-orange-500'}`}>{property.badge || 'Featured'}</span>
+                      <span className={`px-3 py-1 rounded-full text-white text-sm ${property.badge === 'Premium' ? 'bg-[#0b3856]' : 'bg-orange-500'}`}>{property.badge || 'Featured'}</span>
                     </div>
                     <div className="absolute top-4 right-4 flex space-x-2">
                       <button className="p-2 bg-white/80 rounded-full"><Heart className="text-red-500" /></button>
@@ -761,7 +761,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-2">
                       <div className="pr-4">
-                        <div className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                        <div className="text-lg font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">
                           {[property.type, property.unitType, property.subtype].filter(Boolean).join('  ') || ' - '}
                         </div>
                       </div>
@@ -878,24 +878,32 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               <p className="text-gray-200 mb-4">
                 Get the best price with our AI-powered valuation and reach verified buyers instantly.
               </p>
-              <div className="flex gap-4">
-                {/* Primary CTA */}
-                <button
-                  onClick={handleSellPropertyClick}
-                  className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg font-medium shadow-md transition-colors duration-300"
-                >
-                  List My Property
-                </button>
+              <div className="w-full">
+  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
 
-                {/* Secondary CTA */}
-                <button
-                  className="w-full sm:w-auto border-2 border-white px-5 py-3 rounded-lg font-medium text-white 
-             hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white 
-             transition-colors duration-300"
-                >
-                  Free Valuation
-                </button>
-              </div>
+    {/* Primary CTA */}
+    <button
+      onClick={handleSellPropertyClick}
+      className="w-full sm:w-auto shrink-0 bg-[#E6761D] hover:bg-[#CC6A1A] text-white
+                 px-5 py-3 rounded-lg font-medium shadow-md transition-colors duration-300
+                 text-sm sm:text-base"
+    >
+      List My Property
+    </button>
+
+    {/* Secondary CTA */}
+    <button
+      className="w-full sm:w-auto border-2 border-white/90 text-white
+                 px-5 py-3 rounded-lg font-medium transition-colors duration-300
+                 hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white
+                 text-sm sm:text-base"
+    >
+      Free Valuation
+    </button>
+
+  </div>
+</div>
+
             </div>
 
             {/* Right Image */}

@@ -81,13 +81,13 @@ const ImportExportPage: React.FC = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />;
       case 'processing':
-        return <Clock className="h-4 w-4 text-blue-500" />;
+        return <Clock className="h-4 w-4 text-blue-500 shrink-0" />;
       case 'failed':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
+        return <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />;
       default:
-        return <FileText className="h-4 w-4 text-gray-500" />;
+        return <FileText className="h-4 w-4 text-gray-500 shrink-0" />;
     }
   };
 
@@ -101,20 +101,20 @@ const ImportExportPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-3 sm:px-4 md:px-6 max-w-7xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Import & Export</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Import & Export</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Import data from external sources or export your data for backup and analysis
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
         {/* Import Section */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Upload className="h-5 w-5 sm:h-6 sm:w-6" />
               Import Data
             </CardTitle>
             <CardDescription>
@@ -125,10 +125,10 @@ const ImportExportPage: React.FC = () => {
             <div className="space-y-2">
               <Label htmlFor="import-type">Data Type</Label>
               <Select>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select data type to import" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent >
                   <SelectItem value="leads">Leads</SelectItem>
                   <SelectItem value="properties">Properties</SelectItem>
                   <SelectItem value="contacts">Contacts</SelectItem>
@@ -145,6 +145,7 @@ const ImportExportPage: React.FC = () => {
                 accept=".csv,.xlsx,.xls,.json"
                 onChange={handleFileUpload}
                 disabled={isUploading}
+                className="w-full"
               />
               <p className="text-xs text-muted-foreground">
                 Supported formats: CSV, Excel (.xlsx, .xls), JSON
@@ -153,7 +154,7 @@ const ImportExportPage: React.FC = () => {
 
             {isUploading && (
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs sm:text-sm">
                   <span>Uploading...</span>
                   <span>{uploadProgress}%</span>
                 </div>
@@ -161,12 +162,12 @@ const ImportExportPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex gap-2">
-              <Button disabled={isUploading}>
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={isUploading} className="w-full sm:w-auto">
                 <Upload className="mr-2 h-4 w-4" />
                 Import Data
               </Button>
-              <Button variant="outline">
+              <Button variant="outline" className="w-full sm:w-auto">
                 <FileText className="mr-2 h-4 w-4" />
                 Download Template
               </Button>
@@ -177,8 +178,8 @@ const ImportExportPage: React.FC = () => {
         {/* Export Section */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Download className="h-5 w-5 sm:h-6 sm:w-6" />
               Export Data
             </CardTitle>
             <CardDescription>
@@ -188,12 +189,12 @@ const ImportExportPage: React.FC = () => {
           <CardContent className="space-y-4">
             <div className="space-y-3">
               {exportTemplates.map((template) => (
-                <div key={template.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{template.name}</p>
-                    <p className="text-sm text-muted-foreground">{template.description}</p>
+                <div key={template.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm sm:text-base truncate">{template.name}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{template.description}</p>
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
                     <Download className="mr-2 h-3 w-3" />
                     Export
                   </Button>
@@ -204,10 +205,10 @@ const ImportExportPage: React.FC = () => {
             <div className="space-y-2">
               <Label htmlFor="export-format">Export Format</Label>
               <Select>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select export format" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent >
                   <SelectItem value="csv">CSV</SelectItem>
                   <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
                   <SelectItem value="json">JSON</SelectItem>
@@ -222,7 +223,7 @@ const ImportExportPage: React.FC = () => {
       {/* Recent Imports */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Imports</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">Recent Imports</CardTitle>
           <CardDescription>
             History of recent data import operations
           </CardDescription>
@@ -230,21 +231,23 @@ const ImportExportPage: React.FC = () => {
         <CardContent>
           <div className="space-y-3">
             {recentImports.map((importItem) => (
-              <div key={importItem.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-3">
+              <div key={importItem.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border rounded-lg">
+                <div className="flex items-start sm:items-center gap-3 min-w-0">
                   {getStatusIcon(importItem.status)}
-                  <div>
-                    <p className="font-medium">{importItem.filename}</p>
-                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                      <span>{importItem.type}</span>
-                      <span>•</span>
-                      <span>{importItem.records} records</span>
-                      <span>•</span>
-                      <span>{importItem.date}</span>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm sm:text-base break-words sm:truncate">
+                      {importItem.filename}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-muted-foreground">
+                      <span className="whitespace-nowrap">{importItem.type}</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="whitespace-nowrap">{importItem.records} records</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="whitespace-nowrap">{importItem.date}</span>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {importItem.errors > 0 && (
                     <Badge variant="destructive">{importItem.errors} errors</Badge>
                   )}
