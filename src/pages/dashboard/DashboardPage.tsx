@@ -369,22 +369,32 @@ const DashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {getGreeting()}, {user?.first_name ?? 'User'}!
-          </h1>
-          <p className="text-gray-600">Here's what's happening with your business today.</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <Link to="/dashboard/leads">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Lead
-            </Button>
-          </Link>
-        </div>
-      </div>
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+  {/* Left: Greeting */}
+  <div className="min-w-0">
+    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
+      {getGreeting()}, {user?.first_name ?? 'User'}!
+    </h1>
+    <p className="text-gray-600 text-sm sm:text-base">
+      Here's what's happening with your business today.
+    </p>
+  </div>
+
+  {/* Right: Actions */}
+ <div className="w-full sm:w-auto">
+  <Link to="/dashboard/leads" className="block w-full sm:w-auto">
+    <Button
+      className="w-full sm:w-auto justify-center"
+      aria-label="Add Lead"
+    >
+      <Plus className="h-4 w-4 mr-2" />
+      Add Lead
+    </Button>
+  </Link>
+</div>
+
+</div>
+
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

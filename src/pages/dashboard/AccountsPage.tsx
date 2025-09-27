@@ -528,59 +528,69 @@ const AccountsPage: React.FC = () => {
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl">
-              <Receipt className="text-white" size={24} />
-            </div>
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+  {/* Left Side */}
+  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+    <div className="p-3 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl">
+      <Receipt className="text-white" size={24} />
+    </div>
+    <div>
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+        Accounts Management
+      </h1>
+      <p className="text-gray-600 text-sm sm:text-base mt-1">
+        Complete financial document management with ledger tracking
+      </p>
+    </div>
+  </div>
+
+  {/* Right Side (Dropdown) */}
+  <div className="flex items-start sm:items-center justify-end">
+    <div className="relative group">
+      <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base">
+        <Plus size={16} />
+        <span>Create Document</span>
+      </button>
+
+      {/* Dropdown Menu */}
+      <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 w-64">
+        <div className="p-2">
+          <button
+            onClick={handleCreateInvoice}
+            className="flex items-start space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
+          >
+            <FileText className="text-purple-600 mt-1" size={16} />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Accounts Management</h1>
-              <p className="text-gray-600 mt-1">Complete financial document management with ledger tracking</p>
+              <div className="font-medium">Brokerage Invoice</div>
+              <div className="text-xs text-gray-500">Commission invoice to client</div>
             </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="relative group">
-              <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                <Plus size={16} />
-                <span>Create Document</span>
-              </button>
-              <div className="absolute right-0 top-12 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 w-56">
-                <div className="p-2">
-                  <button
-                    onClick={handleCreateInvoice}
-                    className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
-                  >
-                    <FileText className="text-purple-600" size={16} />
-                    <div>
-                      <div className="font-medium">Brokerage Invoice</div>
-                      <div className="text-xs text-gray-500">Commission invoice to client</div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={handleCreateReceipt}
-                    className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
-                  >
-                    <Receipt className="text-green-600" size={16} />
-                    <div>
-                      <div className="font-medium">Brokerage Receipt</div>
-                      <div className="text-xs text-gray-500">Commission payment received</div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={handleCreateReceipt}
-                    className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
-                  >
-                    <CreditCard className="text-orange-600" size={16} />
-                    <div>
-                      <div className="font-medium">Property Payment Receipt</div>
-                      <div className="text-xs text-gray-500">Property payment acknowledgment</div>
-                    </div>
-                  </button>
-                </div>
-              </div>
+          </button>
+          <button
+            onClick={handleCreateReceipt}
+            className="flex items-start space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
+          >
+            <Receipt className="text-green-600 mt-1" size={16} />
+            <div>
+              <div className="font-medium">Brokerage Receipt</div>
+              <div className="text-xs text-gray-500">Commission payment received</div>
             </div>
-          </div>
+          </button>
+          <button
+            onClick={handleCreateReceipt}
+            className="flex items-start space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
+          >
+            <CreditCard className="text-orange-600 mt-1" size={16} />
+            <div>
+              <div className="font-medium">Property Payment Receipt</div>
+              <div className="text-xs text-gray-500">Property payment acknowledgment</div>
+            </div>
+          </button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">

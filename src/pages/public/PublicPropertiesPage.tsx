@@ -1057,7 +1057,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="  py-5 pt-28"
-       style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
+        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h2 className="text-3xl font-bold mb-3 text-[#E6761D]">Explore Premium Properties</h2>
@@ -1065,30 +1065,36 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
               Discover verified properties from trusted sellers across top locations
             </p>
             {/* Compact Buy / Rent + property-type buttons row (HomePage-style) */}
-            <div className="mt-2 flex items-center gap-3 mb-2 justify-center">
-              <button
-                type="button"
-                onClick={() => setTransactionType('buy')}
-                className={`px-4 py-1 rounded-full ${transactionType === 'buy' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-              >
-                Buy
-              </button>
+            <div className="flex flex-col items-center gap-3 mb-6 md:flex-row md:justify-center">
+              <div className='flex gap-2'>
 
-              <button
-                type="button"
-                onClick={() => setTransactionType('rent')}
-                className={`px-4 py-1 rounded-full ${transactionType === 'rent' ? 'bg-gray-300 text-gray-600' : 'bg-gray-100 text-gray-700'}`}
-                title="Rent search not available yet"
-              >
-                Rent
-              </button>
 
+                <button
+                  type="button"
+                  onClick={() => setTransactionType("buy")}
+                  className={`px-4 py-1 rounded-full ${transactionType === "buy"
+                    ? "bg-[#E6761D] text-white"
+                    : "bg-gray-100 text-gray-700"
+                    }`}
+                >
+                  Buy
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTransactionType('rent')}
+                  className={`px-4 py-1 rounded-full ${transactionType === 'rent' ? 'bg-gray-300 text-gray-600' : 'bg-gray-100 text-gray-700'}`}
+                  title="Rent search not available yet"
+                >
+                  Rent
+                </button>
+              </div>
               {/* property-type buttons group (horizontal scrollable) */}
               <div className="ml-2 flex items-center">
                 {masterLoading ? (
                   <div className="text-sm text-white/80 px-3 py-1">Loading types...</div>
                 ) : (
-                  <div className="flex gap-2 overflow-x-auto py-1 max-w-[52vw]">
+                  <div className="flex gap-2 overflow-x-auto py-1 ">
                     <button
                       type="button"
                       onClick={() => handlePropertyTypeButton('')}
@@ -1117,7 +1123,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             {/* HEADER SEARCH: HomePage-style (city dropdown, locality chips, property type, search) */}
             <form
               onSubmit={handleHeaderSearchSubmit}
-              className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-2 shadow-xl max-w-5xl mx-auto"
+              className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-2 shadow-xl max-w-4xl mx-auto"
             >
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
                 {/* City dropdown */}
@@ -1141,14 +1147,14 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                focus:outline-none focus:ring-1 focus:ring-white
                disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <option value="" className="bg-gray-900 text-white">
+                    <option value="" className="bg-[#0b3856] text-white">
                       {masterLoading ? "Loading cities..." : "Select City"}
                     </option>
                     {cityOptions.map((o) => (
                       <option
                         key={o.value}
                         value={o.value}
-                        className="bg-gray-900 text-white"
+                        className="bg-[#0b3856] text-white"
                       >
                         {o.label}
                       </option>
@@ -1158,7 +1164,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
 
                 {/* Localities input + Add button (with autosuggest) */}
-                <div className="relative md:col-span-3 flex items-center gap-2 bg-white/30 border border-gray-200 rounded-xl ">
+                <div className="relative md:col-span-3 flex items-center gap-2 bg-[#0b3856] border border-gray-200 rounded-xl ">
                   {/* Search Icon + Input */}
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white" size={16} />
@@ -1197,7 +1203,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                       <ul
                         role="listbox"
                         className="absolute left-0 right-0 mt-1 max-h-32 lg:max-w-60 overflow-auto 
-               bg-gray-700 border rounded-lg shadow-lg z-[200] custom-scroll"
+               bg-[#0b3856] border rounded-lg shadow-lg z-[200] custom-scroll"
                       >
                         {suggestions.map((s, idx) => (
                           <li
@@ -1218,21 +1224,23 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                   </div>
 
                   {/* Add Button */}
-                  <button
+                  {/* <button
                     type="button"
                     onClick={() => addLocality()}
-                    disabled={localities.length >= 5}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-blue-600/90 text-white px-3 py-1 rounded-lg text-sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 
+             bg-[#0b3856] hover:bg-[#0c3854] 
+             text-white px-3 py-1 rounded-lg text-sm 
+             transition-colors duration-300"
                   >
                     Add
-                  </button>
+                  </button> */}
                 </div>
 
                 {/* Search button */}
                 <div className="md:col-span-1 flex items-center">
                   <button
                     type="submit"
-                    className="w-full h-10 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-medium shadow hover:opacity-90"
+                    className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg w-full md:w-28 text-base transition-colors duration-300"
                   >
                     Search
                   </button>
@@ -1274,20 +1282,28 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       </div>
 
       {/* AI Recommendations */}
-      {showAIRecommendations && !loading && allProperties.length > 0 && (
-        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white py-1">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Bot className="text-yellow-300" size={20} />
-                <span className="font-semibold">AI Recommendations:</span>
-                <span className="text-sm">Found {allProperties.length} properties. {selectedLocation || 'Top areas'} show strong growth potential</span>
-              </div>
-              <button onClick={() => setShowAIRecommendations(false)} className="text-white hover:bg-white hover:bg-opacity-20 px-2 py-1 rounded">×</button>
-            </div>
-          </div>
+     {showAIRecommendations && !loading && allProperties.length > 0 && (
+  <div className="bg-gradient-to-r from-[#E6761D] via-[#CC6A1A] via-[#0b3856] to-[#0c3854] text-white py-1 transition-colors duration-200">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <Bot className="text-yellow-300 drop-shadow-md" size={20} />
+          <span className="font-semibold">AI Recommendations:</span>
+          <span className="text-sm">
+            Found {allProperties.length} properties. {selectedLocation || 'Top areas'} show strong growth potential
+          </span>
         </div>
-      )}
+        <button
+          onClick={() => setShowAIRecommendations(false)}
+          className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2 py-1 rounded transition-colors duration-200"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Advanced Filters: toggled under header — use ref to scroll into view */}
@@ -1573,57 +1589,57 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         </div>
 
                         <div className="flex items-center space-x-2">
-  {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
-    <div className="flex-1">
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          handleNavigateToProperty(property);
-        }}
-        className="w-full bg-[#E6761D] hover:bg-[#CC6A1A] text-white py-2 px-3 rounded-lg font-medium transition-colors duration-300 text-sm shadow-md"
-      >
-        View Details
-      </button>
-    </div>
-  ) : (
-    <button
-      disabled
-      aria-disabled="true"
-      title="Details not available – missing backend slug"
-      className="w-full bg-gray-300 text-gray-600 py-2 px-3 rounded-lg cursor-not-allowed text-sm"
-    >
-      View Details
-    </button>
-  )}
-{/* Call Button */}
-<button
-  onClick={(e) => {
-    e.stopPropagation();
-    window.open(`tel:${property.agent?.phone}`);
-  }}
-  className="p-2 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
->
-  <Phone size={16} />
-</button>
+                          {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
+                            <div className="flex-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleNavigateToProperty(property);
+                                }}
+                                className="w-full bg-[#E6761D] hover:bg-[#CC6A1A] text-white py-2 px-3 rounded-lg font-medium transition-colors duration-300 text-sm shadow-md"
+                              >
+                                View Details
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              disabled
+                              aria-disabled="true"
+                              title="Details not available – missing backend slug"
+                              className="w-full bg-gray-300 text-gray-600 py-2 px-3 rounded-lg cursor-not-allowed text-sm"
+                            >
+                              View Details
+                            </button>
+                          )}
+                          {/* Call Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(`tel:${property.agent?.phone}`);
+                            }}
+                            className="p-2 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
+                          >
+                            <Phone size={16} />
+                          </button>
 
 
-{/* WhatsApp Button */}
-<button
-  onClick={(e) => {
-    e.stopPropagation();
-    const message = `Hi, I'm interested in ${property.title} at ${property.location}. Price: ${formatCurrency(property.price)}. Can you share more details?`;
-    window.open(
-      `https://wa.me/${(property.agent?.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(message)}`,
-      '_blank'
-    );
-  }}
-  className="p-2 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
->
-  <FaWhatsapp size={16} />
-</button>
+                          {/* WhatsApp Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const message = `Hi, I'm interested in ${property.title} at ${property.location}. Price: ${formatCurrency(property.price)}. Can you share more details?`;
+                              window.open(
+                                `https://wa.me/${(property.agent?.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(message)}`,
+                                '_blank'
+                              );
+                            }}
+                            className="p-2 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
+                          >
+                            <FaWhatsapp size={16} />
+                          </button>
 
 
-</div>
+                        </div>
 
                       </div>
                     </div>

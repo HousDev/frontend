@@ -266,13 +266,13 @@ const ImageWithDebug: React.FC<{
       style={{ objectFit: fitCover ? 'cover' : undefined }}
       onLoad={() => {
         if (import.meta.env?.MODE !== 'production') {
-          console.log('[IMG OK]', {
-            title: propertyCtx?.title,
-            propertyId: propertyCtx?.propertyId,
-            original: srcCandidate,
-            resolved,
-            fileBase: FILE_BASE
-          });
+          // console.log('[IMG OK]', {
+          //   title: propertyCtx?.title,
+          //   propertyId: propertyCtx?.propertyId,
+          //   original: srcCandidate,
+          //   resolved,
+          //   fileBase: FILE_BASE
+          // });
         }
       }}
       onError={() => {
@@ -331,12 +331,12 @@ function normalizeFurnishingItems(r: any): string[] {
     )
   );
 
-  if (import.meta.env?.MODE !== 'production') {
-    console.groupCollapsed('[FURNISH NORMALIZE]');
-    console.log('incoming', furnishingItemsRaw);
-    console.log('normalized', items);
-    console.groupEnd();
-  }
+  // if (import.meta.env?.MODE !== 'production') {
+  //   console.groupCollapsed('[FURNISH NORMALIZE]');
+  //   console.log('incoming', furnishingItemsRaw);
+  //   console.log('normalized', items);
+  //   console.groupEnd();
+  // }
 
   return items;
 }
@@ -359,26 +359,26 @@ function normalizeProperty(r: any, idx: number): UIProperty {
 
   const furnishingItems = normalizeFurnishingItems(r);
 
-  if (import.meta.env?.MODE !== 'production') {
-    console.groupCollapsed('[NORMALIZE PROPERTY]', r?.id ?? idx + 1);
-    console.log({
-      id: r?.id ?? idx + 1,
-      propertyId: r?.property_id,
-      incomingPhotos: r?.photos,
-      ownershipDocPath: r?.ownership_doc_path,
-      ownershipDocName: r?.ownership_doc_name,
-      ownershipDocId: r?.ownership_doc_id,
-      ownershipDocUrl: r?.ownershipDocUrl,
-      ownershipDocument: r?.ownership_document,
-      incomingPhotoUrls: r?.photoUrls,
-      normalizedPhotos,
-      incomingFurnishingItems:
-        r?.furnishingItems ?? r?.furnishing_items ?? r?.furnished_items ?? r?.furnishing_details ?? r?.furnishing_list ?? r?.furnishingItem ?? r?.furnishing_item ?? r?.furnishing,
-      normalizedFurnishingItems: furnishingItems,
-      note: 'Photo paths normalized to absolute URLs; furnishingItems coerced; ownership doc mapped.',
-    });
-    console.groupEnd();
-  }
+  // if (import.meta.env?.MODE !== 'production') {
+  //   console.groupCollapsed('[NORMALIZE PROPERTY]', r?.id ?? idx + 1);
+  //   console.log({
+  //     id: r?.id ?? idx + 1,
+  //     propertyId: r?.property_id,
+  //     incomingPhotos: r?.photos,
+  //     ownershipDocPath: r?.ownership_doc_path,
+  //     ownershipDocName: r?.ownership_doc_name,
+  //     ownershipDocId: r?.ownership_doc_id,
+  //     ownershipDocUrl: r?.ownershipDocUrl,
+  //     ownershipDocument: r?.ownership_document,
+  //     incomingPhotoUrls: r?.photoUrls,
+  //     normalizedPhotos,
+  //     incomingFurnishingItems:
+  //       r?.furnishingItems ?? r?.furnishing_items ?? r?.furnished_items ?? r?.furnishing_details ?? r?.furnishing_list ?? r?.furnishingItem ?? r?.furnishing_item ?? r?.furnishing,
+  //     normalizedFurnishingItems: furnishingItems,
+  //     note: 'Photo paths normalized to absolute URLs; furnishingItems coerced; ownership doc mapped.',
+  //   });
+  //   console.groupEnd();
+  // }
 
   return {
     id: r.id ?? idx + 1,
@@ -554,7 +554,7 @@ useEffect(() => {
         setMasterLoading(true);
         const data = await getMasterDropdownOptions(['common', 'lead', 'property']);
         setMasters(data);
-        console.log("Fetched master data:", data);
+       
       } catch (err) {
         console.error('Error fetching master options:', err);
       } finally {
@@ -616,14 +616,14 @@ useEffect(() => {
       for (let attempt = 0; attempt < 3 && !data; attempt++) {
         try {
           if (import.meta.env?.MODE !== 'production') {
-            console.log(`[LOAD] attempt ${attempt + 1}/3`);
+            // console.log(`[LOAD] attempt ${attempt + 1}/3`);
           }
           data = await fetchPropertiesOnce();
         }
         catch (e: any) {
           lastErr = e;
           if (import.meta.env?.MODE !== 'production') {
-            console.warn(`[LOAD] attempt ${attempt + 1} failed:`, e?.message || e);
+            // console.warn(`[LOAD] attempt ${attempt + 1} failed:`, e?.message || e);
           }
           if (attempt < 2) await sleep(600 * (attempt + 1));
         }
@@ -631,7 +631,7 @@ useEffect(() => {
       if (!data) throw lastErr ?? new Error('Unknown fetch error');
       setProperties(data);
       if (import.meta.env?.MODE !== 'production') {
-        console.log('[LOAD DONE] properties:', data.length);
+        // console.log('[LOAD DONE] properties:', data.length);
       }
     } catch (e: any) {
       console.error('Error fetching properties:', e);
@@ -702,7 +702,7 @@ useEffect(() => {
       return matchesSearch && matchesTab && matchesFilters;
     });
     if (import.meta.env?.MODE !== 'production') {
-      console.debug('[FILTERED]', { total: properties.length, filtered: out.length, activeTab, searchTerm, filters });
+      // console.debug('[FILTERED]', { total: properties.length, filtered: out.length, activeTab, searchTerm, filters });
     }
     return out;
   }, [properties, searchTerm, activeTab, filters]);

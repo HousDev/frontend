@@ -578,6 +578,7 @@ import { Phone, Mail, MapPin, Users, MessageSquare } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { connectedRemarkAPI } from "@/lib/connectedRemarkAPI";
 import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
+import toast from "react-hot-toast";
 
 /* ===================== Types ===================== */
 export type FollowupForm = {
@@ -805,7 +806,7 @@ const FollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, leadId
                     setPriorityOptions(data["lead priority"]);
                 }
             } catch (err) {
-                console.error("❌ Error fetching lead priority:", err);
+                toast.error("❌ Error fetching lead priority:", err);
             }
         };
         if (isOpen) fetchPriorities();
@@ -840,7 +841,7 @@ const FollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, leadId
                     setAvailableRemarks([]);
                 }
             } catch (e) {
-                console.error("Failed to load follow-up options:", e);
+                toast.error("Failed to load follow-up options:", e);
                 setError("Failed to load follow-up options.");
                 setApiData([]);
                 setAvailableStages([]);
@@ -922,8 +923,8 @@ const FollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, leadId
             onSave(payload);        // parent does optimistic update
             onClose();              // ✅ close instantly (no await)
         } catch (err) {
-            console.error("Save failed:", err);
-            alert("Failed to save follow-up. Please try again.");
+            toast.error("Save failed:", err);
+            
             setSubmitting(false);
             return;
         }

@@ -215,28 +215,37 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">RSS Source Management</h2>
-            <p className="text-gray-600">Manage and monitor RSS feeds for automatic blog content</p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-            >
-              <Plus size={18} />
-              <span>Add Source</span>
-            </button>
-            <button
-              onClick={onSync}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-            >
-              <RefreshCw size={18} />
-              <span>Sync All</span>
-            </button>
-          </div>
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+  {/* Title + Subtitle */}
+  <div>
+    <h2 className="text-2xl font-bold text-gray-900 mb-2 sm:mb-1">
+      RSS Source Management
+    </h2>
+    <p className="text-gray-600">
+      Manage and monitor RSS feeds for automatic blog content
+    </p>
+  </div>
+
+  {/* Buttons */}
+  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+    <button
+      onClick={() => setShowAddForm(true)}
+      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 w-full sm:w-auto"
+    >
+      <Plus size={18} />
+      <span>Add Source</span>
+    </button>
+
+    <button
+      onClick={onSync}
+      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 w-full sm:w-auto"
+    >
+      <RefreshCw size={18} />
+      <span>Sync All</span>
+    </button>
+  </div>
+</div>
+
 
         {/* RSS Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

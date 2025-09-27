@@ -889,8 +889,8 @@ const handleBellClick = useCallback(async () => {
 
         {/* Main content with blue gradient background */}
         <main className="flex-1 overflow-y-auto focus:outline-none bg-gradient-to-br from-blue-50/30 via-slate-50 to-blue-100/20">
-          <div className="py-8">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="px-4">
+            <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
               <Outlet />
             </div>
           </div>

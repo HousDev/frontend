@@ -1313,22 +1313,23 @@ const IntegrationsPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="py-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link to="/dashboard/settings">
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Settings
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Integrations</h1>
-            <p className="text-gray-600 mt-1">Connect with third-party services and tools</p>
-          </div>
-        </div>
-      </div>
+     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+  <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
+    <Link to="/dashboard/settings">
+      <Button variant="outline" className="flex items-center">
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back to Settings
+      </Button>
+    </Link>
+    <div>
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Integrations</h1>
+      <p className="text-gray-600 mt-1 text-sm sm:text-base">Connect with third-party services and tools</p>
+    </div>
+  </div>
+</div>
+
 
       {/* Category Filter */}
       <div className="bg-white rounded-lg shadow p-6">

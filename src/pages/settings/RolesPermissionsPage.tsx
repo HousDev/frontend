@@ -226,7 +226,7 @@ const RolesPermissionsPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="py-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         {/* Left side: Back + Title */}
@@ -238,11 +238,11 @@ const RolesPermissionsPage: React.FC = () => {
             </Button>
           </Link>
 
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+          <div className='mb-1'>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 ">
               Roles & Permissions
             </h1>
-            <p className="text-gray-600 mt-1 text-sm sm:text-base">
+            <p className="text-gray-600  text-xs ">
               Manage user roles and their access permissions
             </p>
           </div>

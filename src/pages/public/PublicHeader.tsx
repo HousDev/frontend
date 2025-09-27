@@ -221,7 +221,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                   alt={`${companyName} Logo`}
                   className={cn(
                     'h-16 w-auto object-contain rounded-lg p-1 transition-shadow',
-                    isSolid ? 'bg-white shadow-sm' : 'bg-white/10 backdrop-blur-sm'
+                    isSolid ? '' : ' '
                   )}
                 />
               ) : (
@@ -388,7 +388,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                 <div className="flex items-center space-x-4">
                   <Link
                     to={dashboardHref}
-                    className="flex items-center space-x-2 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-md hover:shadow-lg"
+                    className="hidden sm:flex items-center space-x-2 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-md hover:shadow-lg"
                     style={{ backgroundColor: colors.navText }}
                   >
                     <UserIcon className="h-4 w-4" />
@@ -408,7 +408,8 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                         borderColor: `${colors.brand}4D`,
                       }}
                     >
-                      <UserIcon style={{ color: colors.navText }} size={16} />
+                    <UserIcon size={16} style={{ color: "#ff5722" }} />
+
                     </button>
 
                     {isUserDropdownOpen && (

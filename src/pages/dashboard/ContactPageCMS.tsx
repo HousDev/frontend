@@ -952,8 +952,8 @@ const ContactPageCMS = () => {
                                         <div key={index} className="bg-white rounded-xl p-6 shadow-lg">
                                             <div className="flex items-start space-x-4">
                                                 <div className={`p-3 rounded-xl ${info.color === 'green' ? 'bg-green-500' :
-                                                        info.color === 'blue' ? 'bg-blue-500' :
-                                                            info.color === 'purple' ? 'bg-purple-500' : 'bg-orange-500'
+                                                    info.color === 'blue' ? 'bg-blue-500' :
+                                                        info.color === 'purple' ? 'bg-purple-500' : 'bg-orange-500'
                                                     }`}>
                                                     <IconComponent className="text-white" size={20} />
                                                 </div>
@@ -996,36 +996,48 @@ const ContactPageCMS = () => {
             {/* Header */}
             <div className="bg-white shadow-sm border-b">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
-                        <div className="flex items-center space-x-4">
-                            <Phone className="text-blue-600" size={24} />
-                            <h1 className="text-xl font-semibold text-gray-900">Contact Page Management</h1>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-3">
+                        {/* Left: Title */}
+                        <div className="flex items-center space-x-3 min-w-0">
+                            <Phone className="text-blue-600 shrink-0" size={24} />
+                            <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
+                                Contact Page Management
+                            </h1>
                         </div>
-                        <div className="flex items-center space-x-3">
+
+                        {/* Right: Actions */}
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                             <button
-                                onClick={() => document.getElementById('import-file').click()}
-                                className="flex items-center space-x-2 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+                                onClick={() => document.getElementById('import-file')?.click()}
+                                className="flex items-center justify-center space-x-2 px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 w-full sm:w-auto whitespace-nowrap"
+                                aria-label="Import"
                             >
                                 <Upload size={16} />
                                 <span>Import</span>
                             </button>
+
                             <button
                                 onClick={handleExportData}
-                                className="flex items-center space-x-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                                className="flex items-center justify-center space-x-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full sm:w-auto whitespace-nowrap"
+                                aria-label="Export"
                             >
                                 <FileText size={16} />
                                 <span>Export</span>
                             </button>
+
                             <button
                                 onClick={() => setIsPreviewMode(true)}
-                                className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                                className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 w-full sm:w-auto whitespace-nowrap"
+                                aria-label="Preview"
                             >
                                 <Eye size={16} />
                                 <span>Preview</span>
                             </button>
+
                             <button
                                 onClick={handleSave}
-                                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                                className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 w-full sm:w-auto whitespace-nowrap"
+                                aria-label="Save Changes"
                             >
                                 <Save size={16} />
                                 <span>Save Changes</span>
@@ -1034,6 +1046,7 @@ const ContactPageCMS = () => {
                     </div>
                 </div>
             </div>
+
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -1049,8 +1062,8 @@ const ContactPageCMS = () => {
                                             key={section.id}
                                             onClick={() => setActiveSection(section.id)}
                                             className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${activeSection === section.id
-                                                    ? 'bg-blue-100 text-blue-700 border-l-4 border-blue-600'
-                                                    : 'text-gray-600 hover:bg-gray-100'
+                                                ? 'bg-blue-100 text-blue-700 border-l-4 border-blue-600'
+                                                : 'text-gray-600 hover:bg-gray-100'
                                                 }`}
                                         >
                                             <Icon size={20} />
@@ -1063,22 +1076,31 @@ const ContactPageCMS = () => {
                     </div>
 
                     {/* Main Content */}
-                    <div className="lg:col-span-3">
-                        <div className="bg-white rounded-xl shadow-lg p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-lg font-semibold text-gray-900">
-                                    {sections.find(s => s.id === activeSection)?.name || 'Content Management'}
-                                </h2>
-                                <div className="flex items-center space-x-2">
-                                    <Settings className="text-gray-400" size={20} />
-                                </div>
-                            </div>
+                   <div className="lg:col-span-3">
+  <div className="bg-white rounded-xl shadow-lg p-6">
+    {/* Header */}
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+      <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
+        {sections.find(s => s.id === activeSection)?.name || "Content Management"}
+      </h2>
 
-                            <div className="max-h-screen overflow-y-auto">
-                                {renderContent()}
-                            </div>
-                        </div>
-                    </div>
+      <div className="flex items-center justify-end sm:justify-start space-x-2">
+        <button
+          className="p-2 rounded-lg hover:bg-gray-100 transition"
+          aria-label="Settings"
+        >
+          <Settings className="text-gray-500" size={20} />
+        </button>
+      </div>
+    </div>
+
+    {/* Content */}
+    <div className="max-h-[70vh] lg:max-h-screen overflow-y-auto">
+      {renderContent()}
+    </div>
+  </div>
+</div>
+
                 </div>
             </div>
         </div>
