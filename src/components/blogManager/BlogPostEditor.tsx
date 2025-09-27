@@ -37,6 +37,7 @@ const categories = [
   'Home Buying', 'Home Selling', 'Property News', 'Construction', 'Finance'
 ];
 
+
 const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
   post, onSave, onCancel, isOpen, currentUserName, lockAuthor = false
 }) => {
@@ -238,11 +239,11 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
 
       onSave(responseData);
       setFormData(prev => ({ ...prev, ...(responseData || {}) }));
-      alert(`Post ${status === 'published' ? 'published' : 'saved as draft'} successfully.`);
+  
     } catch (err: any) {
       console.error('Error saving post', err);
       setError(err?.message || 'Failed to save post. Please try again.');
-      alert(`Error: ${err?.message || 'Failed to save post.'}`);
+     
     } finally {
       setSaving(false);
     }
