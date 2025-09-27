@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import { contactsAPI } from '@/lib/contactsAPI'; 
+import { FaWhatsapp } from 'react-icons/fa';
 
 const ContactUsPage = () => {
   const [formData, setFormData] = useState({
@@ -199,10 +200,11 @@ const ContactUsPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-3">
+      <section className=" py-3 pt-28"
+       style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-3">
+            <h2 className="text-3xl font-bold mb-3 text-[#E6761D]">
               Get in Touch
             </h2>
             <p className="text-lg  mb-2 text-blue-100 max-w-3xl mx-auto">
@@ -210,15 +212,15 @@ const ContactUsPage = () => {
             </p>
             <div className="flex items-center justify-center space-x-8 mt-6">
               <div className="text-center">
-                <div className="text-xl font-bold mb-2">2-4 Hours</div>
+                <div className="text-xl font-bold mb-2 text-[#E6761D]">2-4 Hours</div>
                 <div className="text-blue-200">Response Time</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold mb-2">24/7</div>
+                <div className="text-xl font-bold mb-2 text-[#E6761D]">24/7</div>
                 <div className="text-blue-200">Support Available</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold mb-2">98%</div>
+                <div className="text-xl font-bold mb-2 text-[#E6761D]">98%</div>
                 <div className="text-blue-200">Satisfaction Rate</div>
               </div>
             </div>
@@ -234,7 +236,7 @@ const ContactUsPage = () => {
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Send us a Message</h2>
+                  <h2 className="text-2xl font-bold text-[#E6761D] mb-2">Send us a Message</h2>
                   <p className="text-gray-600">
                     Fill out the form below and we'll get back to you within 24 hours with personalized assistance.
                   </p>
@@ -369,7 +371,7 @@ const ContactUsPage = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-semibold flex items-center justify-center space-x-2 disabled:opacity-50"
+                  className="w-full bg-[#E6761D] hover:bg-[#CC6A1A] text-white py-4 px-6 rounded-lg  transition-all font-semibold flex items-center justify-center space-x-2 disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>
@@ -389,7 +391,7 @@ const ContactUsPage = () => {
             {/* Contact Information */}
             <div className="space-y-8">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
+                <h2 className="text-2xl font-bold  mb-6 text-[#E6761D]">Contact Information</h2>
                 <p className="text-gray-600 mb-8">
                   Multiple ways to reach us. Choose what works best for you.
                 </p>
@@ -405,7 +407,7 @@ const ContactUsPage = () => {
                           <Icon className="text-white" size={20} />
                         </div>
                         <div>
-                          <h3 className="text-xl font-bold text-gray-900 mb-2">{info.title}</h3>
+                          <h3 className="text-xl font-bold text-[#E6761D] mb-2">{info.title}</h3>
                           <div className="space-y-1">
                             {info.details.map((detail, i) => (
                               <p key={i} className="text-gray-700 font-medium">{detail}</p>
@@ -420,25 +422,37 @@ const ContactUsPage = () => {
               </div>
 
               {/* Quick Contact Buttons */}
-              <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-6 text-white">
-                <h3 className="text-xl font-bold mb-4">Need Immediate Assistance?</h3>
-                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
-                  <button
-                    onClick={() => window.open('tel:+919999999999')}
-                    className="flex-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center space-x-2"
-                  >
-                    <Phone size={18} />
-                    <span>Call Now</span>
-                  </button>
-                  <button
-                    onClick={() => window.open('https://wa.me/919999999999', '_blank')}
-                    className="flex-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center space-x-2"
-                  >
-                    <MessageCircle size={18} />
-                    <span>WhatsApp</span>
-                  </button>
-                </div>
-              </div>
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-6 text-white">
+  <h3 className="text-xl font-bold mb-4">Need Immediate Assistance?</h3>
+  <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+    {/* Call = Call-green */}
+    <button
+      onClick={() => window.open('tel:+919999999999')}
+      aria-label="Call Now"
+      className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 
+                 text-white py-3 px-4 rounded-lg font-semibold
+                 transition-colors duration-300 flex items-center justify-center space-x-2
+                 focus:outline-none focus:ring-2 focus:ring-white/30"
+    >
+      <Phone size={18} />
+      <span>Call Now</span>
+    </button>
+
+    {/* WhatsApp = WhatsApp-green */}
+    <button
+      onClick={() => window.open('https://wa.me/919999999999', '_blank')}
+      aria-label="WhatsApp"
+      className="flex-1 bg-[#25D366] hover:bg-[#1ebe57] active:bg-[#19a94d]
+                 text-white py-3 px-4 rounded-lg font-semibold 
+                 transition-colors duration-300 flex items-center justify-center space-x-2
+                 focus:outline-none focus:ring-2 focus:ring-white/30"
+    >
+      <FaWhatsapp size={18} />
+      <span>WhatsApp</span>
+    </button>
+  </div>
+</div>
+
             </div>
           </div>
         </div>
@@ -448,7 +462,7 @@ const ContactUsPage = () => {
       <section className="py-3 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Our Office Locations</h2>
+            <h2 className="text-2xl font-bold  mb-4 text-[#E6761D]">Our Office Locations</h2>
             <p className="text-xl text-gray-600">Visit us at our offices across major cities</p>
           </div>
 
@@ -459,7 +473,7 @@ const ContactUsPage = () => {
                   <div className="p-2 bg-blue-100 rounded-lg">
                     <Building className="text-blue-600" size={20} />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900">{office.city}</h3>
+                  <h3 className="text-xl font-bold text-[#E6761D]">{office.city}</h3>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-start space-x-2">
@@ -475,7 +489,7 @@ const ContactUsPage = () => {
                     <p className="text-gray-700">{office.email}</p>
                   </div>
                 </div>
-                <button className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                <button className="w-full mt-4 bg-[#E6761D] hover:bg-[#CC6A1A] text-white py-2 px-4 rounded-lg  transition-colors">
                   Get Directions
                 </button>
               </div>
@@ -495,7 +509,7 @@ const ContactUsPage = () => {
           <div className="space-y-6">
             {faqs.map((faq, index) => (
               <div key={index} className="bg-white rounded-xl shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">{faq.question}</h3>
+                <h3 className="text-lg font-semibold text-[#E6761D] mb-3">{faq.question}</h3>
                 <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
               </div>
             ))}
@@ -504,10 +518,11 @@ const ContactUsPage = () => {
       </section>
 
       {/* Social Media & Additional Contact */}
-      <section className="py-3 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+      <section className="py-3  text-white"
+       style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-6">Stay Connected</h2>
+            <h2 className="text-2xl font-bold mb-6 text-[#E6761D]">Stay Connected</h2>
             <p className="text-lg text-blue-100 mb-8 max-w-2xl mx-auto">
               Follow us on social media for the latest updates, property listings, and real estate tips
             </p>
@@ -535,7 +550,7 @@ const ContactUsPage = () => {
             </div>
 
             <div className="bg-white bg-opacity-10 rounded-2xl p-8 backdrop-blur-sm">
-              <h3 className="text-2xl font-bold mb-4">Emergency Contact</h3>
+              <h3 className="text-2xl font-bold mb-4 text-[#E6761D]">Emergency Contact</h3>
               <p className="text-blue-100 mb-6">
                 Need urgent assistance outside business hours?
               </p>

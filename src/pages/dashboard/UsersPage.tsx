@@ -335,43 +335,58 @@ const UsersPage: React.FC = () => {
 
   return (
     <div className="">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600 mt-1 text-xs">Manage users, roles, and permissions</p>
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+  {/* Title + subtitle */}
+  <div>
+    <h1 className="text-lg sm:text-xl font-bold text-gray-900">User Management</h1>
+    <p className="text-gray-600 mt-1 text-xs sm:text-sm">
+      Manage users, roles, and permissions
+    </p>
+  </div>
 
-        <div className="flex space-x-3">
-          <Button variant="outline" onClick={exportUsers} className="flex items-center space-x-2">
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-          </Button>
+  {/* Actions */}
+  <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
+    <Button
+      variant="outline"
+      onClick={exportUsers}
+      className="flex-1 sm:flex-none flex items-center justify-center space-x-2"
+    >
+      <Download className="h-4 w-4" />
+      <span>Export</span>
+    </Button>
 
-          <Button variant="outline" className="flex items-center space-x-2">
-            <Upload className="h-4 w-4" />
-            <span>Import</span>
-          </Button>
+    <Button
+      variant="outline"
+      className="flex-1 sm:flex-none flex items-center justify-center space-x-2"
+    >
+      <Upload className="h-4 w-4" />
+      <span>Import</span>
+    </Button>
 
-          <Link to="/dashboard/settings/roles-permissions">
-            <Button variant="outline" className="flex items-center space-x-2">
-              <Shield className="h-4 w-4" />
-              <span>Manage Roles</span>
-            </Button>
-          </Link>
+    <Link to="/dashboard/settings/roles-permissions" className="flex-1 sm:flex-none">
+      <Button
+        variant="outline"
+        className="w-full sm:w-auto flex items-center justify-center space-x-2"
+      >
+        <Shield className="h-4 w-4" />
+        <span>Manage Roles</span>
+      </Button>
+    </Link>
 
-          <Button
-            onClick={() => {
-              resetForm();
-              setShowUserModal(true);
-            }}
-            className="flex items-center space-x-2"
-            disabled={masterLoading}
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add User</span>
-          </Button>
-        </div>
-      </div>
+    <Button
+      onClick={() => {
+        resetForm();
+        setShowUserModal(true);
+      }}
+      className="flex-1 sm:flex-none flex items-center justify-center space-x-2"
+      disabled={masterLoading}
+    >
+      <Plus className="h-4 w-4" />
+      <span>Add User</span>
+    </Button>
+  </div>
+</div>
+
 
       {/* UsersManagement */}
       <UsersManagement

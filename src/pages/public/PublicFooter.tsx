@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Home,
   Phone,
@@ -23,10 +23,12 @@ import {
 import { Link, } from 'react-router-dom';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import AIChatbot from '@/components/ai/AIChatbot';
+import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
+import { toast } from 'react-toastify';
 
 const PublicFooter = ({ onPageChange }: any) => {
   const currentYear = new Date().getFullYear();
-
+  const [masterLoading, setMasterLoading] = useState(true);
   const quickLinks = [
     { id: 'home', label: 'Home' },
     { id: 'properties', label: 'Properties' },
@@ -60,6 +62,34 @@ const PublicFooter = ({ onPageChange }: any) => {
   const footerLogo = systemSettings?.footer_logo;
   const companyLogo = systemSettings?.company_logo; // Fallback to company logo if footer logo not available
 
+
+
+
+  // call anywhere in your components like this:
+
+
+  const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
+  useEffect(() => {
+    const fetchMasters = async () => {
+      try {
+        setMasterLoading(true);
+        const data = await getMasterDropdownOptions([
+          'common',
+        ]);
+        setMasters(data);
+
+      } catch (err) {
+        console.error('Error fetching master options:', err);
+        toast.error('Failed to load dropdown options');
+      } finally {
+        setMasterLoading(false);
+      }
+    };
+
+    fetchMasters();
+  }, []);
+
+
   return (
     <footer className="bg-gray-900 text-white">
       {/* Main Footer */}
@@ -78,7 +108,7 @@ const PublicFooter = ({ onPageChange }: any) => {
                           <img
                             src={footerLogo}
                             alt={`${companyName} Footer Logo`}
-                            className="h-10 w-auto object-contain"
+                            className="h-14 w-auto object-contain"
                           />
                         ) : (
                           <div className="hidden sm:block">
@@ -91,9 +121,7 @@ const PublicFooter = ({ onPageChange }: any) => {
                     </Link>
                   </div>
 
-                  <p className="text-gray-300 mb-6 leading-relaxed">
-                    Your Trusted Real Estate Partner
-                  </p>
+
 
                   {/* Trust Indicators */}
                   <div className="space-y-3">
@@ -115,25 +143,9 @@ const PublicFooter = ({ onPageChange }: any) => {
               </Link>
             </div>
 
-            <p className="text-gray-300 mb-6 leading-relaxed">
-              Your Trusted Real Estate Partner
-            </p>
 
-            {/* Trust Indicators */}
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Shield className="text-green-400" size={16} />
-                <span className="text-sm text-gray-300">100% Verified Properties</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Award className="text-yellow-400" size={16} />
-                <span className="text-sm text-gray-300">Award Winning Service</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="text-blue-400" size={16} />
-                <span className="text-sm text-gray-300">10,000+ Happy Customers</span>
-              </div>
-            </div>
+
+
           </div>
 
           {/* Quick Links */}
@@ -223,19 +235,27 @@ const PublicFooter = ({ onPageChange }: any) => {
         {/* Popular Locations */}
         <div className="mt-4 border-t border-gray-800 pt-6">
           <h4 className="text-lg font-semibold mb-6">Popular Locations</h4>
-          <div className="flex flex-wrap gap-3">
-            {locations.map((location, index) => (
-              <button
-                key={index}
-                onClick={() => onPageChange('properties')}
-                className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-colors text-sm"
-              >
-                {location}
-              </button>
-            ))}
-          </div>
+          {masterLoading ? (
+            <div className="text-gray-400 text-sm">Loading locations…</div>
+          ) : Array.isArray(masters.location) && masters.location.length > 0 ? (
+            <div className="flex flex-wrap gap-3">
+              {masters.location.map((loc: MasterOption, idx: number) => (
+                <button
+                  key={idx}
+                  onClick={() => onPageChange('properties')}
+                  className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-colors text-sm"
+                  title={loc.label}
+                >
+                  {loc.value} {/* ← show value */}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-gray-400 text-sm italic">No locations available</div>
+          )}
         </div>
       </div>
+
 
       {/* Bottom Footer */}
       <div className="bg-gray-950 border-t border-gray-800">

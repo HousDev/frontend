@@ -127,295 +127,336 @@ useEffect(() => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto">
-        <h3 className="text-base font-semibold text-gray-900 mb-4">
-          {editingUser ? 'Edit User' : 'Add User'}
-        </h3>
+ <div
+  className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4"
+  role="dialog"
+  aria-modal="true"
+>
+  <div className="bg-white rounded-lg w-full max-w-full sm:max-w-xl shadow-lg">
+    {/* Header */}
+    <div className="px-4 sm:px-6 pt-4 sm:pt-6">
+      <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+        {editingUser ? 'Edit User' : 'Add User'}
+      </h3>
+    </div>
 
-        {masterLoading ? (
-          <div className="flex justify-center ">
-            <LoadingSpinner size="sm" />
-            <span className="ml-2 text-base">Loading form options...</span>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 gap-4">
-              {/* Row: Salutation / First / Last */}
-              <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Salutation <span className="text-red-500">*</span>
-                  </label>
+    {/* Body */}
+    <div className="px-4 sm:px-6 pb-4 sm:pb-6 max-h-[70vh] sm:max-h-[80vh] overflow-y-auto overscroll-contain">
+      {masterLoading ? (
+        <div className="flex justify-center items-center py-8">
+          <LoadingSpinner size="sm" />
+          <span className="ml-2 text-base">Loading form options...</span>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4">
+            {/* Row: Salutation / First / Last */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Salutation <span className="text-red-500">*</span>
+                </label>
 
-                  {salutations.length > 0 ? (
-                    <select
-                      value={newUser.salutation || ''}
-                      onChange={(e) => handleInputChange('salutation', e.target.value)}
-                      className={`w-full h-8 border rounded px-2 text-sm focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
-                        formErrors.salutation ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">Select</option>
-                      {salutations.map((s) => (
-                        <option key={s.value} value={s.value}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={newUser.salutation || ''}
-                      onChange={(e) => handleInputChange('salutation', e.target.value)}
-                      className={`w-full h-8 border rounded px-2 text-sm focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
-                        formErrors.salutation ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                      placeholder="Mr / Ms / Dr"
-                    />
-                  )}
-                  {formErrors.salutation && (
-                    <p className="text-red-600 text-xs mt-1">{formErrors.salutation}</p>
-                  )}
-                </div>
-
-                <div className="col-span-5">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    First Name <span className="text-red-500">*</span>
-                  </label>
+                {salutations.length > 0 ? (
+                  <select
+                    value={newUser.salutation || ''}
+                    onChange={(e) => handleInputChange('salutation', e.target.value)}
+                    className={`w-full h-10 sm:h-9 border rounded px-2 text-sm focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
+                      formErrors.salutation ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Select</option>
+                    {salutations.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
                   <input
                     type="text"
-                    value={newUser.first_name}
-                    onChange={(e) => handleInputChange('first_name', e.target.value)}
-                    className={`w-full h-8 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
-                      formErrors.first_name ? 'border-red-300' : 'border-gray-300'
+                    value={newUser.salutation || ''}
+                    onChange={(e) => handleInputChange('salutation', e.target.value)}
+                    className={`w-full h-10 sm:h-9 border rounded px-2 text-sm focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
+                      formErrors.salutation ? 'border-red-300' : 'border-gray-300'
                     }`}
-                    placeholder="First name"
+                    placeholder="Mr / Ms / Dr"
                   />
-                  {formErrors.first_name && (
-                    <p className="text-red-600 text-xs mt-1">{formErrors.first_name}</p>
-                  )}
-                </div>
-
-                <div className="col-span-5">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Last Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.last_name}
-                    onChange={(e) => handleInputChange('last_name', e.target.value)}
-                    className={`w-full h-8 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
-                      formErrors.last_name ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    placeholder="Last name"
-                  />
-                  {formErrors.last_name && (
-                    <p className="text-red-600 text-xs mt-1">{formErrors.last_name}</p>
-                  )}
-                </div>
+                )}
+                {formErrors.salutation && (
+                  <p className="text-red-600 text-xs mt-1">{formErrors.salutation}</p>
+                )}
               </div>
 
-              {/* Row: Username / Email */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Username <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.username || ''}
-                    onChange={(e) => handleInputChange('username', e.target.value)}
-                    className={`w-full h-8 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
-                      formErrors.username ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    placeholder="Username"
-                  />
-                  {formErrors.username && <p className="text-red-600 text-xs mt-1">{formErrors.username}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={newUser.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    className={`w-full h-8 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
-                      formErrors.email ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    placeholder="Email"
-                  />
-                  {formErrors.email && <p className="text-red-600 text-xs mt-1">{formErrors.email}</p>}
-                </div>
+              <div className="md:col-span-5">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  First Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newUser.first_name}
+                  onChange={(e) => handleInputChange('first_name', e.target.value)}
+                  className={`w-full h-10 sm:h-9 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
+                    formErrors.first_name ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="First name"
+                />
+                {formErrors.first_name && (
+                  <p className="text-red-600 text-xs mt-1">{formErrors.first_name}</p>
+                )}
               </div>
 
-              {/* Row: DOB / Phone */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date of Birth <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={newUser.dob || ''}
-                    onChange={(e) => handleInputChange('dob', e.target.value)}
-                    className="w-full h-8 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 border-gray-300"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={newUser.phone || ''}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    className="w-full h-8 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 border-gray-300"
-                    placeholder="Phone"
-                  />
-                </div>
+              <div className="md:col-span-5">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Last Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newUser.last_name}
+                  onChange={(e) => handleInputChange('last_name', e.target.value)}
+                  className={`w-full h-10 sm:h-9 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
+                    formErrors.last_name ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Last name"
+                />
+                {formErrors.last_name && (
+                  <p className="text-red-600 text-xs mt-1">{formErrors.last_name}</p>
+                )}
               </div>
+            </div>
 
-              {/* Row: Department / Role */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Department <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={newUser.department || ''}
-                    onChange={(e) => handleInputChange('department', e.target.value)}
-                    className="w-full h-8 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 border-gray-300"
-                  >
-                    <option value="">Select Department</option>
-                    {departments.map((department) => (
-                      <option key={department.value} value={department.value}>
-                        {department.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={newUser.role || ''}
-                    onChange={(e) => handleRoleChange(e.target.value)}
-                    className={`w-full h-8 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
-                      formErrors.role ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Select Role</option>
-                    {roles.map((role) => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
-                      </option>
-                    ))}
-                  </select>
-                  {formErrors.role && <p className="text-red-600 text-xs mt-1">{formErrors.role}</p>}
-                </div>
-              </div>
-
-              {/* Row: Designation / Blood Group */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
-                  <select
-                    value={newUser.designation || ''}
-                    onChange={(e) => handleInputChange('designation', e.target.value)}
-                    className="w-full h-8 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 border-gray-300"
-                  >
-                    <option value="">Select Designation</option>
-                    {designations.map((designation) => (
-                      <option key={designation.value} value={designation.value}>
-                        {designation.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Blood Group</label>
-                  <select
-                    value={newUser.blood_group || ''}
-                    onChange={(e) => handleInputChange('blood_group', e.target.value)}
-                    className="w-full h-8 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 border-gray-300"
-                  >
-                    <option value="">Select Blood Group</option>
-                    {bloodGroups.map((bloodGroup) => (
-                      <option key={bloodGroup.value} value={bloodGroup.value}>
-                        {bloodGroup.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Password */}
+            {/* Row: Username / Email */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Password {!editingUser && <span className="text-red-500">*</span>}
-                  {editingUser && <span className="text-gray-400 text-sm"> (leave blank to keep current)</span>}
+                  Username <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={newUser.password || ''}
-                    onChange={(e) => handleInputChange('password', e.target.value)}
-                    className={`w-full h-8 border rounded px-2 pr-20 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
-                      formErrors.password ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    placeholder={editingUser ? 'New password (optional)' : 'Password (min 6 characters)'}
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center space-x-1 pr-3">
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600">
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                    <button type="button" onClick={handleGeneratePassword} className="text-blue-500 hover:text-blue-700 text-xs font-medium">
-                      Gen
-                    </button>
-                  </div>
-                </div>
-                {formErrors.password && <p className="text-red-600 text-xs mt-1">{formErrors.password}</p>}
-
-                {newUser.password && !editingUser && (
-                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                    <p className="text-xs text-blue-800 font-medium">
-                      **Password: <span className="font-mono">{newUser.password}</span>
-                    </p>
-                  </div>
-                )}
-
-                {editingUser && newUser.password && (
-                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
-                    <p className="text-xs text-green-800 font-medium">
-                      **New Password: <span className="font-mono">{newUser.password}</span>
-                    </p>
-                  </div>
+                <input
+                  type="text"
+                  value={newUser.username || ''}
+                  onChange={(e) => handleInputChange('username', e.target.value)}
+                  className={`w-full h-10 sm:h-9 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
+                    formErrors.username ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Username"
+                />
+                {formErrors.username && (
+                  <p className="text-red-600 text-xs mt-1">{formErrors.username}</p>
                 )}
               </div>
 
-              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  className={`w-full h-10 sm:h-9 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
+                    formErrors.email ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Email"
+                />
+                {formErrors.email && (
+                  <p className="text-red-600 text-xs mt-1">{formErrors.email}</p>
+                )}
+              </div>
             </div>
 
-            {/* Buttons */}
-            <div className="flex justify-end space-x-2 mt-4">
-              <Button onClick={onSubmit} disabled={submitDisabled ?? defaultDisabled} size="sm">
-                {editingUser ? 'Update' : 'Create'}
-              </Button>
-              <Button variant="outline" onClick={() => { onClose(); }} size="sm">
-                Cancel
-              </Button>
+            {/* Row: DOB / Phone */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date of Birth <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={newUser.dob || ''}
+                  onChange={(e) => handleInputChange('dob', e.target.value)}
+                  className="w-full h-10 sm:h-9 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 border-gray-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={newUser.phone || ''}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  className="w-full h-10 sm:h-9 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 border-gray-300"
+                  placeholder="Phone"
+                />
+              </div>
             </div>
-          </>
-        )}
+
+            {/* Row: Department / Role */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Department <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={newUser.department || ''}
+                  onChange={(e) => handleInputChange('department', e.target.value)}
+                  className="w-full h-10 sm:h-9 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 border-gray-300"
+                >
+                  <option value="">Select Department</option>
+                  {departments.map((department) => (
+                    <option key={department.value} value={department.value}>
+                      {department.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Role <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={newUser.role || ''}
+                  onChange={(e) => handleRoleChange(e.target.value)}
+                  className={`w-full h-10 sm:h-9 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
+                    formErrors.role ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">Select Role</option>
+                  {roles.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.role && (
+                  <p className="text-red-600 text-xs mt-1">{formErrors.role}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Row: Designation / Blood Group */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                <select
+                  value={newUser.designation || ''}
+                  onChange={(e) => handleInputChange('designation', e.target.value)}
+                  className="w-full h-10 sm:h-9 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 border-gray-300"
+                >
+                  <option value="">Select Designation</option>
+                  {designations.map((designation) => (
+                    <option key={designation.value} value={designation.value}>
+                      {designation.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Blood Group</label>
+                <select
+                  value={newUser.blood_group || ''}
+                  onChange={(e) => handleInputChange('blood_group', e.target.value)}
+                  className="w-full h-10 sm:h-9 border rounded px-2 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 border-gray-300"
+                >
+                  <option value="">Select Blood Group</option>
+                  {bloodGroups.map((bloodGroup) => (
+                    <option key={bloodGroup.value} value={bloodGroup.value}>
+                      {bloodGroup.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Password {!editingUser && <span className="text-red-500">*</span>}
+                {editingUser && (
+                  <span className="text-gray-400 text-sm"> (leave blank to keep current)</span>
+                )}
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={newUser.password || ''}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  className={`w-full h-10 sm:h-9 border rounded px-2 pr-20 text-base focus:outline-blue-500 focus:ring-1 focus:ring-blue-500 ${
+                    formErrors.password ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder={editingUser ? 'New password (optional)' : 'Password (min 6 characters)'}
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center space-x-1 pr-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGeneratePassword}
+                    className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                  >
+                    Gen
+                  </button>
+                </div>
+              </div>
+              {formErrors.password && (
+                <p className="text-red-600 text-xs mt-1">{formErrors.password}</p>
+              )}
+
+              {newUser.password && !editingUser && (
+                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                  <p className="text-xs text-blue-800 font-medium">
+                    **Password: <span className="font-mono">{newUser.password}</span>
+                  </p>
+                </div>
+              )}
+
+              {editingUser && newUser.password && (
+                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                  <p className="text-xs text-green-800 font-medium">
+                    **New Password: <span className="font-mono">{newUser.password}</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+
+    {/* Footer / Actions */}
+    <div className="px-4 sm:px-6 py-3 sm:py-4 border-t bg-white sticky bottom-0">
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
+        <Button
+          onClick={onSubmit}
+          disabled={submitDisabled ?? defaultDisabled}
+          size="sm"
+          className="w-full sm:w-auto"
+        >
+          {editingUser ? 'Update' : 'Create'}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => {
+            onClose();
+          }}
+          size="sm"
+          className="w-full sm:w-auto"
+        >
+          Cancel
+        </Button>
       </div>
     </div>
+  </div>
+</div>
+
   );
 };
 

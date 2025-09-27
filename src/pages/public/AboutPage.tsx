@@ -118,25 +118,26 @@ const AboutUsPage = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-4">
+      <section className=" text-white py-5 pt-28 "
+       style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4">About&nbsp;{companyName}</h2>
+            <h2 className="text-3xl font-bold mb-3 text-[#E6761D]">About&nbsp;{companyName}</h2>
             <p className="text-lg text-blue-100 mb-4 max-w-3xl mx-auto">
               India's most trusted real estate platform, connecting millions of buyers, sellers, and renters
               with verified properties and expert guidance since 2010.
             </p>
             <div className="flex items-center justify-center space-x-8">
               <div className="text-center">
-                <div className="text-xl font-bold">15+</div>
+                <div className="text-xl font-bold text-[#E6761D]">15+</div>
                 <div className="text-blue-200">Years Experience</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold">10K+</div>
+                <div className="text-xl font-bold text-[#E6761D]">10K+</div>
                 <div className="text-blue-200">Properties Sold</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold">25K+</div>
+                <div className="text-xl font-bold text-[#E6761D]">25K+</div>
                 <div className="text-blue-200">Happy Customers</div>
               </div>
             </div>

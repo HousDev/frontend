@@ -327,7 +327,13 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
   onBuyerMatching,
   onViewBuyers
 }) => {
-  const [activeTab, setActiveTab] = useState('overview');
+  // restore tab from ?tab=... or localStorage, fallback 'overview'
+const [activeTab, setActiveTab] = useState<string>(() => {
+  const sp = new URLSearchParams(window.location.search);
+  const fromUrl = sp.get('tab');
+  const fromStorage = localStorage.getItem(`pv_tab_${String(property?.id)}`);
+  return (fromUrl || fromStorage || 'overview');
+});
   const [showEditModal, setShowEditModal] = useState(false);
   const [showStageModal, setShowStageModal] = useState(false);
   const [showVisitModal, setShowVisitModal] = useState(false);
@@ -350,6 +356,61 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
   const [loadingStatusHistory, setLoadingStatusHistory] = useState(false);
   const prevRef = React.useRef<HTMLButtonElement | null>(null);
   const nextRef = React.useRef<HTMLButtonElement | null>(null);
+  const [overviewKey, setOverviewKey] = useState(0);
+const prevShowEditRef = useRef(showEditModal);
+
+useEffect(() => {
+  if (!property) return;
+  const idChanged = property.id !== propertyData.id;
+  const tsChanged = property.updated_at !== propertyData.updated_at;
+  if (idChanged || tsChanged) {
+    setPropertyData(property);
+    setOverviewKey(k => k + 1); // ✅ OverviewTab key bump -> fresh render
+  }
+}, [property?.id, property?.updated_at]); // dhyaan: propertyData ko dep me mat daalo
+
+
+// ⬇️ propertyData ke useState ke baad yeh effect add/replace karo
+useEffect(() => {
+  if (!property) return;
+
+  const idChanged = property.id !== propertyData.id;
+  const tsChanged = property.updated_at !== propertyData.updated_at;
+
+  if (idChanged || tsChanged) {
+    setPropertyData(property);
+    // force OverviewTab fresh render with latest data
+    setOverviewKey(k => k + 1);
+  }
+}, [property?.id, property?.updated_at]); // dhyaan: propertyData ko dep me mat daalo
+
+// 🔊 listen once, remount Overview on event
+useEffect(() => {
+  const handler = (e: any) => {
+    // ⚠️ agar tum id-check kar rahe ho to dhyaan: propertyId pass ho
+    // if (e?.detail?.id && e.detail.id !== propertyData.id) return;
+
+    // force remount + optional tab switch
+    setOverviewKey(k => k + 1);
+    setActiveTab('overview'); // nahi chahiye to hata do
+  };
+
+  window.addEventListener('overview:refresh', handler);
+  return () => window.removeEventListener('overview:refresh', handler);
+}, [propertyData.id]);
+
+  // inside PropertyViewPage
+  useEffect(() => {
+    setPropertyData(property);
+  }, [property]);
+// when property id changes, try restoring its last-opened tab
+useEffect(() => {
+  const sp = new URLSearchParams(window.location.search);
+  const fromUrl = sp.get('tab');
+  const fromStorage = localStorage.getItem(`pv_tab_${String(property?.id)}`);
+  const next = (fromUrl || fromStorage);
+  if (next && next !== activeTab) setActiveTab(next);
+}, [property?.id]); // intentionally not depending on activeTab
 
   // Property stages with automatic progression
   const propertyStages = [
@@ -541,30 +602,48 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
     setShowEditModal(true);
   };
 
-  const handleEditSubmit = (result: any) => {
-    // Update the property data with the new values
-    const updatedProperty = {
-      ...propertyData,
-      ...result,
-      updated_at: new Date().toISOString(),
-      activities: [
-        ...(activities || []),
-        {
-          id: Date.now(),
-          type: 'property_update',
-          description: 'Property details updated',
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toLocaleTimeString(),
-          user: 'Admin User'
-        }
-      ]
-    };
+    useEffect(() => {
+  localStorage.setItem(`pv_tab_${String(propertyData.id)}`, activeTab);
+  const sp = new URLSearchParams(window.location.search);
+  sp.set('tab', activeTab);
+  window.history.replaceState(null, '', `${window.location.pathname}?${sp.toString()}`);
+}, [activeTab, propertyData.id]);
 
-    setPropertyData(updatedProperty);
-    onUpdateProperty?.(updatedProperty);
-    setShowEditModal(false);
-    toast.success('Property updated successfully!');
+const handleEditSubmit = (result: any) => {
+  const updatedProperty = {
+    ...propertyData,
+    ...result,
+    updated_at: new Date().toISOString(),
+    activities: [
+      ...(activities || []),
+      {
+        id: Date.now(),
+        type: 'property_update',
+        description: 'Property details updated',
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toLocaleTimeString(),
+        user: 'Admin User',
+      },
+    ],
   };
+
+  setPropertyData(updatedProperty);
+  onUpdateProperty?.(updatedProperty);
+
+  // 👇 force re-mount (key bump)
+  setOverviewKey((k) => k + 1);
+
+  // 👇 tumhare listener ke liye custom event fire karo (id pass karo)
+  window.dispatchEvent(
+    new CustomEvent('overview:refresh', { detail: { id: updatedProperty.id } })
+  );
+
+  setShowEditModal(false);
+  toast.success('Property updated successfully!');
+};
+
+
+
 
   const handleStageProgress = async (newStage: string, remarks: string) => {
     const updatedProperty = {
@@ -742,10 +821,11 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
             <div>
               {/* <h1 className="text-xl font-bold text-gray-900">{propertyData.title}</h1> */}
               <div className=" font-bold text-gray-900 text-lg">
-                {(propertyData.type && property.type !== ' - ') && <span className="mr-2">{property.type}</span>}
-                {(property.unitType && property.unitType !== ' - ') && <span className="mr-2"> {property.unitType}</span>}
-                {(property.subtype && property.subtype !== ' - ') && <span className="mr-2"> {property.subtype}</span>}
+                {(propertyData.type && propertyData.type !== ' - ') && <span className="mr-2">{propertyData.type}</span>}
+                {(propertyData.unitType && propertyData.unitType !== ' - ') && <span className="mr-2">{propertyData.unitType}</span>}
+                {(propertyData.subtype && propertyData.subtype !== ' - ') && <span className="mr-2">{propertyData.subtype}</span>}
               </div>
+
               <div className="flex items-center space-x-2 mt-1">
                 {getStatusBadge(propertyData.status)}
                 {getStageBadge(propertyData.stage)}
@@ -841,7 +921,14 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-4">
-        {activeTab === 'overview' && <OverviewTab property={propertyData} onUpdate={setPropertyData} />}
+       {activeTab === 'overview' && (
+  <OverviewTab
+    key={`ov-${propertyData.id}-${overviewKey}`}
+    property={propertyData}
+    onUpdate={setPropertyData}
+  />
+)}
+
         {activeTab === 'stages' && (
           <StagesTab
             property={propertyData}
@@ -1037,6 +1124,21 @@ const OverviewTab = ({ property, onUpdate }: any) => {
 
   const prevRef = React.useRef<HTMLButtonElement | null>(null);
   const nextRef = React.useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+  setQuotePrice(property.budget || 0);
+  setNegotiablePrice(
+    property.negotiablePrice ?? (property.budget ? property.budget * 0.95 : 0)
+  );
+}, [property.budget, property.negotiablePrice, property.updated_at]);
+// utils/helper
+const getMonthName = (value?: string | number | null) => {
+  if (!value) return "";
+  const month = typeof value === "string" ? parseInt(value) : value;
+  if (isNaN(month) || month < 1 || month > 12) return "";
+  return new Date(0, month - 1).toLocaleString("en", { month: "long" });
+};
+
 
   const handlePriceUpdate = () => {
     const updatedProperty = {
@@ -1396,24 +1498,25 @@ const OverviewTab = ({ property, onUpdate }: any) => {
               </div>
             </div>
 
-            {/* Key Dates */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Key Dates</h3>
-              <div className="space-y-2 text-sm text-gray-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Purchase</span>
-                  <span className="font-medium">
-                    {(property?.purchaseMonth || "")} {(property?.purchaseYear || "-")}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Possession</span>
-                  <span className="font-medium">
-                    {(property?.possessionMonth || "")} {(property?.possessionYear || "-")}
-                  </span>
-                </div>
-              </div>
-            </div>
+           {/* Key Dates */}
+<div className="bg-white rounded-xl border border-gray-200 p-4">
+  <h3 className="font-semibold text-gray-900 mb-3">Key Dates</h3>
+  <div className="space-y-2 text-sm text-gray-700">
+    <div className="flex items-center justify-between">
+      <span className="text-gray-500">Purchase</span>
+      <span className="font-medium">
+        {getMonthName(property?.purchaseMonth)} {property?.purchaseYear || "-"}
+      </span>
+    </div>
+    <div className="flex items-center justify-between">
+      <span className="text-gray-500">Possession</span>
+      <span className="font-medium">
+        {getMonthName(property?.possessionMonth)} {property?.possessionYear || "-"}
+      </span>
+    </div>
+  </div>
+</div>
+
           </div>
         </div>
       </div>
