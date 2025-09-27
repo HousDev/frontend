@@ -430,10 +430,10 @@ const BuyerFormModal = ({
       let response;
       if (buyer?.id) {
         response = await buyerAPI.update(buyer.id, payload);
-        toast.success("Buyer updated successfully!");
+
       } else {
         response = await buyerAPI.create(payload);
-        toast.success("Buyer created successfully!");
+
       }
       if (onSave) onSave((response as any)?.data || response);
       onClose?.();
