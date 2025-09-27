@@ -2,13 +2,13 @@
 import axios, { AxiosRequestHeaders } from 'axios';
 
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://localhost:3000/api/';
+// const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://localhost:3000/api/';
 
-// const API_BASE_PROD_URL ='http://investordeal.in/api/'; // for server
+const API_BASE_PROD_URL ='http://investordeal.in/api/'; // for server
 
 export const api = axios.create({
-  // baseURL: API_BASE_PROD_URL,  //for server
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_PROD_URL,  //for server
+  // baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -371,8 +371,8 @@ export const dashboardAPI = {
 export const publicAPI = {
   getPublicProperties: async (params?: any) => {
     const publicAxios = axios.create({
-      baseURL: API_BASE_URL,
-      // baseURL: API_BASE_PROD_URL, //for server
+      // baseURL: API_BASE_URL,
+      baseURL: API_BASE_PROD_URL, //for server
       timeout: 10000,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -382,8 +382,8 @@ export const publicAPI = {
 
   getPublicProperty: async (id: string) => {
     const publicAxios = axios.create({
-      baseURL: API_BASE_URL,
-      // baseURL: API_BASE_PROD_URL, // for server
+      // baseURL: API_BASE_URL,
+      baseURL: API_BASE_PROD_URL, // for server
       timeout: 10000,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -393,8 +393,8 @@ export const publicAPI = {
 
   searchPublicProperties: async (data: any) => {
     const publicAxios = axios.create({
-      baseURL: API_BASE_URL,
-      // baseURL: API_BASE_PROD_URL, // for server
+      // baseURL: API_BASE_URL,
+      baseURL: API_BASE_PROD_URL, // for server
       timeout: 10000,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -404,8 +404,8 @@ export const publicAPI = {
 
   submitContactForm: async (data: any) => {
     const publicAxios = axios.create({
-      baseURL: API_BASE_URL,
-      // baseURL: API_BASE_PROD_URL, // for server
+      // baseURL: API_BASE_URL,
+      baseURL: API_BASE_PROD_URL, // for server
       timeout: 10000,
       headers: { 'Content-Type': 'application/json' },
     });
