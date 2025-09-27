@@ -721,27 +721,30 @@ const AITraining = () => {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
-          <div className="flex border-b border-gray-200">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-6 py-4 font-medium transition-colors ${
-                    activeTab === tab.id
-                      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon size={18} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+       <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
+  {/* Tabs Header */}
+  <div className="flex overflow-x-auto whitespace-nowrap border-b border-gray-200 no-scrollbar">
+    {tabs.map((tab) => {
+      const Icon = tab.icon;
+      const isActive = activeTab === tab.id;
+      return (
+        <button
+          key={tab.id}
+          onClick={() => setActiveTab(tab.id)}
+          className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors shrink-0
+            ${isActive
+              ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+        >
+          <Icon size={18} />
+          <span>{tab.label}</span>
+        </button>
+      );
+    })}
+  </div>
+</div>
+
 
         {/* Tab Content */}
         {activeTab === 'dashboard' && renderDashboard()}

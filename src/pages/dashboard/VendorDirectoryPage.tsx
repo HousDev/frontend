@@ -349,100 +349,157 @@ const VendorDirectoryPage: React.FC = () => {
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">
-              <Users className="text-white" size={24} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Vendor Directory</h1>
-              <p className="text-gray-600 mt-1">Manage trusted vendors and service providers</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            {selectedVendors.length > 0 && (
-              <button
-                onClick={handleSendToSellerAccount}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Send size={16} />
-                <span>Send to Seller ({selectedVendors.length})</span>
-              </button>
-            )}
-            <button className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-              <Upload size={16} />
-              <span>Import</span>
-            </button>
-            <button onClick={handleAddVendor} className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              <Plus size={16} />
-              <span>Add Vendor</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Category Tabs */}
-        <div className="mt-6">
-          <div className="flex space-x-1 overflow-x-auto pb-1">
-            {categories.map((categoryItem) => {
-              const Icon = categoryItem.icon;
-              const colorKey = categoryItem.color;
-              const colorClasses = colorClassMap[colorKey] ?? colorClassMap.default;
-              const isActive = selectedCategory === categoryItem.id;
-
-              return (
-                <button
-                  key={categoryItem.id}
-                  onClick={() => setSelectedCategory(categoryItem.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${isActive ? `${colorClasses.bg} ${colorClasses.text} border ${colorClasses.pillBg}` : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                >
-                  <Icon size={16} />
-                  <span className="font-medium">{categoryItem.label}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs ${isActive ? colorClasses.pillBg : 'bg-gray-200'}`}>{categoryItem.count}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+    <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+  {/* Header */}
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    {/* Left: Title */}
+    <div className="flex items-start sm:items-center gap-3">
+      <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shrink-0">
+        <Users className="text-white" size={24} />
       </div>
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Vendor Directory</h1>
+        <p className="text-gray-600 mt-1 text-sm sm:text-base">
+          Manage trusted vendors and service providers
+        </p>
+      </div>
+    </div>
+
+    {/* Right: Actions */}
+    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+      {selectedVendors.length > 0 && (
+        <button
+          onClick={handleSendToSellerAccount}
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors w-full sm:w-auto"
+        >
+          <Send size={16} />
+          <span>Send to Seller ({selectedVendors.length})</span>
+        </button>
+      )}
+
+      <button
+        className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors w-full sm:w-auto"
+      >
+        <Upload size={16} />
+        <span>Import</span>
+      </button>
+
+      <button
+        onClick={handleAddVendor}
+        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
+      >
+        <Plus size={16} />
+        <span>Add Vendor</span>
+      </button>
+    </div>
+  </div>
+
+  {/* Category Tabs */}
+  <div className="mt-5">
+    <div
+      role="tablist"
+      aria-label="Vendor categories"
+      className="flex gap-2 overflow-x-auto pb-1 -mx-4 sm:mx-0 px-4 sm:px-0 no-scrollbar"
+    >
+      {categories.map((categoryItem) => {
+        const Icon = categoryItem.icon;
+        const colorKey = categoryItem.color;
+        const colorClasses = colorClassMap[colorKey] ?? colorClassMap.default;
+        const isActive = selectedCategory === categoryItem.id;
+
+        return (
+          <button
+            key={categoryItem.id}
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => setSelectedCategory(categoryItem.id)}
+            className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap border
+              ${isActive
+                ? `${colorClasses.bg} ${colorClasses.text} ${colorClasses.pillBg}`
+                : 'text-gray-700 bg-white hover:bg-gray-100 border-gray-200'
+              }`}
+          >
+            <Icon size={16} />
+            <span className="font-medium">{categoryItem.label}</span>
+            <span className={`px-2 py-0.5 rounded-full text-xs
+              ${isActive ? colorClasses.pillBg : 'bg-gray-200 text-gray-800'}`}>
+              {categoryItem.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+</div>
+
 
       {/* Search and Filters */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-              <input
-                type="text"
-                placeholder="Search vendors, services, tags..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <button onClick={() => setShowFilters(!showFilters)} className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-              <Filter size={16} />
-              <span>Filters</span>
-            </button>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
-              <button onClick={() => setViewMode('grid')} className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}>
-                <Grid size={16} className={viewMode === 'grid' ? 'text-blue-600' : 'text-gray-400'} />
-              </button>
-              <button onClick={() => setViewMode('list')} className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}>
-                <List size={16} className={viewMode === 'list' ? 'text-blue-600' : 'text-gray-400'} />
-              </button>
-            </div>
-            <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-              <Download size={16} />
-              <span>Export</span>
-            </button>
-          </div>
-        </div>
+    <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    {/* Left: Search + Filters */}
+    <div className="flex w-full items-center gap-2 sm:gap-3">
+      <div className="relative flex-1 min-w-0">
+        <Search
+          aria-hidden
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          size={16}
+        />
+        <input
+          type="text"
+          placeholder="Search vendors, services, tags..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
       </div>
+
+      <button
+        onClick={() => setShowFilters(!showFilters)}
+        className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 shrink-0"
+        aria-pressed={showFilters}
+      >
+        <Filter size={16} />
+        <span className="hidden xs:inline">Filters</span>
+      </button>
+    </div>
+
+    {/* Right: View toggle + Export */}
+    <div className="flex w-full sm:w-auto items-center justify-between sm:justify-end gap-2">
+      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 shrink-0">
+        <button
+          onClick={() => setViewMode('grid')}
+          className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}
+          aria-pressed={viewMode === 'grid'}
+          aria-label="Grid view"
+        >
+          <Grid
+            size={16}
+            className={viewMode === 'grid' ? 'text-blue-600' : 'text-gray-400'}
+          />
+        </button>
+        <button
+          onClick={() => setViewMode('list')}
+          className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
+          aria-pressed={viewMode === 'list'}
+          aria-label="List view"
+        >
+          <List
+            size={16}
+            className={viewMode === 'list' ? 'text-blue-600' : 'text-gray-400'}
+          />
+        </button>
+      </div>
+
+      <button
+        className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 w-auto sm:w-auto"
+      >
+        <Download size={16} />
+        <span className="hidden xs:inline">Export</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 
       {/* Vendors Grid */}
       <div className="flex-1 overflow-auto p-6">

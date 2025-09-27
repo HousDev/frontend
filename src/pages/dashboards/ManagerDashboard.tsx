@@ -157,37 +157,56 @@ const ManagerDashboard: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Manager Dashboard</h1>
-          <p className="text-gray-600 mt-1">Team performance and management overview</p>
-        </div>
-        <div className="flex space-x-3">
-          <Link to="/dashboard/users">
-            <Button className="flex items-center space-x-2">
-              <UserPlus className="h-4 w-4" />
-              <span>Manage Team</span>
-            </Button>
-          </Link>
-          <Link to="/dashboard/analytics">
-            <Button variant="outline" className="flex items-center space-x-2">
-              <BarChart3 className="h-4 w-4" />
-              <span>Team Analytics</span>
-            </Button>
-          </Link>
-          <Button
-            variant="ghost"
-            onClick={fetchManagerData}
-            className="flex items-center space-x-2"
-            disabled={refreshing}
-          >
-            <svg className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none">
-              <path d="M21 12a9 9 0 11-3.2-6.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            <span>{refreshing ? "Refreshing..." : "Retry"}</span>
-          </Button>
-        </div>
-      </div>
+<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+  {/* Left Section */}
+  <div>
+    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Manager Dashboard</h1>
+    <p className="text-gray-600 mt-1 text-sm sm:text-base">
+      Team performance and management overview
+    </p>
+  </div>
+
+  {/* Right Section - Buttons */}
+  <div className="flex flex-wrap gap-2 sm:gap-3">
+    <Link to="/dashboard/users" className="w-full sm:w-auto">
+      <Button className="flex items-center justify-center space-x-2 w-full sm:w-auto">
+        <UserPlus className="h-4 w-4" />
+        <span>Manage Team</span>
+      </Button>
+    </Link>
+
+    <Link to="/dashboard/analytics" className="w-full sm:w-auto">
+      <Button
+        variant="outline"
+        className="flex items-center justify-center space-x-2 w-full sm:w-auto"
+      >
+        <BarChart3 className="h-4 w-4" />
+        <span>Team Analytics</span>
+      </Button>
+    </Link>
+
+    <Button
+      variant="ghost"
+      onClick={fetchManagerData}
+      className="flex items-center justify-center space-x-2 w-full sm:w-auto"
+      disabled={refreshing}
+    >
+      <svg
+        className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <path
+          d="M21 12a9 9 0 11-3.2-6.6"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+      <span>{refreshing ? "Refreshing..." : "Retry"}</span>
+    </Button>
+  </div>
+</div>
 
       {/* Team Performance Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

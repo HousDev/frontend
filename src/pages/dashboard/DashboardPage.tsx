@@ -71,6 +71,23 @@ const emptyStats: DashboardStats = {
   activities: { total_activities: 0, pending_activities: 0, today_activities: 0, upcoming_week_activities: 0 },
 };
 
+// --- helpers (added) ---
+const getTime = (o: any, keys: string[]) => {
+  for (const k of keys) {
+    const v = o?.[k];
+    if (v) {
+      const t = new Date(v as string).getTime();
+      if (!Number.isNaN(t)) return t;
+    }
+  }
+  return -Infinity;
+};
+const sortDescBy = (list: any[], keys: string[]) =>
+  [...list].sort((a, b) => getTime(b, keys) - getTime(a, keys));
+const sortAscBy = (list: any[], keys: string[]) =>
+  [...list].sort((a, b) => getTime(a, keys) - getTime(b, keys));
+// --- end helpers ---
+
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>(emptyStats);
@@ -245,11 +262,21 @@ const DashboardPage: React.FC = () => {
           else activitiesList = null;
         }
 
-        // Set recent items if available
+        // Set recent items (ONLY 5) if available
         if (isMounted) {
-          if (Array.isArray(leadsList)) setRecentLeads(leadsList);
-          if (Array.isArray(propsList)) setRecentProperties(propsList);
-          if (Array.isArray(activitiesList)) setUpcomingActivities(activitiesList);
+          if (Array.isArray(leadsList)) {
+            const latestLeads = sortDescBy(leadsList, ['updated_at', 'created_at']).slice(0, 5);
+            setRecentLeads(latestLeads);
+          }
+          if (Array.isArray(propsList)) {
+            const latestProps = sortDescBy(propsList, ['updated_at', 'created_at']).slice(0, 5);
+            setRecentProperties(latestProps);
+          }
+          if (Array.isArray(activitiesList)) {
+            // upcoming soonest 5 by start/due date; fallback to updated/created
+            const soonest = sortAscBy(activitiesList, ['start_at', 'due_at', 'updated_at', 'created_at']).slice(0, 5);
+            setUpcomingActivities(soonest);
+          }
         }
       } catch (err) {
         console.warn('Error fetching lists', err);
@@ -367,34 +394,24 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mb-4">
       {/* Header */}
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-  {/* Left: Greeting */}
-  <div className="min-w-0">
-    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
-      {getGreeting()}, {user?.first_name ?? 'User'}!
-    </h1>
-    <p className="text-gray-600 text-sm sm:text-base">
-      Here's what's happening with your business today.
-    </p>
-  </div>
-
-  {/* Right: Actions */}
- <div className="w-full sm:w-auto">
-  <Link to="/dashboard/leads" className="block w-full sm:w-auto">
-    <Button
-      className="w-full sm:w-auto justify-center"
-      aria-label="Add Lead"
-    >
-      <Plus className="h-4 w-4 mr-2" />
-      Add Lead
-    </Button>
-  </Link>
-</div>
-
-</div>
-
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {getGreeting()}, {user?.first_name ?? 'User'}!
+          </h1>
+        <p className="text-gray-600">Here's what's happening with your business today.</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <Link to="/dashboard/leads">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Lead
+            </Button>
+          </Link>
+        </div>
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
