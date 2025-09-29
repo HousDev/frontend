@@ -41,6 +41,7 @@ import { toast } from "react-toastify";
 interface UserProfile {
   id: string;
   username?: string;
+  dob?: string | null;
   email?: string;
   first_name: string;
   last_name: string;
@@ -76,6 +77,16 @@ interface SystemSettings {
   property_auto_approval?: boolean;
   [k: string]: any;
 }
+const normalizeDOB = (dob: string | null | undefined) => {
+  if (!dob) return "";
+  // Convert ISO to YYYY-MM-DD
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
 
 const SettingsPage: React.FC = () => {
   // auth/context hooks — cast to known shapes so TS can check usages below.
@@ -118,6 +129,17 @@ const SettingsPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const formatDOBForMySQL = (dob: string | null | undefined) => {
+    if (!dob) return null;
+    const d = new Date(dob);
+    if (isNaN(d.getTime())) return null;
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+
   const fetchMasterData = async () => {
     try {
       // masterDataAPI shapes aren't known here — treat responses as any
@@ -156,26 +178,30 @@ const SettingsPage: React.FC = () => {
   const fetchUserProfile = async () => {
     try {
       const response: any = await usersAPI.getProfile();
+     
+      console.log("dob",  normalizeDOB(response.data.dob))
       if (response?.success) {
         // normalize missing fields with safe defaults
         const p: UserProfile = {
-          id: String(response.data.id ?? ""),
-          username: response.data.username ?? "",
-          email: response.data.email ?? "",
-          first_name: response.data.first_name ?? "",
-          last_name: response.data.last_name ?? "",
-          phone: response.data.phone ?? "",
-          avatar: response.data.avatar ?? undefined,
-          designation: response.data.designation ?? "",
-          department: response.data.department ?? "",
-          role: response.data.role ?? "",
-          timezone: response.data.timezone ?? "UTC",
-          language: response.data.language ?? "en",
-          email_notifications: !!response.data.email_notifications,
-          sms_notifications: !!response.data.sms_notifications,
-          push_notifications: !!response.data.push_notifications,
-          ...response.data,
-        };
+  ...response.data, // first spread everything
+  id: String(response.data.id ?? ""),
+  dob: normalizeDOB(response.data.dob), // overwrite with normalized YYYY-MM-DD
+  email: response.data.email ?? "",
+  first_name: response.data.first_name ?? "",
+  last_name: response.data.last_name ?? "",
+  phone: response.data.phone ?? "",
+  avatar: response.data.avatar ?? undefined,
+  designation: response.data.designation ?? "",
+  department: response.data.department ?? "",
+  role: response.data.role ?? "",
+  timezone: response.data.timezone ?? "UTC",
+  language: response.data.language ?? "en",
+  email_notifications: !!response.data.email_notifications,
+  sms_notifications: !!response.data.sms_notifications,
+  push_notifications: !!response.data.push_notifications,
+};
+
+        
         setProfile(p);
       } else {
         // if API returns success:false, still try to use data if present
@@ -190,31 +216,32 @@ const SettingsPage: React.FC = () => {
       setLoading(false);
     }
   };
-
   const handleProfileUpdate = async () => {
     if (!profile) return;
 
     try {
       setSaving(true);
-      const response: any = await usersAPI.updateProfile(profile);
+
+      // clone profile to avoid mutating state
+      const payload = { ...profile };
+      if (payload.dob) {
+        payload.dob = formatDOBForMySQL(payload.dob);
+      }
+
+      const response: any = await usersAPI.updateProfile(payload);
 
       if (response?.success) {
         toast.success("Profile updated successfully");
-
-        const updatedProfile = {
+        setProfile({
           ...profile,
           ...response.data,
-        };
-        setProfile(updatedProfile);
-
-        // update AuthContext — only pass fields that match your User type.
-        // Removed 'designation' because User type in your app doesn't include it.
+        });
         updateUser({
           first_name: response.data.first_name || user?.first_name,
           last_name: response.data.last_name || user?.last_name,
           role: response.data.role || user?.role,
           avatar: response.data.avatar || (user as any)?.avatar,
-        } as Partial<typeof user>);
+        });
       } else {
         toast.error(response?.message || "Failed to update profile");
       }
@@ -225,6 +252,7 @@ const SettingsPage: React.FC = () => {
       setSaving(false);
     }
   };
+
 
   // Profile picture upload handler
   const handleAvatarUpload = async (file: File) => {
@@ -741,6 +769,15 @@ const SettingsPage: React.FC = () => {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700">Date of Birth</label>
+                    <input
+                      type="date"
+                      value={profile?.dob ?? ""}
+                      onChange={(e) => setProfile({ ...profile, dob: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500"
+                    />
                   </div>
 
                   {/* Role */}

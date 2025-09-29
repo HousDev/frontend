@@ -646,7 +646,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b pt-20
+      <div className="bg-white shadow-sm border-b pt-20 sticky top-0 z-40
       
       " style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
