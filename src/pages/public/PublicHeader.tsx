@@ -408,7 +408,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                         borderColor: `${colors.brand}4D`,
                       }}
                     >
-                    <UserIcon size={16} style={{ color: "#ff5722" }} />
+                    <UserIcon size={16} style={{ color: "#E6761D" }} />
 
                     </button>
 
@@ -416,12 +416,12 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                       <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50">
                         <div className="px-4 py-3 border-b border-gray-100">
                           <div className="text-sm font-semibold text-gray-900">{displayName}</div>
-                          <div className="text-xs text-orange-700 bg-orange-50 px-2 py-1 rounded-full inline-block mt-1">
+                          <div className="text-xs text-[#E6761D] bg-orange-50 px-2 py-1 rounded-full inline-block mt-1">
                             {userRole ? `${userRole.charAt(0).toUpperCase() + userRole.slice(1)} User` : 'User'}
                           </div>
                         </div>
 
-                        <button className="w-full text-left px-4 py-3 text-sm flex items-center space-x-3 text-gray-700 hover:text-orange-700 hover:bg-orange-50">
+                        <button className="w-full text-left px-4 py-3 text-sm flex items-center space-x-3 text-gray-700 hover:text-[#E6761D] hover:bg-orange-50">
                           <span>Upgrade Plan</span>
                         </button>
 
@@ -432,7 +432,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                               await logout();
                               window.location.href = '/login';
                             }}
-                            className="w-full text-left px-4 py-3 text-sm flex items-center space-x-3 text-red-600 hover:bg-red-50"
+                            className="w-full text-left px-4 py-3 text-sm flex items-center space-x-3 text-[#E6761D] hover:bg-red-50"
                           >
                             <span>Logout</span>
                           </button>

@@ -1392,75 +1392,82 @@ const BuyersPage = () => {
   const stageKey = (v: any) => key(v).replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
   const priorityKey = (v: any) => key(v);
 
-  const normalizeBuyer = (b: any): UIBuyer => {
-    const rawReq = parseJSON(b.requirements) || b.requirements || {};
-    const fin = parseJSON(b.financials) || b.financials || {};
-    const reqPropertyType =
-      rawReq.propertyType ?? rawReq.property_type ?? b.propertyType ?? b.property_type ?? null;
-    const toStr = (v: any) => (v === null || v === undefined ? null : String(v));
-    const budgetMin = toNumOrNull(b.budget_min ?? b.budgetMin);
-    const budgetMax = toNumOrNull(b.budget_max ?? b.budgetMax);
+ // Normalize buyer object
+const normalizeBuyer = (b: any) => {
+  const rawReq = parseJSON(b.requirements) || b.requirements || {};
+  const fin = parseJSON(b.financials) || b.financials || {};
+  const toStr = (v: any) => (v === null || v === undefined ? null : String(v));
 
-    return {
-      id: b.id ?? `${b.name ?? 'buyer'}-${Math.random().toString(36).slice(2)}`,
-      salutation: b.salutation ?? null,
-      name: b.name ?? null,
-      phone: b.phone ?? b.mobile ?? null,
-      whatsapp: b.whatsapp_number ?? b.whatsapp ?? null,
-      email: b.email ?? null,
-      dob: b.dob ?? null,
-      state: b.state ?? null,
-      city: b.city ?? null,
-      location: b.location ?? null,
-      source: b.buyer_lead_source ?? b.source ?? null,
-      priority: (b.buyer_lead_priority ?? b.priority ?? null)?.toString().trim().toLowerCase() ?? null,
-      is_active: b.is_active !== undefined ? Boolean(b.is_active) : true,
-      stage: b.buyer_lead_stage ?? b.stage ?? null,
-      status: b.buyer_lead_status ?? b.status ?? null,
-      assigned: b.assigned_to ?? b.assigned ?? null,
-      leadScore: toNumOrNull(b.lead_score) ?? toNumOrNull(b.leadScore) ?? 0,
-      budget: { min: budgetMin, max: budgetMax },
-      expectedClose: b.expected_close ?? null,
-      requirements: {
-        propertyType: toStr(reqPropertyType),
-        unitTypes: Array.isArray(rawReq.unitTypes ?? rawReq.unit_types)
-          ? (rawReq.unitTypes ?? rawReq.unit_types).map(toStr)
-          : null,
-        preferredLocations: Array.isArray(rawReq.preferredLocations ?? rawReq.preferred_locations)
-          ? (rawReq.preferredLocations ?? rawReq.preferred_locations).map(toStr)
-          : null,
-        amenities: Array.isArray(rawReq.amenities) ? rawReq.amenities.map(toStr) : null,
-        furnishing: toStr(rawReq.furnishing),
-        possession: toStr(rawReq.possession),
-        facing: toStr(rawReq.facing),
-        floor: toStr(rawReq.floor),
-        specialRequirements: rawReq.specialRequirements ?? rawReq.special_requirements ?? null,
-      },
-      financials: {
-        loanRequired: fin.loanRequired ?? fin.loan_required ?? null,
-        loanAmount: toNumOrNull(fin.loanAmount ?? fin.loan_amount),
-        downPayment: toNumOrNull(fin.downPayment ?? fin.down_payment),
-        monthlyIncome: toNumOrNull(fin.monthlyIncome ?? fin.monthly_income),
-        bankPreference: fin.bankPreference ?? fin.bank_preference ?? null,
-        loanStatus: fin.loanStatus ?? fin.loan_status ?? null,
-        creditScore: toNumOrNull(fin.creditScore ?? fin.credit_score),
-      },
-      matchedProperties: Array.isArray(b.matchedProperties) ? b.matchedProperties : [],
-      activities: Array.isArray(b.activities) ? b.activities : [],
-      followups: Array.isArray(b.followups) ? b.followups : [],
-      documents: Array.isArray(b.documents) ? b.documents : [],
-      visits: toNumOrNull(b.visits) ?? 0,
-      totalVisits: toNumOrNull(b.totalVisits) ?? 0,
-      lastActivity: b.lastActivity ?? b.updated_at ?? null,
-      created_at: b.created_at ?? null,
-      notifications: toNumOrNull(b.notifications) ?? 0,
-      currentStage: b.currentStage ?? (b.buyer_lead_stage ?? b.stage ?? null),
-      stageProgress: toNumOrNull(b.stageProgress) ?? 0,
-      dealPotential: b.dealPotential ?? null,
-      responseRate: toNumOrNull(b.responseRate) ?? 0,
-      avgResponseTime: b.avgResponseTime ?? null,
-    };
+  // Ensure budget
+  const budgetMin = toNumOrNull(b.budget_min ?? b.budgetMin);
+  const budgetMax = toNumOrNull(b.budget_max ?? b.budgetMax);
+
+  // Convert dates to MySQL-safe format
+  const dob = toMySQLDate(b.dob ?? null);
+  const expectedClose = toMySQLDate(b.expected_close ?? b.expectedClose ?? null);
+  const createdAt = toMySQLDate(b.created_at ?? null);
+
+  return {
+    id: b.id ?? `${b.name ?? 'buyer'}-${Math.random().toString(36).slice(2)}`,
+    salutation: b.salutation ?? null,
+    name: b.name ?? null,
+    phone: b.phone ?? b.mobile ?? null,
+    whatsapp: b.whatsapp_number ?? b.whatsapp ?? null,
+    email: b.email ?? null,
+    dob,
+    state: b.state ?? null,
+    city: b.city ?? null,
+    location: b.location ?? null,
+    source: b.buyer_lead_source ?? b.source ?? null,
+    priority: (b.buyer_lead_priority ?? b.priority ?? null)?.toString().trim().toLowerCase() ?? null,
+    is_active: b.is_active !== undefined ? Boolean(b.is_active) : true,
+    stage: b.buyer_lead_stage ?? b.stage ?? null,
+    status: b.buyer_lead_status ?? b.status ?? null,
+    assigned: b.assigned_to ?? b.assigned ?? null,
+    leadScore: toNumOrNull(b.lead_score) ?? toNumOrNull(b.leadScore) ?? 0,
+    budget: { min: budgetMin, max: budgetMax },
+    expectedClose,
+    requirements: {
+      propertyType: toStr(rawReq.propertyType ?? rawReq.property_type ?? b.propertyType ?? b.property_type ?? null),
+      unitTypes: Array.isArray(rawReq.unitTypes ?? rawReq.unit_types)
+        ? (rawReq.unitTypes ?? rawReq.unit_types).map(toStr)
+        : null,
+      preferredLocations: Array.isArray(rawReq.preferredLocations ?? rawReq.preferred_locations)
+        ? (rawReq.preferredLocations ?? rawReq.preferred_locations).map(toStr)
+        : null,
+      amenities: Array.isArray(rawReq.amenities) ? rawReq.amenities.map(toStr) : null,
+      furnishing: toStr(rawReq.furnishing),
+      possession: toStr(rawReq.possession),
+      facing: toStr(rawReq.facing),
+      floor: toStr(rawReq.floor),
+      specialRequirements: rawReq.specialRequirements ?? rawReq.special_requirements ?? null,
+    },
+    financials: {
+      loanRequired: fin.loanRequired ?? fin.loan_required ?? null,
+      loanAmount: toNumOrNull(fin.loanAmount ?? fin.loan_amount),
+      downPayment: toNumOrNull(fin.downPayment ?? fin.down_payment),
+      monthlyIncome: toNumOrNull(fin.monthlyIncome ?? fin.monthly_income),
+      bankPreference: fin.bankPreference ?? fin.bank_preference ?? null,
+      loanStatus: fin.loanStatus ?? fin.loan_status ?? null,
+      creditScore: toNumOrNull(fin.creditScore ?? fin.credit_score),
+    },
+    matchedProperties: Array.isArray(b.matchedProperties) ? b.matchedProperties : [],
+    activities: Array.isArray(b.activities) ? b.activities : [],
+    followups: Array.isArray(b.followups) ? b.followups : [],
+    documents: Array.isArray(b.documents) ? b.documents : [],
+    visits: toNumOrNull(b.visits) ?? 0,
+    totalVisits: toNumOrNull(b.totalVisits) ?? 0,
+    lastActivity: b.lastActivity ?? b.updated_at ?? null,
+    created_at: createdAt || new Date().toISOString(),
+    notifications: toNumOrNull(b.notifications) ?? 0,
+    currentStage: b.currentStage ?? (b.buyer_lead_stage ?? b.stage ?? null),
+    stageProgress: toNumOrNull(b.stageProgress) ?? 0,
+    dealPotential: b.dealPotential ?? null,
+    responseRate: toNumOrNull(b.responseRate) ?? 0,
+    avgResponseTime: b.avgResponseTime ?? null,
   };
+};
+
 
   /* ---------------- Fetch ---------------- */
   useEffect(() => {
@@ -1612,53 +1619,41 @@ const BuyersPage = () => {
   };
 
   // ✅ Key fix here: unshift new record, keep sort, go to page 1, scroll top
-  const handleSaveBuyer = async (buyerData: any) => {
-    const normalized = normalizeBuyer(buyerData);
-    if (normalized.dob) {
-      normalized.dob = toMySQLDate(normalized.dob);
-    }
-    // ensure created_at present for sort (if backend doesn't return it yet)
-    if (!normalized.created_at) normalized.created_at = new Date().toISOString();
+/* ---------------- Save Buyer ---------------- */
+const handleSaveBuyer = async (buyerData: any) => {
+  const normalized = normalizeBuyer(buyerData);
 
-    try {
-      if (editingBuyer) {
-        await buyerAPI.update(String(editingBuyer.id), normalized);
-        setBuyers(prev => {
-          const updated = prev.map(b => (b.id === editingBuyer.id ? { ...normalized, id: editingBuyer.id } : b));
-          return updated.sort((a, b) => {
-            const ad = new Date(a.created_at || a.lastActivity || 0).getTime();
-            const bd = new Date(b.created_at || b.lastActivity || 0).getTime();
-            return bd - ad;
-          });
+  try {
+    if (editingBuyer) {
+      // UPDATE
+      await buyerAPI.update(String(editingBuyer.id), normalized);
+      setBuyers(prev => {
+        const updated = prev.map(b => (b.id === editingBuyer.id ? { ...normalized, id: editingBuyer.id } : b));
+        return updated.sort((a, b) => {
+          const ad = new Date(a.created_at || a.lastActivity || 0).getTime();
+          const bd = new Date(b.created_at || b.lastActivity || 0).getTime();
+          return bd - ad;
         });
-      } else {
-        // INSERT AT TOP (not bottom) + keep consistent sort
-        setBuyers(prev => {
-          const next = [{ ...normalized }, ...prev];
-          return next.sort((a, b) => {
-            const ad = new Date(a.created_at || a.lastActivity || 0).getTime();
-            const bd = new Date(b.created_at || b.lastActivity || 0).getTime();
-            return bd - ad;
-          });
-        });
-      }
-
-      setShowBuyerForm(false);
-      setEditingBuyer(null);
-
-      // Reset to first page so the newly added record is visible immediately
-      setCurrentPage(1);
-
-      // Scroll the table container to top for immediate visibility
-      setTimeout(() => {
-        if (tableScrollRef.current) tableScrollRef.current.scrollTop = 0;
-      }, 0);
-
-      toast.success(editingBuyer ? 'Buyer updated.' : 'Buyer created.');
-    } catch (err) {
-      toast.error('Error saving buyer. Please try again.');
+      });
+    } else {
+      // CREATE
+      setBuyers(prev => [{ ...normalized }, ...prev].sort((a, b) => {
+        const ad = new Date(a.created_at || a.lastActivity || 0).getTime();
+        const bd = new Date(b.created_at || b.lastActivity || 0).getTime();
+        return bd - ad;
+      }));
     }
-  };
+
+    setShowBuyerForm(false);
+    setEditingBuyer(null);
+    setCurrentPage(1);
+    setTimeout(() => tableScrollRef.current?.scrollTo(0,0), 0);
+    toast.success(editingBuyer ? 'Buyer updated.' : 'Buyer created.');
+  } catch (err) {
+    console.error(err);
+    toast.error('Failed to save buyer. Check date values and try again.');
+  }
+};
 
   const handleBuyerSelection = (buyerId: number | string) => {
     setSelectedBuyers(prev =>

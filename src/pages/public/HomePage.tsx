@@ -94,7 +94,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const queryParams = new URLSearchParams(location.search);
   const filterParamKey =
     queryParams.has('filterToken') ? 'filterToken' :
-    (queryParams.has('tf') ? 'tf' : undefined);
+      (queryParams.has('tf') ? 'tf' : undefined);
   const filterToken = filterParamKey ? (queryParams.get(filterParamKey) as string | null) ?? undefined : undefined;
 
   useEffect(() => {
@@ -684,33 +684,99 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       </section>
 
       {/* AI Insights */}
-      <section className="py-3 bg-gray-50">
+
+      <section className="py-6 bg-white">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-2">
-            <div className="flex items-center justify-center space-x-2 mb-2">
-              <h2 className="text-2xl font-bold text-gray-800 mb-0">AI Market Intelligence</h2>
-            </div>
-            <p className="text-gray-600">Real-time market analysis powered by advanced AI algorithms</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-white p-6 rounded-xl shadow"><TrendingUp className="text-green-600" /><h3 className="font-semibold mt-1">Price Trends</h3><div className="text-sm text-gray-500">Andheri West +12.5%</div></div>
-            <div className="bg-white p-6 rounded-xl shadow"><Target className="text-blue-600" /><h3 className="font-semibold mt-1">Best ROI</h3><div className="text-sm text-gray-500">Bandra West 18.2%</div></div>
-            <div className="bg-white p-6 rounded-xl shadow"><BarChart3 className="text-purple-600" /><h3 className="font-semibold mt-1">Market Heat</h3><div className="text-sm text-gray-500">Powai - Hot</div></div>
-            <div className="bg-white p-6 rounded-xl shadow"><Sparkles className="text-orange-600" /><h3 className="font-semibold mt-1">AI Score</h3><div className="text-sm text-gray-500">Avg 92/100</div></div>
+          {/* Header */}
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-[#0b3856] to-[#0c3854] bg-clip-text text-transparent">
+              AI Market Intelligence
+            </h2>
+            <p className="text-gray-600 text-sm">
+              Real-time market analysis powered by advanced AI algorithms
+            </p>
           </div>
 
-          <div className="text-center mt-4">
+          {/* Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Price Trends */}
+            <div className="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-3">
+                <div className="p-2 rounded-xl bg-green-50 ring-1 ring-green-100">
+                  <TrendingUp className="text-green-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Price Trends</h3>
+                  <div className="text-xs text-gray-500">
+                    Andheri West <span className="font-medium text-green-600">+12.5%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Best ROI */}
+            <div className="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-3">
+                <div className="p-2 rounded-xl bg-blue-50 ring-1 ring-blue-100">
+                  <Target className="text-blue-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Best ROI</h3>
+                  <div className="text-xs text-gray-500">
+                    Bandra West <span className="font-medium text-blue-600">18.2%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Market Heat */}
+            <div className="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-3">
+                <div className="p-2 rounded-xl bg-purple-50 ring-1 ring-purple-100">
+                  <BarChart3 className="text-purple-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Market Heat</h3>
+                  <div className="text-xs">
+                    <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 text-[11px]">
+                      Powai · Hot
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Score */}
+            <div className="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-3">
+                <div className="p-2 rounded-xl bg-orange-50 ring-1 ring-orange-100">
+                  <Sparkles className="text-orange-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">AI Score</h3>
+                  <div className="text-xs text-gray-500">
+                    Avg <span className="font-medium text-orange-600">92/100</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          {/* CTA */}
+          <div className="text-center mt-6">
             <button
               onClick={() => internalAuthAction('subscribe')}
-              className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg font-medium transition-colors duration-300"
+              className="inline-flex items-center justify-center gap-2 bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E6761D]"
             >
               Get Full AI Report
             </button>
-
             <SubscriptionModal isOpen={isSubOpen} onClose={() => setIsSubOpen(false)} />
           </div>
         </div>
       </section>
+
+
 
       {/* Featured properties cards */}
       <section className="py-3 bg-white">
@@ -879,30 +945,30 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 Get the best price with our AI-powered valuation and reach verified buyers instantly.
               </p>
               <div className="w-full">
-  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
 
-    {/* Primary CTA */}
-    <button
-      onClick={handleSellPropertyClick}
-      className="w-full sm:w-auto shrink-0 bg-[#E6761D] hover:bg-[#CC6A1A] text-white
+                  {/* Primary CTA */}
+                  <button
+                    onClick={handleSellPropertyClick}
+                    className="w-full sm:w-auto shrink-0 bg-[#E6761D] hover:bg-[#CC6A1A] text-white
                  px-5 py-3 rounded-lg font-medium shadow-md transition-colors duration-300
                  text-sm sm:text-base"
-    >
-      List My Property
-    </button>
+                  >
+                    List My Property
+                  </button>
 
-    {/* Secondary CTA */}
-    <button
-      className="w-full sm:w-auto border-2 border-white/90 text-white
+                  {/* Secondary CTA */}
+                  <button
+                    className="w-full sm:w-auto border-2 border-white/90 text-white
                  px-5 py-3 rounded-lg font-medium transition-colors duration-300
                  hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white
                  text-sm sm:text-base"
-    >
-      Free Valuation
-    </button>
+                  >
+                    Free Valuation
+                  </button>
 
-  </div>
-</div>
+                </div>
+              </div>
 
             </div>
 

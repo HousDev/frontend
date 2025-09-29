@@ -13,7 +13,6 @@ import {
   UserPlus,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { dashboardAPI } from "@/lib/api";
 import { leadsAPI } from "@/lib/leadAPI";
 import { usersAPI } from "@/lib/api";
 
@@ -65,18 +64,16 @@ const ManagerDashboard: React.FC = () => {
 
   const fetchManagerData = async () => {
     try {
-      if (!loading) setRefreshing(true);
+      setRefreshing((prev) => !loading || prev);
       setLoading(true);
 
       const results = await Promise.allSettled([
-        usersAPI.getDashboardStats(), 
-        // usersAPI.getAgents(),
-        usersAPI.getAllUsers({ role: ['agent', 'executive'] }),
-        leadsAPI.getLeads({ limit: 5 }),
+        usersAPI.getDashboardStats?.(),
+        usersAPI.getAllUsers?.({ role: ["agent", "executive"] }),
+        leadsAPI.getLeads?.({ limit: 10 }), // fetch at most 10 leads from API
       ]);
 
       const [statsRes, agentsRes, leadsRes] = results;
-
       const getVal = (r: PromiseSettledResult<any>) =>
         r.status === "fulfilled" ? r.value : null;
 
@@ -86,31 +83,31 @@ const ManagerDashboard: React.FC = () => {
 
       // Stats
       if (statsResponse) {
-        setStats(statsResponse);
+        setStats(statsResponse as ManagerStats);
       } else {
         if (statsRes.status === "rejected") {
-          console.error("dashboardAPI.getManagerStats failed:", (statsRes as any).reason);
+          console.error("usersAPI.getDashboardStats failed:", (statsRes as any).reason);
         } else {
-          console.warn("dashboardAPI.getManagerStats returned no usable data:", statsResponse);
+          console.warn("usersAPI.getDashboardStats returned no usable data:", statsResponse);
         }
         setStats(null);
       }
 
-      // Agents
+      // Agents -> keep only top 10
       if (Array.isArray(agentsResponse)) {
-        setTopAgents(agentsResponse.slice(0, 5));
+        setTopAgents(agentsResponse.slice(0, 10));
       } else {
         if (agentsRes.status === "rejected") {
-          console.error("usersAPI.getAgents failed:", (agentsRes as any).reason);
+          console.error("usersAPI.getAllUsers failed:", (agentsRes as any).reason);
         } else {
-          console.warn("usersAPI.getAgents returned unexpected shape:", agentsResponse);
+          console.warn("usersAPI.getAllUsers returned unexpected shape:", agentsResponse);
         }
         setTopAgents([]);
       }
 
-      // Leads
+      // Leads -> keep only top 10 (API already limited, but slice to be safe)
       if (Array.isArray(leadsResponse)) {
-        setRecentLeads(leadsResponse);
+        setRecentLeads(leadsResponse.slice(0, 10));
       } else {
         if (leadsRes.status === "rejected") {
           console.error("leadsAPI.getLeads failed:", (leadsRes as any).reason);
@@ -120,9 +117,7 @@ const ManagerDashboard: React.FC = () => {
         setRecentLeads([]);
       }
 
-      // if everything is null/empty, show toast
-      const allFailed = !statsResponse && !agentsResponse && !leadsResponse;
-      if (allFailed) {
+      if (!statsResponse && !agentsResponse && !leadsResponse) {
         toast.error("Failed to load manager dashboard data");
       }
     } catch (err) {
@@ -138,12 +133,17 @@ const ManagerDashboard: React.FC = () => {
     return target > 0 ? Math.min((achieved / target) * 100, 100) : 0;
   };
 
-  // Safe date-to-string
   const safeDate = (d?: string | number) => {
     if (!d) return "";
     const dt = new Date(d);
     if (isNaN(dt.getTime())) return "";
     return dt.toLocaleDateString();
+  };
+
+  const initialsOf = (first?: string, last?: string) => {
+    const a = (first?.trim()?.[0] || "").toUpperCase();
+    const b = (last?.trim()?.[0] || "").toUpperCase();
+    return (a + b) || "U";
   };
 
   if (loading) {
@@ -157,57 +157,58 @@ const ManagerDashboard: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-  {/* Left Section */}
-  <div>
-    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Manager Dashboard</h1>
-    <p className="text-gray-600 mt-1 text-sm sm:text-base">
-      Team performance and management overview
-    </p>
-  </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Manager Dashboard</h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">
+            Team performance and management overview
+          </p>
+        </div>
 
-  {/* Right Section - Buttons */}
-  <div className="flex flex-wrap gap-2 sm:gap-3">
-    <Link to="/dashboard/users" className="w-full sm:w-auto">
-      <Button className="flex items-center justify-center space-x-2 w-full sm:w-auto">
-        <UserPlus className="h-4 w-4" />
-        <span>Manage Team</span>
-      </Button>
-    </Link>
+        {/* Right Section - Buttons */}
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          <Link to="/dashboard/users" className="w-full sm:w-auto">
+            <Button className="flex items-center justify-center space-x-2 w-full sm:w-auto">
+              <UserPlus className="h-4 w-4" />
+              <span>Manage Team</span>
+            </Button>
+          </Link>
 
-    <Link to="/dashboard/analytics" className="w-full sm:w-auto">
-      <Button
-        variant="outline"
-        className="flex items-center justify-center space-x-2 w-full sm:w-auto"
-      >
-        <BarChart3 className="h-4 w-4" />
-        <span>Team Analytics</span>
-      </Button>
-    </Link>
+          <Link to="/dashboard/analytics" className="w-full sm:w-auto">
+            <Button
+              variant="outline"
+              className="flex items-center justify-center space-x-2 w-full sm:w-auto"
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>Team Analytics</span>
+            </Button>
+          </Link>
 
-    <Button
-      variant="ghost"
-      onClick={fetchManagerData}
-      className="flex items-center justify-center space-x-2 w-full sm:w-auto"
-      disabled={refreshing}
-    >
-      <svg
-        className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-        viewBox="0 0 24 24"
-        fill="none"
-      >
-        <path
-          d="M21 12a9 9 0 11-3.2-6.6"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
-      <span>{refreshing ? "Refreshing..." : "Retry"}</span>
-    </Button>
-  </div>
-</div>
+          <Button
+            variant="ghost"
+            onClick={fetchManagerData}
+            className="flex items-center justify-center space-x-2 w-full sm:w-auto"
+            disabled={refreshing}
+            aria-busy={refreshing}
+          >
+            <svg
+              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M21 12a9 9 0 11-3.2-6.6"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span>{refreshing ? "Refreshing..." : "Retry"}</span>
+          </Button>
+        </div>
+      </div>
 
+   
       {/* Team Performance Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
@@ -289,85 +290,7 @@ const ManagerDashboard: React.FC = () => {
           </p>
         </div>
       </div>
-
-      {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Performers */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Award className="h-5 w-5 mr-2 text-yellow-500" />
-              Top Performers
-            </h3>
-            <Link to="/dashboard/users" className="text-blue-600 hover:text-blue-800">
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {topAgents.length > 0 ? (
-              topAgents.map((agent, index) => (
-                <div
-                  key={agent.id || index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                      {(agent.first_name?.[0] || "") + (agent.last_name?.[0] || "")}
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {agent.first_name} {agent.last_name}
-                      </p>
-                      <p className="text-sm text-gray-500">{agent.email}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">#{index + 1}</p>
-                    <p className="text-xs text-gray-500">Rank</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500 text-center py-4">No agents found</p>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Team Leads */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Team Leads</h3>
-            <Link to="/dashboard/leads" className="text-blue-600 hover:text-blue-800">
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {recentLeads.length > 0 ? (
-              recentLeads.map((lead) => (
-                <div
-                  key={lead.id}
-                  className="flex items-center justify-between p-3 border-l-4 border-blue-500 bg-blue-50"
-                >
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {lead.first_name} {lead.last_name}
-                    </p>
-                    <p className="text-sm text-gray-600">{lead.email}</p>
-                    <p className="text-xs text-gray-500">{safeDate(lead.created_at)}</p>
-                  </div>
-                  <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                    {lead.status || "New"}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500 text-center py-4">No recent leads</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
+   {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -389,6 +312,83 @@ const ManagerDashboard: React.FC = () => {
               Schedule Activities
             </Button>
           </Link>
+        </div>
+      </div>
+
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Performers (Top 10) */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <Award className="h-5 w-5 mr-2 text-yellow-500" />
+              Top Performers
+            </h3>
+            <Link to="/dashboard/users" className="text-blue-600 hover:text-blue-800">
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {topAgents.length > 0 ? (
+              topAgents.slice(0, 10).map((agent, index) => (
+                <div
+                  key={agent.id || index}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                      {initialsOf(agent.first_name, agent.last_name)}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {agent.first_name ?? "Unknown"} {agent.last_name ?? ""}
+                      </p>
+                      <p className="text-sm text-gray-500">{agent.email ?? "—"}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">#{index + 1}</p>
+                    <p className="text-xs text-gray-500">Rank</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 text-center py-4">No agents found</p>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Team Leads (Top 10) */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Recent Team Leads</h3>
+            <Link to="/dashboard/leads" className="text-blue-600 hover:text-blue-800">
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {recentLeads.length > 0 ? (
+              recentLeads.slice(0, 10).map((lead: any) => (
+                <div
+                  key={lead.id}
+                  className="flex items-center justify-between p-3 border-l-4 border-blue-500 bg-blue-50"
+                >
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {(lead.first_name ?? "Unknown") + " " + (lead.last_name ?? "")}
+                    </p>
+                    <p className="text-sm text-gray-600">{lead.email ?? "—"}</p>
+                    <p className="text-xs text-gray-500">{safeDate(lead.created_at)}</p>
+                  </div>
+                  <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                    {lead.status || "New"}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 text-center py-4">No recent leads</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
