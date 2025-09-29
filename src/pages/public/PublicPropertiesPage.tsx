@@ -135,6 +135,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   // ref for filters panel so we can scroll to it
   const filtersRef = useRef<HTMLDivElement | null>(null);
 
+
+
   // --- autosuggest states for locality (new) ---
   const [suggestions, setSuggestions] = useState<MasterOption[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -1035,19 +1037,11 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   };
 
   // When filter toggled open, scroll into view
+  // ✅ 1) Correct handler (no nested fn, no scrollIntoView)
   const onToggleFilters = () => {
-    setShowFilters((s) => {
-      const next = !s;
-      if (!s) {
-        setTimeout(() => {
-          if (filtersRef.current) {
-            filtersRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 120);
-      }
-      return next;
-    });
+    setShowFilters(s => !s);
   };
+
 
   // ------------------ RENDER ------------------
   if (currentPropertyView) {
@@ -1282,218 +1276,358 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       </div>
 
       {/* AI Recommendations */}
-     {showAIRecommendations && !loading && allProperties.length > 0 && (
-  <div className="bg-gradient-to-r from-[#E6761D] via-[#CC6A1A] via-[#0b3856] to-[#0c3854] text-white py-1 transition-colors duration-200">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Bot className="text-yellow-300 drop-shadow-md" size={20} />
-          <span className="font-semibold">AI Recommendations:</span>
-          <span className="text-sm">
-            Found {allProperties.length} properties. {selectedLocation || 'Top areas'} show strong growth potential
-          </span>
+      {showAIRecommendations && !loading && allProperties.length > 0 && (
+        <div className="bg-gradient-to-r from-[#E6761D] via-[#CC6A1A] via-[#0b3856] to-[#0c3854] text-white py-2 transition-colors duration-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-start sm:items-center justify-between">
+
+              {/* Left: Info */}
+              <div className="flex items-start sm:items-center space-x-2 sm:space-x-3">
+                <Bot className="text-yellow-300 drop-shadow-md shrink-0 mt-0.5 sm:mt-0" size={40} />
+                <div className="flex flex-col">
+                  <span className="font-semibold">AI Recommendations:</span>
+                  <span className="text-xs sm:text-sm">
+                    Found {allProperties.length} properties.{" "}
+                    {selectedLocation || "Top areas"} show strong growth potential
+                  </span>
+                </div>
+              </div>
+
+              {/* Right: Close */}
+              <button
+                onClick={() => setShowAIRecommendations(false)}
+                className="ml-3 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2 py-1 rounded transition-colors duration-200"
+              >
+                ×
+              </button>
+            </div>
+          </div>
         </div>
-        <button
-          onClick={() => setShowAIRecommendations(false)}
-          className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2 py-1 rounded transition-colors duration-200"
-        >
-          ×
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      )}
+
 
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Advanced Filters: toggled under header — use ref to scroll into view */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            {/* <h2 className="text-2xl font-bold text-gray-900 flex gap-2">{filteredProperties.length} Properties Found */}
-            <h2 className="text-2xl font-bold text-gray-900 flex gap-2"> Properties Found
-              <div className="flex items-center space-x-2 ml-3">
-                <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}><Grid size={18} /></button>
-                <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}><List size={18} /></button>
-              </div>
-            </h2>
-            <p className="text-gray-600 text-sm">
-              {selectedLocation && `in ${selectedLocation} • `}
-              {localities.length > 0 && `${localities.join(', ')} • `}
-              {selectedBudget && `${(budgetOptions.find((b) => (b.value || b.label) === selectedBudget)?.label) || selectedBudget} • `}
-              Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedProperties.length)} results
-            </p>
+        <div className="grid  grid-cols-1 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 text-nowrap sm:items-center sm:justify-between mb-2">
+            {/* Left: Title + meta */}
+            <div className="min-w-0">
+              {/* Title */}
+              <h2 className="text-2xl font-bold text-[#0b3856]">
+                Properties Found
+              </h2>
+
+              {/* Meta line */}
+              <p className="text-gray-600 text-sm">
+                {selectedLocation && `in ${selectedLocation} • `}
+                {localities.length > 0 && `${localities.join(', ')} • `}
+                {selectedBudget &&
+                  `${(budgetOptions.find((b) => (b.value || b.label) === selectedBudget)?.label) || selectedBudget} • `}
+                Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedProperties.length)} results
+              </p>
+            </div>
+
+            {/* Right: View toggle buttons */}
+            <div className="flex items-center justify-end sm:justify-end gap-2">
+              <button
+                onClick={() => setViewMode('grid')}
+                aria-label="Grid view"
+                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center 
+        ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
+                title="Grid view"
+              >
+                <Grid size={18} />
+              </button>
+
+              <button
+                onClick={() => setViewMode('list')}
+                aria-label="List view"
+                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center 
+        ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
+                title="List view"
+              >
+                <List size={18} />
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+
+          {/* Top row: AI badge + Filters button (orange) */}
+          <div className="flex items-end justify-end gap-3">
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <Target className="text-blue-600" size={16} />
               <span>AI-Powered Search</span>
             </div>
 
-            <button
-              type="button"
-              onClick={onToggleFilters}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1 flex gap-1 text-xs items-center rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all font-semibold"
-            >
-              <SlidersHorizontal size={12} />
-              <span className="hidden md:inline">Filters</span>
-              <ChevronDown size={14} />
-            </button>
-          </div>
-        </div>
+            {/* Wrap button + panel so panel can be absolute */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={onToggleFilters}
+                aria-expanded={showFilters}
+                aria-controls="advanced-filters-panel"
+                className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-3 py-1 flex gap-1 text-xs items-center rounded-xl transition-colors font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E6761D]"
+              >
+                <SlidersHorizontal size={12} />
+                <span className="hidden md:inline">Filters</span>
+                <ChevronDown size={14} className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+              </button>
 
-        {/* Advanced Filters panel (now will appear directly under header and is scrolled into) */}
-        {showFilters && (
-          <div ref={filtersRef} className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Advanced Filters</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              <select value={selectedLocation} onChange={(e) => {
-                const v = e.target.value || '';
-                setSelectedLocation(v);
-                if (v && v.split(',').map(s => s.trim()).filter(Boolean).length === 1) {
-                  setLocalities([]);
-                }
-              }} disabled={masterLoading} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 disabled:opacity-60 text-xs">
-                <option value="">{masterLoading ? 'Loading locations...' : 'All Locations'}</option>
-                {cityOptions.map((loc) => (
-                  <option key={loc.value} value={loc.value}>
-                    {loc.label}
-                  </option>
-                ))}
-              </select>
+              {showFilters && (
+                <div
+                  id="advanced-filters-panel"
+                  ref={filtersRef}
+                  className="absolute right-0 top-full mt-2 z-20 w-[min(92vw,1000px)] bg-white rounded-2xl shadow-lg p-6 border border-gray-200 max-h-[70vh] overflow-auto"
+                > <h3 className="text-lg font-semibold text-[#0b3856] mb-4">Advanced Filters</h3>
 
-              <select value={selectedBudget} onChange={(e) => setSelectedBudget(e.target.value)} disabled={masterLoading} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-900 disabled:opacity-60 text-xs">
-                <option value="">{masterLoading ? 'Loading budgets...' : 'Any Budget'}</option>
-                {budgetOptions.map((b) => (
-                  <option key={b.value || b.label} value={b.value || b.label}>
-                    {b.label || b.value}
-                  </option>
-                ))}
-              </select>
+                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {/* Location */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Location</label>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Property Type</label>
-                <select value={selectedType} onChange={(e) => { setSelectedType(e.target.value); setSelectedPropertyType(e.target.value); }} disabled={masterLoading} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-60 text-xs">
-                  <option value="">{masterLoading ? 'Loading types...' : 'All Types'}</option>
-                  {propertyTypeOptions.map((pt) => (
-                    <option key={pt.value} value={pt.value}>
-                      {pt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Bedrooms</label>
-                <select value={selectedBedrooms} onChange={(e) => setSelectedBedrooms(e.target.value)} disabled={masterLoading} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-60 text-xs">
-                  <option value="">{masterLoading ? 'Loading...' : 'Any'}</option>
-                  {bedroomOptions.map((b) => (
-                    <option key={b.value} value={b.value}>
-                      {b.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                      <select
+                        value={selectedLocation}
+                        onChange={(e) => {
+                          const v = e.target.value || '';
+                          setSelectedLocation(v);
+                          if (v && v.split(',').map(s => s.trim()).filter(Boolean).length === 1) {
+                            setLocalities([]);
+                          }
+                        }}
+                        disabled={masterLoading}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-60 text-xs"
+                      >
+                        <option value="">{masterLoading ? 'Loading locations...' : 'All Locations'}</option>
+                        {cityOptions.map((loc) => (
+                          <option key={loc.value} value={loc.value}>{loc.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Budget */}
+                    <div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs">
-                  {[{ value: 'relevance', label: 'Most Relevant' }, { value: 'price_low', label: 'Price: Low to High' }, { value: 'price_high', label: 'Price: High to Low' }, { value: 'newest', label: 'Newest First' }, { value: 'area_large', label: 'Largest First' }, { value: 'rating', label: 'Highest Rated' }, { value: 'ai_score', label: 'AI Score High' }, { value: 'price_growth', label: 'Best Growth' }].map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Budget</label>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Featured only</label>
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" checked={featuredOnly} onChange={(e) => setFeaturedOnly(e.target.checked)} />
-                  <span className="text-xs text-gray-600">Show only featured</span>
+                      <select
+                        value={selectedBudget}
+                        onChange={(e) => setSelectedBudget(e.target.value)}
+                        disabled={masterLoading}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-60 text-xs"
+                      >
+                        <option value="">{masterLoading ? 'Loading budgets...' : 'Any Budget'}</option>
+                        {budgetOptions.map((b) => (
+                          <option key={b.value || b.label} value={b.value || b.label}>
+                            {b.label || b.value}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Property Type */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Property Type</label>
+                      <select
+                        value={selectedType}
+                        onChange={(e) => { setSelectedType(e.target.value); setSelectedPropertyType(e.target.value); }}
+                        disabled={masterLoading}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-60 text-xs"
+                      >
+                        <option value="">{masterLoading ? 'Loading types...' : 'All Types'}</option>
+                        {propertyTypeOptions.map((pt) => (
+                          <option key={pt.value} value={pt.value}>{pt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Bedrooms */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Bedrooms</label>
+                      <select
+                        value={selectedBedrooms}
+                        onChange={(e) => setSelectedBedrooms(e.target.value)}
+                        disabled={masterLoading}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-60 text-xs"
+                      >
+                        <option value="">{masterLoading ? 'Loading...' : 'Any'}</option>
+                        {bedroomOptions.map((b) => (
+                          <option key={b.value} value={b.value}>{b.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Sort By */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                      >
+                        {[
+                          { value: 'relevance', label: 'Most Relevant' },
+                          { value: 'price_low', label: 'Price: Low to High' },
+                          { value: 'price_high', label: 'Price: High to Low' },
+                          { value: 'newest', label: 'Newest First' },
+                          { value: 'area_large', label: 'Largest First' },
+                          { value: 'rating', label: 'Highest Rated' },
+                          { value: 'ai_score', label: 'AI Score High' },
+                          { value: 'price_growth', label: 'Best Growth' },
+                        ].map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+
+
+
+
+                    {/* Possession */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Possession</label>
+                      <select
+                        value={possessionFilter}
+                        onChange={(e) => setPossessionFilter(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                      >
+                        <option value="">Any</option>
+                        <option value="Ready to Move">Ready to Move</option>
+                        <option value="Under Construction">Under Construction</option>
+                      </select>
+                    </div>
+
+                    {/* Parking */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Parking</label>
+                      <select
+                        value={parkingFilter}
+                        onChange={(e) => setParkingFilter(e.target.value as any)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                      >
+                        <option value="any">Any</option>
+                        <option value="2w">2-Wheeler</option>
+                        <option value="4w">4-Wheeler</option>
+                      </select>
+                    </div>
+                    {/* Min Rating */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Min Rating</label>
+                      <input
+                        type="number" min={0} max={5} step={0.1}
+                        value={minRating as any}
+                        onChange={(e) => setMinRating(e.target.value === '' ? null : Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                      />
+                    </div>
+                    {/* Floor min */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Floor (min)</label>
+                      <input
+                        type="number"
+                        value={floorMin as any}
+                        onChange={(e) => setFloorMin(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                        placeholder="e.g. 1"
+                      />
+                    </div>
+
+                    {/* Floor max */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Floor (max)</label>
+                      <input
+                        type="number"
+                        value={floorMax as any}
+                        onChange={(e) => setFloorMax(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                        placeholder="e.g. 10"
+                      />
+                    </div>
+
+                    {/* Bathrooms */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Bathrooms (min)</label>
+                      <input
+                        type="number" min={0}
+                        value={bathroomsFilter as any}
+                        onChange={(e) => setBathroomsFilter(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                      />
+                    </div>
+                    {/* Featured */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Featured only</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={featuredOnly}
+                          onChange={(e) => setFeaturedOnly(e.target.checked)}
+                        />
+                        <span className="text-xs text-gray-600">Show only featured</span>
+                      </div>
+                    </div>
+
+                    {/* Verified */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Verified only</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={verifiedOnly}
+                          onChange={(e) => setVerifiedOnly(e.target.checked)}
+                        />
+                        <span className="text-xs text-gray-600">Show only verified</span>
+                      </div>
+                    </div>
+                    {/* ACTIONS */}
+                    <div className="col-span-full flex gap-3 justify-end pt-2">
+                      <button
+                        onClick={() => { applyAdvancedFiltersToUrl({ close: true }); }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs"
+                      >
+                        Apply Filters
+                      </button>
+                      <button
+                        onClick={() => setShowFilters(false)}
+                        className="border border-gray-300 px-4 py-2 rounded-lg text-xs hover:bg-gray-50"
+                      >
+                        Close
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedLocation('');
+                          setSelectedBudget('');
+                          setSelectedType('');
+                          setSelectedBedrooms('');
+                          setSearchQuery('');
+                          setFeaturedOnly(false);
+                          setVerifiedOnly(false);
+                          setMinRating(null);
+                          setPossessionFilter('');
+                          setParkingFilter('any');
+                          setFloorMin('');
+                          setFloorMax('');
+                          setBathroomsFilter('');
+                          setSelectedPropertySubtype('');
+                          setSelectedUnitType('');
+                          setLocalities([]);
+                          setLocalityInput('');
+                          setSelectedPropertyType('');
+                          setTransactionType('buy');
+                          navigate('/properties', { replace: true });
+                        }}
+                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Verified only</label>
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} />
-                  <span className="text-xs text-gray-600">Show only verified</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Min Rating</label>
-                <input type="number" min={0} max={5} step={0.1} value={minRating as any} onChange={(e) => setMinRating(e.target.value === '' ? null : Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Possession</label>
-                <select value={possessionFilter} onChange={(e) => setPossessionFilter(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs">
-                  <option value="">Any</option>
-                  <option value="Ready to Move">Ready to Move</option>
-                  <option value="Under Construction">Under Construction</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Parking</label>
-                <select value={parkingFilter} onChange={(e) => setParkingFilter(e.target.value as any)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs">
-                  <option value="any">Any</option>
-                  <option value="2w">2-Wheeler</option>
-                  <option value="4w">4-Wheeler</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Floor (min)</label>
-                <input type="number" value={floorMin as any} onChange={(e) => setFloorMin(e.target.value === '' ? '' : Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs" placeholder="e.g. 1" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Floor (max)</label>
-                <input type="number" value={floorMax as any} onChange={(e) => setFloorMax(e.target.value === '' ? '' : Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs" placeholder="e.g. 10" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Bathrooms (min)</label>
-                <input type="number" min={0} value={bathroomsFilter as any} onChange={(e) => setBathroomsFilter(e.target.value === '' ? '' : Number(e.target.value))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs" />
-              </div>
-
-              <div className="flex items-end">
-                <button onClick={() => {
-                  setSelectedLocation('');
-                  setSelectedBudget('');
-                  setSelectedType('');
-                  setSelectedBedrooms('');
-                  setSearchQuery('');
-                  setFeaturedOnly(false);
-                  setVerifiedOnly(false);
-                  setMinRating(null);
-                  setPossessionFilter('');
-                  setParkingFilter('any');
-                  setFloorMin('');
-                  setFloorMax('');
-                  setBathroomsFilter('');
-                  setSelectedPropertySubtype('');
-                  setSelectedUnitType('');
-                  setLocalities([]);
-                  setLocalityInput('');
-                  setSelectedPropertyType('');
-                  setTransactionType('buy');
-                  navigate('/properties', { replace: true });
-                }} className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-xs">
-                  Clear All
-                </button>
-              </div>
-
-              <div className="col-span-full flex gap-3 justify-end">
-                <button onClick={() => { applyAdvancedFiltersToUrl({ close: true }); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs">Apply Filters</button>
-                <button onClick={() => setShowFilters(false)} className="border border-gray-300 px-4 py-2 rounded-lg text-xs">Close</button>
-              </div>
+              )}
             </div>
           </div>
-        )}
+
+        </div>
 
         {/* Loading / Error / Results */}
         {loading && (
@@ -1506,7 +1640,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         {error && !loading && (
           <div className="text-center py-16">
             <Home className="mx-auto text-gray-300 mb-6" size={64} />
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Properties</h3>
+            <h3 className="text-lg font-bold text-[#0b3856] mb-4">Error Loading Properties</h3>
             <p className="text-gray-600 mb-8">{error}</p>
             <button onClick={() => loadPropertiesFromSearch()} className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold">Try Again</button>
           </div>
@@ -1543,7 +1677,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
                       <div className="p-6">
                         <div className="mb-3">
-                          <h3 className="text-xs font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{composedTitle}</h3>
+                          <h3 className="text-xs font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">{composedTitle}</h3>
                           <div className="flex items-center text-gray-600 text-sm mb-1"><MapPin size={14} className="mr-1" /><span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span></div>
                         </div>
 
@@ -1664,7 +1798,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         <div className="md:w-2/3 p-6">
                           <div className="flex items-start justify-between mb-4">
                             <div>
-                              <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">{composedTitle}</h3>
+                              <h3 className="text-xl font-bold text-[#0b3856] mb-2 group-hover:text-blue-600 transition-colors">{composedTitle}</h3>
                               <div className="flex items-center text-gray-600 mb-2"><MapPin size={16} className="mr-2" /><span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span></div>
                               <div className="text-sm text-gray-600"><span>{unitAreaLine}</span></div>
                             </div>
@@ -1682,10 +1816,10 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           </div>
 
                           <div className="grid grid-cols-4 gap-3 mb-4">
-                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Bed className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-gray-900">{property.bedrooms}</div><div className="text-xs text-gray-500">Bedrooms</div></div>
-                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Building className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-gray-900">{property.bathrooms}</div><div className="text-xs text-gray-500">Bathrooms</div></div>
-                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Home className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-gray-900">{property.area || property.square_feet}</div><div className="text-xs text-gray-500">Sq Ft</div></div>
-                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Car className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-gray-900">{property.parking || 1}</div><div className="text-xs text-gray-500">Parking</div></div>
+                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Bed className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.bedrooms}</div><div className="text-xs text-gray-500">Bedrooms</div></div>
+                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Building className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.bathrooms}</div><div className="text-xs text-gray-500">Bathrooms</div></div>
+                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Home className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.area || property.square_feet}</div><div className="text-xs text-gray-500">Sq Ft</div></div>
+                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Car className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.parking || 1}</div><div className="text-xs text-gray-500">Parking</div></div>
                           </div>
 
                           <div className="grid grid-cols-3 gap-3 mb-4">
@@ -1740,7 +1874,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         {!loading && !error && filteredProperties.length === 0 && allProperties.length > 0 && (
           <div className="text-center py-16">
             <Home className="mx-auto text-gray-300 mb-6" size={64} />
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">No Properties Found</h3>
+            <h3 className="text-2xl font-bold text-[#0b3856] mb-4">No Properties Found</h3>
             <p className="text-gray-600 mb-8">Try adjusting your search criteria or browse all properties</p>
             <button onClick={() => { setSearchQuery(''); setSelectedLocation(''); setSelectedBudget(''); setSelectedType(''); setSelectedBedrooms(''); setLocalities([]); setLocalityInput(''); setSelectedPropertyType(''); setTransactionType('buy'); }} className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold">Clear Filters</button>
           </div>
@@ -1749,7 +1883,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         {!loading && !error && allProperties.length === 0 && (
           <div className="text-center py-16">
             <Home className="mx-auto text-gray-300 mb-6" size={64} />
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">No Properties Available</h3>
+            <h3 className="text-2xl font-bold text-[#0b3856] mb-4">No Properties Available</h3>
             <p className="text-gray-600 mb-8">Properties will appear here once they are added to the system</p>
             <button onClick={() => loadPropertiesFromSearch()} className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold">Refresh Page</button>
           </div>
