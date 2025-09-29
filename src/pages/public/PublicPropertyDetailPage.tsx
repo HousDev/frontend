@@ -12,7 +12,6 @@ import {
   TreePine,
   Waves,
   Home,
-  DollarSign,
   Eye,
   Heart,
   Share,
@@ -49,7 +48,8 @@ import {
   Lock,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  BedDouble, Bath, Ruler,
 } from 'lucide-react';
 import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -57,8 +57,9 @@ import propertiesAPI from '@/lib/propertiesAPI';
 import { FaWhatsapp } from 'react-icons/fa';
 import viewsAPI from '@/lib/viewAPI';
 import ShareModal from './ShareModal';
-
-// NEW: import viewsAPI (as you asked)
+import PhotoGalleryModal from './PhotoGalleryModal';
+import FurnishingPill from '@/components/properties/FurnishingPill';
+import AmenityPill from '@/components/properties/AmenityPill';
 
 type RawProperty = any;
 
@@ -81,12 +82,16 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     message: ''
   });
 
+  // Add this state near your other useState declarations (around line 60)
+  const [showPhotoGallery, setShowPhotoGallery] = useState(false);
+  const [photoGalleryStartIndex, setPhotoGalleryStartIndex] = useState(0);
   // route param
   const { slug } = useParams();
   const navigate = useNavigate();
   // local property state used across the component
   const [property, setProperty] = useState<any>(null);
   console.log("sellername ", property?.agent?.seller_name);
+
   // helper: display value or dash
   const displayOrDash = (val: any) => {
     if (val === null || val === undefined || (typeof val === 'string' && val.trim() === '')) return ' - ';
@@ -103,6 +108,19 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     return `₹${amount.toLocaleString('en-IN')}`;
   };
 
+  // === NEW: tiny helpers for calling / whatsapp ===
+  const getAgentPhone = () => {
+    const raw = property?.agent?.phone || "";
+    const digits = (raw || "").replace(/\D/g, "");
+    return digits || "9999999999"; // fallback if nothing present
+  };
+  const callAgent = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const phone = getAgentPhone();
+    if (!phone) return;
+    if (typeof window !== "undefined") window.location.href = `tel:${phone}`;
+  };
+
   // Normalize amenities into array
   const normalizeAmenities = (p: RawProperty): string[] => {
     if (Array.isArray(p?.amenities) && p.amenities.length) return p.amenities.map(String);
@@ -110,14 +128,12 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     if (typeof p?.amenities === 'string' && p.amenities.trim()) {
       return p.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
     }
-    // fallback to known keys from other APIs
     if (Array.isArray(p?.amenityList) && p.amenityList.length) return p.amenityList.map(String);
     return [];
   };
 
   const extractLocalityCity = (addr: any): string => {
     if (!addr && addr !== '') return ' - ';
-    // If object with explicit fields
     if (typeof addr === 'object') {
       const locality = (addr?.locality ?? addr?.neighborhood ?? addr?.subLocality ?? addr?.area ?? '').toString().trim();
       const city = (addr?.city ?? addr?.town ?? addr?.district ?? addr?.region ?? addr?.state ?? '').toString().trim();
@@ -125,22 +141,15 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       if (city) return city;
       if (locality) return locality;
     }
-
-    // If string, split by common separators and pick last two meaningful parts
     if (typeof addr === 'string') {
-      // normalize separators and remove extra whitespace/newlines
       const cleaned = addr.replace(/\r?\n/g, ',').replace(/[-|\/]+/g, ',').replace(/\s+/g, ' ').trim();
-      // split into comma parts
       const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean);
       if (parts.length === 0) return ' - ';
       if (parts.length === 1) return parts[0];
-      // Try to pick last two parts which typically are locality and city
       const last = parts[parts.length - 1];
       const secondLast = parts[parts.length - 2];
-      // If last part looks like a pincode (all digits), drop it and take previous two
       const isPincode = (s: string) => /^\d{5,6}$/.test(s.replace(/\s+/g, ''));
       if (isPincode(last)) {
-        // drop last and attempt again
         const withoutPin = parts.slice(0, -1);
         if (withoutPin.length >= 2) {
           return `${withoutPin[withoutPin.length - 2]}, ${withoutPin[withoutPin.length - 1]}`;
@@ -149,7 +158,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       }
       return `${secondLast}, ${last}`;
     }
-
     return ' - ';
   };
 
@@ -158,7 +166,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     if (!p) return null;
 
     const price = Number(p?.budget ?? p?.price ?? p?.amount ?? p?.listing_price ?? p?.listingPrice);
-    // square_feet derived from multiple possible fields
     const sqftCandidates = [
       p?.carpet_area,
       p?.builtup_area,
@@ -180,61 +187,43 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
         : Array.isArray(p?.photoUrls) ? p.photoUrls
           : Array.isArray(p?.media) ? p.media.map((m: any) => m?.url ?? m) : [];
 
-    // original location input might be in different shapes: string, object, fields
     const rawLocation = p?.location ?? p?.address ?? p?.place ?? p?.locality ?? p;
 
-    // detect created / publication date from many possible keys
     const createdAtRaw = p?.created_at ?? p?.publication_date ?? p?.createdAt ?? p?.created_at_at ?? p?.created_at_date ?? p?.created_at_timestamp ?? p?.published_at ?? null;
 
-    // helper: safe parse date -> returns Date or null
     const parseDateSafe = (d: any): Date | null => {
       if (!d && d !== 0) return null;
-
-      // if it's already a Date
       if (d instanceof Date && !isNaN(d.getTime())) return d;
-
-      // numeric timestamp (seconds or milliseconds)
       if (typeof d === 'number' && Number.isFinite(d)) {
-        // heuristics: if it's in seconds (10 digits) convert to ms
         if (d < 1e12) return new Date(d * 1000);
         return new Date(d);
       }
-
-      // string
       if (typeof d === 'string') {
         const s = d.trim();
-
-        // Try ISO parse first
         const iso = new Date(s);
         if (!isNaN(iso.getTime())) return iso;
-
-        // Try numeric string
         const asNum = Number(s.replace(/[^\d]/g, ''));
         if (!isNaN(asNum) && asNum > 0) {
           if (asNum < 1e12) return new Date(asNum * 1000);
           return new Date(asNum);
         }
       }
-
       return null;
     };
 
     const createdAtDate = parseDateSafe(createdAtRaw);
 
-    // compute days since creation (rounded down). if createdAtDate missing => undefined
     const computeDaysAgo = (dt: Date | null): number | undefined => {
       if (!dt) return undefined;
       const now = Date.now();
       const diffMs = now - dt.getTime();
       if (!Number.isFinite(diffMs)) return undefined;
-      // if created in future, treat as 0 (Today)
       if (diffMs < 0) return 0;
       return Math.floor(diffMs / (1000 * 60 * 60 * 24));
     };
 
     const listedDaysFromCreated = computeDaysAgo(createdAtDate);
 
-    // build normalized object but preserve original fields
     const normalized: any = {
       raw: p,
       id: p?.id ?? p?.property_id ?? p?.uuid ?? p?.slug ?? null,
@@ -258,13 +247,10 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       featured: Boolean(p?.featured ?? p?.is_featured ?? p?.isFeatured),
       badge: p?.featured || p?.is_featured || p?.isFeatured ? 'Premium' : (p?.badge ?? 'Standard'),
       views: Number(p?.views ?? p?.view_count ?? p?.totalViews) || undefined,
-      // Ensure listedDays is set either from explicit fields or computed from created_at
       listedDays: (() => {
         const rawDays = p?.listedDays ?? p?.listed_days ?? p?.days_listed;
-        // prefer explicit numeric-like values
         const n = Number(rawDays);
         if (Number.isFinite(n) && n >= 0) return Math.floor(n);
-        // else fallback to computed value (may be undefined)
         return listedDaysFromCreated;
       })(),
       possession: p?.possession ?? p?.possession_status ?? p?.possessionStatus ?? '',
@@ -314,7 +300,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       try {
         setLoading(true);
         const res = await propertiesAPI.getPropertyBySlug(slug as string);
-        // handle both shapes: res or res.data
         const payload = res?.data ?? res ?? null;
         const normalized = normalizeProperty(payload);
         setProperty(normalized);
@@ -326,28 +311,21 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       }
     };
 
-    // Only fetch if parent didn't provide propertyProp (avoid unnecessary refetch)
     if (!propertyProp && slug) fetchProperty();
   }, [slug, propertyProp]);
 
-  // ---- safe back handler: use parent callback if provided, otherwise fallback ----
-  // ---- safe back handler: use parent callback if provided, otherwise fallback to navigate to /properties ----
   const handleBack = () => {
     if (typeof onBack === 'function') {
       try {
         onBack();
         return;
       } catch (err) {
-        // ignore and fallback to navigate
         console.error('onBack threw:', err);
       }
     }
-
-    // Prefer SPA navigation to /properties
     try {
       navigate('/properties');
     } catch (err) {
-      // As a last resort, fallback to full-page redirect
       if (typeof window !== 'undefined') {
         window.location.href = '/properties';
       }
@@ -358,30 +336,26 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   // PAGE-VIEW RECORDING LOGIC (uses viewsAPI.recordView)
   // ------------------------
 
-  // helper: extract numeric id if possible (falls back to leading number from slug)
   const resolvePropertyIdNumber = (normalized: any): number | null => {
     if (!normalized) return null;
-    // Try common numeric fields from raw object first
     const raw = normalized.raw ?? {};
     const possible = [
       raw.id,
       raw.property_id,
       raw.id_number,
-      normalized.id, // might be numeric or slug-like
+      normalized.id,
     ];
     for (const v of possible) {
       if (v === undefined || v === null) continue;
       const n = Number(String(v).replace(/[^0-9]/g, ''));
       if (Number.isFinite(n) && n > 0) return n;
     }
-    // If id is slug-like "307185-some-slug", try leading number
     const candidate = String(normalized.id || normalized.raw?.slug || normalized.raw?.id || '');
     const m = candidate.match(/^(\d+)(?:-|$)/);
     if (m) return Number(m[1]);
     return null;
   };
 
-  // localStorage dedupe: avoid recording more than once in windowPerProperty minutes
   const recordView = async (normalizedProp: any, options?: { windowMinutes?: number }) => {
     if (!normalizedProp) return;
     const windowMinutes = options?.windowMinutes ?? 10;
@@ -389,17 +363,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     const slugId = normalizedProp?.raw?.slug ?? normalizedProp?.id ?? null;
     const dedupeKey = `viewed_property_${propertyId ?? slugId ?? String(Math.random()).slice(2)}`;
 
-    // If we've already recorded this property in this component instance, skip
     const instanceKey = String(propertyId ?? slugId ?? 'unknown');
     if (hasRecordedViewRef.current[instanceKey]) {
-      // But try to refresh count once (optional) — only if you want updated view count
       try {
         if (propertyId) {
           const resp = await viewsAPI.getByProperty(propertyId, false);
           if (resp?.success && resp?.total_views !== undefined) {
             setProperty((prev: any) => {
               if (!prev) return prev;
-              // only update if changed
               if (prev.views === resp.total_views) return prev;
               return { ...prev, views: resp.total_views };
             });
@@ -420,7 +391,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       return;
     }
 
-    // localStorage dedupe check (same as you had)
     try {
       const last = localStorage.getItem(dedupeKey);
       if (last) {
@@ -428,9 +398,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
         if (!Number.isNaN(lastTs)) {
           const elapsed = Date.now() - lastTs;
           if (elapsed < windowMinutes * 60 * 1000) {
-            // mark instance as recorded so effect won't re-trigger record
             hasRecordedViewRef.current[instanceKey] = true;
-            // refresh views (same safe update)
             try {
               if (propertyId) {
                 const resp = await viewsAPI.getByProperty(propertyId, false);
@@ -451,7 +419,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       console.warn('localStorage unavailable for view dedupe:', err);
     }
 
-    // Build payload & call record API
     const eventPayload: Record<string, any> = {
       source: 'client',
       path: typeof window !== 'undefined' ? window.location.pathname : null,
@@ -461,14 +428,12 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
     try {
       await viewsAPI.recordView(propertyId, eventPayload);
-      // mark localStorage and instance flag
       try { localStorage.setItem(dedupeKey, String(Date.now())); } catch (err) { /* ignore */ }
       hasRecordedViewRef.current[instanceKey] = true;
     } catch (err) {
       console.warn('viewsAPI.recordView failed:', err);
     }
 
-    // Refresh server-side count once, but only update state if changed
     try {
       if (propertyId) {
         const resp = await viewsAPI.getByProperty(propertyId, false);
@@ -495,6 +460,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       }
     } catch (err) { /* ignore */ }
   };
+
   // --- Like (shortlist) toggle with localStorage persistence
   const likeKeyFor = (p: any) => {
     const numericId = resolvePropertyIdNumber(p);
@@ -529,7 +495,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   // When property is set, trigger view recording once
   useEffect(() => {
     if (!property) return;
-    // compute a stable key for the property instance (use id if available)
     const instanceKey = String(resolvePropertyIdNumber(property) ?? property?.id ?? 'unknown');
     if (hasRecordedViewRef.current[instanceKey]) return;
 
@@ -547,8 +512,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     })();
 
     return () => { aborted = true; };
-  }, [property]); // keep dependency but guarded by hasRecordedViewRef
-
+  }, [property]);
 
   // ------------------------
   // END PAGE-VIEW RECORDING
@@ -584,7 +548,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       </div>
     );
   }
-  // support multiple shapes for images & amenities (from normalized property)
   const images: string[] = Array.isArray(property?.images) && property.images.length
     ? property.images
     : Array.isArray(property?.photos) && property.photos.length
@@ -599,7 +562,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     ? property.amenities
     : ['Swimming Pool', 'Gym', '24/7 Security', 'Private Garden', 'Covered Parking', 'High-speed Internet'];
 
-  // prefer unitType keys
   const unitType = property?.unitType ?? '';
   const subtype = property?.subtype ?? '';
 
@@ -638,27 +600,26 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     setShowPaywall(false);
   };
 
-  // compute price per sq ft if available
   const priceValue = Number.isFinite(property?.price) ? property.price : undefined;
   const sqftValue = Number.isFinite(property?.square_feet) ? property.square_feet : undefined;
   const pricePerSqFt = (priceValue && sqftValue) ? Math.round(priceValue / sqftValue) : undefined;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b pt-20 sticky top-0 z-40
-      
-      " style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
+      {/* Header (hidden on mobile) */}
+      <div
+        className="hidden md:block bg-white shadow-sm border-b pt-20 sticky top-0 z-40"
+        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between ">
             <button
               onClick={handleBack}
-              className="flex items-center text-[#E6761D] hover:text-[#CC6A1A] transition-colors text-sm font-medium"
+              className="flex items-center text-white hover:text-[#CC6A1A] transition-colors text-sm font-medium"
             >
               <ArrowLeft size={18} className="mr-1" />
               Back to Properties
             </button>
-
 
             <div className="flex items-center space-x-2">
               <button className="p-2 text-white hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100">
@@ -678,9 +639,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
         </div>
       </div>
 
-
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 md:pb-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Main Content */}
@@ -693,6 +652,16 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-black/25" />
+
+              {/* === WATERMARK OVERLAYS === */}
+              <div className="absolute inset-0 pointer-events-none select-none z-10">
+                {/* Large Center Watermark */}
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-30">
+                  <div className="text-white font-bold text-2xl md:text-2xl lg:text-2xl whitespace-nowrap transform rotate-[-360deg] drop-shadow-2xl">
+                    ResaleExpert.in
+                  </div>
+                </div>
+              </div>
 
               {/* === TOP-LEFT overlay (Title + Badges + Location) === */}
               <div className="absolute top-3 left-3 z-20 text-white max-w-[85%] flex flex-col gap-1">
@@ -715,17 +684,17 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 <div className="flex items-center gap-2 mt-1">
                   {property?.featured && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full
-                          text-[11px] font-bold uppercase tracking-wide text-white
-                          shadow-sm ring-1 ring-black/5
-                          bg-gradient-to-r from-orange-500 to-red-500">
+              text-[11px] font-bold uppercase tracking-wide text-white
+              shadow-sm ring-1 ring-black/5
+              bg-gradient-to-r from-orange-500 to-red-500">
                       <Zap className="w-3.5 h-3.5" />
                       FEATURED
                     </span>
                   )}
                   {property?.verified && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full
-                          text-[11px] font-bold uppercase tracking-wide text-white
-                          shadow-sm ring-1 ring-black/5 bg-green-500">
+              text-[11px] font-bold uppercase tracking-wide text-white
+              shadow-sm ring-1 ring-black/5 bg-green-500">
                       <CheckCircle className="w-3.5 h-3.5" />
                       VERIFIED
                     </span>
@@ -737,12 +706,33 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               <button
                 onClick={toggleLiked}
                 className="absolute top-3 right-3 z-20 p-2 rounded-full
-               bg-white/90 backdrop-blur shadow-sm ring-1 ring-black/5
-               hover:bg-white transition"
+   bg-white/90 backdrop-blur shadow-sm ring-1 ring-black/5
+   hover:bg-white transition"
                 aria-label={liked ? 'Remove from shortlist' : 'Add to shortlist'}
               >
                 <Heart className={liked ? 'w-4 h-4 text-red-500 fill-current' : 'w-4 h-4 text-gray-700'} />
               </button>
+
+              {/* === BOTTOM-LEFT overlay (Price + Views + Days) === */}
+              <div className="absolute bottom-3 left-3 z-20 flex flex-wrap items-center gap-4 text-xs sm:text-sm text-white drop-shadow">
+                <div className="mt-3 md:mt-0 md:ml-4 text-left md:text-left flex-shrink-0">
+                  <div className="text-2xl font-bold text-white leading-tight">
+                    {formatCurrency(property?.price)}
+                  </div>
+                  <div className="text-sm sm:text-base text-white mt-1">
+                    {pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - '}
+                  </div>
+                </div>
+                <span className="flex items-center whitespace-nowrap">
+                  <Eye className="w-3.5 h-3.5 mr-1 shrink-0" />
+                  <span className="truncate">{displayOrDash(property?.views ?? ' - ')} views</span>
+                </span>
+
+                <span className="flex items-center whitespace-nowrap">
+                  <Clock className="w-3.5 h-3.5 mr-1 shrink-0" />
+                  <span>{formatDaysAgo(property?.listedDays)}</span>
+                </span>
+              </div>
 
               {/* Arrows */}
               {images.length > 1 && (
@@ -750,14 +740,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   <button
                     onClick={() => setCurrentImageIndex((p) => (p - 1 + images.length) % images.length)}
                     className="absolute left-3 top-1/2 -translate-y-1/2
-                   bg-black/40 hover:bg-black/60 text-white p-2 rounded-full z-20 transition"
+       bg-black/40 hover:bg-black/60 text-white p-2 rounded-full z-20 transition"
                   >
                     <ChevronLeft size={20} />
                   </button>
                   <button
                     onClick={() => setCurrentImageIndex((p) => (p + 1) % images.length)}
                     className="absolute right-3 top-1/2 -translate-y-1/2
-                   bg-black/40 hover:bg-black/60 text-white p-2 rounded-full z-20 transition"
+       bg-black/40 hover:bg-black/60 text-white p-2 rounded-full z-20 transition"
                   >
                     <ChevronRight size={20} />
                   </button>
@@ -785,79 +775,263 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
               {/* View Options */}
               <div className="absolute bottom-12 right-3 z-20 flex space-x-2">
-                <button className="bg-white/95 text-gray-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white transition text-sm">
+                <button
+                  onClick={() => {
+                    setPhotoGalleryStartIndex(currentImageIndex);
+                    setShowPhotoGallery(true);
+                  }}
+                  className="bg-white/95 text-gray-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white transition text-sm shadow-md border border-black/10"
+                >
                   <Camera size={16} />
                   <span className="text-sm">Photos</span>
                 </button>
-                <button className="bg-white/95 text-gray-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white transition text-sm">
+                <button className="bg-white/95 text-gray-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white transition text-sm shadow-md border border-black/10">
                   <Video size={16} />
                   <span className="text-sm">Tour</span>
                 </button>
               </div>
             </div>
-
-
-
             {/* Property Header */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mb-2">
-                    {/* normalized display for type/unit/subtype */}
-                    <div className="font-bold text-gray-900 text-lg sm:text-xl truncate">
-                      {(() => {
-                        const displayType = property?.type ?? '';
-                        return displayType ? <span className="mr-2">{displayType}</span> : null;
-                      })()}
-                      {unitType ? <span className="mr-2">{unitType}</span> : null}
-                      {subtype ? <span className="mr-2">{subtype}</span> : null}
+            <div className="bg-white rounded-xl shadow-sm p-5 pt-0 !mt-0">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mb-2">
+                  {property?.verified && (
+                    <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs mt-2 sm:mt-0 shrink-0">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Verified</span>
                     </div>
-
-                    {property?.verified && (
-                      <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs mt-2 sm:mt-0 shrink-0">
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        <span>Verified</span>
-                      </div>
-                    )}
+                  )}
+                </div>
+              </div>
+              {/* Property Stats */}
+              <div className="grid grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="text-center flex flex-col items-center">
+                  <BedDouble className="w-5 h-5 text-orange-500 mb-1" />
+                  <div className="text-lg font-bold text-gray-600">
+                    {displayOrDash(property?.bedrooms ?? 4)}
                   </div>
-
-                  <div className="flex items-center text-gray-600 mb-2 text-sm sm:text-base">
-                    <MapPin className="w-4 h-4 mr-1 shrink-0" />
-                    <span className="truncate">{displayOrDash(property?.locationNormalized)}</span>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                    <span className="flex items-center whitespace-nowrap">
-                      <Eye className="w-3.5 h-3.5 mr-1 shrink-0" />
-                      <span className="truncate">{displayOrDash(property?.views ?? ' - ')} views</span>
-                    </span>
-
-                    <span className="flex items-center whitespace-nowrap">
-                      <Clock className="w-3.5 h-3.5 mr-1 shrink-0" />
-                      <span>{formatDaysAgo(property?.listedDays)}</span>
-                    </span>
-                  </div>
+                  <div className="text-sm text-gray-600">Bedrooms</div>
                 </div>
 
-                <div className="mt-3 md:mt-0 md:ml-4 text-left md:text-right flex-shrink-0">
-                  <div className="text-xl font-bold text-green-600 leading-tight">
-                    {formatCurrency(property?.price)}
+                <div className="text-center flex flex-col items-center">
+                  <Bath className="w-5 h-5 text-blue-500 mb-1" />
+                  <div className="text-lg font-bold text-gray-600">
+                    {displayOrDash(property?.bathrooms ?? 3)}
                   </div>
-                  <div className="text-sm sm:text-base text-gray-500 mt-1">
-                    {pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - '}
+                  <div className="text-sm text-gray-600">Bathrooms</div>
+                </div>
+
+                <div className="text-center flex flex-col items-center">
+                  <Ruler className="w-5 h-5 text-green-600 mb-1" />
+                  <div className="text-lg font-bold text-gray-600">
+                    {displayOrDash(property?.area ?? property?.square_feet ?? 1200)}
                   </div>
+                  <div className="text-sm text-gray-600">Sq Ft</div>
+                </div>
+
+                <div className="text-center flex flex-col items-center">
+                  <Car className="w-5 h-5 text-purple-500 mb-1" />
+                  <div className="text-lg font-bold text-gray-600">
+                    {displayOrDash(property?.parking ?? 2)}
+                  </div>
+                  <div className="text-sm text-gray-600">Parking</div>
                 </div>
               </div>
 
+              {/* Property Tags */}
+              <div className="flex flex-wrap gap-2 my-2">
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                  {displayOrDash(property?.type) === ' - ' ? ' - ' : property?.type}
+                </span>
 
-              {/* AI Insights Banner */}
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-4 border border-purple-100">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Bot className="text-purple-600" size={20} />
+                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+                  {displayOrDash(property?.furnishing) === ' - ' ? ' - ' : property?.furnishing || ' - '}
+                </span>
+              </div>
+              {/* Description */}
+              <div className="bg-white rounded-xl shadow-sm p-5">
+                <h2 className="text-lg font-bold text-gray-900 mb-3">Property Description</h2>
+                <p className="text-gray-700 leading-relaxed">
+                  {displayOrDash(property?.description) === ' - '
+                    ? ' - '
+                    : property?.description}
+                </p>
+              </div>
+              
+              {/* Property Details */}
+              <div className="bg-white/95 backdrop-blur rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
+                <div className="px-5 pt-4">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight mb-4">
+                    Property Details
+                  </h3>
+                </div>
+
+                <div className="px-5 pb-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3 gap-4 text-sm">
+
+                    {/* Example Row */}
+                    
+                    <div>
+                      <span className="font-semibold text-gray-800">Property type:</span>
+                      <span className="text-gray-600 ml-1">{property?.type || "-"}</span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold text-gray-800">Unit Type:</span>
+                      <span className="text-gray-600 ml-1">{property?.unitType || "-"}</span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold text-gray-800">Subtype:</span>
+                      <span className="text-gray-600 ml-1">{property?.subtype || "-"}</span>
+                    </div>
+
+                    {/* Row 2 */}
+                    <div>
+                      <span className="font-semibold text-gray-800">Society:</span>
+                      <span className="text-gray-600 ml-1">{property?.society || "-"}</span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold text-gray-800">Wing:</span>
+                      <span className="text-gray-600 ml-1">{property?.wing || "-"}</span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold text-gray-800">Unit No:</span>
+                      <span className="text-gray-600 ml-1">{property?.unitNo || "-"}</span>
+                    </div>
+
+                    {/* Row 3 */}
+                    <div>
+                      <span className="font-semibold text-gray-800">Floor:</span>
+                      <span className="text-gray-600 ml-1">{property?.floor ? `${property.floor} / ${property?.totalFloors}` : "-"}</span>
+                    </div>
+                    {/* Row 4 */}
+                    <div>
+                      <span className="font-semibold text-gray-800">Built-up Area:</span>
+                      <span className="text-gray-600 ml-1">{property?.builtupArea ? `${property.builtupArea} Sq.ft.` : "-"}</span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold text-gray-800">Carpet Area:</span>
+                      <span className="text-gray-600 ml-1">{property?.carpetArea ? `${property.carpetArea} Sq.ft.` : "-"}</span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold text-gray-800">Budget:</span>
+                      <span className="text-gray-600 ml-1">{property?.budget ? formatCurrency(property?.budget) : "-"}</span>
+                    </div>
+
+                    {/* Row 5 */}
+                    <div>
+                      <span className="font-semibold text-gray-800">Parking:</span>
+                      <span className="text-gray-600 ml-1">{property?.parkingQty ? `${property.parkingQty} ${property.parkingType}` : "-"}</span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold text-gray-800">Furnishing:</span>
+                      <span className="text-gray-600 ml-1">{property?.furnishing || "-"}</span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold text-gray-800">Possession:</span>
+                      <span className="text-gray-600 ml-1">{property?.possessionMonth} {property?.possessionYear || "-"}</span>
+                    </div>
+
+                    {/* Row 6 */}
+                    <div>
+                      <span className="font-semibold text-gray-800">Purchase Date:</span>
+                      <span className="text-gray-600 ml-1">{property?.purchaseMonth} {property?.purchaseYear || "-"}</span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold text-gray-800">Selling Rights:</span>
+                      <span className="text-gray-600 ml-1">{property?.selling_rights || "-"}</span>
+                    </div>
+                    {/* Row 7 */}
+                    <div>
+                      <span className="font-semibold text-gray-800">Status:</span>
+                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        {property?.status || "-"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-800">City:</span>
+                      <span className="text-gray-600 ml-1">{property?.city || "-"}</span>
+                    </div>
+                    <div><span className="font-semibold">Location:</span><span className="ml-2">{property?.location || "-"}</span></div>
+
+                    <div className="sm:col-span-1 lg:col-span-2 xl:col-span-1 2xl:col-span-2">
+                      <span className="font-semibold text-gray-800">Nearby:</span>
+                      <span className="ml-2 text-gray-600">
+                        {property.nearby_places?.length ? (
+                          property.nearby_places.map((p: any, i: number) => (
+                            <span key={i} className="inline-block bg-gray-100 px-2 py-0.5 rounded-full text-xs mr-1 mb-1">
+                              {p.name} ({p.distance}{p.unit}) {p.type}
+                            </span>
+                          ))
+                        ) : (
+                          "Not Available"
+                        )}
+                      </span>
+                    </div>
+                    {/* Address */}
+                    <div className="sm:col-span-2 lg:col-span-3 xl:col-span-2 2xl:col-span-3">
+                      <div className="font-semibold mb-1">Address:</div>
+                      <div className="ml-1 text-gray-700 whitespace-pre-line">
+                        {property?.address || "Not Available"}
+                      </div>
+                    </div>
                   </div>
+                </div>
+              </div>
+               {/* Amenities & Furnishing */}
+                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-3">
+                       {/* Amenities */}
+                       <div className="bg-white rounded-xl border border-gray-200 p-4">
+                         <h3 className="font-semibold text-gray-900 mb-3">Amenities</h3>
+                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
+                           {(() => {
+                             const amenities: string[] = Array.isArray(property.amenities)
+                               ? property.amenities
+                               : (property.amenities ?? "")
+                                 .split(",")
+                                 .map((s: string) => s.trim())
+                                 .filter(Boolean);
+               
+                             return amenities.length ? (
+                               amenities.map((name, i) => <AmenityPill key={i} name={name} />)
+                             ) : (
+                               <span className="text-sm text-gray-500">No amenities listed</span>
+                             );
+                           })()}
+                         </div>
+                       </div>
+               
+                       {/* Furnishing Items */}
+                       <div className="bg-white rounded-xl border border-gray-200 p-4">
+                         <h3 className="font-semibold text-gray-900 mb-3">Furnishing Items</h3>
+                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
+                           {property.furnishingItems?.length ? (
+                             property.furnishingItems.map((item: string, index: number) => (
+                               <FurnishingPill key={index} name={item} />
+                             ))
+                           ) : (
+                             <span className="text-sm text-gray-500">No furnishing items listed</span>
+                           )}
+                         </div>
+                       </div>
+                     </div>
+              {/* AI Insights Banner */}
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-8 mt-3 border border-purple-100">
+                <div className="flex items-center space-x-3">
+                  
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-1">AI Property Analysis</h3>
+                    <div className="flex items-center space-x-3 mb-4">
+                      <Bot className="text-purple-600" size={20} />
+                      <h3 className="font-semibold text-gray-900 mb-1">AI Property Analysis</h3>
+                    </div>
                     {hasSubscription || !isLoggedIn ? (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <div>
@@ -911,173 +1085,122 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   </div>
                 </div>
               </div>
-
-              {/* Property Stats */}
-              <div className="grid grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{displayOrDash(property?.bedrooms ?? 4)}</div>
-                  <div className="text-sm text-gray-600">Bedrooms</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{displayOrDash(property?.bathrooms ?? 3)}</div>
-                  <div className="text-sm text-gray-600">Bathrooms</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{displayOrDash(property?.area ?? property?.square_feet ?? 1200)}</div>
-                  <div className="text-sm text-gray-600">Sq Ft</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{displayOrDash(property?.parking ?? 2)}</div>
-                  <div className="text-sm text-gray-600">Parking</div>
-                </div>
-              </div>
-
-              {/* Property Tags */}
-              <div className="flex flex-wrap gap-2 mt-4">
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {displayOrDash(property?.type) === ' - ' ? ' - ' : property?.type}
-                </span>
-                <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {property?.property_status}
-                </span>
-                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {displayOrDash(property?.furnishing) === ' - ' ? ' - ' : property?.furnishing || ' - '}
-                </span>
-              </div>
             </div>
 
-            {/* ... rest of UI remains unchanged ... */}
-
             {/* AI Recommendations */}
-            <div className="bg-white rounded-xl shadow-sm p-5 relative">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Lightbulb className="text-blue-600" size={20} />
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 relative">
+              <div className="flex items-center space-x-2 sm:space-x-3 mb-3">
+                <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
+                  <Lightbulb className="text-blue-600" size={18} />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">AI Recommendations</h2>
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">AI Recommendations</h2>
               </div>
 
               {hasSubscription ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <TrendingUp className="text-green-600" size={18} />
-                      <span className="font-semibold text-green-800">Price Appreciation</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="bg-green-50 rounded-lg p-3 border border-green-100">
+                    <div className="flex items-center space-x-1.5 mb-1.5">
+                      <TrendingUp className="text-green-600" size={16} />
+                      <span className="font-semibold text-green-800 text-sm">Price Appreciation</span>
                     </div>
-                    <div className="text-2xl font-bold text-green-600 mb-1">+15.2%</div>
-                    <div className="text-sm text-green-700">Expected in next 12 months</div>
+                    <div className="text-xl font-bold text-green-600 leading-tight">+15.2%</div>
+                    <div className="text-xs text-green-700 mt-0.5">Expected in next 12 months</div>
                   </div>
 
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <PieChart className="text-blue-600" size={18} />
-                      <span className="font-semibold text-blue-800">Market Position</span>
+                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                    <div className="flex items-center space-x-1.5 mb-1.5">
+                      <PieChart className="text-blue-600" size={16} />
+                      <span className="font-semibold text-blue-800 text-sm">Market Position</span>
                     </div>
-                    <div className="text-2xl font-bold text-blue-600 mb-1">Top 10%</div>
-                    <div className="text-sm text-blue-700">In this locality</div>
+                    <div className="text-xl font-bold text-blue-600 leading-tight">Top 10%</div>
+                    <div className="text-xs text-blue-700 mt-0.5">In this locality</div>
                   </div>
 
-                  <div className="bg-orange-50 rounded-lg p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <AlertCircle className="text-orange-600" size={18} />
-                      <span className="font-semibold text-orange-800">Investment Timing</span>
+                  <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                    <div className="flex items-center space-x-1.5 mb-1.5">
+                      <AlertCircle className="text-orange-600" size={16} />
+                      <span className="font-semibold text-orange-800 text-sm">Investment Timing</span>
                     </div>
-                    <div className="text-2xl font-bold text-orange-600 mb-1">Excellent</div>
-                    <div className="text-sm text-orange-700">Buy now recommended</div>
+                    <div className="text-xl font-bold text-orange-600 leading-tight">Excellent</div>
+                    <div className="text-xs text-orange-700 mt-0.5">Buy now recommended</div>
                   </div>
                 </div>
               ) : (
                 <div className="relative">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 blur-md">
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <TrendingUp className="text-green-600" size={18} />
-                        <span className="font-semibold text-green-800">Price Appreciation</span>
+                  {/* keep grid visible but smaller & non-interactive under the overlay */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 blur-md pointer-events-none select-none">
+                    <div className="bg-green-50 rounded-lg p-3 border border-green-100">
+                      <div className="flex items-center space-x-1.5 mb-1.5">
+                        <TrendingUp className="text-green-600" size={16} />
+                        <span className="font-semibold text-green-800 text-sm">Price Appreciation</span>
                       </div>
-                      <div className="text-2xl font-bold text-green-600 mb-1">+••.•%</div>
-                      <div className="text-sm text-green-700">Expected in next 12 months</div>
+                      <div className="text-xl font-bold text-green-600 leading-tight">+••.•%</div>
+                      <div className="text-xs text-green-700 mt-0.5">Expected in next 12 months</div>
                     </div>
 
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <PieChart className="text-blue-600" size={18} />
-                        <span className="font-semibold text-blue-800">Market Position</span>
+                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                      <div className="flex items-center space-x-1.5 mb-1.5">
+                        <PieChart className="text-blue-600" size={16} />
+                        <span className="font-semibold text-blue-800 text-sm">Market Position</span>
                       </div>
-                      <div className="text-2xl font-bold text-blue-600 mb-1">Top ••%</div>
-                      <div className="text-sm text-blue-700">In this locality</div>
+                      <div className="text-xl font-bold text-blue-600 leading-tight">Top ••%</div>
+                      <div className="text-xs text-blue-700 mt-0.5">In this locality</div>
                     </div>
 
-                    <div className="bg-orange-50 rounded-lg p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <AlertCircle className="text-orange-600" size={18} />
-                        <span className="font-semibold text-orange-800">Investment Timing</span>
+                    <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                      <div className="flex items-center space-x-1.5 mb-1.5">
+                        <AlertCircle className="text-orange-600" size={16} />
+                        <span className="font-semibold text-orange-800 text-sm">Investment Timing</span>
                       </div>
-                      <div className="text-2xl font-bold text-orange-600 mb-1">••••••••</div>
-                      <div className="text-sm text-orange-700">Buy now recommended</div>
+                      <div className="text-xl font-bold text-orange-600 leading-tight">••••••••</div>
+                      <div className="text-xs text-orange-700 mt-0.5">Buy now recommended</div>
                     </div>
                   </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center bg-white bg-opacity-95 p-6 rounded-xl shadow-lg border border-gray-200">
-                      <Lock className="text-blue-600 mx-auto mb-3" size={20} />
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">Premium AI Insights</h3>
-                      <p className="text-gray-600 mb-4">Get detailed recommendations and market analysis</p>
-                      <button
-                        onClick={() => handlePaywallOpen('ai-recommendations')}
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-2 py-1 rounded-lg font-semibold hover:shadow-lg transition-all"
-                      >
-                        Unlock for ₹299
-                      </button>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[80%]">
+                        <Lock className="text-blue-600 mx-auto mb-1" size={18} />
+                        <h3 className="text-base font-bold text-gray-900 mb-1">Premium AI Insights</h3>
+                        <p className="text-gray-600 text-sm mb-3 leading-snug">
+                          Get detailed recommendations and market analysis
+                        </p>
+                        <button
+                          onClick={() => handlePaywallOpen('ai-recommendations')}
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:shadow-md transition-all"
+                        >
+                          Unlock for ₹299
+                        </button>
+                      </div>
                     </div>
-                  </div>
+
                 </div>
               )}
             </div>
-            {/* Description */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
-              <h2 className="text-lg font-bold text-gray-900 mb-3">Property Description</h2>
-              <p className="text-gray-700 leading-relaxed">
-                {displayOrDash(property?.description) === ' - '
-                  ? ' - '
-                  : property?.description}
-              </p>
-            </div>
 
-            {/* Amenities */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Premium Amenities</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {amenities.length ? amenities.map((amenity: string, index: number) => (
-                  <div key={index} className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg">
-                    {getAmenityIcon(amenity)}
-                    <span className="text-gray-700 text-sm">{amenity}</span>
-                  </div>
-                )) : (
-                  <div className="text-gray-500"> - </div>
-                )}
-              </div>
-            </div>
 
             {/* Location & Nearby */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Location & Connectivity</h2>
-              <div className="aspect-video bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <MapPin size={48} className="mx-auto mb-2" />
-                  <p>Interactive Map Coming Soon</p>
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5">
+              <h2 className="text-base sm:text-lg font-bold text-gray-900 mb-3">Location & Connectivity</h2>
+
+              {/* Map placeholder (reduced height) */}
+              <div className="h-40 sm:h-44 md:h-48 lg:h-52 bg-gray-200 rounded-lg mb-3 flex items-center justify-center">
+                <div className="text-center text-gray-500 leading-tight">
+                  <MapPin size={32} className="mx-auto mb-1" />
+                  <p className="text-sm">Interactive Map Coming Soon</p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Transportation</h3>
-                  <ul className="space-y-1 text-sm text-gray-600">
+                  <h3 className="font-semibold text-gray-900 mb-2">Transportation</h3>
+                  <ul className="space-y-1 text-sm text-gray-600 leading-tight">
                     <li>• Bandra Station - 0.5 km</li>
                     <li>• Airport - 8 km</li>
                     <li>• Highway Access - 1 km</li>
                   </ul>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Essential Services</h3>
-                  <ul className="space-y-1 text-sm text-gray-600">
+                  <h3 className="font-semibold text-gray-900 mb-2">Essential Services</h3>
+                  <ul className="space-y-1 text-sm text-gray-600 leading-tight">
                     <li>• Shopping Mall - 0.3 km</li>
                     <li>• Hospital - 1.2 km</li>
                     <li>• School - 0.8 km</li>
@@ -1086,61 +1209,64 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
             </div>
 
+
             {/* Reviews */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Customer Reviews</h2>
-              <div className="flex items-center mb-6">
-                <div className="flex items-center space-x-1 mr-4">
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5">
+              <h2 className="text-base sm:text-lg font-bold text-gray-900 mb-3">Customer Reviews</h2>
+
+              <div className="flex items-center mb-4">
+                <div className="flex items-center space-x-1 mr-3">
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} size={20} className="text-yellow-400 fill-current" />
+                    <Star key={star} size={16} className="text-yellow-400 fill-current" />
                   ))}
                 </div>
-                <span className="text-lg font-semibold text-gray-900">4.8</span>
-                <span className="text-gray-600 ml-2">(24 reviews)</span>
+                <span className="text-base sm:text-lg font-semibold text-gray-900 leading-none">4.8</span>
+                <span className="text-gray-600 ml-2 text-sm leading-none">(24 reviews)</span>
               </div>
 
-              <div className="space-y-3">
+              {/* Compact grid instead of tall stack */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {[
                   { name: 'Rajesh Kumar', rating: 5, comment: 'Excellent property with great amenities. Highly recommended!', date: '2 days ago' },
                   { name: 'Priya Sharma', rating: 4, comment: 'Beautiful location and well-maintained property.', date: '1 week ago' },
                   { name: 'Amit Patel', rating: 5, comment: 'Perfect for families. Great connectivity and facilities.', date: '2 weeks ago' }
                 ].map((review, index) => (
-                  <div key={index} className="border-b border-gray-100 pb-3 last:border-b-0">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={index} className="border border-gray-100 rounded-lg p-3 bg-white">
+                    <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center space-x-2">
-                        <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User size={16} className="text-blue-600" />
+                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User size={14} className="text-blue-600" />
                         </div>
-                        <span className="font-medium text-gray-900">{review.name}</span>
+                        <span className="font-medium text-gray-900 text-sm sm:text-[15px]">{review.name}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="flex items-center">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <Star
                               key={star}
-                              size={14}
+                              size={12}
                               className={star <= review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}
                             />
                           ))}
                         </div>
-                        <span className="text-sm text-gray-500">{review.date}</span>
+                        <span className="text-xs text-gray-500">{review.date}</span>
                       </div>
                     </div>
-                    <p className="text-gray-700 text-sm">{review.comment}</p>
+                    <p className="text-gray-700 text-sm leading-snug">{review.comment}</p>
                   </div>
                 ))}
               </div>
             </div>
+
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-5">
-            <div className="bg-white rounded-xl shadow-sm p-5 sticky top-16">
-              {/* Agent Info */}
+          {/* Sidebar (hidden on mobile/tablet; shows on lg+) */}
+          <div className="hidden lg:block space-y-5">
+            <div className="bg-white rounded-xl shadow-sm p-5 sticky top-10">
               {/* Agent Info */}
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-                  <User size={24} className="text-blue-600" />
+                  <User size={20} className="text-blue-600" />
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-900">
@@ -1148,10 +1274,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       ? ' - '
                       : property?.agent?.name || 'Rohit Sharma'}
                   </h3>
-                  <p className="text-gray-600 text-sm">Senior Property Consultant</p>
                   <div className="flex items-center mt-1">
-                    <Star size={14} className="text-yellow-400 fill-current mr-1" />
-                    <span className="text-xs text-gray-600">4.9 (127 reviews)</span>
+                   
                   </div>
                 </div>
               </div>
@@ -1160,9 +1284,10 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               <div className="flex justify-between gap-3">
                 {/* Call */}
                 <button
+                  onClick={callAgent}
                   className="relative flex-1 py-3 rounded-lg bg-blue-600 text-white flex items-center justify-center group transition-colors hover:bg-blue-700"
                 >
-                  <Phone size={18} />
+                  <Phone size={16} />
                   <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     Call Agent
                   </span>
@@ -1173,7 +1298,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   onClick={() => setShowContactForm(true)}
                   className="relative flex-1 py-3 rounded-lg bg-gray-100 text-gray-900 flex items-center justify-center group transition-colors hover:bg-gray-200"
                 >
-                  <MessageCircle size={18} />
+                  <MessageCircle size={16} />
                   <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     Message
                   </span>
@@ -1183,7 +1308,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 <button
                   className="relative flex-1 py-3 rounded-lg bg-green-600 text-white flex items-center justify-center group transition-colors hover:bg-green-700"
                 >
-                  <Calendar size={18} />
+                  <Calendar size={16} />
                   <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     Schedule Visit
                   </span>
@@ -1192,12 +1317,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 {/* WhatsApp */}
                 <button
                   onClick={() => {
-                    const message = `Hi! I'm interested in ${property?.title} at ${property?.locationNormalized}. Price: ${formatCurrency(
+                    const phone = getAgentPhone();
+                    const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+                    const message = `Hi! I'm interested in ${property?.title ?? ""} at ${property?.locationNormalized ?? ""}. Price: ${formatCurrency(
                       property?.price ?? 0
                     )}. Can you provide more details?`;
                     if (typeof window !== 'undefined') {
                       window.open(
-                        `https://wa.me/919999999999?text=${encodeURIComponent(message)}`,
+                        `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
                         '_blank'
                       );
                     }
@@ -1213,90 +1340,97 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
             </div>
 
-
-
             {/* AI Investment Analysis */}
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm p-5 relative">
-              <div className="flex items-center space-x-2 mb-4">
-                <Bot className="text-purple-600" size={20} />
-                <h3 className="font-bold text-gray-900">AI Investment Analysis</h3>
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm p-4 sm:p-5 relative">
+              <div className="flex items-center space-x-2 mb-3">
+                <Bot className="text-purple-600" size={18} />
+                <h3 className="text-base sm:text-lg font-bold text-gray-900">AI Investment Analysis</h3>
               </div>
 
               {hasSubscription ? (
                 <div className="space-y-3">
-                  <div className="bg-white rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Purchase Recommendation</span>
-                      <span className="font-bold text-green-600">Strong Buy</span>
+                  {/* Compact stat cards in a responsive grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="bg-white rounded-lg p-3 border border-purple-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
+                        <span className="font-bold text-green-600 text-sm sm:text-base leading-tight">Strong Buy</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="bg-white rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Expected ROI (5 years)</span>
-                      <span className="font-bold text-blue-600">18.2%</span>
+
+                    <div className="bg-white rounded-lg p-3 border border-purple-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
+                        <span className="font-bold text-blue-600 text-sm sm:text-base leading-tight">18.2%</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="bg-white rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Risk Level</span>
-                      <span className="font-bold text-yellow-600">Low</span>
+
+                    <div className="bg-white rounded-lg p-3 border border-purple-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
+                        <span className="font-bold text-yellow-600 text-sm sm:text-base leading-tight">Low</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="bg-white rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Market Timing</span>
-                      <span className="font-bold text-purple-600">Excellent</span>
+
+                    <div className="bg-white rounded-lg p-3 border border-purple-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
+                        <span className="font-bold text-purple-600 text-sm sm:text-base leading-tight">Excellent</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 p-3 bg-white rounded-lg">
+                  {/* Insight note (compact) */}
+                  <div className="p-3 bg-white rounded-lg border border-purple-100">
                     <div className="flex items-start space-x-2">
                       <Sparkles className="text-purple-600 mt-0.5" size={16} />
-                      <div>
-                        <p className="text-xs text-gray-700 leading-relaxed">
-                          <strong>AI Insight:</strong> This property is in the top 5% for investment potential in this area. Current market conditions favor immediate purchase.
-                        </p>
-                      </div>
+                      <p className="text-xs text-gray-700 leading-snug">
+                        <strong>AI Insight:</strong> This property is in the top 5% for investment potential in this area. Current market conditions favor immediate purchase.
+                      </p>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="relative">
-                  <div className="space-y-3 blur-sm">
-                    <div className="bg-white rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Purchase Recommendation</span>
-                        <span className="font-bold text-green-600">•••••• •••</span>
+                  {/* Keep preview visible but compact and non-interactive */}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 blur-sm pointer-events-none select-none">
+                      <div className="bg-white rounded-lg p-3 border border-purple-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
+                          <span className="font-bold text-green-600 text-sm sm:text-base">•••••• •••</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="bg-white rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Expected ROI (5 years)</span>
-                        <span className="font-bold text-blue-600">••.•%</span>
+                      <div className="bg-white rounded-lg p-3 border border-purple-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
+                          <span className="font-bold text-blue-600 text-sm sm:text-base">••.•%</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="bg-white rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Risk Level</span>
-                        <span className="font-bold text-yellow-600">•••</span>
+                      <div className="bg-white rounded-lg p-3 border border-purple-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
+                          <span className="font-bold text-yellow-600 text-sm sm:text-base">•••</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="bg-white rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Market Timing</span>
-                        <span className="font-bold text-purple-600">••••••••••</span>
+                      <div className="bg-white rounded-lg p-3 border border-purple-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
+                          <span className="font-bold text-purple-600 text-sm sm:text-base">••••••••••</span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
+                  {/* Compact paywall overlay */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center bg-white bg-opacity-95 p-4 rounded-xl shadow-lg border border-gray-200">
-                      <Crown className="text-purple-600 mx-auto mb-2" size={20} />
-                      <h4 className="font-bold text-gray-900 mb-1">Investment Analysis</h4>
-                      <p className="text-xs text-gray-600 mb-3">Get AI-powered investment insights</p>
+                    <div className="text-center bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[92%]">
+                      <Crown className="text-purple-600 mx-auto mb-2" size={18} />
+                      <h4 className="font-bold text-gray-900 mb-1 text-base">Investment Analysis</h4>
+                      <p className="text-xs text-gray-600 mb-3 leading-snug">Get AI-powered investment insights</p>
                       <button
                         onClick={() => handlePaywallOpen('ai-investment')}
-                        className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-2 py-1 rounded-lg font-semibold text-sm hover:shadow-lg transition-all"
+                        className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:shadow-md transition-all"
                       >
                         Unlock ₹299
                       </button>
@@ -1305,6 +1439,13 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               )}
             </div>
+
+            <PhotoGalleryModal
+              images={images}
+              isOpen={showPhotoGallery}
+              onClose={() => setShowPhotoGallery(false)}
+              initialIndex={photoGalleryStartIndex}
+            />
 
             {/* Property Highlights */}
             <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200">
@@ -1322,7 +1463,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     <Calendar className="text-green-600" size={16} />
                     <span className="text-sm font-medium text-gray-600">Built Year</span>
                   </div>
-                  {/* {property.possessionMonth  } */}
                   <div className="font-semibold text-gray-900">{property.possessionYear}</div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
@@ -1527,7 +1667,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       />
       {open && (
         (() => {
-          // Build the same title you show in the UI (type + unitType + subtype)
           const displayType = property?.type ?? '';
           const titleParts = [
             displayType,
@@ -1536,7 +1675,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
           ].map(s => (s || '').toString().trim()).filter(Boolean);
           const shareTitle = titleParts.length ? titleParts.join(' ') : (property?.title || 'Property Listing');
 
-          // Build description & image as before
           const shareDescription =
             property?.description && property.description !== ''
               ? property.description
@@ -1562,6 +1700,88 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
           );
         })()
       )}
+
+      {/* === Mobile Bottom Action Bar (only on small screens) === */}
+      <div className="fixed inset-x-0 bottom-0 z-[60] md:hidden">
+        <div
+          className="mx-auto max-w-7xl px-4 pt-2"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 12px)' }}
+        >
+          <div className="bg-white rounded-xl shadow-sm p-5 sticky top-16">
+            {/* Agent Info */}
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
+                <User size={24} className="text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">
+                  {displayOrDash(property?.agent?.name) === ' - '
+                    ? ' - '
+                    : property?.agent?.name || 'Rohit Sharma'}
+                </h3>
+              </div>
+            </div>
+
+            {/* Action Icons Row */}
+            <div className="flex justify-between gap-3">
+              {/* Call */}
+              <button
+                onClick={callAgent}
+                className="relative flex-1 py-3 rounded-lg bg-blue-600 text-white flex items-center justify-center group transition-colors hover:bg-blue-700"
+              >
+                <Phone size={18} />
+                <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  Call Agent
+                </span>
+              </button>
+
+              {/* Message */}
+              <button
+                onClick={() => setShowContactForm(true)}
+                className="relative flex-1 py-3 rounded-lg bg-gray-100 text-gray-900 flex items-center justify-center group transition-colors hover:bg-gray-200"
+              >
+                <MessageCircle size={18} />
+                <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  Message
+                </span>
+              </button>
+
+              {/* Schedule */}
+              <button
+                className="relative flex-1 py-3 rounded-lg bg-green-600 text-white flex items-center justify-center group transition-colors hover:bg-green-700"
+              >
+                <Calendar size={18} />
+                <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  Schedule Visit
+                </span>
+              </button>
+
+              {/* WhatsApp */}
+              <button
+                onClick={() => {
+                  const phone = getAgentPhone();
+                  const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+                  const message = `Hi! I'm interested in ${property?.title ?? ""} at ${property?.locationNormalized ?? ""}. Price: ${formatCurrency(
+                    property?.price ?? 0
+                  )}. Can you provide more details?`;
+                  if (typeof window !== 'undefined') {
+                    window.open(
+                      `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
+                      '_blank'
+                    );
+                  }
+                }}
+                className="relative flex-1 py-3 rounded-lg bg-green-500 text-white flex items-center justify-center group transition-colors hover:bg-green-600"
+              >
+                <FaWhatsapp size={18} />
+                <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  WhatsApp
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
     </div>
   );
