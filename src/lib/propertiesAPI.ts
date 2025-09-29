@@ -149,24 +149,24 @@ const pickClient = (baseURLOverride?: string): AxiosInstance =>
     : api;
 
 /* ==========================
-   Main API surface
-   ========================== */
-export const propertiesAPI = {
-  /* ---- Properties CRUD ---- */
-  getProperties: async (params?: any) => {
-    const res = await api.get("/properties", { params });
-    return res.data;
-  },
+    Main API surface
+    ========================== */
+  export const propertiesAPI = {
+    /* ---- Properties CRUD ---- */
+    getProperties: async (params?: any) => {
+      const res = await api.get("/properties", { params });
+      return res.data;
+    },
 
-  getProperty: async (id: string) => {
-    const res = await api.get(`/properties/getPropertyById/${id}`);
-    return res.data;
-  },
+    getProperty: async (id: string) => {
+      const res = await api.get(`/properties/getPropertyById/${id}`);
+      return res.data;
+    },
 
-  createProperty: async (data: any) => {
-    const res = await api.post("/properties/create", data);
-    return res.data;
-  },
+    createProperty: async (data: any) => {
+      const res = await api.post("/properties/create", data);
+      return res.data;
+    },
 
   updateProperty: async (id: string, data: any) => {
     const res = await api.put(`/properties/${id}`, data);
@@ -472,6 +472,17 @@ export const propertiesAPI = {
   getFilterContext: async (id: string) => {
     const res = await api.get(`/properties/filters/${encodeURIComponent(id)}`);
     return res.data as { success: boolean; context?: any };
+  },
+
+
+   searchByCityLocation: async (params: {
+    city: string;
+    locations?: string | string[];
+    limit?: number;
+    offset?: number;
+  }) => {
+    const res = await api.get("/properties/city-locations", { params });
+    return res.data;
   },
 };
 

@@ -19,7 +19,10 @@ import {
   Users,
   Award,
   Shield,
-  IndianRupee
+  IndianRupee,
+  Zap,
+  CheckCircle,
+  Bot
 } from 'lucide-react';
 import SubscriptionModal from '@/components/subscription/SubscriptionModal';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -63,6 +66,8 @@ interface Property {
   public_views?: number | null;
   total_views?: number;
   agent?: { phone?: string };
+  featured?: boolean;   // ⬅️ add this
+  verified?: boolean;   // ⬅️ add this
 }
 
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
@@ -90,6 +95,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+
+
+
+
+
   // Parse original query params and preserve both key and value.
   const queryParams = new URLSearchParams(location.search);
   const filterParamKey =
@@ -112,6 +122,53 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     fetchMasters();
   }, []);
 
+
+  // --- Likes state (persisted in localStorage) ---
+  const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("liked_properties");
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) setLikedIds(new Set(arr.map(Number)));
+      }
+    } catch { }
+  }, []);
+
+  const persistLikes = (setObj: Set<number>) => {
+    try {
+      localStorage.setItem("liked_properties", JSON.stringify(Array.from(setObj)));
+    } catch { }
+  };
+
+  const isLiked = (id: number) => likedIds.has(id);
+
+  const toggleLike = async (property: Property) => {
+    const id = property.id;
+    const next = new Set(likedIds);
+    const nowLiked = !next.has(id);
+
+    if (nowLiked) next.add(id);
+    else next.delete(id);
+
+    setLikedIds(next);
+    persistLikes(next);
+
+    // optional: fire analytics/event to backend if available
+    try {
+      await propertiesAPI?.sendPropertyEvent?.(
+        id,
+        nowLiked ? "like" : "unlike",
+        "user_like_toggle",
+        { source: "homepage", title: property.title ?? null },
+        { slug: property.slug ?? undefined }
+      );
+    } catch (e) {
+      // ignore failures, UI already updated
+    }
+  };
+
   const { systemSettings } = useSystemSettings();
   const companyName = systemSettings?.company_name;
 
@@ -131,10 +188,16 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         setLoading(true);
         const response = await propertiesAPI.getProperties({
           status: 'Available',
+          featured: true,
           limit: 6,
         });
 
         const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
+        const onlyFeatured = rawList.filter((p: any) => {
+          const isFeatured = !!(p.featured ?? p.is_featured ?? p.isFeatured ?? 0);
+          return isFeatured;
+        });
+
 
         const mapped = await Promise.all(rawList.map(async (p: any) => {
           const images: string[] =
@@ -163,6 +226,17 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           if (!slug) console.warn('[HomePage] Missing backend slug for property id:', p?.id);
 
           const viewCounts = await fetchPropertyViews(p.id);
+          const featured =
+            p.featured ??
+            p.is_featured ??
+            p.isFeatured ??
+            (p.badge ? String(p.badge).toLowerCase().includes('featured') : true);
+
+          const verified =
+            p.verified ??
+            p.is_verified ??
+            p.isVerified ??
+            (p.verification_status ? String(p.verification_status).toLowerCase() === 'verified' : true);
 
           return {
             id: p.id,
@@ -193,7 +267,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             property_status: p.property_status ?? p.status ?? '',
             created_at: p.created_at ?? null,
             public_views: p.public_views ?? null,
-            agent: { phone: p.agent_phone || p.agent?.phone || p.owner_phone || '' }
+            agent: { phone: p.agent_phone || p.agent?.phone || p.owner_phone || '' },
+            // badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
+            // ⬇️ IMPORTANT
+            featured: !!featured,
+            verified: !!verified,
           } as Property;
         }));
 
@@ -303,7 +381,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     setShowSuggestions(matched.length > 0);
   }, [localityInput, masterLocation]);
 
-  const handleSearch = (e?: React.FormEvent) => {
+  const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
     if (transactionType === 'rent') {
@@ -311,41 +389,94 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       return;
     }
 
-    const params: Record<string, string> = {};
+    const city = selectedCity.trim();
+    const locationStrings = localities.map(loc => loc.trim());
 
-    if (selectedCity) {
-      params.city = selectedCity;
+    if (!city && locationStrings.length === 0) {
+      // अगर कोई इनपुट नहीं है, तो सभी प्रॉपर्टीज दिखाएं
+      navigate(`/properties?status=Available`);
+      return;
     }
 
-    if (localities.length > 0) {
-      params.location = localities.join(',');
+    // API कॉल के लिए पैरामीटर्स बनाएं
+    const params: { city: string; locations?: string | string[] } = {
+      city: city,
+    };
+    if (locationStrings.length > 0) {
+      params.locations = locationStrings;
     }
 
-    if (selectedPropertyType) {
-      params.propertyType = selectedPropertyType;
-    }
+    try {
+      setLoading(true);
+      const response = await propertiesAPI.searchByCityLocation(params);
 
-    if (selectedBudget) {
-      params.budget = selectedBudget;
-    }
+      const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
 
-    params.status = 'Available';
+      const mapped = await Promise.all(rawList.map(async (p: any) => {
 
-    if (filterToken && filterParamKey) {
-      params[filterParamKey] = filterToken;
-    }
+        const images: string[] = Array.isArray(p.photos) ? p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/')) : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
+        const city = p.city_name || p.city || p.town || p.cityName || '';
+        const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
+        const state = p.state || p.region || '';
+        const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
 
-    const searchParams = new URLSearchParams();
-    Object.keys(params).forEach(k => {
-      const v = (params as any)[k];
-      if (v !== undefined && v !== null && String(v).trim() !== '') {
-        searchParams.set(k, String(v));
+        return {
+          id: p.id,
+          title: p.title,
+          price: Number(p.budget || p.price || p.amount) || 0,
+          bedrooms: Number(p.bedrooms) || undefined,
+          bathrooms: Number(p.bathrooms) || undefined,
+          square_feet: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
+          city,
+          property_type: p.property_type_name || p.property_type || '',
+          status: p.status || '',
+          images,
+          location,
+          area: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
+          type: p.property_type_name || p.property_type || '',
+          unitType: (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim(),
+          subtype: (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim(),
+          amenities: Array.isArray(p.amenities) ? p.amenities : [],
+          badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
+          rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
+          views: p.total_views || 0,
+          total_views: p.total_views,
+          aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
+          sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
+          slug: p?.slug ?? p?.url_slug ?? p?.generated_slug,
+          possessionMonth: p.possession_month ?? p.possessionMonth ?? null,
+          possessionYear: p.possession_year ?? p.possessionYear ?? null,
+          property_status: p.property_status ?? p.status ?? '',
+          created_at: p.created_at ?? null,
+          public_views: p.public_views ?? null,
+          agent: { phone: p.agent_phone || p.agent?.phone || p.owner_phone || '' },
+          featured: !!(p.featured ?? p.is_featured ?? p.isFeatured ?? 0),
+          verified: !!(p.verified ?? p.is_verified ?? p.isVerified ?? (p.verification_status ? String(p.verification_status).toLowerCase() === 'verified' : true)),
+        };
+      }));
+
+
+      const searchParams = new URLSearchParams();
+      if (city) searchParams.set('city', city);
+      if (localities.length > 0) searchParams.set('locations', localities.join(','));
+      if (selectedPropertyType) searchParams.set('propertyType', selectedPropertyType);
+      if (selectedBudget) searchParams.set('budget', selectedBudget);
+      searchParams.set('status', 'Available');
+
+      if (filterToken && filterParamKey) {
+        searchParams.set(filterParamKey, filterToken);
       }
-    });
 
-    const qs = searchParams.toString();
-    const finalURL = `/properties${qs ? `?${qs}` : ''}`;
-    navigate(finalURL);
+      const qs = searchParams.toString();
+      const finalURL = `/properties${qs ? `?${qs}` : ''}`;
+      navigate(finalURL);
+
+    } catch (error) {
+      console.error('Error fetching properties from city/location API:', error);
+
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSellPropertyClick = () => {
@@ -451,201 +582,174 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           />
         )}
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 mt-10 lg:mt-0 sm:px-6 lg:px-8 py-12 sm:py-20 md:py-28">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold mb-2">
-              Find Your <span className="block bg-clip-text text-[#E6761D]">Dream Property</span>
-            </h1>
-            <p className="text-blue-100 mb-6">AI-powered property search in Pune's premium locations</p>
+        <div className="relative z-10 min-h-screen flex items-center justify-center">
+          <div className="w-full max-w-7xl mx-auto">
+            <div className="text-center px-2">
+              <h1 className="text-3xl font-bold mb-2 ">
+                {/* Find Your <span className="block bg-clip-text text-[#E6761D]">Dream Property</span> */}
 
-            {/* Row: Buy/Rent + PropertyType */}
-            <div className="flex flex-col items-center gap-3 mb-6 md:flex-row md:justify-center">
-              {/* Buy/Rent */}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setTransactionType("buy")}
-                  className={`px-4 py-1 rounded-full ${transactionType === "buy"
-                    ? "bg-[#E6761D] text-white"
-                    : "bg-gray-100 text-gray-700"
-                    }`}
-                >
-                  Buy
-                </button>
+                Find Your Dream Home in the Resale Expert
+              </h1>
+              <p className="text-blue-100 mb-6">AI-powered property search in Pune's premium locations</p>
 
-                <button
-                  type="button"
-                  onClick={() => setTransactionType("rent")}
-                  className={`px-4 py-1 rounded-full ${transactionType === "rent"
-                    ? "bg-gray-300 text-gray-600"
-                    : "bg-gray-100 text-gray-700"
-                    }`}
-                  title="Rent search not available yet"
-                >
-                  Rent
-                </button>
-              </div>
-
-              {/* property-type buttons group */}
-              <div className="flex items-center justify-center w-full md:w-auto overflow-x-auto">
-                {masterLoading ? (
-                  <div className="text-sm text-white/80 px-3 py-1">Loading types...</div>
-                ) : (
-                  <div className="flex gap-2 py-1">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPropertyType("")}
-                      aria-pressed={selectedPropertyType === ""}
-                      className={`px-3 py-1 rounded-full ${selectedPropertyType === ""
-                        ? "bg-white text-black"
-                        : "bg-white/30 text-white"
-                        }`}
-                    >
-                      All
-                    </button>
-
-                    {propertyTypeOptions.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setSelectedPropertyType(opt.value)}
-                        aria-pressed={selectedPropertyType === opt.value}
-                        className={`whitespace-nowrap px-3 py-1 rounded-full ${selectedPropertyType === opt.value
-                          ? "bg-white text-black"
-                          : "bg-white/20 text-white"
-                          }`}
-                        title={opt.label}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* FORM */}
-            <form
-              onSubmit={handleSearch}
-              className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-4 shadow-xl max-w-5xl mx-auto"
-            >
-              <div className="flex flex-col gap-3 md:flex-row">
-                {/* City dropdown (transparent) */}
-                <div className="relative w-full md:w-48">
-                  <select
-                    value={selectedCity}
-                    onChange={(e) => setSelectedCity(e.target.value)}
-                    disabled={masterLoading}
-                    className="appearance-none px-3 py-2 border z-10 rounded-lg w-full bg-transparent text-white border-white/30 focus:outline-none focus:ring-1 focus:ring-white"
+              {/* Row: Buy/Rent + PropertyType */}
+              <div className="flex flex-col items-center gap-3 mb-6 md:flex-row md:justify-center">
+                {/* Buy/Rent */}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTransactionType("buy")}
+                    className={`px-4 py-1 rounded-full ${transactionType === "buy" ? "bg-[#E6761D] text-white" : "bg-gray-100 text-gray-700"
+                      }`}
                   >
-                    <option value="" className="bg-[#0b3856] text-white">{masterLoading ? "Loading cities..." : "Select city"}</option>
-                    {masterCity.map((o) => (
-                      <option key={o.value} value={o.value} className="bg-[#0b3856] text-white">
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                  {/* custom arrow */}
-                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                    <ChevronRight className="text-white rotate-90" size={14} />
-                  </div>
+                    Buy
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTransactionType("rent")}
+                    className={`px-4 py-1 rounded-full ${transactionType === "rent" ? "bg-gray-300 text-gray-600" : "bg-gray-100 text-gray-700"
+                      }`}
+                    title="Rent search not available yet"
+                  >
+                    Rent
+                  </button>
                 </div>
 
-                {/* Locality input */}
-                <div className="relative flex-grow">
-                  <Search
-                    className="absolute left-3 top-1/2 -translate-y-1/2  text-white "
-                    size={18}
-                  />
-                  <input
-                    ref={inputRef}
-                    value={localityInput}
-                    onChange={(e) => setLocalityInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addLocality();
-                      } else if (e.key === "Escape") {
-                        setShowSuggestions(false);
-                      }
-                    }}
-                    onFocus={() => {
-                      if (suggestions.length > 0) setShowSuggestions(true);
-                    }}
-                    onBlur={() => {
-                      setTimeout(() => setShowSuggestions(false), 120);
-                    }}
-                    className="pl-10 pr-16 h-10 w-full text-sm bg-white/10 text-white placeholder-white/70 outline-none focus:ring-1 focus:ring-gray-400 rounded-lg"
-                    placeholder="Search properties by locality or area"
-                  />
-                  {/* <button
-                    type="button"
-                    onClick={() => addLocality()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 
-             bg-[#0b3856] hover:bg-[#0c3854] 
-             text-white px-3 py-1 rounded-lg text-sm 
-             transition-colors duration-300"
-                  >
-                    Add
-                  </button> */}
+                {/* property-type buttons group */}
+                <div className="flex items-center justify-center w-full md:w-auto overflow-x-auto">
+                  {masterLoading ? (
+                    <div className="text-sm text-white/80 px-3 py-1">Loading types...</div>
+                  ) : (
+                    <div className="flex gap-2 py-1">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPropertyType("")}
+                        aria-pressed={selectedPropertyType === ""}
+                        className={`px-3 py-1 rounded-full ${selectedPropertyType === "" ? "bg-white text-black" : "bg-white/30 text-white"
+                          }`}
+                      >
+                        All
+                      </button>
 
-                  {/* Suggestions */}
-                  {showSuggestions && suggestions.length > 0 && (
-                    <ul
-                      className="absolute left-0 right-0 mt-1 max-h-32 lg:max-w-60 overflow-auto 
-               bg-[#0b3856] border rounded-lg shadow-lg z-[200] custom-scroll"
-                    >
-                      {suggestions.map((s, idx) => (
-                        <li
-                          key={`${s.value}-${idx}`}
-                          onMouseDown={(ev) => ev.preventDefault()}
-                          onClick={() => {
-                            const toAdd =
-                              s.label?.toString().trim() || s.value?.toString().trim();
-                            addLocality(toAdd);
-                          }}
-                          className="px-3 py-2 hover:bg-white/20 cursor-pointer text-sm"
+                      {propertyTypeOptions.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setSelectedPropertyType(opt.value)}
+                          aria-pressed={selectedPropertyType === opt.value}
+                          className={`whitespace-nowrap px-3 py-1 rounded-full ${selectedPropertyType === opt.value ? "bg-white text-black" : "bg-white/20 text-white"
+                            }`}
+                          title={opt.label}
                         >
-                          {s.label || s.value}
-                        </li>
+                          {opt.label}
+                        </button>
                       ))}
-                    </ul>
+                    </div>
                   )}
                 </div>
-
-                {/* Search button */}
-                <button
-                  type="submit"
-                  className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg w-full md:w-28 text-base transition-colors duration-300"
-                >
-                  Search
-                </button>
               </div>
 
-              {/* Locality chips */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {localities.map((loc, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center bg-white/20 text-white px-3 py-1 rounded-full text-sm"
-                  >
-                    <span className="mr-2">{loc}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeLocality(idx)}
-                      className="text-gray-200 hover:text-white"
+              {/* FORM */}
+              <form
+                onSubmit={handleSearch}
+                className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-4 shadow-xl max-w-5xl mx-auto"
+              >
+                <div className="flex flex-col gap-3 md:flex-row">
+                  {/* City dropdown (transparent) */}
+                  <div className="relative w-full md:w-48">
+                    <select
+                      value={selectedCity}
+                      onChange={(e) => setSelectedCity(e.target.value)}
+                      disabled={masterLoading}
+                      className="appearance-none px-3 py-2 border z-10 rounded-lg w-full bg-transparent text-white border-white/30 focus:outline-none focus:ring-1 focus:ring-white"
                     >
-                      &times;
-                    </button>
+                      <option value="" className="bg-[#0b3856] text-white">
+                        {masterLoading ? "Loading cities..." : "Select city"}
+                      </option>
+                      {masterCity.map((o) => (
+                        <option key={o.value} value={o.value} className="bg-[#0b3856] text-white">
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                    {/* custom arrow */}
+                    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                      <ChevronRight className="text-white rotate-90" size={14} />
+                    </div>
                   </div>
-                ))}
-                {localities.length === 0 && (
-                  <div className="text-xs text-gray-100">Add up to 1 localities.</div>
-                )}
-              </div>
-            </form>
+
+                  {/* Locality input */}
+                  <div className="relative flex-grow">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white" size={18} />
+                    <input
+                      ref={inputRef}
+                      value={localityInput}
+                      onChange={(e) => setLocalityInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addLocality();
+                        } else if (e.key === "Escape") {
+                          setShowSuggestions(false);
+                        }
+                      }}
+                      onFocus={() => {
+                        if (suggestions.length > 0) setShowSuggestions(true);
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowSuggestions(false), 120);
+                      }}
+                      className="pl-10 pr-16 h-10 w-full text-sm bg-white/10 text-white placeholder-white/70 outline-none focus:ring-1 focus:ring-gray-400 rounded-lg"
+                      placeholder="Search properties by locality or area"
+                    />
+
+                    {/* Suggestions */}
+                    {showSuggestions && suggestions.length > 0 && (
+                      <ul className="absolute left-0 right-0 mt-1 max-h-32 lg:max-w-60 overflow-auto bg-[#0b3856] border rounded-lg shadow-lg z-[200] custom-scroll">
+                        {suggestions.map((s, idx) => (
+                          <li
+                            key={`${s.value}-${idx}`}
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => {
+                              const toAdd = s.label?.toString().trim() || s.value?.toString().trim();
+                              addLocality(toAdd);
+                            }}
+                            className="px-3 py-2 hover:bg-white/20 cursor-pointer text-sm"
+                          >
+                            {s.label || s.value}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Search button */}
+                  <button
+                    type="submit"
+                    className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg w-full md:w-28 text-base transition-colors duration-300"
+                  >
+                    Search
+                  </button>
+                </div>
+
+                {/* Locality chips */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {localities.map((loc, idx) => (
+                    <div key={idx} className="flex items-center bg-white/20 text-white px-3 py-1 rounded-full text-sm">
+                      <span className="mr-2">{loc}</span>
+                      <button type="button" onClick={() => removeLocality(idx)} className="text-gray-200 hover:text-white">
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                  {localities.length === 0 && <div className="text-xs text-gray-100">Add up to 5 localities.</div>}
+                </div>
+              </form>
+            </div>
           </div>
         </div>
+
 
         {featuredProperties.length > 0 && (
           <>
@@ -794,21 +898,51 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 <div key={property.id} className="bg-white rounded-2xl shadow-lg overflow-hidden group">
                   <div className="relative">
                     {property.images && property.images.length ? (
-                      <img
-                        src={property.images[0]}
-                        alt={property.title || 'Property image'}
-                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
-                      />
+                      <div className="relative">
+                        <img
+                          src={property.images[0]}
+                          alt={property.title || 'Property image'}
+                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
+                        />
+
+                        {/* ✅ Watermark Overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="text-white text-2xl font-bold opacity-40 select-none">
+                            ResaleExpert.in
+                          </span>
+                        </div>
+                      </div>
+
+
                     ) : (
                       <div className="h-48 bg-gray-200 flex items-center justify-center"><Building className="text-gray-400" /></div>
                     )}
 
-                    <div className="absolute top-4 left-4">
-                      <span className={`px-3 py-1 rounded-full text-white text-sm ${property.badge === 'Premium' ? 'bg-[#0b3856]' : 'bg-orange-500'}`}>{property.badge || 'Featured'}</span>
+                    {/* <div className="absolute top-4 left-4">
+                      <span className={`px-3 py-1 rounded-full text-white text-sm ${property.badge === 'Premium' ? 'bg-[#0b3856]' : 'bg-[#1de631]'}`}>{property.badge || 'Featured'}</span>
+                    </div> */}
+
+                    <div className="absolute top-3 left-3 flex space-x-2">
+                      {property.featured && (<span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"><Zap size={10} className="mr-1" />FEATURED</span>)}
+                      {property.verified && (<span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center space-x-1"><CheckCircle size={10} /><span>VERIFIED</span></span>)}
+                      {(property.aiScore || 0) > 90 && (<span className="bg-purple-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"><Bot size={10} className="mr-1" />AI {property.aiScore}</span>)}
                     </div>
-                    <div className="absolute top-4 right-4 flex space-x-2">
-                      <button className="p-2 bg-white/80 rounded-full"><Heart className="text-red-500" /></button>
-                      <button className="p-2 bg-white/80 rounded-full"><Eye className="text-blue-500" /></button>
+                    <div className="absolute top-2 right-4 flex space-x-2">
+                      <div className="absolute top-2 right-4 flex space-x-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleLike(property); }}
+                          className={`p-2 rounded-full transition
+      ${isLiked(property.id) ? "bg-white" : "bg-white hover:bg-white"}`}
+                          title={isLiked(property.id) ? "Unlike" : "Like"}
+                          aria-pressed={isLiked(property.id)}
+                        >
+                          <Heart
+                            size={18}
+                            className={isLiked(property.id) ? 'text-red-500 fill-current' : 'text-gray-600'}
+                          />
+                        </button>
+                      </div>
+                      {/* <button className="p-2 bg-white/80 rounded-full"><Eye className="text-blue-500" /></button> */}
                     </div>
 
                     <div className="absolute bottom-4 left-4 flex items-center gap-2">
@@ -871,46 +1005,76 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                           </button>
                         </div>
                       ) : (
-                        <button disabled className="w-full bg-gray-300 text-gray-600 py-2 rounded-lg cursor-not-allowed" title="Details not available">
+                        <button
+                          disabled
+                          className="w-full bg-gray-300 text-gray-600 py-2 rounded-lg cursor-not-allowed"
+                          title="Details not available"
+                        >
                           View Details
                         </button>
                       )}
 
-                      {/* Call Button */}
+                      {/* Call Button (static number) */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (property.agent?.phone) {
-                            window.open(`tel:${property.agent.phone}`);
-                          }
+                          e.preventDefault();
+                          const phone = "919876543210"; // ✅ Static number
+                          const telLink = `tel:${phone}`;
+                          window.location.href = telLink;
                         }}
-                        className="p-3 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
+                        className="p-3 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white relative z-10"
                         title="Call"
+                        type="button"
                       >
                         <Phone size={18} />
                       </button>
 
-                      {/* WhatsApp Button */}
+                      {/* WhatsApp Button (static number) */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          const msgTitle = property.title || [property.unitType, property.type].filter(Boolean).join(' ') || 'a property';
-                          const loc = property.location || property.city || 'your listed property location';
-                          const message = `Hi, I'm interested in ${msgTitle} at ${loc}. Price: ${formatCurrency(property.price)}. Can you share more details?`;
-                          const phone = (property.agent?.phone || '').replace(/\D/g, '');
-                          if (phone) {
-                            window.open(
-                              `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
-                              '_blank'
-                            );
-                          }
+                          e.preventDefault();
+
+                          const phone = "919876543210"; // ✅ Static number
+
+                          const title =
+                            property.title ||
+                            [property.unitType, property.type].filter(Boolean).join(" ") ||
+                            "a property";
+
+                          const loc =
+                            property.location ||
+                            property.city ||
+                            "your listed property location";
+
+                          const priceText =
+                            typeof formatCurrency === "function"
+                              ? formatCurrency(property.price)
+                              : `₹${Number(property.price || 0).toLocaleString("en-IN")}`;
+
+                          const link = property.slug
+                            ? `${window.location.origin}/properties/${encodeURIComponent(
+                              String(property.slug)
+                            )}`
+                            : `${window.location.origin}/properties`;
+
+                          const message =
+                            `Hi, I'm interested in ${title} at ${loc}. ` +
+                            `Price: ${priceText}. ` +
+                            `Can you share more details?\n${link}`;
+
+                          const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+                          window.open(url, "_blank", "noopener,noreferrer");
                         }}
-                        className="p-3 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
+                        className="p-3 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57] relative z-10"
                         title="WhatsApp"
+                        type="button"
                       >
                         <FaWhatsapp size={18} />
                       </button>
                     </div>
+
                   </div>
                 </div>
               ))}
