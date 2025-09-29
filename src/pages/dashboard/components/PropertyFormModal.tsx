@@ -739,6 +739,49 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     return fd;
   };
 
+  // helper: formData -> UI patch (sirf woh fields jisse Overview turant update ho)
+function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FilePreview|null, photos: FilePreview[]}) {
+  return {
+    // basic mapping
+    seller: fd.seller ? { name: fd.seller } : undefined,
+    type: fd.propertyType,
+    subtype: fd.propertySubtype,
+    unitType: fd.unitType,
+    wing: fd.wing,
+    unitNo: fd.unitNo,
+    furnishing: fd.furnishing,
+    furnishingItems: fd.furnishingItems,
+    parkingType: fd.parkingType,
+    parkingQty: fd.parkingQty,
+    city: fd.city,
+    location: fd.location,
+    society: fd.society,
+    floor: fd.floor,
+    totalFloors: fd.totalFloors,
+    carpetArea: fd.carpetArea,
+    builtupArea: fd.builtupArea,
+    budget: fd.budget,
+    address: fd.address,
+    status: fd.status,
+    leadSource: fd.leadSource,
+    possessionMonth: fd.possessionMonth,
+    possessionYear: fd.possessionYear,
+    purchaseMonth: fd.purchaseMonth,
+    purchaseYear: fd.purchaseYear,
+    selling_rights: fd.sellingRights,
+    amenities: fd.amenities,
+    nearby_places: fd.nearby_places,
+
+    // media (instant UI ke liye: existing + newly added previews ke URLs)
+    ownershipDocUrl: previews.ownership?.url,
+    ownershipDocName: previews.ownership?.name,
+    photos: previews.photos.map(p => p.url),
+
+    // hard bump so parent <OverviewTab key=...> remounts
+    updated_at: new Date().toISOString(),
+  };
+}
+
 const handleSubmit = async () => {
   if (!validateForm()) return;
   try {
@@ -749,40 +792,35 @@ const handleSubmit = async () => {
     let result;
 
     if (mode === 'edit' && propertyId) {
-      // 1) Update
       result = await propertiesAPI.updateProperty(String(propertyId), payload);
-
-      // 2) Refetch ALL + THIS property (make sure to CALL the functions)
       await Promise.all([
-        propertiesAPI.getProperties(),              // <-- () matters
+        propertiesAPI.getProperties(),
         propertiesAPI.getProperty(String(propertyId)),
       ]);
     } else {
-      // 1) Create
       result = await propertiesAPI.createProperty(payload);
-
-      // Try to find the new id from response for a precise refetch
       const created = result?.data?.data ?? result?.data ?? result;
-      const newId =
-        created?.id ??
-        created?._id ??
-        null;
-
-      // 2) Refetch ALL + (optionally) the newly created property
+      const newId = created?.id ?? created?._id ?? null;
       await Promise.all([
-        propertiesAPI.getProperties(),              // refresh list
+        propertiesAPI.getProperties(),
         newId ? propertiesAPI.getProperty(String(newId)) : Promise.resolve(),
       ]);
     }
 
-    onSubmit(result);
+    // ⬇️ YAHAN: API response ke bajay UI-patch bhejo
+    const uiPatch = buildUiPatchFromForm(formData, {
+      ownership: ownershipDocPreview,
+      photos: photoPreviews,
+    });
+
+    onSubmit(uiPatch); // 🔥 parent ko clean patch mila -> turant merge hoga
+    // optional: parent listener ko ping
+    window.dispatchEvent(new CustomEvent('overview:refresh', { detail: { id: propertyId } }));
+
     onClose?.();
   } catch (e: any) {
     console.error(e);
-    const msg =
-      e?.response?.data?.message ||
-      e?.message ||
-      `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
+    const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
     setErrorBanner(msg);
     toast.error(msg);
   } finally {

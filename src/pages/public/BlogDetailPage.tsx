@@ -12,6 +12,7 @@ import {
   Bookmark,
   MessageSquare,
   Heart,
+  Share,
 } from "lucide-react";
 import blogsAPI from "@/lib/blogsAPI";
 import { useNavigate } from "react-router-dom";
@@ -393,13 +394,44 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
   const fmtDate = (iso?: string) => { try { if (!iso) return ""; return new Date(iso).toLocaleString(); } catch { return iso ?? ""; } };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <button onClick={() => onBack ? onBack() : navigate("/blogs")} className="flex items-center text-sm text-blue-600 mb-6">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to articles
-          </button>
+    <div className="min-h-screen bg-gray-50 ">
+        <div className="bg-white shadow-sm border-b pt-20 sticky top-0 z-40 
+      
+      " style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between ">
+                <button
+                  onClick={() => onBack ? onBack() : navigate("/blogs")}
+                  className="flex items-center text-white hover:text-gray-200 transition-colors text-sm font-medium"
+                >
+                  <ArrowLeft size={18} className="mr-1" />
+                  Back to articles
+                </button>
 
+
+                <div className="flex items-center space-x-2">
+                  <button className="p-2 text-white hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100">
+                    <Heart size={18} />
+                  </button>
+                  <button
+                    // onClick={() => setOpen(true)}
+                    className="p-2 text-white hover:text-blue-500 transition-colors rounded-lg hover:bg-gray-100"
+                  >
+                    <Share size={18} />
+                  </button>
+                  <button className="p-2 text-white hover:text-yellow-500 transition-colors rounded-lg hover:bg-gray-100">
+                    <Bookmark size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-8 mt-2">
+        <div className="lg:col-span-2">
+          {/* <button onClick={() => onBack ? onBack() : navigate("/blogs")} className="flex items-center text-sm text-blue-600 mb-6">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to articles
+          </button> */}
+        
           {loadingInternal ? (
             <div className="bg-white rounded-xl p-8 shadow">Loading article...</div>
           ) : error ? (

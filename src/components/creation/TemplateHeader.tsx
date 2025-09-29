@@ -28,55 +28,60 @@ const TemplateHeader: React.FC<TemplateHeaderProps> = ({
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
-    <div className="py-2 px-6 border-b border-gray-200 no-print">
+    <div className="py-1 px-3 border-b border-gray-200 no-print">
+      {/* Top row: title/help + close */}
       <div className="flex items-center justify-between">
-        <div>
-          
-          <p className="text-xs text-gray-600 mt-1">
+        <div className="min-w-0">
+          {/* 8px helper text */}
+          <p className="text-[10px] leading-none text-gray-600 truncate">
             Design your document template with rich formatting
           </p>
         </div>
+
         <button
           onClick={onClose}
-          className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+          className="p-1 rounded-md bg-gray-100 hover:bg-gray-200 transition-colors"
           aria-label="Close"
         >
-          <X size={20} />
+          <X size={14} />
         </button>
       </div>
 
-      <div className="no-print flex-shrink-0 border-t border-gray-200 bg-gray-50">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 sm:p-4">
+      {/* Bottom row: status / variables + actions */}
+      <div className="no-print flex-shrink-0 border-t border-gray-200 bg-gray-50 mt-1">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-2">
           {/* Status + Variables Dropdown */}
-          <div className="flex flex-col sm:flex-row items-center gap-2 order-2 sm:order-1">
-            <div className="text-xs text-gray-500 text-center sm:text-left">
-              {variables.length} variables used •{" "}
-              {viewMode === "visual"
-                ? "Visual Editor"
-                : viewMode === "code"
-                ? "HTML Editor"
-                : "Preview"}{" "}
-              • {template ? "Editing" : "Creating"}
+          <div className="flex flex-col sm:flex-row items-center gap-1 order-2 sm:order-1">
+            {/* 8px status line */}
+            <div className="text-[10px] leading-none text-gray-500 text-center sm:text-left">
+              {variables.length} variables used •{' '}
+              {viewMode === 'visual'
+                ? 'Visual Editor'
+                : viewMode === 'code'
+                ? 'HTML Editor'
+                : 'Preview'}{' '}
+              • {template ? 'Editing' : 'Creating'}
             </div>
 
             {/* Variables Dropdown */}
             {variables.length > 0 && (
               <div className="relative">
                 <button
-                  onClick={() => setShowDropdown(!showDropdown)}
-                  className="px-2 py-1 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-100"
+                  onClick={() => setShowDropdown((s) => !s)}
+                  className="px-2 py-1 text-[8px] leading-none bg-white border border-gray-300 rounded-md hover:bg-gray-100"
                 >
                   Show Variables ▼
                 </button>
 
                 {showDropdown && (
-                  <div className="absolute left-0 mt-1 w-48 max-h-48 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                    <ul className="text-xs text-gray-700">
+                  <div className="absolute left-0 mt-1 w-44 max-h-40 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                    <ul className="text-[10px] text-gray-700">
                       {variables.map((v, i) => (
                         <li
                           key={i}
-                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                          className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
                           onClick={() => navigator.clipboard.writeText(v)}
+                          title="Click to copy"
                         >
                           {v}
                         </li>
@@ -89,10 +94,10 @@ const TemplateHeader: React.FC<TemplateHeaderProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="order-1 sm:order-2 flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="order-1 sm:order-2 flex flex-wrap items-center gap-1 sm:gap-2">
             <button
               onClick={onCreateNew}
-              className="px-3 sm:px-4 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-100"
+              className="px-2 sm:px-3 py-1 text-[10px] leading-none bg-white border border-gray-300 rounded-md hover:bg-gray-100"
               title="Start a new blank template"
             >
               New (Blank)
@@ -100,7 +105,7 @@ const TemplateHeader: React.FC<TemplateHeaderProps> = ({
 
             <button
               onClick={onDownload}
-              className="px-3 sm:px-4 py-2 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+              className="px-2 sm:px-3 py-1 text-[10px] leading-none bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
               title="Download / Save as PDF"
             >
               Download
@@ -108,7 +113,8 @@ const TemplateHeader: React.FC<TemplateHeaderProps> = ({
 
             <button
               onClick={onClose}
-              className="px-3 sm:px-4 py-2 text-xs text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="px-2 sm:px-3 py-1 text-[10px] leading-none text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              title="Close without saving"
             >
               Cancel
             </button>
@@ -116,10 +122,11 @@ const TemplateHeader: React.FC<TemplateHeaderProps> = ({
             <button
               onClick={onSave}
               disabled={!templateData.name.trim()}
-              className="flex items-center space-x-2 px-3 sm:px-4 py-2 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 px-2 sm:px-3 py-1 text-[10px] leading-none bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={template ? 'Update Template' : 'Save Template'}
             >
-              <Save size={14} />
-              <span>{template ? "Update Template" : "Save Template"}</span>
+              <Save size={12} />
+              <span>{template ? 'Update Template' : 'Save Template'}</span>
             </button>
           </div>
         </div>
