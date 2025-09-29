@@ -608,7 +608,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     <div className="min-h-screen bg-gray-50">
       {/* Header (hidden on mobile) */}
       <div
-        className="hidden md:block bg-white shadow-sm border-b pt-20 sticky top-0 z-40"
+        className=" bg-white shadow-sm border-b pt-20 sticky top-0 z-40"
         style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -775,6 +775,16 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
               {/* View Options */}
               <div className="absolute bottom-12 right-3 z-20 flex space-x-2">
+                {/* <button
+                  onClick={() => {
+                    setPhotoGalleryStartIndex(currentImageIndex);
+                    setShowPhotoGallery(true);
+                  }}
+                  className="bg-white/95 text-gray-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white transition text-sm shadow-md border border-black/10"
+                >
+                  <Camera size={16} />
+                  <span className="text-sm">Photos</span>
+                </button> */}
                 <button
                   onClick={() => {
                     setPhotoGalleryStartIndex(currentImageIndex);
@@ -785,6 +795,15 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   <Camera size={16} />
                   <span className="text-sm">Photos</span>
                 </button>
+                {showPhotoGallery && (
+                  <PhotoGalleryModal
+                    images={images}
+                    isOpen={showPhotoGallery}
+                    onClose={() => setShowPhotoGallery(false)}
+                    initialIndex={photoGalleryStartIndex}
+                  />
+                )}
+
                 <button className="bg-white/95 text-gray-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white transition text-sm shadow-md border border-black/10">
                   <Video size={16} />
                   <span className="text-sm">Tour</span>
@@ -1342,103 +1361,103 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
             {/* AI Investment Analysis */}
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm p-4 sm:p-5 relative">
-              <div className="flex items-center space-x-2 mb-3">
-                <Bot className="text-purple-600" size={18} />
-                <h3 className="text-base sm:text-lg font-bold text-gray-900">AI Investment Analysis</h3>
-              </div>
+  <div className="flex items-center space-x-2 mb-3">
+    <Bot className="text-purple-600" size={18} />
+    <h3 className="text-base sm:text-lg font-bold text-gray-900">AI Investment Analysis</h3>
+  </div>
 
-              {hasSubscription ? (
-                <div className="space-y-3">
-                  {/* Compact stat cards in a responsive grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="bg-white rounded-lg p-3 border border-purple-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
-                        <span className="font-bold text-green-600 text-sm sm:text-base leading-tight">Strong Buy</span>
-                      </div>
-                    </div>
+  {hasSubscription ? (
+    <div className="space-y-3">
+      {/* Compact stat cards in a responsive grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="bg-white rounded-lg p-3 border border-purple-100">
+          <div className="flex items-center justify-between">
+            <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
+            <span className="font-bold text-green-600 text-sm sm:text-base leading-tight">Strong Buy</span>
+          </div>
+        </div>
 
-                    <div className="bg-white rounded-lg p-3 border border-purple-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
-                        <span className="font-bold text-blue-600 text-sm sm:text-base leading-tight">18.2%</span>
-                      </div>
-                    </div>
+        <div className="bg-white rounded-lg p-3 border border-purple-100">
+          <div className="flex items-center justify-between">
+            <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
+            <span className="font-bold text-blue-600 text-sm sm:text-base leading-tight">18.2%</span>
+          </div>
+        </div>
 
-                    <div className="bg-white rounded-lg p-3 border border-purple-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
-                        <span className="font-bold text-yellow-600 text-sm sm:text-base leading-tight">Low</span>
-                      </div>
-                    </div>
+        <div className="bg-white rounded-lg p-3 border border-purple-100">
+          <div className="flex items-center justify-between">
+            <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
+            <span className="font-bold text-yellow-600 text-sm sm:text-base leading-tight">Low</span>
+          </div>
+        </div>
 
-                    <div className="bg-white rounded-lg p-3 border border-purple-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
-                        <span className="font-bold text-purple-600 text-sm sm:text-base leading-tight">Excellent</span>
-                      </div>
-                    </div>
-                  </div>
+        <div className="bg-white rounded-lg p-3 border border-purple-100">
+          <div className="flex items-center justify-between">
+            <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
+            <span className="font-bold text-purple-600 text-sm sm:text-base leading-tight">Excellent</span>
+          </div>
+        </div>
+      </div>
 
-                  {/* Insight note (compact) */}
-                  <div className="p-3 bg-white rounded-lg border border-purple-100">
-                    <div className="flex items-start space-x-2">
-                      <Sparkles className="text-purple-600 mt-0.5" size={16} />
-                      <p className="text-xs text-gray-700 leading-snug">
-                        <strong>AI Insight:</strong> This property is in the top 5% for investment potential in this area. Current market conditions favor immediate purchase.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="relative">
-                  {/* Keep preview visible but compact and non-interactive */}
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 blur-sm pointer-events-none select-none">
-                      <div className="bg-white rounded-lg p-3 border border-purple-100">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
-                          <span className="font-bold text-green-600 text-sm sm:text-base">•••••• •••</span>
-                        </div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 border border-purple-100">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
-                          <span className="font-bold text-blue-600 text-sm sm:text-base">••.•%</span>
-                        </div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 border border-purple-100">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
-                          <span className="font-bold text-yellow-600 text-sm sm:text-base">•••</span>
-                        </div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 border border-purple-100">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
-                          <span className="font-bold text-purple-600 text-sm sm:text-base">••••••••••</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Compact paywall overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[92%]">
-                      <Crown className="text-purple-600 mx-auto mb-2" size={18} />
-                      <h4 className="font-bold text-gray-900 mb-1 text-base">Investment Analysis</h4>
-                      <p className="text-xs text-gray-600 mb-3 leading-snug">Get AI-powered investment insights</p>
-                      <button
-                        onClick={() => handlePaywallOpen('ai-investment')}
-                        className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:shadow-md transition-all"
-                      >
-                        Unlock ₹299
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+      {/* Insight note (compact) */}
+      <div className="p-3 bg-white rounded-lg border border-purple-100">
+        <div className="flex items-start space-x-2">
+          <Sparkles className="text-purple-600 mt-0.5" size={16} />
+          <p className="text-xs text-gray-700 leading-snug">
+            <strong>AI Insight:</strong> This property is in the top 5% for investment potential in this area. Current market conditions favor immediate purchase.
+          </p>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="relative">
+      {/* Keep preview visible but compact and non-interactive */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 blur-sm pointer-events-none select-none">
+          <div className="bg-white rounded-lg p-3 border border-purple-100">
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
+              <span className="font-bold text-green-600 text-sm sm:text-base">•••••• •••</span>
             </div>
+          </div>
+          <div className="bg-white rounded-lg p-3 border border-purple-100">
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
+              <span className="font-bold text-blue-600 text-sm sm:text-base">••.•%</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-3 border border-purple-100">
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
+              <span className="font-bold text-yellow-600 text-sm sm:text-base">•••</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-3 border border-purple-100">
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
+              <span className="font-bold text-purple-600 text-sm sm:text-base">••••••••••</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Compact paywall overlay */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="text-center bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[92%]">
+          <Crown className="text-purple-600 mx-auto mb-2" size={18} />
+          <h4 className="font-bold text-gray-900 mb-1 text-base">Investment Analysis</h4>
+          <p className="text-xs text-gray-600 mb-3 leading-snug">Get AI-powered investment insights</p>
+          <button
+            onClick={() => handlePaywallOpen('ai-investment')}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:shadow-md transition-all"
+          >
+            Unlock ₹299
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+</div>
 
             <PhotoGalleryModal
               images={images}
