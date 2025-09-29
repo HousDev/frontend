@@ -888,123 +888,158 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 <div className="px-5 pb-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3 gap-4 text-sm">
 
-                    {/* Example Row */}
-                    
+                    {/* Row 1 */}
                     <div>
                       <span className="font-semibold text-gray-800">Property type:</span>
-                      <span className="text-gray-600 ml-1">{property?.type || "-"}</span>
+                      <span className="text-gray-600 ml-1 break-words">{property?.type ?? "-"}</span>
                     </div>
 
                     <div>
                       <span className="font-semibold text-gray-800">Unit Type:</span>
-                      <span className="text-gray-600 ml-1">{property?.unitType || "-"}</span>
+                      <span className="text-gray-600 ml-1 break-words">{property?.unitType ?? "-"}</span>
                     </div>
 
                     <div>
                       <span className="font-semibold text-gray-800">Subtype:</span>
-                      <span className="text-gray-600 ml-1">{property?.subtype || "-"}</span>
+                      <span className="text-gray-600 ml-1 break-words">{property?.subtype ?? "-"}</span>
                     </div>
 
                     {/* Row 2 */}
                     <div>
-                      <span className="font-semibold text-gray-800">Society:</span>
-                      <span className="text-gray-600 ml-1">{property?.society || "-"}</span>
-                    </div>
-
-                    <div>
                       <span className="font-semibold text-gray-800">Wing:</span>
-                      <span className="text-gray-600 ml-1">{property?.wing || "-"}</span>
+                      <span className="text-gray-600 ml-1 break-words">{property?.wing ?? "-"}</span>
                     </div>
 
                     <div>
                       <span className="font-semibold text-gray-800">Unit No:</span>
-                      <span className="text-gray-600 ml-1">{property?.unitNo || "-"}</span>
+                      <span className="text-gray-600 ml-1 break-words">{property?.unitNo ?? "-"}</span>
                     </div>
 
                     {/* Row 3 */}
                     <div>
                       <span className="font-semibold text-gray-800">Floor:</span>
-                      <span className="text-gray-600 ml-1">{property?.floor ? `${property.floor} / ${property?.totalFloors}` : "-"}</span>
+                      <span className="text-gray-600 ml-1">
+                        {property?.floor
+                          ? property?.totalFloors
+                            ? `${property.floor} / ${property.totalFloors}`
+                            : `${property.floor}`
+                          : "-"}
+                      </span>
                     </div>
+
                     {/* Row 4 */}
                     <div>
                       <span className="font-semibold text-gray-800">Built-up Area:</span>
-                      <span className="text-gray-600 ml-1">{property?.builtupArea ? `${property.builtupArea} Sq.ft.` : "-"}</span>
+                      <span className="text-gray-600 ml-1">
+                        {property?.builtupArea ? `${property.builtupArea} Sq.ft.` : "-"}
+                      </span>
                     </div>
 
                     <div>
                       <span className="font-semibold text-gray-800">Carpet Area:</span>
-                      <span className="text-gray-600 ml-1">{property?.carpetArea ? `${property.carpetArea} Sq.ft.` : "-"}</span>
+                      <span className="text-gray-600 ml-1">
+                        {property?.carpetArea ? `${property.carpetArea} Sq.ft.` : "-"}
+                      </span>
                     </div>
 
                     <div>
                       <span className="font-semibold text-gray-800">Budget:</span>
-                      <span className="text-gray-600 ml-1">{property?.budget ? formatCurrency(property?.budget) : "-"}</span>
+                      <span className="text-gray-600 ml-1">
+                        {property?.budget != null ? formatCurrency(property.budget) : "-"}
+                      </span>
                     </div>
 
                     {/* Row 5 */}
                     <div>
                       <span className="font-semibold text-gray-800">Parking:</span>
-                      <span className="text-gray-600 ml-1">{property?.parkingQty ? `${property.parkingQty} ${property.parkingType}` : "-"}</span>
+                      <span className="text-gray-600 ml-1">
+                        {property?.parkingQty
+                          ? `${property.parkingQty} ${property?.parkingType ?? ""}`.trim()
+                          : "-"}
+                      </span>
                     </div>
 
                     <div>
                       <span className="font-semibold text-gray-800">Furnishing:</span>
-                      <span className="text-gray-600 ml-1">{property?.furnishing || "-"}</span>
+                      <span className="text-gray-600 ml-1 break-words">{property?.furnishing ?? "-"}</span>
                     </div>
 
                     <div>
                       <span className="font-semibold text-gray-800">Possession:</span>
-                      <span className="text-gray-600 ml-1">{property?.possessionMonth} {property?.possessionYear || "-"}</span>
+                      <span className="text-gray-600 ml-1">
+                        {property?.possessionMonth || property?.possessionYear
+                          ? `${property?.possessionMonth ?? ""} ${property?.possessionYear ?? ""}`.trim()
+                          : "-"}
+                      </span>
                     </div>
 
                     {/* Row 6 */}
                     <div>
                       <span className="font-semibold text-gray-800">Purchase Date:</span>
-                      <span className="text-gray-600 ml-1">{property?.purchaseMonth} {property?.purchaseYear || "-"}</span>
+                      <span className="text-gray-600 ml-1">
+                        {property?.purchaseMonth || property?.purchaseYear
+                          ? `${property?.purchaseMonth ?? ""} ${property?.purchaseYear ?? ""}`.trim()
+                          : "-"}
+                      </span>
                     </div>
 
                     <div>
                       <span className="font-semibold text-gray-800">Selling Rights:</span>
-                      <span className="text-gray-600 ml-1">{property?.selling_rights || "-"}</span>
+                      <span className="text-gray-600 ml-1 break-words">{property?.selling_rights ?? "-"}</span>
                     </div>
+
                     {/* Row 7 */}
                     <div>
                       <span className="font-semibold text-gray-800">Status:</span>
                       <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                        {property?.status || "-"}
+                        {property?.status ?? "-"}
                       </span>
                     </div>
-                    <div>
-                      <span className="font-semibold text-gray-800">City:</span>
-                      <span className="text-gray-600 ml-1">{property?.city || "-"}</span>
-                    </div>
-                    <div><span className="font-semibold">Location:</span><span className="ml-2">{property?.location || "-"}</span></div>
 
+                    {/* Nearby */}
                     <div className="sm:col-span-1 lg:col-span-2 xl:col-span-1 2xl:col-span-2">
                       <span className="font-semibold text-gray-800">Nearby:</span>
-                      <span className="ml-2 text-gray-600">
-                        {property.nearby_places?.length ? (
-                          property.nearby_places.map((p: any, i: number) => (
-                            <span key={i} className="inline-block bg-gray-100 px-2 py-0.5 rounded-full text-xs mr-1 mb-1">
-                              {p.name} ({p.distance}{p.unit}) {p.type}
-                            </span>
-                          ))
+                      <span className="ml-2 text-gray-600 block">
+                        {property?.nearby_places?.length ? (
+                          <div className="flex flex-wrap">
+                            {property.nearby_places.map((p: any, i: number) => (
+                              <span
+                                key={i}
+                                className="inline-block bg-gray-100 px-2 py-0.5 rounded-full text-xs mr-1 mb-1 text-gray-700"
+                              >
+                                {(p?.name ?? "Place")}
+                                {p?.distance ? ` (${p.distance}${p?.unit ?? ""})` : ""}
+                                {p?.type ? ` • ${p.type}` : ""}
+                              </span>
+                            ))}
+                          </div>
                         ) : (
                           "Not Available"
                         )}
                       </span>
                     </div>
+
+                    <div>
+                      <span className="font-semibold text-gray-800">City:</span>
+                      <span className="text-gray-600 ml-1 break-words">{property?.city ?? "-"}</span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold text-gray-800">Location:</span>
+                      <span className="text-gray-600 ml-2 break-words">{property?.location ?? "-"}</span>
+                    </div>
+
                     {/* Address */}
                     <div className="sm:col-span-2 lg:col-span-3 xl:col-span-2 2xl:col-span-3">
-                      <div className="font-semibold mb-1">Address:</div>
-                      <div className="ml-1 text-gray-700 whitespace-pre-line">
-                        {property?.address || "Not Available"}
+                      <div className="font-semibold text-gray-800 mb-1">Address:</div>
+                      <div className="ml-1 text-gray-700 whitespace-pre-line break-words">
+                        {property?.address ?? "Not Available"}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+
                {/* Amenities & Furnishing */}
                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-3">
                        {/* Amenities */}
@@ -1280,7 +1315,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
           </div>
 
           {/* Sidebar (hidden on mobile/tablet; shows on lg+) */}
-          <div className="hidden lg:block space-y-5">
+          <div className="space-y-5">
             <div className="bg-white rounded-xl shadow-sm p-5 sticky top-10">
               {/* Agent Info */}
               <div className="flex items-center space-x-3 mb-4">
