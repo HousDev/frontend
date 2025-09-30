@@ -9,35 +9,111 @@ type Meta = {
 };
 import {
   ArrowLeft,
+  ArrowRight,
   ChevronLeft,
   ChevronRight,
   Edit,
   Share,
   Eye,
+  Download,
+  Upload,
   Camera,
+  Video,
   FileText,
   Users,
   Phone,
   MessageCircle,
   Mail,
   MapPin,
+  Building,
   Home,
+  Car,
+  Wifi,
+  Dumbbell,
+  TreePine,
+  Waves,
   Shield,
+  Star,
   Calendar,
+  Clock,
   CheckCircle,
+  AlertCircle,
   Bell,
+  Settings,
   Target,
   TrendingUp,
   DollarSign,
   Percent,
+  Award,
+  Crown,
+  Gem,
+  Heart,
+  Bookmark,
+  Flag,
+  Tag,
+  Link,
   User,
   Globe,
+  Facebook,
+  Instagram,
+  Twitter,
+  Linkedin,
+  Send,
+  Copy,
+  QrCode,
+  Printer,
   RefreshCw,
+  Plus,
+  Minus,
+  X,
+  Save,
+  PlayCircle,
+  PauseCircle,
+  RotateCcw,
+  Maximize2,
+  Filter,
+  Search,
+  MoreHorizontal,
   Activity,
   BarChart3,
+  PieChart,
+  LineChart,
+  Zap,
   Flame,
+  Droplets,
+  Sun,
+  Moon,
+  Wind,
+  Mountain,
+  Flower,
+  Coffee,
   Wrench,
+  Hammer,
+  Paintbrush,
+  Scissors,
+  Ruler,
+  Lightbulb,
+  Thermometer,
+  Gauge,
+  Battery,
+  Signal,
   Wifi as WifiIcon,
+  Bluetooth,
+  Radio,
+  Tv,
+  Monitor,
+  Smartphone,
+  Tablet,
+  Laptop,
+  HardDrive,
+  Database,
+  Server,
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  CloudLightning,
+  Umbrella,
+  Snowflake,
   Share2
 } from 'lucide-react';
 import AmenityPill from "../properties/AmenityPill";
@@ -294,9 +370,27 @@ useEffect(() => {
 }, [property?.id, property?.updated_at]); // dhyaan: propertyData ko dep me mat daalo
 
 
+// ⬇️ propertyData ke useState ke baad yeh effect add/replace karo
+useEffect(() => {
+  if (!property) return;
+
+  const idChanged = property.id !== propertyData.id;
+  const tsChanged = property.updated_at !== propertyData.updated_at;
+
+  if (idChanged || tsChanged) {
+    setPropertyData(property);
+    // force OverviewTab fresh render with latest data
+    setOverviewKey(k => k + 1);
+  }
+}, [property?.id, property?.updated_at]); // dhyaan: propertyData ko dep me mat daalo
+
 // 🔊 listen once, remount Overview on event
 useEffect(() => {
   const handler = (e: any) => {
+    // ⚠️ agar tum id-check kar rahe ho to dhyaan: propertyId pass ho
+    // if (e?.detail?.id && e.detail.id !== propertyData.id) return;
+
+    // force remount + optional tab switch
     setOverviewKey(k => k + 1);
     setActiveTab('overview'); // nahi chahiye to hata do
   };
@@ -305,7 +399,10 @@ useEffect(() => {
   return () => window.removeEventListener('overview:refresh', handler);
 }, [propertyData.id]);
 
-
+  // inside PropertyViewPage
+  useEffect(() => {
+    setPropertyData(property);
+  }, [property]);
 // when property id changes, try restoring its last-opened tab
 useEffect(() => {
   const sp = new URLSearchParams(window.location.search);
@@ -512,12 +609,10 @@ useEffect(() => {
   window.history.replaceState(null, '', `${window.location.pathname}?${sp.toString()}`);
 }, [activeTab, propertyData.id]);
 
-// ⬇️ File: PropertyViewPage.tsx
-
-const handleEditSubmit = (patch: any) => {
+const handleEditSubmit = (result: any) => {
   const updatedProperty = {
     ...propertyData,
-    ...patch, // <- ab yeh clean UI patch hai (form values)
+    ...result,
     updated_at: new Date().toISOString(),
     activities: [
       ...(activities || []),
@@ -535,10 +630,13 @@ const handleEditSubmit = (patch: any) => {
   setPropertyData(updatedProperty);
   onUpdateProperty?.(updatedProperty);
 
-  // force Overview remount (agar key bump strategy bhi use kar rahe ho)
-  // setOverviewKey(k => k + 1);
+  // 👇 force re-mount (key bump)
+  setOverviewKey((k) => k + 1);
 
-  window.dispatchEvent(new CustomEvent('overview:refresh', { detail: { id: updatedProperty.id } }));
+  // 👇 tumhare listener ke liye custom event fire karo (id pass karo)
+  window.dispatchEvent(
+    new CustomEvent('overview:refresh', { detail: { id: updatedProperty.id } })
+  );
 
   setShowEditModal(false);
   toast.success('Property updated successfully!');
@@ -823,14 +921,13 @@ const handleEditSubmit = (patch: any) => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-4">
-     {activeTab === 'overview' && (
-    <OverviewTab
-      key={`ov-${propertyData.id}-${propertyData.updated_at ?? '0'}`} // ✅ updated_at बदलते ही hard remount
-      property={propertyData}
-      onUpdate={setPropertyData}
-    />
-  )}
-
+       {activeTab === 'overview' && (
+  <OverviewTab
+    key={`ov-${propertyData.id}-${overviewKey}`}
+    property={propertyData}
+    onUpdate={setPropertyData}
+  />
+)}
 
         {activeTab === 'stages' && (
           <StagesTab
