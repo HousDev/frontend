@@ -558,24 +558,9 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
         'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg'
       ];
 
-  const amenities: string[] = Array.isArray(property?.amenities) && property.amenities.length
-    ? property.amenities
-    : ['Swimming Pool', 'Gym', '24/7 Security', 'Private Garden', 'Covered Parking', 'High-speed Internet'];
-
   const unitType = property?.unitType ?? '';
   const subtype = property?.subtype ?? '';
 
-  const getAmenityIcon = (amenity: string) => {
-    switch ((amenity || '').toLowerCase()) {
-      case 'swimming pool': return <Waves className="text-blue-500" size={20} />;
-      case 'gym': return <Dumbbell className="text-red-500" size={20} />;
-      case 'security': case '24/7 security': return <Shield className="text-green-500" size={20} />;
-      case 'garden': case 'private garden': return <TreePine className="text-green-500" size={20} />;
-      case 'parking': case 'covered parking': return <Car className="text-gray-500" size={20} />;
-      case 'wifi': case 'high-speed internet': return <Wifi className="text-purple-500" size={20} />;
-      default: return <CheckCircle className="text-blue-500" size={20} />;
-    }
-  };
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -775,16 +760,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
               {/* View Options */}
               <div className="absolute bottom-12 right-3 z-20 flex space-x-2">
-                {/* <button
-                  onClick={() => {
-                    setPhotoGalleryStartIndex(currentImageIndex);
-                    setShowPhotoGallery(true);
-                  }}
-                  className="bg-white/95 text-gray-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white transition text-sm shadow-md border border-black/10"
-                >
-                  <Camera size={16} />
-                  <span className="text-sm">Photos</span>
-                </button> */}
                 <button
                   onClick={() => {
                     setPhotoGalleryStartIndex(currentImageIndex);
@@ -876,7 +851,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     : property?.description}
                 </p>
               </div>
-              
               {/* Property Details */}
               <div className="bg-white/95 backdrop-blur rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
                 <div className="px-5 pt-4">
@@ -891,61 +865,60 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     {/* Row 1 */}
                     <div>
                       <span className="font-semibold text-gray-800">Property type:</span>
-                      <span className="text-gray-600 ml-1 break-words">{property?.type ?? "-"}</span>
+                      <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.type)}</span>
                     </div>
 
                     <div>
                       <span className="font-semibold text-gray-800">Unit Type:</span>
-                      <span className="text-gray-600 ml-1 break-words">{property?.unitType ?? "-"}</span>
+                      <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.unitType)}</span>
                     </div>
 
                     <div>
                       <span className="font-semibold text-gray-800">Subtype:</span>
-                      <span className="text-gray-600 ml-1 break-words">{property?.subtype ?? "-"}</span>
+                      <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.subtype)}</span>
                     </div>
 
                     {/* Row 2 */}
-                    <div>
-                      <span className="font-semibold text-gray-800">Wing:</span>
-                      <span className="text-gray-600 ml-1 break-words">{property?.wing ?? "-"}</span>
-                    </div>
+                    {property?.raw?.wing && (
+                      <div>
+                        <span className="font-semibold text-gray-800">Wing:</span>
+                        <span className="text-gray-600 ml-1 break-words">{displayOrDash(property.raw.wing)}</span>
+                      </div>
+                    )}
 
-                    <div>
-                      <span className="font-semibold text-gray-800">Unit No:</span>
-                      <span className="text-gray-600 ml-1 break-words">{property?.unitNo ?? "-"}</span>
-                    </div>
+                    {property?.raw?.unitNo && (
+                      <div>
+                        <span className="font-semibold text-gray-800">Unit No:</span>
+                        <span className="text-gray-600 ml-1 break-words">{displayOrDash(property.raw.unitNo)}</span>
+                      </div>
+                    )}
 
                     {/* Row 3 */}
-                    <div>
-                      <span className="font-semibold text-gray-800">Floor:</span>
-                      <span className="text-gray-600 ml-1">
-                        {property?.floor
-                          ? property?.totalFloors
-                            ? `${property.floor} / ${property.totalFloors}`
-                            : `${property.floor}`
-                          : "-"}
-                      </span>
-                    </div>
+                    {(property?.raw?.floor || property?.raw?.totalFloors) && (
+                      <div>
+                        <span className="font-semibold text-gray-800">Floor:</span>
+                        <span className="text-gray-600 ml-1">
+                          {property?.raw?.floor && property?.raw?.totalFloors
+                            ? `${property.raw.floor} / ${property.raw.totalFloors}`
+                            : displayOrDash(property?.raw?.floor)}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Row 4 */}
-                    <div>
-                      <span className="font-semibold text-gray-800">Built-up Area:</span>
-                      <span className="text-gray-600 ml-1">
-                        {property?.builtupArea ? `${property.builtupArea} Sq.ft.` : "-"}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="font-semibold text-gray-800">Carpet Area:</span>
-                      <span className="text-gray-600 ml-1">
-                        {property?.carpetArea ? `${property.carpetArea} Sq.ft.` : "-"}
-                      </span>
-                    </div>
+                    {property?.square_feet && (
+                      <div>
+                        <span className="font-semibold text-gray-800">Carpet Area:</span>
+                        <span className="text-gray-600 ml-1">
+                          {displayOrDash(property.square_feet)} Sq.ft.
+                        </span>
+                      </div>
+                    )}
 
                     <div>
                       <span className="font-semibold text-gray-800">Budget:</span>
                       <span className="text-gray-600 ml-1">
-                        {property?.budget != null ? formatCurrency(property.budget) : "-"}
+                        {formatCurrency(property?.price)}
                       </span>
                     </div>
 
@@ -953,130 +926,115 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     <div>
                       <span className="font-semibold text-gray-800">Parking:</span>
                       <span className="text-gray-600 ml-1">
-                        {property?.parkingQty
-                          ? `${property.parkingQty} ${property?.parkingType ?? ""}`.trim()
-                          : "-"}
+                        {property?.parking ? `${property.parking} spots` : ' - '}
                       </span>
                     </div>
 
                     <div>
                       <span className="font-semibold text-gray-800">Furnishing:</span>
-                      <span className="text-gray-600 ml-1 break-words">{property?.furnishing ?? "-"}</span>
+                      <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.furnishing)}</span>
                     </div>
 
-                    <div>
-                      <span className="font-semibold text-gray-800">Possession:</span>
-                      <span className="text-gray-600 ml-1">
-                        {property?.possessionMonth || property?.possessionYear
-                          ? `${property?.possessionMonth ?? ""} ${property?.possessionYear ?? ""}`.trim()
-                          : "-"}
-                      </span>
-                    </div>
-
-                    {/* Row 6 */}
-                    <div>
-                      <span className="font-semibold text-gray-800">Purchase Date:</span>
-                      <span className="text-gray-600 ml-1">
-                        {property?.purchaseMonth || property?.purchaseYear
-                          ? `${property?.purchaseMonth ?? ""} ${property?.purchaseYear ?? ""}`.trim()
-                          : "-"}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="font-semibold text-gray-800">Selling Rights:</span>
-                      <span className="text-gray-600 ml-1 break-words">{property?.selling_rights ?? "-"}</span>
-                    </div>
+                    {(property?.possessionMonth || property?.possessionYear) && (
+                      <div>
+                        <span className="font-semibold text-gray-800">Possession:</span>
+                        <span className="text-gray-600 ml-1">
+                          {[property?.possessionMonth, property?.possessionYear].filter(Boolean).join(' ')}
+                        </span>
+                      </div>
+                    )}
+                    {property?.raw?.selling_rights && (
+                      <div>
+                        <span className="font-semibold text-gray-800">Selling Rights:</span>
+                        <span className="text-gray-600 ml-1 break-words">{displayOrDash(property.raw.selling_rights)}</span>
+                      </div>
+                    )}
 
                     {/* Row 7 */}
-                    <div>
-                      <span className="font-semibold text-gray-800">Status:</span>
-                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                        {property?.status ?? "-"}
-                      </span>
-                    </div>
-
                     {/* Nearby */}
-                    <div className="sm:col-span-1 lg:col-span-2 xl:col-span-1 2xl:col-span-2">
-                      <span className="font-semibold text-gray-800">Nearby:</span>
-                      <span className="ml-2 text-gray-600 block">
-                        {property?.nearby_places?.length ? (
-                          <div className="flex flex-wrap">
-                            {property.nearby_places.map((p: any, i: number) => (
-                              <span
-                                key={i}
-                                className="inline-block bg-gray-100 px-2 py-0.5 rounded-full text-xs mr-1 mb-1 text-gray-700"
-                              >
-                                {(p?.name ?? "Place")}
-                                {p?.distance ? ` (${p.distance}${p?.unit ?? ""})` : ""}
-                                {p?.type ? ` • ${p.type}` : ""}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          "Not Available"
-                        )}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="font-semibold text-gray-800">City:</span>
-                      <span className="text-gray-600 ml-1 break-words">{property?.city ?? "-"}</span>
-                    </div>
-
-                    <div>
-                      <span className="font-semibold text-gray-800">Location:</span>
-                      <span className="text-gray-600 ml-2 break-words">{property?.location ?? "-"}</span>
-                    </div>
-
-                    {/* Address */}
-                    <div className="sm:col-span-2 lg:col-span-3 xl:col-span-2 2xl:col-span-3">
-                      <div className="font-semibold text-gray-800 mb-1">Address:</div>
-                      <div className="ml-1 text-gray-700 whitespace-pre-line break-words">
-                        {property?.address ?? "Not Available"}
+                    {property?.raw?.nearby_places?.length > 0 && (
+                      <div className="sm:col-span-2 lg:col-span-3 xl:col-span-2 2xl:col-span-3">
+                        <span className="font-semibold text-gray-800">Nearby:</span>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {property.raw.nearby_places.map((p: any, i: number) => (
+                            <span
+                              key={i}
+                              className="inline-block bg-gray-100 px-2 py-0.5 rounded-full text-xs text-gray-700"
+                            >
+                              {p?.name ?? "Place"}
+                              {p?.distance ? ` (${p.distance}${p?.unit ?? ""})` : ""}
+                              {p?.type ? ` • ${p.type}` : ""}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    {/* Address */}
+                    {property?.raw?.address && (
+                      <div className="sm:col-span-2 lg:col-span-3 xl:col-span-2 2xl:col-span-3">
+                        <div className="font-semibold text-gray-800 mb-1">Address:</div>
+                        <div className="ml-1 text-gray-700 whitespace-pre-line break-words">
+                          {property.raw.address}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-
                {/* Amenities & Furnishing */}
-                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-3">
-                       {/* Amenities */}
-                       <div className="bg-white rounded-xl border border-gray-200 p-4">
-                         <h3 className="font-semibold text-gray-900 mb-3">Amenities</h3>
-                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
-                           {(() => {
-                             const amenities: string[] = Array.isArray(property.amenities)
-                               ? property.amenities
-                               : (property.amenities ?? "")
-                                 .split(",")
-                                 .map((s: string) => s.trim())
-                                 .filter(Boolean);
-               
-                             return amenities.length ? (
-                               amenities.map((name, i) => <AmenityPill key={i} name={name} />)
-                             ) : (
-                               <span className="text-sm text-gray-500">No amenities listed</span>
-                             );
-                           })()}
-                         </div>
-                       </div>
-               
-                       {/* Furnishing Items */}
-                       <div className="bg-white rounded-xl border border-gray-200 p-4">
-                         <h3 className="font-semibold text-gray-900 mb-3">Furnishing Items</h3>
-                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
-                           {property.furnishingItems?.length ? (
-                             property.furnishingItems.map((item: string, index: number) => (
-                               <FurnishingPill key={index} name={item} />
-                             ))
-                           ) : (
-                             <span className="text-sm text-gray-500">No furnishing items listed</span>
-                           )}
-                         </div>
-                       </div>
-                     </div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-3">
+                {/* Amenities */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3">Amenities</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
+                    {(() => {
+                      // Try multiple sources for amenities
+                      let amenitiesList: string[] = [];
+
+                      if (Array.isArray(property?.amenities) && property.amenities.length > 0) {
+                        amenitiesList = property.amenities;
+                      } else if (Array.isArray(property?.raw?.amenities) && property.raw.amenities.length > 0) {
+                        amenitiesList = property.raw.amenities;
+                      } else if (typeof property?.amenities === 'string' && property.amenities.trim()) {
+                        amenitiesList = property.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+                      } else if (typeof property?.raw?.amenities === 'string' && property.raw.amenities.trim()) {
+                        amenitiesList = property.raw.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+                      }
+
+                      return amenitiesList.length > 0 ? (
+                        amenitiesList.map((name, i) => <AmenityPill key={i} name={name} />)
+                      ) : (
+                        <span className="text-sm text-gray-500 col-span-full">No amenities listed</span>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3">Furnishing Items</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
+                    {(() => {
+                      // Try multiple sources for furnishing items
+                      let furnishingList: string[] = [];
+
+                      if (Array.isArray(property?.furnishingItems) && property.furnishingItems.length > 0) {
+                        furnishingList = property.furnishingItems;
+                      } else if (Array.isArray(property?.raw?.furnishingItems) && property.raw.furnishingItems.length > 0) {
+                        furnishingList = property.raw.furnishingItems;
+                      } else if (Array.isArray(property?.raw?.furnishing_items) && property.raw.furnishing_items.length > 0) {
+                        furnishingList = property.raw.furnishing_items;
+                      }
+
+                      return furnishingList.length > 0 ? (
+                        furnishingList.map((item: string, index: number) => (
+                          <FurnishingPill key={index} name={item} />
+                        ))
+                      ) : (
+                        <span className="text-sm text-gray-500 col-span-full">No furnishing items listed</span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
               {/* AI Insights Banner */}
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-8 mt-3 border border-purple-100">
                 <div className="flex items-center space-x-3">
