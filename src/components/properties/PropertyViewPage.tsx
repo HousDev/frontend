@@ -1351,8 +1351,11 @@ const getMonthName = (value?: string | number | null) => {
                 <div><span className="font-semibold">Society:</span><span className="ml-2">{property?.society || "-"}</span></div>
                 <div><span className="font-semibold">Wing:</span><span className="ml-2">{property?.wing || "-"}</span></div>
                 <div><span className="font-semibold">Unit No:</span><span className="ml-2">{property?.unitNo || "-"}</span></div>
+                <div><span className="font-semibold">Facing:</span><span className="ml-2">{property?.facing || "-"}</span></div>
 
                 {/* Row 3 */}
+                <div><span className="font-semibold">Bedrooms:</span><span className="ml-2">{property?.bedrooms || "-"}</span></div>
+                <div><span className="font-semibold">Bathrooms:</span><span className="ml-2">{property?.bathrooms || "-"}</span></div>
                 <div>
                   <span className="font-semibold">Floor:</span>
                   <span className="ml-2">{property?.floor ? `${property.floor} / ${property?.totalFloors}` : "-"}</span>
