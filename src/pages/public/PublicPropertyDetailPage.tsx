@@ -606,7 +606,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               Back to Properties
             </button>
 
-            <div className="flex items-center space-x-2">
+            {/* <div className="flex items-center space-x-2">
               <button className="p-2 text-white hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100">
                 <Heart size={18} />
               </button>
@@ -619,7 +619,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               <button className="p-2 text-white hover:text-yellow-500 transition-colors rounded-lg hover:bg-gray-100">
                 <Bookmark size={18} />
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
@@ -636,50 +636,57 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 alt={property?.title || "Property Image"}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-black/25" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/40" />
 
               {/* === WATERMARK OVERLAYS === */}
               <div className="absolute inset-0 pointer-events-none select-none z-10">
                 {/* Large Center Watermark */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-30">
-                  <div className="text-white font-bold text-2xl md:text-2xl lg:text-2xl whitespace-nowrap transform rotate-[-360deg] drop-shadow-2xl">
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-20">
+                  <div className="text-white font-bold text-3xl md:text-4xl lg:text-5xl whitespace-nowrap drop-shadow-2xl">
                     ResaleExpert.in
                   </div>
                 </div>
               </div>
 
               {/* === TOP-LEFT overlay (Title + Badges + Location) === */}
-              <div className="absolute top-3 left-3 z-20 text-white max-w-[85%] flex flex-col gap-1">
-                {/* Title / Type / Subtype */}
-                <div className="font-bold text-lg sm:text-xl truncate drop-shadow">
-                  {property?.type && <span className="mr-2">{property.type}</span>}
-                  {unitType && <span className="mr-2">{unitType}</span>}
-                  {subtype && <span className="mr-2">{subtype}</span>}
+              <div className="absolute top-4 left-4 z-20 text-white max-w-[70%] md:max-w-[60%] flex flex-col gap-2">
+                {/* Title / Type / Subtype with modern card background */}
+                <div className="backdrop-blur-md bg-black/30 px-5 py-2.5 rounded-xl border border-white/10 shadow-xl">
+                  <div className=" flex items-center font-bold text-lg leading-tight">
+                    <Building className="w-4 h-4 mr-2 shrink-0 text-red-400" />
+                    {property?.type && <span className="mr-2">{property.type}</span>}
+                    {unitType && <span className="mr-2">{unitType}</span>}
+                    {subtype && <span className="mr-2">{subtype}</span>}
+                  </div>
                 </div>
 
-                {/* Location */}
-                <div className="flex items-center text-sm sm:text-base drop-shadow">
-                  <MapPin className="w-4 h-4 mr-1 shrink-0" />
-                  <span className="truncate">
-                    {displayOrDash(property?.locationNormalized)}
-                  </span>
+                {/* Location with icon */}
+                <div className="backdrop-blur-md bg-black/30 px-2 py-1 rounded-xl border border-white/10 shadow-xl">
+                  <div className="flex items-center text-sm sm:text-base">
+                    <MapPin className="w-4 h-4 mr-2 shrink-0 text-red-400" />
+                    <span className="truncate font-medium">
+                      {displayOrDash(property?.locationNormalized)}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Badges */}
+                {/* Badges with enhanced design */}
                 <div className="flex items-center gap-2 mt-1">
                   {property?.featured && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full
-              text-[11px] font-bold uppercase tracking-wide text-white
-              shadow-sm ring-1 ring-black/5
-              bg-gradient-to-r from-orange-500 to-red-500">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
+          text-xs font-bold uppercase tracking-wider text-white
+          shadow-lg ring-2 ring-white/20
+          bg-gradient-to-r from-orange-500 via-orange-600 to-red-600
+          backdrop-blur-sm animate-pulse">
                       <Zap className="w-3.5 h-3.5" />
                       FEATURED
                     </span>
                   )}
                   {property?.verified && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full
-              text-[11px] font-bold uppercase tracking-wide text-white
-              shadow-sm ring-1 ring-black/5 bg-green-500">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
+          text-xs font-bold uppercase tracking-wider text-white
+          shadow-lg ring-2 ring-white/20 bg-gradient-to-r from-green-500 to-emerald-600
+          backdrop-blur-sm">
                       <CheckCircle className="w-3.5 h-3.5" />
                       VERIFIED
                     </span>
@@ -687,88 +694,107 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               </div>
 
-              {/* === TOP-RIGHT Like === */}
-              <button
-                onClick={toggleLiked}
-                className="absolute top-3 right-3 z-20 p-2 rounded-full
-   bg-white/90 backdrop-blur shadow-sm ring-1 ring-black/5
-   hover:bg-white transition"
-                aria-label={liked ? 'Remove from shortlist' : 'Add to shortlist'}
-              >
-                <Heart className={liked ? 'w-4 h-4 text-red-500 fill-current' : 'w-4 h-4 text-gray-700'} />
-              </button>
+              {/* === TOP-RIGHT Action Buttons === */}
+              <div className="absolute top-4 right-4 z-20 flex flex-col space-y-2.5">
+                {/* Like */}
+                <button
+                  onClick={toggleLiked}
+                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 transition-all duration-200"
+                  aria-label={liked ? 'Remove from shortlist' : 'Add to shortlist'}
+                >
+                  <Heart
+                    className={
+                      liked
+                        ? 'w-5 h-5 text-red-500 fill-current'
+                        : 'w-5 h-5 text-gray-700'
+                    }
+                  />
+                </button>
 
-              {/* === BOTTOM-LEFT overlay (Price + Views + Days) === */}
-              <div className="absolute bottom-3 left-3 z-20 flex flex-wrap items-center gap-4 text-xs sm:text-sm text-white drop-shadow">
-                <div className="mt-3 md:mt-0 md:ml-4 text-left md:text-left flex-shrink-0">
-                  <div className="text-2xl font-bold text-white leading-tight">
+                {/* Share */}
+                <button
+                  onClick={() => setOpen(true)}
+                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 transition-all duration-200"
+                  aria-label="Share property"
+                >
+                  <Share className="w-5 h-5 text-gray-700" />
+                </button>
+
+                {/* Bookmark */}
+                <button
+                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 transition-all duration-200"
+                  aria-label="Bookmark property"
+                >
+                  <Bookmark className="w-5 h-5 text-gray-700" />
+                </button>
+              </div>
+
+              {/* === BOTTOM-LEFT overlay (Price) === */}
+              <div className="absolute bottom-4 left-4 z-20">
+                <div className="backdrop-blur-md bg-black/40 px-2 py-1 rounded-2xl border border-white/20 shadow-2xl">
+                  <div className="text-xl  font-bold text-white leading-tight tracking-tight">
                     {formatCurrency(property?.price)}
                   </div>
-                  <div className="text-sm sm:text-base text-white mt-1">
+                  <div className="text-sm sm:text-base text-white/90 mt-1.5 font-medium">
                     {pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - '}
                   </div>
                 </div>
-                <span className="flex items-center whitespace-nowrap">
-                  <Eye className="w-3.5 h-3.5 mr-1 shrink-0" />
-                  <span className="truncate">{displayOrDash(property?.views ?? ' - ')} views</span>
-                </span>
-
-                <span className="flex items-center whitespace-nowrap">
-                  <Clock className="w-3.5 h-3.5 mr-1 shrink-0" />
-                  <span>{formatDaysAgo(property?.listedDays)}</span>
-                </span>
               </div>
 
-              {/* Arrows */}
+              {/* Navigation Arrows */}
               {images.length > 1 && (
                 <>
                   <button
                     onClick={() => setCurrentImageIndex((p) => (p - 1 + images.length) % images.length)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2
-       bg-black/40 hover:bg-black/60 text-white p-2 rounded-full z-20 transition"
+                    className="absolute left-4 top-1/2 -translate-y-1/2
+          bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-3 rounded-full z-20 
+          transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110"
                   >
-                    <ChevronLeft size={20} />
+                    <ChevronLeft size={24} />
                   </button>
                   <button
                     onClick={() => setCurrentImageIndex((p) => (p + 1) % images.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2
-       bg-black/40 hover:bg-black/60 text-white p-2 rounded-full z-20 transition"
+                    className="absolute right-4 top-1/2 -translate-y-1/2
+          bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-3 rounded-full z-20 
+          transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110"
                   >
-                    <ChevronRight size={20} />
+                    <ChevronRight size={24} />
                   </button>
                 </>
               )}
 
-              {/* Counter */}
-              <div className="absolute bottom-3 right-3 z-20 bg-black/55 text-white px-2 py-1 rounded-full text-xs">
+              {/* Image Counter */}
+              <div className="absolute bottom-4 right-4 z-20 bg-black/60 backdrop-blur-md text-white px-3.5 py-1.5 rounded-full text-sm font-semibold shadow-lg ring-1 ring-white/20">
                 {currentImageIndex + 1} / {images.length}
               </div>
 
-              {/* Dots */}
-              {images.length > 1 && (
-                <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
+              {/* Dot Indicators */}
+              {images.length > 1 && images.length <= 8 && (
+                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
                   {images.map((_, idx) => (
                     <button
                       key={idx}
                       onClick={() => setCurrentImageIndex(idx)}
-                      className={`w-3 h-3 rounded-full transition-colors ${idx === currentImageIndex ? "bg-white" : "bg-white/50"
+                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === currentImageIndex
+                        ? "bg-white w-8 shadow-lg"
+                        : "bg-white/50 hover:bg-white/75"
                         }`}
                     />
                   ))}
                 </div>
               )}
 
-              {/* View Options */}
-              <div className="absolute bottom-12 right-3 z-20 flex space-x-2">
+              {/* View Options Buttons */}
+              <div className="absolute bottom-16 right-4 z-20 flex space-x-2.5">
                 <button
                   onClick={() => {
                     setPhotoGalleryStartIndex(currentImageIndex);
                     setShowPhotoGallery(true);
                   }}
-                  className="bg-white/95 text-gray-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white transition text-sm shadow-md border border-black/10"
+                  className="bg-white/95 backdrop-blur-md text-gray-900 px-2 py-1 rounded-xl flex items-center gap-2 hover:bg-white hover:scale-105 transition-all duration-200 text-sm font-semibold shadow-xl border border-white/50"
                 >
-                  <Camera size={16} />
-                  <span className="text-sm">Photos</span>
+                  <Camera size={18} />
+                  <span>Photos</span>
                 </button>
                 {showPhotoGallery && (
                   <PhotoGalleryModal
@@ -779,9 +805,9 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   />
                 )}
 
-                <button className="bg-white/95 text-gray-900 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white transition text-sm shadow-md border border-black/10">
-                  <Video size={16} />
-                  <span className="text-sm">Tour</span>
+                <button className="bg-white/95 backdrop-blur-md text-gray-900 px-2 py-1 rounded-xl flex items-center gap-2 hover:bg-white hover:scale-105 transition-all duration-200 text-sm font-semibold shadow-xl border border-white/50">
+                  <Video size={18} />
+                  <span>Tour</span>
                 </button>
               </div>
             </div>
@@ -797,41 +823,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   )}
                 </div>
               </div>
-              {/* Property Stats */}
-              <div className="grid grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg">
-                <div className="text-center flex flex-col items-center">
-                  <BedDouble className="w-5 h-5 text-orange-500 mb-1" />
-                  <div className="text-lg font-bold text-gray-600">
-                    {displayOrDash(property?.bedrooms ?? 4)}
-                  </div>
-                  <div className="text-sm text-gray-600">Bedrooms</div>
-                </div>
-
-                <div className="text-center flex flex-col items-center">
-                  <Bath className="w-5 h-5 text-blue-500 mb-1" />
-                  <div className="text-lg font-bold text-gray-600">
-                    {displayOrDash(property?.bathrooms ?? 3)}
-                  </div>
-                  <div className="text-sm text-gray-600">Bathrooms</div>
-                </div>
-
-                <div className="text-center flex flex-col items-center">
-                  <Ruler className="w-5 h-5 text-green-600 mb-1" />
-                  <div className="text-lg font-bold text-gray-600">
-                    {displayOrDash(property?.area ?? property?.square_feet ?? 1200)}
-                  </div>
-                  <div className="text-sm text-gray-600">Sq Ft</div>
-                </div>
-
-                <div className="text-center flex flex-col items-center">
-                  <Car className="w-5 h-5 text-purple-500 mb-1" />
-                  <div className="text-lg font-bold text-gray-600">
-                    {displayOrDash(property?.parking ?? 2)}
-                  </div>
-                  <div className="text-sm text-gray-600">Parking</div>
-                </div>
-              </div>
-
               {/* Property Tags */}
               <div className="flex flex-wrap gap-2 my-2">
                 <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
@@ -981,7 +972,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   </div>
                 </div>
               </div>
-               {/* Amenities & Furnishing */}
+              {/* Amenities & Furnishing */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-3">
                 {/* Amenities */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -1038,7 +1029,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               {/* AI Insights Banner */}
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-8 mt-3 border border-purple-100">
                 <div className="flex items-center space-x-3">
-                  
+
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-4">
                       <Bot className="text-purple-600" size={20} />
@@ -1168,21 +1159,21 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       <div className="text-xs text-orange-700 mt-0.5">Buy now recommended</div>
                     </div>
                   </div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[80%]">
-                        <Lock className="text-blue-600 mx-auto mb-1" size={18} />
-                        <h3 className="text-base font-bold text-gray-900 mb-1">Premium AI Insights</h3>
-                        <p className="text-gray-600 text-sm mb-3 leading-snug">
-                          Get detailed recommendations and market analysis
-                        </p>
-                        <button
-                          onClick={() => handlePaywallOpen('ai-recommendations')}
-                          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:shadow-md transition-all"
-                        >
-                          Unlock for ₹299
-                        </button>
-                      </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[80%]">
+                      <Lock className="text-blue-600 mx-auto mb-1" size={18} />
+                      <h3 className="text-base font-bold text-gray-900 mb-1">Premium AI Insights</h3>
+                      <p className="text-gray-600 text-sm mb-3 leading-snug">
+                        Get detailed recommendations and market analysis
+                      </p>
+                      <button
+                        onClick={() => handlePaywallOpen('ai-recommendations')}
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:shadow-md transition-all"
+                      >
+                        Unlock for ₹299
+                      </button>
                     </div>
+                  </div>
 
                 </div>
               )}
@@ -1287,7 +1278,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       : property?.agent?.name || 'Rohit Sharma'}
                   </h3>
                   <div className="flex items-center mt-1">
-                   
+
                   </div>
                 </div>
               </div>
@@ -1351,107 +1342,35 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
 
             </div>
+            {/* Interest & Shortlisted */}
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <h3 className="font-bold text-gray-900 mb-3">Property Activity</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-1 bg-green-50 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <Eye className="text-green-600" size={16} />
+                    <span className="text-sm font-medium text-gray-700">Total Views</span>
+                  </div>
+                  <span className="text-green-600">{displayOrDash(property?.views) === ' - ' ? ' - ' : property?.views}</span>
+                </div>
 
-            {/* AI Investment Analysis */}
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm p-4 sm:p-5 relative">
-  <div className="flex items-center space-x-2 mb-3">
-    <Bot className="text-purple-600" size={18} />
-    <h3 className="text-base sm:text-lg font-bold text-gray-900">AI Investment Analysis</h3>
-  </div>
+                <div className="flex items-center justify-between p-1 bg-blue-50 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <Heart className="text-blue-600" size={16} />
+                    <span className="text-sm font-medium text-gray-700">Shortlisted By</span>
+                  </div>
+                  <span className="text-blue-600">23 People</span>
+                </div>
 
-  {hasSubscription ? (
-    <div className="space-y-3">
-      {/* Compact stat cards in a responsive grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="bg-white rounded-lg p-3 border border-purple-100">
-          <div className="flex items-center justify-between">
-            <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
-            <span className="font-bold text-green-600 text-sm sm:text-base leading-tight">Strong Buy</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-3 border border-purple-100">
-          <div className="flex items-center justify-between">
-            <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
-            <span className="font-bold text-blue-600 text-sm sm:text-base leading-tight">18.2%</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-3 border border-purple-100">
-          <div className="flex items-center justify-between">
-            <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
-            <span className="font-bold text-yellow-600 text-sm sm:text-base leading-tight">Low</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-3 border border-purple-100">
-          <div className="flex items-center justify-between">
-            <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
-            <span className="font-bold text-purple-600 text-sm sm:text-base leading-tight">Excellent</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Insight note (compact) */}
-      <div className="p-3 bg-white rounded-lg border border-purple-100">
-        <div className="flex items-start space-x-2">
-          <Sparkles className="text-purple-600 mt-0.5" size={16} />
-          <p className="text-xs text-gray-700 leading-snug">
-            <strong>AI Insight:</strong> This property is in the top 5% for investment potential in this area. Current market conditions favor immediate purchase.
-          </p>
-        </div>
-      </div>
-    </div>
-  ) : (
-    <div className="relative">
-      {/* Keep preview visible but compact and non-interactive */}
-      <div className="space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 blur-sm pointer-events-none select-none">
-          <div className="bg-white rounded-lg p-3 border border-purple-100">
-            <div className="flex items-center justify-between">
-              <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
-              <span className="font-bold text-green-600 text-sm sm:text-base">•••••• •••</span>
+                <div className="flex items-center justify-between p-1 bg-orange-50 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <Phone className="text-orange-600" size={16} />
+                    <span className="text-sm font-medium text-gray-700">Contact Requests</span>
+                  </div>
+                  <span className=" text-orange-600">12 This Week</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="bg-white rounded-lg p-3 border border-purple-100">
-            <div className="flex items-center justify-between">
-              <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
-              <span className="font-bold text-blue-600 text-sm sm:text-base">••.•%</span>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg p-3 border border-purple-100">
-            <div className="flex items-center justify-between">
-              <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
-              <span className="font-bold text-yellow-600 text-sm sm:text-base">•••</span>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg p-3 border border-purple-100">
-            <div className="flex items-center justify-between">
-              <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
-              <span className="font-bold text-purple-600 text-sm sm:text-base">••••••••••</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Compact paywall overlay */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="text-center bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[92%]">
-          <Crown className="text-purple-600 mx-auto mb-2" size={18} />
-          <h4 className="font-bold text-gray-900 mb-1 text-base">Investment Analysis</h4>
-          <p className="text-xs text-gray-600 mb-3 leading-snug">Get AI-powered investment insights</p>
-          <button
-            onClick={() => handlePaywallOpen('ai-investment')}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:shadow-md transition-all"
-          >
-            Unlock ₹299
-          </button>
-        </div>
-      </div>
-    </div>
-  )}
-</div>
-
             <PhotoGalleryModal
               images={images}
               isOpen={showPhotoGallery}
@@ -1461,7 +1380,40 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
             {/* Property Highlights */}
             <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200">
-              <h3 className="font-bold text-gray-900 mb-4">Property Highlights</h3>
+              <h3 className="font-bold text-gray-900 mb-3">Property Highlights</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <BedDouble className="text-blue-600" size={16} />
+                    <span className="text-sm font-medium text-gray-600">Bedrooms</span>
+                  </div>
+                  <div className="font-semibold text-gray-900"> {displayOrDash(property?.bedrooms ?? 4)}</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Bath className="text-green-600" size={16} />
+                    <span className="text-sm font-medium text-gray-600">Bathrooms</span>
+                  </div>
+                  <div className="font-semibold text-gray-900">{displayOrDash(property?.bathrooms ?? 3)}
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Ruler className="text-purple-600" size={16} />
+                    <span className="text-sm font-medium text-gray-600">Sq Ft</span>
+                  </div>
+                  <div className="font-semibold text-gray-900">{displayOrDash(property?.area ?? property?.square_feet ?? 1200)}
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Car className="text-orange-600" size={16} />
+                    <span className="text-sm font-medium text-gray-600">Parking</span>
+                  </div>
+                  <div className="font-semibold text-gray-900"> {displayOrDash(property?.parking ?? 2)}
+                  </div>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-50 rounded-lg p-3">
                   <div className="flex items-center space-x-2 mb-2">
@@ -1493,7 +1445,105 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               </div>
             </div>
+            {/* AI Investment Analysis */}
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm p-4 sm:p-5 relative">
+              <div className="flex items-center space-x-2 mb-3">
+                <Bot className="text-purple-600" size={18} />
+                <h3 className="text-base sm:text-lg font-bold text-gray-900">AI Investment Analysis</h3>
+              </div>
 
+              {hasSubscription ? (
+                <div className="space-y-3">
+                  {/* Compact stat cards in a responsive grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="bg-white rounded-lg p-3 border border-purple-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
+                        <span className="font-bold text-green-600 text-sm sm:text-base leading-tight">Strong Buy</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-3 border border-purple-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
+                        <span className="font-bold text-blue-600 text-sm sm:text-base leading-tight">18.2%</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-3 border border-purple-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
+                        <span className="font-bold text-yellow-600 text-sm sm:text-base leading-tight">Low</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-3 border border-purple-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
+                        <span className="font-bold text-purple-600 text-sm sm:text-base leading-tight">Excellent</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Insight note (compact) */}
+                  <div className="p-3 bg-white rounded-lg border border-purple-100">
+                    <div className="flex items-start space-x-2">
+                      <Sparkles className="text-purple-600 mt-0.5" size={16} />
+                      <p className="text-xs text-gray-700 leading-snug">
+                        <strong>AI Insight:</strong> This property is in the top 5% for investment potential in this area. Current market conditions favor immediate purchase.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  {/* Keep preview visible but compact and non-interactive */}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 blur-sm pointer-events-none select-none">
+                      <div className="bg-white rounded-lg p-3 border border-purple-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
+                          <span className="font-bold text-green-600 text-sm sm:text-base">•••••• •••</span>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border border-purple-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
+                          <span className="font-bold text-blue-600 text-sm sm:text-base">••.•%</span>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border border-purple-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
+                          <span className="font-bold text-yellow-600 text-sm sm:text-base">•••</span>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border border-purple-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
+                          <span className="font-bold text-purple-600 text-sm sm:text-base">••••••••••</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Compact paywall overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[92%]">
+                      <Crown className="text-purple-600 mx-auto mb-2" size={18} />
+                      <h4 className="font-bold text-gray-900 mb-1 text-base">Investment Analysis</h4>
+                      <p className="text-xs text-gray-600 mb-3 leading-snug">Get AI-powered investment insights</p>
+                      <button
+                        onClick={() => handlePaywallOpen('ai-investment')}
+                        className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:shadow-md transition-all"
+                      >
+                        Unlock ₹299
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             {/* Price Breakdown */}
             <div className="bg-white rounded-xl shadow-sm p-5">
               <h3 className="font-bold text-gray-900 mb-4">Price Breakdown</h3>
@@ -1538,35 +1588,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
             </div>
 
-            {/* Interest & Shortlisted */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
-              <h3 className="font-bold text-gray-900 mb-4">Property Activity</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-2 bg-green-50 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <Eye className="text-green-600" size={16} />
-                    <span className="text-sm font-medium text-gray-700">Total Views</span>
-                  </div>
-                  <span className="font-bold text-green-600">{displayOrDash(property?.views) === ' - ' ? ' - ' : property?.views}</span>
-                </div>
 
-                <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <Heart className="text-blue-600" size={16} />
-                    <span className="text-sm font-medium text-gray-700">Shortlisted By</span>
-                  </div>
-                  <span className="font-bold text-blue-600">23 People</span>
-                </div>
-
-                <div className="flex items-center justify-between p-2 bg-orange-50 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <Phone className="text-orange-600" size={16} />
-                    <span className="text-sm font-medium text-gray-700">Contact Requests</span>
-                  </div>
-                  <span className="font-bold text-orange-600">12 This Week</span>
-                </div>
-              </div>
-            </div>
 
             {/* Similar Properties */}
             <div className="bg-white rounded-xl shadow-sm p-5">
