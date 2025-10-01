@@ -212,6 +212,7 @@ const [unreadCount, setUnreadCount] = useState(0);
         '/dashboard/settings/integrations',
         '/dashboard/settings/ai',
         '/dashboard/settings/master-data',
+        '/dashboard/settings/veriable-center',
         '/dashboard/settings/import-export'
       ]
     };
@@ -396,6 +397,7 @@ const [unreadCount, setUnreadCount] = useState(0);
         { name: 'Integrations', href: '/dashboard/settings/integrations', icon: Zap, colorClass: navTextClass },
         { name: 'AI Settings', href: '/dashboard/settings/ai', icon: Zap, colorClass: navTextClass },
         { name: 'Master Data', href: '/dashboard/settings/master-data', icon: Database, colorClass: navTextClass },
+        { name: 'Variable Center', href: '/dashboard/settings/veriable-center', icon: Database, colorClass: navTextClass },
         { name: 'Import/Export', href: '/dashboard/settings/import-export', icon: Download, colorClass: navTextClass }
       ]
     });

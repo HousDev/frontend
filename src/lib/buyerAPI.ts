@@ -18,40 +18,40 @@ export const buyerAPI = {
   // Create buyer
   create: async (data: any) => {
     if (!data?.name) throw new Error("Buyer name is required");
-    console.log("➡️ Creating new buyer with data:", data);
+   
     const response = await api.post("/buyers/createBuyer", data);
-    console.log("✅ Buyer created:", response.data);
+    
     return response.data;
   },
 
   // Update buyer
   update: async (id: string, data: any) => {
     if (!id) throw new Error("Buyer ID is required");
-    console.log(`➡️ Updating buyer ${id} with data:`, data);
+   
     const response = await api.put(`/buyers/updateBuyer/${id}`, data);
-    console.log("✅ Buyer updated:", response.data);
+  
     return response.data;
   },
 
   // Delete buyer
   delete: async (id: string) => {
     if (!id) throw new Error("Buyer ID is required");
-    console.log(`➡️ Deleting buyer with ID: ${id}`);
+   
     const response = await api.delete(`/buyers/deleteBuyer/${id}`);
-    console.log("✅ Buyer deleted:", response.data);
+  
     return response.data;
   },
   // Bulk delete buyers
   bulkDelete: async (ids: string[], hard: boolean = false) => {
     if (!ids || ids.length === 0) throw new Error("Buyer IDs are required");
-    console.log(`➡️ Bulk deleting buyers with IDs: ${ids.join(", ")}, hard: ${hard}`);
+   
 
     const response = await api.post(`/buyers/bulk-delete`, {
       ids,
       hard,
     });
 
-    console.log("✅ Buyers bulk deleted:", response.data);
+    
     return response.data;
   },
 
