@@ -20,8 +20,7 @@ import { getImageUrl, FILE_BASE, API_GLOBAL_BASE } from "@/lib/helpers";
 import PropertyFilterModal from './PropertyFilterModal';
 
 /* ---------------------- Types ---------------------- */
-
-type UIProperty = {
+interface UIProperty {
   id: number | string;
   propertyId: string;
   title: string;
@@ -31,6 +30,14 @@ type UIProperty = {
   wing: string;
   unitNo: string;
   furnishing: string;
+
+  // add new
+  facing: string,
+  bedrooms: string,
+  bathrooms: string,
+  priceType?: 'Fixed' | 'Negotiable' | string;
+  finalPrice?: number | string;
+
   furnishingItems?: string[];
   parkingType: string;
   parkingQty: number | string;
@@ -76,8 +83,21 @@ type UIProperty = {
   ownershipDocUrl?: string;
   ownershipDocName?: string;
   ownershipDocId?: string;
-};
-
+  negotiablePrice?: number;
+  priceHistory?: any[];
+  activities?: any[];
+  visitHistory?: any[];
+  matchedBuyers?: any[];
+  negotiations?: any[];
+  verified?: boolean;
+  socialShares?: number;
+  brochureDownloads?: number;
+  inspectionStatus?: string;
+  inspectionReport?: any;
+  maintenanceReport?: any;
+  lastStatusUpdate?: string;
+  lastUpdated?: string;
+}
 /* ---------------------- Utils ---------------------- */
 
 const dash = (v: any) => (v === null || v === undefined || v === '' ? ' - ' : v);
@@ -412,6 +432,15 @@ function normalizeProperty(r: any, idx: number): UIProperty {
     selling_rights: r.selling_rights || " - ",
     photos: normalizedPhotos,
 
+
+    // ...existing seeds
+    bedrooms: r.bedrooms || '-',
+    bathrooms: r.bathrooms || '-',
+    facing: r.facing || '',
+
+    priceType: (r.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
+    finalPrice: r.finalPrice || '-',
+
     seller: {
       id: r.seller_id,
       name: r.seller_name || ' - ',
@@ -441,9 +470,7 @@ function normalizeProperty(r: any, idx: number): UIProperty {
 }
 
 /* ---------------------- Edit Initial Data Builder ---------------------- */
-
-function buildInitialData(p: UIProperty) {
-  console.log(p, "p data with ownership doc")
+const buildInitialData = (p: UIProperty) => {
   return {
     id: p.id,
     seller: p.seller?.name || '',
@@ -453,6 +480,15 @@ function buildInitialData(p: UIProperty) {
     wing: p.wing || '',
     unitNo: p.unitNo || '',
     furnishing: p.furnishing || '',
+
+    // add new
+    facing: p.facing || '',
+    bedrooms: p.bathrooms || '',
+    bathrooms: p.bathrooms || '',
+
+    priceType: (p.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
+    finalPrice: p.finalPrice ? String(p.finalPrice) : '',  // <-- add
+
     parkingType: p.parkingType || '',
     parkingQty: String(p.parkingQty ?? ''),
     city: p.city || '',
@@ -475,19 +511,16 @@ function buildInitialData(p: UIProperty) {
     furnishingItems: Array.isArray(p.furnishingItems) ? p.furnishingItems : [],
     description: p.description || '',
     nearby_places: Array.isArray(p.nearby_places) ? p.nearby_places : [],
-
     existingOwnershipDocUrl: p.ownershipDocUrl || '',
     existingOwnershipDocName: p.ownershipDocName || '',
     existingOwnershipDocId: p.ownershipDocId || '',
-
     existingPhotos: (p.photos || []).map((url, idx) => ({
       id: String(idx + 1),
       url,
       name: `photo-${idx + 1}.jpg`,
     })),
   };
-}
-
+};
 /* ---------------------- Tailwind Color Helpers (no dynamic classes) ---------------------- */
 
 const TAB_STYLES: Record<string, { badge: string; btn: string; btnActive: string; countActive: string }> = {
@@ -511,10 +544,10 @@ function tabCountClass(active: boolean, color: string) {
 /* ---------------------- Component ---------------------- */
 
 const PropertiesPage = () => {
- const [activeTab, setActiveTab] = useState<string>(() => {
-  const sp = new URLSearchParams(window.location.search);
-  return sp.get('listTab') || localStorage.getItem('prop_list_tab') || 'all';
-});
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const sp = new URLSearchParams(window.location.search);
+    return sp.get('listTab') || localStorage.getItem('prop_list_tab') || 'all';
+  });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProperties, setSelectedProperties] = useState<(number | string)[]>([]);
@@ -538,13 +571,13 @@ const PropertiesPage = () => {
 
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
-useEffect(() => {
-  if (!activeTab) return;
-  localStorage.setItem('prop_list_tab', activeTab);
-  const url = new URL(window.location.href);
-  url.searchParams.set('listTab', activeTab);
-  window.history.replaceState({}, '', url.toString());
-}, [activeTab]);
+  useEffect(() => {
+    if (!activeTab) return;
+    localStorage.setItem('prop_list_tab', activeTab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('listTab', activeTab);
+    window.history.replaceState({}, '', url.toString());
+  }, [activeTab]);
 
 
 
@@ -554,7 +587,7 @@ useEffect(() => {
         setMasterLoading(true);
         const data = await getMasterDropdownOptions(['common', 'lead', 'property']);
         setMasters(data);
-       
+
       } catch (err) {
         console.error('Error fetching master options:', err);
       } finally {
@@ -652,15 +685,15 @@ useEffect(() => {
     window.addEventListener('online', backOnline);
     return () => window.removeEventListener('online', backOnline);
   }, []);
-useEffect(() => {
-  if (!currentPropertyView) return;
-  const fresh = properties.find(pp =>
-    String(pp.id) === String(currentPropertyView.id)
-  );
-  if (fresh && fresh.updated_at !== currentPropertyView.updated_at) {
-    setCurrentPropertyView(fresh);
-  }
-}, [properties]); // deps: properties
+  useEffect(() => {
+    if (!currentPropertyView) return;
+    const fresh = properties.find(pp =>
+      String(pp.id) === String(currentPropertyView.id)
+    );
+    if (fresh && fresh.updated_at !== currentPropertyView.updated_at) {
+      setCurrentPropertyView(fresh);
+    }
+  }, [properties]); // deps: properties
 
   const tabs = useMemo(
     () => [
@@ -713,31 +746,31 @@ useEffect(() => {
 
   const handleAddProperty = () => { setEditingProperty(null); setShowPropertyForm(true); };
   const handleEditProperty = (property: UIProperty) => { setEditingProperty(property); setShowPropertyForm(true); };
-const handleViewProperty = (property: UIProperty) => {
-  setCurrentPropertyView(property);
-  const url = new URL(window.location.href);
-  url.searchParams.set('view', String(property.id));
-  // (PV ka ?tab alag handle hoga — isse mat छेड़ो)
-  window.history.replaceState({}, '', url.toString());
-};
+  const handleViewProperty = (property: UIProperty) => {
+    setCurrentPropertyView(property);
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', String(property.id));
+    // (PV ka ?tab alag handle hoga — isse mat छेड़ो)
+    window.history.replaceState({}, '', url.toString());
+  };
 
- const handleBackToList = () => {
-  setCurrentPropertyView(null);
-  const url = new URL(window.location.href);
-  url.searchParams.delete('view');
-  url.searchParams.delete('tab'); // PV ka tab param list pe aane par clear
-  window.history.replaceState({}, '', url.toString());
-};
+  const handleBackToList = () => {
+    setCurrentPropertyView(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('view');
+    url.searchParams.delete('tab'); // PV ka tab param list pe aane par clear
+    window.history.replaceState({}, '', url.toString());
+  };
 
-useEffect(() => {
-  if (loading || error) return;
-  const sp = new URLSearchParams(window.location.search);
-  const viewId = sp.get('view');
-  if (viewId && !currentPropertyView) {
-    const p = properties.find(pp => String(pp.id) === viewId || String(pp.propertyId) === viewId);
-    if (p) setCurrentPropertyView(p);
-  }
-}, [loading, error, properties, currentPropertyView]);
+  useEffect(() => {
+    if (loading || error) return;
+    const sp = new URLSearchParams(window.location.search);
+    const viewId = sp.get('view');
+    if (viewId && !currentPropertyView) {
+      const p = properties.find(pp => String(pp.id) === viewId || String(pp.propertyId) === viewId);
+      if (p) setCurrentPropertyView(p);
+    }
+  }, [loading, error, properties, currentPropertyView]);
 
 
   const handleDeleteProperty = async (propertyId: number | string) => {
@@ -993,12 +1026,12 @@ useEffect(() => {
         onBuyerMatching={handleBuyerMatching}
         onViewBuyers={handleViewBuyers}
         // ✅ IMPORTANT: pass this
-    onUpdateProperty={(p) => {
-      // current view turant update
-      setCurrentPropertyView(p);
-      // list me bhi same id ko update karo
-      setProperties(prev => prev.map(x => x.id === p.id ? { ...x, ...p } : x));
-    }}
+        onUpdateProperty={(p) => {
+          // current view turant update
+          setCurrentPropertyView(p);
+          // list me bhi same id ko update karo
+          setProperties(prev => prev.map(x => x.id === p.id ? { ...x, ...p } : x));
+        }}
       />
     );
   }

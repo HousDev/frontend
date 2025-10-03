@@ -49,7 +49,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  BedDouble, Bath, Ruler,
+  BedDouble, Bath, Ruler, IndianRupee, Grid
 } from 'lucide-react';
 import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -593,7 +593,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     <div className="min-h-screen bg-gray-50">
       {/* Header (hidden on mobile) */}
       <div
-        className=" bg-white shadow-sm border-b pt-20 sticky top-0 z-40"
+        className=" bg-white shadow-sm border-b pt-20 sticky top-0 z-40 mb-1"
         style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -624,19 +624,19 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 md:pb-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 md:pb-6 pt-0 bg-gradient-to-b from-white via-slate-50 to-white">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="relative w-full h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden">
+            <div className="relative w-full h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden rounded-xl md:rounded-2xl shadow-xl ring-1 ring-black/10 group">
               {/* Main image */}
               <img
                 src={images[currentImageIndex]}
                 alt={property?.title || "Property Image"}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-[1.02]"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/40" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
 
               {/* === WATERMARK OVERLAYS === */}
               <div className="absolute inset-0 pointer-events-none select-none z-10">
@@ -649,25 +649,20 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
 
               {/* === TOP-LEFT overlay (Title + Badges + Location) === */}
-              <div className="absolute top-4 left-4 z-20 text-white max-w-[70%] md:max-w-[60%] flex flex-col gap-2">
+              <div className="absolute top-3 left-3 z-20 text-white max-w-[85%] flex flex-col gap-1">
                 {/* Title / Type / Subtype with modern card background */}
-                <div className="backdrop-blur-md bg-black/30 px-5 py-2.5 rounded-xl border border-white/10 shadow-xl">
-                  <div className=" flex items-center font-bold text-lg leading-tight">
-                    <Building className="w-4 h-4 mr-2 shrink-0 text-red-400" />
-                    {property?.type && <span className="mr-2">{property.type}</span>}
-                    {unitType && <span className="mr-2">{unitType}</span>}
-                    {subtype && <span className="mr-2">{subtype}</span>}
-                  </div>
+                <div className="font-bold text-lg sm:text-xl truncate drop-shadow">
+                  {property?.type && <span className="mr-2">{property.type}</span>}
+                  {unitType && <span className="mr-2">{unitType}</span>}
+                  {subtype && <span className="mr-2">{subtype}</span>}
                 </div>
 
                 {/* Location with icon */}
-                <div className="backdrop-blur-md bg-black/30 px-2 py-1 rounded-xl border border-white/10 shadow-xl">
-                  <div className="flex items-center text-sm sm:text-base">
-                    <MapPin className="w-4 h-4 mr-2 shrink-0 text-red-400" />
-                    <span className="truncate font-medium">
-                      {displayOrDash(property?.locationNormalized)}
-                    </span>
-                  </div>
+                <div className="flex items-center text-sm sm:text-base drop-shadow">
+                  <MapPin className="w-4 h-4 mr-1 shrink-0" />
+                  <span className="truncate">
+                    {displayOrDash(property?.locationNormalized)}
+                  </span>
                 </div>
 
                 {/* Badges with enhanced design */}
@@ -699,7 +694,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 {/* Like */}
                 <button
                   onClick={toggleLiked}
-                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 transition-all duration-200"
+                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
                   aria-label={liked ? 'Remove from shortlist' : 'Add to shortlist'}
                 >
                   <Heart
@@ -714,7 +709,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 {/* Share */}
                 <button
                   onClick={() => setOpen(true)}
-                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 transition-all duration-200"
+                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
                   aria-label="Share property"
                 >
                   <Share className="w-5 h-5 text-gray-700" />
@@ -722,7 +717,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
                 {/* Bookmark */}
                 <button
-                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 transition-all duration-200"
+                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
                   aria-label="Bookmark property"
                 >
                   <Bookmark className="w-5 h-5 text-gray-700" />
@@ -730,16 +725,33 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
 
               {/* === BOTTOM-LEFT overlay (Price) === */}
-              <div className="absolute bottom-4 left-4 z-20">
-                <div className="backdrop-blur-md bg-black/40 px-2 py-1 rounded-2xl border border-white/20 shadow-2xl">
-                  <div className="text-xl  font-bold text-white leading-tight tracking-tight">
-                    {formatCurrency(property?.price)}
+              <div className="absolute bottom-10 left-4 z-20 w-[90%]">
+                <div className="flex gap-5 items-center">
+
+                  {/* Left side (Price + per sqft) */}
+                  <div className="flex flex-col text-left">
+                    <div className="text-2xl font-bold text-white leading-tight">
+                      {formatCurrency(property?.price)}
+                    </div>
+                    <div className="text-sm sm:text-base text-white mt-1">
+                      {pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - '}
+                    </div>
                   </div>
-                  <div className="text-sm sm:text-base text-white/90 mt-1.5 font-medium">
-                    {pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - '}
+
+                  {/* Right side (Carpet Area) */}
+                  <div className="flex flex-col items-left">
+                    <span className="text-lg font-semibold text-white">
+                      Carpet Area
+                    </span>
+                    <span className="text-xs sm:text-base text-white">
+                      {displayOrDash(property?.square_feet)} sq ft
+                    </span>
                   </div>
                 </div>
               </div>
+
+
+
 
               {/* Navigation Arrows */}
               {images.length > 1 && (
@@ -748,7 +760,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     onClick={() => setCurrentImageIndex((p) => (p - 1 + images.length) % images.length)}
                     className="absolute left-4 top-1/2 -translate-y-1/2
           bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-3 rounded-full z-20 
-          transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110"
+          transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                   >
                     <ChevronLeft size={24} />
                   </button>
@@ -756,7 +768,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     onClick={() => setCurrentImageIndex((p) => (p + 1) % images.length)}
                     className="absolute right-4 top-1/2 -translate-y-1/2
           bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-3 rounded-full z-20 
-          transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110"
+          transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                   >
                     <ChevronRight size={24} />
                   </button>
@@ -764,7 +776,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               )}
 
               {/* Image Counter */}
-              <div className="absolute bottom-4 right-4 z-20 bg-black/60 backdrop-blur-md text-white px-3.5 py-1.5 rounded-full text-sm font-semibold shadow-lg ring-1 ring-white/20">
+              <div className="absolute bottom-4 right-4 z-20 bg-gradient-to-r from-slate-900/70 to-black/60 backdrop-blur-md text-white px-3.5 py-1.5 rounded-full text-sm font-semibold shadow-lg ring-1 ring-white/20">
                 {currentImageIndex + 1} / {images.length}
               </div>
 
@@ -791,7 +803,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     setPhotoGalleryStartIndex(currentImageIndex);
                     setShowPhotoGallery(true);
                   }}
-                  className="bg-white/95 backdrop-blur-md text-gray-900 px-2 py-1 rounded-xl flex items-center gap-2 hover:bg-white hover:scale-105 transition-all duration-200 text-sm font-semibold shadow-xl border border-white/50"
+                  className="bg-white/95 backdrop-blur-md text-gray-900 px-2.5 py-1.5 rounded-xl flex items-center gap-2 hover:bg-white hover:scale-105 transition-all duration-200 text-sm font-semibold shadow-xl border border-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
                 >
                   <Camera size={18} />
                   <span>Photos</span>
@@ -803,16 +815,17 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     onClose={() => setShowPhotoGallery(false)}
                     initialIndex={photoGalleryStartIndex}
                   />
-                )}
 
-                <button className="bg-white/95 backdrop-blur-md text-gray-900 px-2 py-1 rounded-xl flex items-center gap-2 hover:bg-white hover:scale-105 transition-all duration-200 text-sm font-semibold shadow-xl border border-white/50">
+                )}
+                <button className="bg-white/95 backdrop-blur-md text-gray-900 px-2.5 py-1.5 rounded-xl flex items-center gap-2 hover:bg-white hover:scale-105 transition-all duration-200 text-sm font-semibold shadow-xl border border-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60">
                   <Video size={18} />
                   <span>Tour</span>
                 </button>
               </div>
             </div>
+
             {/* Property Header */}
-            <div className="bg-white rounded-xl shadow-sm p-5 pt-0 !mt-0">
+            <div className="bg-white rounded-xl shadow-sm p-5 pt-0 !mt-0 ring-1 ring-gray-100">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mb-2">
                   {property?.verified && (
@@ -823,18 +836,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   )}
                 </div>
               </div>
-              {/* Property Tags */}
-              <div className="flex flex-wrap gap-2 my-2">
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {displayOrDash(property?.type) === ' - ' ? ' - ' : property?.type}
-                </span>
-
-                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {displayOrDash(property?.furnishing) === ' - ' ? ' - ' : property?.furnishing || ' - '}
-                </span>
-              </div>
               {/* Description */}
-              <div className="bg-white rounded-xl shadow-sm p-5">
+              <div className="bg-white rounded-xl shadow-sm p-5 ring-1 ring-gray-100">
                 <h2 className="text-lg font-bold text-gray-900 mb-3">Property Description</h2>
                 <p className="text-gray-700 leading-relaxed">
                   {displayOrDash(property?.description) === ' - '
@@ -843,7 +846,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </p>
               </div>
               {/* Property Details */}
-              <div className="bg-white/95 backdrop-blur rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
+              <div className="bg-white/95 backdrop-blur rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all ring-1 ring-gray-100">
                 <div className="px-5 pt-4">
                   <h3 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight mb-4">
                     Property Details
@@ -975,7 +978,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               {/* Amenities & Furnishing */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-3">
                 {/* Amenities */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <div className="bg-white rounded-xl border border-gray-200 p-4 ring-1 ring-gray-100">
                   <h3 className="font-semibold text-gray-900 mb-3">Amenities</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
                     {(() => {
@@ -1000,7 +1003,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     })()}
                   </div>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <div className="bg-white rounded-xl border border-gray-200 p-4 ring-1 ring-gray-100">
                   <h3 className="font-semibold text-gray-900 mb-3">Furnishing Items</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
                     {(() => {
@@ -1027,7 +1030,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               </div>
               {/* AI Insights Banner */}
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-8 mt-3 border border-purple-100">
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-8 mt-3 border border-purple-100 ring-1 ring-purple-100/70">
                 <div className="flex items-center space-x-3">
 
                   <div className="flex-1">
@@ -1091,7 +1094,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
             </div>
 
             {/* AI Recommendations */}
-            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 relative">
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 relative ring-1 ring-gray-100">
               <div className="flex items-center space-x-2 sm:space-x-3 mb-3">
                 <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
                   <Lightbulb className="text-blue-600" size={18} />
@@ -1181,11 +1184,11 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
 
             {/* Location & Nearby */}
-            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5">
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 ring-1 ring-gray-100">
               <h2 className="text-base sm:text-lg font-bold text-gray-900 mb-3">Location & Connectivity</h2>
 
               {/* Map placeholder (reduced height) */}
-              <div className="h-40 sm:h-44 md:h-48 lg:h-52 bg-gray-200 rounded-lg mb-3 flex items-center justify-center">
+              <div className="h-40 sm:h-44 md:h-48 lg:h-52 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl mb-3 flex items-center justify-center ring-1 ring-slate-300/40">
                 <div className="text-center text-gray-500 leading-tight">
                   <MapPin size={32} className="mx-auto mb-1" />
                   <p className="text-sm">Interactive Map Coming Soon</p>
@@ -1214,7 +1217,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
 
             {/* Reviews */}
-            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5">
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 ring-1 ring-gray-100">
               <h2 className="text-base sm:text-lg font-bold text-gray-900 mb-3">Customer Reviews</h2>
 
               <div className="flex items-center mb-4">
@@ -1234,7 +1237,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   { name: 'Priya Sharma', rating: 4, comment: 'Beautiful location and well-maintained property.', date: '1 week ago' },
                   { name: 'Amit Patel', rating: 5, comment: 'Perfect for families. Great connectivity and facilities.', date: '2 weeks ago' }
                 ].map((review, index) => (
-                  <div key={index} className="border border-gray-100 rounded-lg p-3 bg-white">
+                  <div key={index} className="border border-gray-100 rounded-lg p-3 bg-white shadow-sm hover:shadow ring-1 ring-gray-100/70 transition">
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center space-x-2">
                         <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
@@ -1264,18 +1267,18 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
           </div>
 
           {/* Sidebar (hidden on mobile/tablet; shows on lg+) */}
-          <div className="space-y-5">
-            <div className="bg-white rounded-xl shadow-sm p-5 sticky top-10">
+          <div className="space-y-2 lg:sticky lg:top-5">
+            <div className="bg-white rounded-xl shadow-sm p-1 top-2 ring-1 ring-gray-100">
               {/* Agent Info */}
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-                  <User size={20} className="text-blue-600" />
+              <div className="flex items-center space-x-3 mb-2">
+                <div className="w-7 h-7 rounded-full bg-blue-50 ring-1 ring-blue-200 flex items-center justify-center shadow-sm">
+                  <User size={18} className="text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900">
+                  <h3 className="font-bold text-gray-900 text-sm">
                     {displayOrDash(property?.agent?.name) === ' - '
                       ? ' - '
-                      : property?.agent?.name || 'Rohit Sharma'}
+                      : property?.agent?.name || '-'}
                   </h3>
                   <div className="flex items-center mt-1">
 
@@ -1284,37 +1287,39 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
 
               {/* Action Icons Row */}
-              <div className="flex justify-between gap-3">
+              <div className="flex justify-between gap-2">
                 {/* Call */}
                 <button
                   onClick={callAgent}
-                  className="relative flex-1 py-3 rounded-lg bg-blue-600 text-white flex items-center justify-center group transition-colors hover:bg-blue-700"
+                  className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
+               bg-gradient-to-br from-blue-50 to-blue-100 
+               text-blue-700 hover:from-blue-100 hover:to-blue-200 
+               transition-all shadow-sm hover:shadow-md hover:scale-105"
                 >
                   <Phone size={16} />
-                  <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    Call Agent
-                  </span>
+
                 </button>
 
                 {/* Message */}
                 <button
                   onClick={() => setShowContactForm(true)}
-                  className="relative flex-1 py-3 rounded-lg bg-gray-100 text-gray-900 flex items-center justify-center group transition-colors hover:bg-gray-200"
+                  className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
+               bg-gradient-to-br from-purple-50 to-purple-100 
+               text-purple-700 hover:from-purple-100 hover:to-purple-200 
+               transition-all shadow-sm hover:shadow-md hover:scale-105"
                 >
                   <MessageCircle size={16} />
-                  <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    Message
-                  </span>
+
                 </button>
 
                 {/* Schedule */}
                 <button
-                  className="relative flex-1 py-3 rounded-lg bg-green-600 text-white flex items-center justify-center group transition-colors hover:bg-green-700"
+                  className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
+               bg-gradient-to-br from-emerald-50 to-emerald-100 
+               text-emerald-700 hover:from-emerald-100 hover:to-emerald-200 
+               transition-all shadow-sm hover:shadow-md hover:scale-105"
                 >
                   <Calendar size={16} />
-                  <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    Schedule Visit
-                  </span>
                 </button>
 
                 {/* WhatsApp */}
@@ -1322,29 +1327,30 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   onClick={() => {
                     const phone = getAgentPhone();
                     const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
-                    const message = `Hi! I'm interested in ${property?.title ?? ""} at ${property?.locationNormalized ?? ""}. Price: ${formatCurrency(
-                      property?.price ?? 0
-                    )}. Can you provide more details?`;
-                    if (typeof window !== 'undefined') {
+                    const message = `Hi! I'm interested in ${property?.title ?? ""} at ${property?.locationNormalized ?? ""
+                      }. Price: ${formatCurrency(property?.price ?? 0)}. Can you provide more details?`;
+                    if (typeof window !== "undefined") {
                       window.open(
                         `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
-                        '_blank'
+                        "_blank"
                       );
                     }
                   }}
-                  className="relative flex-1 py-3 rounded-lg bg-green-500 text-white flex items-center justify-center group transition-colors hover:bg-green-600"
+                  className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
+               bg-gradient-to-br from-green-50 to-green-100 
+               text-green-700 hover:from-green-100 hover:to-green-200 
+               transition-all shadow-sm hover:shadow-md hover:scale-105"
                 >
-                  <FaWhatsapp size={18} />
-                  <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    WhatsApp
-                  </span>
+                  <FaWhatsapp size={16} className="text-[#25D366]" />
+
                 </button>
               </div>
 
+
             </div>
             {/* Interest & Shortlisted */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
-              <h3 className="font-bold text-gray-900 mb-3">Property Activity</h3>
+            <div className="px-2 py-1 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+              <h3 className="font-bold text-gray-900 text-sm mb-4">Property Activity</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-1 bg-green-50 rounded-lg">
                   <div className="flex items-center space-x-2">
@@ -1371,82 +1377,126 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               </div>
             </div>
-            <PhotoGalleryModal
-              images={images}
-              isOpen={showPhotoGallery}
-              onClose={() => setShowPhotoGallery(false)}
-              initialIndex={photoGalleryStartIndex}
-            />
-
             {/* Property Highlights */}
-            <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-200">
-              <h3 className="font-bold text-gray-900 mb-3">Property Highlights</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <BedDouble className="text-blue-600" size={16} />
-                    <span className="text-sm font-medium text-gray-600">Bedrooms</span>
-                  </div>
-                  <div className="font-semibold text-gray-900"> {displayOrDash(property?.bedrooms ?? 4)}</div>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Bath className="text-green-600" size={16} />
-                    <span className="text-sm font-medium text-gray-600">Bathrooms</span>
-                  </div>
-                  <div className="font-semibold text-gray-900">{displayOrDash(property?.bathrooms ?? 3)}
-                  </div>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Ruler className="text-purple-600" size={16} />
-                    <span className="text-sm font-medium text-gray-600">Sq Ft</span>
-                  </div>
-                  <div className="font-semibold text-gray-900">{displayOrDash(property?.area ?? property?.square_feet ?? 1200)}
-                  </div>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Car className="text-orange-600" size={16} />
-                    <span className="text-sm font-medium text-gray-600">Parking</span>
-                  </div>
-                  <div className="font-semibold text-gray-900"> {displayOrDash(property?.parking ?? 2)}
-                  </div>
-                </div>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden ring-1 ring-gray-100">
+              {/* Header */}
+              <div className="px-2 py-1 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <h3 className="font-bold text-gray-900 text-sm">Property Highlights</h3>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Building className="text-blue-600" size={16} />
-                    <span className="text-sm font-medium text-gray-600">Property Type</span>
+
+              {/* Top stats */}
+              <div className="p-2 md:p-3">
+                <div className="grid grid-cols-3 gap-3 md:gap-3">
+                  <div className="rounded-lg p-2.5 md:p-3 border border-gray-200/70 bg-white ring-1 ring-gray-50 hover:shadow-md hover:-translate-y-0.5 transition-all">
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-lg bg-blue-50 ring-1 ring-blue-100">
+                        <BedDouble className="text-blue-600" size={16} />
+                      </span>
+                      <span className="text-[12px] font-semibold text-gray-500 tracking-wider">Bedrooms</span>
+                    </div>
+                    <div className="text-[15px] md:text-[16px] font-semibold text-gray-900 text-center leading-none">
+                      {displayOrDash(property?.bedrooms)}
+                    </div>
                   </div>
-                  <div className="font-semibold text-gray-900">{displayOrDash(property?.type) === ' - ' ? ' - ' : property?.type || 'Villa'}</div>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Calendar className="text-green-600" size={16} />
-                    <span className="text-sm font-medium text-gray-600">Built Year</span>
+
+                  <div className="rounded-lg p-2.5 md:p-3 border border-gray-200/70 bg-white ring-1 ring-gray-50 hover:shadow-md hover:-translate-y-0.5 transition-all">
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-lg bg-green-50 ring-1 ring-green-100">
+                        <Bath className="text-green-600" size={16} />
+                      </span>
+                      <span className="text-[12px] font-semibold text-gray-500 tracking-wider">Bathrooms</span>
+                    </div>
+                    <div className="text-[15px] md:text-[16px] font-semibold text-gray-900 text-center leading-none">
+                      {displayOrDash(property?.bathrooms ?? 3)}
+                    </div>
                   </div>
-                  <div className="font-semibold text-gray-900">{property.possessionYear}</div>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Home className="text-purple-600" size={16} />
-                    <span className="text-sm font-medium text-gray-600">Furnishing</span>
+
+                  <div className="rounded-lg p-2.5 md:p-3 border border-gray-200/70 bg-white ring-1 ring-gray-50 hover:shadow-md hover:-translate-y-0.5 transition-all">
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-lg bg-orange-50 ring-1 ring-orange-100">
+                        <Car className="text-orange-600" size={16} />
+                      </span>
+                      <span className="text-[12px] font-semibold text-gray-500 tracking-wider">Parking</span>
+                    </div>
+                    <div className="text-[15px] md:text-[16px] font-semibold text-gray-900 text-center leading-none">
+                      {displayOrDash(property?.parking ?? 2)}
+                    </div>
                   </div>
-                  <div className="font-semibold text-gray-900">{displayOrDash(property?.furnishing) === ' - ' ? ' - ' : property?.furnishing || 'Semi-Furnished'}</div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Target className="text-orange-600" size={16} />
-                    <span className="text-sm font-medium text-gray-600">Facing</span>
+
+                {/* Detail stats */}
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {/* Property Type */}
+                  <div className="rounded-lg p-2 border border-gray-200/70 bg-white ring-1 ring-gray-100 hover:shadow-md transition-all">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-blue-50 ring-1 ring-blue-100">
+                        <Building className="text-blue-600" size={16} />
+                      </span>
+                      <span className="text-[12px] font-medium text-gray-500 tracking-wide">Property Type</span>
+                    </div>
+                    <div className="text-[13px] font-semibold text-gray-900 text-center">
+                      {(() => {
+                        const val = displayOrDash(property?.type);
+                        return val === ' - ' ? ' - ' : property?.type || 'Villa';
+                      })()}
+                    </div>
                   </div>
-                  <div className="font-semibold text-gray-900">{displayOrDash(property?.facing) === ' - ' ? ' - ' : property?.facing || 'North-East'}</div>
+
+                  {/* Built Year */}
+                  <div className="rounded-lg p-2 border border-gray-200/70 bg-white ring-1 ring-gray-100 hover:shadow-md transition-all">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-green-50 ring-1 ring-green-100">
+                        <Calendar className="text-green-600" size={16} />
+                      </span>
+                      <span className="text-[12px] font-medium text-gray-500 tracking-wide">Built Year</span>
+                    </div>
+                    <div className="text-[13px] font-semibold text-gray-900 text-center">
+                      {displayOrDash(property?.possessionYear)}
+                    </div>
+                  </div>
+
+                  {/* Furnishing */}
+                  <div className="rounded-lg p-2 border border-gray-200/70 bg-white ring-1 ring-gray-100 hover:shadow-md transition-all">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-purple-50 ring-1 ring-purple-100">
+                        <Home className="text-purple-600" size={16} />
+                      </span>
+                      <span className="text-[12px] font-medium text-gray-500 tracking-wide">Furnishing</span>
+                    </div>
+                    <div className="text-[13px] font-semibold text-gray-900 text-center">
+                      {(() => {
+                        const val = displayOrDash(property?.furnishing);
+                        return val === ' - ' ? ' - ' : property?.furnishing || 'Semi-Furnished';
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Facing */}
+                  <div className="rounded-lg p-2 border border-gray-200/70 bg-white ring-1 ring-gray-100 hover:shadow-md transition-all">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-orange-50 ring-1 ring-orange-100">
+                        <Target className="text-orange-600" size={16} />
+                      </span>
+                      <span className="text-[12px] font-medium text-gray-500 tracking-wide ">Facing</span>
+                    </div>
+                    <div className="text-[13px] font-semibold text-gray-900 text-center">
+                      {(() => {
+                        const val = displayOrDash(property?.facing);
+                        return val === ' - ' ? ' - ' : property?.facing || 'North-East';
+                      })()}
+                    </div>
+                  </div>
                 </div>
+
+
               </div>
+
             </div>
+
+
+
             {/* AI Investment Analysis */}
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm p-4 sm:p-5 relative">
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm p-4 sm:p-5 relative ring-1 ring-purple-100/70">
               <div className="flex items-center space-x-2 mb-3">
                 <Bot className="text-purple-600" size={18} />
                 <h3 className="text-base sm:text-lg font-bold text-gray-900">AI Investment Analysis</h3>
@@ -1544,8 +1594,9 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               )}
             </div>
+
             {/* Price Breakdown */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
+            <div className="bg-white rounded-xl shadow-sm p-5 ring-1 ring-gray-100">
               <h3 className="font-bold text-gray-900 mb-4">Price Breakdown</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -1587,11 +1638,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               </div>
             </div>
-
-
-
             {/* Similar Properties */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
+            <div className="bg-white rounded-xl shadow-sm p-5 ring-1 ring-gray-100">
               <h3 className="font-bold text-gray-900 mb-4">Similar Properties</h3>
               <div className="space-y-4">
                 {[
@@ -1741,52 +1789,50 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
           className="mx-auto max-w-7xl px-4 pt-2"
           style={{ paddingBottom: 'env(safe-area-inset-bottom, 12px)' }}
         >
-          <div className="bg-white rounded-xl shadow-sm p-5 sticky top-16">
+          <div className="bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 rounded-2xl shadow-[0_10px_30px_-10px_rgba(0,0,0,.35)] p-4 ring-1 ring-gray-200 border border-white/60 sticky top-16">
             {/* Agent Info */}
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-                <User size={24} className="text-blue-600" />
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-blue-50 ring-1 ring-blue-200 flex items-center justify-center shadow-sm">
+                <User size={18} className="text-blue-600" />
               </div>
-              <div>
-                <h3 className="font-bold text-gray-900">
-                  {displayOrDash(property?.agent?.name) === ' - '
-                    ? ' - '
-                    : property?.agent?.name || 'Rohit Sharma'}
-                </h3>
-              </div>
+              <h3 className="font-semibold text-gray-900 text-sm truncate">
+                {displayOrDash(property?.agent?.name) === ' - '
+                  ? ' - '
+                  : property?.agent?.name || 'Rohit Sharma'}
+              </h3>
             </div>
 
             {/* Action Icons Row */}
-            <div className="flex justify-between gap-3">
+            <div className="grid grid-cols-4 gap-2.5">
               {/* Call */}
               <button
                 onClick={callAgent}
-                className="relative flex-1 py-3 rounded-lg bg-blue-600 text-white flex items-center justify-center group transition-colors hover:bg-blue-700"
+                className="group relative inline-flex items-center justify-center h-11 rounded-xl bg-gray-50 hover:bg-white text-gray-900 border border-gray-200 hover:border-blue-300 transition-all shadow-sm hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
               >
-                <Phone size={18} />
-                <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  Call Agent
+                <Phone size={16} />
+                <span className="pointer-events-none absolute -bottom-7 px-2 py-0.5 text-[11px] text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                  Call
                 </span>
               </button>
 
               {/* Message */}
               <button
                 onClick={() => setShowContactForm(true)}
-                className="relative flex-1 py-3 rounded-lg bg-gray-100 text-gray-900 flex items-center justify-center group transition-colors hover:bg-gray-200"
+                className="group relative inline-flex items-center justify-center h-11 rounded-xl bg-gray-50 hover:bg-white text-gray-900 border border-gray-200 hover:border-indigo-300 transition-all shadow-sm hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60"
               >
-                <MessageCircle size={18} />
-                <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                <MessageCircle size={16} />
+                <span className="pointer-events-none absolute -bottom-7 px-2 py-0.5 text-[11px] text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                   Message
                 </span>
               </button>
 
               {/* Schedule */}
               <button
-                className="relative flex-1 py-3 rounded-lg bg-green-600 text-white flex items-center justify-center group transition-colors hover:bg-green-700"
+                className="group relative inline-flex items-center justify-center h-11 rounded-xl bg-gray-50 hover:bg-white text-gray-900 border border-gray-200 hover:border-emerald-300 transition-all shadow-sm hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
-                <Calendar size={18} />
-                <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  Schedule Visit
+                <Calendar size={16} />
+                <span className="pointer-events-none absolute -bottom-7 px-2 py-0.5 text-[11px] text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                  Schedule
                 </span>
               </button>
 
@@ -1805,10 +1851,10 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     );
                   }
                 }}
-                className="relative flex-1 py-3 rounded-lg bg-green-500 text-white flex items-center justify-center group transition-colors hover:bg-green-600"
+                className="group relative inline-flex items-center justify-center h-11 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/15 text-[#128C7E] border border-[#25D366]/30 transition-all shadow-sm hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366]/50"
               >
-                <FaWhatsapp size={18} />
-                <span className="absolute -bottom-8 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                <FaWhatsapp size={16} />
+                <span className="pointer-events-none absolute -bottom-7 px-2 py-0.5 text-[11px] text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                   WhatsApp
                 </span>
               </button>
@@ -1816,7 +1862,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
           </div>
         </div>
       </div>
-
     </div>
   );
 };

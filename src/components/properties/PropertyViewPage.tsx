@@ -153,6 +153,14 @@ interface UIProperty {
   wing: string;
   unitNo: string;
   furnishing: string;
+
+  // add new
+  facing: string,
+  bedrooms: string,
+  bathrooms: string,
+  priceType?: 'Fixed' | 'Negotiable' | string;
+  finalPrice?: number | string;   
+  
   furnishingItems?: string[];
   parkingType: string;
   parkingQty: number | string;
@@ -254,6 +262,15 @@ const buildInitialData = (p: UIProperty) => {
     wing: p.wing || '',
     unitNo: p.unitNo || '',
     furnishing: p.furnishing || '',
+
+    // add new
+    facing: p.facing||'',
+    bedrooms: p.bathrooms || '',
+    bathrooms: p.bathrooms || '',
+    
+    priceType: (p.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
+    finalPrice: p.finalPrice ? String(p.finalPrice) : '',  // <-- add
+
     parkingType: p.parkingType || '',
     parkingQty: String(p.parkingQty ?? ''),
     city: p.city || '',
@@ -1351,9 +1368,9 @@ const getMonthName = (value?: string | number | null) => {
                 <div><span className="font-semibold">Society:</span><span className="ml-2">{property?.society || "-"}</span></div>
                 <div><span className="font-semibold">Wing:</span><span className="ml-2">{property?.wing || "-"}</span></div>
                 <div><span className="font-semibold">Unit No:</span><span className="ml-2">{property?.unitNo || "-"}</span></div>
-                <div><span className="font-semibold">Facing:</span><span className="ml-2">{property?.facing || "-"}</span></div>
 
                 {/* Row 3 */}
+                <div><span className="font-semibold">Facing:</span><span className="ml-2">{property?.facing || "-"}</span></div>
                 <div><span className="font-semibold">Bedrooms:</span><span className="ml-2">{property?.bedrooms || "-"}</span></div>
                 <div><span className="font-semibold">Bathrooms:</span><span className="ml-2">{property?.bathrooms || "-"}</span></div>
                 <div>
@@ -1372,7 +1389,9 @@ const getMonthName = (value?: string | number | null) => {
                   <span className="font-semibold">Carpet Area:</span>
                   <span className="ml-2">{property?.carpetArea ? `${property.carpetArea} Sq.ft.` : "-"}</span>
                 </div>
-                <div><span className="font-semibold">Budget:</span><span className="ml-2">{property?.budget ? formatINRShort(property?.budget) : "-"}</span></div>
+                <div><span className="font-semibold">Sell Price:</span><span className="ml-2">{property?.budget ? formatINRShort(property?.budget) : "-"}</span></div>
+                <div><span className="font-semibold">FinaL Price:</span><span className="ml-2">{property?.finalPrice ? formatINRShort(property?.finalPrice) : "-"}</span></div>
+                <div><span className="font-semibold">Price Type:</span><span className="ml-2">{property?.priceType || "-"}</span></div>
 
                 {/* Row 5 */}
                 <div>
