@@ -637,6 +637,24 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     masterOptions
   ]);
 
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    console.log(
+      "init bedrooms:",
+      initialData?.bedrooms,
+      "options:",
+      getOptions("bedrooms")
+    );
+    console.log(
+      "init bathrooms:",
+      initialData?.bathrooms,
+      "options:",
+      getOptions("bathrooms")
+    );
+  }, [isOpen, initialData, masterOptions]);
+
   /* ---------- handlers ---------- */
 
   const handleDropdownChange = (field: keyof PropertyFormData) => (value: string) => {
@@ -850,52 +868,108 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
   };
 }
 
-const handleSubmit = async () => {
-  if (!validateForm()) return;
-  try {
-    setLoading(true);
-    setErrorBanner(null);
+// const handleSubmit = async () => {
+//   if (!validateForm()) return;
+//   try {
+//     setLoading(true);
+//     setErrorBanner(null);
 
-    const payload = buildPayload();
-    let result;
+//     const payload = buildPayload();
+//     let result;
 
-    if (mode === 'edit' && propertyId) {
-      result = await propertiesAPI.updateProperty(String(propertyId), payload);
-      await Promise.all([
-        propertiesAPI.getProperties(),
-        propertiesAPI.getProperty(String(propertyId)),
-      ]);
-    } else {
-      result = await propertiesAPI.createProperty(payload);
-      const created = result?.data?.data ?? result?.data ?? result;
-      const newId = created?.id ?? created?._id ?? null;
-      await Promise.all([
-        propertiesAPI.getProperties(),
-        newId ? propertiesAPI.getProperty(String(newId)) : Promise.resolve(),
-      ]);
+//     if (mode === 'edit' && propertyId) {
+//       result = await propertiesAPI.updateProperty(String(propertyId), payload);
+//       await Promise.all([
+//         propertiesAPI.getProperties(),
+//         propertiesAPI.getProperty(String(propertyId)),
+//       ]);
+//     } else {
+//       result = await propertiesAPI.createProperty(payload);
+//       const created = result?.data?.data ?? result?.data ?? result;
+//       const newId = created?.id ?? created?._id ?? null;
+//       await Promise.all([
+//         propertiesAPI.getProperties(),
+//         newId ? propertiesAPI.getProperty(String(newId)) : Promise.resolve(),
+//       ]);
+//     }
+
+//     // ⬇️ YAHAN: API response ke bajay UI-patch bhejo
+//     const uiPatch = buildUiPatchFromForm(formData, {
+//       ownership: ownershipDocPreview,
+//       photos: photoPreviews,
+//     });
+
+//     onSubmit(uiPatch); // 🔥 parent ko clean patch mila -> turant merge hoga
+//     // optional: parent listener ko ping
+//     window.dispatchEvent(new CustomEvent('overview:refresh', { detail: { id: propertyId } }));
+
+//     onClose?.();
+//   } catch (e: any) {
+//     console.error(e);
+//     const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
+//     setErrorBanner(msg);
+//     toast.error(msg);
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    try {
+      setLoading(true);
+      setErrorBanner(null);
+
+      // 👇 Yahan pe directly form ka data print kar do
+      console.group("📝 Form Submit");
+      console.log("📌 formData:", formData);
+      console.groupEnd();
+
+      const payload = buildPayload();
+      let result;
+
+      if (mode === "edit" && propertyId) {
+        result = await propertiesAPI.updateProperty(String(propertyId), payload);
+        await Promise.all([
+          propertiesAPI.getProperties(),
+          propertiesAPI.getProperty(String(propertyId)),
+        ]);
+      } else {
+        result = await propertiesAPI.createProperty(payload);
+        const created = result?.data?.data ?? result?.data ?? result;
+        const newId = created?.id ?? created?._id ?? null;
+        await Promise.all([
+          propertiesAPI.getProperties(),
+          newId ? propertiesAPI.getProperty(String(newId)) : Promise.resolve(),
+        ]);
+      }
+
+      const uiPatch = buildUiPatchFromForm(formData, {
+        ownership: ownershipDocPreview,
+        photos: photoPreviews,
+      });
+
+      console.group("🎨 Mapped Patch");
+      console.log("uiPatch:", uiPatch);
+      console.groupEnd();
+
+      onSubmit(uiPatch);
+      window.dispatchEvent(
+        new CustomEvent("overview:refresh", { detail: { id: propertyId } })
+      );
+      onClose?.();
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.message ||
+        `Failed to ${mode === "edit" ? "update" : "create"} property`;
+      setErrorBanner(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
     }
-
-    // ⬇️ YAHAN: API response ke bajay UI-patch bhejo
-    const uiPatch = buildUiPatchFromForm(formData, {
-      ownership: ownershipDocPreview,
-      photos: photoPreviews,
-    });
-
-    onSubmit(uiPatch); // 🔥 parent ko clean patch mila -> turant merge hoga
-    // optional: parent listener ko ping
-    window.dispatchEvent(new CustomEvent('overview:refresh', { detail: { id: propertyId } }));
-
-    onClose?.();
-  } catch (e: any) {
-    console.error(e);
-    const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
-    setErrorBanner(msg);
-    toast.error(msg);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   /* ---------- options helper ---------- */
 
@@ -1236,6 +1310,7 @@ const handleSubmit = async () => {
                 />
                 Fixed
               </label>
+
               <label className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700">
                 <input
                   type="checkbox"

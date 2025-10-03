@@ -1,5 +1,6 @@
 // PhotoGalleryModal.tsx
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 
 interface PhotoGalleryModalProps {
@@ -45,7 +46,7 @@ const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({
         body.style.left = "0";
         body.style.right = "0";
         body.style.width = "100%";
-        body.style.overflow = "hidden"; // keeps Android tidy
+        body.style.overflow = "hidden";
 
         return () => {
             // unlock
@@ -99,7 +100,7 @@ const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({
         touchMoved.current = false;
     };
 
-    const onTouchMove: React.TouchEventHandler<HTMLDivElement> = (e) => {
+    const onTouchMove: React.TouchEventHandler<HTMLDivElement> = () => {
         touchMoved.current = true;
     };
 
@@ -109,7 +110,7 @@ const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({
         const dx = t.clientX - touchStartX.current;
         const dy = t.clientY - (touchStartY.current ?? t.clientY);
 
-        // ignore mostly vertical swipes to avoid fighting scroll
+        // ignore mostly vertical swipes
         if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_THRESHOLD) {
             if (dx < 0) handleNext();
             else handlePrevious();
@@ -122,25 +123,25 @@ const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({
 
     if (!isOpen) return null;
 
-    // defensive guard
     const hasImages = images && images.length > 0;
     const activeSrc = hasImages ? images[currentIndex] : "";
 
-    return (
+    // ---- Render in a portal to escape transformed ancestors (desktop fix) ----
+    return createPortal(
         <div
-            className="fixed inset-0 z-[9999] bg-black touch-none"
+            className="fixed inset-0 z-[100000] bg-black"
             style={{
-                // 100dvh fixes mobile address bar issues; safe-area prevents UI getting clipped
                 height: "100dvh",
                 paddingTop: "calc(env(safe-area-inset-top) + 0px)",
                 paddingBottom: "calc(env(safe-area-inset-bottom) + 0px)",
-                // prevent iOS rubber-band scroll behind the modal
                 overscrollBehavior: "contain",
             }}
-            // block iOS gestures from bubbling
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Property Gallery"
         >
             {/* Header */}
             <div className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
@@ -180,7 +181,6 @@ const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({
                         className={`relative transition-transform duration-300 ${isZoomed ? "scale-150 cursor-grab active:cursor-grabbing" : "scale-100"
                             } max-w-full max-h-full`}
                         style={{
-                            // ensure the scaled image stays inside
                             willChange: "transform",
                             overflow: "hidden",
                         }}
@@ -233,13 +233,9 @@ const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({
             {/* Thumbnails */}
             <div
                 className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent"
-                style={{
-                    // keep above iOS bottom bar
-                    paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)",
-                }}
+                style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)" }}
             >
-                <div className="p-4 md:p-6 overflow-x-auto"
-                    style={{ WebkitOverflowScrolling: "touch" }}>
+                <div className="p-4 md:p-6 overflow-x-auto" style={{ WebkitOverflowScrolling: "touch" }}>
                     <div className="flex gap-2 md:gap-3 justify-start md:justify-center min-w-min">
                         {hasImages &&
                             images.map((image, index) => (
@@ -257,15 +253,14 @@ const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({
                                         className="w-full h-full object-cover pointer-events-none"
                                         draggable={false}
                                     />
-                                    {currentIndex === index && (
-                                        <div className="absolute inset-0 bg-blue-500/20" />
-                                    )}
+                                    {currentIndex === index && <div className="absolute inset-0 bg-blue-500/20" />}
                                 </button>
                             ))}
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
