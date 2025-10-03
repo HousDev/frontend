@@ -2,13 +2,23 @@ import React, { useState } from 'react';
 import TemplateSelector from './TemplateSelector';
 import DocumentForm from './DocumentForm';
 
-const DocumentCreation = () => {
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [documentData, setDocumentData] = useState({});
+type GeneratedDocMeta = {
+  id?: number | string;
+  [k: string]: any;
+} | null;
 
+
+const DocumentCreation: React.FC = () => {
+  const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
+  const [documentData, setDocumentData] = useState<Record<string, any>>({});
+
+  // TemplateSelector se aayega: { ...template, _generatedDoc?: { id, ... } }
   const handleTemplateSelect = (template: any) => {
     setSelectedTemplate(template);
-    setDocumentData({}); // Reset document data when selecting new template
+
+    // if TemplateSelector ne create karke id de di hai, pass it to the form so updates hit same row
+    const generated = template?._generatedDoc as GeneratedDocMeta;
+    setDocumentData(generated ?? {}); // { id, ... } or {}
   };
 
   const handleBackToTemplates = () => {
@@ -17,19 +27,17 @@ const DocumentCreation = () => {
   };
 
   return (
-    <div>
+    <div className="min-h-screen bg-gray-50">
       {!selectedTemplate ? (
-        <div>
-          <TemplateSelector 
-            onSelectTemplate={handleTemplateSelect}
-            mode="select" // Only for selecting, not editing
-          />
-        </div>
+        <TemplateSelector
+          mode="select"
+          onSelectTemplate={handleTemplateSelect}
+        />
       ) : (
-        <DocumentForm 
+        <DocumentForm
           template={selectedTemplate}
-          documentData={documentData}
-          onDataChange={setDocumentData}
+          documentData={documentData}          // contains { id } if already created
+          onDataChange={setDocumentData}       // keeps parent copy in sync
           onBack={handleBackToTemplates}
         />
       )}
