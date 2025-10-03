@@ -14,7 +14,6 @@ import {
   Copy,
   X
 } from 'lucide-react';
-import TemplateEditor from './TemplateEditor';
 
 const TemplateSelector = ({ 
   onSelectTemplate, 

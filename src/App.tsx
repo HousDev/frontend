@@ -77,6 +77,7 @@ import ServicesPageCMS from './pages/dashboard/ServicesPageCMS';
 // 🎯 Buyer Portal Components
 import StandaloneBuyerAccountPage from './components/buyers/StandaloneBuyerAccountPage';
 import StandaloneSellerAccountPage from './components/sellers/StandaloneSellerAccountPage';
+import VariableCenter from './pages/settings/VariableCenter';
 
 function App() {
   useDynamicHead(); // ✅ Automatically set favicon + title
@@ -211,6 +212,8 @@ function App() {
                     <Route path="settings/integrations" element={<IntegrationsPage />} />
                     <Route path="settings/ai" element={<AISettingsPage />} />
                     <Route path="settings/master-data" element={<MasterDataPage />} />
+                    <Route path="settings/veriable-center" element={<VariableCenter />} />
+
                     <Route path="settings/import-export" element={<ImportExportPage />} />
                   </Route>
 
