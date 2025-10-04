@@ -568,7 +568,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="">
       {/* hero/search */}
       <section className="relative bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white overflow-hidden min-h-[calc(100vh-80px)] md:min-h-[calc(100vh-80px)]">
         <div className="absolute inset-0 bg-black/30"></div>

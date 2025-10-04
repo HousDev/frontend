@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Upload, Plus, FileText, Trash2, Edit } from 'lucide-react';
-import BudgetInput from "./BudgetInput";
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
@@ -8,6 +7,7 @@ import Dropdown from '@/components/ui/Dropdown';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { toast } from 'react-toastify';
 import PropertyDescriptionAI from './PropertyDescriptionAI';
+import PriceRangeSelector from '@/components/ui/PriceRangeSelector';
 
 /* ---------------- Types ---------------- */
 
@@ -62,6 +62,15 @@ interface PropertyFormData {
 
   ownershipDocUrl?: string;
   photoUrls?: string[];
+  // ...existing fields
+  bedrooms?: string;
+  bathrooms?: string;
+  facing?: string;
+  // ...existing
+  priceType?: 'Fixed' | 'Negotiable';
+  finalPrice?: string;          // store as rupee-integer string (e.g. "4500000")
+  
+
 }
 
 interface InitialDataFromParent {
@@ -100,6 +109,13 @@ interface InitialDataFromParent {
   existingOwnershipDocName?: string;
   existingOwnershipDocId?: string;
   existingPhotos?: Array<{ id: string; url: string; name?: string }>;
+  // ...existing fields
+  bedrooms?: string;
+  bathrooms?: string;
+  facing?: string;
+  // ...existing
+  priceType?: 'Fixed' | 'Negotiable';
+  finalPrice?: string;
 }
 
 interface PropertyFormModalProps {
@@ -109,6 +125,35 @@ interface PropertyFormModalProps {
   mode?: 'create' | 'edit';
   propertyId?: string | number;
   initialData?: InitialDataFromParent | null;
+}
+
+
+// --- helpers for budget <-> crores (TOP-LEVEL, outside any component) ---
+const RUPEE_PER_CRORE = 10_000_000;
+const RUPEE_PER_LAKH = 100_000;
+
+export function parseBudgetToRupees(text?: string): number {
+  const raw = (text || "").trim().toLowerCase();
+  if (!raw) return 0;
+
+  const cleaned = raw.replace(/₹/g, "").replace(/\s+/g, "");
+  const digitsOnly = cleaned.replace(/,/g, "");
+
+  if (/^\d+$/.test(digitsOnly)) return parseInt(digitsOnly, 10) || 0;
+
+  const lakhMatch = cleaned.match(/^([\d,.]+)l$/);
+  if (lakhMatch) return Math.round(parseFloat(lakhMatch[1].replace(/,/g, "")) * RUPEE_PER_LAKH) || 0;
+
+  const croreMatch = cleaned.match(/^([\d,.]+)(cr|c)$/);
+  if (croreMatch) return Math.round(parseFloat(croreMatch[1].replace(/,/g, "")) * RUPEE_PER_CRORE) || 0;
+
+  const n = parseFloat(digitsOnly);
+  return Number.isNaN(n) ? 0 : Math.round(n);
+}
+
+export function rupeesToCrores(r: number): number {
+  if (!r || r <= 0) return 0.01; // selector minimum (1L == 0.01 Cr)
+  return r / RUPEE_PER_CRORE;
 }
 
 /* ---------------- Possession Dropdown ---------------- */
@@ -382,8 +427,16 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     description: '',
     nearby_places: [],
     ownershipDoc: null,
-    photos: []
+    photos: [],
+
+    // ...existing defaults
+    bedrooms: '',
+    bathrooms: '',
+    facing: '',
+    priceType: 'Fixed',   // default: Fixed (no extra field)
+    finalPrice: '',
   }));
+  console.log("my pro:",formData)
 
   const [ownershipDocPreview, setOwnershipDocPreview] = useState<FilePreview | null>(null);
   const [photoPreviews, setPhotoPreviews] = useState<FilePreview[]>([]);
@@ -498,6 +551,13 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
         photos: [],
         ownershipDocUrl: initialData.existingOwnershipDocUrl,
         photoUrls: (initialData.existingPhotos || []).map(p => p.url),
+        // ...existing seeds
+        bedrooms: initialData.bedrooms || '',
+        bathrooms: initialData.bathrooms || '',
+        facing: initialData.facing || '',
+
+        priceType: (initialData.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
+        finalPrice: initialData.finalPrice || '',
       };
 
       setFormData(seed);
@@ -576,6 +636,24 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     formData.wing, formData.unitNo, formData.society, formData.floor, formData.location, formData.city,
     masterOptions
   ]);
+
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    console.log(
+      "init bedrooms:",
+      initialData?.bedrooms,
+      "options:",
+      getOptions("bedrooms")
+    );
+    console.log(
+      "init bathrooms:",
+      initialData?.bathrooms,
+      "options:",
+      getOptions("bathrooms")
+    );
+  }, [isOpen, initialData, masterOptions]);
 
   /* ---------- handlers ---------- */
 
@@ -690,7 +768,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       "furnishing", "parkingType", "parkingQty", "city", "location", "society",
       "floor", "totalFloors", "carpetArea", "builtupArea", "budget", "address",
       "status", "leadSource", "possessionMonth", "possessionYear",
-      "purchaseMonth", "purchaseYear", "sellingRights", "description"
+      "purchaseMonth", "purchaseYear", "sellingRights", "description", 
+      "bedrooms", "bathrooms", "facing", "priceType", "finalPrice",
     ];
     textFields.forEach((k) => fd.append(k, String((formData as any)[k] ?? "")));
 
@@ -772,6 +851,13 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
     amenities: fd.amenities,
     nearby_places: fd.nearby_places,
 
+    // ...existing mappings
+    bedrooms: fd.bedrooms,
+    bathrooms: fd.bathrooms,
+    facing: fd.facing,
+    priceType: fd.priceType,
+    finalPrice: fd.finalPrice,
+
     // media (instant UI ke liye: existing + newly added previews ke URLs)
     ownershipDocUrl: previews.ownership?.url,
     ownershipDocName: previews.ownership?.name,
@@ -782,52 +868,108 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
   };
 }
 
-const handleSubmit = async () => {
-  if (!validateForm()) return;
-  try {
-    setLoading(true);
-    setErrorBanner(null);
+// const handleSubmit = async () => {
+//   if (!validateForm()) return;
+//   try {
+//     setLoading(true);
+//     setErrorBanner(null);
 
-    const payload = buildPayload();
-    let result;
+//     const payload = buildPayload();
+//     let result;
 
-    if (mode === 'edit' && propertyId) {
-      result = await propertiesAPI.updateProperty(String(propertyId), payload);
-      await Promise.all([
-        propertiesAPI.getProperties(),
-        propertiesAPI.getProperty(String(propertyId)),
-      ]);
-    } else {
-      result = await propertiesAPI.createProperty(payload);
-      const created = result?.data?.data ?? result?.data ?? result;
-      const newId = created?.id ?? created?._id ?? null;
-      await Promise.all([
-        propertiesAPI.getProperties(),
-        newId ? propertiesAPI.getProperty(String(newId)) : Promise.resolve(),
-      ]);
+//     if (mode === 'edit' && propertyId) {
+//       result = await propertiesAPI.updateProperty(String(propertyId), payload);
+//       await Promise.all([
+//         propertiesAPI.getProperties(),
+//         propertiesAPI.getProperty(String(propertyId)),
+//       ]);
+//     } else {
+//       result = await propertiesAPI.createProperty(payload);
+//       const created = result?.data?.data ?? result?.data ?? result;
+//       const newId = created?.id ?? created?._id ?? null;
+//       await Promise.all([
+//         propertiesAPI.getProperties(),
+//         newId ? propertiesAPI.getProperty(String(newId)) : Promise.resolve(),
+//       ]);
+//     }
+
+//     // ⬇️ YAHAN: API response ke bajay UI-patch bhejo
+//     const uiPatch = buildUiPatchFromForm(formData, {
+//       ownership: ownershipDocPreview,
+//       photos: photoPreviews,
+//     });
+
+//     onSubmit(uiPatch); // 🔥 parent ko clean patch mila -> turant merge hoga
+//     // optional: parent listener ko ping
+//     window.dispatchEvent(new CustomEvent('overview:refresh', { detail: { id: propertyId } }));
+
+//     onClose?.();
+//   } catch (e: any) {
+//     console.error(e);
+//     const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
+//     setErrorBanner(msg);
+//     toast.error(msg);
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    try {
+      setLoading(true);
+      setErrorBanner(null);
+
+      // 👇 Yahan pe directly form ka data print kar do
+      console.group("📝 Form Submit");
+      console.log("📌 formData:", formData);
+      console.groupEnd();
+
+      const payload = buildPayload();
+      let result;
+
+      if (mode === "edit" && propertyId) {
+        result = await propertiesAPI.updateProperty(String(propertyId), payload);
+        await Promise.all([
+          propertiesAPI.getProperties(),
+          propertiesAPI.getProperty(String(propertyId)),
+        ]);
+      } else {
+        result = await propertiesAPI.createProperty(payload);
+        const created = result?.data?.data ?? result?.data ?? result;
+        const newId = created?.id ?? created?._id ?? null;
+        await Promise.all([
+          propertiesAPI.getProperties(),
+          newId ? propertiesAPI.getProperty(String(newId)) : Promise.resolve(),
+        ]);
+      }
+
+      const uiPatch = buildUiPatchFromForm(formData, {
+        ownership: ownershipDocPreview,
+        photos: photoPreviews,
+      });
+
+      console.group("🎨 Mapped Patch");
+      console.log("uiPatch:", uiPatch);
+      console.groupEnd();
+
+      onSubmit(uiPatch);
+      window.dispatchEvent(
+        new CustomEvent("overview:refresh", { detail: { id: propertyId } })
+      );
+      onClose?.();
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.message ||
+        `Failed to ${mode === "edit" ? "update" : "create"} property`;
+      setErrorBanner(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
     }
-
-    // ⬇️ YAHAN: API response ke bajay UI-patch bhejo
-    const uiPatch = buildUiPatchFromForm(formData, {
-      ownership: ownershipDocPreview,
-      photos: photoPreviews,
-    });
-
-    onSubmit(uiPatch); // 🔥 parent ko clean patch mila -> turant merge hoga
-    // optional: parent listener ko ping
-    window.dispatchEvent(new CustomEvent('overview:refresh', { detail: { id: propertyId } }));
-
-    onClose?.();
-  } catch (e: any) {
-    console.error(e);
-    const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
-    setErrorBanner(msg);
-    toast.error(msg);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   /* ---------- options helper ---------- */
 
@@ -948,7 +1090,39 @@ const handleSubmit = async () => {
               className="w-full"
             />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Bedrooms</label>
+            <SafeDropdown
+              placeholder="Select Bedrooms"
+              options={getOptions('bedrooms')}
+              value={formData.bedrooms}
+              onChange={handleDropdownChange('bedrooms')}
+              className="w-full"
+            />
+          </div>
 
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Bathrooms</label>
+            <SafeDropdown
+              placeholder="Select Bathrooms"
+              options={getOptions('bathrooms')}
+              value={formData.bathrooms}
+              onChange={handleDropdownChange('bathrooms')}
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Facing</label>
+            <SafeDropdown
+              placeholder="Select Facing"
+              options={getOptions('facing')}
+              value={formData.facing}
+              onChange={handleDropdownChange('facing')}
+              className="w-full"
+            />
+          </div>
+          
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Parking Qty</label>
             <SafeDropdown
@@ -1000,6 +1174,16 @@ const handleSubmit = async () => {
           </div>
 
           <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Total Floors</label>
+            <SafeDropdown
+              placeholder="Select Total Floors"
+              options={getOptions('total floors')}
+              value={formData.totalFloors}
+              onChange={handleDropdownChange('totalFloors')}
+              className="w-full"
+            />
+          </div>
+          <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Floor</label>
             <SafeDropdown
               placeholder="Select Floor"
@@ -1010,16 +1194,7 @@ const handleSubmit = async () => {
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Total Floors</label>
-            <SafeDropdown
-              placeholder="Select Total Floors"
-              options={getOptions('total floors')}
-              value={formData.totalFloors}
-              onChange={handleDropdownChange('totalFloors')}
-              className="w-full"
-            />
-          </div>
+          
 
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Carpet Area (sq.ft)*</label>
@@ -1097,8 +1272,99 @@ const handleSubmit = async () => {
             />
           </div>
 
-          <div>
-            <BudgetInput value={formData.budget} onChange={(v) => handleInputChange('budget', v)} error={errors.budget} />
+          {/* SELL PRICE — keep in grid, tidy spacing */}
+          <div className="md:col-span-3 lg:col-span-2">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-semibold text-gray-800 bt-8">
+                Sell Price (₹)*
+                
+              </label>
+            </div>
+
+            {/* ---- Main slider (now also controls Final Price when Negotiable) ---- */}
+            <PriceRangeSelector
+              initialMax={rupeesToCrores(parseBudgetToRupees(formData.budget))}
+              max={10}
+              /* keep old payload shape working; we also read rupees if present */
+              onChange={({ max }) => {
+                const rupeeVal = Math.round(max * 10_000_000); // crores → rupees
+
+                handleInputChange('budget', String(rupeeVal));
+
+                // when Negotiable, mirror into Final Price
+                if (formData.priceType === 'Negotiable') {
+                  handleInputChange('finalPrice', String(rupeeVal));
+                }
+              }}
+              className="p-0 mt-1"
+            />
+            <div className="flex items-center gap-4 mt-4">
+              <label className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  name="priceType"
+                  className="h-3 w-3 text-orange-600 rounded focus:ring-orange-500"
+                  value="Fixed"
+                  checked={(formData.priceType || 'Fixed') === 'Fixed'}
+                  onChange={() => handleInputChange('priceType', 'Fixed')}
+                />
+                Fixed
+              </label>
+
+              <label className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  name="priceType"
+                  className="h-3 w-3 text-orange-600 rounded focus:ring-orange-500"
+                  value="Negotiable"
+                  checked={formData.priceType === 'Negotiable'}
+                  onChange={() => handleInputChange('priceType', 'Negotiable')}
+                />
+                Negotiable
+              </label>
+            </div>
+            {/* ---- Final Price when Negotiable ---- */}
+            {formData.priceType === 'Negotiable' && (
+              <div className="mt-4">
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Final Price (₹)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9,]*"
+                    className="w-40 md:w-48 border rounded px-2 py-1.5 text-sm outline-none"
+                    value={formData.finalPrice || ''}
+                    onChange={(e) => {
+                      // keep raw typing; slider will follow via controlledRupees after blur/valid change
+                      handleInputChange('finalPrice', e.target.value);
+                    }}
+                    onBlur={(e) => {
+                      const rupees = parseBudgetToRupees(e.target.value);
+                      // normalize stored integer; this also drives the slider via controlledRupees
+                      handleInputChange('finalPrice', String(rupees));
+                    }}
+                    placeholder="e.g. 45,00,000"
+                    aria-label="Final negotiated price"
+                  />
+                  {/* compact readout: 30L / 1.25Cr */}
+                  <span className="text-[11px] text-green-800 whitespace-nowrap"> 
+                    {(() => {
+                      const v = parseBudgetToRupees(formData.finalPrice || '');
+                      if (!v || v <= 0) return '';
+                      if (v < 10_000_000) return `${Math.round(v / 100_000)}L`;
+                      return `${(v / 10_000_000).toFixed(v % 10_000_000 ? 2 : 0)}Cr`;
+                    })()}
+                  </span>
+                 
+                </div>
+              </div>
+            )}
+
+            {errors.budget && (
+              <p className="text-red-500 text-xs mt-1">{errors.budget}</p>
+            )}
           </div>
 
           <div>

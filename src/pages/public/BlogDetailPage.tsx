@@ -13,9 +13,12 @@ import {
   MessageSquare,
   Heart,
   Share,
+  X, // for share modal close
 } from "lucide-react";
 import blogsAPI from "@/lib/blogsAPI";
 import { useNavigate } from "react-router-dom";
+import ShareModalBlog from "./ShareModalBlog";
+
 
 export interface BlogPost {
   id: number | string;
@@ -62,14 +65,20 @@ function safeParseTags(v: any): string[] {
       const parsed = JSON.parse(v);
       if (Array.isArray(parsed)) return parsed.map((x) => String(x));
     } catch {
-      return v.split(",").map((s) => s.trim()).filter(Boolean);
+      return v
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     }
   }
   return [];
 }
 
 /* -------------------- Helper subcomponent -------------------- */
-const CommentComposer: React.FC<{ onPost: (text: string, author?: string, email?: string) => void; posting?: boolean }> = ({ onPost, posting }) => {
+const CommentComposer: React.FC<{
+  onPost: (text: string, author?: string, email?: string) => void;
+  posting?: boolean;
+}> = ({ onPost, posting }) => {
   const [text, setText] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -84,14 +93,36 @@ const CommentComposer: React.FC<{ onPost: (text: string, author?: string, email?
         className="w-full px-3 py-2 border rounded-md mb-3"
       />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-        <input className="px-3 py-2 border rounded-md" placeholder="Name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="px-3 py-2 border rounded-md" placeholder="Email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input
+          className="px-3 py-2 border rounded-md"
+          placeholder="Name (optional)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <input
+          className="px-3 py-2 border rounded-md"
+          placeholder="Email (optional)"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
         <div />
       </div>
       <div className="flex gap-2 justify-end">
-        <button onClick={() => { setText(""); setName(""); setEmail(""); }} className="px-3 py-1.5 border rounded-md">Clear</button>
         <button
-          onClick={() => { onPost(text, name, email); setText(""); }}
+          onClick={() => {
+            setText("");
+            setName("");
+            setEmail("");
+          }}
+          className="px-3 py-1.5 border rounded-md"
+        >
+          Clear
+        </button>
+        <button
+          onClick={() => {
+            onPost(text, name, email);
+            setText("");
+          }}
           disabled={posting || !text.trim()}
           className="px-3 py-1.5 bg-blue-600 text-white rounded-md disabled:opacity-60"
         >
@@ -102,7 +133,12 @@ const CommentComposer: React.FC<{ onPost: (text: string, author?: string, email?
   );
 };
 
-const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost, loading = false, onBack }) => {
+const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
+  slug,
+  post: initialPost,
+  loading = false,
+  onBack,
+}) => {
   const navigate = useNavigate();
 
   const [post, setPost] = useState<BlogPost | null>(initialPost ?? null);
@@ -122,6 +158,13 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
   const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
   const [likeProcessing, setLikeProcessing] = useState<boolean>(false);
   const [bookmarkProcessing, setBookmarkProcessing] = useState<boolean>(false);
+
+  // share modal state
+  const [shareOpen, setShareOpen] = useState<boolean>(false);
+
+  // property-style local liked state + key helper
+  const [liked, setLiked] = useState<boolean>(false);
+  const likeKeyFor = (p: BlogPost) => `blog_like:${p.slug ?? p.id}`;
 
   /* --- initialise post from parent --- */
   useEffect(() => {
@@ -149,12 +192,26 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
             id: p.id ?? p._id ?? p.slug ?? slug,
             slug: p.slug ?? slug,
             title: p.title ?? "Untitled",
-            excerpt: p.excerpt ?? (typeof p.content === "string" ? (p.content.slice(0, 160) + (p.content.length > 160 ? "…" : "")) : ""),
+            excerpt:
+              p.excerpt ??
+              (typeof p.content === "string"
+                ? p.content.slice(0, 160) +
+                (p.content.length > 160 ? "…" : "")
+                : ""),
             content: p.content ?? "",
             author: p.author ?? "Admin",
-            date: p.publishedAt ?? p.published_at ?? p.createdAt ?? p.created_at ?? new Date().toISOString(),
+            date:
+              p.publishedAt ??
+              p.published_at ??
+              p.createdAt ??
+              p.created_at ??
+              new Date().toISOString(),
             category: p.category ?? "Uncategorized",
-            readTime: p.readTime ? String(p.readTime) : p.read_time ? String(p.read_time) : "5 min read",
+            readTime: p.readTime
+              ? String(p.readTime)
+              : p.read_time
+                ? String(p.read_time)
+                : "5 min read",
             image: p.featuredImage ?? p.featured_image ?? p.image ?? "",
             tags: safeParseTags(p.tags ?? []),
             views: Number(p.views ?? 0),
@@ -174,7 +231,9 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [slug, initialPost]);
 
   /* --- related/recent/categories --- */
@@ -182,7 +241,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
     let cancelled = false;
     const loadRelatedAndMeta = async () => {
       try {
-        const raw = await blogsAPI.getAllPosts?.() ?? [];
+        const raw = (await blogsAPI.getAllPosts?.()) ?? [];
         let list: any[] = [];
         if (Array.isArray(raw)) list = raw;
         else if (raw?.data && Array.isArray(raw.data)) list = raw.data;
@@ -190,38 +249,69 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
         else if (raw?.posts && Array.isArray(raw.posts)) list = raw.posts;
         else if (raw?.results && Array.isArray(raw.results)) list = raw.results;
 
-        const normalized: BlogPost[] = (list || []).map((p: any, idx: number) => {
-          const tags = safeParseTags(p.tags ?? p.tag ?? []);
-          const slug = p.slug ?? p.slugified ?? (p.title ? String(p.title).toLowerCase().replace(/\s+/g, "-") : String(p.id ?? idx));
-          return {
-            id: p.id ?? p._id ?? slug ?? idx,
-            slug,
-            title: p.title ?? "Untitled",
-            excerpt: p.excerpt ?? (typeof p.content === "string" ? (p.content.slice(0, 160) + (p.content.length > 160 ? "…" : "")) : ""),
-            content: p.content ?? "",
-            author: p.author ?? "Admin",
-            date: p.publishedAt ?? p.published_at ?? p.createdAt ?? p.created_at ?? new Date().toISOString(),
-            category: p.category ?? "Uncategorized",
-            readTime: p.readTime ? String(p.readTime) : p.read_time ? String(p.read_time) : "5 min read",
-            image: p.featuredImage ?? p.featured_image ?? p.image ?? "",
-            tags,
-            views: Number(p.views ?? 0),
-            likes: Number(p.likes ?? 0),
-            comments: Number(p.comments ?? 0),
-            featured: !!p.featured,
-          } as BlogPost;
-        });
+        const normalized: BlogPost[] = (list || []).map(
+          (p: any, idx: number) => {
+            const tags = safeParseTags(p.tags ?? p.tag ?? []);
+            const slug =
+              p.slug ??
+              p.slugified ??
+              (p.title
+                ? String(p.title).toLowerCase().replace(/\s+/g, "-")
+                : String(p.id ?? idx));
+            return {
+              id: p.id ?? p._id ?? slug ?? idx,
+              slug,
+              title: p.title ?? "Untitled",
+              excerpt:
+                p.excerpt ??
+                (typeof p.content === "string"
+                  ? p.content.slice(0, 160) +
+                  (p.content.length > 160 ? "…" : "")
+                  : ""),
+              content: p.content ?? "",
+              author: p.author ?? "Admin",
+              date:
+                p.publishedAt ??
+                p.published_at ??
+                p.createdAt ??
+                p.created_at ??
+                new Date().toISOString(),
+              category: p.category ?? "Uncategorized",
+              readTime: p.readTime
+                ? String(p.readTime)
+                : p.read_time
+                  ? String(p.read_time)
+                  : "5 min read",
+              image: p.featuredImage ?? p.featured_image ?? p.image ?? "",
+              tags,
+              views: Number(p.views ?? 0),
+              likes: Number(p.likes ?? 0),
+              comments: Number(p.comments ?? 0),
+              featured: !!p.featured,
+            } as BlogPost;
+          }
+        );
 
         if (!cancelled) {
-          const recent = [...normalized].sort((a, b) => new Date(b.date ?? "").getTime() - new Date(a.date ?? "").getTime()).slice(0, 5);
+          const recent = [...normalized]
+            .sort(
+              (a, b) =>
+                new Date(b.date ?? "").getTime() -
+                new Date(a.date ?? "").getTime()
+            )
+            .slice(0, 5);
           setRecentPosts(recent);
-          const cats = Array.from(new Set(normalized.map((x) => x.category || "Uncategorized")));
+          const cats = Array.from(
+            new Set(normalized.map((x) => x.category || "Uncategorized"))
+          );
           setCategories(cats);
           if (post) {
             const candidates = normalized.filter((c) => c.slug !== post.slug);
             const scored = candidates
               .map((c) => {
-                const sharedTags = (c.tags || []).filter((t) => (post.tags || []).includes(t)).length;
+                const sharedTags = (c.tags || []).filter((t) =>
+                  (post.tags || []).includes(t)
+                ).length;
                 const sameCategory = c.category === post.category ? 1 : 0;
                 const score = sharedTags * 2 + sameCategory;
                 return { c, score };
@@ -241,7 +331,9 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
       }
     };
     loadRelatedAndMeta();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [post]);
 
   /* --- comments load --- */
@@ -251,16 +343,26 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
       if (!post) return;
       setCommentsLoading(true);
       try {
-        const res = await (blogsAPI.getCommentsByPostSlug ? blogsAPI.getCommentsByPostSlug(post.slug ?? String(post.id)) : blogsAPI.getComments?.(post.slug ?? String(post.id)));
+        const res = await (blogsAPI.getCommentsByPostSlug
+          ? blogsAPI.getCommentsByPostSlug(post.slug ?? String(post.id))
+          : blogsAPI.getComments?.(post.slug ?? String(post.id)));
         const data = res?.data ?? res ?? [];
-        const list: BlogComment[] = Array.isArray(data) ? data.map((c: any) => ({
-          id: c.id ?? c._id ?? `${c.email || 'anon'}-${Math.random().toString(36).slice(2, 8)}`,
-          postId: c.postId ?? c.post_id ?? post.id,
-          author: c.author ?? c.name ?? 'Anonymous',
-          email: c.email,
-          content: c.content ?? c.body ?? '',
-          date: c.date ?? c.createdAt ?? c.created_at ?? new Date().toISOString(),
-        })) : [];
+        const list: BlogComment[] = Array.isArray(data)
+          ? data.map((c: any) => ({
+            id:
+              c.id ??
+              c._id ??
+              `${c.email || "anon"}-${Math.random()
+                .toString(36)
+                .slice(2, 8)}`,
+            postId: c.postId ?? c.post_id ?? post.id,
+            author: c.author ?? c.name ?? "Anonymous",
+            email: c.email,
+            content: c.content ?? c.body ?? "",
+            date:
+              c.date ?? c.createdAt ?? c.created_at ?? new Date().toISOString(),
+          }))
+          : [];
         if (!cancelled) setComments(list);
       } catch {
         if (!cancelled) setComments([]);
@@ -269,7 +371,9 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
       }
     };
     loadComments();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [post]);
 
   /* --- init like/bookmark from localStorage if available --- */
@@ -291,6 +395,18 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
     } catch { }
   }, [post]);
 
+  // initialise property-style 'liked' from local key, fallback to isLiked
+  useEffect(() => {
+    if (!post) return;
+    try {
+      const key = likeKeyFor(post);
+      const local = localStorage.getItem(key) === "1";
+      setLiked(local || isLiked);
+    } catch {
+      setLiked(isLiked);
+    }
+  }, [post, isLiked]);
+
   /* ---------- Like handler ---------- */
   const persistLocalLike = (id: string | number, add: boolean) => {
     try {
@@ -307,25 +423,45 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
     if (!post || likeProcessing) return;
     const previouslyLiked = isLiked;
     setIsLiked(!previouslyLiked);
-    setPost((p) => p ? { ...p, likes: (p.likes ?? 0) + (previouslyLiked ? -1 : 1) } : p);
+    setPost((p) =>
+      p ? { ...p, likes: (p.likes ?? 0) + (previouslyLiked ? -1 : 1) } : p
+    );
     setLikeProcessing(true);
 
     try {
       if (blogsAPI.likePost) {
         await blogsAPI.likePost(post.id);
       } else {
-        // no server endpoint — persist locally
         persistLocalLike(post.id, !previouslyLiked);
       }
     } catch (err) {
-      // rollback
       setIsLiked(previouslyLiked);
-      setPost((p) => p ? { ...p, likes: (p.likes ?? 0) + (previouslyLiked ? 1 : -1) } : p);
-      console.error("Like failed", err);
-      alert("Failed to like post — try again.");
+      setPost((p) =>
+        p ? { ...p, likes: (p.likes ?? 0) + (previouslyLiked ? 1 : -1) } : p
+      );
+      
     } finally {
       setLikeProcessing(false);
     }
+  };
+
+  // property-style toggle (localStorage + call handleLike for count/api)
+  const toggleLiked = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    if (!post) return;
+    const key = likeKeyFor(post);
+    setLiked((prev) => {
+      const next = !prev;
+      try {
+        if (next) localStorage.setItem(key, "1");
+        else localStorage.removeItem(key);
+      } catch { }
+      return next;
+    });
+    handleLike();
   };
 
   /* ---------- Bookmark handler ---------- */
@@ -357,8 +493,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
       }
     } catch (err) {
       setIsBookmarked(previously);
-      console.error("Bookmark failed", err);
-      alert("Failed to update bookmark.");
+    
     } finally {
       setBookmarkProcessing(false);
     }
@@ -370,19 +505,42 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
     if (!post) return setCommentError("Cannot post comment: missing post.");
     if (!text.trim()) return setCommentError("Please write a comment.");
     const tempId = `temp-${Date.now()}`;
-    const commentObj: BlogComment = { id: tempId, postId: post.id, author: author?.trim() || "Guest", email, content: text.trim(), date: new Date().toISOString() };
+    const commentObj: BlogComment = {
+      id: tempId,
+      postId: post.id,
+      author: author?.trim() || "Guest",
+      email,
+      content: text.trim(),
+      date: new Date().toISOString(),
+    };
     setComments((c) => [commentObj, ...c]);
     setCommentSubmitting(true);
     try {
       if (blogsAPI.postComment) {
-        const res = await blogsAPI.postComment(post.slug ?? String(post.id), { author: commentObj.author, email: commentObj.email, content: commentObj.content });
+        const res = await blogsAPI.postComment(post.slug ?? String(post.id), {
+          author: commentObj.author,
+          email: commentObj.email,
+          content: commentObj.content,
+        });
         const saved = res?.data ?? res;
         if (saved) {
-          setComments((c) => c.map((it) => (it.id === tempId ? ({ id: saved.id ?? saved._id ?? it.id, postId: it.postId, author: saved.author ?? it.author, email: saved.email ?? it.email, content: saved.content ?? it.content, date: saved.date ?? saved.createdAt ?? it.date }) : it)));
+          setComments((c) =>
+            c.map((it) =>
+              it.id === tempId
+                ? {
+                  id: saved.id ?? saved._id ?? it.id,
+                  postId: it.postId,
+                  author: saved.author ?? it.author,
+                  email: saved.email ?? it.email,
+                  content: saved.content ?? it.content,
+                  date: saved.date ?? saved.createdAt ?? it.date,
+                }
+                : it
+            )
+          );
         }
       }
-      // update local post comment count
-      setPost((p) => p ? { ...p, comments: (p.comments ?? 0) + 1 } : p);
+      setPost((p) => (p ? { ...p, comments: (p.comments ?? 0) + 1 } : p));
     } catch (err: any) {
       setComments((c) => c.filter((x) => x.id !== tempId));
       setCommentError(err?.message ?? "Failed to post comment");
@@ -391,88 +549,167 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
     }
   };
 
-  const fmtDate = (iso?: string) => { try { if (!iso) return ""; return new Date(iso).toLocaleString(); } catch { return iso ?? ""; } };
+  const fmtDate = (iso?: string) => {
+    try {
+      if (!iso) return "";
+      return new Date(iso).toLocaleString();
+    } catch {
+      return iso ?? "";
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 ">
-        <div className="bg-white shadow-sm border-b pt-20 sticky top-0 z-40 
-      
-      " style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between ">
-                <button
-                  onClick={() => onBack ? onBack() : navigate("/blogs")}
-                  className="flex items-center text-white hover:text-gray-200 transition-colors text-sm font-medium"
-                >
-                  <ArrowLeft size={18} className="mr-1" />
-                  Back to articles
-                </button>
-
-
-                <div className="flex items-center space-x-2">
-                  <button className="p-2 text-white hover:text-red-500 transition-colors rounded-lg hover:bg-gray-100">
-                    <Heart size={18} />
-                  </button>
-                  <button
-                    // onClick={() => setOpen(true)}
-                    className="p-2 text-white hover:text-blue-500 transition-colors rounded-lg hover:bg-gray-100"
-                  >
-                    <Share size={18} />
-                  </button>
-                  <button className="p-2 text-white hover:text-yellow-500 transition-colors rounded-lg hover:bg-gray-100">
-                    <Bookmark size={18} />
-                  </button>
-                </div>
-              </div>
-            </div>
+      <div
+        className="bg-white shadow-sm border-b pt-20 sticky top-0 z-40"
+        style={{ background: "linear-gradient(to right, #0b3856, #0c3854)" }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between ">
+            <button
+              onClick={() => (onBack ? onBack() : navigate("/blogs"))}
+              className="flex items-center text-white hover:text-gray-200 transition-colors text-sm font-medium"
+            >
+              <ArrowLeft size={18} className="mr-1" />
+              Back to articles
+            </button>
           </div>
+        </div>
+      </div>
+
+      {/* Share Modal (now using ShareModalBlog) */}
+      {shareOpen && (
+        <ShareModalBlog
+          slug={post?.slug || String(post?.id || "")}
+          title={post?.title}
+          description={post?.excerpt}
+          image={post?.image}
+          onClose={() => setShareOpen(false)}
+        // forcedCopyUrl="https://investordeal.in/blogs/custom-slug" // (optional override)
+        />
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-8 mt-2">
         <div className="lg:col-span-2">
-          {/* <button onClick={() => onBack ? onBack() : navigate("/blogs")} className="flex items-center text-sm text-blue-600 mb-6">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to articles
-          </button> */}
-        
           {loadingInternal ? (
             <div className="bg-white rounded-xl p-8 shadow">Loading article...</div>
           ) : error ? (
-            <div className="bg-white rounded-xl p-8 shadow text-red-600">{error}</div>
+            <div className="bg-white rounded-xl p-8 shadow text-red-600">
+              {error}
+            </div>
           ) : !post ? (
             <div className="bg-white rounded-xl p-8 shadow">Article not found.</div>
           ) : (
             <article className="bg-white rounded-xl shadow overflow-hidden">
-              {post.image ? <img src={post.image} alt={post.title} className="w-full h-64 object-cover" /> : null}
+              {/* FEATURED IMAGE WITH OVERLAY ACTIONS (property-style) */}
+              {post.image && (
+                <div className="relative w-full h-64">
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    className="w-full h-64 object-cover rounded-t-xl"
+                  />
+
+                  <div className="absolute top-3 right-3 flex flex-col gap-2">
+                    {/* Like - property-style toggle */}
+                    <button
+                      onClick={toggleLiked}
+                      className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
+                      aria-label={liked ? "Remove from shortlist" : "Add to shortlist"}
+                    >
+                      <Heart
+                        className={
+                          liked
+                            ? "w-5 h-5 text-red-500 fill-current"
+                            : "w-5 h-5 text-gray-700"
+                        }
+                      />
+                    </button>
+
+                    {/* Share */}
+                    <button
+                      onClick={() => setShareOpen(true)}
+                      className="p-2 rounded-full shadow bg-white hover:bg-gray-100 text-gray-700 hover:text-blue-500"
+                      title="Share"
+                    >
+                      <Share size={18} />
+                    </button>
+
+                    {/* Bookmark */}
+                    <button
+                      onClick={handleBookmark}
+                      disabled={bookmarkProcessing}
+                      aria-pressed={isBookmarked}
+                      title={isBookmarked ? "Saved" : "Save"}
+                      className={`p-2 rounded-full shadow bg-white hover:bg-gray-100 ${isBookmarked
+                          ? "text-yellow-500"
+                          : "text-gray-700 hover:text-yellow-500"
+                        }`}
+                    >
+                      <Bookmark
+                        size={18}
+                        className={isBookmarked ? "fill-current" : ""}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!post.image && null}
+
               <div className="p-8">
                 <div className="flex items-center gap-3 text-sm text-gray-500 mb-4">
-                  <span className="flex items-center"><User className="w-4 h-4 mr-1" />{post.author}</span>
-                  <span className="flex items-center"><Clock className="w-4 h-4 mr-1" />{new Date(post.date ?? "").toLocaleDateString()}</span>
-                  <span className="flex items-center"><Eye className="w-4 h-4 mr-1" />{post.views ?? 0} views</span>
+                  <span className="flex items-center">
+                    <User className="w-4 h-4 mr-1" />
+                    {post.author}
+                  </span>
+                  <span className="flex items-center">
+                    <Clock className="w-4 h-4 mr-1" />
+                    {new Date(post.date ?? "").toLocaleDateString()}
+                  </span>
+                  <span className="flex items-center">
+                    <Eye className="w-4 h-4 mr-1" />
+                    {post.views ?? 0} views
+                  </span>
 
-                  {/* Like heart */}
+                  {/* Existing like meta (kept as-is, shows count) */}
                   <button
                     onClick={handleLike}
                     disabled={likeProcessing}
                     title={isLiked ? "Unlike" : "Like"}
-                    className={`flex items-center gap-1 px-2 py-1 rounded ${isLiked ? "text-red-600" : "text-gray-600 hover:text-red-600"} transition-colors`}
+                    className={`flex items-center gap-1 px-2 py-1 rounded ${isLiked
+                        ? "text-red-600"
+                        : "text-gray-600 hover:text-red-600"
+                      } transition-colors`}
                     aria-pressed={isLiked}
                   >
                     <Heart className="w-4 h-4" />
                     <span className="text-xs">{post.likes ?? 0}</span>
                   </button>
 
-                  {/* comments meta */}
-                  <span className="flex items-center"><MessageSquare className="w-4 h-4 mr-1" />{comments.length} comments</span>
+                  <span className="flex items-center">
+                    <MessageSquare className="w-4 h-4 mr-1" />
+                    {comments.length} comments
+                  </span>
                 </div>
 
                 <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
                 <p className="text-gray-600 mb-6">{post.excerpt}</p>
 
                 <div className="prose max-w-none text-gray-800 mb-6">
-                  {post.content ? <div dangerouslySetInnerHTML={{ __html: post.content }} /> : <p>No content available for this article.</p>}
+                  {post.content ? (
+                    <div dangerouslySetInnerHTML={{ __html: post.content }} />
+                  ) : (
+                    <p>No content available for this article.</p>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-2 mt-4">
                   {(post.tags || []).map((t) => (
-                    <span key={t} className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                    <span
+                      key={t}
+                      className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full"
+                    >
                       <Tag className="w-3 h-3" /> {t}
                     </span>
                   ))}
@@ -480,29 +717,55 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
 
                 {/* Comments Section */}
                 <section className="mt-10">
-                  <h3 className="text-xl font-semibold mb-4">Comments ({comments.length})</h3>
+                  <h3 className="text-xl font-semibold mb-4">
+                    Comments ({comments.length})
+                  </h3>
 
-                  <CommentComposer onPost={submitComment} posting={commentSubmitting} />
-                  {commentError && <div className="text-sm text-red-600 mt-2">{commentError}</div>}
+                  <CommentComposer
+                    onPost={submitComment}
+                    posting={commentSubmitting}
+                  />
+                  {commentError && (
+                    <div className="text-sm text-red-600 mt-2">
+                      {commentError}
+                    </div>
+                  )}
 
                   <div className="space-y-4 mt-6">
                     {commentsLoading ? (
-                      <div className="text-sm text-gray-500">Loading comments...</div>
+                      <div className="text-sm text-gray-500">
+                        Loading comments...
+                      </div>
                     ) : comments.length === 0 ? (
-                      <div className="text-sm text-gray-500">No comments yet — be the first to comment.</div>
+                      <div className="text-sm text-gray-500">
+                        No comments yet — be the first to comment.
+                      </div>
                     ) : (
                       comments.map((c) => (
-                        <div key={c.id} className="bg-white rounded-lg p-4 shadow-sm">
+                        <div
+                          key={c.id}
+                          className="bg-white rounded-lg p-4 shadow-sm"
+                        >
                           <div className="flex items-start gap-3">
                             <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-medium text-gray-700">
-                              {String(c.author ?? "A").split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                              {String(c.author ?? "A")
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .slice(0, 2)}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center justify-between">
-                                <div className="text-sm font-medium">{c.author}</div>
-                                <div className="text-xs text-gray-400">{fmtDate(c.date)}</div>
+                                <div className="text-sm font-medium">
+                                  {c.author}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {fmtDate(c.date)}
+                                </div>
                               </div>
-                              <div className="text-gray-700 mt-2 whitespace-pre-wrap">{c.content}</div>
+                              <div className="text-gray-700 mt-2 whitespace-pre-wrap">
+                                {c.content}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -521,19 +784,34 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
               <h3 className="text-xl font-semibold mb-4">Related articles</h3>
               <div className="grid md:grid-cols-2 gap-4">
                 {relatedPosts.map((r) => (
-                  <div key={r.id} className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition">
+                  <div
+                    key={r.id}
+                    className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition"
+                  >
                     <div className="flex items-start gap-4">
-                      {r.image ? <img src={r.image} alt={r.title} className="w-24 h-16 object-cover rounded" /> : null}
+                      {r.image ? (
+                        <img
+                          src={r.image}
+                          alt={r.title}
+                          className="w-24 h-16 object-cover rounded"
+                        />
+                      ) : null}
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <h4 className="font-medium">{r.title}</h4>
-                          <span className="text-xs text-gray-500">{r.readTime}</span>
+                          <span className="text-xs text-gray-500">
+                            {r.readTime}
+                          </span>
                         </div>
-                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">{r.excerpt}</p>
+                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                          {r.excerpt}
+                        </p>
                         <div className="flex items-center gap-3 text-xs text-gray-500 mt-3">
                           <span>{r.author}</span>
                           <span>·</span>
-                          <span>{new Date(r.date ?? "").toLocaleDateString()}</span>
+                          <span>
+                            {new Date(r.date ?? "").toLocaleDateString()}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -550,43 +828,38 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
           <div className="bg-white rounded-xl p-5 shadow">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                {String(post?.author ?? "A").split(" ").map((n) => n[0]).join("")}
+                {String(post?.author ?? "A")
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
               </div>
               <div>
                 <p className="font-medium">{post?.author ?? "Admin"}</p>
                 <p className="text-xs text-gray-500">Contributor</p>
               </div>
             </div>
-            <p className="text-sm text-gray-600 mt-4">{post?.author ? `Read more from ${post.author}.` : "This author shares insights, market analysis and real estate tips."}</p>
+            <p className="text-sm text-gray-600 mt-4">
+              {post?.author
+                ? `Read more from ${post.author}.`
+                : "This author shares insights, market analysis and real estate tips."}
+            </p>
             <div className="mt-4 flex gap-2">
-              <button className="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm">Follow</button>
+              <button className="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm">
+                Follow
+              </button>
 
-              {/* Bookmark button uses Bookmark icon with conditional styling */}
               <button
                 onClick={handleBookmark}
                 disabled={bookmarkProcessing}
-                className={`flex items-center gap-2 border px-3 py-2 rounded text-sm ${isBookmarked ? "bg-yellow-50 text-yellow-700 border-yellow-200" : "border-gray-200"}`}
+                className={`flex items-center gap-2 border px-3 py-2 rounded text-sm ${isBookmarked
+                    ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                    : "border-gray-200"
+                  }`}
                 title={isBookmarked ? "Remove bookmark" : "Save"}
                 aria-pressed={isBookmarked}
               >
                 <Bookmark className="w-4 h-4" />
                 <span>{isBookmarked ? "Saved" : "Save"}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Share */}
-          <div className="bg-white rounded-xl p-5 shadow">
-            <h4 className="font-medium mb-2">Share Article</h4>
-            <div className="flex items-center gap-3">
-              <button onClick={() => { try { navigator.clipboard.writeText(window.location.href); alert("Link copied"); } catch { alert("Copy your link: " + window.location.href); } }} className="flex items-center gap-2 px-3 py-2 border rounded text-sm">
-                <Share2 className="w-4 h-4" /> Copy link
-              </button>
-              <button onClick={() => { window.location.href = `mailto:?subject=${encodeURIComponent(post?.title ?? "")}&body=${encodeURIComponent(window.location.href)}`; }} className="flex items-center gap-2 px-3 py-2 border rounded text-sm">
-                <Mail className="w-4 h-4" /> Email
-              </button>
-              <button onClick={() => { window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(post?.title ?? "")}`, "_blank"); }} className="flex items-center gap-2 px-3 py-2 border rounded text-sm">
-                <Twitter className="w-4 h-4" /> Tweet
               </button>
             </div>
           </div>
@@ -597,14 +870,35 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
             <div className="space-y-3">
               {recentPosts.map((r) => (
                 <div key={r.id} className="flex items-start gap-3">
-                  {r.image ? <img src={r.image} alt={r.title} className="w-16 h-12 object-cover rounded" /> : <div className="w-16 h-12 bg-gray-100 rounded" />}
+                  {r.image ? (
+                    <img
+                      src={r.image}
+                      alt={r.title}
+                      className="w-16 h-12 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="w-16 h-12 bg-gray-100 rounded" />
+                  )}
                   <div className="flex-1">
-                    <button onClick={() => { navigate(`/blogs/${encodeURIComponent(String(r.slug ?? r.id))}`); }} className="text-sm text-left font-medium hover:underline">{r.title}</button>
-                    <div className="text-xs text-gray-500 mt-1">{new Date(r.date ?? "").toLocaleDateString()}</div>
+                    <button
+                      onClick={() => {
+                        navigate(
+                          `/blogs/${encodeURIComponent(String(r.slug ?? r.id))}`
+                        );
+                      }}
+                      className="text-sm text-left font-medium hover:underline"
+                    >
+                      {r.title}
+                    </button>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {new Date(r.date ?? "").toLocaleDateString()}
+                    </div>
                   </div>
                 </div>
               ))}
-              {recentPosts.length === 0 && <div className="text-sm text-gray-500">No recent posts</div>}
+              {recentPosts.length === 0 && (
+                <div className="text-sm text-gray-500">No recent posts</div>
+              )}
             </div>
           </div>
 
@@ -613,21 +907,38 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({ slug, post: initialPost
             <h4 className="font-medium mb-3">Categories</h4>
             <div className="flex flex-wrap gap-2">
               {categories.map((c) => (
-                <button key={c} onClick={() => { navigate(`/blogs?category=${encodeURIComponent(c)}`); }} className="px-3 py-1 bg-gray-100 text-sm rounded">
+                <button
+                  key={c}
+                  onClick={() => {
+                    navigate(`/blogs?category=${encodeURIComponent(c)}`);
+                  }}
+                  className="px-3 py-1 bg-gray-100 text-sm rounded"
+                >
                   {c}
                 </button>
               ))}
-              {categories.length === 0 && <div className="text-sm text-gray-500">No categories</div>}
+              {categories.length === 0 && (
+                <div className="text-sm text-gray-500">No categories</div>
+              )}
             </div>
           </div>
 
           {/* Newsletter / CTA */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white rounded-xl p-5 shadow">
             <h4 className="text-lg font-semibold mb-2">Join our newsletter</h4>
-            <p className="text-sm mb-4">Weekly insights, market updates and featured listings — delivered to your inbox.</p>
+            <p className="text-sm mb-4">
+              Weekly insights, market updates and featured listings — delivered
+              to your inbox.
+            </p>
             <div className="flex gap-2">
-              <input type="email" placeholder="Your email" className="flex-1 px-3 py-2 rounded text-black" />
-              <button className="px-4 py-2 bg-white text-blue-600 rounded">Subscribe</button>
+              <input
+                type="email"
+                placeholder="Your email"
+                className="flex-1 px-3 py-2 rounded text-black"
+              />
+              <button className="px-4 py-2 bg-white text-blue-600 rounded">
+                Subscribe
+              </button>
             </div>
           </div>
         </aside>
