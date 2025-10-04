@@ -1,72 +1,127 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Search, X, User, Phone, Mail, MapPin, Plus } from 'lucide-react';
+import { buyerAPI } from '@/lib/buyerAPI';
+import { sellerAPI } from '@/lib/sellersAPI';
 
-const ClientSelector = ({ onSelect, onClose, title }: any) => {
+type Party = {
+  id?: string | number;
+  name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  salutation?: string;
+  type?: 'Individual' | 'Company' | string;
+  [k: string]: any;
+};
+
+type ClientSelectorProps = {
+  title?: string;
+  mode?: 'buyer' | 'seller';
+  onSelect: (party: Party) => void;
+  onClose: () => void;
+};
+
+function normalizeList<T = any>(res: any): T[] {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.rows)) return res.rows;
+  if (Array.isArray(res?.items)) return res.items;
+  return [];
+}
+
+// 🔹 Simple shimmer loader for cards
+const ShimmerLoader: React.FC<{ count?: number }> = ({ count = 6 }) => (
+  <div className="animate-pulse grid grid-cols-1 md:grid-cols-2 gap-3">
+    {Array.from({ length: count }).map((_, i) => (
+      <div
+        key={i}
+        className="p-3 border rounded-lg bg-gray-50 border-gray-200 shadow-sm"
+      >
+        <div className="flex items-start space-x-3">
+          <div className="w-8 h-8 rounded-lg bg-gray-200"></div>
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+            <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const ClientSelector: React.FC<ClientSelectorProps> = ({
+  onSelect,
+  onClose,
+  title = 'Select Client',
+  mode = 'buyer',
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [items, setItems] = useState<Party[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string>('');
 
-  const clients = [
-    {
-      id: 1,
-      name: 'Rajesh Kumar',
-      phone: '+91 98765 43210',
-      email: 'rajesh.kumar@email.com',
-      address: 'Flat 301, Building A, Andheri West, Mumbai',
-      type: 'Individual',
-    },
-    {
-      id: 2,
-      name: 'Priya Sharma',
-      phone: '+91 87654 32109',
-      email: 'priya.sharma@email.com',
-      address: 'Plot 45, Sector 15, Gurgaon, Haryana',
-      type: 'Individual',
-    },
-    {
-      id: 3,
-      name: 'Mumbai Properties Ltd',
-      phone: '+91 76543 21098',
-      email: 'info@mumbaiproperties.com',
-      address: 'Office 501, Business Tower, BKC, Mumbai',
-      type: 'Company',
-    },
-    {
-      id: 4,
-      name: 'Amit Patel',
-      phone: '+91 65432 10987',
-      email: 'amit.patel@email.com',
-      address: 'House 15, Green Valley Society, Pune',
-      type: 'Individual',
-    },
-    {
-      id: 5,
-      name: 'Green Valley Developers',
-      phone: '+91 54321 09876',
-      email: 'contact@greenvalley.com',
-      address: 'Tower B, Commercial Complex, Noida',
-      type: 'Company',
-    },
-  ];
+  const fetchList = useCallback(async () => {
+    setLoading(true);
+    setErr('');
+    try {
+      const fetcher = mode === 'buyer' ? buyerAPI.getAll : sellerAPI.getAll;
+      const res = await fetcher();
+      const list = normalizeList<Party>(res);
 
-  const filteredClients = clients.filter(
-    (client) =>
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.phone.includes(searchTerm) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+      const mapped = list.map((it: any) => ({
+        id: it.id ?? it._id ?? it.buyer_id ?? it.seller_id,
+        name: it.name ?? it.full_name ?? it.company_name ?? 'Unnamed',
+        phone: it.phone ?? it.mobile ?? it.whatsapp ?? '',
+        email: it.email ?? '',
+        address: it.address ?? it.location ?? '',
+        salutation: it.salutation ?? '',
+        type: it.type ?? (it.company_name ? 'Company' : 'Individual'),
+        ...it,
+      }));
 
-  // Type-wise card color scheme
-  const getColors = (type: string) => {
-    if (type === 'Company') {
+      setItems(mapped);
+    } catch (e: any) {
+      console.error('load clients failed:', e);
+      setErr('Failed to load list');
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    fetchList();
+  }, [fetchList]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {}, 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  const filtered = useMemo(() => {
+    if (!searchTerm) return items;
+    const q = searchTerm.toLowerCase();
+    return items.filter(
+      (c) =>
+        (c.name || '').toLowerCase().includes(q) ||
+        (c.email || '').toLowerCase().includes(q) ||
+        (c.phone || '').includes(searchTerm)
+    );
+  }, [items, searchTerm]);
+
+  const getColors = (type?: string) => {
+    if (String(type).toLowerCase() === 'company') {
       return {
         card: 'bg-purple-50 border-purple-200 hover:bg-purple-100',
         iconBg: 'bg-purple-100',
       };
-    } else {
-      return {
-        card: 'bg-green-50 border-green-200 hover:bg-green-100',
-        iconBg: 'bg-green-100',
-      };
     }
+    return {
+      card: 'bg-green-50 border-green-200 hover:bg-green-100',
+      iconBg: 'bg-green-100',
+    };
   };
 
   return (
@@ -75,7 +130,9 @@ const ClientSelector = ({ onSelect, onClose, title }: any) => {
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-gray-900">{title}</h2>
+            <h2 className="text-base font-bold text-gray-900">
+              {title || (mode === 'buyer' ? 'Select Buyer' : 'Select Seller')}
+            </h2>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
@@ -90,68 +147,92 @@ const ClientSelector = ({ onSelect, onClose, title }: any) => {
           <div className="flex items-center space-x-3">
             <div className="relative flex-1">
               <Search
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 size={16}
               />
               <input
                 type="text"
-                placeholder="Search clients by name, phone, or email..."
+                placeholder={`Search ${mode} by name, phone, or email...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-            <button className="flex items-center space-x-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
               <Plus size={14} />
               <span>Add New</span>
             </button>
           </div>
+
+          {!!err && !loading && (
+            <div className="mt-2 text-red-600">{err}</div>
+          )}
         </div>
 
         {/* Client List */}
         <div className="p-4 max-h-96 overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {filteredClients.map((client) => {
-              const colors = getColors(client.type);
-              return (
-                <div
-                  key={client.id}
-                  onClick={() => onSelect(client)}
-                  className={`p-3 border rounded-lg cursor-pointer transition-all ${colors.card}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3">
-                      {/* User Icon */}
-                      <div className={`p-2 rounded-lg ${colors.iconBg}`}>
-                        <User size={16} className="text-gray-700" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{client.name}</h3>
-                        <p className="text-gray-500 mb-1">{client.type}</p>
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-1.5 text-gray-600">
-                            <Phone size={12} className="text-green-600" />
-                            <span>{client.phone}</span>
-                          </div>
-                          <div className="flex items-center space-x-1.5 text-gray-600">
-                            <Mail size={12} className="text-blue-600" />
-                            <span>{client.email}</span>
-                          </div>
-                          <div className="flex items-center space-x-1.5 text-gray-600">
-                            <MapPin size={12} className="text-red-600" />
-                            <span>{client.address}</span>
+          {loading ? (
+            <ShimmerLoader count={6} /> // 👈 shimmer loader
+          ) : filtered.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              No {mode}s found
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {filtered.map((client) => {
+                const colors = getColors(client.type);
+                return (
+                  <div
+                    key={String(client.id ?? client.email ?? Math.random())}
+                    onClick={() => onSelect(client)}
+                    className={`p-3 border rounded-lg cursor-pointer transition-all ${colors.card}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-3">
+                        <div className={`p-2 rounded-lg ${colors.iconBg}`}>
+                          <User size={16} className="text-gray-700" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">
+                            {client.salutation} {client.name}
+                          </h3>
+                          <p className="text-gray-500 mb-1 capitalize">
+                            {client.type ||
+                              (mode === 'seller' ? 'Seller' : 'Buyer')}
+                          </p>
+                          <div className="space-y-1">
+                            {(client.phone || client.whatsapp) && (
+                              <div className="flex items-center space-x-1.5 text-gray-600">
+                                <Phone size={12} className="text-green-600" />
+                                <span>{client.phone || client.whatsapp}</span>
+                              </div>
+                            )}
+                            {client.email && (
+                              <div className="flex items-center space-x-1.5 text-gray-600">
+                                <Mail size={12} className="text-blue-600" />
+                                <span>{client.email}</span>
+                              </div>
+                            )}
+                            {client.address && (
+                              <div className="flex items-center space-x-1.5 text-gray-600">
+                                <MapPin size={12} className="text-red-600" />
+                                <span>{client.address}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
+                      <button className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        Select
+                      </button>
                     </div>
-                    <button className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                      Select
-                    </button>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
