@@ -55,6 +55,31 @@ const toDate = (v?: string | null) => {
   }
 };
 
+
+// --- array safety helpers ---
+const parseIfArrayJSON = (v: any): any[] => {
+  if (Array.isArray(v)) return v;
+  if (typeof v === "string") {
+    try {
+      const parsed = JSON.parse(v);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const ensureArray = (...candidates: any[]) => {
+  // first non-empty array wins
+  for (const c of candidates) {
+    const arr = parseIfArrayJSON(c);
+    if (arr.length) return arr;
+  }
+  // else parse first candidate (returns [] if not valid)
+  return parseIfArrayJSON(candidates[0]);
+};
+
 // convert "Initial Contact" -> "initial_contact"
 const normalizeStage = (v?: string | null) =>
   v ? v.toLowerCase().replace(/\s+/g, "_") : "initial_contact";
@@ -124,14 +149,13 @@ export const mapApiSellerToUI = (api: any): UISeller => ({
   dealValue: Number(api.deal_value || 0),
   expectedClose: api.expected_close || null,
 
-  properties: Array.isArray(api.properties) ? api.properties : [],
-  coSellers: Array.isArray(api.coSellers) ? api.coSellers
-    : Array.isArray(api.cosellers) ? api.cosellers
-      : [],
+ properties: ensureArray(api.properties, api.props, api.property_list),
 
-  activities: Array.isArray(api.activities) ? api.activities : [],
-  followups: Array.isArray(api.followups) ? api.followups : [],
-  documents: Array.isArray(api.documents) ? api.documents : [],
+  coSellers: ensureArray(api.coSellers, api.cosellers),
+
+  activities: ensureArray(api.activities, api.metrics?.activities),
+  followups: ensureArray(api.followups, api.metrics?.followups),
+  documents: ensureArray(api.documents, api.metrics?.documents),
 
   visits: Number(api.visits || 0),
   totalVisits: Number(api.total_visits || 0),
@@ -155,6 +179,8 @@ export const mapApiSellerToUI = (api: any): UISeller => ({
   assigned_to_name: api.assigned_to_name,
 
 });
+
+
 
 // ---------- Component ----------
 const SellersPage: React.FC = () => {
