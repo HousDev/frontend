@@ -5,10 +5,11 @@ import {
   Download,
   Trash2,
   Copy,
-  ExternalLink,
-  Loader2,
   RefreshCw,
   CheckCircle2,
+  X,
+  Search,
+  ChevronDown,
 } from "lucide-react";
 import { documentsGeneratedAPI } from "@/lib/documentsGeneratedAPI";
 
@@ -79,11 +80,19 @@ const SkeletonCard = () => (
   </div>
 );
 
+type SortKey = "recent" | "oldest" | "name_az" | "name_za";
+
 const CreatedDocuments: React.FC = () => {
   const [loading, setLoading] = React.useState(false);
   const [list, setList] = React.useState<GeneratedDoc[]>([]);
   const [error, setError] = React.useState<string | null>(null);
 
+  // 🔎 Search / Filter UI state
+  const [search, setSearch] = React.useState("");
+  const [category, setCategory] = React.useState<string>("all");
+  const [sortBy, setSortBy] = React.useState<SortKey>("recent");
+
+  // --- helpers ---
   const normalize = (res: any): GeneratedDoc[] => {
     if (Array.isArray(res)) return res as GeneratedDoc[];
     if (Array.isArray(res?.data)) return res.data as GeneratedDoc[];
@@ -164,21 +173,171 @@ const CreatedDocuments: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  // --- derive categories from data
+  const categories = React.useMemo(() => {
+    const s = new Set<string>();
+    list.forEach((d) => d.category && s.add(d.category));
+    return ["all", ...Array.from(s).sort((a, b) => a.localeCompare(b))];
+  }, [list]);
+
+  // --- filtering + sorting
+  const filtered = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+
+    const match = (d: GeneratedDoc) => {
+      if (category !== "all" && (d.category || "").toLowerCase() !== category.toLowerCase()) {
+        return false;
+      }
+      if (!q) return true;
+
+      // prepare a variable string to search inside variable keys or array items
+      let varStr = "";
+      try {
+        const raw = typeof d.variables === "string" ? JSON.parse(d.variables) : d.variables;
+        if (Array.isArray(raw)) varStr = raw.join(" ");
+        else if (raw && typeof raw === "object") varStr = Object.keys(raw).join(" ");
+      } catch {
+        // ignore JSON parse errors
+      }
+
+      // we avoid searching inside full HTML content for performance; rely on meta fields
+      const hay = [
+        d.name,
+        d.description || "",
+        d.category || "",
+        varStr,
+        d.template_id ? String(d.template_id) : "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return hay.includes(q);
+    };
+
+    const out = list.filter(match);
+
+    const getTime = (d: GeneratedDoc) =>
+      new Date(d.updated_at || d.created_at || 0).getTime();
+
+    switch (sortBy) {
+      case "recent":
+        return out.sort((a, b) => getTime(b) - getTime(a));
+      case "oldest":
+        return out.sort((a, b) => getTime(a) - getTime(b));
+      case "name_az":
+        return out.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      case "name_za":
+        return out.sort((a, b) => (b.name || "").localeCompare(a.name || ""));
+      default:
+        return out;
+    }
+  }, [list, search, category, sortBy]);
+
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base font-semibold text-gray-900">Created Documents</h2>
-          <p className="text-xs text-gray-600 mt-0.5">Final snapshots you generated</p>
+          <p className="text-xs text-gray-600 mt-0.5">
+            Final snapshots you generated
+          </p>
         </div>
-        <button
-          onClick={fetchData}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium ring-1 ring-gray-200 hover:bg-gray-50"
-        >
-          <RefreshCw size={14} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchData}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium ring-1 ring-gray-200 hover:bg-gray-50"
+          >
+            <RefreshCw size={14} />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Search input */}
+          <div className="col-span-1">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name, description, variables…"
+                className="w-full pl-9 pr-9 py-2 text-sm rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-orange-200"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-100"
+                  title="Clear"
+                >
+                  <X size={14} className="text-gray-500" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Category filter */}
+          <div className="col-span-1">
+            <div className="relative">
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full appearance-none pl-3 pr-8 py-2 text-sm rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-orange-200 bg-white"
+              >
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c === "all" ? "All categories" : c}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={16}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+            </div>
+          </div>
+
+          {/* Sort */}
+          <div className="col-span-1">
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortKey)}
+                className="w-full appearance-none pl-3 pr-8 py-2 text-sm rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-orange-200 bg-white"
+              >
+                <option value="recent">Sort: Recently updated</option>
+                <option value="oldest">Sort: Oldest first</option>
+                <option value="name_az">Sort: Name A→Z</option>
+                <option value="name_za">Sort: Name Z→A</option>
+              </select>
+              <ChevronDown
+                size={16}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="mt-3 text-xs text-gray-600">
+          Showing <span className="font-semibold text-gray-800">{filtered.length}</span> of{" "}
+          <span className="font-semibold text-gray-800">{list.length}</span> documents
+          {category !== "all" ? (
+            <>
+              {" "}
+              in category <span className="font-semibold text-gray-800">{category}</span>
+            </>
+          ) : null}
+          {search ? (
+            <>
+              {" "}
+              for search "<span className="font-semibold text-gray-800">{search}</span>"
+            </>
+          ) : null}
+        </div>
       </div>
 
       {/* States */}
@@ -196,22 +355,20 @@ const CreatedDocuments: React.FC = () => {
         </div>
       )}
 
-      {!loading && !error && list.length === 0 && (
+      {!loading && !error && filtered.length === 0 && (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
             <FileText className="text-gray-400" size={22} />
           </div>
-          <h3 className="text-sm font-semibold text-gray-900">No created documents yet</h3>
-          <p className="mt-1 text-xs text-gray-500">
-            Generate a document and it will appear here.
-          </p>
+          <h3 className="text-sm font-semibold text-gray-900">No documents match your filters</h3>
+          <p className="mt-1 text-xs text-gray-500">Try clearing the search or changing filters.</p>
         </div>
       )}
 
       {/* Grid */}
-      {!loading && !error && list.length > 0 && (
+      {!loading && !error && filtered.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {list.map((doc) => {
+          {filtered.map((doc) => {
             const { list: vList, count: vCount } = useVarsCount(doc.variables);
             const more = Math.max(0, vCount - vList.length);
 

@@ -29,6 +29,28 @@ function normalizeList<T = any>(res: any): T[] {
   return [];
 }
 
+// 🔹 Simple shimmer loader for cards
+const ShimmerLoader: React.FC<{ count?: number }> = ({ count = 6 }) => (
+  <div className="animate-pulse grid grid-cols-1 md:grid-cols-2 gap-3">
+    {Array.from({ length: count }).map((_, i) => (
+      <div
+        key={i}
+        className="p-3 border rounded-lg bg-gray-50 border-gray-200 shadow-sm"
+      >
+        <div className="flex items-start space-x-3">
+          <div className="w-8 h-8 rounded-lg bg-gray-200"></div>
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+            <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
 const ClientSelector: React.FC<ClientSelectorProps> = ({
   onSelect,
   onClose,
@@ -45,10 +67,9 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({
     setErr('');
     try {
       const fetcher = mode === 'buyer' ? buyerAPI.getAll : sellerAPI.getAll;
-      const res = await fetcher(); // getAll() has no args in your project
+      const res = await fetcher();
       const list = normalizeList<Party>(res);
 
-      // Normalize to consistent shape
       const mapped = list.map((it: any) => ({
         id: it.id ?? it._id ?? it.buyer_id ?? it.seller_id,
         name: it.name ?? it.full_name ?? it.company_name ?? 'Unnamed',
@@ -70,16 +91,12 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({
     }
   }, [mode]);
 
-  // initial load + when mode changes
   useEffect(() => {
     fetchList();
   }, [fetchList]);
 
-  // debounce input (local filtering only)
   useEffect(() => {
-    const t = setTimeout(() => {
-      // No server call; we filter locally
-    }, 300);
+    const t = setTimeout(() => {}, 300);
     return () => clearTimeout(t);
   }, [searchTerm]);
 
@@ -143,21 +160,25 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({
             </div>
             <button
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              // onClick={() => ... open add form modal }
             >
               <Plus size={14} />
               <span>Add New</span>
             </button>
           </div>
 
-          {loading && <div className="mt-2 text-gray-500">Loading {mode}s…</div>}
-          {!!err && <div className="mt-2 text-red-600">{err}</div>}
+          {!!err && !loading && (
+            <div className="mt-2 text-red-600">{err}</div>
+          )}
         </div>
 
         {/* Client List */}
         <div className="p-4 max-h-96 overflow-y-auto">
-          {filtered.length === 0 && !loading ? (
-            <div className="text-center text-gray-500 py-8">No {mode}s found</div>
+          {loading ? (
+            <ShimmerLoader count={6} /> // 👈 shimmer loader
+          ) : filtered.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              No {mode}s found
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filtered.map((client) => {
@@ -174,9 +195,12 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({
                           <User size={16} className="text-gray-700" />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900"> {client.salutation}{' '}{client.name}</h3>
+                          <h3 className="font-semibold text-gray-900">
+                            {client.salutation} {client.name}
+                          </h3>
                           <p className="text-gray-500 mb-1 capitalize">
-                            {client.type || (mode === 'seller' ? 'Seller' : 'Buyer')}
+                            {client.type ||
+                              (mode === 'seller' ? 'Seller' : 'Buyer')}
                           </p>
                           <div className="space-y-1">
                             {(client.phone || client.whatsapp) && (
