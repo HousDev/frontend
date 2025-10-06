@@ -26,7 +26,8 @@ import {
   Gem,
   Zap,
   Bot,
-  Rocket
+  Rocket,
+  ChevronDown
 } from 'lucide-react';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 
@@ -272,6 +273,12 @@ const ServicesPage = () => {
       description: 'Successful completion with post-service support'
     }
   ];
+
+
+  const [openIndex, setOpenIndex] = React.useState<number | null>(null);
+  const toggle = (idx: number) =>
+    setOpenIndex((prev) => (prev === idx ? null : idx));
+  
   const { systemSettings } = useSystemSettings();
   const companyName = systemSettings?.company_name;
   return (
@@ -281,7 +288,7 @@ const ServicesPage = () => {
         style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-3 text-[#E6761D]">
+            <h2 className="text-3xl font-bold mb-3 text-white">
               Complete Real Estate Solutions
 
             </h2>
@@ -656,40 +663,84 @@ const ServicesPage = () => {
 
       {/* FAQ Section */}
       <section className="py-3 bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* full-width container (removed max-w-*) */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently Asked Questions</h2>
-            <p className="text-lg text-gray-600">Get answers to common questions about our services</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-lg text-gray-600">
+              Get answers to common questions about our services
+            </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-2 sm:space-y-3">
             {[
               {
-                question: 'What makes ResaleExpert different from other platforms?',
-                answer: 'We offer 100% verified properties, AI-powered matching, and end-to-end support with transparent pricing. Our expert team ensures a smooth experience from search to registration.'
+                question: "What makes ResaleExpert different from other platforms?",
+                answer:
+                  "We offer 100% verified properties, AI-powered matching, and end-to-end support with transparent pricing. Our expert team ensures a smooth experience from search to registration.",
               },
               {
-                question: 'How do you verify properties?',
-                answer: 'Our verification process includes legal document checks, physical property inspection, ownership verification, and compliance checks to ensure authenticity and legal clarity.'
+                question: "How do you verify properties?",
+                answer:
+                  "Our verification process includes legal document checks, physical property inspection, ownership verification, and compliance checks to ensure authenticity and legal clarity.",
               },
               {
-                question: 'What are your fees for selling a property?',
-                answer: 'We charge a transparent 2% commission only after successful sale. No hidden fees, no upfront charges. You pay only when we deliver results.'
+                question: "What are your fees for selling a property?",
+                answer:
+                  "We charge a transparent 2% commission only after successful sale. No hidden fees, no upfront charges. You pay only when we deliver results.",
               },
               {
-                question: 'How long does it typically take to sell a property?',
-                answer: 'On average, properties sell within 30-60 days with our marketing strategies. Premium locations and well-priced properties often sell faster.'
+                question: "How long does it typically take to sell a property?",
+                answer:
+                  "On average, properties sell within 30-60 days with our marketing strategies. Premium locations and well-priced properties often sell faster.",
               },
               {
-                question: 'Do you provide legal support?',
-                answer: 'Yes, we have experienced legal partners who assist with documentation, title verification, registration, and ensure all transactions are legally compliant.'
-              }
-            ].map((faq, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">{faq.question}</h3>
-                <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
-              </div>
-            ))}
+                question: "Do you provide legal support?",
+                answer:
+                  "Yes, we have experienced legal partners who assist with documentation, title verification, registration, and ensure all transactions are legally compliant.",
+              },
+            ].map((faq, index) => {
+              const isOpen = openIndex === index;
+              return (
+                <div
+                  key={index}
+                  className="bg-white rounded-xl shadow-sm border border-gray-200"
+                >
+                  {/* Header as a button with chevron */}
+                  <button
+                    type="button"
+                    onClick={() => toggle(index)}
+                    aria-expanded={isOpen}
+                    aria-controls={`faq-panel-${index}`}
+                    className="w-full flex items-center justify-between gap-4 p-6 text-left"
+                  >
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                      {faq.question}
+                    </h3>
+                    <ChevronDown
+                      className={`shrink-0 transition-transform duration-300 ${isOpen ? "rotate-180" : ""
+                        }`}
+                    />
+                  </button>
+
+                  {/* Smooth collapse area */}
+                  <div
+                    id={`faq-panel-${index}`}
+                    role="region"
+                    className={`grid transition-[grid-template-rows] duration-300 ease-out ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                      }`}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="px-6 pb-6 pt-0 text-gray-700 leading-relaxed">
+                        {faq.answer}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -709,23 +760,8 @@ const ServicesPage = () => {
               Get Free Consultation
             </button>
             <button className="border-2 border-white text-white px-3 py-2 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-all">
-              Call Now: +91 99999 99999
+              Call Now: +91 9637 00 9639
             </button>
-          </div>
-
-          <div className="mt-6 flex items-center justify-center space-x-8 text-blue-100">
-            <div className="flex items-center space-x-2">
-              <Phone size={20} />
-              <span>24/7 Support</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Shield size={20} />
-              <span>100% Verified</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Award size={20} />
-              <span>Award Winning</span>
-            </div>
           </div>
         </div>
       </section>
