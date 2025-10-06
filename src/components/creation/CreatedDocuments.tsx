@@ -10,6 +10,8 @@ import {
   X,
   Search,
   ChevronDown,
+  User,
+  MapPin,
 } from "lucide-react";
 import { documentsGeneratedAPI } from "@/lib/documentsGeneratedAPI";
 
@@ -20,7 +22,7 @@ type GeneratedDoc = {
   description?: string | null;
   category?: string | null;
   content: string;
-  variables?: any; // array | object | null
+  variables?: any;
   status: "draft" | "created";
   created_by?: number | null;
   updated_by?: number | null;
@@ -50,18 +52,12 @@ const Badge = ({ children, tone = "gray" as "gray" | "green" | "blue" }) => {
   );
 };
 
-function useVarsCount(v: any): { list: string[]; count: number } {
+function parseVariables(v: any) {
   try {
     const raw = typeof v === "string" ? JSON.parse(v) : v;
-    if (Array.isArray(raw)) return { list: raw.slice(0, 3), count: raw.length };
-    if (raw && typeof raw === "object") {
-      const keys = Object.keys(raw);
-      return { list: keys.slice(0, 3), count: keys.length };
-    }
-  } catch {
-    /* ignore */
-  }
-  return { list: [], count: 0 };
+    if (raw && typeof raw === "object") return raw;
+  } catch {}
+  return {};
 }
 
 const SkeletonCard = () => (
@@ -74,7 +70,6 @@ const SkeletonCard = () => (
     <div className="flex gap-2 mb-4">
       <div className="h-6 w-16 bg-gray-200 rounded"></div>
       <div className="h-6 w-20 bg-gray-200 rounded"></div>
-      <div className="h-6 w-14 bg-gray-200 rounded"></div>
     </div>
     <div className="h-9 w-full bg-gray-200 rounded"></div>
   </div>
@@ -82,17 +77,27 @@ const SkeletonCard = () => (
 
 type SortKey = "recent" | "oldest" | "name_az" | "name_za";
 
+function parseFilenameFromDisposition(disposition?: string | null, fallback = "document.pdf") {
+  if (!disposition) return fallback;
+  try {
+    const matchQuoted = disposition.match(/filename="([^"]+)"/i);
+    if (matchQuoted?.[1]) return matchQuoted[1];
+    const matchStar = disposition.match(/filename\*\s*=\s*[^']*''([^;]+)/i);
+    if (matchStar?.[1]) return decodeURIComponent(matchStar[1]);
+  } catch {}
+  return fallback;
+}
+
 const CreatedDocuments: React.FC = () => {
   const [loading, setLoading] = React.useState(false);
   const [list, setList] = React.useState<GeneratedDoc[]>([]);
   const [error, setError] = React.useState<string | null>(null);
 
-  // 🔎 Search / Filter UI state
   const [search, setSearch] = React.useState("");
   const [category, setCategory] = React.useState<string>("all");
   const [sortBy, setSortBy] = React.useState<SortKey>("recent");
+  const [pageSize, setPageSize] = React.useState<"a4" | "legal">("a4");
 
-  // --- helpers ---
   const normalize = (res: any): GeneratedDoc[] => {
     if (Array.isArray(res)) return res as GeneratedDoc[];
     if (Array.isArray(res?.data)) return res.data as GeneratedDoc[];
@@ -151,10 +156,41 @@ const CreatedDocuments: React.FC = () => {
     }
   };
 
-  const openHTML = (doc: GeneratedDoc) => {
-    const blob = new Blob([doc.content || ""], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "noopener,noreferrer");
+
+  const downloadPDF = async (doc: GeneratedDoc) => {
+    try {
+      const hasGetPdfUrl = typeof (documentsGeneratedAPI as any).getPdfUrl === "function";
+      if (!hasGetPdfUrl) throw new Error("getPdfUrl not available in documentsGeneratedAPI");
+
+      const url: string = (documentsGeneratedAPI as any).getPdfUrl(doc.id, pageSize);
+
+      if (typeof (documentsGeneratedAPI as any).fetchPdfBlob === "function") {
+        const { blob, filename } = await (documentsGeneratedAPI as any).fetchPdfBlob(doc.id, pageSize);
+        const a = document.createElement("a");
+        const href = URL.createObjectURL(blob);
+        a.href = href;
+        a.download = filename || `${(doc.name || "document").replace(/\s+/g, "_")}.pdf`;
+        a.click();
+        URL.revokeObjectURL(href);
+        return;
+      }
+
+      const resp = await fetch(url, { method: "GET" });
+      if (!resp.ok) throw new Error(`Download failed (${resp.status})`);
+
+      const disp = resp.headers.get("Content-Disposition");
+      const filename = parseFilenameFromDisposition(disp, `${(doc.name || "document").replace(/\s+/g, "_")}.pdf`);
+
+      const blob = await resp.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(href);
+    } catch (e: any) {
+      alert(e?.message || "Failed to download PDF");
+    }
   };
 
   const copyTitle = async (txt: string) => {
@@ -163,24 +199,12 @@ const CreatedDocuments: React.FC = () => {
     } catch {}
   };
 
-  const downloadHTML = (doc: GeneratedDoc) => {
-    const blob = new Blob([doc.content || ""], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(doc.name || "document").replace(/\s+/g, "_")}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // --- derive categories from data
   const categories = React.useMemo(() => {
     const s = new Set<string>();
     list.forEach((d) => d.category && s.add(d.category));
     return ["all", ...Array.from(s).sort((a, b) => a.localeCompare(b))];
   }, [list]);
 
-  // --- filtering + sorting
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
 
@@ -190,22 +214,10 @@ const CreatedDocuments: React.FC = () => {
       }
       if (!q) return true;
 
-      // prepare a variable string to search inside variable keys or array items
-      let varStr = "";
-      try {
-        const raw = typeof d.variables === "string" ? JSON.parse(d.variables) : d.variables;
-        if (Array.isArray(raw)) varStr = raw.join(" ");
-        else if (raw && typeof raw === "object") varStr = Object.keys(raw).join(" ");
-      } catch {
-        // ignore JSON parse errors
-      }
-
-      // we avoid searching inside full HTML content for performance; rely on meta fields
       const hay = [
         d.name,
         d.description || "",
         d.category || "",
-        varStr,
         d.template_id ? String(d.template_id) : "",
       ]
         .join(" ")
@@ -215,9 +227,7 @@ const CreatedDocuments: React.FC = () => {
     };
 
     const out = list.filter(match);
-
-    const getTime = (d: GeneratedDoc) =>
-      new Date(d.updated_at || d.created_at || 0).getTime();
+    const getTime = (d: GeneratedDoc) => new Date(d.updated_at || d.created_at || 0).getTime();
 
     switch (sortBy) {
       case "recent":
@@ -235,13 +245,10 @@ const CreatedDocuments: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base font-semibold text-gray-900">Created Documents</h2>
-          <p className="text-xs text-gray-600 mt-0.5">
-            Final snapshots you generated
-          </p>
+          <p className="text-xs text-gray-600 mt-0.5">Final snapshots you generated</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -254,17 +261,15 @@ const CreatedDocuments: React.FC = () => {
         </div>
       </div>
 
-      {/* Filter Bar */}
       <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* Search input */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="col-span-1">
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name, description, variables…"
+                placeholder="Search by name, description…"
                 className="w-full pl-9 pr-9 py-2 text-sm rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-orange-200"
               />
               {search && (
@@ -279,7 +284,6 @@ const CreatedDocuments: React.FC = () => {
             </div>
           </div>
 
-          {/* Category filter */}
           <div className="col-span-1">
             <div className="relative">
               <select
@@ -300,7 +304,6 @@ const CreatedDocuments: React.FC = () => {
             </div>
           </div>
 
-          {/* Sort */}
           <div className="col-span-1">
             <div className="relative">
               <select
@@ -319,9 +322,26 @@ const CreatedDocuments: React.FC = () => {
               />
             </div>
           </div>
+
+          <div className="col-span-1">
+            <div className="relative">
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(e.target.value as "a4" | "legal")}
+                className="w-full appearance-none pl-3 pr-8 py-2 text-sm rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-orange-200 bg-white"
+                title="PDF page size"
+              >
+                <option value="a4">Page: A4</option>
+                <option value="legal">Page: Legal</option>
+              </select>
+              <ChevronDown
+                size={16}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Stats row */}
         <div className="mt-3 text-xs text-gray-600">
           Showing <span className="font-semibold text-gray-800">{filtered.length}</span> of{" "}
           <span className="font-semibold text-gray-800">{list.length}</span> documents
@@ -340,7 +360,6 @@ const CreatedDocuments: React.FC = () => {
         </div>
       </div>
 
-      {/* States */}
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
@@ -365,40 +384,53 @@ const CreatedDocuments: React.FC = () => {
         </div>
       )}
 
-      {/* Grid */}
       {!loading && !error && filtered.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((doc) => {
-            const { list: vList, count: vCount } = useVarsCount(doc.variables);
-            const more = Math.max(0, vCount - vList.length);
+            const vars = parseVariables(doc.variables);
+            
+            // --- FIX STARTS HERE ---
+            const buyer = vars.buyer_name || vars.buyerName || vars.buyer;
+            const seller = vars.seller_name || vars.sellerName || vars.seller;
+            
+            // Extract salutations with fallbacks
+            const buyerSalutation = vars.buyer_salutation || vars.buyerSalutation || "";
+            const sellerSalutation = vars.seller_salutation || vars.sellerSalutation || "";
+            
+            // Combine salutation and name
+            const fullBuyerName = `${buyerSalutation} ${buyer}`.trim();
+            const fullSellerName = `${sellerSalutation} ${seller}`.trim();
+
+            const propertyTitle = vars.property_title || vars.propertyTitle || vars.title;
+            const propertyAddress = vars.property_address || vars.propertyAddress || vars.address;
+            // --- FIX ENDS HERE ---
 
             return (
               <div
                 key={doc.id}
                 className="group relative rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-lg transition-shadow"
               >
-                {/* Top Row */}
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-xl ring-1 ring-gray-200 bg-blue-50 flex items-center justify-center">
-                      <FileText size={16} className="text-blue-600" />
-                    </div>
-                    <div>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-8 w-8 rounded-xl ring-1 ring-gray-200 bg-blue-50 flex items-center justify-center flex-shrink-0">
+                        <FileText size={16} className="text-blue-600" />
+                      </div>
                       <div className="text-sm font-semibold text-gray-900 leading-5">
                         {doc.name || "Untitled"}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2">
-                        {doc.category ? <Badge tone="blue">{doc.category}</Badge> : null}
-                        <Badge tone="green">
-                          <span className="inline-flex items-center gap-1">
-                            <CheckCircle2 size={12} /> created
-                          </span>
-                        </Badge>
-                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {doc.category ? <Badge tone="blue">{doc.category}</Badge> : null}
+                      <Badge tone="green">
+                        <span className="inline-flex items-center gap-1">
+                          <CheckCircle2 size={12} /> created
+                        </span>
+                      </Badge>
                     </div>
                   </div>
 
-                  {/* Quick actions (show on hover) */}
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity -mr-1 -mt-1">
                     <button
                       onClick={() => copyTitle(doc.name)}
@@ -410,8 +442,43 @@ const CreatedDocuments: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Meta */}
-                <div className="mt-3 text-[11px] text-gray-600 space-y-1">
+                {(buyer || seller || propertyTitle || propertyAddress) && (
+                  <div className="mb-3 space-y-2 text-xs">
+                    {buyer && (
+                      <div className="flex items-start gap-2">
+                        <User size={12} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="text-gray-500 font-medium">Buyer:</span>{" "}
+                          <span className="text-gray-900">{fullBuyerName}</span>
+                        </div>
+                      </div>
+                    )}
+                    {seller && (
+                      <div className="flex items-start gap-2">
+                        <User size={12} className="text-orange-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="text-gray-500 font-medium">Seller:</span>{" "}
+                          <span className="text-gray-900">{fullSellerName}</span>
+                        </div>
+                      </div>
+                    )}
+                    {(propertyTitle || propertyAddress) && (
+                      <div className="flex items-start gap-2">
+                        <MapPin size={12} className="text-green-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="text-gray-500 font-medium">Property:</span>{" "}
+                          <span className="text-gray-900">
+                            {propertyTitle}
+                            {propertyTitle && propertyAddress && " - "}
+                            {propertyAddress}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="text-[11px] text-gray-600 space-y-1 mb-4">
                   {doc.created_at && (
                     <div>
                       <span className="text-gray-500">Created:</span>{" "}
@@ -426,53 +493,21 @@ const CreatedDocuments: React.FC = () => {
                   )}
                 </div>
 
-                {/* Variables */}
-                {vCount > 0 && (
-                  <div className="mt-3">
-                    <div className="text-[11px] font-semibold text-gray-700 mb-1">Variables</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {vList.map((v) => (
-                        <span
-                          key={v}
-                          className="rounded-full bg-gray-100 text-gray-700 ring-1 ring-gray-200 px-2 py-0.5 text-[11px]"
-                        >
-                          {v}
-                        </span>
-                      ))}
-                      {more > 0 && (
-                        <span className="rounded-full bg-gray-50 text-gray-600 ring-1 ring-gray-200 px-2 py-0.5 text-[11px]">
-                          +{more} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="mt-4 grid grid-cols-4 gap-2">
-                  <button
-                    onClick={() => openHTML(doc)}
-                    className="col-span-2 inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-white"
-                    style={{ background: BRAND.primary }}
-                    onMouseOver={(e) => ((e.currentTarget.style.background = BRAND.primaryHover))}
-                    onMouseOut={(e) => ((e.currentTarget.style.background = BRAND.primary))}
-                  >
-                    <Eye size={14} />
-                    Preview
-                  </button>
+                <div className="grid grid-cols-3 gap-2">
+                 
 
                   <button
-                    onClick={() => downloadHTML(doc)}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-gray-200 hover:bg-gray-50"
-                    title="Download HTML"
+                    onClick={() => downloadPDF(doc)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-gray-200 hover:bg-gray-50"
+                    title="Download PDF"
                   >
                     <Download size={14} />
-                    HTML
+                    Download
                   </button>
 
                   <button
                     onClick={() => handleDelete(doc.id)}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
                     title="Delete"
                   >
                     <Trash2 size={14} />

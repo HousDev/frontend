@@ -12,11 +12,10 @@ export type FormDataShape = Record<string, any>;
 
 /**
  * Naming convention:
- * - Common logged-in user vars:  user_*
- *   Expectation: formData.current_user = { id, username, first_name, ... }
- * - Seller vars:  seller_*  (formData.seller.*)
- * - Buyer vars:   buyer_*   (formData.buyer.*)
- * - Property vars: property_* (flat fields already set at selection, e.g. property_address)
+ * - Common logged-in user vars:  user_*  (formData.current_user.*)
+ * - Seller vars:  seller_*       (formData.seller.*)
+ * - Buyer vars:   buyer_*        (formData.buyer.*)
+ * - Property vars: property_*    (flat on formData, e.g. property_address)
  * - Finance/terms/doc meta/executive: flat on formData
  */
 export const VAR_MAP: Record<string, string> = {
@@ -46,7 +45,7 @@ export const VAR_MAP: Record<string, string> = {
   user_seller_id: 'current_user.seller_id',
 
   /* ============================ SELLER (selected party) ============================ */
-  salutation: 'seller.salutation', // old alias
+  salutation: 'seller.salutation',
   seller_id: 'seller.id',
   seller_salutation: 'seller.salutation',
   seller_name: 'seller.name',
@@ -129,6 +128,9 @@ export const VAR_MAP: Record<string, string> = {
   buyer_dob: 'buyer.dob',
   buyer_nearbylocations: 'buyer.nearbylocations',
 
+
+  
+
   /* ================================ PROPERTY (flat) ================================= */
   property_address: 'property_address',
   property_type: 'property_type',
@@ -202,9 +204,11 @@ export const VAR_MAP: Record<string, string> = {
 
   /* ================================== EXECUTIVE ==================================== */
   sales_executive: 'sales_executive',
-  executive_id: 'executive_id',
+ executive_id: 'executive_id',
+  executive_name: 'sales_executive',
   executive_phone: 'executive_phone',
   executive_email: 'executive_email',
+  executive_role: 'executive_role',
 
   /* ===================================== LEAD ====================================== */
   lead_id: 'lead.id',
@@ -236,33 +240,29 @@ export const VAR_MAP: Record<string, string> = {
   lead_transferred_to_buyer_by: 'lead_transferred_to_buyer_by',
   lead_is_listed: 'lead.is_listed',
 
+  /* ===================== SYSTEM SETTINGS ===================== */
+  company_name: 'system_settings.company_name',
+  company_logo: 'system_settings.company_logo',
+  footer_logo: 'system_settings.footer_logo',
+  company_favicon: 'system_settings.company_favicon',
+  primary_color: 'system_settings.primary_color',
+  secondary_color: 'system_settings.secondary_color',
+  currency: 'system_settings.currency',
+  date_format: 'system_settings.date_format',
+  time_format: 'system_settings.time_format',
+  default_language: 'system_settings.default_language',
+  max_file_size: 'system_settings.max_file_size',
+  backup_frequency: 'system_settings.backup_frequency',
+  auto_assign_leads: 'system_settings.auto_assign_leads',
+  lead_scoring_enabled: 'system_settings.lead_scoring_enabled',
+  property_auto_approval: 'system_settings.property_auto_approval',
+  created_at: 'system_settings.created_at',
+  updated_at: 'system_settings.updated_at',
 
-// ========================system setting ==================
-/* ===================== SYSTEM SETTINGS ===================== */
-company_name: 'system_settings.company_name',
-company_logo: 'system_settings.company_logo',
-footer_logo: 'system_settings.footer_logo',
-company_favicon: 'system_settings.company_favicon',
-primary_color: 'system_settings.primary_color',
-secondary_color: 'system_settings.secondary_color',
-currency: 'system_settings.currency',
-date_format: 'system_settings.date_format',
-time_format: 'system_settings.time_format',
-default_language: 'system_settings.default_language',
-max_file_size: 'system_settings.max_file_size',
-backup_frequency: 'system_settings.backup_frequency',
-auto_assign_leads: 'system_settings.auto_assign_leads',
-lead_scoring_enabled: 'system_settings.lead_scoring_enabled',
-property_auto_approval: 'system_settings.property_auto_approval',
-created_at: 'system_settings.created_at',
-updated_at: 'system_settings.updated_at',
-
-
-// user map
-
-
-
-
+  /* ============== SPECIAL (computed at resolve time; not read from formData) ======= */
+  current_date: '__computed.current_date',
+  current_time: '__computed.current_time',
+  current_datetime: '__computed.current_datetime',
 };
 
 /* ========================================================== */
@@ -281,20 +281,83 @@ function getByPath(obj: any, path: string) {
   return cur;
 }
 
+const pad = (n: number) => String(n).padStart(2, '0');
+
+function formatDate(d: Date, pattern: string): string {
+  const DD = pad(d.getDate());
+  const MM = pad(d.getMonth() + 1);
+  const YYYY = d.getFullYear();
+
+  return pattern
+    .replace(/DD/g, DD)
+    .replace(/MM/g, MM)
+    .replace(/YYYY/g, String(YYYY));
+}
+
+function formatTime(d: Date, pattern: string): string {
+  const HH = pad(d.getHours());
+  const mm = pad(d.getMinutes());
+  const ss = pad(d.getSeconds());
+
+  // 12h parts
+  const h24 = d.getHours();
+  const h12n = h24 % 12 || 12;
+  const hh = pad(h12n);
+  const A = h24 < 12 ? 'AM' : 'PM';
+  const a = A.toLowerCase();
+
+  return pattern
+    .replace(/HH/g, HH)
+    .replace(/hh/g, hh)
+    .replace(/mm/g, mm)
+    .replace(/ss/g, ss)
+    .replace(/A/g, A)
+    .replace(/a/g, a);
+}
+
 /**
  * STRICT RESOLUTION:
  * Always returns all requested variables (even if blank)
+ * - Special keys (current_date/time/datetime) are computed here.
+ * - Respects system_settings.date_format / time_format if present.
  */
 export function resolveVariablesStrict(template: DocTemplate, formData: FormDataShape) {
   const requested = Array.isArray(template.variables) ? template.variables : [];
   const out: Record<string, any> = {};
 
+  const sys = (formData && (formData as any).system_settings) || {};
+  const dateFmt = typeof sys.date_format === 'string' && sys.date_format.trim()
+    ? sys.date_format
+    : 'DD-MM-YYYY';
+  const timeFmt = typeof sys.time_format === 'string' && sys.time_format.trim()
+    ? sys.time_format
+    : 'hh:mm:ss A';
+
+  const now = new Date();
+  const computed: Record<string, string> = {
+    current_date: formatDate(now, dateFmt),
+    current_time: formatTime(now, timeFmt),
+    current_datetime: `${formatDate(now, dateFmt)} ${formatTime(now, timeFmt)}`,
+  };
+
   for (const key of requested) {
+    // computed specials
+    if (key in computed) {
+      out[key] = computed[key];
+      continue;
+    }
+
     const path = VAR_MAP[key];
     if (!path) {
       out[key] = ''; // unknown variable => blank
       continue;
     }
+    // skip __computed.* paths (handled above)
+    if (path.startsWith('__computed.')) {
+      out[key] = computed[key] ?? '';
+      continue;
+    }
+
     const val = getByPath(formData, path);
     out[key] = !isNil(val) ? val : ''; // always include, blank if missing
   }

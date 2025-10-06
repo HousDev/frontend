@@ -28,11 +28,16 @@ type CategoryMeta = { id: string; label: string; icon: LucideIcon };
 type Props = {
   mode?: "select" | "manage";
   templates?: Template[];
-  onSelectTemplate?: (t: Template) => void;
+  onSelectTemplate?: (t: Template & { _pendingGeneratedPayload?: any; _generatedDoc?: any }) => void;
   onCreateTemplate?: () => void;
   onEditTemplate?: (t: Template) => void;
   onDeleteTemplate?: (id: number | string) => void;
   onDuplicateTemplate?: (t: Template) => void;
+
+  /** optional: if true, “Use Template” par hi documents-generated row create kare
+   * default false (recommended)
+   */
+  autoCreateGenerated?: boolean;
 };
 
 /* =================== Constants =================== */
@@ -93,21 +98,21 @@ function getCategoryIcon(category: string | undefined): LucideIcon {
   return found ? found.icon : FileText;
 }
 
-// payload for /documents-generated create
+// payload for /documents-generated create (parent will use this on “Save as Draft” or “Create”)
 function buildGeneratedPayload(t: Template) {
   return {
     template_id: t.id,
     name: (t.name || "Untitled Document").trim(),
     description: t.description || null,
     category: t.category || null,
-    content: t.content || null,       // snapshot from template HTML (optional)
+    content: t.content || null, // optional snapshot
     variables: {
       template_name: t.name || null,
       template_category: t.category || null,
       template_updated_at: t.updated_at || null,
       started_at: isoNow(),
     },
-    status: "draft" as const,
+    // ⚠️ status purposely omitted here; parent will set "draft" | "created"
   };
 }
 
@@ -120,6 +125,7 @@ const TemplateSelector: React.FC<Props> = ({
   onDeleteTemplate,
   onDuplicateTemplate,
   mode = "select",
+  autoCreateGenerated = false,
 }) => {
   const useExternal = Array.isArray(templatesProp);
   const [searchTerm, setSearchTerm] = useState("");
@@ -186,7 +192,8 @@ const TemplateSelector: React.FC<Props> = ({
 
   const handleCardClick = (template: Template) => {
     if (mode === "select" && onSelectTemplate) {
-      onSelectTemplate(template);
+      // just open the editor/viewer; no draft creation here
+      onSelectTemplate({ ...template, _pendingGeneratedPayload: buildGeneratedPayload(template) });
     } else if (mode === "manage" && onEditTemplate) {
       onEditTemplate(template);
     }
@@ -207,7 +214,7 @@ const TemplateSelector: React.FC<Props> = ({
     onDuplicateTemplate?.(template);
   };
 
-  // Use Template: bump usage + create generated row
+  // Use Template
   const handleUseTemplateClick = async (template: Template, e: React.MouseEvent) => {
     e.stopPropagation();
     if (mode !== "select") return;
@@ -222,17 +229,8 @@ const TemplateSelector: React.FC<Props> = ({
     };
 
     try {
-      // 1) bump usage (non-blocking)
-      const bumpPromise = documentsTemplateAPI.useTemplate(id);
-
-      // 2) create generated doc
-      const payload = buildGeneratedPayload(template);
-      const createdRow = await documentsGeneratedAPI.create(payload); // { id, ... }
-      // parent ko id dena IMPORTANT hai:
-      onSelectTemplate?.({ ...template, _generatedDoc: createdRow });
-
-      // 3) settle usage
-      const bump = await bumpPromise;
+      // 1) bump usage (non-blocking, but we await to keep state in sync)
+      const bump = await documentsTemplateAPI.useTemplate(id);
       const apiTemplate = bump?.data || bump?.template || null;
       const merged: Template = apiTemplate
         ? {
@@ -249,8 +247,26 @@ const TemplateSelector: React.FC<Props> = ({
         : optimistic;
 
       setTemplates((prev) => prev.map((t) => (t.id === id ? merged : t)));
+
+      // 2) **NO DRAFT CREATION HERE**
+      // Parent ko sirf pending payload do; parent "Save as Draft" pe create karega.
+      if (!autoCreateGenerated) {
+        onSelectTemplate?.({ ...merged, _pendingGeneratedPayload: buildGeneratedPayload(merged) });
+        return;
+      }
+
+      // 3) OPTIONAL: auto-create flow (opt-in)
+      const payload = {
+        ...buildGeneratedPayload(merged),
+        status: "draft" as const, // auto mode me draft banega
+      };
+      const createdRow = await documentsGeneratedAPI.create(payload);
+      onSelectTemplate?.({ ...merged, _generatedDoc: createdRow });
+
     } catch (err) {
-      console.error("useTemplate/create failed:", err);
+      console.error("useTemplate failed:", err);
+      // even on failure, let user proceed without bump
+      onSelectTemplate?.({ ...template, _pendingGeneratedPayload: buildGeneratedPayload(template) });
     } finally {
       setUsingId(null);
     }
@@ -264,9 +280,6 @@ const TemplateSelector: React.FC<Props> = ({
           <h2 className="font-bold text-gray-900">
             {mode === "select" ? "Select Template" : "Template Management"}
           </h2>
-          <p className="text-gray-600 mt-1">
-            {mode === "select" ? "Choose from professionally designed templates" : "Create, edit, and manage document templates"}
-          </p>
         </div>
         {mode === "manage" && onCreateTemplate && (
           <button
@@ -444,7 +457,9 @@ const TemplateSelector: React.FC<Props> = ({
                         className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60"
                         disabled={isBusy}
                       >
-                        {mode === "select" ? (isBusy ? "Using…" : "Use Template") : "Manage Template"}
+                        {mode === "select"
+                          ? (isBusy ? "Starting…" : "Use Template")
+                          : "Manage Template"}
                       </button>
                     </div>
                   </div>

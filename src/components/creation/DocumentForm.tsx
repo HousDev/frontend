@@ -17,9 +17,11 @@ import { resolveVariablesStrict, interpolateStrict } from '@/lib/docVarMap';
 // (optional) properties/sellers libs if you use them elsewhere
 import propertiesAPI from '@/lib/propertiesAPI';
 import { sellerAPI } from '@/lib/sellersAPI';
-import {systemSettingsAPI} from '@/lib/systemSettingsAPI';
+import { systemSettingsAPI } from '@/lib/systemSettingsAPI';
 import { useAuth } from '@/contexts/AuthContext';
-
+// aapke project ke hisaab se
+import { getAssignableExecutives } from '@/utils/roleBasedOptions';
+import { usersAPI } from '@/lib/api';
 /* =================== Helpers =================== */
 
 function normalizeList<T = any>(res: any): T[] {
@@ -254,10 +256,11 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
     property: null as PropertyType | null,
     document_id: '',
     document_date: new Date().toISOString().split('T')[0],
-    sales_executive: 'Admin User',
-    executive_id: 'EXE001',
-    executive_phone: '+91 99999 99999',
-    executive_email: 'admin@resaleexpert.com',
+    sales_executive: '',
+    executive_id: '',
+    executive_phone: '',
+    executive_email: '',
+    executive_role: '',
     status: 'draft',
     ...documentData,
   });
@@ -274,10 +277,86 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [navSaving, setNavSaving] = useState(false);
   const [sellerProperties] = useState<PropertyType[]>([]);
- const { user } = useAuth();
+  const { user } = useAuth();
   // Page type
   const [pageType, setPageType] = useState<'A4' | 'Legal'>('A4');
   const effectivePageType = (template as any)?.pageType || pageType;
+  const [executivesList, setExecutivesList] = useState<Array<{
+    id: string | number;
+    name: string;
+    phone?: string;
+    email?: string;
+    designation?: string;
+    department?: string;
+    raw?: any;
+    selfOnly?: boolean;
+  }>>([]);
+
+  const [execLoading, setExecLoading] = useState(false);
+  const [execError, setExecError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        setExecLoading(true);
+        setExecError(null);
+
+        // ✅ use the actual method you export
+        const res = await usersAPI.getAllUsers({ role: 'executive', department: 'sales' });
+        console.log('executives raw res', res);
+
+        // ✅ normalize common shapes
+        let rows: any[] = [];
+        if (Array.isArray(res)) rows = res;
+        else if (Array.isArray(res?.data)) rows = res.data;
+        else if (Array.isArray(res?.rows)) rows = res.rows;
+        else if (Array.isArray(res?.items)) rows = res.items;
+        else if (Array.isArray(res?.users)) rows = res.users; // some backends use `users`
+        else rows = normalizeList(res); // final fallback
+
+        // ✅ filter to sales executives
+        const salesExecs = rows.filter((u: any) => {
+          const r = String(u.role ?? u.user_role ?? u.type ?? '').toLowerCase();
+          const d = String(u.department ?? u.dept ?? '').toLowerCase();
+          return r === 'executive' && d === 'sales';
+        });
+
+        // ✅ apply your RBAC util (keeps only what the current user can assign)
+        const allowed = getAssignableExecutives(user, salesExecs);
+        if (alive)
+          setExecutivesList(
+            allowed.map((u: any) => ({
+              id: u.id ?? u.user_id ?? u._id,
+              salutation: u.salutation ?? '', // ✅ correct syntax
+              name:
+                u.name ??
+                (`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim()),
+              phone: u.phone ?? u.mobile ?? u.whatsapp ?? '',
+              email: u.email ?? '',
+              designation: u.designation ?? '',
+              department: u.department ?? '',
+              raw: u,
+            }))
+
+
+          );
+      } catch (e: any) {
+        console.error('executives fetch failed', e);
+        if (alive) {
+          setExecError(e?.message || 'Failed to load executives');
+          setExecutivesList([]);
+        }
+      } finally {
+        if (alive) setExecLoading(false);
+      }
+    })();
+
+    return () => { alive = false; };
+  }, [user]);
+
+
 
   // ===== Dynamic Requirements (from template variables) =====
   const tVars = Array.isArray(template.variables) ? template.variables : [];
@@ -298,35 +377,35 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
     description: string;
     icon: any;
   };
-useEffect(() => {
-  (async () => {
-    try {
-      const res = await systemSettingsAPI.getSettings();
-      const sys = res?.data ?? res;
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await systemSettingsAPI.getSettings();
+        const sys = res?.data ?? res;
 
-      setFormData(prev => ({
-        ...prev,
-        system_settings: sys || {},
-        current_user: user || {},
-      }));
-    } catch (e) {
-      console.error('system settings fetch failed', e);
-      setFormData(prev => ({
-        ...prev,
-        current_user: user || {},
-      }));
-    }
-  })();
-}, [user]);
+        setFormData(prev => ({
+          ...prev,
+          system_settings: sys || {},
+          current_user: user || {},
+        }));
+      } catch (e) {
+        console.error('system settings fetch failed', e);
+        setFormData(prev => ({
+          ...prev,
+          current_user: user || {},
+        }));
+      }
+    })();
+  }, [user]);
 
 
-// inside component, before any tVars logic:
-const effectiveTemplate = useMemo(() => {
-  const declared = Array.isArray(template.variables) ? template.variables : [];
-  const inHtml = extractVarsFromHtml(template.content);
-  const merged = Array.from(new Set([...declared, ...inHtml]));
-  return { ...template, variables: merged };
-}, [template]);
+  // inside component, before any tVars logic:
+  const effectiveTemplate = useMemo(() => {
+    const declared = Array.isArray(template.variables) ? template.variables : [];
+    const inHtml = extractVarsFromHtml(template.content);
+    const merged = Array.from(new Set([...declared, ...inHtml]));
+    return { ...template, variables: merged };
+  }, [template]);
 
   const steps = useMemo<StepDef[]>(() => {
     const base: StepDef[] = [];
@@ -584,16 +663,27 @@ const effectiveTemplate = useMemo(() => {
     };
   };
 
-  const ensureCreatedThenUpdate = async (statusOverride?: 'draft' | 'created') => {
-    const payload = buildPayload(statusOverride);
-    if (!serverId) {
-      const created = await documentsGeneratedAPI.create(payload);
-      const newId = (created?.id ?? created?.data?.id) as number | string | undefined;
-      if (newId !== undefined) setServerId(newId);
-    } else {
-      await documentsGeneratedAPI.update(serverId, payload);
+// 🔁 replace this function
+const ensureCreatedThenUpdate = async (statusOverride?: 'draft' | 'created') => {
+  const payload = buildPayload(statusOverride);
+
+  if (!serverId) {
+    const created = await documentsGeneratedAPI.create(payload);
+    const newId = (created?.id ?? created?.data?.id) as number | string | undefined;
+
+    if (newId !== undefined) {
+      setServerId(newId);
+      // optional: latest snapshot persist
+      await documentsGeneratedAPI.update(newId, payload);
+      return newId;
     }
-  };
+    return null;
+  } else {
+    await documentsGeneratedAPI.update(serverId, payload);
+    return serverId;
+  }
+};
+
 
   /* ---------- Top-level actions ---------- */
   const handleSaveDraft = async () => {
@@ -609,33 +699,32 @@ const effectiveTemplate = useMemo(() => {
     }
   };
 
-  const handleGenerateDocument = async () => {
-    // Only guard what’s actually required by template
-    if (requiresSeller && !formData.seller) {
-      alert('Please select Seller');
-      return;
-    }
-    if (requiresBuyer && !formData.buyer) {
-      alert('Please select Buyer');
-      return;
-    }
-    if (requiresProperty && !formData.property_address && !formData.property) {
-      alert('Please select/enter Property');
-      return;
-    }
+  // 🔁 replace your handleGenerateDocument with this
+const handleGenerateDocument = async () => {
+  setIsGenerating(true);
+  try {
+    // create/update + mark as created → get final ID
+    const id = await ensureCreatedThenUpdate('created');
+    if (!id) throw new Error('Document ID not available');
 
-    setIsGenerating(true);
-    try {
-      await ensureCreatedThenUpdate('created');
-      setFormData((prev) => ({ ...prev, status: 'created' }));
-      alert('Document generated successfully!');
-    } catch (err) {
-      console.error(err);
-      alert('Failed to generate');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+    setFormData((prev) => ({ ...prev, status: 'created' }));
+
+    // 🆕 call your download API
+    await documentsGeneratedAPI.downloadPdf(id, {
+      page: (effectivePageType === 'Legal' ? 'legal' : 'a4') as 'a4' | 'legal',
+      filenameFallback: `${(template?.name || 'document')
+        .toString()
+        .replace(/[^\w\-]+/g, '_')}.pdf`,
+    });
+
+    alert('Document generated successfully!');
+  } catch (err) {
+    console.error(err);
+    alert('Failed to generate');
+  } finally {
+    setIsGenerating(false);
+  }
+};
 
   const handleShare = async () => {
     try {
@@ -652,7 +741,7 @@ const effectiveTemplate = useMemo(() => {
     switch (key) {
       case 'parties': {
         const okSeller = !requiresSeller || Boolean(formData.seller);
-        const okBuyer  = !requiresBuyer  || Boolean(formData.buyer);
+        const okBuyer = !requiresBuyer || Boolean(formData.buyer);
         return okSeller && okBuyer;
       }
       case 'property': {
@@ -796,20 +885,18 @@ const effectiveTemplate = useMemo(() => {
                       }
                     }}
                     disabled={!canAccess || navSaving}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all ${
-                      isActive
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                        : isCompleted
-                          ? 'bg-green-100 text-green-700 border border-green-200'
-                          : canAccess
-                            ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                    }`}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all ${isActive
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : isCompleted
+                        ? 'bg-green-100 text-green-700 border border-green-200'
+                        : canAccess
+                          ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                      }`}
                   >
                     <div
-                      className={`p-1.5 rounded-lg ${
-                        isActive ? 'bg-blue-200' : isCompleted ? 'bg-green-200' : 'bg-gray-200'
-                      }`}
+                      className={`p-1.5 rounded-lg ${isActive ? 'bg-blue-200' : isCompleted ? 'bg-green-200' : 'bg-gray-200'
+                        }`}
                     >
                       <Icon size={12} />
                     </div>
@@ -824,9 +911,8 @@ const effectiveTemplate = useMemo(() => {
 
                   {index < steps.length - 1 && (
                     <div
-                      className={`w-16 sm:w-24 h-0.5 mx-1 ${
-                        isStepCompleteByKey(step.key) ? 'bg-green-300' : 'bg-gray-300'
-                      }`}
+                      className={`w-16 sm:w-24 h-0.5 mx-1 ${isStepCompleteByKey(step.key) ? 'bg-green-300' : 'bg-gray-300'
+                        }`}
                     />
                   )}
                 </div>
@@ -886,17 +972,30 @@ const effectiveTemplate = useMemo(() => {
               requiresBuyer={requiresBuyer}
               requiresSeller={requiresSeller}
               requiresProperty={requiresProperty}
+              // ⬇️ added props
+              onInputChange={handleInputChange}
+              execLoading={execLoading}
+              execError={execError}
+              executivesList={executivesList}
             />
           )}
 
+
           {/* Final Preview (always) */}
-          {steps[activeIndex]?.key === 'final' && (
-            <FinalPreviewStep
-              template={template}
-              formData={formData}
-              pageType={effectivePageType === 'Legal' ? 'Legal' : 'A4'}
-            />
-          )}
+        {steps[activeIndex]?.key === 'final' && (
+  <FinalPreviewStep
+    template={template}
+    formData={formData}
+    pageType={effectivePageType === 'Legal' ? 'Legal' : 'A4'}
+    // 🆕
+    documentId={serverId}
+    onEnsureSaved={async () => {
+      // ensure latest HTML persisted before user downloads
+      await ensureCreatedThenUpdate('created');
+    }}
+  />
+)}
+
         </div>
       </div>
 
@@ -1153,6 +1252,9 @@ const PartiesStep: React.FC<PartiesStepProps> = ({
   );
 };
 
+/** Minimal Template type to satisfy prop typing */
+
+
 type PropertyStepProps = {
   formData: Record<string, any>;
   onInputChange: (field: string, value: any) => void;
@@ -1160,6 +1262,9 @@ type PropertyStepProps = {
   template: Template;
   requiresProperty: boolean;
   onContinue: () => void;
+
+  /** Optional: show suggestions in a datalist for convenience (not a fixed dropdown) */
+  propertyTypeHints?: string[];
 };
 
 const PropertyStep: React.FC<PropertyStepProps> = ({
@@ -1167,10 +1272,26 @@ const PropertyStep: React.FC<PropertyStepProps> = ({
   onInputChange,
   onPropertySelect,
   requiresProperty,
-  onContinue
+  onContinue,
+  propertyTypeHints = [], // optional hints
 }) => {
+  React.useEffect(() => {
+    const p = formData?.property;
+    if (!p) return;
+
+    // Mirror selected property -> flat fields if missing (avoid overwriting user edits)
+    if (p.address && !formData.property_address) onInputChange('property_address', p.address);
+    if (p.type && !formData.property_type) onInputChange('property_type', p.type);
+    if (p.area && !formData.property_area) onInputChange('property_area', p.area);
+    if (p.unit && !formData.unit_number) onInputChange('unit_number', p.unit);
+
+    // Debug
+    // eslint-disable-next-line no-console
+    console.log('property type (selected)', p.type);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData?.property]);
+
   if (!requiresProperty) {
-    // is step UI kabhi call nahi hota jab steps me add nahi hua ho – but safe guard:
     return (
       <div className="space-y-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
@@ -1188,6 +1309,15 @@ const PropertyStep: React.FC<PropertyStepProps> = ({
       </div>
     );
   }
+
+  // Controlled values
+  const propertyAddress = formData.property_address ?? '';
+  const propertyType = formData.property_type ?? '';
+  const propertyArea = formData.property_area ?? '';
+  const unitNumber = formData.unit_number ?? '';
+
+  const hasHints = Array.isArray(propertyTypeHints) && propertyTypeHints.length > 0;
+  const datalistId = hasHints ? 'property-type-hints' : undefined;
 
   return (
     <div className="space-y-6">
@@ -1209,10 +1339,15 @@ const PropertyStep: React.FC<PropertyStepProps> = ({
                 <Building className="text-green-600" size={24} />
               </div>
               <div>
-                <div className="font-semibold text-gray-900">{formData.property.title}</div>
-                <div className="text-sm text-gray-600">{formData.property.address}</div>
+                <div className="font-semibold text-gray-900">
+                  {formData.property.title ?? 'Selected Property'}
+                </div>
                 <div className="text-sm text-gray-600">
-                  {formData.property.type} • {formData.property.area}
+                  {formData.property.address ?? 'Address not set'}
+                </div>
+                <div className="text-sm text-gray-600">
+                  {(formData.property.type ?? propertyType) || 'Type N/A'} •{' '}
+                  {(formData.property.area ?? propertyArea) || 'Area N/A'}
                 </div>
               </div>
             </div>
@@ -1243,55 +1378,76 @@ const PropertyStep: React.FC<PropertyStepProps> = ({
         <h3 className="text-base font-semibold text-gray-900 mb-3">
           Or Enter Property Details Manually
         </h3>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Address */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-0.5">
               Property Address
             </label>
             <textarea
-              value={formData.property_address || ''}
-              onChange={(e) => onInputChange('property_address', e.target.value)}
+              name="property_address"
+              value={propertyAddress}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                onInputChange('property_address', e.currentTarget.value)
+              }
               className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
               rows={2}
               placeholder="Enter complete property address"
             />
           </div>
 
+          {/* Type — TEXT INPUT (no static dropdown) */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-0.5">Property Type</label>
-            <select
-              value={formData.property_type || ''}
-              onChange={(e) => onInputChange('property_type', e.target.value)}
+            <input
+              name="property_type"
+              type="text"
+              value={propertyType}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                onInputChange('property_type', e.currentTarget.value)
+              }
+              list={datalistId}
               className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
-            >
-              <option value="">Select type</option>
-              <option value="Apartment">Apartment</option>
-              <option value="Villa">Villa</option>
-              <option value="Penthouse">Penthouse</option>
-              <option value="Commercial">Commercial</option>
-              <option value="Plot">Plot</option>
-            </select>
+              placeholder="e.g., Apartment / Villa / Office / Shop"
+            />
+            {hasHints && (
+              <datalist id={datalistId}>
+                {propertyTypeHints.map((hint) => (
+                  <option key={hint} value={hint} />
+                ))}
+              </datalist>
+            )}
           </div>
 
+          {/* Area */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-0.5">
               Property Area (sq ft)
             </label>
             <input
+              name="property_area"
               type="number"
-              value={formData.property_area || ''}
-              onChange={(e) => onInputChange('property_area', e.target.value)}
+              inputMode="numeric"
+              value={propertyArea}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                onInputChange('property_area', e.currentTarget.value)
+              }
               className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
               placeholder="e.g., 1250"
             />
           </div>
 
+          {/* Unit */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-0.5">Unit Number</label>
             <input
+              name="unit_number"
               type="text"
-              value={formData.unit_number || ''}
-              onChange={(e) => onInputChange('unit_number', e.target.value)}
+              value={unitNumber}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                onInputChange('unit_number', e.currentTarget.value)
+              }
               className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
               placeholder="e.g., A-404"
             />
@@ -1376,60 +1532,60 @@ const DocumentStep: React.FC<DocumentStepProps> = ({
           {(template.variables.includes('sale_amount') ||
             template.variables.includes('token_amount') ||
             template.variables.includes('booking_amount')) && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
-                <DollarSign className="mr-2" size={16} />
-                Financial Information
-              </h3>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
+                  <DollarSign className="mr-2" size={16} />
+                  Financial Information
+                </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {template.variables.includes('sale_amount') && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                      Sale Amount (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.sale_amount || ''}
-                      onChange={(e) => onInputChange('sale_amount', Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
-                      placeholder="25000000"
-                    />
-                  </div>
-                )}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {template.variables.includes('sale_amount') && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Sale Amount (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.sale_amount || ''}
+                        onChange={(e) => onInputChange('sale_amount', Number(e.target.value))}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                        placeholder="25000000"
+                      />
+                    </div>
+                  )}
 
-                {template.variables.includes('token_amount') && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                      Token Amount (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.token_amount || ''}
-                      onChange={(e) => onInputChange('token_amount', Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
-                      placeholder="500000"
-                    />
-                  </div>
-                )}
+                  {template.variables.includes('token_amount') && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Token Amount (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.token_amount || ''}
+                        onChange={(e) => onInputChange('token_amount', Number(e.target.value))}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                        placeholder="500000"
+                      />
+                    </div>
+                  )}
 
-                {template.variables.includes('booking_amount') && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                      Booking Amount (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.booking_amount || ''}
-                      onChange={(e) => onInputChange('booking_amount', Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
-                      placeholder="1000000"
-                    />
-                  </div>
-                )}
+                  {template.variables.includes('booking_amount') && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Booking Amount (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.booking_amount || ''}
+                        onChange={(e) => onInputChange('booking_amount', Number(e.target.value))}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                        placeholder="1000000"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <h3 className="text-base font-semibold text-gray-900 mb-3">Additional Information</h3>
@@ -1541,7 +1697,22 @@ type ReviewStepProps = {
   requiresBuyer: boolean;
   requiresSeller: boolean;
   requiresProperty: boolean;
+  // ⬇️ add these
+  onInputChange: (field: string, value: any) => void;
+  execLoading: boolean;
+  execError: string | null;
+  executivesList: Array<{
+    id: string | number;
+    name: string;
+    phone?: string;
+    email?: string;
+    designation?: string;
+    department?: string;
+    raw?: any;
+    selfOnly?: boolean;
+  }>;
 };
+
 
 const ReviewStep: React.FC<ReviewStepProps> = ({
   formData,
@@ -1549,89 +1720,255 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
   onShowPayments,
   requiresBuyer,
   requiresSeller,
-  requiresProperty
+  requiresProperty,
+  onInputChange,
+  execLoading,
+  execError,
+  executivesList,
 }) => {
+  const formatDate = (dateString) => {
+    // अगर डेट खाली है तो खाली स्ट्रिंग लौटाएं
+    if (!dateString) {
+      return '';
+    }
+
+    const [year, month, day] = dateString.split('-');
+    return `${day}-${month}-${year}`;
+  };
+
   return (
-    <div className="space-y-4 text-xs">
+    <div className="space-y-5 text-xs">
+      {/* Heading */}
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-1">Review & Finalize</h2>
-        <p className="text-gray-600">Review all information before generating the document</p>
+        <p className="text-gray-600">Review all information before generating the document.</p>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 pt-1">
-        <h3 className="text-base font-semibold text-gray-900 mb-3">Document Summary</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {/* Document Summary */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <h3 className="text-base font-semibold text-gray-900 mb-4">Document Summary</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left: Document Info */}
           <div>
             <h4 className="font-medium text-gray-900 mb-2">Document Information</h4>
             <div className="space-y-1.5">
-              <div className="flex justify-between">
+              <div className="grid grid-cols-2">
                 <span className="text-gray-600">Template:</span>
-                <span className="font-medium">{template.name}</span>
+                <span className="font-medium text-right">{template.name}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="grid grid-cols-2">
                 <span className="text-gray-600">Title:</span>
-                <span className="font-medium">{formData.title}</span>
+                <span className="font-medium text-right">{formData.title}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="grid grid-cols-2">
                 <span className="text-gray-600">Document ID:</span>
-                <span className="font-medium">{formData.document_id}</span>
+                <span className="font-medium text-right">{formData.document_id}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="grid grid-cols-2">
                 <span className="text-gray-600">Date:</span>
-                <span className="font-medium">{formData.document_date}</span>
+                <span className="font-medium text-right">
+                  {formData.document_date ? formData.document_date.split('-').reverse().join('-') : ''}
+                </span>
               </div>
             </div>
           </div>
 
+          {/* Right: Parties Info */}
           <div>
             <h4 className="font-medium text-gray-900 mb-2">Parties Information</h4>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {requiresSeller && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Seller:</span>
-                  <span className="font-medium">{formData.seller?.name || '-'}</span>
+                <div className="space-y-1.5 border-b border-gray-200 pb-2">
+                  <div className="grid grid-cols-2">
+                    <span className="text-gray-600">Seller ID:</span>
+                    <span className="text-right">{formData.seller?.id || '-'}</span>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <span className="text-gray-600">Seller Name:</span>
+                    <span className="font-medium text-right">
+                      {formData.seller?.salutation} {formData.seller?.name || '-'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <span className="text-gray-600">Contact:</span>
+                    <span className="text-right">
+                      {formData.seller?.email || '-'} {formData.seller?.phone ? `• ${formData.seller?.phone}` : ''}
+                    </span>
+                  </div>
                 </div>
               )}
+
               {requiresBuyer && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Buyer:</span>
-                  <span className="font-medium">{formData.buyer?.name || '-'}</span>
+                <div className="space-y-1.5">
+                  <div className="grid grid-cols-2">
+                    <span className="text-gray-600">Buyer ID:</span>
+                    <span className="text-right">{formData.buyer?.id || '-'}</span>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <span className="text-gray-600">Buyer Name:</span>
+                    <span className="font-medium text-right">
+                      {formData.buyer?.salutation} {formData.buyer?.name || '-'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <span className="text-gray-600">Contact:</span>
+                    <span className="text-right">
+                      {formData.buyer?.email || '-'} {formData.buyer?.phone ? `• ${formData.buyer?.phone}` : ''}
+                    </span>
+                  </div>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-gray-600">Executive:</span>
-                <span className="font-medium">{formData.sales_executive}</span>
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {requiresProperty && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 pt-1">
-          <h3 className="text-base font-semibold text-gray-900 mb-3">Property Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {/* Sales Executive + Property Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left: Sales Executive */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+          <h3 className="text-base font-semibold text-gray-900 mb-4">
+            Assigned Sales Executive
+          </h3>
+
+          <div className="flex gap-2">
+            <select
+              value={formData.executive_id || ""}
+              disabled={execLoading || !!execError}
+              onChange={(e) => {
+                const id = e.target.value;
+                const found = executivesList.find((x) => String(x.id) === String(id));
+                if (found) {
+                  onInputChange("executive_id", found.id);
+                  onInputChange("sales_executive", found.name || "");
+                  onInputChange("executive_phone", found.phone || "");
+                  onInputChange("executive_email", found.email || "");
+                } else {
+                  onInputChange("executive_id", "");
+                  onInputChange("sales_executive", "");
+                  onInputChange("executive_phone", "");
+                  onInputChange("executive_email", "");
+                }
+              }}
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs bg-white"
+            >
+              <option value="">
+                {execLoading
+                  ? "Loading executives…"
+                  : execError
+                    ? "Failed to load"
+                    : "Select executive"}
+              </option>
+              {executivesList.map((ex) => (
+                <option key={ex.id} value={String(ex.id)}>
+                  {ex.name}
+                  {ex.designation ? ` • ${ex.designation}` : ""} (Sales)
+                </option>
+              ))}
+            </select>
+
+            {formData.executive_id && (
+              <button
+                type="button"
+                onClick={() => {
+                  onInputChange("executive_id", "");
+                  onInputChange("sales_executive", "");
+                  onInputChange("executive_phone", "");
+                  onInputChange("executive_email", "");
+                }}
+                className="px-2 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
             <div>
-              <span className="text-gray-600">Address:</span>
-              <div className="font-medium">{formData.property_address || '-'}</div>
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                Exec ID
+              </label>
+              <input
+                type="text"
+                value={formData.executive_id || ""}
+                readOnly
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg bg-gray-50 text-xs"
+              />
             </div>
             <div>
-              <span className="text-gray-600">Type:</span>
-              <div className="font-medium">{formData.property_type || '-'}</div>
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                Exec Name
+              </label>
+              <input
+                type="text"
+                value={formData.sales_executive || ""}
+                readOnly
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg bg-gray-50 text-xs"
+              />
             </div>
             <div>
-              <span className="text-gray-600">Area:</span>
-              <div className="font-medium">
-                {formData.property_area ? `${formData.property_area} sq ft` : '-'}
-              </div>
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                Exec Phone
+              </label>
+              <input
+                type="text"
+                value={formData.executive_phone || ""}
+                readOnly
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg bg-gray-50 text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                Exec Email
+              </label>
+              <input
+                type="text"
+                value={formData.executive_email || ""}
+                readOnly
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg bg-gray-50 text-xs"
+              />
             </div>
           </div>
         </div>
-      )}
 
+        {/* Right: Property Summary */}
+        {requiresProperty && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+            <h3 className="text-base font-semibold text-gray-900 mb-3">
+              Property Summary
+            </h3>
+            <div className="space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Address:</span>
+                <span className="font-medium text-right">
+                  {formData.property_address || "-"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Property Type:</span>
+                <span className="font-medium text-right">
+                  {formData.property_type || "-"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Area:</span>
+                <span className="font-medium text-right">
+                  {formData.property_area
+                    ? `${formData.property_area} sq ft`
+                    : "-"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+
+      {/* Financial Summary */}
       {(formData.sale_amount || formData.token_amount || formData.booking_amount) && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 pt-1 ">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-gray-900">Financial Summary</h3>
             <button
               type="button"
@@ -1652,7 +1989,6 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
                 <div className="text-xs text-green-700">Sale Amount</div>
               </div>
             )}
-
             {formData.token_amount && (
               <div className="text-center p-3 bg-blue-50 rounded-lg">
                 <div className="text-lg font-bold text-blue-600">
@@ -1661,7 +1997,6 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
                 <div className="text-xs text-blue-700">Token Amount</div>
               </div>
             )}
-
             {formData.booking_amount && (
               <div className="text-center p-3 bg-purple-50 rounded-lg">
                 <div className="text-lg font-bold text-purple-600">
@@ -1674,8 +2009,10 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 pt-1">
+      {/* Checklist */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <h3 className="text-base font-semibold text-gray-900 mb-3">Pre-Generation Checklist</h3>
+
         <div className="space-y-2">
           {requiresSeller && (
             <div className="flex items-center space-x-2">
@@ -1684,7 +2021,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
               ) : (
                 <AlertCircle className="text-red-600" size={16} />
               )}
-              <span className={formData.seller ? 'text-green-700' : 'text-red-700'}>
+              <span className={formData.seller ? "text-green-700" : "text-red-700"}>
                 Seller information is complete
               </span>
             </div>
@@ -1697,7 +2034,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
               ) : (
                 <AlertCircle className="text-red-600" size={16} />
               )}
-              <span className={formData.buyer ? 'text-green-700' : 'text-red-700'}>
+              <span className={formData.buyer ? "text-green-700" : "text-red-700"}>
                 Buyer information is complete
               </span>
             </div>
@@ -1710,7 +2047,11 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
               ) : (
                 <AlertCircle className="text-red-600" size={16} />
               )}
-              <span className={formData.property_address || formData.property ? 'text-green-700' : 'text-red-700'}>
+              <span
+                className={
+                  formData.property_address || formData.property ? "text-green-700" : "text-red-700"
+                }
+              >
                 Property information is complete
               </span>
             </div>
@@ -1722,22 +2063,26 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
             ) : (
               <AlertCircle className="text-red-600" size={16} />
             )}
-            <span className={formData.title && formData.document_date ? 'text-green-700' : 'text-red-700'}>
+            <span className={formData.title && formData.document_date ? "text-green-700" : "text-red-700"}>
               Document details are complete
             </span>
           </div>
         </div>
       </div>
     </div>
+
+
   );
 };
-
 const FinalPreviewStep: React.FC<{
   template: Template;
   formData: Record<string, any>;
   pageType: 'A4' | 'Legal';
-}> = ({ template, formData, pageType }) => {
-  const resolvedVars = useMemo(
+  // 🆕
+  documentId?: number | string | null;
+  onEnsureSaved?: () => Promise<void>;
+}> = ({ template, formData, pageType, documentId, onEnsureSaved }) => {
+  const resolvedVars = React.useMemo(
     () => resolveVariablesStrict(template, formData),
     [template, formData]
   );
@@ -1753,10 +2098,14 @@ const FinalPreviewStep: React.FC<{
         documentData={{ ...formData, ...resolvedVars }}
         isVisible={true}
         pageType={pageType}
+        // 🆕 pass id + saver
+        documentId={documentId ?? undefined}
+        onEnsureSaved={onEnsureSaved}
       />
     </div>
   );
 };
+
 
 /* Payment Tracker Modal (simple wrapper) */
 type PaymentTrackerModalProps = {
