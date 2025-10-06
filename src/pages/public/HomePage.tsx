@@ -22,7 +22,8 @@ import {
   IndianRupee,
   Zap,
   CheckCircle,
-  Bot
+  Bot,
+  ShieldCheck,Handshake
 } from 'lucide-react';
 import SubscriptionModal from '@/components/subscription/SubscriptionModal';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -35,6 +36,7 @@ import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import viewsAPI from '@/lib/viewAPI';
 import PublicSellPropertyForm from './PublicSellPropertyForm';
 import { FaWhatsapp } from 'react-icons/fa6';
+import WhySellModal from './WhySellModal';
 
 interface Property {
   id: number;
@@ -91,6 +93,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const [isSellerModalOpen, setIsSellerModalOpen] = useState<boolean>(false);
+  
+  const [open, setOpen] = useState(false);
+    
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -588,9 +593,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               <h1 className="text-3xl font-bold mb-2 ">
                 {/* Find Your <span className="block bg-clip-text text-[#E6761D]">Dream Property</span> */}
 
-                Find Your Dream Home in the Resale Expert
+                Find Your Perfect Resale Property in Pune & PCMC
               </h1>
-              <p className="text-blue-100 mb-6">AI-powered property search in Pune's premium locations</p>
+              <p className="text-blue-100 mb-6">Browse verified resale flats, apartments, and commercial properties. Trusted by homeowners and buyers for transparent, hassle-free transactions.</p>
 
               {/* Row: Buy/Rent + PropertyType */}
               <div className="flex flex-col items-center gap-3 mb-6 md:flex-row md:justify-center">
@@ -1103,10 +1108,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             {/* Left Content */}
             <div>
               <h2 className="text-2xl font-bold mb-2">
-                Sell Your Property with AI Pricing
+                Sell Your Resale Property Faster & Smarter in Pune
               </h2>
               <p className="text-gray-200 mb-4">
-                Get the best price with our AI-powered valuation and reach verified buyers instantly.
+                Get instant AI-based property valuation, connect with verified buyers, and close deals faster — all with Resale Expert.
               </p>
               <div className="w-full">
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
@@ -1120,6 +1125,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   >
                     List My Property
                   </button>
+                  
 
                   {/* Secondary CTA */}
                   <button
@@ -1130,6 +1136,17 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   >
                     Free Valuation
                   </button>
+
+                  <button
+                    onClick={() => setOpen(true)}
+                    className="w-full sm:w-auto border-2 border-white/90 text-white
+                 px-5 py-3 rounded-lg font-medium transition-colors duration-300
+                 hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white
+                 text-sm sm:text-base"
+                  >
+                    Why Sell ResaleExpert
+                  </button>
+
 
                 </div>
               </div>
@@ -1157,48 +1174,70 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       </section>
 
       {/* Why Choose Us - Compact */}
-      <section className="py-10 bg-gray-50 border-t border-b border-gray-200">
+      <section className="py-3 bg-gray-50 border-t border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <h2 className="text-2xl font-bold text-gray-800 mb-3">
               Why Choose&nbsp;{companyName}?
             </h2>
+            <h2>Trusted Resale Property Consultant in Pune & PCMC</h2>
             <p className="text-gray-600">
-              AI-powered real estate platform trusted by thousands
+              Buying or selling a resale property can be overwhelming. That’s why thousands of homeowners and buyers choose Resale Expert for hassle-free transactions.
+
+
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mt-10">
             {/* Card 1 */}
             <div className="text-center group">
-              <div className="bg-[#E6761D] w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-colors duration-300 shadow-md">
-                <Shield className="text-white" size={22} />
+              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+                <ShieldCheck className="text-white" size={26} />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">100% Verified</h3>
-              <p className="text-gray-600 text-sm">
-                Every property verified for legal compliance and authenticity.
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Verified Listings Only
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Every property undergoes legal and documentation checks.
               </p>
             </div>
 
             {/* Card 2 */}
             <div className="text-center group">
-              <div className="bg-[#E6761D] w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-colors duration-300 shadow-md">
-                <Brain className="text-white" size={22} />
+              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+                <Brain className="text-white" size={26} />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">AI-Powered</h3>
-              <p className="text-gray-600 text-sm">
-                Smart property matching based on your preferences and budget.
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Fair Market Valuation
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Transparent pricing — no hidden charges, no inflated rates.
               </p>
             </div>
 
             {/* Card 3 */}
             <div className="text-center group">
-              <div className="bg-[#E6761D] w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-colors duration-300 shadow-md">
-                <Users className="text-white" size={22} />
+              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+                <Users className="text-white" size={26} />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">Expert Support</h3>
-              <p className="text-gray-600 text-sm">
-                Dedicated real estate experts guide you throughout the process.
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Local Market Expertise
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Deep understanding of Pune and PCMC real estate trends.
+              </p>
+            </div>
+
+            {/* Card 4 */}
+            <div className="text-center group">
+              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+                <Handshake className="text-white" size={26} />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                End-to-End Assistance
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                From property search to registration and possession.
               </p>
             </div>
           </div>
@@ -1335,16 +1374,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </button>
           </div>
 
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-6 text-gray-300 text-sm">
-            <div className="flex items-center space-x-2">
-              <Phone size={16} />
-              <span>+91 99999 99999</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Shield size={16} />
-              <span>100% Verified</span>
-            </div>
-          </div>
+          
         </div>
       </section>
 
@@ -1354,6 +1384,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         onClose={() => setIsSellerModalOpen(false)}
         onSubmit={handleSellerSave}
       />
+      {/* Why Sell modal */}
+      <WhySellModal open={open} onClose={() => setOpen(false)} />
     </div>
   );
 };

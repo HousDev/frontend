@@ -1054,7 +1054,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-3 text-[#E6761D]">Explore Premium Properties</h2>
+            <h2 className="text-3xl font-bold mb-3 text-white">Explore Premium Properties</h2>
             <p className="text-lg text-blue-100 mb-2 max-w-2xl mx-auto">
               Discover verified properties from trusted sellers across top locations
             </p>

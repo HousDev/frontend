@@ -283,7 +283,7 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
       <div className=" py-5 pt-28"
        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-3 text-[#E6761D]">
+          <h2 className="text-3xl font-bold mb-3 text-white">
             Real Estate Insights & News
           </h2>
           <p className="text-lg mb-10 text-blue-100 max-w-3xl mx-auto leading-relaxed">

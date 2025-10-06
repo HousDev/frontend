@@ -1,4 +1,3 @@
-// src/components/blogManager/RSSSourceManager.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Plus,
@@ -15,22 +14,17 @@ import toast from 'react-hot-toast';
 import { rssAPI } from '@/lib/rssAPI';
 import RSSSourceCard from './RSSSourceCard';
 import { RSSSource as SharedRSSSource } from '../../types/blog';
+import RSSSourceFormModal from './RSSSourceFormModal'; // ✅ NEW import
 
 /* =========================================================
    Types
-   - Use the shared RSSSource so it matches RSSSourceCard.
-   - Card expects id: string (from ../../types/blog)
    ========================================================= */
 
 type RSSSyncFrequency = 'hourly' | 'daily' | 'weekly' | 'manual';
-
-// Match your shared union; many projects use 'all' to mean no filtering.
 type RSSContentFilter = 'keywords' | 'all';
 
-// Shape we keep in this component (same as shared, with required fields).
 type RSSSource = SharedRSSSource & {
-  // Ensure the required fields are present (shared types might mark some optional)
-  id: string; // IMPORTANT: string id to match card
+  id: string;
   name: string;
   url: string;
   category: string;
@@ -48,13 +42,12 @@ type RSSSource = SharedRSSSource & {
 };
 
 interface RSSSourceManagerProps {
-  /** Optional modal mode */
   isOpen?: boolean;
   onClose?: () => void;
 }
 
 /* =========================================================
-   Helpers: normalize backend rows -> front-end shape
+   Helpers
    ========================================================= */
 
 function toStringBool(v: any): boolean {
@@ -64,7 +57,7 @@ function toStringBool(v: any): boolean {
 
 function normalizeOne(raw: any): RSSSource {
   return {
-    id: String(raw.id ?? raw.source_id ?? ''), // <-- make sure it's string
+    id: String(raw.id ?? raw.source_id ?? ''),
     name: raw.name ?? '',
     url: raw.url ?? '',
     category: raw.category ?? 'Property News',
@@ -76,10 +69,7 @@ function normalizeOne(raw: any): RSSSource {
     keywords: Array.isArray(raw.keywords)
       ? raw.keywords
       : typeof raw.keywords === 'string'
-        ? raw.keywords
-          .split(',')
-          .map((k: string) => k.trim())
-          .filter(Boolean)
+        ? raw.keywords.split(',').map((k: string) => k.trim()).filter(Boolean)
         : [],
     lastSync: raw.lastSync ?? null,
     totalPosts: Number(raw.totalPosts ?? 0),
@@ -133,7 +123,7 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
   const predefinedSources: Array<Pick<RSSSource, 'name' | 'url' | 'category' | 'description'>> = [
     {
       name: 'Economic Times Real Estate',
-      url: 'https://economictimes.indiatimes.com/rssfeeds/wealth/real-estate.cms',
+      url: 'https://cfo.economictimes.indiatimes.com/rss/topstories',
       category: 'Market Analysis',
       description: 'Leading business news on real estate market',
     },
@@ -163,7 +153,7 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
     },
     {
       name: 'Square Yards News',
-      url: 'https://www.squareyards.com/news/feed/',
+      url: 'https://www.squareyards.com/blog/feed',
       category: 'Market Analysis',
       description: 'Real estate market analysis and trends',
     },
@@ -197,7 +187,6 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
         keywords: ['real estate', 'property', 'investment'],
       };
 
-      // Backend likely expects numeric id internally; it returns a row
       const resp = await rssAPI.create(payload);
       const created = normalizeOne(resp?.data);
       setSources((prev) => [created, ...prev]);
@@ -281,7 +270,7 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
       });
       toast.success('Source updated');
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to update source');
+      toast.error(e?.message || 'Failed to update');
     }
   };
 
@@ -357,7 +346,10 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => {
+              setEditingSource(null);
+              setShowAddForm(true);
+            }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus size={18} />
@@ -417,202 +409,6 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
     </div>
   );
 
-  const AddEditForm = showAddForm && (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-bold text-gray-900">
-          {editingSource ? 'Edit RSS Source' : 'Add New RSS Source'}
-        </h3>
-        <button
-          onClick={() => {
-            setShowAddForm(false);
-            setEditingSource(null);
-            setForm({
-              name: '',
-              url: '',
-              category: 'Property News',
-              description: '',
-              active: true,
-              autoPublish: false,
-              syncFrequency: 'daily',
-              contentFilter: 'keywords',
-              keywords: [],
-            });
-          }}
-          className="text-gray-400 hover:text-gray-600"
-        >
-          <X size={20} />
-        </button>
-      </div>
-
-      {!editingSource && (
-        <div className="mb-6">
-          <h4 className="font-semibold text-gray-900 mb-3">Quick Add Popular Sources</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {predefinedSources.map((source, index) => (
-              <button
-                key={index}
-                onClick={() => handleAddPredefined(source)}
-                className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Globe className="text-blue-600" size={16} />
-                  </div>
-                  <div>
-                    <h5 className="font-medium text-gray-900">{source.name}</h5>
-                    <p className="text-sm text-gray-600 mb-1">{source.description}</p>
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                      {source.category}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or add custom source</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Custom Form */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Source Name *</label>
-          <input
-            type="text"
-            value={form.name ?? ''}
-            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            placeholder="Economic Times Real Estate"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">RSS Feed URL *</label>
-          <input
-            type="url"
-            value={form.url ?? ''}
-            onChange={(e) => setForm((p) => ({ ...p, url: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            placeholder="https://example.com/rss"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
-          <select
-            value={form.category ?? 'Property News'}
-            onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Sync Frequency</label>
-          <select
-            value={(form.syncFrequency as RSSSyncFrequency) ?? 'daily'}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, syncFrequency: e.target.value as RSSSyncFrequency }))
-            }
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="hourly">Every Hour</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="manual">Manual Only</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="mt-6 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Content Keywords (for filtering)
-          </label>
-          <input
-            type="text"
-            placeholder="real estate, property, investment (comma separated)"
-            value={(form.keywords ?? []).join(', ')}
-            onChange={(e) =>
-              setForm((p) => ({
-                ...p,
-                keywords: e.target.value
-                  .split(',')
-                  .map((k) => k.trim())
-                  .filter(Boolean),
-              }))
-            }
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Only content containing these keywords will be imported (unless filter is set to “all”)
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-6">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={!!form.active}
-              onChange={(e) => setForm((p) => ({ ...p, active: e.target.checked }))}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="ml-2 text-sm text-gray-700">Active</span>
-          </label>
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={!!form.autoPublish}
-              onChange={(e) => setForm((p) => ({ ...p, autoPublish: e.target.checked }))}
-              className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-            />
-            <span className="ml-2 text-sm text-gray-700">Auto Publish</span>
-          </label>
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={(form.contentFilter ?? 'keywords') !== 'all'}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, contentFilter: e.target.checked ? 'keywords' : 'all' }))
-              }
-              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-            />
-            <span className="ml-2 text-sm text-gray-700">Use Keyword Filter</span>
-          </label>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-end gap-3 mt-6">
-        <button
-          onClick={() => {
-            setShowAddForm(false);
-            setEditingSource(null);
-          }}
-          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={editingSource ? handleUpdateSource : handleAddSource}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          {editingSource ? 'Update Source' : 'Add Source'}
-        </button>
-      </div>
-    </div>
-  );
-
   const Grid = (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {(loading ? [] : sources).map((source) => (
@@ -636,7 +432,10 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
         <h3 className="text-xl font-bold text-gray-900 mb-2">No RSS Sources Found</h3>
         <p className="text-gray-600 mb-6">Add RSS sources to automatically generate blog content</p>
         <button
-          onClick={() => setShowAddForm(true)}
+          onClick={() => {
+            setEditingSource(null);
+            setShowAddForm(true);
+          }}
           className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
         >
           Add Your First Source
@@ -688,7 +487,34 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
   const renderContent = () => (
     <div className="space-y-6">
       {Header}
-      {AddEditForm}
+
+      {/* ✅ NEW: Modal component replaces inline Add/Edit form */}
+      <RSSSourceFormModal
+        open={showAddForm}
+        onClose={() => {
+          setShowAddForm(false);
+          setEditingSource(null);
+          setForm({
+            name: '',
+            url: '',
+            category: 'Property News',
+            description: '',
+            active: true,
+            autoPublish: false,
+            syncFrequency: 'daily',
+            contentFilter: 'keywords',
+            keywords: [],
+          });
+        }}
+        form={form}
+        setForm={setForm}
+        editingSource={editingSource}
+        onSubmit={editingSource ? handleUpdateSource : handleAddSource}
+        categories={categories}
+        predefinedSources={predefinedSources}
+        onAddPredefined={handleAddPredefined}
+      />
+
       {Grid}
       {EmptyState}
       {AdvancedSection}

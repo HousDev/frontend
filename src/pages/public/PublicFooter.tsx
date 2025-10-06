@@ -201,16 +201,16 @@ const PublicFooter = ({ onPageChange }: any) => {
                 <MapPin className="text-blue-400 mt-1 flex-shrink-0" size={18} />
                 <div>
                   <p className="text-gray-300">
-                    Office 501, Business Tower,<br />
-                    Andheri West, Mumbai - 400058<br />
-                    Maharashtra, India
+                   Shubhchandra, Nakhate Chowk,<br />
+                    Rahatani, Pimpri-Chinchwad<br />
+                   Pune, Maharashtra 411017, India
                   </p>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="text-green-400" size={18} />
                 <div>
-                  <p className="text-gray-300">+91 99999 99999</p>
+                  <p className="text-gray-300">+91 9637 00 9639</p>
                   <p className="text-gray-400 text-sm">24/7 Support Available</p>
                 </div>
               </div>
@@ -224,8 +224,8 @@ const PublicFooter = ({ onPageChange }: any) => {
               <div className="flex items-center space-x-3">
                 <Clock className="text-orange-400" size={18} />
                 <div>
-                  <p className="text-gray-300">Mon - Sat: 9:00 AM - 8:00 PM</p>
-                  <p className="text-gray-400 text-sm">Sunday: 10:00 AM - 6:00 PM</p>
+                  <p className="text-gray-300">Mon - Fri: 9:00 AM - 8:00 PM</p>
+                  <p className="text-gray-400 text-sm">Sat - Sun: 9:00 AM - 9:00 PM</p>
                 </div>
               </div>
             </div>
