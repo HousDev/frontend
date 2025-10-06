@@ -2,6 +2,7 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import DOMPurify from "dompurify";
 import { Eye, Download, Maximize2, Minimize2, Code, Printer } from "lucide-react";
+import { documentsGeneratedAPI } from "@/lib/documentsGeneratedAPI";
 
 type TemplateType = {
   name?: string;
@@ -78,11 +79,16 @@ export default function DocumentPreview({
   documentData,
   isVisible = true,
   pageType: initialPageType = "A4",
+  // 🆕  server doc id + optional pre-save hook
+  documentId,
+  onEnsureSaved, // call karke make sure doc server pe create/update ho chuka ho
 }: {
   template?: TemplateType;
   documentData?: Record<string, any>;
   isVisible?: boolean;
   pageType?: "A4" | "Legal";
+  documentId?: number | string | null;
+  onEnsureSaved?: () => Promise<void>;
 }) {
   const [viewMode, setViewMode] = useState<"preview" | "code">("preview");
   const [isMaximized, setIsMaximized] = useState(false);
@@ -122,40 +128,16 @@ export default function DocumentPreview({
       const doc = iframe.contentDocument;
       if (!doc) return;
       const root = doc.documentElement;
-      // use max of body/documentElement scrollHeight to capture all pages stacked
       const h = Math.max(root.scrollHeight, doc.body?.scrollHeight ?? 0) + 5;
       setIframeHeight(h);
     };
     iframe.addEventListener("load", onLoad);
-    // changing srcDoc re-triggers load
     return () => {
       iframe.removeEventListener("load", onLoad);
     };
   }, [fullDoc]);
 
   if (!isVisible) return null;
-
-  // ---------- helpers: wait for resources ----------
-  async function waitForImages(node: HTMLElement, doc: Document) {
-    const imgs = Array.from(node.querySelectorAll("img"));
-    await Promise.all(
-      imgs.map(
-        (img) =>
-          new Promise<void>((res) => {
-            if ((img as HTMLImageElement).complete) return res();
-            (img as HTMLImageElement).addEventListener("load", () => res(), { once: true });
-            (img as HTMLImageElement).addEventListener("error", () => res(), { once: true });
-          })
-      )
-    );
-    // also wait a tick for webfonts to apply
-    if ((doc as any).fonts && (doc as any).fonts.ready) {
-      try {
-        await (doc as any).fonts.ready;
-      } catch {}
-    }
-    await new Promise((r) => setTimeout(r, 50));
-  }
 
   // ---------- Actions ----------
   const handlePrint = () => {
@@ -165,112 +147,29 @@ export default function DocumentPreview({
     w.print();
   };
 
+  // 🆕 API-based download
   const handleDownloadPdf = async () => {
-    if (!iframeRef.current?.contentDocument) return;
-    setDownloading(true);
     try {
-      const [{ jsPDF }, html2canvasModule] = await Promise.all([
-        import("jspdf"),
-        import("html2canvas"),
-      ]);
-      const html2canvas = html2canvasModule.default;
+      setDownloading(true);
 
-      const pageWidthMm = pageType === "Legal" ? 216 : 210;
-      const pageHeightMm = pageType === "Legal" ? 356 : 297;
-
-      const srcDoc = iframeRef.current.contentDocument!;
-      // collect all `.main-page` nodes; fallback to #printDialog or body
-      const pageNodes: HTMLElement[] = Array.from(srcDoc.querySelectorAll(".main-page")) as HTMLElement[];
-      if (pageNodes.length === 0) {
-        const fallback =
-          (srcDoc.getElementById("printDialog") as HTMLElement) ||
-          (srcDoc.body as HTMLElement);
-        pageNodes.push(fallback);
+      // make sure server me latest content save ho chuka ho
+      if (onEnsureSaved) {
+        await onEnsureSaved();
       }
 
-      const pdf = new jsPDF({
-        unit: "mm",
-        format: [pageWidthMm, pageHeightMm],
-        orientation: "portrait",
-        compress: true,
+      if (!documentId) {
+        alert("Document not saved yet. Please save or generate first.");
+        return;
+      }
+
+      await documentsGeneratedAPI.downloadPdf(documentId, {
+        page: pageType.toLowerCase() as "a4" | "legal",
+        filenameFallback:
+          `${(template?.name || "document").toString().replace(/[^\w\-]+/g, "_")}.pdf`,
       });
-
-      let firstPdfPage = true;
-
-      for (let idx = 0; idx < pageNodes.length; idx++) {
-        const target = pageNodes[idx];
-
-        // make sure images/fonts are ready
-        await waitForImages(target, srcDoc);
-
-        // better capture full layout: use scrollWidth/scrollHeight
-        const widthPx = target.scrollWidth || target.offsetWidth || 800;
-        const heightPx = target.scrollHeight || target.offsetHeight || 1120;
-
-        // pick a scale that keeps ~2000-2500px width for clarity
-        const desiredPxWidth = 2400; // ~300dpi look on A4
-        const scale = Math.max(1, desiredPxWidth / widthPx);
-
-        const canvas = await html2canvas(target, {
-          scale,
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: "#ffffff",
-          logging: false,
-          windowWidth: widthPx,
-          windowHeight: heightPx,
-          // ensure it doesn't clip
-          width: widthPx,
-          height: heightPx,
-          scrollX: 0,
-          scrollY: 0,
-        });
-
-        // convert canvas to multiple PDF pages if taller than one page
-        const pxPerMm = canvas.width / pageWidthMm;
-        const pageHeightPx = Math.floor(pageHeightMm * pxPerMm);
-
-        let rendered = 0;
-        while (rendered < canvas.height) {
-          const sliceHeight = Math.min(pageHeightPx, canvas.height - rendered);
-
-          const pageCanvas = document.createElement("canvas");
-          pageCanvas.width = canvas.width;
-          pageCanvas.height = sliceHeight;
-          const ctx = pageCanvas.getContext("2d");
-          if (!ctx) break;
-
-          ctx.drawImage(
-            canvas,
-            0,
-            rendered,
-            canvas.width,
-            sliceHeight,
-            0,
-            0,
-            canvas.width,
-            sliceHeight
-          );
-
-          const imgData = pageCanvas.toDataURL("image/jpeg", 0.95);
-          const imgWidthMm = pageWidthMm;
-          const imgHeightMm = sliceHeight / pxPerMm;
-
-          if (!firstPdfPage) {
-            pdf.addPage([pageWidthMm, pageHeightMm], "portrait");
-          }
-          pdf.addImage(imgData, "JPEG", 0, 0, imgWidthMm, imgHeightMm, undefined, "FAST");
-          firstPdfPage = false;
-
-          rendered += sliceHeight;
-        }
-      }
-
-      const filename = `${(template?.name || "document").toString().replace(/[^\w\-]+/g, "_")}.pdf`;
-      pdf.save(filename);
     } catch (err) {
-      console.error("PDF export failed:", err);
-      alert("Couldn't generate the PDF. Check the console for details.");
+      console.error("PDF download failed:", err);
+      alert(err instanceof Error ? err.message : "Failed to download PDF");
     } finally {
       setDownloading(false);
     }
@@ -325,7 +224,7 @@ export default function DocumentPreview({
           <button
             onClick={handleDownloadPdf}
             disabled={downloading}
-            title={downloading ? "Generating PDF..." : "Download PDF"}
+            title={downloading ? "Downloading..." : "Download PDF"}
             className={`p-2 rounded-md ${
               downloading ? "bg-gray-100 text-gray-400" : "bg-gray-50 hover:bg-gray-100"
             }`}
