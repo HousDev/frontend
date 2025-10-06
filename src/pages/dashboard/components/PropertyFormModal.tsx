@@ -850,7 +850,7 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
     selling_rights: fd.sellingRights,
     amenities: fd.amenities,
     nearby_places: fd.nearby_places,
-
+    description: fd.description, 
     // ...existing mappings
     bedrooms: fd.bedrooms,
     bathrooms: fd.bathrooms,

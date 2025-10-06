@@ -903,7 +903,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 <div key={property.id} className="bg-white rounded-2xl shadow-lg overflow-hidden group">
                   <div className="relative">
                     {property.images && property.images.length ? (
-                      <div className="relative">
+                      <div
+                        onClick={() => handleNavigateToProperty(property)}
+                        className="cursor-pointer relative"
+                      >
                         <img
                           src={property.images[0]}
                           alt={property.title || 'Property image'}
@@ -917,6 +920,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                           </span>
                         </div>
                       </div>
+
 
 
                     ) : (
