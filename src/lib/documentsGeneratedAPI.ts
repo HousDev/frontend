@@ -11,6 +11,9 @@ export type DocumentsGeneratedPayload = {
   content?: string | null; // final HTML snapshot
   variables?: any | null;  // JSON object
   status?: GenStatus;      // 'draft' | 'created'
+    created_by?: number;
+  updated_by?: number;
+
 };
 
 /* ------------------------------------------------------------------
@@ -135,6 +138,9 @@ export const documentsGeneratedAPI = {
       content: payload.content ?? null,
       variables: payload.variables ?? null,
       status: payload.status ?? "draft",
+        created_by: payload.created_by ?? null,
+  updated_by: payload.updated_by ?? null,
+
     };
     const res = await api.post("/documents-generated", body);
     return res.data.data;
@@ -149,6 +155,9 @@ export const documentsGeneratedAPI = {
       content: payload.content ?? null,
       variables: payload.variables ?? null,
       status: payload.status ?? "draft",
+       created_by: payload.created_by ?? null,
+  updated_by: payload.updated_by ?? null,
+
     };
     const res = await api.patch(`/documents-generated/${id}`, body);
     return res.data.data;

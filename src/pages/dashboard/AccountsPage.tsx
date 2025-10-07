@@ -1,5 +1,8 @@
-import React, { useMemo, useState } from 'react';
+
 import type { LucideProps } from 'lucide-react';
+// 🔁 CHANGED
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+
 import {
   Receipt,
   FileText,
@@ -50,6 +53,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
+
 import SharingModal from '../../components/accounts/SharingModal';
 import TrackingModal from '../../components/accounts/TrackingModal';
 import DocumentEditModal from '../../components/accounts/DocumentEditModal';
@@ -58,6 +62,45 @@ import InvoiceFormModal from '../../components/accounts/InvoiceFormModal';
 import ReceiptFormModal from '../../components/accounts/ReceiptFormModal';
 import LedgerModal from '../../components/accounts/LedgerModal';
 import ApprovalModal from '../../components/accounts/ApprovalModal';
+import PropertyReceiptFormModal from '@/components/accounts/PropertyReceiptFormModal';
+import { propertyPaymentReceiptAPI } from '@/lib/propertyPaymentReceiptAPI';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'react-toastify';
+
+
+
+type FD = FinancialDocument;
+
+const mapRowToFD = (row: any): FD => ({
+  id: row.id,
+  type: 'property_payment_receipt',
+  client_name: row.buyer_name || row.seller_name || '—',
+  client_phone: row.buyer_phone || row.seller_phone || '',
+  client_email: row.buyer_email || row.seller_email || '',
+  receipt_id: row.receipt_id,
+  seller_name: row.seller_name,
+  buyer_name: row.buyer_name,
+  property_address: row.property_address,
+  property_details: row.property_details || {},
+  deal_value: row.deal_value ?? undefined,
+  payment_type: row.payment_type,
+  amount: row.amount ?? 0,
+  amount_in_words: row.amount_in_words,
+  receipt_date: row.receipt_date || undefined,
+  payment_date: row.payment_date || undefined,
+  payment_reference: row.payment_reference,
+  status: row.status,
+  payment_status: row.payment_status,
+  notes: row.notes,
+  ledger_entries: row.ledger_entries || [],
+  related_party: row.related_party,
+  created_by: String(row.created_by ?? ''),
+  created_by_name: row.created_by_name || '',
+  updated_by: String(row.updated_by ?? ''),
+  updated_by_name: row.updated_by_name || '',
+});
+
+
 
 /**
  * Types
@@ -115,6 +158,9 @@ interface FinancialDocument {
   payment_method?: string;
   payment_reference?: string;
   created_by?: string;
+  created_by_name?: string;    
+  updated_by?:string;
+  updated_by_name?:string;
   approved_by?: string | null;
   requires_approval?: boolean;
   shared_channels?: string[];
@@ -137,13 +183,70 @@ const AccountsPage: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [showInvoiceForm, setShowInvoiceForm] = useState<boolean>(false);
   const [showReceiptForm, setShowReceiptForm] = useState<boolean>(false);
+  const [showPropertyForm, setShowPropertyForm] = useState<boolean>(false);
   const [showLedgerModal, setShowLedgerModal] = useState<boolean>(false);
   const [showApprovalModal, setShowApprovalModal] = useState<boolean>(false);
-  const [showFilters, setShowFilters] = useState<boolean>(false); // <-- fixed missing state
+  const [showFilters, setShowFilters] = useState<boolean>(false);
   const [selectedItem, setSelectedItem] = useState<FinancialDocument | null>(null);
   const [editingItem, setEditingItem] = useState<FinancialDocument | null>(null);
   const [userRole] = useState<'admin' | 'manager' | 'user'>('admin'); // example roles
   const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
+
+  const { user } = useAuth();
+  // ✅ NEW: loading + error states
+  const [loadingReceipts, setLoadingReceipts] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [receiptsBootstrapped, setReceiptsBootstrapped] = useState(false); // to avoid re-adding
+  // ✅ NEW
+  const loadAllPropertyReceipts = useCallback(async () => {
+    try {
+      setLoadingReceipts(true);
+      setLoadError(null);
+
+      const res = await propertyPaymentReceiptAPI.getAll();
+      // ✅ your backend returns { items: [...] }
+      const rows: any[] = res?.items ?? res?.data?.items ?? [];
+console.log("first",res)
+      const mapped: FD[] = rows.map(mapRowToFD);
+
+      // merge strategy:
+      // - remove any existing property_payment_receipt docs
+      // - prepend the freshly fetched ones
+      setDocuments(prev => {
+        const others = prev.filter(d => d.type !== 'property_payment_receipt');
+        return [...mapped, ...others];
+      });
+
+      setReceiptsBootstrapped(true);
+      toast.success(`Loaded ${mapped.length} receipts`);
+    } catch (err: any) {
+      console.error("loadAllPropertyReceipts", err);
+      setLoadError(err?.message || "Failed to load receipts");
+      toast.error("Failed to load property receipts");
+    } finally {
+      setLoadingReceipts(false);
+    }
+  }, []);
+
+  // ✅ NEW
+  useEffect(() => {
+    // load receipts only once at mount (keeps your demo invoices/receipts intact)
+    if (!receiptsBootstrapped) loadAllPropertyReceipts();
+  }, [receiptsBootstrapped, loadAllPropertyReceipts]);
+  // ✅ NEW
+  const fetchReceiptById = useCallback(async (id: number | string) => {
+    try {
+      const res = await propertyPaymentReceiptAPI.getById(id);
+      const row = res?.data?.item ?? res?.item ?? res?.data ?? res;
+      return mapRowToFD(row);
+    } catch (err) {
+      console.error("fetchReceiptById", err);
+      toast.error("Could not fetch latest receipt");
+      return null;
+    }
+  }, []);
+
+
 
   const tabs = [
     { id: 'all', label: 'All Documents', count: 28, color: 'blue' },
@@ -313,6 +416,11 @@ const AccountsPage: React.FC = () => {
     }
   ]);
 
+
+
+
+
+
   /**
    * Filters
    */
@@ -342,7 +450,7 @@ const AccountsPage: React.FC = () => {
   }, [documents, searchTerm, activeTab]);
 
   /**
-   * Statistics (guard for missing fields)
+   * Statistics
    */
   const totalAmount = useMemo(() => {
     return documents.reduce((sum, doc) => {
@@ -384,6 +492,11 @@ const AccountsPage: React.FC = () => {
     setShowReceiptForm(true);
   };
 
+  const handleCreatePropertyReceipt = () => {
+    setEditingItem(null);
+    setShowPropertyForm(true);
+  };
+
   const handleShare = (item: FinancialDocument) => {
     setSelectedItem(item);
     setShowSharingModal(true);
@@ -394,14 +507,44 @@ const AccountsPage: React.FC = () => {
     setShowTrackingModal(true);
   };
 
-  const handleEdit = (item: FinancialDocument) => {
-    setEditingItem(item);
+  // 🔁 CHANGED
+  const handleEdit = async (item: FinancialDocument) => {
     if (item.type === 'brokerage_invoice') {
+      setEditingItem(item);
       setShowInvoiceForm(true);
-    } else {
+      return;
+    }
+    if (item.type === 'brokerage_receipt') {
+      setEditingItem(item);
       setShowReceiptForm(true);
+      return;
+    }
+
+    if (item.type === 'property_payment_receipt') {
+      // pull the freshest row via GET /receipts/id/:id
+      const latest = await fetchReceiptById(item.id);
+      if (latest) {
+        setEditingItem(latest);
+      } else {
+        setEditingItem(item); // fallback to existing
+      }
+      setShowPropertyForm(true);
     }
   };
+
+  // ✅ NEW
+  const hardDeletePropertyReceipt = useCallback(async (doc: FinancialDocument) => {
+    try {
+      if (!doc?.id) return;
+      await propertyPaymentReceiptAPI.delete(doc.id);
+      setDocuments(prev => prev.filter(d => d.id !== doc.id));
+      toast.success("Receipt deleted");
+    } catch (err) {
+      console.error("delete receipt", err);
+      toast.error("Failed to delete receipt");
+    }
+  }, []);
+
 
   const handleDelete = (item: FinancialDocument) => {
     setSelectedItem(item);
@@ -419,8 +562,7 @@ const AccountsPage: React.FC = () => {
   };
 
   const handleDownload = (item: FinancialDocument) => {
-    // Simple demo PDF (base64) to download — in real app you generate server-side or with a lib
-    const base64Pdf = 'JVBERi0xLjQKJdPr6eEKMSAwIG9iag...'; // shortened inlined example
+    const base64Pdf = 'JVBERi0xLjQKJdPr6eEKMSAwIG9iag...'; // demo
     const link = document.createElement('a');
     link.href = `data:application/pdf;base64,${base64Pdf}`;
     link.download = `${item.invoice_id ?? item.receipt_id ?? 'document'}.pdf`;
@@ -429,36 +571,142 @@ const AccountsPage: React.FC = () => {
     link.remove();
   };
 
-  const handleSaveDocument = (documentData: Partial<FinancialDocument>) => {
-    if (editingItem) {
-      setDocuments(prev => prev.map(doc => (doc.id === editingItem.id ? { ...doc, ...documentData } as FinancialDocument : doc)));
-    } else {
-      const maxId = documents.length ? Math.max(...documents.map(d => d.id)) : 0;
-      const newDocument: FinancialDocument = {
-        ...(documentData as FinancialDocument),
-        id: maxId + 1,
-        created_by: userRole === 'admin' ? 'Admin User' : 'Manager User',
-        requires_approval: userRole === 'manager',
-        status: userRole === 'manager' ? 'pending_approval' : 'active'
-      } as FinancialDocument;
-      setDocuments(prev => [...prev, newDocument]);
+  const handleSaveDocument = async (data: Partial<FinancialDocument>) => {
+    try {
+      // Property Payment Receipt
+      if (data.type === 'property_payment_receipt') {
+        // UPDATE
+        if (editingItem?.type === 'property_payment_receipt' && editingItem.id) {
+          const res = await propertyPaymentReceiptAPI.update(editingItem.id, {
+            type: 'property_payment_receipt',
+            status: data.status ?? 'paid',
+            payment_status: data.payment_status ?? 'paid',
+            related_party: data.related_party,
+
+            // parties
+            seller_id: data.seller_id,
+            seller_name: data.seller_name,
+            seller_phone: data.seller_phone,
+            seller_email: data.seller_email,
+            buyer_id: data.buyer_id,
+            buyer_name: data.buyer_name,
+            buyer_phone: data.buyer_phone,
+            buyer_email: data.buyer_email,
+
+            // property
+            property_id: data.property_id,
+            property_address: data.property_address,
+            property_details: data.property_details,
+
+            // money + dates
+            deal_value: data.deal_value,
+            payment_type: data.payment_type,
+            amount: data.amount,
+            amount_in_words: data.amount_in_words,
+            receipt_date: data.receipt_date,
+            payment_date: data.payment_date,
+            payment_reference: data.payment_reference,
+            payment_method:data.payment_method,
+
+            // misc
+            transaction_details: (data as any).transaction_details,
+            notes: data.notes,
+            ledger_entries: data.ledger_entries,
+          });
+
+          const row = res.data || res;
+          const updated: FD = mapRowToFD(row); // ✅ mapper ensures client_name
+          setDocuments(prev => prev.map(d => (d.id === editingItem.id ? updated : d)));
+          toast.success("updated ")
+        } else {
+          // CREATE
+          const res = await propertyPaymentReceiptAPI.create({
+            type: 'property_payment_receipt',
+            status: 'paid',
+            payment_status: 'paid',
+            related_party: data.related_party,
+
+            // parties
+            seller_id: data.seller_id,
+            seller_name: data.seller_name,
+            seller_phone: data.seller_phone,
+            seller_email: data.seller_email,
+            buyer_id: data.buyer_id,
+            buyer_name: data.buyer_name,
+            buyer_phone: data.buyer_phone,
+            buyer_email: data.buyer_email,
+
+            // property
+            property_id: data.property_id,
+            property_address: data.property_address,
+            property_details: data.property_details,
+
+            // money + dates
+            deal_value: data.deal_value,
+            payment_type: data.payment_type,
+            amount: data.amount,
+            amount_in_words: data.amount_in_words,
+            receipt_date: data.receipt_date,
+            payment_date: data.payment_date,
+            payment_reference: data.payment_reference,
+
+            // misc
+            transaction_details: (data as any).transaction_details,
+            notes: data.notes,
+            ledger_entries: data.ledger_entries,
+            created_by: data.created_by,
+            updated_by: data.updated_by,
+          });
+
+          const row = res.data || res;
+          const created: FD = mapRowToFD(row); // ✅ mapper ensures client_name
+          setDocuments(prev => [created, ...prev]);
+        }
+
+      } else {
+        // बाकी doc types (existing local flow)
+        if (editingItem) {
+          // ensure client_name exist for safety (derive from buyer/seller if missing)
+          const safe: any = {
+            ...editingItem,
+            ...data,
+          };
+          if (!safe.client_name) {
+            safe.client_name = data.buyer_name || data.seller_name || editingItem.client_name || '—';
+          }
+          setDocuments(prev => prev.map(doc => (doc.id === editingItem.id ? (safe as FinancialDocument) : doc)));
+        } else {
+          const maxId = documents.length ? Math.max(...documents.map(d => d.id)) : 0;
+          const safe: any = { ...data, id: maxId + 1 };
+          if (!safe.client_name) {
+            safe.client_name = data?.buyer_name || data?.seller_name || '—';
+          }
+          setDocuments(prev => [safe as FinancialDocument, ...prev]);
+        }
+      }
+    } catch (e) {
+      console.error('Save error', e);
+    } finally {
+      setShowInvoiceForm(false);
+      setShowReceiptForm(false);
+      setShowPropertyForm(false);
+      setEditingItem(null);
     }
-    setShowInvoiceForm(false);
-    setShowReceiptForm(false);
-    setEditingItem(null);
   };
+
+
 
   const handleApproveDocument = (documentId: number, approved: boolean) => {
     setDocuments(prev =>
       prev.map(doc =>
         doc.id === documentId
           ? {
-              ...doc,
-              requires_approval: false,
-              status: approved ? 'active' : 'rejected',
-              approved_by: 'Admin User',
-              approved_at: new Date().toISOString()
-            }
+            ...doc,
+            requires_approval: false,
+            status: approved ? 'active' : 'rejected',
+            approved_by: 'Admin User',
+            approved_at: new Date().toISOString()
+          }
           : doc
       )
     );
@@ -483,7 +731,6 @@ const AccountsPage: React.FC = () => {
   /**
    * UI helpers
    */
-  // Use LucideProps to type icons correctly
   const getStatusBadge = (status?: string, paymentStatus?: string) => {
     if (status === 'pending_approval') {
       return (
@@ -528,69 +775,68 @@ const AccountsPage: React.FC = () => {
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-  {/* Left Side */}
-  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-    <div className="p-3 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl">
-      <Receipt className="text-white" size={24} />
-    </div>
-    <div>
-      <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-        Accounts Management
-      </h1>
-      <p className="text-gray-600 text-sm sm:text-base mt-1">
-        Complete financial document management with ledger tracking
-      </p>
-    </div>
-  </div>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          {/* Left Side */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="p-3 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl">
+              <Receipt className="text-white" size={24} />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                Accounts Management
+              </h1>
+              <p className="text-gray-600 text-sm sm:text-base mt-1">
+                Complete financial document management with ledger tracking
+              </p>
+            </div>
+          </div>
 
-  {/* Right Side (Dropdown) */}
-  <div className="flex items-start sm:items-center justify-end">
-    <div className="relative group">
-      <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base">
-        <Plus size={16} />
-        <span>Create Document</span>
-      </button>
+          {/* Right Side (Dropdown) */}
+          <div className="flex items-start sm:items-center justify-end">
+            <div className="relative group">
+              <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base">
+                <Plus size={16} />
+                <span>Create Document</span>
+              </button>
 
-      {/* Dropdown Menu */}
-      <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 w-64">
-        <div className="p-2">
-          <button
-            onClick={handleCreateInvoice}
-            className="flex items-start space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
-          >
-            <FileText className="text-purple-600 mt-1" size={16} />
-            <div>
-              <div className="font-medium">Brokerage Invoice</div>
-              <div className="text-xs text-gray-500">Commission invoice to client</div>
+              {/* Dropdown Menu */}
+              <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 w-64">
+                <div className="p-2">
+                  <button
+                    onClick={handleCreateInvoice}
+                    className="flex items-start space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
+                  >
+                    <FileText className="text-purple-600 mt-1" size={16} />
+                    <div>
+                      <div className="font-medium">Brokerage Invoice</div>
+                      <div className="text-xs text-gray-500">Commission invoice to client</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={handleCreateReceipt}
+                    className="flex items-start space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
+                  >
+                    <Receipt className="text-green-600 mt-1" size={16} />
+                    <div>
+                      <div className="font-medium">Brokerage Receipt</div>
+                      <div className="text-xs text-gray-500">Commission payment received</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={handleCreatePropertyReceipt}
+                    className="flex items-start space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
+                  >
+                    <CreditCard className="text-orange-600 mt-1" size={16} />
+                    <div>
+                      <div className="font-medium">Property Payment Receipt</div>
+                      <div className="text-xs text-gray-500">Property payment acknowledgment</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
-          </button>
-          <button
-            onClick={handleCreateReceipt}
-            className="flex items-start space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
-          >
-            <Receipt className="text-green-600 mt-1" size={16} />
-            <div>
-              <div className="font-medium">Brokerage Receipt</div>
-              <div className="text-xs text-gray-500">Commission payment received</div>
-            </div>
-          </button>
-          <button
-            onClick={handleCreateReceipt}
-            className="flex items-start space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg w-full text-left"
-          >
-            <CreditCard className="text-orange-600 mt-1" size={16} />
-            <div>
-              <div className="font-medium">Property Payment Receipt</div>
-              <div className="text-xs text-gray-500">Property payment acknowledgment</div>
-            </div>
-          </button>
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
@@ -658,9 +904,8 @@ const AccountsPage: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
-                  activeTab === tab.id ? `bg-${tab.color}-100 text-${tab.color}-700 border border-${tab.color}-200` : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${activeTab === tab.id ? `bg-${tab.color}-100 text-${tab.color}-700 border border-${tab.color}-200` : 'text-gray-600 hover:bg-gray-100'
+                  }`}
               >
                 <span className="font-medium">{tab.label}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === tab.id ? `bg-${tab.color}-200` : 'bg-gray-200'}`}>
@@ -804,7 +1049,9 @@ const AccountsPage: React.FC = () => {
                           </div>
                         )}
                         {doc.approved_by && <div className="text-xs text-green-600">Approved by {doc.approved_by}</div>}
-                        <div className="text-xs text-gray-500">by {doc.created_by}</div>
+                        {/* <div className="text-xs text-gray-500">by {doc.created_by}</div> */}
+                        <div className="text-xs text-gray-500"> <span className='font-bold'>Created By: </span> {doc.created_by_name}</div>
+                        <div className="text-xs text-gray-500"><span className='font-bold'> Updated By: </span>  {doc.updated_by_name}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -859,13 +1106,24 @@ const AccountsPage: React.FC = () => {
                                 <Edit size={14} />
                                 <span>Edit</span>
                               </button>
+
                               <button
-                                onClick={() => handleDelete(doc)}
+                                onClick={() => {
+                                  if (doc.type === 'property_payment_receipt') {
+                                    if (window.confirm(`Delete receipt ${doc.receipt_id ?? doc.id}?`)) {
+                                      hardDeletePropertyReceipt(doc);
+                                    }
+                                  } else {
+                                    // fallback to your existing modal flow for other doc types
+                                    handleDelete(doc);
+                                  }
+                                }}
                                 className="flex items-center space-x-2 px-3 py-2 text-sm text-red-600 hover:bg-red-100 rounded w-full text-left"
                               >
                                 <Trash2 size={14} />
                                 <span>Delete</span>
                               </button>
+
                             </div>
                           </div>
                         </div>
@@ -879,7 +1137,7 @@ const AccountsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Modals - note: modal prop types assumed; adjust if your modal components expose specific prop types */}
+      {/* Modals */}
       {showSharingModal && selectedItem && (
         <SharingModal
           isOpen={showSharingModal}
@@ -966,6 +1224,19 @@ const AccountsPage: React.FC = () => {
           receipt={editingItem}
           onSave={handleSaveDocument}
           userRole={userRole}
+        />
+      )}
+
+      {showPropertyForm && (
+        <PropertyReceiptFormModal
+          isOpen={showPropertyForm}
+          onClose={() => {
+            setShowPropertyForm(false);
+            setEditingItem(null);
+          }}
+          receipt={editingItem}        // adjust prop name if your component expects something else
+          onSave={handleSaveDocument}  // forward save to same handler
+          userRole={userRole}          // pass through if needed
         />
       )}
 

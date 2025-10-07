@@ -1,7 +1,6 @@
 import React from "react";
 import {
   FileText,
-  Eye,
   Download,
   Trash2,
   Copy,
@@ -31,6 +30,10 @@ type GeneratedDoc = {
   last_used_at?: string | null;
   is_deleted?: 0 | 1;
   deleted_at?: string | null;
+
+  // 👇 add name fields so we can render them
+  created_by_name?: string;
+  updated_by_name?: string;
 };
 
 const BRAND = {
@@ -39,7 +42,10 @@ const BRAND = {
   navy: "#0c3854",
 };
 
-const Badge = ({ children, tone = "gray" as "gray" | "green" | "blue" }) => {
+const Badge = ({
+  children,
+  tone = "gray" as "gray" | "green" | "blue",
+}) => {
   const map = {
     gray: "bg-gray-100 text-gray-700 ring-gray-200",
     green: "bg-emerald-100 text-emerald-700 ring-emerald-200",
@@ -63,20 +69,21 @@ function parseVariables(v: any) {
 const SkeletonCard = () => (
   <div className="rounded-2xl border border-gray-200 bg-white p-5 animate-pulse">
     <div className="flex items-start justify-between mb-3">
-      <div className="h-4 w-40 bg-gray-200 rounded"></div>
-      <div className="h-5 w-14 bg-gray-200 rounded-full"></div>
+      <div className="h-4 w-40 bg-gray-200 rounded" />
+      <div className="h-5 w-14 bg-gray-200 rounded-full" />
     </div>
-    <div className="h-3 w-24 bg-gray-200 rounded mb-4"></div>
+    <div className="h-3 w-24 bg-gray-200 rounded mb-4" />
     <div className="flex gap-2 mb-4">
-      <div className="h-6 w-16 bg-gray-200 rounded"></div>
-      <div className="h-6 w-20 bg-gray-200 rounded"></div>
+      <div className="h-6 w-16 bg-gray-200 rounded" />
+      <div className="h-6 w-20 bg-gray-200 rounded" />
     </div>
-    <div className="h-9 w-full bg-gray-200 rounded"></div>
+    <div className="h-9 w-full bg-gray-200 rounded" />
   </div>
 );
 
 type SortKey = "recent" | "oldest" | "name_az" | "name_za";
 
+/** Try to get a filename from Content-Disposition */
 function parseFilenameFromDisposition(disposition?: string | null, fallback = "document.pdf") {
   if (!disposition) return fallback;
   try {
@@ -86,6 +93,31 @@ function parseFilenameFromDisposition(disposition?: string | null, fallback = "d
     if (matchStar?.[1]) return decodeURIComponent(matchStar[1]);
   } catch {}
   return fallback;
+}
+
+/** dd/mm/yyyy hh:mm AM/PM in IST */
+function fmtDateIST(input?: string | number | Date) {
+  if (!input) return "—";
+  const dt = new Date(input);
+  if (isNaN(dt.getTime())) return "—";
+
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+
+  const parts = fmt.formatToParts(dt);
+  const map: Record<string, string> = {};
+  for (const p of parts) map[p.type] = p.value;
+
+  const date = `${map.day}/${map.month}/${map.year}`;
+  const time = `${map.hour}:${map.minute}${map.dayPeriod ? " " + map.dayPeriod.toUpperCase() : ""}`;
+  return `${date} ${time}`;
 }
 
 const CreatedDocuments: React.FC = () => {
@@ -156,7 +188,6 @@ const CreatedDocuments: React.FC = () => {
     }
   };
 
-
   const downloadPDF = async (doc: GeneratedDoc) => {
     try {
       const hasGetPdfUrl = typeof (documentsGeneratedAPI as any).getPdfUrl === "function";
@@ -179,7 +210,10 @@ const CreatedDocuments: React.FC = () => {
       if (!resp.ok) throw new Error(`Download failed (${resp.status})`);
 
       const disp = resp.headers.get("Content-Disposition");
-      const filename = parseFilenameFromDisposition(disp, `${(doc.name || "document").replace(/\s+/g, "_")}.pdf`);
+      const filename = parseFilenameFromDisposition(
+        disp,
+        `${(doc.name || "document").replace(/\s+/g, "_")}.pdf`
+      );
 
       const blob = await resp.blob();
       const href = URL.createObjectURL(blob);
@@ -388,22 +422,20 @@ const CreatedDocuments: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((doc) => {
             const vars = parseVariables(doc.variables);
-            
-            // --- FIX STARTS HERE ---
+
+            // person/property fields (defensive)
             const buyer = vars.buyer_name || vars.buyerName || vars.buyer;
             const seller = vars.seller_name || vars.sellerName || vars.seller;
-            
-            // Extract salutations with fallbacks
             const buyerSalutation = vars.buyer_salutation || vars.buyerSalutation || "";
             const sellerSalutation = vars.seller_salutation || vars.sellerSalutation || "";
-            
-            // Combine salutation and name
-            const fullBuyerName = `${buyerSalutation} ${buyer}`.trim();
-            const fullSellerName = `${sellerSalutation} ${seller}`.trim();
-
+            const fullBuyerName = `${buyerSalutation} ${buyer || ""}`.trim();
+            const fullSellerName = `${sellerSalutation} ${seller || ""}`.trim();
             const propertyTitle = vars.property_title || vars.propertyTitle || vars.title;
             const propertyAddress = vars.property_address || vars.propertyAddress || vars.address;
-            // --- FIX ENDS HERE ---
+
+            const createdText = fmtDateIST(doc.created_at);
+            const updatedText = fmtDateIST(doc.updated_at);
+            const createdByName = (doc.created_by_name || "").trim();
 
             return (
               <div
@@ -478,24 +510,30 @@ const CreatedDocuments: React.FC = () => {
                   </div>
                 )}
 
+                {/* 👇 Created by + dates in IST */}
                 <div className="text-[11px] text-gray-600 space-y-1 mb-4">
-                  {doc.created_at && (
-                    <div>
-                      <span className="text-gray-500">Created:</span>{" "}
-                      {new Date(doc.created_at).toLocaleString()}
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-gray-500">Created by:</span>{" "}
+                    <span className="font-medium text-gray-800">
+                      {createdByName || "—"}
+                    </span>
+                    {doc.created_at && (
+                      <>
+                        {" · "}
+                        <span className="text-gray-500">on</span>{" "}
+                        <span className="font-medium text-gray-800">{createdText}</span>
+                      </>
+                    )}
+                  </div>
                   {doc.updated_at && (
                     <div>
                       <span className="text-gray-500">Updated:</span>{" "}
-                      {new Date(doc.updated_at).toLocaleString()}
+                      <span className="font-medium text-gray-800">{updatedText}</span>
                     </div>
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                 
-
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => downloadPDF(doc)}
                     className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-gray-200 hover:bg-gray-50"

@@ -22,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 // aapke project ke hisaab se
 import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 import { usersAPI } from '@/lib/api';
+import { readResumeLocal, saveResumeLocal } from '@/lib/documentResume';
 /* =================== Helpers =================== */
 
 function normalizeList<T = any>(res: any): T[] {
@@ -294,6 +295,46 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
 
   const [execLoading, setExecLoading] = useState(false);
   const [execError, setExecError] = useState<string | null>(null);
+
+  useEffect(() => {
+  const url = new URL(window.location.href);
+  const resumeFlag = url.searchParams.get("resume");
+  const qDraftId = url.searchParams.get("draftId");
+
+  console.groupCollapsed("%c[EDITOR] mount", "color:#10b981;font-weight:600");
+  console.log("URL params:", { resumeFlag, qDraftId });
+  console.groupEnd();
+
+  if (resumeFlag !== "1") return;
+
+  const snap = readResumeLocal();
+  if (!snap) return;
+
+  if (qDraftId && String(snap.draftId) !== String(qDraftId)) {
+    console.warn("[EDITOR] draftId mismatch between URL and snapshot", { url: qDraftId, snap: snap.draftId });
+  }
+
+  // 1) form variables
+  if (snap.initialVariables) {
+    setFormData(prev => ({ ...prev, ...snap.initialVariables }));
+  }
+
+  // 2) step + page
+  const st = snap.editorState || {};
+  if (st.page_type) setPageType(st.page_type === "Legal" ? "Legal" : "A4");
+  if (st.active_step_key) {
+    const idx = steps.findIndex(s => s.key === st.active_step_key);
+    if (idx >= 0) setActiveIndex(idx);
+  } else if (typeof st.active_index === "number") {
+    setActiveIndex(Math.max(0, Math.min(steps.length - 1, st.active_index)));
+  }
+
+  // 3) serverId
+  if (st.server_id || snap.draftId) setServerId(st.server_id ?? snap.draftId);
+
+  console.log("[EDITOR] hydrated from snapshot:", { serverId: st.server_id ?? snap.draftId });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   useEffect(() => {
     let alive = true;
@@ -647,57 +688,107 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
     [formData, docVars]
   );
 
-  const buildPayload = (statusOverride?: 'draft' | 'created') => {
-    const status = statusOverride ?? (formData.status || 'draft');
-    debugVariableMapping(template, formData);
-    const cleanVars = docVars;
-    const interpolatedHtml = interpolateStrict(template.content || '', cleanVars);
+const buildPayload = (statusOverride?: 'draft' | 'created') => {
+  const status = statusOverride ?? (formData.status || 'draft');
+  debugVariableMapping(template, formData);
 
-    return {
-      template_id: template.id,
-      name: formData.title || `${template.name} - Draft`,
-      category: template.category ?? null,
-      content: interpolatedHtml,
-      variables: cleanVars,
-      status,
-    };
+  // IMPORTANT: effectiveTemplate use karo (see #2)
+  const cleanVars = docVars; 
+  const interpolatedHtml = interpolateStrict((effectiveTemplate.content || ''), cleanVars);
+
+  return {
+    template_id: effectiveTemplate.id,
+    name: formData.title || `${effectiveTemplate.name} - Draft`,
+    category: effectiveTemplate.category ?? null,
+    content: interpolatedHtml,
+    variables: {
+      ...cleanVars,
+      __form_snapshot: { ...formData },
+      __editor_state: {
+        active_step_key: steps[activeIndex]?.key,
+        active_index: activeIndex,
+        page_type: pageType,
+        template_id: effectiveTemplate.id,
+        server_id: serverId ?? null,
+        updated_at: new Date().toISOString(),
+      },
+    },
+    status,
   };
+};
+
 
 // 🔁 replace this function
+// inside DocumentForm.tsx
+
 const ensureCreatedThenUpdate = async (statusOverride?: 'draft' | 'created') => {
-  const payload = buildPayload(statusOverride);
+  const uid = Number(user?.id ??  null) || null; // robust
+  const base = buildPayload(statusOverride);
+
+  // Always include updated_by; include created_by only on first create
+  const baseWithAudit: any = {
+    ...base,
+    updated_by: uid,
+  };
 
   if (!serverId) {
-    const created = await documentsGeneratedAPI.create(payload);
-    const newId = (created?.id ?? created?.data?.id) as number | string | undefined;
+    // CREATE
+    const createPayload = { ...baseWithAudit, created_by: uid };
+    const created = await documentsGeneratedAPI.create(createPayload);
+    const newId = created?.id ?? created?.data?.id;
 
-    if (newId !== undefined) {
+    if (newId) {
       setServerId(newId);
-      // optional: latest snapshot persist
-      await documentsGeneratedAPI.update(newId, payload);
+      // Optional immediate update to persist any latest HTML
+      await documentsGeneratedAPI.update(newId, { ...buildPayload(statusOverride), updated_by: uid });
       return newId;
     }
     return null;
   } else {
-    await documentsGeneratedAPI.update(serverId, payload);
+    // UPDATE
+    await documentsGeneratedAPI.update(serverId, baseWithAudit);
     return serverId;
   }
 };
 
 
+
+
+
   /* ---------- Top-level actions ---------- */
   const handleSaveDraft = async () => {
-    setIsSaving(true);
-    try {
-      await ensureCreatedThenUpdate('draft');
-      alert('Draft saved successfully!');
-    } catch (err) {
-      console.error('Error saving draft:', err);
-      alert('Failed to save draft');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  setIsSaving(true);
+  try {
+    // server pe draft create/update
+    const id = await ensureCreatedThenUpdate("draft");
+    
+
+    // 🧠 local snapshot update for resume
+    saveResumeLocal({
+      draftId: id,
+      templateId: template.id,
+      title: formData.title || `${template.name} - Draft`,
+      initialVariables: { ...formData },
+      editorState: {
+        active_step_key: steps[activeIndex]?.key,
+        active_index: activeIndex,
+        page_type: pageType,
+        template_id: template.id,
+        server_id: id,
+        updated_at: new Date().toISOString(),
+      },
+      source: "editor-save",
+    });
+
+    console.log("[EDITOR] snapshot refreshed after save");
+    alert("✅ Draft saved successfully!");
+  } catch (err) {
+    console.error("❌ Error saving draft:", err);
+    alert("Failed to save draft");
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   // 🔁 replace your handleGenerateDocument with this
 const handleGenerateDocument = async () => {
@@ -766,21 +857,40 @@ const handleGenerateDocument = async () => {
     return true;
   };
 
-  const handleNext = async () => {
-    const currentKey = steps[activeIndex].key;
-    if (!isStepCompleteByKey(currentKey)) return;
+  const persistLocalSnapshot = (id: string | number | null) => {
+  saveResumeLocal({
+    draftId: id ?? serverId ?? null,
+    templateId: effectiveTemplate.id,
+    title: formData.title || `${effectiveTemplate.name} - Draft`,
+    initialVariables: { ...formData },
+    editorState: {
+      active_step_key: steps[activeIndex]?.key,
+      active_index: activeIndex,
+      page_type: pageType,
+      template_id: effectiveTemplate.id,
+      server_id: id ?? serverId ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    source: "editor-autosave",
+  });
+  console.log("[EDITOR] snapshot refreshed (nav/step)");
+};
 
-    setNavSaving(true);
-    try {
-      await ensureCreatedThenUpdate('draft');
-      setActiveIndex((prev) => Math.min(prev + 1, steps.length - 1));
-    } catch (e) {
-      console.error('Failed to save on Next:', e);
-      alert('Failed to save. Please try again.');
-    } finally {
-      setNavSaving(false);
-    }
-  };
+  const handleNext = async () => {
+  const currentKey = steps[activeIndex].key;
+  if (!isStepCompleteByKey(currentKey)) return;
+  setNavSaving(true);
+  try {
+    const id = await ensureCreatedThenUpdate('draft');
+    persistLocalSnapshot(id);
+    setActiveIndex((p) => Math.min(p + 1, steps.length - 1));
+  } catch (e) {
+    console.error('Failed to save on Next:', e);
+    alert('Failed to save. Please try again.');
+  } finally {
+    setNavSaving(false);
+  }
+};
 
   const usedVariables = useMemo(
     () => [...new Set(tVars)].sort(),
