@@ -597,6 +597,7 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
       property: prop,
 
       // quick placeholders
+         property_id: p.id ?? p.property_id ?? '',
       property_address: p.address ?? '',
       property_type: p.type ?? p.property_type_name ?? '',
       property_area: p.carpet_area ?? p.area ?? '',
@@ -692,9 +693,19 @@ const buildPayload = (statusOverride?: 'draft' | 'created') => {
   const status = statusOverride ?? (formData.status || 'draft');
   debugVariableMapping(template, formData);
 
-  // IMPORTANT: effectiveTemplate use karo (see #2)
-  const cleanVars = docVars; 
-  const interpolatedHtml = interpolateStrict((effectiveTemplate.content || ''), cleanVars);
+  // original resolved vars (template/HTML se)
+  const cleanVars = docVars;
+
+  // ✅ force-include technical IDs even if template me define na ho
+  const forcedVars = {
+    property_id: formData.property?.id ?? formData.property_id ?? '',
+    seller_id: formData.seller?.id ?? formData.seller_id ?? '',
+    buyer_id: formData.buyer?.id ?? formData.buyer_id ?? '',
+  };
+
+  const allVars = { ...cleanVars, ...forcedVars };
+
+  const interpolatedHtml = interpolateStrict((effectiveTemplate.content || ''), allVars);
 
   return {
     template_id: effectiveTemplate.id,
@@ -702,8 +713,13 @@ const buildPayload = (statusOverride?: 'draft' | 'created') => {
     category: effectiveTemplate.category ?? null,
     content: interpolatedHtml,
     variables: {
-      ...cleanVars,
+      ...allVars,
       __form_snapshot: { ...formData },
+      __meta: {                    // ✅ easy machine-readable pocket
+        property_id: forcedVars.property_id,
+        seller_id: forcedVars.seller_id,
+        buyer_id: forcedVars.buyer_id,
+      },
       __editor_state: {
         active_step_key: steps[activeIndex]?.key,
         active_index: activeIndex,
@@ -716,6 +732,7 @@ const buildPayload = (statusOverride?: 'draft' | 'created') => {
     status,
   };
 };
+
 
 
 // 🔁 replace this function
