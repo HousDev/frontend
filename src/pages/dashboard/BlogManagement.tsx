@@ -236,10 +236,13 @@ const BlogManagement: React.FC = () => {
     }
   }, []);
 
+  // ⬇️ Load posts based on sub-tab (server-side filter)
   useEffect(() => {
-    loadPosts();
-  }, [loadPosts]);
+    // request only the status we want
+    loadPosts({ status: postStateTab });
+  }, [loadPosts, postStateTab]);
 
+  // Load RSS sources
   useEffect(() => {
     (async () => {
       try {
@@ -255,7 +258,7 @@ const BlogManagement: React.FC = () => {
   const handleRefresh = async () => {
     try {
       setPage(1);
-      await loadPosts({ _ts: Date.now() });
+      await loadPosts({ status: postStateTab, _ts: Date.now() });
       toast.success('List refreshed');
     } catch { }
   };
@@ -460,7 +463,7 @@ const BlogManagement: React.FC = () => {
     const src =
       (p as any)?.sourceName
       || ((p as any)?.sourceId && sourceNameById[String((p as any).sourceId)])
-      || ''
+      || '';
     const srcDot = src ? ` • ${src}` : '';
     const bodyHtml = `<article style="max-width:900px;margin:20px auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#111827;line-height:1.7;">
       <header style="margin-bottom:16px;">
@@ -687,7 +690,7 @@ const BlogManagement: React.FC = () => {
 
   const postsArray = Array.isArray(posts) ? posts : [];
 
-  // filters + sub-tab
+  // filters + sub-tab (client-side fallback filter too)
   const baseFiltered = postsArray.filter((post) => {
     const matchesSearch =
       !searchTerm ||
@@ -874,10 +877,10 @@ const BlogManagement: React.FC = () => {
                       {src ? <span>• {src}</span> : null}
                       <span
                         className={`px-2 py-0.5 rounded-full text-xs ${post.status === 'published'
-                            ? 'bg-green-100 text-green-800'
-                            : post.status === 'draft'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
+                          ? 'bg-green-100 text-green-800'
+                          : post.status === 'draft'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-800'
                           }`}
                       >
                         {post.status}
@@ -927,8 +930,8 @@ const BlogManagement: React.FC = () => {
               <button
                 onClick={() => setPostStateTab('published')}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition ${postStateTab === 'published'
-                    ? 'bg-white shadow border text-gray-900'
-                    : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white shadow border text-gray-900'
+                  : 'text-gray-600 hover:text-gray-900'
                   }`}
               >
                 Published
@@ -986,7 +989,7 @@ const BlogManagement: React.FC = () => {
               className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="All">All Status</option>
-              {statuses.map((status) => (
+              {['draft', 'published', 'archived'].map((status) => (
                 <option key={status} value={status}>
                   {status.charAt(0).toUpperCase() + status.slice(1)}
                 </option>
@@ -1172,7 +1175,7 @@ const BlogManagement: React.FC = () => {
 
                       {/* CATEGORY */}
                       <td className="py-3 px-4">
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-blue-800  px-2 py-1 text-xs">
                           {post.category}
                         </span>
                       </td>
@@ -1181,10 +1184,10 @@ const BlogManagement: React.FC = () => {
                       <td className="py-3 px-4">
                         <span
                           className={`px-2 py-1 rounded-full text-xs ${post.status === 'published'
-                              ? 'bg-green-100 text-green-800'
-                              : post.status === 'draft'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-gray-100 text-gray-800'
+                            ? 'bg-green-100 text-green-800'
+                            : post.status === 'draft'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
                             }`}
                         >
                           {post.status}
@@ -1369,13 +1372,13 @@ const BlogManagement: React.FC = () => {
                 onClick={() => {
                   if (activeCommentsPost) loadCommentsForPost(activeCommentsPost.id);
                 }}
-                className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w-full sm:w-auto"
+                className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w/full sm:w-auto"
               >
                 Refresh
               </button>
               <button
                 onClick={() => setActiveCommentsPost(null)}
-                className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w-full sm:w-auto"
+                className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w/full sm:w-auto"
               >
                 Clear
               </button>
@@ -1702,8 +1705,8 @@ const BlogManagement: React.FC = () => {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center space-x-2 px-5 py-3 sm:px-6 sm:py-4 font-medium transition-colors whitespace-nowrap shrink-0 ${activeTab === tab.id
-                      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                 >
                   <Icon size={18} className="shrink-0" />
