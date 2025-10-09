@@ -477,7 +477,7 @@ const API_BASE = (API_FORCE || (isProdHost ? API_BASE_PROD : API_BASE_LOCAL)).re
 
 export const api = axios.create({
   baseURL: API_BASE,
-  timeout: 10000,
+  timeout: 60000, // ✅ 60 seconds instead of 10 s
   headers: { "Content-Type": "application/json" },
 });
 
