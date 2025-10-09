@@ -129,7 +129,7 @@ export const VAR_MAP: Record<string, string> = {
   buyer_nearbylocations: 'buyer.nearbylocations',
 
 
-  
+
 
   /* ================================ PROPERTY (flat) ================================= */
   property_address: 'property_address',
@@ -196,7 +196,51 @@ export const VAR_MAP: Record<string, string> = {
   validity_period: 'validity_period',
   agreement_date: 'agreement_date',
   possession_date: 'possession_date',
-  
+  related_party: 'related_party',
+  amount: 'amount',
+  amount_in_words: 'amount_in_words', 
+  in_words: 'amount_in_words',
+  payment_date: 'payment_date',
+  payment_reference: 'payment_reference',
+  deal_value: "deal_value",
+  payment_type: "payment_type",
+  payment_method: "payment_method",
+  buyer_bank_name: 'transaction_details.buyer_bank_name',
+  seller_bank_name: 'transaction_details.seller_bank_name',
+  ledger_entries: 'ledger_entries',          // Direct mapping
+
+
+  /* ===== Property Receipt: map template vars to receipt.* and finance fields ===== */
+  receipt_id: 'receipt.receipt_id',
+
+  // ⚠️ You used plain names in the template; map them to receipt.* to avoid clashes
+  type: 'receipt.type',
+  status: 'receipt.status',
+  payment_status: 'receipt.payment_status',
+
+  receipt_date: 'receipt.receipt_date',
+  notes: 'receipt.notes',
+
+  created_by: 'receipt.created_by',
+  updated_by: 'receipt.updated_by',
+  created_at: 'receipt.created_at',
+  updated_at: 'receipt.updated_at',
+  created_by_name:'created_by_name',
+  updated_by_name:'created_by_name',
+
+
+  // Finance display
+  // template uses this exact key
+
+  // Ledger (first row for simple tables)
+  ledger_index: 'ledger_entries.0.index',
+  ledger_date: 'ledger_entries.0.date',
+  ledger_type: 'ledger_entries.0.type',
+  ledger_amount: 'ledger_entries.0.amount',
+  ledger_balance: 'ledger_entries.0.balance',
+  ledger_description: 'ledger_entries.0.description',
+
+
 
   /* ================================= DOCUMENT META ================================= */
   title: 'title',
@@ -205,7 +249,7 @@ export const VAR_MAP: Record<string, string> = {
 
   /* ================================== EXECUTIVE ==================================== */
   sales_executive: 'sales_executive',
- executive_id: 'executive_id',
+  executive_id: 'executive_id',
   executive_name: 'sales_executive',
   executive_phone: 'executive_phone',
   executive_email: 'executive_email',
@@ -257,8 +301,8 @@ export const VAR_MAP: Record<string, string> = {
   auto_assign_leads: 'system_settings.auto_assign_leads',
   lead_scoring_enabled: 'system_settings.lead_scoring_enabled',
   property_auto_approval: 'system_settings.property_auto_approval',
-  created_at: 'system_settings.created_at',
-  updated_at: 'system_settings.updated_at',
+  // created_at: 'system_settings.created_at',
+  // updated_at: 'system_settings.updated_at',
 
   /* ============== SPECIAL (computed at resolve time; not read from formData) ======= */
   current_date: '__computed.current_date',

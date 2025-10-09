@@ -7,6 +7,9 @@ import {
 import { masterDataAPI } from '@/lib/mastersAPI';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { toast } from 'react-toastify';
+import { useAuth } from '@/contexts/AuthContext';
+import { HiCurrencyRupee } from 'react-icons/hi2';
+
 
 type Option = { value: string; label: string };
 
@@ -47,6 +50,7 @@ const EMPTY_FORM = (property?: Property | null): FormState => ({
 });
 
 const PropertyStatusUpdateModal: React.FC<Props> = ({ isOpen, onClose, property, onStatusUpdate }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState<FormState>(EMPTY_FORM(property ?? null));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -118,7 +122,7 @@ const PropertyStatusUpdateModal: React.FC<Props> = ({ isOpen, onClose, property,
   // Initialize / reset form when modal opens or property changes
   useEffect(() => {
     if (isOpen) {
-      fetchMasterData().catch(() => {});
+      fetchMasterData().catch(() => { });
       // derive defaults from provided property (if any). We'll still overwrite later after master options load.
       setFormData(prev => ({
         ...EMPTY_FORM(property ?? null),
@@ -323,19 +327,19 @@ const PropertyStatusUpdateModal: React.FC<Props> = ({ isOpen, onClose, property,
     }
   };
 
-// Accept numbers OR strings (and null/undefined) and handle them safely
-const formatCurrency = (amount?: number | string | null): string => {
-  if (amount == null || amount === '') return '—';
+  // Accept numbers OR strings (and null/undefined) and handle them safely
+  const formatCurrency = (amount?: number | string | null): string => {
+    if (amount == null || amount === '') return '—';
 
-  // If amount is a string, try to parse it to a number
-  const n = typeof amount === 'string' ? Number(amount.replace(/[,₹\s]|(Cr|L)/gi, '')) : Number(amount);
+    // If amount is a string, try to parse it to a number
+    const n = typeof amount === 'string' ? Number(amount.replace(/[,₹\s]|(Cr|L)/gi, '')) : Number(amount);
 
-  if (Number.isNaN(n)) return '—';
+    if (Number.isNaN(n)) return '—';
 
-  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
-  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
-  return `₹${n.toLocaleString('en-IN')}`;
-};
+    if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
+    if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
+    return `₹${n.toLocaleString('en-IN')}`;
+  };
 
 
   const currentStatusConfig = getStatusConfig(currentProperty.status);
@@ -345,7 +349,7 @@ const formatCurrency = (amount?: number | string | null): string => {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[95vh]">
         {/* Header */}
         <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-blue-50">
           <div className="flex items-center justify-between">
@@ -410,50 +414,62 @@ const formatCurrency = (amount?: number | string | null): string => {
 
               {/* Status Selection Cards */}
               <div className="mb-4">
-                <h3 className="font-semibold text-gray-900 mb-2 text-[10px] uppercase tracking-wide">
+                <h3 className="font-semibold text-gray-900 mb-2 text-[10px] sm:text-xs uppercase tracking-wide">
                   Select New Status
                 </h3>
-                <div className="grid grid-cols-5 gap-2">
+
+                {/* Responsive auto-fit grid: 110px min card, fills the row nicely */}
+                <div className="grid gap-2 sm:gap-3 grid-cols-[repeat(auto-fit,minmax(110px,1fr))]">
                   {statusOptions.length > 0 ? statusOptions.map((status) => {
                     const StatusIcon = status.icon;
-                    const isSelected = formData.status === status.label;
-                    const isPressed = pressedStatus === status.label;
+
+                    // 🔧 responsive fix: compare with status.value (not label)
+                    const isSelected = formData.status === status.value;
+                    const isPressed = pressedStatus === status.value;
 
                     return (
                       <button
                         key={status.value}
                         onClick={() => handleDropdownChange('status')(status.value)}
-                        onMouseDown={() => setPressedStatus(status.label)}
+                        onMouseDown={() => setPressedStatus(status.value)}
                         onMouseUp={() => setPressedStatus(null)}
                         onMouseLeave={() => setPressedStatus(null)}
-                        className={`p-1.5 rounded-md border text-left relative overflow-hidden transition-all duration-150
-                          ${isSelected ? `${status.selectedClass} scale-105` : `${status.bgClass} hover:shadow-md`}
-                          hover:scale-105 focus:outline-none focus:ring-2 ${status.ring}
-                          active:scale-95 active:translate-y-[1px]
-                          ${isPressed ? 'ring-2 ring-offset-1' : ''}
-                        `}
                         type="button"
-                        aria-pressed={isSelected}
                         title={status.label}
+                        aria-pressed={isSelected}
+                        className={[
+                          "relative overflow-hidden rounded-lg border text-left",
+                          "transition-all duration-150 ease-out select-none",
+                          "p-2 sm:p-2.5",                 // bigger tap target on small screens
+                          "min-h-[68px] sm:min-h-[76px]", // consistent height
+                          "touch-manipulation",           // better mobile interactions
+                          isSelected ? `${status.selectedClass} scale-[1.02]` : `${status.bgClass} hover:shadow-md`,
+                          "hover:scale-[1.01] active:scale-95 active:translate-y-[1px]",
+                          "focus:outline-none focus:ring-2", status.ring,
+                          isPressed ? "ring-2 ring-offset-1" : "",
+                        ].join(" ")}
                       >
-                        <div
-                          className={`absolute inset-0 transition-opacity duration-150 pointer-events-none
-                          ${isPressed ? 'bg-white/35' : 'bg-transparent'}`}
-                        />
-                        <div
-                          className={`absolute inset-0 bg-gradient-to-br ${status.gradient} ${isSelected ? 'opacity-20' : 'opacity-10'} transition-opacity duration-300`}
-                        />
-                        <span className={`pointer-events-none absolute inset-0 rounded-md ${isPressed ? 'animate-ping bg-white/20' : ''}`} />
+                        {/* press highlight */}
+                        <div className={`pointer-events-none absolute inset-0 transition-opacity duration-150 ${isPressed ? "bg-white/30" : "bg-transparent"}`} />
 
-                        <div className="flex flex-col items-center space-y-0.5 relative">
+                        {/* soft gradient sheen */}
+                        <div className={`absolute inset-0 bg-gradient-to-br ${status.gradient} ${isSelected ? "opacity-20" : "opacity-10"} transition-opacity duration-300`} />
+
+                        {/* ripple */}
+                        <span className={`pointer-events-none absolute inset-0 rounded-lg ${isPressed ? "animate-ping bg-white/20" : ""}`} />
+
+                        {/* content */}
+                        <div className="relative flex flex-col items-center gap-1">
                           <div className="p-1 rounded-md bg-white/80 shadow-sm">
-                            <StatusIcon size={12} className={status.text600} />
+                            {/* responsive icon size */}
+                            <StatusIcon size={12} className={`${status.text600} sm:w-4 sm:h-4`} />
                           </div>
-                          <div className="text-center w-full">
-                            <div className={`font-semibold text-[10px] truncate ${status.text800}`}>
+
+                          <div className="w-full text-center">
+                            <div className={`font-semibold truncate ${status.text800} text-[10px] sm:text-[11px] leading-4`}>
                               {status.label}
                             </div>
-                            <div className={`text-[9px] truncate ${status.text600}`}>
+                            <div className={`truncate ${status.text600} text-[9px] sm:text-[10px] leading-3`}>
                               {status.description}
                             </div>
                           </div>
@@ -461,11 +477,19 @@ const formatCurrency = (amount?: number | string | null): string => {
                       </button>
                     );
                   }) : (
-                    <div className="col-span-3 text-center py-2 text-gray-500 text-xs">
+                    <div className="col-span-full text-center py-2 text-gray-500 text-xs">
                       No status options available
                     </div>
                   )}
                 </div>
+
+                {/* reduced motion = fewer transforms/ripples */}
+                <style>{`
+    @media (prefers-reduced-motion: reduce) {
+      .hover\\:scale-\\[1\\.01\\], .scale-\\[1\\.02\\], .active\\:translate-y-\\[1px\\] { transform: none !important; }
+      .animate-ping { animation: none !important; }
+    }
+  `}</style>
               </div>
 
               {/* Update Details */}
@@ -548,7 +572,7 @@ const formatCurrency = (amount?: number | string | null): string => {
                         className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                       <span className="text-xs font-medium text-gray-700">
-                        <DollarSign className="inline mr-1" size={14} />
+                        <HiCurrencyRupee className="inline mr-1 text-green-400" size={18} />
                         Adjust Price
                       </span>
                     </label>

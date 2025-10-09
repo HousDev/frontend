@@ -112,7 +112,7 @@ function normalizeApiTemplates(input: any): Template[] {
     lastUsed: t.last_used_at || t.last_used || t.lastUsed || "",
     usageCount:
       typeof t.usageCount === "number" ? t.usageCount :
-      typeof t.usage_count === "number" ? t.usage_count : 0,
+        typeof t.usage_count === "number" ? t.usage_count : 0,
     status: safeLower(t.status ?? "draft"),
     content: t.content,
     created_at: t.created_at,
@@ -121,6 +121,7 @@ function normalizeApiTemplates(input: any): Template[] {
     updated_by: t.updated_by ?? null,
     created_by_name: t.created_by_name || "",
     updated_by_name: t.updated_by_name || "",
+
     ...t,
   }));
 }
@@ -158,7 +159,7 @@ const TemplateSelector: React.FC<Props> = ({
   mode = "select",
   autoCreateGenerated = false,
 }) => {
-  const useExternal = Array.isArray(templatesProp);
+  const useExternal = mode === "select" && Array.isArray(templatesProp);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "archived">("all");
@@ -170,12 +171,15 @@ const TemplateSelector: React.FC<Props> = ({
   // Sync external
   useEffect(() => {
     if (useExternal) {
-      setTemplates(templatesProp || []);
+      setTemplates(normalizeApiTemplates(templatesProp));
       setLoading(false);
       setError("");
     }
   }, [useExternal, templatesProp]);
 
+
+  // Fetch internal
+  // Fetch internal
   // Fetch internal
   useEffect(() => {
     if (useExternal) return;
@@ -184,17 +188,23 @@ const TemplateSelector: React.FC<Props> = ({
       setError("");
       try {
         const apiRes = await documentsTemplateAPI.getAll();
-        const list = normalizeApiTemplates(apiRes);
+        const list = normalizeApiTemplates(apiRes).map((t: any) => ({
+          ...t,
+          created_by_name: t.created_by_name || t.created_by_user?.name || t.creator?.name || "—",
+          updated_by_name: t.updated_by_name || t.updated_by_user?.name || t.updater?.name || "—",
+        }));
         setTemplates(list);
       } catch (e: any) {
-        console.error("Error fetching templates:", e);
         setError("Failed to fetch templates.");
         setTemplates([]);
       } finally {
         setLoading(false);
       }
     })();
-  }, [useExternal]);
+  }, [useExternal, mode]);
+
+
+
 
   // visible by mode
   const visibleTemplates = useMemo(() => {
@@ -211,7 +221,7 @@ const TemplateSelector: React.FC<Props> = ({
       const name = safeLower(template.name || "");
       const desc = safeLower(template.description || "");
       const cat = safeLower(template.category || "");
-      const st  = safeLower(template.status || "draft");
+      const st = safeLower(template.status || "draft");
 
       const matchesSearch = !term || name.includes(term) || desc.includes(term);
       const matchesCategory = selectedCategory === "all" || cat === selectedCategory;
@@ -258,7 +268,7 @@ const TemplateSelector: React.FC<Props> = ({
       usageCount: (template.usageCount ?? 0) + 1,
       lastUsed: isoNow(),
     };
-    
+
     // Update UI immediately for better UX
     setTemplates((prev) => prev.map((t) => (t.id === id ? optimistic : t)));
 
@@ -266,22 +276,22 @@ const TemplateSelector: React.FC<Props> = ({
       // 1) Call API to bump usage count
       const bump = await documentsTemplateAPI.useTemplate(id);
       console.log("useTemplate API response:", bump); // Debug log
-      
+
       const apiTemplate = bump?.data || bump?.template || bump || null;
-      
+
       // Merge API response with template
       const merged: Template = apiTemplate
         ? {
-            ...template,
-            ...apiTemplate,
-            usageCount:
-              typeof apiTemplate.usage_count === "number"
-                ? apiTemplate.usage_count
-                : typeof apiTemplate.usageCount === "number"
+          ...template,
+          ...apiTemplate,
+          usageCount:
+            typeof apiTemplate.usage_count === "number"
+              ? apiTemplate.usage_count
+              : typeof apiTemplate.usageCount === "number"
                 ? apiTemplate.usageCount
                 : optimistic.usageCount,
-            lastUsed: apiTemplate.last_used_at || apiTemplate.last_used || apiTemplate.lastUsed || optimistic.lastUsed,
-          }
+          lastUsed: apiTemplate.last_used_at || apiTemplate.last_used || apiTemplate.lastUsed || optimistic.lastUsed,
+        }
         : optimistic;
 
       // Update state with API response
@@ -384,13 +394,13 @@ const TemplateSelector: React.FC<Props> = ({
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
-                  selectedCategory === category.id
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${selectedCategory === category.id
                     ? "bg-blue-100 text-blue-700 border border-blue-200"
                     : "text-gray-600 hover:bg-gray-50 border border-transparent"
-                } text-xs`}
+                  } text-xs`}
               >
                 <Icon size={12} />
+
                 <span className="font-medium">{category.label}</span>
               </button>
             );
@@ -450,29 +460,17 @@ const TemplateSelector: React.FC<Props> = ({
                         <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-700 text-[11px] font-medium capitalize">
                           {template.category || "general"}
                         </span>
-                           <div className="text-[11px] text-gray-500">
-                        {usageCount} uses {' '}
-                        Last used: <span className="font-medium text-gray-700">{lastUsedAt}</span>
-                      </div>
+                        <div className="text-[11px] text-gray-500">
+                          {usageCount} uses {' '}
+                          Last used: <span className="font-medium text-gray-700">{lastUsedAt}</span>
+                        </div>
                       </div>
 
                       {/* Last used at (IST) */}
-                     
+
                     </div>
 
                     {/* Created/Updated by */}
-                    <div className="grid grid-cols-1 gap-1 text-[11px] text-gray-600 mb-3">
-                      <div className="flex flex-wrap gap-x-3 gap-y-1">
-                        <span>
-                          <span className="text-gray-500">Created by:</span>{" "}
-                          <span className="font-medium">{createdByName}</span>
-                        </span>
-                        <span>
-                          <span className="text-gray-500">Updated by:</span>{" "}
-                          <span className="font-medium">{updatedByName}</span>
-                        </span>
-                      </div>
-                    </div>
 
                     {/* manage actions */}
                     {mode === "manage" && (
@@ -509,6 +507,18 @@ const TemplateSelector: React.FC<Props> = ({
                           {variables.length === 0 && (
                             <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded">None</span>
                           )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1 text-[11px] text-gray-600 mb-3">
+                        <div className="flex flex-wrap gap-x-3 gap-y-1">
+                          <span>
+                            <span className="text-gray-500">Created by:</span>{" "}
+                            <span className="font-medium">{createdByName}</span>
+                          </span>
+                          <span>
+                            <span className="text-gray-500">Updated by:</span>{" "}
+                            <span className="font-medium">{updatedByName}</span>
+                          </span>
                         </div>
                       </div>
 

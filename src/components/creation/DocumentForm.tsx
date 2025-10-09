@@ -24,6 +24,7 @@ import { usersAPI } from '@/lib/api';
 import { readResumeLocal, saveResumeLocal } from '@/lib/documentResume';
 import { HiCurrencyRupee } from 'react-icons/hi2';
 import { propertyPaymentReceiptAPI } from '@/lib/propertyPaymentReceiptAPI';
+import { toast } from 'react-toastify';
 /* =================== Helpers =================== */
 
 function normalizeList<T = any>(res: any): T[] {
@@ -51,17 +52,7 @@ function debugVariableMapping(template: any, formData: any) {
   const filledVars = Object.entries(cleanVars).filter(([_, v]) => v !== '').length;
   const emptyVars = Object.entries(cleanVars).filter(([_, v]) => v === '').map(([k]) => k);
 
-  console.groupCollapsed(
-    `%c🧩 Template Variable Mapping Report`,
-    'color:#0366d6;font-weight:bold;'
-  );
-  console.log('Template Name:', template?.name);
-  console.log('Total Variables in Template:', totalVars);
-  console.log('Resolved (non-empty):', filledVars);
-  console.log('Empty / Missing:', emptyVars.length);
-  console.log('List of Missing Variables:', emptyVars);
-  console.table(cleanVars);
-  console.groupEnd();
+
 
   return cleanVars;
 }
@@ -300,18 +291,14 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
     const resumeFlag = url.searchParams.get("resume");
     const qDraftId = url.searchParams.get("draftId");
 
-    console.groupCollapsed("%c[EDITOR] mount", "color:#10b981;font-weight:600");
-    console.log("URL params:", { resumeFlag, qDraftId });
-    console.groupEnd();
+ 
 
     if (resumeFlag !== "1") return;
 
     const snap = readResumeLocal();
     if (!snap) return;
 
-    if (qDraftId && String(snap.draftId) !== String(qDraftId)) {
-      console.warn("[EDITOR] draftId mismatch between URL and snapshot", { url: qDraftId, snap: snap.draftId });
-    }
+   
 
     // 1) form variables
     if (snap.initialVariables) {
@@ -331,10 +318,11 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
     // 3) serverId
     if (st.server_id || snap.draftId) setServerId(st.server_id ?? snap.draftId);
 
-    console.log("[EDITOR] hydrated from snapshot:", { serverId: st.server_id ?? snap.draftId });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
+
+  
   useEffect(() => {
     let alive = true;
 
@@ -345,7 +333,7 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
 
         // ✅ use the actual method you export
         const res = await usersAPI.getAllUsers({ role: 'executive', department: 'sales' });
-        console.log('executives raw res', res);
+     
 
         // ✅ normalize common shapes
         let rows: any[] = [];
@@ -383,7 +371,7 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
 
           );
       } catch (e: any) {
-        console.error('executives fetch failed', e);
+        toast.error('executives fetch failed', e);
         if (alive) {
           setExecError(e?.message || 'Failed to load executives');
           setExecutivesList([]);
@@ -429,7 +417,7 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
           current_user: user || {},
         }));
       } catch (e) {
-        console.error('system settings fetch failed', e);
+        toast.error('system settings fetch failed', e);
         setFormData(prev => ({
           ...prev,
           current_user: user || {},
@@ -550,7 +538,7 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
         ? cos.map((c: any) => normalizeCoSeller(c, baseSeller.id))
         : [];
     } catch (e) {
-      console.warn('co-sellers fetch failed', e);
+      toast.warn('co-sellers fetch failed', e);
       seller_cosellers = [];
     }
 
@@ -668,21 +656,15 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
 
     setShowPropertySelector(false);
 
-    console.log('[DOC] property->formData patch:', {
-      id: p.id,
-      address: p.address,
-      status: p.status_raw ?? p.status,
-      unit_no: p.unit_no ?? p.unitNo,
-      floor: p.floor_raw ?? p.floor,
-      final_price: p.final_price ?? p.price,
-    });
+   
   };
 
   /* ---------- Payload (STRICT) ---------- */
-  const docVars = useMemo(
-    () => resolveVariablesStrict(template, formData),
-    [template, formData]
-  );
+// ✅ CORRECT
+const docVars = useMemo(
+  () => resolveVariablesStrict(effectiveTemplate, formData),  // ← using merged template
+  [effectiveTemplate, formData]
+);
   const mergedDocData = useMemo(
     () => ({ ...formData, ...docVars }),
     [formData, docVars]
@@ -796,11 +778,11 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
         source: "editor-save",
       });
 
-      console.log("[EDITOR] snapshot refreshed after save");
-      alert("✅ Draft saved successfully!");
+     
+      toast("✅ Draft saved successfully!");
     } catch (err) {
-      console.error("❌ Error saving draft:", err);
-      alert("Failed to save draft");
+      
+      toast.error("Failed to save draft");
     } finally {
       setIsSaving(false);
     }
@@ -824,10 +806,10 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
           .replace(/[^\w\-]+/g, '_')}.pdf`,
       });
 
-      alert('Document generated successfully!');
+      toast.success('Document generated successfully!');
     } catch (err) {
-      console.error(err);
-      alert('Failed to generate');
+      toast.error(err);
+      toast.error('Failed to generate');
     } finally {
       setIsGenerating(false);
     }
@@ -836,10 +818,10 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
   const handleShare = async () => {
     try {
       await ensureCreatedThenUpdate('draft');
-      alert('Document prepared & ready to share!');
+      toast.success('Document prepared & ready to share!');
     } catch (e) {
-      console.error(e);
-      alert('Could not prepare document for sharing.');
+      toast.error(e);
+      toast.error('Could not prepare document for sharing.');
     }
   };
 
@@ -889,7 +871,7 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
       },
       source: "editor-autosave",
     });
-    console.log("[EDITOR] snapshot refreshed (nav/step)");
+   
   };
 
   const handleNext = async () => {
@@ -901,8 +883,8 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
       persistLocalSnapshot(id);
       setActiveIndex((p) => Math.min(p + 1, steps.length - 1));
     } catch (e) {
-      console.error('Failed to save on Next:', e);
-      alert('Failed to save. Please try again.');
+      toast.error('Failed to save on Next:', e);
+      // toast.error('Failed to save. Please try again.');
     } finally {
       setNavSaving(false);
     }
@@ -1004,8 +986,8 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
                         await ensureCreatedThenUpdate('draft');
                         setActiveIndex(index);
                       } catch (e) {
-                        console.error('Failed to save on step jump:', e);
-                        alert('Failed to save. Please try again.');
+                        toast.error('Failed to save on step jump:', e);
+                       
                       } finally {
                         setNavSaving(false);
                       }
@@ -1084,7 +1066,7 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
               template={template}
               usedVariables={usedVariables}
               onVariableInsert={(name) => {
-                alert(`Variable {{${name}}} inserted!`);
+                toast.success(`Variable {{${name}}} inserted!`);
               }}
             />
           )}
@@ -1397,16 +1379,11 @@ const PropertyStep: React.FC<PropertyStepProps> = ({
     const p = formData?.property;
     if (!p) return;
 
-    // Mirror selected property -> flat fields if missing (avoid overwriting user edits)
     if (p.address && !formData.property_address) onInputChange('property_address', p.address);
     if (p.type && !formData.property_type) onInputChange('property_type', p.type);
     if (p.area && !formData.property_area) onInputChange('property_area', p.area);
     if (p.unit && !formData.unit_number) onInputChange('unit_number', p.unit);
 
-    // Debug
-    // eslint-disable-next-line no-console
-    console.log('property type (selected)', p.type);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData?.property]);
 
   if (!requiresProperty) {
@@ -1576,6 +1553,182 @@ const PropertyStep: React.FC<PropertyStepProps> = ({
   );
 };
 
+// ===== Receipt → formData strict patch helpers =====
+
+type PropertyPaymentReceiptRow = {
+  id: number | string;
+  receipt_id: string;
+  type: string;
+  status: string;
+  payment_status: string;
+  related_party: string;
+  seller_id: string | number;
+  seller_name: string;
+  seller_phone?: string;
+  seller_email?: string;
+  buyer_id: string | number;
+  buyer_name: string;
+  buyer_phone?: string;
+  buyer_email?: string;
+  property_id?: string | number;
+  property_address?: string;
+  property_details?: any; // JSON string/object
+  deal_value?: number | string;
+  payment_type?: string;
+  amount?: number | string;
+  amount_in_words: string;
+  receipt_date?: string;   // "YYYY-MM-DD HH:mm:ss"
+  payment_date?: string;   // "YYYY-MM-DD HH:mm:ss"
+  payment_reference?: string;
+  transaction_details?: any; // JSON string/object
+  notes?: string;
+  ledger_entries?: any; // JSON string/object (array)
+  created_by?: any;
+  updated_by?: any;
+  created_at?: string;  // "YYYY-MM-DD HH:mm:ss"
+  updated_at?: string;  // "YYYY-MM-DD HH:mm:ss"
+};
+
+const parseMaybeJSON = <T=any>(v: any): T | undefined => {
+  if (v == null) return undefined as any;
+  if (typeof v === 'string') { try { return JSON.parse(v); } catch { return undefined as any; } }
+  if (typeof v === 'object') return v as T;
+  return undefined as any;
+};
+
+const onlyDate = (s?: string) => (s ? s.slice(0, 10) : ''); // "YYYY-MM-DD"
+const isBlank = (v: any) => v === undefined || v === null || v === '';
+
+const buildFormPatchFromReceipt = (raw: PropertyPaymentReceiptRow) => {
+  const pd = parseMaybeJSON<any>(raw.property_details) || {};
+  const td = parseMaybeJSON<any>(raw.transaction_details) || {};
+  
+  // ✅ FIX: Proper ledger normalization with amount_in_words preservation
+  const ledgerRaw = parseMaybeJSON<any[]>(raw.ledger_entries) || [];
+  const ledger = ledgerRaw.map((entry, index) => ({
+    index: index + 1,
+    date: entry.date || entry.transaction_date || entry.created_at?.slice(0,10) || '',
+    type: entry.type || entry.entry_type || entry.payment_type || '',
+    amount: entry.amount || entry.payment_amount || 0,
+    balance: entry.balance || entry.running_balance || entry.current_balance || 0,
+    description: entry.description || entry.notes || entry.purpose || '',
+  }));
+
+  const property_area   = pd.area ?? pd.carpet_area ?? pd.builtup_area ?? '';
+  const property_floor  = pd.floor ?? pd.floor_number ?? '';
+  const property_facing = pd.facing ?? pd.direction ?? '';
+  const property_type   = pd.type ?? '';
+
+  const patch: Record<string, any> = {
+    // -------- Parties --------
+    seller: {
+      id: raw.seller_id,
+      salutation: '',
+      name: raw.seller_name,
+      phone: raw.seller_phone,
+      email: raw.seller_email,
+      address: '', state: '', city: '', location: '',
+    },
+    buyer: {
+      id: raw.buyer_id,
+      salutation: '',
+      name: raw.buyer_name,
+      phone: raw.buyer_phone,
+      email: raw.buyer_email,
+      whatsapp_number: raw.buyer_phone || '',
+      state: '', city: '', location: '',
+    },
+
+    // -------- Property --------
+    id: raw.property_id,
+    property_address: raw.property_address,
+    property_type,
+    property_area,
+    property_floor, 
+    property_facing,
+    property: {
+      id: raw.property_id,
+      address: raw.property_address,
+      type: property_type,
+      area: property_area,
+      floor: property_floor,
+      facing: property_facing,
+      details: pd,
+    },
+
+    // -------- Finance / transaction --------
+    related_party: raw.related_party,
+    deal_value: raw.deal_value,
+    payment_type: raw.payment_type,
+    amount: raw.amount,
+    amount_in_words: raw.amount_in_words ,
+    in_words: raw.amount_in_words,
+    payment_date: onlyDate(raw.payment_date),
+    payment_reference: raw.payment_reference,
+    payment_method: td.payment_method ?? '',
+    transaction_details: td,
+    
+    buyer_bank_name: td.buyer_bank_name ?? '',
+    seller_bank_name: td.seller_bank_name ?? '',
+
+    // -------- Ledger --------
+    ledger_entries: ledger,
+
+    // ✅ FIX: Set first ledger entry for template variables
+    ledger_index: ledger[0]?.index || '',
+    ledger_date: ledger[0]?.date || '',
+    ledger_type: ledger[0]?.type || '',
+    ledger_amount: ledger[0]?.amount || '',
+    ledger_balance: ledger[0]?.balance || '',
+    ledger_description: ledger[0]?.description || '',
+
+    // -------- Receipt meta --------
+    receipt: {
+      id: raw.id,
+      receipt_id: raw.receipt_id,
+      type: raw.type,
+      status: raw.status,
+      payment_status: raw.payment_status,
+      receipt_date: raw.receipt_date,
+      notes: raw.notes,
+      created_by: raw.created_by,
+      updated_by: raw.updated_by,
+      created_at: raw.created_at,
+      updated_at: raw.updated_at,
+    },
+
+    // ✅ FIX: Direct flat mappings for template compatibility
+    receipt_id: raw.receipt_id,
+    type: raw.type,
+    status: raw.status,
+    payment_status: raw.payment_status,
+    receipt_date: raw.receipt_date,
+    notes: raw.notes,
+    created_by: raw.created_by,
+    updated_by: raw.updated_by,
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
+  };
+
+  return patch;
+};
+
+/** Merge a big patch into formData via onInputChange (DocumentStep ke prop) */
+const applyPatchViaOnChange = (
+  patch: Record<string, any>,
+  onInputChange: (field: string, value: any) => void,
+  { skipIfAlreadySet = true, current }: { skipIfAlreadySet?: boolean; current: Record<string, any> }
+) => {
+  // Level-1 keys direct set; for nested objects like seller/buyer/property we set whole object
+  Object.entries(patch).forEach(([k, v]) => {
+    if (skipIfAlreadySet && !isBlank(current?.[k])) return;
+    onInputChange(k, v);
+  });
+};
+
+
+
+
 type DocumentStepProps = {
   formData: Record<string, any>;
   onInputChange: (field: string, value: any) => void;
@@ -1592,19 +1745,47 @@ const DocumentStep: React.FC<DocumentStepProps> = ({
   onVariableInsert,
 }) => {
 
+// In your DocumentStep component
+
+// In your DocumentStep component
 
 useEffect(() => {
-  const propertyPaymentReceipt = async () => {
-    try {
-      const propertyPaymentReceipt = await propertyPaymentReceiptAPI.getAll(); // calling the API
-      console.log("propertyPaymentReceipt in component:", propertyPaymentReceipt);
-    } catch (err) {
-      console.error("Error fetching propertyPaymentReceipt:", err);
-    }
-  };
+  const sellerId = formData.seller?.id;
+  const buyerId = formData.buyer?.id;
+  const propertyId = formData.property?.id;
 
-  propertyPaymentReceipt();
-}, []);
+  if (!sellerId || !buyerId || !propertyId) return;
+
+  let alive = true;
+  (async () => {
+    try {
+      const res = await propertyPaymentReceiptAPI.getAll(); // no args
+      let rows = normalizeList<PropertyPaymentReceiptRow>(res);
+
+      // filter manually
+      rows = rows.filter(r =>
+        String(r.seller_id) === String(sellerId) &&
+        String(r.buyer_id) === String(buyerId) &&
+        String(r.property_id) === String(propertyId)
+      );
+
+      if (!alive || !rows.length) return;
+
+      const sorted = rows
+        .slice()
+        .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
+
+      const latest = sorted[0];
+      const patch = buildFormPatchFromReceipt(latest);
+
+      applyPatchViaOnChange(patch, onInputChange, { skipIfAlreadySet: false, current: formData });
+    } catch (err) {
+      toast.error('Error fetching propertyPaymentReceipt:', err);
+    }
+  })();
+
+  return () => { alive = false; };
+}, [formData.seller?.id, formData.buyer?.id, formData.property?.id]);
 
 
   return (
@@ -1708,6 +1889,7 @@ useEffect(() => {
                       <label className="block text-xs font-medium text-gray-700 mb-0.5">
                         Booking Amount (₹)
                       </label>
+
                       <input
                         type="number"
                         value={formData.booking_amount || ''}
@@ -1793,7 +1975,7 @@ useEffect(() => {
           </div>
 
           <label className="block text-xs font-medium text-gray-700 mb-1">
-            Insert Placeholder
+            Inserted Placeholder
           </label>
           <select
             className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-white"

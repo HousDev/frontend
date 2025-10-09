@@ -417,6 +417,7 @@ export const documentStatusAPI = {
       throw normalizeError(e);
     }
   },
+  
 
   /* GET /share-batches/:batchId/recipients */
   async getShareRecipients(batchId: number): Promise<ShareRecipient[]> {
@@ -467,6 +468,8 @@ export const documentStatusAPI = {
       throw normalizeError(e);
     }
   },
+  
 };
+
 
 export default documentStatusAPI;
