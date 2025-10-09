@@ -5,11 +5,11 @@ import {
   Cloud,
   RefreshCw,
   CheckCircle2,
-  User,
-  Home,
 } from "lucide-react";
 import { documentsGeneratedAPI } from "@/lib/documentsGeneratedAPI";
+import { saveResumeLocal } from "@/lib/documentResume";
 
+/* =================== Types =================== */
 type Draft = {
   id: string;
   title?: string;
@@ -19,6 +19,12 @@ type Draft = {
   status?: "draft" | "created";
   data: Record<string, any>;
   content?: string | null;
+
+  // optional metadata if your backend returns them
+  created_at?: string;
+  updated_at?: string;
+  created_by_name?: string;
+  updated_by_name?: string;
 };
 
 type Props = {
@@ -31,11 +37,11 @@ const BRAND = {
   primaryHover: "#CC6A1A",
 };
 
-const Badge = ({
-  children,
-  tone = "gray" as "gray" | "violet" | "orange",
-}) => {
-  const map = {
+/* =================== UI bits =================== */
+const Badge: React.FC<
+  React.PropsWithChildren<{ tone?: "gray" | "violet" | "orange" }>
+> = ({ children, tone = "gray" }) => {
+  const map: Record<string, string> = {
     gray: "bg-gray-100 text-gray-700 ring-1 ring-gray-200",
     violet: "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
     orange: "bg-orange-100 text-orange-800 ring-1 ring-orange-200",
@@ -63,7 +69,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-/** Safe JSON parse for variables that might be stringified */
+/* =================== Utils =================== */
 function parseVars(v: any): Record<string, any> {
   if (!v) return {};
   if (typeof v === "string") {
@@ -77,14 +83,39 @@ function parseVars(v: any): Record<string, any> {
   return typeof v === "object" ? v : {};
 }
 
+// dd/mm/yyyy hh:mm AM/PM (IST)
+function fmtDateIST(input?: string | number | Date) {
+  if (!input) return "—";
+  const dt = new Date(input);
+  if (isNaN(dt.getTime())) return "—";
+
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+
+  const parts = fmt.formatToParts(dt);
+  const map: Record<string, string> = {};
+  for (const p of parts) map[p.type] = p.value;
+
+  const date = `${map.day}/${map.month}/${map.year}`;
+  const time = `${map.hour}:${map.minute}${map.dayPeriod ? " " + map.dayPeriod.toUpperCase() : ""}`;
+  return `${date} ${time}`;
+}
+
+/* =================== Component =================== */
 const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
   const [items, setItems] = React.useState<Draft[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const mapRowToDraft = React.useCallback((r: any): Draft => {
-    const savedAt =
-      r?.updated_at || r?.created_at || r?.last_used_at || new Date().toISOString();
+    const savedAt = r?.updated_at || r?.created_at || r?.last_used_at || new Date().toISOString();
     return {
       id: String(r.id),
       title: r.name || "Untitled Draft",
@@ -93,7 +124,12 @@ const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
       savedAt,
       status: (r.status ?? "draft") as any,
       content: r.content ?? null,
-      data: parseVars(r.variables), // full editor state snapshot (we expect your editor to consume this)
+      data: parseVars(r.variables),
+
+      created_at: r?.created_at,
+      updated_at: r?.updated_at,
+      created_by_name: r?.created_by_name || "",
+      updated_by_name: r?.updated_by_name || "",
     };
   }, []);
 
@@ -102,16 +138,14 @@ const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
       setLoading(true);
       setError(null);
 
-      // Prefer backend filter (if supported):
-      // const rows = await documentsGeneratedAPI.getAll({ status: "draft" as any });
-      const rows = await documentsGeneratedAPI.getAll();
+      // If your backend supports filter: getAll({ status: 'draft' })
+      const res = await documentsGeneratedAPI.getAll?.();
+      const rows: any[] = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
 
       const drafts: Draft[] = (rows || [])
-        .filter((r: any) => String(r?.status ?? "draft").toLowerCase() === "draft")
+        .filter((r) => String(r?.status ?? "draft").toLowerCase() === "draft")
         .map(mapRowToDraft)
-        .sort(
-          (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
-        );
+        .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
 
       setItems(drafts);
     } catch (e: any) {
@@ -130,7 +164,6 @@ const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
     if (!window.confirm("Delete this draft? This cannot be undone.")) return;
     try {
       setLoading(true);
-      // Use any of: remove | delete | softDelete
       if ((documentsGeneratedAPI as any).softDelete) {
         await (documentsGeneratedAPI as any).softDelete(draftId);
       } else if ((documentsGeneratedAPI as any).remove) {
@@ -149,33 +182,43 @@ const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
   };
 
   /**
-   * The reliable resume fix:
-   * 1) save a payload to sessionStorage that your editor can read on mount
-   * 2) still trigger onContinue(draft) so existing flow keeps working
+   * Resume flow:
+   * 1) snapshot to sessionStorage/localStorage via saveResumeLocal
+   * 2) optional onContinue callback (if parent wants)
+   * 3) hard navigate to editor route with resume params
    */
+  const EDITOR_ROUTE = "/dashboard/document-center/create"; // <- apna editor path yahi set karo
+
   const continueDraft = (draft: Draft) => {
-    const resumePayload = {
+    const editorState = draft.data?.__editor_state || {};
+    const initialVariables =
+      draft.data?.__form_snapshot && Object.keys(draft.data.__form_snapshot).length
+        ? draft.data.__form_snapshot
+        : draft.data || {};
+
+    // 1) snapshot
+    saveResumeLocal({
       draftId: draft.id,
       templateId: draft.templateId ?? null,
       title: draft.title ?? "Untitled Draft",
-      initialVariables: draft.data ?? {},
-      // You can add more like: pageType, css, content snapshot, etc.
+      initialVariables,
+      editorState,
       source: "server-draft",
-      savedAt: draft.savedAt,
-    };
-    sessionStorage.setItem("documentEditor:resume", JSON.stringify(resumePayload));
+    });
+
+    // 2) optional callback
     onContinue?.(draft);
-    // Optional: if you want a fallback navigation when onContinue isn't passed
-    // window.location.assign("/documents/create"); // uncomment if desired
+
+    // 3) navigate
+    const url = `${EDITOR_ROUTE}?resume=1&draftId=${draft.id}&templateId=${draft.templateId ?? ""}`;
+    window.location.assign(url);
   };
 
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">Draft Documents</h2>
-        </div>
+        <h2 className="text-base font-semibold text-gray-900">Draft Documents</h2>
         <button
           onClick={fetchDrafts}
           className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium ring-1 ring-gray-200 hover:bg-gray-50"
@@ -224,6 +267,10 @@ const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
             if (v.buyer_name) chips.push(`Buyer: ${v.buyer_name}`);
             if (v.property_address) chips.push(`Address: ${v.property_address}`);
 
+            const savedText = fmtDateIST(draft.savedAt);
+            const createdBy = (draft.created_by_name || "").trim();
+            const updatedBy = (draft.updated_by_name || "").trim();
+
             return (
               <div
                 key={draft.id}
@@ -269,10 +316,18 @@ const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
                   </div>
                 )}
 
-                {/* Dates */}
-                <div className="mt-3 text-[11px] text-gray-600">
-                  <span className="text-gray-500">Saved: </span>
-                  {new Date(draft.savedAt).toLocaleString()}
+                {/* Dates & names */}
+                <div className="mt-3 text-[11px] text-gray-600 space-y-0.5">
+                  <div>
+                    <span className="text-gray-500">Saved: </span>
+                    <span className="font-medium text-gray-700">{savedText}</span>
+                  </div>
+                  {(createdBy || updatedBy) && (
+                    <div className="text-gray-500">
+                      {createdBy && <>Created by: <span className="text-gray-700">{createdBy}</span>{updatedBy && " · "}</>}
+                      {updatedBy && <>Updated by: <span className="text-gray-700">{updatedBy}</span></>}
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}

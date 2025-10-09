@@ -142,6 +142,28 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+
+
+  // consider "filters applied" when any of these are set
+  const hasActiveFilters = Boolean(
+    (selectedLocation && selectedLocation.trim()) ||
+    localities.length > 0 ||
+    (selectedBudget && selectedBudget.trim()) ||
+    (selectedType && selectedType.trim()) ||
+    (selectedBedrooms && selectedBedrooms.trim()) ||
+    (selectedPropertySubtype && selectedPropertySubtype.trim()) ||
+    (selectedUnitType && selectedUnitType.trim()) ||
+    featuredOnly ||
+    verifiedOnly ||
+    minRating !== null ||
+    (possessionFilter && possessionFilter.trim()) ||
+    (parkingFilter && parkingFilter !== 'any') ||
+    floorMin !== '' ||
+    floorMax !== '' ||
+    bathroomsFilter !== ''
+  );
+
+
   // fetch masters
   useEffect(() => {
     const fetchMasters = async () => {
@@ -351,90 +373,48 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   };
 
   // ---------- read URL params and set local filter states ----------
-  useEffect(() => {
-    const qp = new URLSearchParams(location.search);
+useEffect(() => {
+  const qp = new URLSearchParams(location.search);
 
-    // city
-    const urlCity = qp.get('city') || '';
-    setSelectedLocation(urlCity);
+  // city
+  const cityFromUrl = qp.get('city') || '';
+  setSelectedLocation(cityFromUrl);
 
-    // multiple localities (can appear as repeated params or CSV)
-    const urlLocs = qp.getAll('location');
-    let parsedLocs: string[] = [];
+  // localities: support both ?location=... (repeat or csv) and ?locations=csv
+  let locs: string[] = [];
 
-    if (urlLocs.length > 0) {
-      urlLocs.forEach((loc) => {
-        const parts = String(loc).split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-        parsedLocs.push(...parts);
+  // repeated ?location=... or csv in each
+  const repeated = qp.getAll('location');
+  if (repeated.length > 0) {
+    repeated.forEach(v => {
+      v.split(',').forEach(s => {
+        const t = s.trim();
+        if (t) locs.push(t);
+      });
+    });
+  } else {
+    // single csv param ?locations=a,b
+    const csv = qp.get('locations');
+    if (csv) {
+      csv.split(',').forEach(s => {
+        const t = s.trim();
+        if (t) locs.push(t);
       });
     }
+  }
 
-    // ensure unique, max 5
-    parsedLocs = Array.from(new Set(parsedLocs)).slice(0, 5);
-    setLocalities(parsedLocs);
+  // unique + cap at 5
+  locs = Array.from(new Set(locs)).slice(0, 5);
+  setLocalities(locs);
 
-    // searchQuery restore (keep city+locality context for display)
-    if (qp.get('search')) {
-      setSearchQuery(qp.get('search') || '');
-    } else if (parsedLocs.length > 0) {
-      setSearchQuery(parsedLocs.join(', '));
-    } else if (urlCity) {
-      setSearchQuery(urlCity);
-    } else {
-      setSearchQuery('');
-    }
+  // search text (optional)
+  if (locs.length) setSearchQuery(locs.join(', '));
+  else if (cityFromUrl) setSearchQuery(cityFromUrl);
+  else setSearchQuery('');
 
-    // property type
-    const urlPropertyType = qp.get('propertyType') || qp.get('property_type') || '';
-    setSelectedType(urlPropertyType);
-    setSelectedPropertyType(urlPropertyType);
+  setCurrentPage(1);
+}, [location.search]);
 
-    // budget
-    const urlBudget = qp.get('budget') || qp.get('budget_min') || qp.get('budget_max') || '';
-    setSelectedBudget(urlBudget);
-
-    // sort
-    const urlSort = qp.get('sort') || '';
-    if (urlSort) setSortBy(urlSort);
-
-    // advanced filters
-    const urlFeatured = qp.get('featured');
-    setFeaturedOnly(urlFeatured === '1' || urlFeatured === 'true');
-
-    const urlVerified = qp.get('verified');
-    setVerifiedOnly(urlVerified === '1' || urlVerified === 'true');
-
-    const urlMinRating = qp.get('min_rating');
-    setMinRating(urlMinRating ? Number(urlMinRating) || null : null);
-
-    const urlPossession = qp.get('possession');
-    setPossessionFilter(urlPossession || '');
-
-    const urlParking = qp.get('parking');
-    setParkingFilter(urlParking === '2w' || urlParking === '4w' ? (urlParking as any) : 'any');
-
-    const urlFloorMin = qp.get('floor_min');
-    setFloorMin(urlFloorMin ? Number(urlFloorMin) || '' : '');
-
-    const urlFloorMax = qp.get('floor_max');
-    setFloorMax(urlFloorMax ? Number(urlFloorMax) || '' : '');
-
-    const urlBathrooms = qp.get('bathrooms');
-    setBathroomsFilter(urlBathrooms ? Number(urlBathrooms) || '' : '');
-
-    const urlSubtype = qp.get('property_subtype') || qp.get('propertySubtype');
-    setSelectedPropertySubtype(urlSubtype || '');
-
-    const urlUnitType = qp.get('unitType') || qp.get('unit_type');
-    setSelectedUnitType(urlUnitType || '');
-
-    // whenever URL changes, reset to first page
-    setCurrentPage(1);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.search, masters]);
 
   // ---------- fetch properties based on URL params (or fallback) ----------
   const loadPropertiesFromSearch = useCallback(async () => {
@@ -443,60 +423,44 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     try {
       const qp = new URLSearchParams(location.search);
 
-      const hasLocation = Boolean(qp.get('location') || qp.get('city'));
-      const hasPropertyType = Boolean(qp.get('propertyType') || qp.get('property_type'));
-      const hasBudgetMin = Boolean(qp.get('budget_min') || qp.get('minPrice'));
-      const hasBudgetMax = Boolean(qp.get('budget_max') || qp.get('maxPrice'));
-      const hasSort = Boolean(qp.get('sort'));
-      const hasStatus = Boolean(qp.get('status'));
-      const hasAnyFilter = hasLocation || hasPropertyType || hasBudgetMin || hasBudgetMax || hasSort || hasStatus || Boolean(qp.get('search'));
+      // ✅ ONLY advanced filters trigger the filter API
+      const hasAdvanced =
+        Boolean(
+          qp.get('propertyType') || qp.get('property_type') ||
+          qp.get('budget_min') || qp.get('minPrice') ||
+          qp.get('budget_max') || qp.get('maxPrice') ||
+          qp.get('unitTypes') || qp.get('unitType') || qp.get('unit_type') ||
+          qp.get('furnishing') || qp.get('possession') ||
+          qp.get('featured') || qp.get('verified') ||
+          qp.get('min_rating') || qp.get('parking') ||
+          qp.get('floor_min') || qp.get('floor_max') ||
+          qp.get('bathrooms') || qp.get('bedrooms') ||
+          qp.get('property_subtype') || qp.get('propertySubtype') ||
+          qp.get('sort') // sort ko advanced maana hai toh rakhein; sirf header ke liye chahiye toh hata sakte ho
+        );
 
       let response: any = null;
 
-      if (hasAnyFilter) {
-        const params: any = {
-          city: undefined,
-          location: undefined,
-          minPrice: undefined,
-          maxPrice: undefined,
-          sort: undefined,
-          propertyType: undefined,
-          unitTypes: undefined,
-          furnishing: undefined,
-          possession: undefined,
-          featured: undefined,
-          verified: undefined,
-          minRating: undefined,
-          parking: undefined,
-          floor_min: undefined,
-          floor_max: undefined,
-          bathrooms: undefined,
-          bedrooms: undefined,
-          filterToken: undefined,
-          status: undefined,
-        };
+      if (hasAdvanced) {
+        // 🔶 Advanced Filters -> FILTER API
+        const params: any = {};
 
-        // location handling - prefer repeated 'location' params; if not, fall back to city
-        if (qp.getAll('location').length > 0) {
-          params.location = qp.getAll('location').join(',');
-        } else if (qp.get('location')) {
-          params.location = qp.get('location');
-        } else if (qp.get('city')) {
-          params.city = qp.get('city');
-        }
+        // locations: prefer repeated 'location'
+        if (qp.getAll('location').length > 0) params.location = qp.getAll('location').join(',');
+        else if (qp.get('location')) params.location = qp.get('location');
+        if (qp.get('city')) params.city = qp.get('city');
 
         if (qp.get('propertyType')) params.propertyType = qp.get('propertyType');
         else if (qp.get('property_type')) params.propertyType = qp.get('property_type');
 
-        const budgetMin = qp.get('budget_min') || qp.get('minPrice') || qp.get('minPrice');
-        const budgetMax = qp.get('budget_max') || qp.get('maxPrice') || qp.get('maxPrice');
+        const budgetMin = qp.get('budget_min') || qp.get('minPrice');
+        const budgetMax = qp.get('budget_max') || qp.get('maxPrice');
         if (budgetMin) params.minPrice = Number(budgetMin);
         if (budgetMax) params.maxPrice = Number(budgetMax);
 
         if (qp.get('sort')) params.sort = qp.get('sort');
-
-        if (qp.get('unitTypes')) params.unitTypes = (qp.get('unitTypes') || '').split(',').map((s) => s.trim()).filter(Boolean);
-        else if (qp.get('unitType')) params.unitTypes = [qp.get('unitType') || ''];
+        if (qp.get('unitTypes')) params.unitTypes = (qp.get('unitTypes') || '').split(',').map(s => s.trim()).filter(Boolean);
+        else if (qp.get('unitType')) params.unitTypes = [qp.get('unitType')!];
 
         if (qp.get('furnishing')) params.furnishing = qp.get('furnishing');
         if (qp.get('possession')) params.possession = qp.get('possession');
@@ -511,47 +475,45 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         if (qp.get('bedrooms')) params.bedrooms = qp.get('bedrooms');
 
         if (qp.get('property_subtype') || qp.get('propertySubtype')) {
-          params.propertySubtype = (qp.get('property_subtype') || qp.get('propertySubtype'))!;
+          params.propertySubtype = qp.get('property_subtype') || qp.get('propertySubtype');
         }
         if (qp.get('unitType') || qp.get('unit_type')) {
-          params.unitType = (qp.get('unitType') || qp.get('unit_type'))!;
+          params.unitType = qp.get('unitType') || qp.get('unit_type');
         }
 
-        if (qp.get('status')) {
-          params.status = qp.get('status');
-        }
+        if (qp.get('status')) params.status = qp.get('status');
+        if (filterParamKey && filterTokenFromUrl) params.filterToken = filterTokenFromUrl;
 
-        if (filterParamKey && filterTokenFromUrl) {
-          params.filterToken = filterTokenFromUrl;
-        }
+        response = await propertiesAPI.getSearch(params);
+      } else {
+        // ✅ Header-style basic search -> LISTING API
+        const simpleParams: any = {
+          status: qp.get('status') || 'Available',
+          limit: 50,
+        };
+
+        const allLocs = qp.getAll('location');
+        if (allLocs.length > 0) simpleParams.location = allLocs.join(',');
+        else if (qp.get('location')) simpleParams.location = qp.get('location');
+
+        if (qp.get('city')) simpleParams.city = qp.get('city');
+        if (qp.get('search')) simpleParams.q = qp.get('search'); // only if your API supports
 
         try {
-          response = await propertiesAPI.getSearch(params);
+          response = await propertiesAPI.getProperties(simpleParams);
         } catch (err) {
-          console.warn('propertiesAPI.getSearch failed, falling back to getProperties', err);
-          response = null;
-        }
-      }
-
-      if (!response) {
-        // fallback: show only available properties by default
-        const fallback = await propertiesAPI.getProperties({ status: 'Available', limit: 50 });
-        if (fallback?.data && Array.isArray(fallback.data)) {
-          response = fallback;
-        } else if (Array.isArray(fallback)) {
-          response = { data: fallback };
-        } else {
+          console.warn('getProperties failed, fallback to empty', err);
           response = { data: [] };
         }
       }
 
+      // normalize as you already do
       let list: any[] = [];
       if (Array.isArray(response)) list = response;
       else if (response?.data && Array.isArray(response.data)) list = response.data;
       else if (response?.results && Array.isArray(response.results)) list = response.results;
       else if (response?.properties && Array.isArray(response.properties)) list = response.properties;
       else if (Array.isArray(response?.items)) list = response.items;
-      else list = [];
 
       const transformedProperties = await Promise.all(
         list.map(async (p: any, index: number) => {
@@ -934,6 +896,19 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     return Array.from(new Set(parkingTypes));
   };
 
+  useEffect(() => {
+  const qp = new URLSearchParams(location.search);
+  const cityFromUrl = qp.get('city') || '';
+  const locationsFromUrl =
+    qp.getAll('locations').length > 0
+      ? qp.getAll('locations')
+      : (qp.get('locations') ? qp.get('locations').split(',') : []);
+
+  setSelectedLocation(cityFromUrl);
+  setLocalities(locationsFromUrl.filter(Boolean));
+}, [location.search]);
+
+
   // ------------------ HEADER search submit -> update URL (only on submit) ------------------
   const handleHeaderSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -944,15 +919,18 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     // Derive city and location
     // If user added localities (chips), we set city (if available) first, then the location(s)
     if (localities.length > 0) {
-      // city part derived from selectedLocation (if present)
-      const parts = (selectedLocation || '').split(',').map(s => s.trim()).filter(Boolean);
-      if (parts.length >= 1) {
-        const cityPart = parts.slice(-1).join(', ');
-        if (cityPart) params.append('city', cityPart);
-      }
-      // location: join localities as a single value (keeps things simple)
-      params.append('location', localities.join(','));
-    } else {
+  // params.append('location', localities.join(','));
+  // city
+  const parts = (selectedLocation || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (parts.length >= 1) {
+    const cityPart = parts.slice(-1).join(', ');
+    if (cityPart) params.append('city', cityPart);
+  }
+  // ✅ repeated params
+  localities.forEach(loc => {
+    if (loc && loc.trim()) params.append('location', loc.trim());
+  });
+}  else {
       // no localities -> derive city/location from selectedLocation input
       const raw = String(selectedLocation || '').trim();
       if (raw) {
@@ -1059,61 +1037,88 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
               Discover verified properties from trusted sellers across top locations
             </p>
             {/* Compact Buy / Rent + property-type buttons row (HomePage-style) */}
-            <div className="flex flex-col items-center gap-3 mb-6 md:flex-row md:justify-center">
-              <div className='flex gap-2'>
-
-
+            <div className="grid grid-cols-1 gap-1 md:gap-2 mb-4 items-center justify-center text-center">
+              {/* Buy / Rent */}
+              <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setTransactionType("buy")}
-                  className={`px-4 py-1 rounded-full ${transactionType === "buy"
-                    ? "bg-[#E6761D] text-white"
-                    : "bg-gray-100 text-gray-700"
+                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70
+        ${transactionType === "buy"
+                      ? "bg-[#E6761D] text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
+                  aria-pressed={transactionType === "buy"}
                 >
                   Buy
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setTransactionType('rent')}
-                  className={`px-4 py-1 rounded-full ${transactionType === 'rent' ? 'bg-gray-300 text-gray-600' : 'bg-gray-100 text-gray-700'}`}
+                  onClick={() => setTransactionType("rent")}
+                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70
+        ${transactionType === "rent"
+                      ? "bg-gray-300 text-gray-600"
+                      : "bg-gray-100 text-gray-700"
+                    } opacity-60 cursor-not-allowed`}
                   title="Rent search not available yet"
+                  disabled
+                  aria-disabled="true"
+                  aria-pressed={transactionType === "rent"}
                 >
                   Rent
                 </button>
               </div>
-              {/* property-type buttons group (horizontal scrollable) */}
-              <div className="ml-2 flex items-center">
+
+              {/* property-type buttons group (horizontal scrollable, no gradient edges) */}
+              <div className="w-full grid justify-center md:w-auto">
                 {masterLoading ? (
                   <div className="text-sm text-white/80 px-3 py-1">Loading types...</div>
                 ) : (
-                  <div className="flex gap-2 overflow-x-auto py-1 ">
-                    <button
-                      type="button"
-                      onClick={() => handlePropertyTypeButton('')}
-                      aria-pressed={selectedPropertyType === ''}
-                      className={`px-3 py-1 rounded-full ${selectedPropertyType === '' ? 'bg-white text-black' : 'bg-white/30 text-white'}`}
-                    >
-                      All
-                    </button>
-
-                    {propertyTypeOptions.map((opt) => (
+                  <div
+                    className="
+          relative
+          ml-2 md:ml-0
+          max-w-full
+          overflow-x-auto
+          [-webkit-overflow-scrolling:touch]
+          [scrollbar-width:none]
+          [-ms-overflow-style:none]
+          px-1
+        "
+                    style={{ scrollbarWidth: "none" }}
+                  >
+                    <div className="flex gap-2 py-1 snap-x snap-mandatory">
                       <button
-                        key={opt.value}
                         type="button"
-                        onClick={() => handlePropertyTypeButton(opt.value)}
-                        aria-pressed={selectedPropertyType === opt.value}
-                        className={`whitespace-nowrap px-3 py-1 rounded-full ${selectedPropertyType === opt.value ? 'bg-white text-black' : 'bg-white/20 text-white'}`}
-                        title={opt.label}
+                        onClick={() => handlePropertyTypeButton("")}
+                        aria-pressed={selectedPropertyType === ""}
+                        className={`shrink-0 snap-start whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+              ${selectedPropertyType === "" ? "bg-white text-black" : "bg-white/30 text-white hover:bg-white/40"}`}
                       >
-                        {opt.label}
+                        All
                       </button>
-                    ))}
+
+                      {propertyTypeOptions.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => handlePropertyTypeButton(opt.value)}
+                          aria-pressed={selectedPropertyType === opt.value}
+                          title={opt.label}
+                          className={`shrink-0 snap-start whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+                ${selectedPropertyType === opt.value ? "bg-white text-black" : "bg-white/20 text-white hover:bg-white/30"}`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
+
+
             {/* HEADER SEARCH: HomePage-style (city dropdown, locality chips, property type, search) */}
             <form
               onSubmit={handleHeaderSearchSubmit}
@@ -1158,7 +1163,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
 
                 {/* Localities input + Add button (with autosuggest) */}
-                <div className="relative md:col-span-3 flex items-center gap-2 bg-[#0b3856] border border-gray-200 rounded-xl ">
+                <div className="relative md:col-span-3 flex items-center gap-2 bg-[#0b3856] border border-gray-200 rounded-xl w-full max-w-[700px] mx-auto">
                   {/* Search Icon + Input */}
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white" size={16} />
@@ -1231,14 +1236,38 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                 </div>
 
                 {/* Search button */}
-                <div className="md:col-span-1 flex items-center">
+                <div className="md:col-span-1 flex items-center justify-center md:justify-end gap-1">
+                  {/* Search Button */}
                   <button
                     type="submit"
-                    className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg w-full md:w-28 text-base transition-colors duration-300"
+                    className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-2 rounded-lg w-full md:w-28 text-base font-medium transition-colors duration-300"
                   >
                     Search
                   </button>
+
+                  {/* Reset Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // 🔁 Reset all relevant search states here
+                      setSearchQuery('');
+                      setSelectedLocation('');
+                      setLocalities([]);
+                      setLocalityInput('');
+                      setSelectedBudget('');
+                      setSelectedType('');
+                      setSelectedBedrooms('');
+                      setSelectedPropertySubtype('');
+                      setSelectedUnitType('');
+                      navigate('/properties', { replace: true }); // optional: clears URL filters
+                    }}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-5 py-2 rounded-lg w-full md:w-28 text-base font-medium transition-colors duration-300"
+                  >
+                    Reset
+                  </button>
                 </div>
+
+
               </div>
 
               {/* Chips Section */}
@@ -1265,7 +1294,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                 ))}
                 {localities.length < 5 && (
                   <div className="text-xs text-white px-2 py-1">
-                    {1 - localities.length} Add up to 1 localities.
+                    Add up to 1 localities.
                   </div>
                 )}
               </div>
@@ -1315,17 +1344,20 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             <div className="min-w-0">
               {/* Title */}
               <h2 className="text-2xl font-bold text-[#0b3856]">
-                Properties Found
+                All Properties
               </h2>
 
               {/* Meta line */}
-              <p className="text-gray-600 text-sm">
-                {selectedLocation && `in ${selectedLocation} • `}
-                {localities.length > 0 && `${localities.join(', ')} • `}
-                {selectedBudget &&
-                  `${(budgetOptions.find((b) => (b.value || b.label) === selectedBudget)?.label) || selectedBudget} • `}
-                Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedProperties.length)} results
-              </p>
+              {hasActiveFilters && (
+                <p className="text-gray-600 text-sm">
+                  {selectedLocation && `in ${selectedLocation} • `}
+                  {localities.length > 0 && `${localities.join(', ')} • `}
+                  {selectedBudget &&
+                    `${(budgetOptions.find((b) => (b.value || b.label) === selectedBudget)?.label) || selectedBudget} • `}
+                  Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedProperties.length)} results
+                </p>
+              )}
+
             </div>
 
             {/* Right: View toggle buttons */}

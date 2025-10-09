@@ -11,6 +11,9 @@ export type DocumentsGeneratedPayload = {
   content?: string | null; // final HTML snapshot
   variables?: any | null;  // JSON object
   status?: GenStatus;      // 'draft' | 'created'
+    created_by?: number;
+  updated_by?: number;
+
 };
 
 /* ------------------------------------------------------------------
@@ -66,6 +69,12 @@ function buildApiUrl(path: string, query?: Record<string, string>) {
     : "";
   return `${root}${path}${q}`;
 }
+
+// 👉 add near top (optional types)
+type BulkZipOptions = {
+  page?: "a4" | "legal";
+  filenamePrefix?: string;   // default 'documents'
+};
 
 /* ------------------------------------------------------------------
  *  Fetch a PDF (as Blob) with credentials + get filename from headers
@@ -135,6 +144,9 @@ export const documentsGeneratedAPI = {
       content: payload.content ?? null,
       variables: payload.variables ?? null,
       status: payload.status ?? "draft",
+        created_by: payload.created_by ?? null,
+  updated_by: payload.updated_by ?? null,
+
     };
     const res = await api.post("/documents-generated", body);
     return res.data.data;
@@ -149,6 +161,9 @@ export const documentsGeneratedAPI = {
       content: payload.content ?? null,
       variables: payload.variables ?? null,
       status: payload.status ?? "draft",
+       created_by: payload.created_by ?? null,
+  updated_by: payload.updated_by ?? null,
+
     };
     const res = await api.patch(`/documents-generated/${id}`, body);
     return res.data.data;
@@ -201,7 +216,80 @@ downloadPdf: async (
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 },
+// Fetch document with related entities
+getOneWithRelations: async (id: number | string) => {
+  const res = await api.get(`/documents-generated/with-relations/${id}`);
+  return res.data.data; // should contain document + buyer + seller + executive + properties
+},
 
+getAllWithRelations: async (params?: any) => {
+  const res = await api.get("/documents-generated/with-relations/getall", { params });
+  return res.data.data;
+},
+
+// 👉 add inside export const documentsGeneratedAPI = { ... }
+bulkDownloadZip: async (
+  ids: Array<number | string>,
+  options?: BulkZipOptions
+) => {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    throw new Error("ids[] required");
+  }
+
+  // server route: POST /documents-generated/bulk-download
+  const res = await api.post(
+    "/documents-generated/bulk-download",
+    {
+      ids,
+      options: {
+        page: options?.page || "a4",
+        filenamePrefix: options?.filenamePrefix || "documents",
+      },
+    },
+    { responseType: "blob" } // 👈 ZIP as blob
+  );
+
+  const blob: Blob = res.data;
+  const disp = res.headers?.["content-disposition"] || res.headers?.["Content-Disposition"];
+  const fallback = `${(options?.filenamePrefix || "documents")
+    .toString()
+    .replace(/[^\w\-]+/g, "_")}_${ids.length}_files.zip`;
+
+  const filename = parseFilenameFromDisposition(disp, fallback);
+  triggerBlobDownload(blob, filename);
+  return { blob, filename };
+},
+
+/** Same as above but returns blob (no auto download), handy for custom UX */
+bulkDownloadZipBlob: async (
+  ids: Array<number | string>,
+  options?: BulkZipOptions
+): Promise<{ blob: Blob; filename: string }> => {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    throw new Error("ids[] required");
+  }
+
+  const res = await api.post(
+    "/documents-generated/bulk-download",
+    {
+      ids,
+      options: {
+        page: options?.page || "a4",
+        filenamePrefix: options?.filenamePrefix || "documents",
+      },
+    },
+    { responseType: "blob" }
+  );
+
+  const blob: Blob = res.data;
+  const disp = res.headers?.["content-disposition"] || res.headers?.["Content-Disposition"];
+  const fallback = `${(options?.filenamePrefix || "documents")
+    .toString()
+    .replace(/[^\w\-]+/g, "_")}_${ids.length}_files.zip`;
+  const filename = parseFilenameFromDisposition(disp, fallback);
+
+  return { blob, filename };
+},
   /**
    * Open the PDF in a new tab (view only).
    * Uses Blob URL so it also works with auth/cookies.
@@ -220,3 +308,7 @@ downloadPdf: async (
   getPdfUrl: (id: number | string, page: "a4" | "legal" = "a4") =>
     buildApiUrl(`/documents-generated/${id}/pdf`, { page }),
 };
+
+
+
+

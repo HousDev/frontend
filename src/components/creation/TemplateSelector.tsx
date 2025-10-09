@@ -20,6 +20,10 @@ export type Template = {
   content?: string;
   created_at?: string;
   updated_at?: string;
+  created_by?: number | string | null;
+  updated_by?: number | string | null;
+  created_by_name?: string;
+  updated_by_name?: string;
   [key: string]: any;
 };
 
@@ -34,11 +38,35 @@ type Props = {
   onDeleteTemplate?: (id: number | string) => void;
   onDuplicateTemplate?: (t: Template) => void;
 
-  /** optional: if true, “Use Template” par hi documents-generated row create kare
+  /** optional: if true, "Use Template" par hi documents-generated row create kare
    * default false (recommended)
    */
   autoCreateGenerated?: boolean;
 };
+
+function fmtDateIST(d?: string) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return "—";
+
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+
+  const parts = fmt.formatToParts(dt);
+  const map: Record<string, string> = {};
+  for (const p of parts) map[p.type] = p.value;
+
+  const date = `${map.day}/${map.month}/${map.year}`;
+  const time = `${map.hour}:${map.minute}${map.dayPeriod ? " " + map.dayPeriod.toUpperCase() : ""}`;
+  return `${date} ${time}`;
+}
 
 /* =================== Constants =================== */
 const categories: CategoryMeta[] = [
@@ -81,7 +109,7 @@ function normalizeApiTemplates(input: any): Template[] {
     description: t.description ?? "",
     category: safeLower(t?.category ?? ""),
     variables: Array.isArray(t.variables) ? t.variables : [],
-    lastUsed: t.lastUsed ?? t.last_used ?? "",
+    lastUsed: t.last_used_at || t.last_used || t.lastUsed || "",
     usageCount:
       typeof t.usageCount === "number" ? t.usageCount :
       typeof t.usage_count === "number" ? t.usage_count : 0,
@@ -89,6 +117,10 @@ function normalizeApiTemplates(input: any): Template[] {
     content: t.content,
     created_at: t.created_at,
     updated_at: t.updated_at,
+    created_by: t.created_by ?? null,
+    updated_by: t.updated_by ?? null,
+    created_by_name: t.created_by_name || "",
+    updated_by_name: t.updated_by_name || "",
     ...t,
   }));
 }
@@ -98,21 +130,20 @@ function getCategoryIcon(category: string | undefined): LucideIcon {
   return found ? found.icon : FileText;
 }
 
-// payload for /documents-generated create (parent will use this on “Save as Draft” or “Create”)
+// payload for /documents-generated create (parent will use this on "Save as Draft" or "Create")
 function buildGeneratedPayload(t: Template) {
   return {
     template_id: t.id,
     name: (t.name || "Untitled Document").trim(),
     description: t.description || null,
     category: t.category || null,
-    content: t.content || null, // optional snapshot
+    content: t.content || null,
     variables: {
       template_name: t.name || null,
       template_category: t.category || null,
       template_updated_at: t.updated_at || null,
       started_at: isoNow(),
     },
-    // ⚠️ status purposely omitted here; parent will set "draft" | "created"
   };
 }
 
@@ -192,7 +223,6 @@ const TemplateSelector: React.FC<Props> = ({
 
   const handleCardClick = (template: Template) => {
     if (mode === "select" && onSelectTemplate) {
-      // just open the editor/viewer; no draft creation here
       onSelectTemplate({ ...template, _pendingGeneratedPayload: buildGeneratedPayload(template) });
     } else if (mode === "manage" && onEditTemplate) {
       onEditTemplate(template);
@@ -222,16 +252,24 @@ const TemplateSelector: React.FC<Props> = ({
     const id = template.id;
     setUsingId(id);
 
+    // Optimistic update - immediately show incremented count
     const optimistic: Template = {
       ...template,
       usageCount: (template.usageCount ?? 0) + 1,
       lastUsed: isoNow(),
     };
+    
+    // Update UI immediately for better UX
+    setTemplates((prev) => prev.map((t) => (t.id === id ? optimistic : t)));
 
     try {
-      // 1) bump usage (non-blocking, but we await to keep state in sync)
+      // 1) Call API to bump usage count
       const bump = await documentsTemplateAPI.useTemplate(id);
-      const apiTemplate = bump?.data || bump?.template || null;
+      console.log("useTemplate API response:", bump); // Debug log
+      
+      const apiTemplate = bump?.data || bump?.template || bump || null;
+      
+      // Merge API response with template
       const merged: Template = apiTemplate
         ? {
             ...template,
@@ -242,31 +280,32 @@ const TemplateSelector: React.FC<Props> = ({
                 : typeof apiTemplate.usageCount === "number"
                 ? apiTemplate.usageCount
                 : optimistic.usageCount,
-            lastUsed: apiTemplate.last_used || apiTemplate.lastUsed || optimistic.lastUsed,
+            lastUsed: apiTemplate.last_used_at || apiTemplate.last_used || apiTemplate.lastUsed || optimistic.lastUsed,
           }
         : optimistic;
 
+      // Update state with API response
       setTemplates((prev) => prev.map((t) => (t.id === id ? merged : t)));
 
-      // 2) **NO DRAFT CREATION HERE**
-      // Parent ko sirf pending payload do; parent "Save as Draft" pe create karega.
+      // 2) NO DRAFT CREATION HERE (by default)
       if (!autoCreateGenerated) {
         onSelectTemplate?.({ ...merged, _pendingGeneratedPayload: buildGeneratedPayload(merged) });
         return;
       }
 
-      // 3) OPTIONAL: auto-create flow (opt-in)
+      // 3) OPTIONAL: auto-create flow
       const payload = {
         ...buildGeneratedPayload(merged),
-        status: "draft" as const, // auto mode me draft banega
+        status: "draft" as const,
       };
       const createdRow = await documentsGeneratedAPI.create(payload);
       onSelectTemplate?.({ ...merged, _generatedDoc: createdRow });
 
     } catch (err) {
-      console.error("useTemplate failed:", err);
-      // even on failure, let user proceed without bump
-      onSelectTemplate?.({ ...template, _pendingGeneratedPayload: buildGeneratedPayload(template) });
+      console.error("useTemplate API failed:", err);
+      // Keep optimistic update even on failure, or revert if needed
+      // Current behavior: keep optimistic count
+      onSelectTemplate?.({ ...optimistic, _pendingGeneratedPayload: buildGeneratedPayload(optimistic) });
     } finally {
       setUsingId(null);
     }
@@ -311,7 +350,7 @@ const TemplateSelector: React.FC<Props> = ({
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w=[160px] text-xs bg-white"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[160px] text-xs bg-white"
             >
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>{category.label}</option>
@@ -377,11 +416,15 @@ const TemplateSelector: React.FC<Props> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-h-96 overflow-y-auto">
             {filteredTemplates.map((template) => {
               const CategoryIcon = getCategoryIcon(template.category);
-              const usageCount = typeof template.usageCount === "number" ? template.usageCount : 0;
-              const lastUsed = template.lastUsed || "—";
               const variables = Array.isArray(template.variables) ? template.variables : [];
+              const usageCount = typeof template.usageCount === "number" ? template.usageCount : 0;
               const status = safeLower(template.status || "draft");
               const isBusy = usingId === template.id;
+
+              // Prepare display values
+              const createdByName = (template.created_by_name || "").trim() || "—";
+              const updatedByName = (template.updated_by_name || "").trim() || "—";
+              const lastUsedAt = fmtDateIST(template.lastUsed);
 
               return (
                 <div
@@ -399,7 +442,7 @@ const TemplateSelector: React.FC<Props> = ({
 
                   <div className="p-4">
                     {/* header */}
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-lg bg-blue-50 ring-1 ring-blue-100 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
                           <CategoryIcon className="text-blue-600" size={16} />
@@ -407,10 +450,27 @@ const TemplateSelector: React.FC<Props> = ({
                         <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-700 text-[11px] font-medium capitalize">
                           {template.category || "general"}
                         </span>
-                        <div className="flex gap-2 items-center text-gray-600">
-                          <div className="text-xs"><span className="font-semibold">{usageCount}</span> uses</div>
-                          <div className="text-[11px] text-gray-400">Last: {lastUsed}</div>
-                        </div>
+                           <div className="text-[11px] text-gray-500">
+                        {usageCount} uses {' '}
+                        Last used: <span className="font-medium text-gray-700">{lastUsedAt}</span>
+                      </div>
+                      </div>
+
+                      {/* Last used at (IST) */}
+                     
+                    </div>
+
+                    {/* Created/Updated by */}
+                    <div className="grid grid-cols-1 gap-1 text-[11px] text-gray-600 mb-3">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        <span>
+                          <span className="text-gray-500">Created by:</span>{" "}
+                          <span className="font-medium">{createdByName}</span>
+                        </span>
+                        <span>
+                          <span className="text-gray-500">Updated by:</span>{" "}
+                          <span className="font-medium">{updatedByName}</span>
+                        </span>
                       </div>
                     </div>
 

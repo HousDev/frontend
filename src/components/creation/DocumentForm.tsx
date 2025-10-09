@@ -8,7 +8,6 @@ import {
 import DocumentPreview from './DocumentPreview';
 import ClientSelector from './ClientSelector';
 import PropertySelector from './PropertySelector';
-import PaymentTracker from './PaymentTracker';
 import { documentsGeneratedAPI } from '@/lib/documentsGeneratedAPI';
 
 // 🔐 strict resolver + interpolator
@@ -22,6 +21,9 @@ import { useAuth } from '@/contexts/AuthContext';
 // aapke project ke hisaab se
 import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 import { usersAPI } from '@/lib/api';
+import { readResumeLocal, saveResumeLocal } from '@/lib/documentResume';
+import { HiCurrencyRupee } from 'react-icons/hi2';
+import { propertyPaymentReceiptAPI } from '@/lib/propertyPaymentReceiptAPI';
 /* =================== Helpers =================== */
 
 function normalizeList<T = any>(res: any): T[] {
@@ -271,8 +273,6 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
   const [showSellerSelector, setShowSellerSelector] = useState(false);
   const [showBuyerSelector, setShowBuyerSelector] = useState(false);
   const [showPropertySelector, setShowPropertySelector] = useState(false);
-  const [showPaymentTracker, setShowPaymentTracker] = useState(false);
-
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [navSaving, setNavSaving] = useState(false);
@@ -294,6 +294,46 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
 
   const [execLoading, setExecLoading] = useState(false);
   const [execError, setExecError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const resumeFlag = url.searchParams.get("resume");
+    const qDraftId = url.searchParams.get("draftId");
+
+    console.groupCollapsed("%c[EDITOR] mount", "color:#10b981;font-weight:600");
+    console.log("URL params:", { resumeFlag, qDraftId });
+    console.groupEnd();
+
+    if (resumeFlag !== "1") return;
+
+    const snap = readResumeLocal();
+    if (!snap) return;
+
+    if (qDraftId && String(snap.draftId) !== String(qDraftId)) {
+      console.warn("[EDITOR] draftId mismatch between URL and snapshot", { url: qDraftId, snap: snap.draftId });
+    }
+
+    // 1) form variables
+    if (snap.initialVariables) {
+      setFormData(prev => ({ ...prev, ...snap.initialVariables }));
+    }
+
+    // 2) step + page
+    const st = snap.editorState || {};
+    if (st.page_type) setPageType(st.page_type === "Legal" ? "Legal" : "A4");
+    if (st.active_step_key) {
+      const idx = steps.findIndex(s => s.key === st.active_step_key);
+      if (idx >= 0) setActiveIndex(idx);
+    } else if (typeof st.active_index === "number") {
+      setActiveIndex(Math.max(0, Math.min(steps.length - 1, st.active_index)));
+    }
+
+    // 3) serverId
+    if (st.server_id || snap.draftId) setServerId(st.server_id ?? snap.draftId);
+
+    console.log("[EDITOR] hydrated from snapshot:", { serverId: st.server_id ?? snap.draftId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -556,6 +596,7 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
       property: prop,
 
       // quick placeholders
+      property_id: p.id ?? p.property_id ?? '',
       property_address: p.address ?? '',
       property_type: p.type ?? p.property_type_name ?? '',
       property_area: p.carpet_area ?? p.area ?? '',
@@ -650,81 +691,147 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
   const buildPayload = (statusOverride?: 'draft' | 'created') => {
     const status = statusOverride ?? (formData.status || 'draft');
     debugVariableMapping(template, formData);
+
+    // original resolved vars (template/HTML se)
     const cleanVars = docVars;
-    const interpolatedHtml = interpolateStrict(template.content || '', cleanVars);
+
+    // ✅ force-include technical IDs even if template me define na ho
+    const forcedVars = {
+      property_id: formData.property?.id ?? formData.property_id ?? '',
+      seller_id: formData.seller?.id ?? formData.seller_id ?? '',
+      buyer_id: formData.buyer?.id ?? formData.buyer_id ?? '',
+    };
+
+    const allVars = { ...cleanVars, ...forcedVars };
+
+    const interpolatedHtml = interpolateStrict((effectiveTemplate.content || ''), allVars);
 
     return {
-      template_id: template.id,
-      name: formData.title || `${template.name} - Draft`,
-      category: template.category ?? null,
+      template_id: effectiveTemplate.id,
+      name: formData.title || `${effectiveTemplate.name} - Draft`,
+      category: effectiveTemplate.category ?? null,
       content: interpolatedHtml,
-      variables: cleanVars,
+      variables: {
+        ...allVars,
+        __form_snapshot: { ...formData },
+        __meta: {                    // ✅ easy machine-readable pocket
+          property_id: forcedVars.property_id,
+          seller_id: forcedVars.seller_id,
+          buyer_id: forcedVars.buyer_id,
+        },
+        __editor_state: {
+          active_step_key: steps[activeIndex]?.key,
+          active_index: activeIndex,
+          page_type: pageType,
+          template_id: effectiveTemplate.id,
+          server_id: serverId ?? null,
+          updated_at: new Date().toISOString(),
+        },
+      },
       status,
     };
   };
 
-// 🔁 replace this function
-const ensureCreatedThenUpdate = async (statusOverride?: 'draft' | 'created') => {
-  const payload = buildPayload(statusOverride);
 
-  if (!serverId) {
-    const created = await documentsGeneratedAPI.create(payload);
-    const newId = (created?.id ?? created?.data?.id) as number | string | undefined;
 
-    if (newId !== undefined) {
-      setServerId(newId);
-      // optional: latest snapshot persist
-      await documentsGeneratedAPI.update(newId, payload);
-      return newId;
+  // 🔁 replace this function
+  // inside DocumentForm.tsx
+
+  const ensureCreatedThenUpdate = async (statusOverride?: 'draft' | 'created') => {
+    const uid = Number(user?.id ?? null) || null; // robust
+    const base = buildPayload(statusOverride);
+
+    // Always include updated_by; include created_by only on first create
+    const baseWithAudit: any = {
+      ...base,
+      updated_by: uid,
+    };
+
+    if (!serverId) {
+      // CREATE
+      const createPayload = { ...baseWithAudit, created_by: uid };
+      const created = await documentsGeneratedAPI.create(createPayload);
+      const newId = created?.id ?? created?.data?.id;
+
+      if (newId) {
+        setServerId(newId);
+        // Optional immediate update to persist any latest HTML
+        await documentsGeneratedAPI.update(newId, { ...buildPayload(statusOverride), updated_by: uid });
+        return newId;
+      }
+      return null;
+    } else {
+      // UPDATE
+      await documentsGeneratedAPI.update(serverId, baseWithAudit);
+      return serverId;
     }
-    return null;
-  } else {
-    await documentsGeneratedAPI.update(serverId, payload);
-    return serverId;
-  }
-};
+  };
+
+
+
 
 
   /* ---------- Top-level actions ---------- */
   const handleSaveDraft = async () => {
     setIsSaving(true);
     try {
-      await ensureCreatedThenUpdate('draft');
-      alert('Draft saved successfully!');
+      // server pe draft create/update
+      const id = await ensureCreatedThenUpdate("draft");
+
+
+      // 🧠 local snapshot update for resume
+      saveResumeLocal({
+        draftId: id,
+        templateId: template.id,
+        title: formData.title || `${template.name} - Draft`,
+        initialVariables: { ...formData },
+        editorState: {
+          active_step_key: steps[activeIndex]?.key,
+          active_index: activeIndex,
+          page_type: pageType,
+          template_id: template.id,
+          server_id: id,
+          updated_at: new Date().toISOString(),
+        },
+        source: "editor-save",
+      });
+
+      console.log("[EDITOR] snapshot refreshed after save");
+      alert("✅ Draft saved successfully!");
     } catch (err) {
-      console.error('Error saving draft:', err);
-      alert('Failed to save draft');
+      console.error("❌ Error saving draft:", err);
+      alert("Failed to save draft");
     } finally {
       setIsSaving(false);
     }
   };
 
   // 🔁 replace your handleGenerateDocument with this
-const handleGenerateDocument = async () => {
-  setIsGenerating(true);
-  try {
-    // create/update + mark as created → get final ID
-    const id = await ensureCreatedThenUpdate('created');
-    if (!id) throw new Error('Document ID not available');
+  const handleGenerateDocument = async () => {
+    setIsGenerating(true);
+    try {
+      // create/update + mark as created → get final ID
+      const id = await ensureCreatedThenUpdate('created');
+      if (!id) throw new Error('Document ID not available');
 
-    setFormData((prev) => ({ ...prev, status: 'created' }));
+      setFormData((prev) => ({ ...prev, status: 'created' }));
 
-    // 🆕 call your download API
-    await documentsGeneratedAPI.downloadPdf(id, {
-      page: (effectivePageType === 'Legal' ? 'legal' : 'a4') as 'a4' | 'legal',
-      filenameFallback: `${(template?.name || 'document')
-        .toString()
-        .replace(/[^\w\-]+/g, '_')}.pdf`,
-    });
+      // 🆕 call your download API
+      await documentsGeneratedAPI.downloadPdf(id, {
+        page: (effectivePageType === 'Legal' ? 'legal' : 'a4') as 'a4' | 'legal',
+        filenameFallback: `${(template?.name || 'document')
+          .toString()
+          .replace(/[^\w\-]+/g, '_')}.pdf`,
+      });
 
-    alert('Document generated successfully!');
-  } catch (err) {
-    console.error(err);
-    alert('Failed to generate');
-  } finally {
-    setIsGenerating(false);
-  }
-};
+      alert('Document generated successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to generate');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleShare = async () => {
     try {
@@ -766,14 +873,33 @@ const handleGenerateDocument = async () => {
     return true;
   };
 
+  const persistLocalSnapshot = (id: string | number | null) => {
+    saveResumeLocal({
+      draftId: id ?? serverId ?? null,
+      templateId: effectiveTemplate.id,
+      title: formData.title || `${effectiveTemplate.name} - Draft`,
+      initialVariables: { ...formData },
+      editorState: {
+        active_step_key: steps[activeIndex]?.key,
+        active_index: activeIndex,
+        page_type: pageType,
+        template_id: effectiveTemplate.id,
+        server_id: id ?? serverId ?? null,
+        updated_at: new Date().toISOString(),
+      },
+      source: "editor-autosave",
+    });
+    console.log("[EDITOR] snapshot refreshed (nav/step)");
+  };
+
   const handleNext = async () => {
     const currentKey = steps[activeIndex].key;
     if (!isStepCompleteByKey(currentKey)) return;
-
     setNavSaving(true);
     try {
-      await ensureCreatedThenUpdate('draft');
-      setActiveIndex((prev) => Math.min(prev + 1, steps.length - 1));
+      const id = await ensureCreatedThenUpdate('draft');
+      persistLocalSnapshot(id);
+      setActiveIndex((p) => Math.min(p + 1, steps.length - 1));
     } catch (e) {
       console.error('Failed to save on Next:', e);
       alert('Failed to save. Please try again.');
@@ -968,33 +1094,32 @@ const handleGenerateDocument = async () => {
             <ReviewStep
               formData={formData}
               template={template}
-              onShowPayments={() => setShowPaymentTracker(true)}
               requiresBuyer={requiresBuyer}
               requiresSeller={requiresSeller}
               requiresProperty={requiresProperty}
-              // ⬇️ added props
               onInputChange={handleInputChange}
               execLoading={execLoading}
               execError={execError}
               executivesList={executivesList}
             />
+
           )}
 
 
           {/* Final Preview (always) */}
-        {steps[activeIndex]?.key === 'final' && (
-  <FinalPreviewStep
-    template={template}
-    formData={formData}
-    pageType={effectivePageType === 'Legal' ? 'Legal' : 'A4'}
-    // 🆕
-    documentId={serverId}
-    onEnsureSaved={async () => {
-      // ensure latest HTML persisted before user downloads
-      await ensureCreatedThenUpdate('created');
-    }}
-  />
-)}
+          {steps[activeIndex]?.key === 'final' && (
+            <FinalPreviewStep
+              template={template}
+              formData={formData}
+              pageType={effectivePageType === 'Legal' ? 'Legal' : 'A4'}
+              // 🆕
+              documentId={serverId}
+              onEnsureSaved={async () => {
+                // ensure latest HTML persisted before user downloads
+                await ensureCreatedThenUpdate('created');
+              }}
+            />
+          )}
 
         </div>
       </div>
@@ -1072,14 +1197,7 @@ const handleGenerateDocument = async () => {
           onClose={() => setShowPropertySelector(false)}
         />
       )}
-      {showPaymentTracker && (
-        <PaymentTrackerModal
-          isOpen={showPaymentTracker}
-          onClose={() => setShowPaymentTracker(false)}
-          documentData={formData}
-          onDataChange={handleInputChange}
-        />
-      )}
+
     </div>
   );
 };
@@ -1473,6 +1591,22 @@ const DocumentStep: React.FC<DocumentStepProps> = ({
   usedVariables,
   onVariableInsert,
 }) => {
+
+
+useEffect(() => {
+  const propertyPaymentReceipt = async () => {
+    try {
+      const propertyPaymentReceipt = await propertyPaymentReceiptAPI.getAll(); // calling the API
+      console.log("propertyPaymentReceipt in component:", propertyPaymentReceipt);
+    } catch (err) {
+      console.error("Error fetching propertyPaymentReceipt:", err);
+    }
+  };
+
+  propertyPaymentReceipt();
+}, []);
+
+
   return (
     <div className="space-y-4 text-xs">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1534,7 +1668,7 @@ const DocumentStep: React.FC<DocumentStepProps> = ({
             template.variables.includes('booking_amount')) && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                 <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
-                  <DollarSign className="mr-2" size={16} />
+                  <HiCurrencyRupee className="mr-2" size={16} />
                   Financial Information
                 </h3>
 
@@ -1689,15 +1823,12 @@ const DocumentStep: React.FC<DocumentStepProps> = ({
     </div>
   );
 };
-
 type ReviewStepProps = {
   formData: Record<string, any>;
   template: Template;
-  onShowPayments: () => void;
   requiresBuyer: boolean;
   requiresSeller: boolean;
   requiresProperty: boolean;
-  // ⬇️ add these
   onInputChange: (field: string, value: any) => void;
   execLoading: boolean;
   execError: string | null;
@@ -1714,10 +1845,11 @@ type ReviewStepProps = {
 };
 
 
+
+
 const ReviewStep: React.FC<ReviewStepProps> = ({
   formData,
   template,
-  onShowPayments,
   requiresBuyer,
   requiresSeller,
   requiresProperty,
@@ -1970,14 +2102,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-gray-900">Financial Summary</h3>
-            <button
-              type="button"
-              onClick={onShowPayments}
-              className="flex items-center space-x-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
-            >
-              <CreditCard size={14} />
-              <span>Payment Tracking</span>
-            </button>
+           
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -2107,57 +2232,6 @@ const FinalPreviewStep: React.FC<{
 };
 
 
-/* Payment Tracker Modal (simple wrapper) */
-type PaymentTrackerModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  documentData: Record<string, any>;
-  onDataChange: (field: string, value: any) => void;
-};
 
-const PaymentTrackerModal: React.FC<PaymentTrackerModalProps> = ({
-  isOpen,
-  onClose,
-  documentData,
-  onDataChange,
-}) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-gray-900">Payment Tracking</h3>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded"
-              aria-label="Close payment tracker"
-            >
-              <X size={20} />
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6 max-h-[70vh] overflow-y-auto">
-          <PaymentTracker documentData={documentData} onDataChange={onDataChange} />
-        </div>
-
-        <div className="p-6 border-t border-gray-200">
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default DocumentForm;

@@ -1,35 +1,124 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  Save, 
-  Calculator, 
-  User, 
-  Building, 
-  CreditCard, 
-  FileText, 
-  Percent,
-  IndianRupee,
-  Calendar,
-  Phone,
-  Mail,
-  MapPin,
-  Users,
-  Home,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Shield
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  X,
+  Save,
+  Calculator,
+  User,
+  Building,
+  CreditCard,
+  FileText,
+  Users
 } from 'lucide-react';
 
-const InvoiceFormModal = ({ isOpen, onClose, invoice, onSave, userRole }: any) => {
-  const [formData, setFormData] = useState({
+import { sellerAPI } from '@/lib/sellersAPI';
+import { buyerAPI } from '@/lib/buyerAPI';
+import { useAuth } from '@/contexts/AuthContext';
+
+type PropertyMini = {
+  id: string | number;
+  address?: string;
+  type?: string;
+  property_type_name?: string;
+  area?: string;
+  carpet_area?: string;
+  floor?: string;
+  floor_number?: string | number;
+  facing?: string;
+  direction?: string;
+  price?: number;
+  expected_price?: number;
+  deal_value?: number;
+};
+
+type Seller = {
+  id: string | number;
+  salutation?: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  properties?: PropertyMini[];
+};
+
+type Buyer = {
+  id: string | number;
+  salutation?: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+};
+
+type InvoiceIn = any; // whatever you pass as `invoice` prop
+
+type InvoiceFormData = {
+  invoice_id: string;
+  // party refs
+  seller_id: string;
+  seller_name: string;
+  seller_phone: string;
+  seller_email: string;
+  buyer_id: string;
+  buyer_name: string;
+  buyer_phone: string;
+  buyer_email: string;
+  // property refs
+  property_id: string;
+  property_address: string;
+  property_details: {
+    type: string;
+    area: string;
+    floor: string;
+    facing: string;
+  };
+  // amounts
+  deal_value: number;
+  brokerage_percentage: number;
+  brokerage_amount: number;
+  gst_applicable: boolean;
+  gst_percentage: number;
+  gst_amount: number;
+  total_amount: number;
+  amount_in_words: string;
+  // dates
+  date: string;
+  due_date: string;
+  // payment (JSON ONLY)
+  payment_details: {
+    bank_name: string;
+    account_number: string;
+    ifsc_code: string;
+    account_holder: string;
+  };
+  // misc
+  related_party: 'seller' | 'buyer' | 'both';
+  notes: string;
+  created_by: string | number | undefined;
+  updated_by: string | number | undefined;
+};
+
+const InvoiceFormModal = ({
+  isOpen,
+  onClose,
+  invoice,
+  onSave,
+  userRole
+}: any) => {
+  const [sellers, setSellers] = useState<Seller[]>([]);
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
+  const [sellerProperties, setSellerProperties] = useState<PropertyMini[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const { user } = useAuth();
+
+  const [formData, setFormData] = useState<InvoiceFormData>({
     invoice_id: '',
+    seller_id: '',
     seller_name: '',
     seller_phone: '',
     seller_email: '',
+    buyer_id: '',
     buyer_name: '',
     buyer_phone: '',
     buyer_email: '',
+    property_id: '',
     property_address: '',
     property_details: {
       type: '',
@@ -40,6 +129,7 @@ const InvoiceFormModal = ({ isOpen, onClose, invoice, onSave, userRole }: any) =
     deal_value: 0,
     brokerage_percentage: 2,
     brokerage_amount: 0,
+    gst_applicable: true,
     gst_percentage: 18,
     gst_amount: 0,
     total_amount: 0,
@@ -54,144 +144,401 @@ const InvoiceFormModal = ({ isOpen, onClose, invoice, onSave, userRole }: any) =
     },
     related_party: 'seller',
     notes: '',
-    gst_applicable: true
+    created_by: '',
+    updated_by: ''
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (invoice) {
-      setFormData({
-        ...invoice,
-        date: invoice.date || new Date().toISOString().split('T')[0],
-        due_date: invoice.due_date || '',
-        property_details: invoice.property_details || {
-          type: '',
-          area: '',
-          floor: '',
-          facing: ''
-        },
-        payment_details: invoice.payment_details || {
-          bank_name: 'HDFC Bank',
-          account_number: '50100123456789',
-          ifsc_code: 'HDFC0001234',
-          account_holder: 'ResaleExpert Pvt Ltd'
-        }
-      });
-    } else {
-      // Generate new invoice ID
-      const newInvoiceId = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`;
-      setFormData(prev => ({ ...prev, invoice_id: newInvoiceId }));
-    }
-  }, [invoice]);
+  // guards
+  const fetchedOnceRef = useRef(false);
+  const submitGuardRef = useRef(false);
 
-  // Auto-calculate amounts when deal value or percentage changes
+  // helpers
+  const convertToWords = (num: number): string => {
+    const n = Math.round(num);
+    if (n === 0) return 'Zero Only';
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+      'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const twoDigits = (x: number) => {
+      if (x < 20) return ones[x];
+      const t = Math.floor(x / 10), o = x % 10;
+      return `${tens[t]}${o ? ' ' + ones[o] : ''}`.trim();
+    };
+    const threeDigits = (x: number) => {
+      const h = Math.floor(x / 100), r = x % 100;
+      let s = '';
+      if (h) s += `${ones[h]} Hundred`;
+      if (r) s += `${s ? ' ' : ''}${twoDigits(r)}`;
+      return s.trim();
+    };
+    const parts: string[] = [];
+    let x = n;
+    const crores = Math.floor(x / 10000000); x %= 10000000;
+    const lakhs = Math.floor(x / 100000); x %= 100000;
+    const thousands = Math.floor(x / 1000); x %= 1000;
+    const hundreds = x;
+
+    if (crores) parts.push(`${twoDigits(crores)} Crore`);
+    if (lakhs) parts.push(`${twoDigits(lakhs)} Lakh`);
+    if (thousands) parts.push(`${twoDigits(thousands)} Thousand`);
+    if (hundreds) parts.push(threeDigits(hundreds));
+
+    return `${parts.join(' ')} Only`.replace(/\s+/g, ' ').trim();
+  };
+
+  const setFD = (patch: Partial<InvoiceFormData>) =>
+    setFormData(prev => ({ ...prev, ...patch }));
+
+  // numbers
+  const handleNumberInput = (field: keyof InvoiceFormData | string, value: string) => {
+    const clean = value.trim();
+    const isPercent = String(field).includes('percentage') || String(field).includes('gst_percentage');
+    const normalized = clean === '' ? '0' : clean.replace(/^0+(?=\d)/, '');
+    const parsed = isPercent ? parseFloat(normalized) : parseInt(normalized, 10);
+    setFD({ [field]: (isNaN(parsed) ? 0 : parsed) } as any);
+  };
+
+  // data load
   useEffect(() => {
-    if (formData.deal_value && formData.brokerage_percentage) {
-      const brokerageAmount = (formData.deal_value * formData.brokerage_percentage) / 100;
-      const gstAmount = formData.gst_applicable ? (brokerageAmount * formData.gst_percentage) / 100 : 0;
-      const totalAmount = brokerageAmount + gstAmount;
-      
+    if (!isOpen) return;
+    if (fetchedOnceRef.current) return;
+    fetchedOnceRef.current = true;
+
+    const fetchData = async () => {
+      setIsLoadingData(true);
+      try {
+        const [sellersData, buyersData] = await Promise.all([
+          sellerAPI.getAll(),
+          buyerAPI.getAll()
+        ]);
+        setSellers(Array.isArray(sellersData) ? sellersData : []);
+        setBuyers(Array.isArray(buyersData) ? buyersData : []);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchData();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      fetchedOnceRef.current = false;
+    }
+  }, [isOpen]);
+
+  // init from invoice or new
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (invoice) {
+      const pd = invoice.property_details || {
+        type: invoice.property_type || '',
+        area: invoice.property_area || '',
+        floor: invoice.property_floor || '',
+        facing: invoice.property_facing || ''
+      };
+
+      const pay = invoice.payment_details || {
+        bank_name: invoice.payment_bank_name || 'HDFC Bank',
+        account_number: invoice.payment_account_number || '50100123456789',
+        ifsc_code: invoice.payment_ifsc_code || 'HDFC0001234',
+        account_holder: invoice.payment_account_holder || 'ResaleExpert Pvt Ltd'
+      };
+
       setFormData(prev => ({
         ...prev,
-        brokerage_amount: brokerageAmount,
-        gst_amount: gstAmount,
-        total_amount: totalAmount,
-        amount_in_words: convertToWords(totalAmount)
+        invoice_id: invoice.invoice_id || prev.invoice_id || `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
+        seller_id: invoice.seller_id != null ? String(invoice.seller_id) : '',
+        seller_name: invoice.seller_name || '',
+        seller_phone: invoice.seller_phone || '',
+        seller_email: invoice.seller_email || '',
+        buyer_id: invoice.buyer_id != null ? String(invoice.buyer_id) : '',
+        buyer_name: invoice.buyer_name || '',
+        buyer_phone: invoice.buyer_phone || '',
+        buyer_email: invoice.buyer_email || '',
+        property_id: invoice.property_id != null ? String(invoice.property_id) : '',
+        property_address: invoice.property_address || '',
+        property_details: {
+          type: pd.type || '',
+          area: pd.area || '',
+          floor: pd.floor || '',
+          facing: pd.facing || ''
+        },
+        deal_value: Number(invoice.deal_value) || 0,
+        brokerage_percentage: Number(invoice.brokerage_percentage) || 0,
+        brokerage_amount: Number(invoice.brokerage_amount) || 0,
+        gst_applicable: typeof invoice.gst_applicable === 'boolean' ? invoice.gst_applicable : true,
+        gst_percentage: Number(invoice.gst_percentage) || 0,
+        gst_amount: Number(invoice.gst_amount) || 0,
+        total_amount: Number(invoice.total_amount) || 0,
+        amount_in_words: invoice.amount_in_words || '',
+        date: invoice.date || new Date().toISOString().split('T')[0],
+        due_date: invoice.due_date || '',
+        payment_details: {
+          bank_name: pay.bank_name || 'HDFC Bank',
+          account_number: pay.account_number || '50100123456789',
+          ifsc_code: pay.ifsc_code || 'HDFC0001234',
+          account_holder: pay.account_holder || 'ResaleExpert Pvt Ltd'
+        },
+        related_party: invoice.related_party || 'seller',
+        notes: invoice.notes || '',
+        created_by: invoice.created_by ?? (user?.id ?? ''),
+        updated_by: user?.id ?? invoice.updated_by ?? ''
+      }));
+    } else {
+      const newInvoiceId = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+      setFormData(prev => ({
+        ...prev,
+        invoice_id: newInvoiceId,
+        created_by: user?.id ?? '',
+        updated_by: user?.id ?? ''
       }));
     }
-  }, [formData.deal_value, formData.brokerage_percentage, formData.gst_applicable, formData.gst_percentage]);
+  }, [invoice, isOpen, user?.id]);
 
-  // Auto-set due date (15 days from invoice date)
+  // sync sellerProperties when seller changes
+  useEffect(() => {
+    if (!formData.seller_id || sellers.length === 0) {
+      setSellerProperties([]);
+      return;
+    }
+    const selectedSeller = sellers.find(s => String(s.id) === String(formData.seller_id));
+    setSellerProperties(Array.isArray(selectedSeller?.properties) ? selectedSeller!.properties : []);
+  }, [formData.seller_id, sellers]);
+
+  // totals calculation (single source of truth)
+  useEffect(() => {
+    const dv = Number(formData.deal_value) || 0;
+    const bp = Number(formData.brokerage_percentage) || 0;
+    const gp = Number(formData.gst_percentage) || 0;
+
+    const brokerage = Math.round((dv * bp) / 100);
+    const gst = formData.gst_applicable ? Math.round((brokerage * gp) / 100) : 0;
+    const total = Math.round(brokerage + gst);
+    const words = convertToWords(total);
+
+    if (
+      brokerage !== formData.brokerage_amount ||
+      gst !== formData.gst_amount ||
+      total !== formData.total_amount ||
+      words !== formData.amount_in_words
+    ) {
+      setFD({
+        brokerage_amount: brokerage,
+        gst_amount: gst,
+        total_amount: total,
+        amount_in_words: words
+      });
+    }
+  }, [
+    formData.deal_value,
+    formData.brokerage_percentage,
+    formData.gst_applicable,
+    formData.gst_percentage
+  ]);
+
+  // auto due date (15 days)
   useEffect(() => {
     if (formData.date && !formData.due_date) {
       const dueDate = new Date(formData.date);
       dueDate.setDate(dueDate.getDate() + 15);
-      setFormData(prev => ({
-        ...prev,
-        due_date: dueDate.toISOString().split('T')[0]
-      }));
+      const iso = dueDate.toISOString().split('T')[0];
+      if (iso !== formData.due_date) {
+        setFD({ due_date: iso });
+      }
     }
-  }, [formData.date]);
+  }, [formData.date, formData.due_date]);
 
-  const convertToWords = (amount: number): string => {
-    // Simplified number to words conversion
-    const crores = Math.floor(amount / 10000000);
-    const lakhs = Math.floor((amount % 10000000) / 100000);
-    const thousands = Math.floor((amount % 100000) / 1000);
-    const hundreds = Math.floor((amount % 1000) / 100);
-    const remainder = amount % 100;
-
-    let words = '';
-    if (crores > 0) words += `${crores} Crore `;
-    if (lakhs > 0) words += `${lakhs} Lakh `;
-    if (thousands > 0) words += `${thousands} Thousand `;
-    if (hundreds > 0) words += `${hundreds} Hundred `;
-    if (remainder > 0) words += `${remainder} `;
-    
-    return words.trim() + ' Only';
+  // handlers
+  const handleSellerChange = (sellerId: string) => {
+    if (!sellerId) {
+      setFD({
+        seller_id: '',
+        seller_name: '',
+        seller_phone: '',
+        seller_email: '',
+        property_id: '',
+        property_address: '',
+        property_details: { type: '', area: '', floor: '', facing: '' }
+      });
+      setSellerProperties([]);
+      return;
+    }
+    const selectedSeller = sellers.find(s => String(s.id) === String(sellerId));
+    if (selectedSeller) {
+      const sellerName = `${selectedSeller.salutation || ''} ${selectedSeller.name || ''}`.trim();
+      setFD({
+        seller_id: sellerId,
+        seller_name: sellerName,
+        seller_phone: selectedSeller.phone || '',
+        seller_email: selectedSeller.email || '',
+        // reset property when seller changes
+        property_id: '',
+        property_address: '',
+        property_details: { type: '', area: '', floor: '', facing: '' }
+      });
+      setSellerProperties(Array.isArray(selectedSeller.properties) ? selectedSeller.properties : []);
+    } else {
+      setFD({
+        seller_id: '',
+        seller_name: '',
+        seller_phone: '',
+        seller_email: ''
+      });
+      setSellerProperties([]);
+    }
   };
 
-  const handleInputChange = (field: string, value: any) => {
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...((prev as any)[parent] || {}),
-          [child]: value
-        }
-      }));
+  const handleBuyerChange = (buyerId: string) => {
+    if (!buyerId) {
+      setFD({
+        buyer_id: '',
+        buyer_name: '',
+        buyer_phone: '',
+        buyer_email: ''
+      });
+      return;
+    }
+    const selectedBuyer = buyers.find(b => String(b.id) === String(buyerId));
+    if (selectedBuyer) {
+      const buyerName = `${selectedBuyer.salutation || ''} ${selectedBuyer.name || ''}`.trim();
+      setFD({
+        buyer_id: buyerId,
+        buyer_name: buyerName,
+        buyer_phone: selectedBuyer.phone || '',
+        buyer_email: selectedBuyer.email || ''
+      });
     } else {
-      setFormData(prev => ({ ...prev, [field]: value }));
+      setFD({
+        buyer_id: '',
+        buyer_name: '',
+        buyer_phone: '',
+        buyer_email: ''
+      });
+    }
+  };
+
+  const handlePropertyChange = (propertyId: string) => {
+    if (!propertyId) {
+      setFD({
+        property_id: '',
+        property_address: '',
+        property_details: { type: '', area: '', floor: '', facing: '' },
+        deal_value: 0
+      });
+      return;
+    }
+    const p = sellerProperties.find(pp => String(pp.id) === String(propertyId));
+    if (p) {
+      const details = {
+        type: p.type || p.property_type_name || '',
+        area: p.area || p.carpet_area || '',
+        floor: (p.floor ?? p.floor_number ?? '').toString(),
+        facing: p.facing || p.direction || ''
+      };
+      setFD({
+        property_id: String(propertyId),
+        property_address: p.address || '',
+        property_details: details,
+        deal_value: Number(p.price ?? p.expected_price ?? p.deal_value ?? 0)
+      });
+    } else {
+      setFD({
+        property_id: '',
+        property_address: '',
+        property_details: { type: '', area: '', floor: '', facing: '' }
+      });
     }
   };
 
   const handleSave = async () => {
+    if (submitGuardRef.current) return;
+
+    // validations
     if (!formData.seller_name.trim()) {
-      alert('Please enter seller name');
+      alert('Please select a seller');
       return;
     }
-
     if (!formData.buyer_name.trim()) {
-      alert('Please enter buyer name');
+      alert('Please select a buyer');
       return;
     }
-
     if (!formData.property_address.trim()) {
-      alert('Please enter property address');
+      alert('Please select a property');
       return;
     }
-
     if (!formData.deal_value || formData.deal_value <= 0) {
       alert('Please enter valid deal value');
       return;
     }
 
+    submitGuardRef.current = true;
     setIsSubmitting(true);
-    
     try {
+      const nowIso = new Date().toISOString();
+
+      // --- IMPORTANT: SAVE ONLY JSON (no flattened duplicates) ---
       const invoiceData = {
-        ...formData,
+        invoice_id: formData.invoice_id,
         type: 'brokerage_invoice',
-        created_at: invoice?.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        // parties
+        seller_id: formData.seller_id,
+        seller_name: formData.seller_name,
+        seller_phone: formData.seller_phone,
+        seller_email: formData.seller_email,
+        buyer_id: formData.buyer_id,
+        buyer_name: formData.buyer_name,
+        buyer_phone: formData.buyer_phone,
+        buyer_email: formData.buyer_email,
+        // property
+        property_id: formData.property_id,
+        property_address: formData.property_address,
+        property_details: { ...formData.property_details }, // JSON kept
+        // money
+        deal_value: formData.deal_value,
+        brokerage_percentage: formData.brokerage_percentage,
+        brokerage_amount: formData.brokerage_amount,
+        gst_applicable: formData.gst_applicable,
+        gst_percentage: formData.gst_percentage,
+        gst_amount: formData.gst_amount,
+        total_amount: formData.total_amount,
+        amount_in_words: formData.amount_in_words,
+        // dates
+        date: formData.date,
+        due_date: formData.due_date,
+        // payment JSON ONLY
+        payment_details: { ...formData.payment_details },
+        // misc
+        related_party: formData.related_party,
+        notes: formData.notes,
+        created_at: invoice?.created_at || nowIso,
+        updated_at: nowIso,
+        created_by: invoice?.created_by ?? formData.created_by,
+        updated_by: user?.id ?? formData.updated_by,
+        // default first ledger entry
         ledger_entries: invoice?.ledger_entries || [
-          { 
-            type: 'debit', 
-            amount: formData.total_amount, 
-            description: 'Brokerage invoice raised', 
-            date: formData.date, 
-            balance: formData.total_amount 
+          {
+            type: 'debit',
+            amount: formData.total_amount,
+            description: 'Brokerage invoice raised',
+            date: formData.date,
+            balance: formData.total_amount
           }
         ]
       };
 
       await onSave(invoiceData);
+      console.log('save form data :', invoiceData);
     } catch (error) {
       console.error('Error saving invoice:', error);
     } finally {
       setIsSubmitting(false);
+      submitGuardRef.current = false;
     }
   };
 
@@ -201,17 +548,17 @@ const InvoiceFormModal = ({ isOpen, onClose, invoice, onSave, userRole }: any) =
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+        <div className="px-6 py-2 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-indigo-50">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-3 bg-purple-100 rounded-xl">
                 <FileText className="text-purple-600" size={24} />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-xl font-bold text-gray-900">
                   {invoice ? 'Edit Brokerage Invoice' : 'Create Brokerage Invoice'}
                 </h2>
-                <p className="text-gray-600 mt-1">Commission invoice with GST calculation</p>
+                <p className="text-gray-600 mt-1 text-xs">Commission invoice with GST calculation</p>
               </div>
             </div>
             <button
@@ -224,374 +571,453 @@ const InvoiceFormModal = ({ isOpen, onClose, invoice, onSave, userRole }: any) =
         </div>
 
         <div className="p-6 max-h-[75vh] overflow-y-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column */}
-            <div className="space-y-6">
-              {/* Invoice Details */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <FileText className="mr-2" size={20} />
-                  Invoice Details
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Invoice ID</label>
-                    <input
-                      type="text"
-                      value={formData.invoice_id}
-                      onChange={(e) => handleInputChange('invoice_id', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
-                      readOnly
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Related Party</label>
-                    <select
-                      value={formData.related_party}
-                      onChange={(e) => handleInputChange('related_party', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="seller">Seller</option>
-                      <option value="buyer">Buyer</option>
-                      <option value="both">Both Parties</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date</label>
-                    <input
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => handleInputChange('date', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                    <input
-                      type="date"
-                      value={formData.due_date}
-                      onChange={(e) => handleInputChange('due_date', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Seller Information */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <User className="mr-2" size={20} />
-                  Seller Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Seller Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.seller_name}
-                      onChange={(e) => handleInputChange('seller_name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Enter seller name"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Seller Phone</label>
-                    <input
-                      type="tel"
-                      value={formData.seller_phone}
-                      onChange={(e) => handleInputChange('seller_phone', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="+91 98765 43210"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Seller Email</label>
-                    <input
-                      type="email"
-                      value={formData.seller_email}
-                      onChange={(e) => handleInputChange('seller_email', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="seller@email.com"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Buyer Information */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Users className="mr-2" size={20} />
-                  Buyer Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Buyer Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.buyer_name}
-                      onChange={(e) => handleInputChange('buyer_name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Enter buyer name"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Buyer Phone</label>
-                    <input
-                      type="tel"
-                      value={formData.buyer_phone}
-                      onChange={(e) => handleInputChange('buyer_phone', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="+91 98765 43210"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Buyer Email</label>
-                    <input
-                      type="email"
-                      value={formData.buyer_email}
-                      onChange={(e) => handleInputChange('buyer_email', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="buyer@email.com"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Property Information */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Building className="mr-2" size={20} />
-                  Property Information
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Property Address <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      value={formData.property_address}
-                      onChange={(e) => handleInputChange('property_address', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      rows={2}
-                      placeholder="Enter complete property address"
-                      required
-                    />
-                  </div>
+          {isLoadingData ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-gray-500">Loading data...</div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Column */}
+              <div className="space-y-6">
+                {/* Invoice Details */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <FileText className="mr-2" size={20} />
+                    Invoice Details
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
-                      <select
-                        value={formData.property_details.type}
-                        onChange={(e) => handleInputChange('property_details.type', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Select type</option>
-                        <option value="Apartment">Apartment</option>
-                        <option value="Villa">Villa</option>
-                        <option value="Penthouse">Penthouse</option>
-                        <option value="Commercial">Commercial</option>
-                        <option value="Plot">Plot</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Invoice ID</label>
                       <input
                         type="text"
-                        value={formData.property_details.area}
-                        onChange={(e) => handleInputChange('property_details.area', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="e.g., 1250 sq ft"
+                        value={formData.invoice_id}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                        readOnly
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
-                      <input
-                        type="text"
-                        value={formData.property_details.floor}
-                        onChange={(e) => handleInputChange('property_details.floor', e.target.value)}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Related Party</label>
+                      <select
+                        value={formData.related_party}
+                        onChange={(e) => setFD({ related_party: e.target.value as any })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="e.g., 4th Floor"
+                      >
+                        <option value="seller">Seller</option>
+                        <option value="buyer">Buyer</option>
+                        <option value="both">Both Parties</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date</label>
+                      <input
+                        type="date"
+                        value={formData.date}
+                        onChange={(e) => setFD({ date: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Facing</label>
-                      <select
-                        value={formData.property_details.facing}
-                        onChange={(e) => handleInputChange('property_details.facing', e.target.value)}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                      <input
+                        type="date"
+                        value={formData.due_date}
+                        onChange={(e) => setFD({ due_date: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Select facing</option>
-                        <option value="North">North</option>
-                        <option value="South">South</option>
-                        <option value="East">East</option>
-                        <option value="West">West</option>
-                        <option value="North-East">North-East</option>
-                        <option value="North-West">North-West</option>
-                        <option value="South-East">South-East</option>
-                        <option value="South-West">South-West</option>
-                      </select>
+                      />
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Right Column */}
-            <div className="space-y-6">
-              {/* Financial Calculation */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Calculator className="mr-2" size={20} />
-                  Financial Calculation
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Deal Value (₹) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.deal_value}
-                      onChange={(e) => handleInputChange('deal_value', Number(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="25000000"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Brokerage Percentage (%) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.brokerage_percentage}
-                      onChange={(e) => handleInputChange('brokerage_percentage', Number(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      step="0.1"
-                      min="0"
-                      max="10"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Brokerage Amount (₹)</label>
-                    <input
-                      type="number"
-                      value={formData.brokerage_amount}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                      readOnly
-                    />
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.gst_applicable}
-                      onChange={(e) => handleInputChange('gst_applicable', e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label className="text-sm font-medium text-gray-700">GST Applicable</label>
-                  </div>
-                  
-                  {formData.gst_applicable && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">GST Percentage (%)</label>
-                        <input
-                          type="number"
-                          value={formData.gst_percentage}
-                          onChange={(e) => handleInputChange('gst_percentage', Number(e.target.value))}
+                {/* Seller */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <User className="mr-2" size={20} />
+                    Seller Information
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Select Seller <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={formData.seller_id}
+                          onChange={(e) => handleSellerChange(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          step="0.1"
-                        />
+                          required
+                        >
+                          <option value="">-- Select Seller --</option>
+                          {sellers.length > 0
+                            ? sellers.map((seller) => (
+                                <option key={seller.id} value={String(seller.id)}>
+                                  {seller.salutation} {seller.name}
+                                </option>
+                              ))
+                            : <option disabled>No sellers available</option>}
+                        </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">GST Amount (₹)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Seller ID</label>
                         <input
-                          type="number"
-                          value={formData.gst_amount}
+                          type="text"
+                          value={formData.seller_id}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"
+                          readOnly
+                          placeholder="Auto"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Seller Phone</label>
+                        <input
+                          type="tel"
+                          value={formData.seller_phone}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                           readOnly
                         />
                       </div>
-                    </>
-                  )}
-                  
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <label className="block text-sm font-medium text-blue-700 mb-1">Total Amount (₹)</label>
-                    <div className="text-2xl font-bold text-blue-900">
-                      ₹{formData.total_amount.toLocaleString('en-IN')}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Seller Email</label>
+                        <input
+                          type="email"
+                          value={formData.seller_email}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          readOnly
+                        />
+                      </div>
                     </div>
-                    <div className="text-sm text-blue-600 mt-1">{formData.amount_in_words}</div>
+                  </div>
+                </div>
+
+                {/* Buyer */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Users className="mr-2" size={20} />
+                    Buyer Information
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Select Buyer <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={formData.buyer_id}
+                          onChange={(e) => handleBuyerChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        >
+                          <option value="">-- Select Buyer --</option>
+                          {buyers.length > 0
+                            ? buyers.map((buyer) => (
+                                <option key={buyer.id} value={String(buyer.id)}>
+                                  {buyer.salutation} {buyer.name}
+                                </option>
+                              ))
+                            : <option disabled>No buyers available</option>}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Buyer ID</label>
+                        <input
+                          type="text"
+                          value={formData.buyer_id}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"
+                          readOnly
+                          placeholder="Auto"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Buyer Phone</label>
+                        <input
+                          type="tel"
+                          value={formData.buyer_phone}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          readOnly
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Buyer Email</label>
+                        <input
+                          type="email"
+                          value={formData.buyer_email}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          readOnly
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Property */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Building className="mr-2" size={20} />
+                    Property Information
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Select Property <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={formData.property_id}
+                          onChange={(e) => handlePropertyChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          disabled={!formData.seller_id || sellerProperties.length === 0}
+                          required
+                        >
+                          <option value="">
+                            {!formData.seller_id
+                              ? '-- Select Seller First --'
+                              : sellerProperties.length === 0
+                              ? '-- No Properties Available --'
+                              : '-- Select Property --'}
+                          </option>
+                          {sellerProperties.map((p) => (
+                            <option key={String(p.id)} value={String(p.id)}>
+                              {p.address} ({p.type || p.property_type_name})
+                            </option>
+                          ))}
+                        </select>
+                        {formData.seller_id && sellerProperties.length === 0 && (
+                          <p className="text-sm text-orange-600 mt-1">This seller has no properties attached</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Property ID</label>
+                        <input
+                          type="text"
+                          value={formData.property_id}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"
+                          readOnly
+                          placeholder="Auto"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Property Address</label>
+                      <textarea
+                        value={formData.property_address}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                        rows={2}
+                        readOnly
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
+                        <input
+                          type="text"
+                          value={formData.property_details.type}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          readOnly
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Area (Sq fit)</label>
+                        <input
+                          type="text"
+                          value={formData.property_details.area}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          readOnly
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
+                        <input
+                          type="text"
+                          value={formData.property_details.floor}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          readOnly
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Facing</label>
+                        <input
+                          type="text"
+                          value={formData.property_details.facing}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          readOnly
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Payment Details */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <CreditCard className="mr-2" size={20} />
-                  Payment Details
-                </h3>
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
-                    <input
-                      type="text"
-                      value={formData.payment_details.bank_name}
-                      onChange={(e) => handleInputChange('payment_details.bank_name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
-                    <input
-                      type="text"
-                      value={formData.payment_details.account_number}
-                      onChange={(e) => handleInputChange('payment_details.account_number', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">IFSC Code</label>
-                    <input
-                      type="text"
-                      value={formData.payment_details.ifsc_code}
-                      onChange={(e) => handleInputChange('payment_details.ifsc_code', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Account Holder Name</label>
-                    <input
-                      type="text"
-                      value={formData.payment_details.account_holder}
-                      onChange={(e) => handleInputChange('payment_details.account_holder', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+              {/* Right Column */}
+              <div className="space-y-6">
+                {/* Financial */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Calculator className="mr-2" size={20} />
+                    Financial Calculation
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Deal Value (₹) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.deal_value || ''}
+                        onChange={(e) => handleNumberInput('deal_value', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="25000000"
+                        min="0"
+                        step="1"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Brokerage Percentage (%) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.brokerage_percentage || ''}
+                        onChange={(e) => handleNumberInput('brokerage_percentage', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        step="0.1"
+                        min="0"
+                        max="10"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Brokerage Amount (₹)</label>
+                      <input
+                        type="text"
+                        value={`₹${formData.brokerage_amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-semibold"
+                        readOnly
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.gst_applicable}
+                        onChange={(e) => setFD({ gst_applicable: e.target.checked })}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label className="text-sm font-medium text-gray-700">GST Applicable</label>
+                    </div>
+
+                    {formData.gst_applicable && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">GST Percentage (%)</label>
+                          <input
+                            type="number"
+                            value={formData.gst_percentage || ''}
+                            onChange={(e) => handleNumberInput('gst_percentage', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            step="0.1"
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">GST Amount (₹)</label>
+                          <input
+                            type="text"
+                            value={`₹${formData.gst_amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-semibold"
+                            readOnly
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border-2 border-blue-200">
+                      <label className="block text-sm font-semibold text-blue-700 mb-2">Total Invoice Amount</label>
+                      <div className="text-3xl font-bold text-blue-900 mb-2">
+                        ₹{formData.total_amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-sm text-blue-700 font-medium leading-relaxed">
+                        {formData.amount_in_words}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => handleInputChange('notes', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={3}
-                  placeholder="Additional notes or terms..."
-                />
+                {/* Payment JSON */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <CreditCard className="mr-2" size={20} />
+                    Payment Details
+                  </h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                      <input
+                        type="text"
+                        value={formData.payment_details.bank_name}
+                        onChange={(e) =>
+                          setFD({ payment_details: { ...formData.payment_details, bank_name: e.target.value } })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                      <input
+                        type="text"
+                        value={formData.payment_details.account_number}
+                        onChange={(e) =>
+                          setFD({ payment_details: { ...formData.payment_details, account_number: e.target.value } })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">IFSC Code</label>
+                      <input
+                        type="text"
+                        value={formData.payment_details.ifsc_code}
+                        onChange={(e) =>
+                          setFD({ payment_details: { ...formData.payment_details, ifsc_code: e.target.value } })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Account Holder Name</label>
+                      <input
+                        type="text"
+                        value={formData.payment_details.account_holder}
+                        onChange={(e) =>
+                          setFD({ payment_details: { ...formData.payment_details, account_holder: e.target.value } })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFD({ notes: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows={3}
+                    placeholder="Additional notes or terms..."
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -609,7 +1035,13 @@ const InvoiceFormModal = ({ isOpen, onClose, invoice, onSave, userRole }: any) =
               </button>
               <button
                 onClick={handleSave}
-                disabled={isSubmitting || !formData.seller_name.trim() || !formData.buyer_name.trim() || !formData.property_address.trim() || !formData.deal_value}
+                disabled={
+                  isSubmitting ||
+                  !formData.seller_name.trim() ||
+                  !formData.buyer_name.trim() ||
+                  !formData.property_address.trim() ||
+                  !formData.deal_value
+                }
                 className="flex items-center space-x-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save size={16} />

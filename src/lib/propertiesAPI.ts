@@ -475,15 +475,33 @@ const pickClient = (baseURLOverride?: string): AxiosInstance =>
   },
 
 
-   searchByCityLocation: async (params: {
-    city: string;
-    locations?: string | string[];
-    limit?: number;
-    offset?: number;
-  }) => {
-    const res = await api.get("/properties/city-locations", { params });
-    return res.data;
-  },
+searchByCityLocation: async (params: {
+  city: string;
+  locations?: string | string[];
+  limit?: number;
+  offset?: number;
+}) => {
+  const queryParams: any = {
+    city: params.city,
+    limit: params.limit,
+    offset: params.offset,
+    status: 'Available' // Add this if you want to filter by available properties
+  };
+
+  // Convert locations to comma-separated string and use "location" (singular)
+  if (params.locations) {
+    if (Array.isArray(params.locations)) {
+      queryParams.location = params.locations.join(',');
+    } else {
+      queryParams.location = params.locations;
+    }
+  }
+
+  const res = await api.get("/properties/city-locations", { 
+    params: queryParams 
+  });
+  return res.data;
+},
 };
 
 export default propertiesAPI;

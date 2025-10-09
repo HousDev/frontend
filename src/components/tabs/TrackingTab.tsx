@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useEffect, useState,useCallback } from 'react';
 import {
   Search,
   Filter,
@@ -61,8 +62,130 @@ import DocumentEditModal from '../creation/DocumentEditModal';
 import DocumentDeleteModal from '../creation/DocumentDeleteModal';
 import DocumentViewModal from './DocumentViewModal';
 import DocumentShareModal from './DocumentShareModal';
+import { documentsGeneratedAPI } from '@/lib/documentsGeneratedAPI';
+// add near the other imports
+import { documentStatusAPI, StatusCode } from '@/lib/documentStatusAPI';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'react-toastify';
 
+
+const normalizeStatus = (s?: string) =>
+  (s === 'e-sign_pending' ? 'esign_pending' : s || 'created');
+
+
+const toExcelIST = (iso?: string) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+
+  // Format to 12-hour with AM/PM in IST
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  }).formatToParts(d);
+
+  const get = (t: string) => parts.find(p => p.type === t)?.value || '';
+  const yyyy = get('year');
+  const mm = get('month');
+  const dd = get('day');
+  const hh = get('hour');
+  const mi = get('minute');
+  const ss = get('second');
+  const dayPeriod = get('dayPeriod'); // AM / PM
+
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss} ${dayPeriod}`;
+};
+export type GenStatus = "draft" | "created";
+
+
+export type DocumentsGeneratedPayload = {
+  template_id: number | string;
+  name: string | null;
+  description?: string | null;
+  category?: string | null;
+  content?: string | null;
+  variables?: any | null;
+  status?: GenStatus;
+  created_by?: number;
+  updated_by?: number;
+};
+// Add this interface before your component
+interface DocumentData {
+  seller_name: string;
+  buyer_name: string;
+  seller_phone: string;
+  seller_email: string;
+  buyer_phone: string;
+  buyer_email: string;
+  property_address: string;
+  property_type: string;
+  property_area: string;
+  property_area_label: string;
+  type_area_line: string;
+  sale_amount: number;
+  token_amount: number;
+  sales_executive: string;
+  executive_phone: string;
+  executive_email: string;
+  document_id: string;
+  document_date: string;
+  booking_amount: number;
+  executive_id: string;
+  buyer_id: string;
+  seller_id: string;
+  property_id: string;
+  property_ids: string[];
+  total_paid: number;
+  total_due: number;
+  outstanding_amount: number;
+  receipt_count: number;
+  last_payment_date: string;
+  next_due_date: string;
+  notes: string;
+  // Optional fields for specific document types
+  society_name?: string;
+  flat_number?: string;
+  commission_rate?: string;
+  validity_period?: string;
+  loan_account?: string;
+}
+
+interface TrackingHistoryItem {
+  id: number;
+  action: string;
+  timestamp: string;
+  user: string;
+  details: string;
+  stage: string;
+  icon: string;
+}
+
+interface Document {
+  id: number;
+  title: string;
+  template_name: string;
+  template_id: number;
+  data: DocumentData;
+  status: string;
+  priority: string;
+  created_by: string;
+  assigned_to: string;
+  created_at: string;
+  updated_at: string;
+  shared_channels: string[];
+  stage_progress: number;
+  tracking_history: TrackingHistoryItem[];
+  otp_verified_at?: string;
+  completed_at?: string;
+}
 const TrackingTab = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -80,404 +203,498 @@ const TrackingTab = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<number | string | null>(null);
+
+  const [statusModalInit, setStatusModalInit] = useState<StatusCode | ''>('');
+  const [statusModalCurrent, setStatusModalCurrent] = useState<StatusCode[]>([]);
+const [isLoading, setIsLoading] = useState(false);
+
+  // Add this interface before your component
+  interface DocumentData {
+    seller_name: string;
+    buyer_name: string;
+    seller_phone: string;
+    seller_email: string;
+    buyer_phone: string;
+    buyer_email: string;
+    property_address: string;
+    property_type: string;
+    property_area: string;
+    property_area_label: string;
+    type_area_line: string;
+    sale_amount: number;
+    token_amount: number;
+    sales_executive: string;
+    executive_phone: string;
+    executive_email: string;
+    document_id: string;
+    document_date: string;
+    booking_amount: number;
+    executive_id: string;
+    buyer_id: string;
+    seller_id: string;
+    property_id: string;
+    property_ids: string[];
+    total_paid: number;
+    total_due: number;
+    outstanding_amount: number;
+    receipt_count: number;
+    last_payment_date: string;
+    next_due_date: string;
+    notes: string;
+    // Optional fields for specific document types
+    society_name?: string;
+    flat_number?: string;
+    commission_rate?: string;
+    validity_period?: string;
+    loan_account?: string;
+  }
+
+  interface TrackingHistoryItem {
+    id: number;
+    action: string;
+    timestamp: string;
+    user: string;
+    details: string;
+    stage: string;
+    icon: string;
+  }
+
+  interface Document {
+    id: number;
+    title: string;
+    template_name: string;
+    template_id: number;
+    data: DocumentData;
+    status: string;
+    priority: string;
+    created_by: string;
+    assigned_to: string;
+    created_at: string;
+    updated_at: string;
+    shared_channels: string[];
+    stage_progress: number;
+    tracking_history: TrackingHistoryItem[];
+    otp_verified_at?: string;
+    completed_at?: string;
+  }
+
+  const openStatusModal = async () => {
+    if (!selectedDocuments.length) return;
+
+    // 1) fetch fresh snapshots from backend (ensures UI is in sync)
+    const snaps = await Promise.all(
+      selectedDocuments.map(id => documentStatusAPI.getSnapshot(id))
+    );
+
+    // 2) reflect latest status/progress in the table right away
+    setDocuments(prev =>
+      prev.map(d => {
+        const i = selectedDocuments.indexOf(d.id);
+        if (i === -1) return d;
+        const s = snaps[i];
+        return {
+          ...d,
+          status: normalizeStatus(s?.current_status) || d.status,
+          stage_progress: typeof s?.progress_pct === 'number' ? s.progress_pct : d.stage_progress,
+        };
+      })
+    );
+
+    // 3) compute what to preselect in the modal
+    const statuses = snaps.map(s => normalizeStatus(s?.current_status) as StatusCode);
+    const common = statuses.length && statuses.every(st => st === statuses[0]) ? statuses[0] : '';
+
+    setStatusModalCurrent(statuses);
+    setStatusModalInit(common);
+    setShowStatusModal(true);
+  };
+
+  // Then your useEffect
+
+// ✅ Reusable fetch (TOP-LEVEL, NOT inside useEffect)
+const fetchDocuments = useCallback(async () => {
+  try {
+    setIsLoading(true);
+
+    const res = await documentsGeneratedAPI.getAllWithRelations();
+    console.log('Raw docs:', res);
+
+    /* ---------- normalize API shapes to an array ---------- */
+    const toArray = (r: any): any[] => {
+      if (Array.isArray(r)) return r;
+      if (Array.isArray(r?.rows)) return r.rows;
+      if (Array.isArray(r?.data)) return r.data;
+      if (Array.isArray(r?.data?.rows)) return r.data.rows;
+      if (Array.isArray(r?.list)) return r.list;
+      return [];
+    };
+    const list = toArray(res);
+
+    /* ---------- tiny helpers ---------- */
+    const get = (o: any, paths: string[]) => {
+      for (const p of paths) {
+        const v = p.split('.').reduce((a: any, k: string) => (a ? a[k] : undefined), o);
+        if (v != null && v !== '') return v;
+      }
+      return undefined;
+    };
+    const join = (...parts: (string | null | undefined)[]) =>
+      parts.map(s => (s ?? '').trim()).filter(Boolean).join(' ');
+    const withDot = (s?: string) => (s ? (/\.$/.test(s) ? s : `${s}.`) : '');
+    const num = (v: any) => {
+      if (v == null || v === '') return null;
+      const x = Number(String(v).replace(/[, ]/g, ''));
+      return Number.isFinite(x) ? x : null;
+    };
+    const fmtIST = (iso?: string) => {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d as any)) return '';
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const t = new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }).format(d);
+      return `${dd}/${mm}/${yyyy} ${t}`;
+    };
+    const nonEmptyJoin = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(' • ');
+    const toStr = (v: any) => (v == null ? '' : String(v));
+    const arrIds = (v: any): string[] => {
+      if (!v) return [];
+      if (Array.isArray(v)) return v.map(x => String(x?.id ?? x)).filter(Boolean);
+      return [];
+    };
+
+    /* ---------- map safely & match UI types ---------- */
+    const mapped: Document[] = list.map((doc: any) => {
+      const vars =
+        typeof doc?.variables === 'string'
+          ? (() => {
+              try {
+                return JSON.parse(doc.variables);
+              } catch {
+                return {};
+              }
+            })()
+          : doc?.variables || {};
+      const snap = vars.__form_snapshot || {};
+      const p = vars.property || snap.property || {};
+
+      // salutations + names
+      const sellerSal = get({ vars, snap, doc }, [
+        'vars.seller_salutation',
+        'vars.seller.salutation',
+        'vars.seller_title',
+        'vars.seller.title',
+        'snap.seller.salutation',
+        'doc.seller.salutation',
+        'vars.salutation',
+      ]) as string | undefined;
+
+      const buyerSal = get({ vars, snap, doc }, [
+        'vars.buyer_salutation',
+        'vars.buyer.salutation',
+        'vars.buyer_title',
+        'vars.buyer.title',
+        'snap.buyer.salutation',
+        'doc.buyer.salutation',
+      ]) as string | undefined;
+
+      const sellerFull =
+        (get({ vars, snap, doc }, [
+          'vars.seller_name',
+          'vars.seller.name',
+          'snap.seller.name',
+          'doc.seller.name',
+        ]) as string | undefined) ||
+        join(
+          get({ vars, snap }, ['vars.seller.first_name', 'snap.seller.first_name']) as string,
+          get({ vars, snap }, ['vars.seller.middle_name', 'snap.seller.middle_name']) as string,
+          get({ vars, snap }, ['vars.seller.last_name', 'snap.seller.last_name']) as string
+        );
+
+      const buyerFull =
+        (get({ vars, snap, doc }, [
+          'vars.buyer_name',
+          'vars.buyer.name',
+          'snap.buyer.name',
+          'doc.buyer.name',
+        ]) as string | undefined) ||
+        join(
+          get({ vars, snap }, ['vars.buyer.first_name', 'snap.buyer.first_name']) as string,
+          get({ vars, snap }, ['vars.buyer.middle_name', 'snap.buyer.middle_name']) as string,
+          get({ vars, snap }, ['vars.buyer.last_name', 'snap.buyer.last_name']) as string
+        );
+
+      const seller_name = join(withDot(sellerSal), sellerFull) || 'N/A';
+      const buyer_name = join(withDot(buyerSal), buyerFull) || 'N/A';
+
+      // contacts
+      const seller_phone =
+        get({ vars, snap, doc }, [
+          'vars.seller_phone',
+          'vars.seller.phone',
+          'snap.seller_phone',
+          'snap.seller.phone',
+          'doc.seller.phone',
+          'vars.seller_phone_number',
+          'vars.seller.contact_phone',
+        ]) || '';
+
+      const seller_email =
+        get({ vars, snap, doc }, [
+          'vars.seller_email',
+          'vars.seller.email',
+          'snap.seller_email',
+          'snap.seller.email',
+          'doc.seller.email',
+        ]) || '';
+
+      const buyer_phone =
+        get({ vars, snap, doc }, [
+          'vars.buyer_phone',
+          'vars.buyer.phone',
+          'snap.buyer_phone',
+          'snap.buyer.phone',
+          'doc.buyer.phone',
+          'vars.buyer_phone_number',
+          'vars.buyer.contact_phone',
+        ]) || '';
+
+      const buyer_email =
+        get({ vars, snap, doc }, [
+          'vars.buyer_email',
+          'vars.buyer.email',
+          'snap.buyer_email',
+          'snap.buyer.email',
+          'doc.buyer.email',
+        ]) || '';
+
+      // property basics
+      const areaRaw = get({ vars, p, snap }, [
+        'vars.carpet_area',
+        'vars.property_area',
+        'p.carpet_area',
+        'p.area',
+        'p.property_area',
+        'snap.carpet_area',
+        'snap.property_area',
+        'snap.property.area',
+      ]);
+      const areaNum = num(areaRaw);
+      const property_area_label = areaNum == null ? '' : `${areaNum} sq ft`;
+      const property_area = areaNum == null ? '' : String(areaNum);
+
+      const property_address =
+        get({ vars, p, snap }, ['vars.property_address', 'p.address', 'snap.address']) || 'N/A';
+
+      // type lines
+      const typeName = (get({ vars, p, snap }, [
+        'vars.property_type_name',
+        'p.property_type_name',
+        'snap.property_type_name',
+        'vars.property_type',
+        'p.property_type',
+      ]) as string | undefined)?.trim();
+
+      const subType = (get({ vars, p, snap }, [
+        'vars.property_subtype_name',
+        'p.property_subtype_name',
+        'snap.property_subtype_name',
+      ]) as string | undefined)?.trim();
+
+      const unitType = (get({ vars, p, snap }, [
+        'vars.unit_type',
+        'p.unit_type',
+        'snap.unit_type',
+      ]) as string | undefined)?.trim();
+
+      const property_type_line =
+        typeName && typeName.toLowerCase() === 'commercial'
+          ? typeName
+          : nonEmptyJoin(typeName, subType, unitType);
+
+      const type_area_line = nonEmptyJoin(property_type_line, property_area_label);
+
+      // amounts + dates
+      const sale_amount = num(get({ vars }, ['vars.deal_price'])) ?? 0;
+      const token_amount = num(get({ vars }, ['vars.token_amount'])) ?? 0;
+
+      const booking_amount =
+        num(get({ vars }, ['vars.booking_amount', 'vars.token_amount'])) ?? token_amount ?? 0;
+      const total_paid = num(get({ vars }, ['vars.total_paid', 'vars.amount_paid'])) ?? 0;
+      const total_due = Math.max(sale_amount - total_paid, 0);
+      const outstanding_amount = total_due;
+
+      const document_date = fmtIST(doc?.created_at || doc?.createdAt);
+      const last_payment_date = fmtIST(get({ vars }, ['vars.last_payment_date']));
+      const next_due_date = fmtIST(get({ vars }, ['vars.next_due_date']));
+      const receipt_count = Number(get({ vars }, ['vars.receipt_count'])) || 0;
+
+      // IDs as strings
+      const executive_id = toStr(
+        get({ vars, snap, doc }, [
+          'vars.executive_id',
+          'snap.executive.id',
+          'doc.executive_id',
+          'vars.executive.id',
+        ])
+      );
+      const buyer_id = toStr(get({ vars, snap, doc }, ['vars.buyer.id', 'doc.buyer_id', 'snap.buyer.id']));
+      const seller_id = toStr(get({ vars, snap, doc }, ['vars.seller.id', 'doc.seller_id', 'snap.seller.id']));
+      const property_id = toStr(
+        get({ vars, p, snap, doc }, ['p.id', 'vars.property.id', 'doc.property_id', 'snap.property.id'])
+      );
+      const property_ids = arrIds(vars.properties || snap.properties);
+
+      const exec_name =
+        get({ vars, snap, doc }, [
+          'vars.executive_name',
+          'vars.executive.name',
+          'snap.executive.name',
+          'doc.executive.name',
+          'vars.sales_executive',
+        ]) || 'Unassigned';
+
+      const exec_sal = get({ vars, snap, doc }, [
+        'vars.executive_salutation',
+        'vars.executive.salutation',
+        'vars.executive_title',
+        'vars.executive.title',
+        'snap.executive.salutation',
+        'doc.executive.salutation',
+      ]) as string | undefined;
+
+      const status = 'created'; // default (will update below)
+
+      return {
+        id: Number(doc?.id) || 0,
+        title: String(doc?.name || vars?.title || 'Untitled Document'),
+        template_name: String(doc?.template_name || doc?.template_description || 'Untitled Template'),
+        template_id: Number(doc?.template_id ?? vars?.template_id) || 0,
+        data: {
+          seller_name,
+          buyer_name,
+          seller_phone: String(seller_phone),
+          seller_email: String(seller_email),
+          buyer_phone: String(buyer_phone),
+          buyer_email: String(buyer_email),
+          property_address: String(property_address),
+          property_type: property_type_line || String(vars.property_type || 'N/A'),
+          property_area,
+          property_area_label,
+          type_area_line,
+          sale_amount,
+          token_amount,
+          sales_executive: join(withDot(exec_sal), exec_name) || 'Unassigned',
+          executive_phone: String(get({ vars, snap }, ['vars.executive_phone', 'snap.executive_phone']) || ''),
+          executive_email: String(get({ vars, snap }, ['vars.executive_email', 'snap.executive_email']) || ''),
+          document_id: String(doc?.id || 0),
+          document_date,
+          booking_amount,
+          executive_id,
+          buyer_id,
+          seller_id,
+          property_id,
+          property_ids,
+          total_paid,
+          total_due,
+          outstanding_amount,
+          receipt_count,
+          last_payment_date,
+          next_due_date,
+          notes: toStr(get({ vars }, ['vars.notes'])),
+        },
+        status,
+        priority: 'medium',
+        created_by: doc?.created_by_name || 'Unknown',
+        assigned_to: exec_name,
+        created_at: doc?.created_at || '',
+        updated_at: doc?.updated_at || '',
+        shared_channels: [] as string[],
+        stage_progress: 0,
+        tracking_history: [
+          {
+            id: 1,
+            action: 'Document Created',
+            timestamp: doc?.created_at || new Date().toISOString(),
+            user: doc?.created_by_name || 'System',
+            details: `Generated from template ${doc?.template_id ?? vars?.template_id ?? '?'}`,
+            stage: 'created',
+            icon: 'FileText',
+          },
+        ],
+      };
+    });
+
+    // Step 1 — base docs
+    setDocuments(mapped);
+
+    // Step 2 — live snapshots
+    try {
+      const snapshots = await Promise.all(mapped.map(d => documentStatusAPI.getSnapshot(d.id)));
+      setDocuments(prev =>
+        prev.map((doc, idx) => {
+          const snap = snapshots[idx];
+          if (!snap) return doc;
+          return {
+            ...doc,
+            status: normalizeStatus(snap.current_status || doc.status),
+            stage_progress:
+              typeof snap.progress_pct === 'number' ? snap.progress_pct : doc.stage_progress,
+          };
+        })
+      );
+    } catch (e) {
+      console.warn('⚠️ Failed to load live snapshots:', e);
+    }
+  } catch (e) {
+    console.error('❌ Error fetching documents:', e);
+    setDocuments([]);
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
+
+// ✅ Mount par ek hi useEffect me call
+useEffect(() => {
+  fetchDocuments();
+}, [fetchDocuments]);
+
+
+
+// Helps Excel + proper CSV escaping
+const csvEscape = (v: any) => {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+};
+
+const toISTFileStamp = () => {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}_${hh}${mi}${ss}`;
+};
+
+const normalizeStatusKey = (s?: string) =>
+  s === 'e-sign_pending' ? 'esign_pending' : s || 'created';
+
+
+
+
 
   const [documents, setDocuments] = useState([
-    {
-      id: 1,
-      title: 'Property Sale Agreement - Flat A-404',
-      template_name: 'Property Sale Agreement',
-      template_id: 1,
-      data: {
-        seller_name: 'Rajesh Kumar',
-        seller_phone: '+91 98765 43210',
-        seller_email: 'rajesh.kumar@email.com',
-        buyer_name: 'Amit Patel',
-        buyer_phone: '+91 76543 21098',
-        buyer_email: 'amit.patel@email.com',
-        property_address: 'Flat A-404, Skyline Towers, Andheri West, Mumbai',
-        property_type: 'Apartment',
-        property_area: '1250',
-        sale_amount: 25000000,
-        token_amount: 500000,
-        booking_amount: 1000000,
-        sales_executive: 'Admin User',
-        document_id: 'PSA001',
-        document_date: '2025-01-12'
-      },
-      status: 'e-sign_pending',
-      priority: 'high',
-      created_by: 'Admin User',
-      assigned_to: 'Sales Executive',
-      created_at: '2025-01-12T10:30:00Z',
-      updated_at: '2025-01-12T15:45:00Z',
-      shared_channels: ['email', 'whatsapp'],
-      otp_verified_at: '2025-01-12T14:20:00Z',
-      stage_progress: 75,
-      tracking_history: [
-        {
-          id: 1,
-          action: 'Document Created',
-          timestamp: '2025-01-12T10:30:00Z',
-          user: 'Admin User',
-          details: 'Document created from Property Sale Agreement template',
-          stage: 'created',
-          icon: 'FileText'
-        },
-        {
-          id: 2,
-          action: 'Shared via Email',
-          timestamp: '2025-01-12T11:15:00Z',
-          user: 'Admin User',
-          details: 'Document sent to buyer (amit.patel@email.com) and seller (rajesh.kumar@email.com)',
-          stage: 'shared',
-          icon: 'Mail'
-        },
-        {
-          id: 3,
-          action: 'Shared via WhatsApp',
-          timestamp: '2025-01-12T11:16:00Z',
-          user: 'Admin User',
-          details: 'Document sent via WhatsApp to both parties',
-          stage: 'shared',
-          icon: 'MessageCircle'
-        },
-        {
-          id: 4,
-          action: 'Document Viewed',
-          timestamp: '2025-01-12T13:45:00Z',
-          user: 'Rajesh Kumar',
-          details: 'Seller opened and viewed the document',
-          stage: 'viewed',
-          icon: 'Eye'
-        },
-        {
-          id: 5,
-          action: 'OTP Verification Initiated',
-          timestamp: '2025-01-12T14:10:00Z',
-          user: 'Rajesh Kumar',
-          details: 'Aadhaar OTP verification process started',
-          stage: 'otp_initiated',
-          icon: 'Shield'
-        },
-        {
-          id: 6,
-          action: 'OTP Verified Successfully',
-          timestamp: '2025-01-12T14:20:00Z',
-          user: 'Rajesh Kumar',
-          details: 'Seller verified identity via Aadhaar OTP (****1234)',
-          stage: 'otp_verified',
-          icon: 'CheckCircle'
-        }
-      ]
-    },
-    {
-      id: 2,
-      title: 'Society NOC Request - Tower B',
-      template_name: 'Society NOC Request',
-      template_id: 4,
-      data: {
-        seller_name: 'Priya Sharma',
-        seller_phone: '+91 87654 32109',
-        seller_email: 'priya.sharma@email.com',
-        buyer_name: 'Rohit Gupta',
-        buyer_phone: '+91 65432 10987',
-        buyer_email: 'rohit.gupta@email.com',
-        property_address: 'Flat B-201, Green Valley Society, Pune',
-        property_type: 'Apartment',
-        property_area: '980',
-        society_name: 'Green Valley Society',
-        flat_number: 'B-201',
-        sales_executive: 'Manager User',
-        document_id: 'NOC002',
-        document_date: '2025-01-11'
-      },
-      status: 'otp_verified',
-      priority: 'medium',
-      created_by: 'Manager User',
-      assigned_to: 'Legal Team',
-      created_at: '2025-01-11T09:15:00Z',
-      updated_at: '2025-01-12T16:30:00Z',
-      shared_channels: ['email'],
-      otp_verified_at: '2025-01-12T16:30:00Z',
-      stage_progress: 60,
-      tracking_history: [
-        {
-          id: 1,
-          action: 'Document Created',
-          timestamp: '2025-01-11T09:15:00Z',
-          user: 'Manager User',
-          details: 'NOC request document created for society approval',
-          stage: 'created',
-          icon: 'FileText'
-        },
-        {
-          id: 2,
-          action: 'Shared via Email',
-          timestamp: '2025-01-11T10:00:00Z',
-          user: 'Manager User',
-          details: 'Document sent to society management committee',
-          stage: 'shared',
-          icon: 'Mail'
-        },
-        {
-          id: 3,
-          action: 'Society Review Started',
-          timestamp: '2025-01-12T14:00:00Z',
-          user: 'Society Secretary',
-          details: 'Society committee started reviewing the NOC request',
-          stage: 'under_review',
-          icon: 'Eye'
-        },
-        {
-          id: 4,
-          action: 'OTP Verified',
-          timestamp: '2025-01-12T16:30:00Z',
-          user: 'Priya Sharma',
-          details: 'Seller verified identity for society NOC process',
-          stage: 'otp_verified',
-          icon: 'CheckCircle'
-        }
-      ]
-    },
-    {
-      id: 3,
-      title: 'Exclusive Mandate Agreement',
-      template_name: 'Exclusive Mandate Agreement',
-      template_id: 2,
-      data: {
-        seller_name: 'Mumbai Properties Ltd',
-        seller_phone: '+91 76543 21098',
-        seller_email: 'info@mumbaiproperties.com',
-        property_address: 'Office 501, Business Tower, BKC, Mumbai',
-        property_type: 'Commercial',
-        property_area: '1500',
-        commission_rate: '2',
-        validity_period: '6 months',
-        sales_executive: 'Admin User',
-        document_id: 'EMA003',
-        document_date: '2025-01-10'
-      },
-      status: 'completed',
-      priority: 'low',
-      created_by: 'Admin User',
-      assigned_to: 'Admin User',
-      created_at: '2025-01-10T14:20:00Z',
-      updated_at: '2025-01-11T12:45:00Z',
-      shared_channels: ['email', 'whatsapp'],
-      otp_verified_at: '2025-01-11T10:15:00Z',
-      completed_at: '2025-01-11T12:45:00Z',
-      stage_progress: 100,
-      tracking_history: [
-        {
-          id: 1,
-          action: 'Document Created',
-          timestamp: '2025-01-10T14:20:00Z',
-          user: 'Admin User',
-          details: 'Exclusive mandate agreement created for commercial property',
-          stage: 'created',
-          icon: 'FileText'
-        },
-        {
-          id: 2,
-          action: 'Shared via Email',
-          timestamp: '2025-01-10T15:00:00Z',
-          user: 'Admin User',
-          details: 'Document sent to property owner for review and signing',
-          stage: 'shared',
-          icon: 'Mail'
-        },
-        {
-          id: 3,
-          action: 'Shared via WhatsApp',
-          timestamp: '2025-01-10T15:01:00Z',
-          user: 'Admin User',
-          details: 'Document link shared via WhatsApp for quick access',
-          stage: 'shared',
-          icon: 'MessageCircle'
-        },
-        {
-          id: 4,
-          action: 'Document Reviewed',
-          timestamp: '2025-01-11T09:30:00Z',
-          user: 'Mumbai Properties Ltd',
-          details: 'Property owner reviewed the mandate terms and conditions',
-          stage: 'reviewed',
-          icon: 'Eye'
-        },
-        {
-          id: 5,
-          action: 'OTP Verification',
-          timestamp: '2025-01-11T10:15:00Z',
-          user: 'Mumbai Properties Ltd',
-          details: 'Company representative verified identity via Aadhaar OTP',
-          stage: 'otp_verified',
-          icon: 'Shield'
-        },
-        {
-          id: 6,
-          action: 'Digital Signature',
-          timestamp: '2025-01-11T11:30:00Z',
-          user: 'Mumbai Properties Ltd',
-          details: 'Document digitally signed using e-signature platform',
-          stage: 'e_signed',
-          icon: 'Award'
-        },
-        {
-          id: 7,
-          action: 'Document Completed',
-          timestamp: '2025-01-11T12:45:00Z',
-          user: 'Admin User',
-          details: 'All processes completed. Mandate agreement is now active',
-          stage: 'completed',
-          icon: 'Crown'
-        }
-      ]
-    },
-    {
-      id: 4,
-      title: 'Token Receipt - Project Phoenix',
-      template_name: 'Token Receipt',
-      template_id: 3,
-      data: {
-        seller_name: 'Neha Agarwal',
-        seller_phone: '+91 65432 10987',
-        seller_email: 'neha.agarwal@email.com',
-        buyer_name: 'Vikash Singh',
-        buyer_phone: '+91 54321 09876',
-        buyer_email: 'vikash.singh@email.com',
-        property_address: 'Plot 25, Phoenix City, Bangalore',
-        property_type: 'Plot',
-        property_area: '2400',
-        token_amount: 200000,
-        sales_executive: 'Sales Executive',
-        document_id: 'TR004',
-        document_date: '2025-01-11'
-      },
-      status: 'shared',
-      priority: 'medium',
-      created_by: 'Sales Executive',
-      assigned_to: 'Sales Executive',
-      created_at: '2025-01-11T16:45:00Z',
-      updated_at: '2025-01-11T17:30:00Z',
-      shared_channels: ['whatsapp'],
-      stage_progress: 40,
-      tracking_history: [
-        {
-          id: 1,
-          action: 'Document Created',
-          timestamp: '2025-01-11T16:45:00Z',
-          user: 'Sales Executive',
-          details: 'Token receipt generated for plot booking',
-          stage: 'created',
-          icon: 'FileText'
-        },
-        {
-          id: 2,
-          action: 'Shared via WhatsApp',
-          timestamp: '2025-01-11T17:30:00Z',
-          user: 'Sales Executive',
-          details: 'Receipt sent to buyer via WhatsApp',
-          stage: 'shared',
-          icon: 'MessageCircle'
-        }
-      ]
-    },
-    {
-      id: 5,
-      title: 'Bank NOC Request - HDFC',
-      template_name: 'Bank NOC Request',
-      template_id: 6,
-      data: {
-        seller_name: 'Suresh Patel',
-        seller_phone: '+91 54321 09876',
-        seller_email: 'suresh.patel@email.com',
-        property_address: 'Villa 15, Green Valley, Ahmedabad',
-        property_type: 'Villa',
-        property_area: '2800',
-        loan_account: 'HDFC123456789',
-        outstanding_amount: 1500000,
-        sales_executive: 'Manager User',
-        document_id: 'BNR005',
-        document_date: '2025-01-13'
-      },
-      status: 'created',
-      priority: 'high',
-      created_by: 'Manager User',
-      assigned_to: 'Legal Team',
-      created_at: '2025-01-13T11:20:00Z',
-      updated_at: '2025-01-13T11:20:00Z',
-      shared_channels: [],
-      stage_progress: 10,
-      tracking_history: [
-        {
-          id: 1,
-          action: 'Document Created',
-          timestamp: '2025-01-13T11:20:00Z',
-          user: 'Manager User',
-          details: 'Bank NOC request created for loan closure process',
-          stage: 'created',
-          icon: 'FileText'
-        }
-      ]
-    },
-    {
-      id: 6,
-      title: 'Booking Form - Luxury Penthouse',
-      template_name: 'Booking Form',
-      template_id: 7,
-      data: {
-        buyer_name: 'Arjun Mehta',
-        buyer_phone: '+91 98765 55555',
-        buyer_email: 'arjun.mehta@email.com',
-        property_address: 'Penthouse PH-01, Royal Residency, Bandra, Mumbai',
-        property_type: 'Penthouse',
-        property_area: '3200',
-        booking_amount: 1000000,
-        sales_executive: 'Premium Sales Team',
-        executive_id: 'PST001',
-        executive_phone: '+91 99999 88888',
-        executive_email: 'premium@resaleexpert.com',
-        document_id: 'BF006',
-        document_date: '2025-01-13'
-      },
-      status: 'shared',
-      priority: 'high',
-      created_by: 'Premium Sales Team',
-      assigned_to: 'Premium Sales Team',
-      created_at: '2025-01-13T14:30:00Z',
-      updated_at: '2025-01-13T15:15:00Z',
-      shared_channels: ['email', 'whatsapp'],
-      stage_progress: 50,
-      tracking_history: [
-        {
-          id: 1,
-          action: 'Document Created',
-          timestamp: '2025-01-13T14:30:00Z',
-          user: 'Premium Sales Team',
-          details: 'Booking form created for luxury penthouse',
-          stage: 'created',
-          icon: 'FileText'
-        },
-        {
-          id: 2,
-          action: 'Shared via Email',
-          timestamp: '2025-01-13T15:00:00Z',
-          user: 'Premium Sales Team',
-          details: 'Booking form sent to buyer for review and confirmation',
-          stage: 'shared',
-          icon: 'Mail'
-        },
-        {
-          id: 3,
-          action: 'Shared via WhatsApp',
-          timestamp: '2025-01-13T15:15:00Z',
-          user: 'Premium Sales Team',
-          details: 'Quick access link shared via WhatsApp',
-          stage: 'shared',
-          icon: 'MessageCircle'
-        }
-      ]
-    }
   ]);
 
   const filteredDocuments = documents.filter(doc => {
@@ -500,23 +717,30 @@ const TrackingTab = () => {
   const paginatedDocuments = filteredDocuments.slice(startIndex, startIndex + itemsPerPage);
 
   const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      'completed': { bg: 'bg-green-100', text: 'text-green-800', label: 'Completed', icon: CheckCircle },
-      'e-sign_pending': { bg: 'bg-orange-100', text: 'text-orange-800', label: 'E-Sign Pending', icon: Clock },
-      'otp_verified': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'OTP Verified', icon: Shield },
-      'shared': { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Shared', icon: Send },
-      'created': { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Created', icon: FileText }
+    // normalize: UI sometimes had "e-sign_pending"
+    const key = status === 'e-sign_pending' ? 'esign_pending' : status;
+
+    const statusConfig: Record<string, { bg: string; text: string; label: string; icon: any }> = {
+      completed: { bg: 'bg-green-100', text: 'text-green-800', label: 'Completed', icon: CheckCircle },
+      esign_pending: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'E-Sign Pending', icon: Clock },
+      otp_verified: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'OTP Verified', icon: Shield },
+      shared: { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Shared', icon: Send },
+      created: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Created', icon: FileText },
+      on_hold: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'On Hold', icon: AlertCircle },
+      cancelled: { bg: 'bg-red-100', text: 'text-red-800', label: 'Cancelled', icon: AlertCircle },
     };
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.created;
-    const Icon = config.icon;
+    const conf = statusConfig[key] ?? statusConfig.created;
+    const Icon = conf.icon;
+
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${conf.bg} ${conf.text}`}>
         <Icon size={14} className="mr-1" />
-        {config.label}
+        {conf.label}
       </span>
     );
   };
+
 
   const getPriorityBadge = (priority: string) => {
     const priorityConfig = {
@@ -536,22 +760,20 @@ const TrackingTab = () => {
   };
 
   const getStageProgress = (status: string, progress: number) => {
-    const stageColors = {
-      'created': 'bg-gray-400',
-      'shared': 'bg-purple-500',
-      'otp_verified': 'bg-blue-500',
-      'e-sign_pending': 'bg-orange-500',
-      'completed': 'bg-green-500'
+    const key = status === 'e-sign_pending' ? 'esign_pending' : status;
+    const stageColors: Record<string, string> = {
+      created: 'bg-gray-400',
+      shared: 'bg-purple-500',
+      otp_verified: 'bg-blue-500',
+      esign_pending: 'bg-orange-500',
+      completed: 'bg-green-500',
+      on_hold: 'bg-yellow-500',
+      cancelled: 'bg-red-500',
     };
-
-    const color = stageColors[status as keyof typeof stageColors] || 'bg-gray-400';
-
+    const color = stageColors[key] || 'bg-gray-400';
     return (
       <div className="w-full bg-gray-200 rounded-full h-2">
-        <div
-          className={`${color} h-2 rounded-full transition-all duration-500`}
-          style={{ width: `${progress}%` }}
-        ></div>
+        <div className={`${color} h-2 rounded-full transition-all duration-500`} style={{ width: `${progress}%` }} />
       </div>
     );
   };
@@ -592,15 +814,22 @@ const TrackingTab = () => {
     setShowShareModal(true);
   };
 
-  const handleDownloadDocument = (doc: any) => {
-    console.log('Downloading document:', doc);
-    // Generate and download PDF
-    const link = document.createElement('a');
-    link.href = 'data:application/pdf;base64,JVBERi0xLjQKJdPr6eEKMSAwIG9iago8PAovVGl0bGUgKERvY3VtZW50KQovQ3JlYXRvciAoUmVzYWxlRXhwZXJ0KQovUHJvZHVjZXIgKFJlc2FsZUV4cGVydCkKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL0NhdGFsb2cKL1BhZ2VzIDMgMCBSCj4+CmVuZG9iagozIDAgb2JqCjw8Ci9UeXBlIC9QYWdlcwovS2lkcyBbNCAwIFJdCi9Db3VudCAxCj4+CmVuZG9iagozIDAgb2JqCjw8Ci9UeXBlIC9QYWdlCi9QYXJlbnQgMyAwIFIKL01lZGlhQm94IFswIDAgNjEyIDc5Ml0KPj4KZW5kb2JqCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDc0IDAwMDAwIG4gCjAwMDAwMDAxMjEgMDAwMDAgbiAKMDAwMDAwMDE3OCAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDUKL1Jvb3QgMiAwIFIKPj4Kc3RhcnR4cmVmCjI3MwolJUVPRgo=';
-    link.download = `${doc.title}.pdf`;
-    link.click();
-  };
+  const handleDownloadDocument = async (doc: any) => {
+    try {
+      setDownloadingId(doc.id);
 
+      // ✅ real API call — server se PDF aayega aur download trigger hoga
+      await documentsGeneratedAPI.downloadPdf(doc.id, {
+        page: "a4",
+        filenameFallback: `${(doc.title || "document").toString().trim()}.pdf`,
+      });
+    } catch (err: any) {
+      console.error("PDF download failed:", err);
+      alert(err?.message || "PDF download failed");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
   const handleSaveDocument = (updatedDoc: any) => {
     setDocuments(prev => prev.map(doc =>
       doc.id === updatedDoc.id ? { ...doc, ...updatedDoc } : doc
@@ -609,126 +838,487 @@ const TrackingTab = () => {
     setSelectedDocument(null);
   };
 
-  const handleDeleteConfirm = (deleteData: any) => {
-    if (userRole === 'admin') {
-      setDocuments(prev => prev.filter(doc => doc.id !== deleteData.document_id));
-    } else {
-      // For managers, mark as pending deletion
-      setDocuments(prev => prev.map(doc =>
-        doc.id === deleteData.document_id
-          ? { ...doc, status: 'pending_deletion', delete_reason: deleteData.reason }
-          : doc
-      ));
-    }
+const handleDeleteConfirm = async (deleteData: any) => {
+  if (!selectedDocument) return;
+  try {
+    // 🔥 API call to backend
+    await documentsGeneratedAPI.softDelete(selectedDocument.id);
+
+    // ✅ Local state update (optimistic)
+    setDocuments(prev => prev.filter(doc => doc.id !== selectedDocument.id));
+
+    toast.success("Document deleted successfully (soft delete).");
+  } catch (err: any) {
+    console.error("Soft delete failed:", err);
+    toast.error(err?.message || "Failed to delete document.");
+  } finally {
     setShowDeleteModal(false);
     setSelectedDocument(null);
-  };
+  }
+};
 
-  const handleBulkStatusChange = (newStatus: string) => {
-    setDocuments(prev => prev.map(doc =>
-      selectedDocuments.includes(doc.id)
+
+
+
+  
+const handleBulkStatusChange = async (newStatus: string, reason?: string) => {
+  const ids = selectedDocuments.slice();
+  if (!ids.length) return;
+
+  const normalized = (newStatus === "e-sign_pending" ? "esign_pending" : newStatus) as StatusCode;
+
+  // snapshot for rollback
+  const prevState = documents;
+
+  // optimistic UI
+  const nowISO = new Date().toISOString();
+  setDocuments(prev =>
+    prev.map(doc =>
+      ids.includes(doc.id)
         ? {
-          ...doc,
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-          tracking_history: [
-            ...doc.tracking_history,
-            {
-              id: doc.tracking_history.length + 1,
-              action: `Status Changed to ${newStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
-              timestamp: new Date().toISOString(),
-              user: 'Admin User',
-              details: `Document status updated via bulk action`,
-              stage: newStatus,
-              icon: 'Settings'
-            }
-          ]
-        }
+            ...doc,
+            status: normalized,
+            updated_at: nowISO,
+              assigned_to: doc.assigned_to,
+            tracking_history: [
+              ...doc.tracking_history,
+              {
+                id: doc.tracking_history.length + 1,
+                action: `Status changed to ${(normalized as string).replace(/_/g, " ")}`,
+                timestamp: nowISO,
+                user: user?.id || null,
+                details: `Reason: ${reason || "—"}`,
+                stage: normalized,
+                icon: "Settings",
+              },
+            ],
+          }
         : doc
-    ));
-    setSelectedDocuments([]);
-    setShowStatusModal(false);
-  };
+    )
+  );
 
-  const handleBulkShare = () => {
-    const selectedDocs = documents.filter(doc => selectedDocuments.includes(doc.id));
-    console.log('Bulk sharing documents:', selectedDocs);
-    alert(`Sharing ${selectedDocuments.length} documents via email and WhatsApp`);
-    setSelectedDocuments([]);
-  };
-
-  const handleBulkDownload = () => {
-    const selectedDocs = documents.filter(doc => selectedDocuments.includes(doc.id));
-    console.log('Bulk downloading documents:', selectedDocs);
-
-    // Create a zip file simulation
-    selectedDocs.forEach((doc, index) => {
-      setTimeout(() => {
-        const link = document.createElement('a');
-        link.href = 'data:application/pdf;base64,JVBERi0xLjQKJdPr6eEKMSAwIG9iago8PAovVGl0bGUgKERvY3VtZW50KQo+PgplbmRvYmoKMiAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMyAwIFIKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFs0IDAgUl0KL0NvdW50IDEKPD4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAzIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQo+PgplbmRvYmoKeHJlZgowIDUKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNzQgMDAwMDAgbiAKMDAwMDAwMDEyMSAwMDAwMCBuIAowMDAwMDAwMTc4IDAwMDAwIG4gCnRyYWlsZXIKPDwKL1NpemUgNQovUm9vdCAyIDAgUgo+PgpzdGFydHhyZWYKMjczCiUlRU9GCg==';
-        link.download = `${doc.title}.pdf`;
-        link.click();
-      }, index * 500);
+  try {
+    // 1) Try transactional bulk
+    const result = await documentStatusAPI.bulkSetStatus({
+      ids,
+      new_status: normalized,
+      reason: reason || null,
+      details: { source: "ui-bulk" },
+      changed_by: Number(user?.id) || null,
     });
 
-    alert(`Downloading ${selectedDocuments.length} documents...`);
-    setSelectedDocuments([]);
-  };
+    // 2) Sync snapshots
+    const byId = new Map(result.snapshots.map(s => [s.document_id, s]));
+    setDocuments(prev =>
+      prev.map(doc => {
+        const snap = byId.get(doc.id);
+        return snap
+          ? {
+              ...doc,
+              status: snap.current_status,
+              stage_progress:
+                typeof snap.progress_pct === "number" ? snap.progress_pct : doc.stage_progress,
+              updated_at: snap.updated_at ?? doc.updated_at,
+            }
+          : doc;
+      })
+    );
 
-  const handleBulkExport = () => {
-    const selectedDocs = documents.filter(doc => selectedDocuments.includes(doc.id));
+    toast.success(`Status updated for ${result.count} document${result.count > 1 ? "s" : ""}`);
+  } catch (bulkErr: any) {
+    console.error("Bulk update error (may still have committed):", bulkErr);
 
-    // Create CSV export
-    const csvHeaders = 'Title,Template,Seller,Buyer,Property,Status,Priority,Created Date,Updated Date\n';
-    const csvData = selectedDocs.map(doc =>
-      `"${doc.title}","${doc.template_name}","${doc.data.seller_name}","${doc.data.buyer_name || 'N/A'}","${doc.data.property_address}","${doc.status}","${doc.priority}","${doc.created_at}","${doc.updated_at}"`
-    ).join('\n');
+    // ✅ VERIFY FIRST: maybe server committed but client errored
+    try {
+      const snaps = await Promise.all(ids.map(id => documentStatusAPI.getSnapshot(id)));
+      const already = snaps.filter(s => s && s.current_status === normalized).map(s => s!.document_id);
+      const pending = ids.filter(id => !already.includes(id));
 
-    const csvContent = csvHeaders + csvData;
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `documents_export_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+      if (already.length === ids.length) {
+        // All done at server — just sync UI & show success
+        const byId = new Map(snaps.filter(Boolean).map(s => [s!.document_id, s!]));
+        setDocuments(prev =>
+          prev.map(doc => {
+            const snap = byId.get(doc.id);
+            return snap
+              ? {
+                  ...doc,
+                  status: snap.current_status,
+                  stage_progress:
+                    typeof snap.progress_pct === "number" ? snap.progress_pct : doc.stage_progress,
+                  updated_at: snap.updated_at ?? doc.updated_at,
+                }
+              : doc;
+          })
+        );
+        toast.success(`Status updated for all ${ids.length} documents`);
+      } else {
+        // Some pending — fallback only for those
+        const results = await Promise.allSettled(
+          pending.map(id =>
+            documentStatusAPI.setStatus(id, {
+              new_status: normalized,
+              reason: reason || null,
+              details: { source: "ui-bulk update" },
+              changed_by: Number(user?.id) || null,
+            })
+          )
+        );
 
-    setSelectedDocuments([]);
-  };
+        const okIds = results
+          .map((r, i) => (r.status === "fulfilled" ? pending[i] : null))
+          .filter(Boolean) as number[];
 
-  const handleDuplicateDocument = (doc: any) => {
-    const newDoc = {
-      ...doc,
-      id: Math.max(...documents.map(d => d.id)) + 1,
-      title: `${doc.title} (Copy)`,
-      data: {
-        ...doc.data,
-        document_id: `${doc.data.document_id}_COPY`,
-        document_date: new Date().toISOString().split('T')[0]
-      },
-      status: 'created',
-      stage_progress: 10,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      shared_channels: [],
-      otp_verified_at: null,
-      completed_at: null,
-      tracking_history: [
-        {
-          id: 1,
-          action: 'Document Duplicated',
-          timestamp: new Date().toISOString(),
-          user: 'Admin User',
-          details: `Document duplicated from ${doc.data.document_id}`,
-          stage: 'created',
-          icon: 'Copy'
+        if (okIds.length) {
+          const okSnaps = await Promise.all(okIds.map(id => documentStatusAPI.getSnapshot(id)));
+          const byId2 = new Map(okSnaps.filter(Boolean).map(s => [s!.document_id, s!]));
+          setDocuments(prev =>
+            prev.map(doc => {
+              const snap = byId2.get(doc.id);
+              return snap
+                ? {
+                    ...doc,
+                    status: snap.current_status,
+                    stage_progress:
+                      typeof snap.progress_pct === "number" ? snap.progress_pct : doc.stage_progress,
+                    updated_at: snap.updated_at ?? doc.updated_at,
+                  }
+                : doc;
+            })
+          );
         }
-      ]
+
+        const totalOk = already.length + okIds.length;
+        const failCount = ids.length - totalOk;
+
+        if (failCount === 0) {
+          toast.success(`Status updated for all ${ids.length} documents`);
+        } else if (totalOk > 0) {
+          toast.warn(`Partially updated: ${totalOk} succeeded, ${failCount} failed.`);
+        } else {
+          // full failure — rollback UI
+          setDocuments(prevState);
+          toast.error(bulkErr?.message || "Bulk update failed and no fallback updates succeeded.");
+        }
+      }
+    } catch (verifyErr) {
+      // If even verify failed, be safe: rollback & show error
+      console.error("Verification after bulk error failed:", verifyErr);
+      setDocuments(prevState);
+      toast.error(bulkErr?.message || "Bulk update failed.");
+    }
+  } finally {
+    setSelectedDocuments([]);
+    setShowStatusModal(false);
+  }
+};
+  const handleBulkShare = async () => {
+    const selected = documents.filter(d => selectedDocuments.includes(d.id));
+    if (!selected.length) return;
+
+    // For demo: share the same payload to all selected docs.
+    const payload = {
+      channels: ['whatsapp', 'email'],
+      message: 'Please review and sign.',
+      public_link: '',     // if you have per-doc link, compute in loop
+      recipients: [],      // or pass actual recipients
     };
 
-    setDocuments(prev => [...prev, newDoc]);
-    alert('Document duplicated successfully!');
+    // optimistic UI
+    setDocuments(prev => prev.map(d =>
+      selectedDocuments.includes(d.id)
+        ? {
+          ...d,
+          shared_channels: Array.from(new Set([...(d.shared_channels || []), ...payload.channels])),
+          tracking_history: [
+            ...d.tracking_history,
+            {
+              id: d.tracking_history.length + 1,
+              action: `Shared via ${payload.channels.join(', ')}`,
+              timestamp: new Date().toISOString(),
+              user: 'Admin User',
+              details: payload.message || 'Shared',
+              stage: 'shared',
+              icon: 'Send',
+            },
+          ],
+        }
+        : d
+    ));
+
+    // API calls (parallel)
+    const results = await Promise.allSettled(
+      selected.map(d => documentStatusAPI.createShareBatch(d.id, payload))
+    );
+
+    // refresh snapshots for successes
+    const okIds = results
+      .map((r, i) => (r.status === 'fulfilled' ? selected[i].id : null))
+      .filter(Boolean) as number[];
+
+    if (okIds.length) {
+      const snaps = await Promise.all(okIds.map(id => documentStatusAPI.getSnapshot(id)));
+      setDocuments(prev => prev.map(d => {
+        const idx = okIds.indexOf(d.id);
+        if (idx === -1) return d;
+        const s = snaps[idx];
+        return {
+          ...d,
+          status: s?.current_status || 'shared',
+          stage_progress: typeof s?.progress_pct === 'number' ? s.progress_pct : d.stage_progress,
+        };
+      }));
+    }
+
+    setSelectedDocuments([]);
   };
+
+  
+
+ const handleBulkDownload = async () => {
+  const ids = selectedDocuments.length
+    ? selectedDocuments
+    : filteredDocuments.map(d => d.id);
+
+  if (!ids.length) {
+    toast.info("Select at least one document.");
+    return;
+  }
+
+  try {
+    setDownloadingId("bulk");
+    await documentsGeneratedAPI.bulkDownloadZip(ids, {
+      page: "a4",
+      filenamePrefix: "documents",
+    });
+    toast.success(`Downloading ${ids.length} PDFs as ZIP`);
+  } catch (e:any) {
+    console.error(e);
+    toast.error(e?.message || "Bulk download failed");
+  } finally {
+    setDownloadingId(null);
+    setSelectedDocuments([]);
+  }
+};
+
+
+const handleBulkExport = () => {
+  // Prefer selected → else export current filtered view
+  const pool = selectedDocuments.length
+    ? documents.filter(doc => selectedDocuments.includes(doc.id))
+    : filteredDocuments;
+
+  if (!pool.length) {
+    toast.info('Nothing to export.');
+    return;
+  }
+
+  // Columns to export (adjust/order as you like)
+  const headers = [
+    'ID',
+    'Title',
+    'Template',
+    'Seller',
+    'Buyer',
+    'Property Type',
+    'Property Area (sq ft)',
+    'Property Address',
+    'Sale Amount',
+    'Token Amount',
+    'Total Paid',
+    'Outstanding',
+    'Receipt Count',
+    'Last Payment Date',
+    'Next Due Date',
+    'Status',
+    'Progress (%)',
+    'Priority',
+    'Shared Channels',
+    'Assigned To',
+    'Created By',
+    'Created At',
+    'Updated At',
+  ];
+
+  const rows = pool.map(doc => {
+  const st = normalizeStatusKey(doc.status);
+  const channels = (doc.shared_channels || []).join('|');
+
+  return [
+    doc.id,
+    doc.title,
+    doc.template_name,
+    doc.data?.seller_name ?? '',
+    doc.data?.buyer_name ?? '',
+    doc.data?.property_type ?? '',
+    doc.data?.property_area ?? '',
+    doc.data?.property_address ?? '',
+    doc.data?.sale_amount ?? '',
+    doc.data?.token_amount ?? '',
+    doc.data?.total_paid ?? '',
+    doc.data?.outstanding_amount ?? doc.data?.total_due ?? '',
+    doc.data?.receipt_count ?? '',
+    // 👇👇 convert these to IST for Excel
+    toExcelIST(doc.data?.last_payment_date),
+    toExcelIST(doc.data?.next_due_date),
+    st,
+    doc.stage_progress ?? 0,
+    doc.priority ?? '',
+    channels,
+    doc.assigned_to ?? '',
+    doc.created_by ?? '',
+    toExcelIST(doc.created_at),   // 👈 created_at in IST
+    toExcelIST(doc.updated_at),   // 👈 updated_at in IST
+  ]
+  .map(csvEscape)
+  .join(',');
+});
+
+
+  const csv = [headers.map(csvEscape).join(','), ...rows].join('\r\n');
+
+  // Add UTF-8 BOM so Excel parses UTF-8 correctly
+  const BOM = '\uFEFF';
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = toISTFileStamp();
+  const scope = selectedDocuments.length ? `selected_${selectedDocuments.length}` : 'filtered';
+  a.href = url;
+  a.download = `documents_export_${scope}_${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+
+  // Clear selection only if we exported from selection
+  if (selectedDocuments.length) setSelectedDocuments([]);
+
+  toast.success(`Exported ${pool.length} row${pool.length > 1 ? 's' : ''} to CSV`);
+};
+// ✅ drop-in replacement
+const handleDuplicateDocument = async (doc: any) => {
+  try {
+    const source = await documentsGeneratedAPI.getById(doc.id);
+    const sourceContent =
+      source?.content ??
+      source?.templateContent ??
+      source?.template_html ??
+      source?.template_html_snapshot ??
+      null;
+
+    if (!sourceContent) {
+      toast.error("Source document has no content to duplicate.");
+      return;
+    }
+
+    const fallbackCopyCode =
+      doc?.data?.document_id ? `${doc.data.document_id}_COPY` : `DOC_COPY_${Date.now()}`;
+    const nowISO = new Date().toISOString();
+
+const payload: DocumentsGeneratedPayload = {
+  template_id: doc.template_id,
+  name: `${doc.title} (Copy)`,
+  description: doc.description ?? null,
+  category: doc.category ?? null,
+  status: "created",
+  content: String(sourceContent),
+  created_by: user?.id || doc.created_by || null,  // 👈 keep correct creator
+  updated_by: Number(user?.id) || null,                    // 👈 record who duplicated
+  variables: {
+    __cloned_from: doc.id,
+    __source_document_id: doc.data?.document_id,
+    document_id: fallbackCopyCode,
+    // 🔽 preserve full executive info
+    sales_executive: doc.data?.sales_executive,
+    executive_id: doc.data?.executive_id,
+    executive_phone: doc.data?.executive_phone,
+    executive_email: doc.data?.executive_email,
+      executive_name: doc.data?.sales_executive, 
+    // 🔽 preserve seller/buyer
+    seller_name: doc.data?.seller_name,
+    seller_phone: doc.data?.seller_phone,
+    seller_email: doc.data?.seller_email,
+    seller_id: doc.data?.seller_id,
+    buyer_name: doc.data?.buyer_name,
+    buyer_phone: doc.data?.buyer_phone,
+    buyer_email: doc.data?.buyer_email,
+    buyer_id: doc.data?.buyer_id,
+    // 🔽 property data
+    property_address: doc.data?.property_address,
+    property_type: doc.data?.property_type,
+    property_area: doc.data?.property_area,
+    property_ids: doc.data?.property_ids ?? [],
+    property_id: doc.data?.property_id,
+    // 🔽 amounts + misc
+    sale_amount: doc.data?.sale_amount,
+    token_amount: doc.data?.token_amount,
+    booking_amount: doc.data?.booking_amount,
+    document_date: nowISO,
+    notes: doc.data?.notes || "",
+  },
+};
+
+    const created = await documentsGeneratedAPI.create(payload);
+
+    const newId =
+      created?.id ?? created?.document?.id ?? created?.data?.id ?? Date.now();
+    const createdVars =
+      created?.variables || created?.document?.variables || created?.data?.variables;
+
+    let serverDocCode = "";
+    try {
+      const v = typeof createdVars === "string" ? JSON.parse(createdVars) : createdVars;
+      serverDocCode = v?.document_id || "";
+    } catch {}
+
+    const now = nowISO;
+
+    setDocuments(prev => [
+      ...prev,
+      {
+        ...doc,
+        id: newId,
+        title: `${doc.title} (Copy)`,
+           assigned_to: doc.assigned_to || doc.data?.sales_executive || "Unassigned",
+        data: {
+          ...doc.data,
+          document_id: serverDocCode || fallbackCopyCode,
+          document_date: now.split("T")[0],
+        },
+        status: "created",
+        stage_progress: 10,
+        created_at: created?.created_at || now,
+        updated_at: created?.updated_at || now,
+        shared_channels: [],
+        otp_verified_at: null,
+        completed_at: null,
+        tracking_history: [
+          ...(doc.tracking_history || []),
+          {
+            id: (doc.tracking_history?.length || 0) + 1,
+            action: "Document Duplicated",
+            timestamp: now,
+            user: "Admin User",
+            details: `Duplicated from ${doc.data?.document_id}`,
+            stage: "created",
+            icon: "Copy",
+          },
+        ],
+      },
+    ]);
+
+    toast.success("Document duplicated successfully!");
+    await fetchDocuments();
+  } catch (err: any) {
+    console.error(err);
+    toast.error(err?.message || "Duplicate failed");
+  }
+};
+
+
+
 
   const handleArchiveDocument = (doc: any) => {
     setDocuments(prev => prev.map(d =>
@@ -947,18 +1537,21 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
                 >
                   Bulk Download
                 </button>
+               <button
+  onClick={handleBulkExport}
+  disabled={!selectedDocuments.length && !filteredDocuments.length}
+  className="px-2.5 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  Bulk Export
+</button>
+
                 <button
-                  onClick={handleBulkExport}
-                  className="px-2.5 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700"
-                >
-                  Bulk Export
-                </button>
-                <button
-                  onClick={() => setShowStatusModal(true)}
+                  onClick={openStatusModal}
                   className="px-2.5 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700"
                 >
                   Change Status
                 </button>
+
               </div>
             </div>
             <button
@@ -973,225 +1566,225 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
 
 
       {/* Documents Table/Cards */}
-   {/* Documents Table/Cards */}
-{viewMode === 'table' ? (
-  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-    {/* ✅ Horizontal + Vertical scroll */}
-    <div className="overflow-x-auto">
-      <div className="max-h-[500px] overflow-y-auto">
-        <table className="w-full min-w-[900px] border-collapse">
-          <thead className="bg-gray-50 sticky top-0 z-10">
-            <tr>
-              <th className="px-3 py-2 text-left w-8 bg-gray-50">
-                <input
-                  type="checkbox"
-                  checked={
-                    selectedDocuments.length === paginatedDocuments.length &&
-                    paginatedDocuments.length > 0
-                  }
-                  onChange={handleSelectAll}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
-                Document
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
-                Parties
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
-                Property
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
-                Status & Progress
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
-                Timeline
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200 text-xs">
-            {paginatedDocuments.map((doc) => (
-              <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedDocuments.includes(doc.id)}
-                    onChange={() => handleDocumentSelection(doc.id)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center space-x-2">
-                    <div className="p-1.5 bg-blue-100 rounded-lg">
-                      <FileText className="text-blue-600" size={16} />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900 text-xs">
-                        {doc.title}
-                      </div>
-                      <div className="text-gray-500">{doc.template_name}</div>
-                      <div className="text-gray-400">
-                        ID: {doc.data.document_id}
-                      </div>
-                      <div className="text-gray-400">by {doc.created_by}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="space-y-0.5">
-                    <div>
-                      <span className="font-medium text-gray-700">Seller:</span>{" "}
-                      {doc.data.seller_name}
-                    </div>
-                    {doc.data.buyer_name && (
-                      <div>
-                        <span className="font-medium text-gray-700">Buyer:</span>{" "}
-                        {doc.data.buyer_name}
-                      </div>
-                    )}
-                    <div className="text-gray-500">
-                      Assigned to: {doc.assigned_to}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="space-y-0.5">
-                    <div className="font-medium text-gray-900">
-                      {doc.data.property_type}
-                    </div>
-                    <div className="text-gray-600">
-                      {doc.data.property_area} sq ft
-                    </div>
-                    <div className="text-gray-500 line-clamp-2">
-                      {doc.data.property_address}
-                    </div>
-                    {doc.data.sale_amount && (
-                      <div className="font-medium text-green-600">
-                        ₹{(doc.data.sale_amount / 100000).toFixed(1)}L
-                      </div>
-                    )}
-                    {doc.data.token_amount && (
-                      <div className="font-medium text-blue-600">
-                        Token: ₹{(doc.data.token_amount / 100000).toFixed(1)}L
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="space-y-1">
-                    {getStatusBadge(doc.status)}
-                    {getPriorityBadge(doc.priority)}
-                    <div className="space-y-0.5">
-                      <div className="flex justify-between">
-                        <span>Progress</span>
-                        <span>{doc.stage_progress}%</span>
-                      </div>
-                      {getStageProgress(doc.status, doc.stage_progress)}
-                    </div>
-                    {doc.shared_channels.length > 0 && (
-                      <div className="flex items-center space-x-1">
-                        {doc.shared_channels.includes("email") && (
-                          <Mail size={12} className="text-blue-500" />
-                        )}
-                        {doc.shared_channels.includes("whatsapp") && (
-                          <MessageCircle size={12} className="text-green-500" />
-                        )}
-                        {doc.shared_channels.includes("sms") && (
-                          <Phone size={12} className="text-purple-500" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="space-y-0.5 text-gray-500">
-                    <div>Created: {formatTimestamp(doc.created_at)}</div>
-                    <div>Updated: {formatTimestamp(doc.updated_at)}</div>
-                    {doc.otp_verified_at && (
-                      <div className="text-green-600">
-                        OTP: {formatTimestamp(doc.otp_verified_at)}
-                      </div>
-                    )}
-                    {doc.completed_at && (
-                      <div className="text-blue-600">
-                        Done: {formatTimestamp(doc.completed_at)}
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center space-x-1.5">
-                    <button
-                      onClick={() => handleViewDocument(doc)}
-                      className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                      title="View Document"
-                    >
-                      <Eye size={12} />
-                    </button>
-                    <button
-                      onClick={() => handleShareDocument(doc)}
-                      className="p-1.5 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                      title="Share Document"
-                    >
-                      <Share size={12} />
-                    </button>
-                    <button
-                      onClick={() => handleDownloadDocument(doc)}
-                      className="p-1.5 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
-                      title="Download PDF"
-                    >
-                      <Download size={12} />
-                    </button>
-                    <div className="relative group">
-                      <button className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                        <MoreHorizontal size={12} />
-                      </button>
-                      <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                        <div className="p-1">
-                          <button
-                            onClick={() => handleEditDocument(doc)}
-                            className="flex items-center space-x-1.5 px-2 py-1 text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-                          >
-                            <Edit size={11} />
-                            <span>Edit</span>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteDocument(doc)}
-                            className="flex items-center space-x-1.5 px-2 py-1 text-red-600 hover:bg-red-100 rounded w-full text-left"
-                          >
-                            <Trash2 size={11} />
-                            <span>Delete</span>
-                          </button>
-                          <button
-                            onClick={() => handleDuplicateDocument(doc)}
-                            className="flex items-center space-x-1.5 px-2 py-1 text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-                          >
-                            <Copy size={11} />
-                            <span>Duplicate</span>
-                          </button>
-                          <button
-                            onClick={() => handleArchiveDocument(doc)}
-                            className="flex items-center space-x-1.5 px-2 py-1 text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-                          >
-                            <Archive size={11} />
-                            <span>Archive</span>
-                          </button>
+      {/* Documents Table/Cards */}
+      {viewMode === 'table' ? (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          {/* ✅ Horizontal + Vertical scroll */}
+          <div className="overflow-x-auto">
+            <div className="max-h-[500px] overflow-y-auto">
+              <table className="w-full min-w-[900px] border-collapse">
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-3 py-2 text-left w-8 bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedDocuments.length === paginatedDocuments.length &&
+                          paginatedDocuments.length > 0
+                        }
+                        onChange={handleSelectAll}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                      Document
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                      Parties
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                      Property
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                      Status & Progress
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                      Timeline
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200 text-xs">
+                  {paginatedDocuments.map((doc) => (
+                    <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedDocuments.includes(doc.id)}
+                          onChange={() => handleDocumentSelection(doc.id)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-1.5 bg-blue-100 rounded-lg">
+                            <FileText className="text-blue-600" size={16} />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-gray-900 text-xs">
+                              {doc.title}
+                            </div>
+                            <div className="text-gray-500">{doc.template_name}</div>
+                            <div className="text-gray-400">
+                              ID: {doc.data.document_id}
+                            </div>
+                            <div className="text-gray-400">by {doc.created_by}</div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="space-y-0.5">
+                          <div>
+                            <span className="font-medium text-gray-700">Seller:</span>{" "}
+                            {doc.data.seller_name}
+                          </div>
+                          {doc.data.buyer_name && (
+                            <div>
+                              <span className="font-medium text-gray-700">Buyer:</span>{" "}
+                              {doc.data.buyer_name}
+                            </div>
+                          )}
+                          <div className="text-gray-500">
+                            Assigned to: {doc.assigned_to}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="space-y-0.5">
+                          <div className="font-medium text-gray-900">
+                            {doc.data.property_type}
+                          </div>
+                          <div className="text-gray-600">
+                            {doc.data.property_area} sq ft
+                          </div>
+                          <div className="text-gray-500 line-clamp-2">
+                            {doc.data.property_address}
+                          </div>
+                          {doc.data.sale_amount && (
+                            <div className="font-medium text-green-600">
+                              ₹{(doc.data.sale_amount / 100000).toFixed(1)}L
+                            </div>
+                          )}
+                          {doc.data.token_amount && (
+                            <div className="font-medium text-blue-600">
+                              Token: ₹{(doc.data.token_amount / 100000).toFixed(1)}L
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="space-y-1">
+                          {getStatusBadge(doc.status)}
+                          {getPriorityBadge(doc.priority)}
+                          <div className="space-y-0.5">
+                            <div className="flex justify-between">
+                              <span>Progress</span>
+                              <span>{doc.stage_progress}%</span>
+                            </div>
+                            {getStageProgress(doc.status, doc.stage_progress)}
+                          </div>
+                          {doc.shared_channels.length > 0 && (
+                            <div className="flex items-center space-x-1">
+                              {doc.shared_channels.includes("email") && (
+                                <Mail size={12} className="text-blue-500" />
+                              )}
+                              {doc.shared_channels.includes("whatsapp") && (
+                                <MessageCircle size={12} className="text-green-500" />
+                              )}
+                              {doc.shared_channels.includes("sms") && (
+                                <Phone size={12} className="text-purple-500" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="space-y-0.5 text-gray-500">
+                          <div>Created: {formatTimestamp(doc.created_at)}</div>
+                          <div>Updated: {formatTimestamp(doc.updated_at)}</div>
+                          {doc.otp_verified_at && (
+                            <div className="text-green-600">
+                              OTP: {formatTimestamp(doc.otp_verified_at)}
+                            </div>
+                          )}
+                          {doc.completed_at && (
+                            <div className="text-blue-600">
+                              Done: {formatTimestamp(doc.completed_at)}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center space-x-1.5">
+                          <button
+                            onClick={() => handleViewDocument(doc)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                            title="View Document"
+                          >
+                            <Eye size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleShareDocument(doc)}
+                            className="p-1.5 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                            title="Share Document"
+                          >
+                            <Share size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDownloadDocument(doc)}
+                            className="p-1.5 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
+                            title="Download PDF"
+                          >
+                            <Download size={12} />
+                          </button>
+                          <div className="relative group">
+                            <button className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                              <MoreHorizontal size={12} />
+                            </button>
+                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                              <div className="p-1">
+                                <button
+                                  onClick={() => handleEditDocument(doc)}
+                                  className="flex items-center space-x-1.5 px-2 py-1 text-gray-700 hover:bg-gray-100 rounded w-full text-left"
+                                >
+                                  <Edit size={11} />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteDocument(doc)}
+                                  className="flex items-center space-x-1.5 px-2 py-1 text-red-600 hover:bg-red-100 rounded w-full text-left"
+                                >
+                                  <Trash2 size={11} />
+                                  <span>Delete</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDuplicateDocument(doc)}
+                                  className="flex items-center space-x-1.5 px-2 py-1 text-gray-700 hover:bg-gray-100 rounded w-full text-left"
+                                >
+                                  <Copy size={11} />
+                                  <span>Duplicate</span>
+                                </button>
+                                <button
+                                  onClick={() => handleArchiveDocument(doc)}
+                                  className="flex items-center space-x-1.5 px-2 py-1 text-gray-700 hover:bg-gray-100 rounded w-full text-left"
+                                >
+                                  <Archive size={11} />
+                                  <span>Archive</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
 
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1335,8 +1928,11 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
           onClose={() => setShowStatusModal(false)}
           selectedCount={selectedDocuments.length}
           onStatusChange={handleBulkStatusChange}
+          initialStatus={statusModalInit}
+          currentStatuses={statusModalCurrent}
         />
       )}
+
 
       {showViewModal && (
         <DocumentViewModal
@@ -1375,7 +1971,7 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
         />
       )}
 
-      {showShareModal && (
+      {showShareModal && selectedDocument && (
         <DocumentShareModal
           isOpen={showShareModal}
           onClose={() => {
@@ -1383,21 +1979,89 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
             setSelectedDocument(null);
           }}
           document={selectedDocument}
-          onShare={(shareData) => {
-            console.log('Document shared:', shareData);
-            setShowShareModal(false);
-            setSelectedDocument(null);
+          onShare={async (shareData: {
+            channels: string[];
+            message?: string;
+            public_link?: string;
+            recipients?: Array<{
+              recipient_name?: string;
+              recipient_type: 'phone' | 'email';
+              recipient_value: string;
+              role?: 'Seller' | 'Buyer' | 'Custom';
+              channel?: string;
+              status?: 'sent' | 'generated' | 'failed';
+              gateway_ref?: string | null;
+              details?: any | null;
+            }>;
+          }) => {
+            try {
+              // 1) create share batch (DB trigger will set status->shared)
+              await documentStatusAPI.createShareBatch(selectedDocument.id, shareData);
+
+              // 2) fetch fresh snapshot for this doc
+              const snap = await documentStatusAPI.getSnapshot(selectedDocument.id);
+
+              // 3) reflect UI (status + progress + channels icons)
+              setDocuments(prev => prev.map(d =>
+                d.id === selectedDocument.id
+                  ? {
+                    ...d,
+                    status: (snap?.current_status as string) || 'shared',
+                    stage_progress: typeof snap?.progress_pct === 'number' ? snap.progress_pct : d.stage_progress,
+                    shared_channels: Array.from(new Set([...(d.shared_channels || []), ...(shareData.channels || [])])),
+                    tracking_history: [
+                      ...d.tracking_history,
+                      {
+                        id: d.tracking_history.length + 1,
+                        action: `Shared via ${shareData.channels.join(', ')}`,
+                        timestamp: new Date().toISOString(),
+                        user: 'Admin User',
+                        details: shareData.message || 'Shared',
+                        stage: 'shared',
+                        icon: 'Send',
+                      },
+                    ],
+                  }
+                  : d
+              ));
+            } catch (err) {
+              console.error('Share failed:', err);
+              alert('Share failed');
+            } finally {
+              setShowShareModal(false);
+              setSelectedDocument(null);
+            }
           }}
         />
       )}
+
     </div>
   );
 };
 
-// Status Change Modal Component
-const StatusChangeModal = ({ isOpen, onClose, selectedCount, onStatusChange }: any) => {
-  const [newStatus, setNewStatus] = useState('');
+const StatusChangeModal = ({
+  isOpen,
+  onClose,
+  selectedCount,
+  onStatusChange,
+  initialStatus = '',
+  currentStatuses = [],
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedCount: number;
+  onStatusChange: (newStatus: string, reason?: string) => void;
+  initialStatus?: StatusCode | '';
+  currentStatuses?: StatusCode[];
+}) => {
+  const [newStatus, setNewStatus] = useState<string>(initialStatus || '');
   const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    // whenever it opens (or initial changes), preselect
+    setNewStatus(initialStatus || '');
+    setReason('');
+  }, [initialStatus, isOpen]);
 
   if (!isOpen) return null;
 
@@ -1408,29 +2072,39 @@ const StatusChangeModal = ({ isOpen, onClose, selectedCount, onStatusChange }: a
     { value: 'e-sign_pending', label: 'E-Sign Pending', description: 'Awaiting digital signature' },
     { value: 'completed', label: 'Completed', description: 'All processes finished' },
     { value: 'on_hold', label: 'On Hold', description: 'Document processing paused' },
-    { value: 'cancelled', label: 'Cancelled', description: 'Document cancelled' }
+    { value: 'cancelled', label: 'Cancelled', description: 'Document cancelled' },
   ];
 
   const handleSubmit = () => {
-    if (!newStatus) {
-      alert('Please select a status');
-      return;
-    }
-
-    if (!reason.trim()) {
-      alert('Please provide a reason for status change');
-      return;
-    }
-
-    onStatusChange(newStatus);
+    if (!newStatus) return alert('Please select a status');
+    if (!reason.trim()) return alert('Please provide a reason for status change');
+    onStatusChange(newStatus, reason);
     setNewStatus('');
     setReason('');
   };
 
+  const currentBadge = (() => {
+    if (!currentStatuses?.length) return null;
+    const allSame = currentStatuses.every(s => s === currentStatuses[0]);
+    return (
+      <div className="mt-2 text-xs text-gray-600">
+        {allSame ? (
+          <>Current status: <span className="font-medium">{currentStatuses[0]}</span></>
+        ) : (
+          <>Current statuses: <span className="font-medium">{Array.from(new Set(currentStatuses)).join(', ')}</span></>
+        )}
+      </div>
+    );
+  })();
+
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
-        <div className="p-6 border-b border-gray-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 !mt-0">
+      {/* modal */}
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl
+                      max-h-[85vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+        {/* header (fixed) */}
+        <div className="p-6 border-b border-gray-200 shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-xl font-bold text-gray-900">Change Document Status</h3>
@@ -1445,7 +2119,8 @@ const StatusChangeModal = ({ isOpen, onClose, selectedCount, onStatusChange }: a
           </div>
         </div>
 
-        <div className="p-6">
+        {/* content (scrollable) */}
+        <div className="p-6 flex-1 overflow-y-auto">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1453,7 +2128,10 @@ const StatusChangeModal = ({ isOpen, onClose, selectedCount, onStatusChange }: a
               </label>
               <div className="space-y-2">
                 {statusOptions.map((status) => (
-                  <label key={status.value} className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <label
+                    key={status.value}
+                    className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  >
                     <input
                       type="radio"
                       name="status"
@@ -1487,7 +2165,8 @@ const StatusChangeModal = ({ isOpen, onClose, selectedCount, onStatusChange }: a
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200 bg-gray-50">
+        {/* footer (fixed) */}
+        <div className="p-6 border-t border-gray-200 bg-gray-50 shrink-0">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500">
               This will update {selectedCount} documents
@@ -1514,4 +2193,9 @@ const StatusChangeModal = ({ isOpen, onClose, selectedCount, onStatusChange }: a
   );
 };
 
+
 export default TrackingTab;
+
+
+
+

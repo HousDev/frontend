@@ -473,8 +473,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       }
 
       const qs = searchParams.toString();
-      const finalURL = `/properties${qs ? `?${qs}` : ''}`;
-      navigate(finalURL);
+     
+    navigate(`/properties${qs ? `?${qs}` : ''}`, { replace: true });
+
 
     } catch (error) {
       console.error('Error fetching properties from city/location API:', error);
@@ -588,8 +589,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         )}
 
         <div className="relative z-10 min-h-screen flex items-center justify-center">
-          <div className="w-full max-w-7xl mx-auto">
-            <div className="text-center px-2">
+          <div className="w-full max-w-4xl mx-auto">
+            <div className="text-center px-4">
               <h1 className="text-3xl font-bold mb-2 ">
                 {/* Find Your <span className="block bg-clip-text text-[#E6761D]">Dream Property</span> */}
 
@@ -597,15 +598,19 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               </h1>
               <p className="text-blue-100 mb-6">Browse verified resale flats, apartments, and commercial properties. Trusted by homeowners and buyers for transparent, hassle-free transactions.</p>
 
-              {/* Row: Buy/Rent + PropertyType */}
-              <div className="flex flex-col items-center gap-3 mb-6 md:flex-row md:justify-center">
-                {/* Buy/Rent */}
-                <div className="flex gap-2">
+              {/* Row: Buy/Rent + PropertyType (responsive, no gradient edges) */}
+              <div className="grid grid-cols-1  gap-1 md:gap-2 mb-4 items-center justify-center text-center">
+                {/* Buy / Rent */}
+                <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
                   <button
                     type="button"
                     onClick={() => setTransactionType("buy")}
-                    className={`px-4 py-1 rounded-full ${transactionType === "buy" ? "bg-[#E6761D] text-white" : "bg-gray-100 text-gray-700"
+                    className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+        ${transactionType === "buy"
+                        ? "bg-[#E6761D] text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
+                    aria-pressed={transactionType === "buy"}
                   >
                     Buy
                   </button>
@@ -613,47 +618,78 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   <button
                     type="button"
                     onClick={() => setTransactionType("rent")}
-                    className={`px-4 py-1 rounded-full ${transactionType === "rent" ? "bg-gray-300 text-gray-600" : "bg-gray-100 text-gray-700"
-                      }`}
+                    className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+        ${transactionType === "rent"
+                        ? "bg-gray-300 text-gray-600"
+                        : "bg-gray-100 text-gray-700"
+                      } opacity-60 cursor-not-allowed`}
                     title="Rent search not available yet"
+                    disabled
+                    aria-disabled="true"
+                    aria-pressed={transactionType === "rent"}
                   >
                     Rent
                   </button>
                 </div>
 
-                {/* property-type buttons group */}
-                <div className="flex items-center justify-center w-full md:w-auto overflow-x-auto">
+                {/* Property-type chips */}
+                <div className="w-full grid justify-center md:w-auto">
                   {masterLoading ? (
                     <div className="text-sm text-white/80 px-3 py-1">Loading types...</div>
                   ) : (
-                    <div className="flex gap-2 py-1">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPropertyType("")}
-                        aria-pressed={selectedPropertyType === ""}
-                        className={`px-3 py-1 rounded-full ${selectedPropertyType === "" ? "bg-white text-black" : "bg-white/30 text-white"
-                          }`}
-                      >
-                        All
-                      </button>
-
-                      {propertyTypeOptions.map((opt) => (
+                    <div
+                      className="
+          mx-auto max-w-full
+          overflow-x-auto
+          [-webkit-overflow-scrolling:touch]
+          [scrollbar-width:none]
+          [-ms-overflow-style:none]
+          px-1
+        "
+                      style={{ scrollbarWidth: "none" }}
+                    >
+                      <div className="flex gap-2 py-1 snap-x snap-mandatory">
                         <button
-                          key={opt.value}
                           type="button"
-                          onClick={() => setSelectedPropertyType(opt.value)}
-                          aria-pressed={selectedPropertyType === opt.value}
-                          className={`whitespace-nowrap px-3 py-1 rounded-full ${selectedPropertyType === opt.value ? "bg-white text-black" : "bg-white/20 text-white"
+                          onClick={() => setSelectedPropertyType("")}
+                          aria-pressed={selectedPropertyType === ""}
+                          className={`
+              shrink-0 snap-start whitespace-nowrap
+              px-3 sm:px-4 py-1.5 rounded-full text-sm
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+              ${selectedPropertyType === ""
+                              ? "bg-white text-black"
+                              : "bg-white/30 text-white hover:bg-white/40"
                             }`}
-                          title={opt.label}
                         >
-                          {opt.label}
+                          All
                         </button>
-                      ))}
+
+                        {propertyTypeOptions.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setSelectedPropertyType(opt.value)}
+                            aria-pressed={selectedPropertyType === opt.value}
+                            title={opt.label}
+                            className={`
+                shrink-0 snap-start whitespace-nowrap
+                px-3 sm:px-4 py-1.5 rounded-full text-sm
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+                ${selectedPropertyType === opt.value
+                                ? "bg-white text-black"
+                                : "bg-white/20 text-white hover:bg-white/30"
+                              }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
+
 
               {/* FORM */}
               <form
@@ -748,7 +784,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                       </button>
                     </div>
                   ))}
-                  {localities.length === 0 && <div className="text-xs text-gray-100">Add up to 5 localities.</div>}
+                  {localities.length === 0 && <div className="text-xs text-gray-100">Add up to 1 localities.</div>}
                 </div>
               </form>
             </div>
