@@ -196,6 +196,7 @@ export const VAR_MAP: Record<string, string> = {
   validity_period: 'validity_period',
   agreement_date: 'agreement_date',
   possession_date: 'possession_date',
+  
 
   /* ================================= DOCUMENT META ================================= */
   title: 'title',

@@ -16,6 +16,42 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import { toast } from 'react-toastify';
 
+
+// UI value for <input type="datetime-local"> => "YYYY-MM-DDTHH:MM"
+const toLocalDatetimeInput = (v: any): string => {
+  if (!v) return '';
+  const s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${day}T${hh}:${mm}`;
+};
+
+// Convert "YYYY-MM-DDTHH:MM" -> "YYYY-MM-DD HH:MM:SS" (MySQL DATETIME)
+const localInputToMySQL = (s: string): string | null => {
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) {
+    const [date, time] = s.split('T');
+    return `${date} ${time}:00`;
+  }
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
+};
+
+
+
 // ---- types kept compatible with your InvoiceFormModal ----
 type PropertyMini = {
   id: string | number;
@@ -49,6 +85,29 @@ type Buyer = {
   phone?: string;
   email?: string;
 };
+// --- Add to FinancialDocument
+interface FinancialDocument {
+  // ...
+  seller_id?: string | number;
+  buyer_id?: string | number;
+  property_id?: string | number;
+  // 🔽 add these
+  seller_phone?: string;
+  seller_email?: string;
+  buyer_phone?: string;
+  buyer_email?: string;
+
+  transaction_details?: {
+    payment_method?: string;
+    buyer_bank_name?: string;
+    seller_bank_name?: string;
+    [k: string]: any;
+  };
+  created_at?: string;
+  updated_at?: string;
+}
+
+
 
 const PropertyReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }: any) => {
 
@@ -119,8 +178,9 @@ const PropertyReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }
       payment_type: receipt.payment_type || prev.payment_type || '',
       amount: Number(receipt.amount) || prev.amount,
       amount_in_words: receipt.amount_in_words || prev.amount_in_words,
-      receipt_date: receipt.receipt_date || prev.receipt_date,
-      payment_date: receipt.payment_date || prev.payment_date,
+      receipt_date:toLocalDatetimeInput(receipt.receipt_date) || prev.receipt_date,
+      payment_date: toLocalDatetimeInput(receipt.payment_date) || prev.payment_date,
+
       payment_reference: receipt.payment_reference || prev.payment_reference,
       transaction_details: {
         payment_method: receipt.transaction_details?.payment_method || prev.transaction_details.payment_method || '',
@@ -188,11 +248,11 @@ const PropertyReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }
     brokerage_percentage: 0, // unused
 
     payment_type: '',
-    
+
     amount: 0,
     amount_in_words: '',
-    receipt_date: new Date().toISOString().split('T')[0],
-    payment_date: new Date().toISOString().split('T')[0],
+   receipt_date: toLocalDatetimeInput(new Date()),
+payment_date: toLocalDatetimeInput(new Date()),
     payment_reference: '',
 
     transaction_details: {
@@ -329,11 +389,11 @@ const PropertyReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }
 
         // keep FROM receipt if present; otherwise remain blank (NO defaulting)
         payment_type: receipt.payment_type || prev.payment_type || '',
-      
+
         amount: Number(receipt.amount) || prev.amount,
         amount_in_words: receipt.amount_in_words || prev.amount_in_words,
-        receipt_date: receipt.receipt_date || prev.receipt_date,
-        payment_date: receipt.payment_date || prev.payment_date,
+       receipt_date: toLocalDatetimeInput(receipt.receipt_date) || prev.receipt_date,
+payment_date: toLocalDatetimeInput(receipt.payment_date) || prev.payment_date,
         payment_reference: receipt.payment_reference || prev.payment_reference,
 
         transaction_details: {
@@ -519,7 +579,7 @@ const PropertyReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }
         type: 'property_payment_receipt',
         status: 'paid',
         payment_status: 'paid',
-       
+
 
         // ids + visible data (JSON friendly)
         receipt_id: formData.receipt_id,
@@ -545,8 +605,9 @@ const PropertyReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }
         payment_type: formData.payment_type,
         amount: Number(formData.amount) || 0,
         amount_in_words: formData.amount_in_words,
-        receipt_date: formData.receipt_date,
-        payment_date: formData.payment_date,
+        receipt_date: localInputToMySQL(formData.receipt_date),
+payment_date: localInputToMySQL(formData.payment_date),
+
         payment_reference: formData.payment_reference,
 
         // txn json
@@ -568,14 +629,15 @@ const PropertyReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }
             type: 'credit',
             amount: Number(formData.amount) || 0,
             description: 'Property payment received',
-            date: formData.payment_date,
+             date: localInputToMySQL(formData.payment_date) || formData.payment_date,
             balance: Number(formData.amount) || 0
           }
         ]
       };
 
       await onSave(receiptData);
-      console.log("form data", receiptData)
+     
+
     } catch (error) {
       console.error('Error saving receipt:', error);
     } finally {
@@ -600,7 +662,7 @@ const PropertyReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }
                 <h2 className="text-2xl font-bold text-gray-900">
                   {receipt ? 'Edit Property Payment Receipt' : 'Create Property Payment Receipt'}
                 </h2>
-                <p className="text-gray-600 mt-1">Payment acknowledgment with transaction details</p>
+                <p className="text-gray-600 mt-1">Property Payment acknowledgment with transaction details</p>
               </div>
             </div>
             <button
@@ -653,7 +715,7 @@ const PropertyReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Receipt Date</label>
                       <input
-                        type="date"
+                       type="datetime-local"
                         value={formData.receipt_date}
                         onChange={(e) => handleInputChange('receipt_date', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -662,7 +724,7 @@ const PropertyReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
                       <input
-                        type="date"
+                        type="datetime-local"
                         value={formData.payment_date}
                         onChange={(e) => handleInputChange('payment_date', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

@@ -67,38 +67,110 @@ import { propertyPaymentReceiptAPI } from '@/lib/propertyPaymentReceiptAPI';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 
+// Force any date into YYYY-MM-DD for <input type="date">
+
+// ✅ NEW: pretty date-time for table (e.g., "08 Oct 2025, 3:45 PM")
+const formatDisplayDateTime = (v: any): string => {
+  if (!v) return '';
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+// (optional) date-only pretty (you already had formatDisplayDate)
+const formatDisplayDate = (v: any): string => {
+  if (!v) return '';
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+};
 
 
 type FD = FinancialDocument;
+const safeJSON = (v: any, fallback: any = {}) => {
+  if (!v) return fallback;
+  if (typeof v === 'object') return v;
+  try { return JSON.parse(String(v)); } catch { return fallback; }
+};
 
-const mapRowToFD = (row: any): FD => ({
-  id: row.id,
-  type: 'property_payment_receipt',
-  client_name: row.buyer_name || row.seller_name || '—',
-  client_phone: row.buyer_phone || row.seller_phone || '',
-  client_email: row.buyer_email || row.seller_email || '',
-  receipt_id: row.receipt_id,
-  seller_name: row.seller_name,
-  buyer_name: row.buyer_name,
-  property_address: row.property_address,
-  property_details: row.property_details || {},
-  deal_value: row.deal_value ?? undefined,
-  payment_type: row.payment_type,
-  amount: row.amount ?? 0,
-  amount_in_words: row.amount_in_words,
-  receipt_date: row.receipt_date || undefined,
-  payment_date: row.payment_date || undefined,
-  payment_reference: row.payment_reference,
-  status: row.status,
-  payment_status: row.payment_status,
-  notes: row.notes,
-  ledger_entries: row.ledger_entries || [],
-  related_party: row.related_party,
-  created_by: String(row.created_by ?? ''),
-  created_by_name: row.created_by_name || '',
-  updated_by: String(row.updated_by ?? ''),
-  updated_by_name: row.updated_by_name || '',
-});
+const mapRowToFD = (row: any): FD => {
+  const property_details = safeJSON(row.property_details, row.property_details || {});
+  const txn = safeJSON(row.transaction_details, row.transaction_details || {});
+  const payment_method = row.payment_method || txn.payment_method || '';
+
+  return {
+    id: Number(row.id),
+    type: 'property_payment_receipt',
+
+    // keep both derived client fields and raw ids
+    client_name: row.buyer_name || row.seller_name || '—',
+    client_phone: row.buyer_phone || row.seller_phone || '',
+    client_email: row.buyer_email || row.seller_email || '',
+
+    // 🔑 these were missing
+    seller_id: row.seller_id,
+    buyer_id: row.buyer_id,
+    property_id: row.property_id,
+
+    receipt_id: row.receipt_id,
+    seller_name: row.seller_name,
+    buyer_name: row.buyer_name,
+
+    seller_phone: row.seller_phone,
+    seller_email: row.seller_email,
+    buyer_phone: row.buyer_phone,
+    buyer_email: row.buyer_email,
+
+    property_address: row.property_address,
+    property_details,
+
+    deal_value: row.deal_value ?? undefined,
+    payment_type: row.payment_type,
+
+    amount: Number(row.amount ?? 0),
+    amount_in_words: row.amount_in_words,
+
+    receipt_date: (row.receipt_date) || undefined,
+    payment_date: (row.payment_date) || undefined,
+
+    payment_reference: row.payment_reference,
+    payment_method, // keep top-level for UI badges
+
+    status: row.status,
+    payment_status: row.payment_status,
+
+    // keep txn json so modal can prefill method/banks
+    transaction_details: {
+      ...txn,
+      payment_method,
+    },
+
+    notes: row.notes,
+    ledger_entries: safeJSON(row.ledger_entries, row.ledger_entries || []),
+
+    related_party: row.related_party,
+
+    created_by: String(row.created_by ?? ''),
+    created_by_name: row.created_by_name || '',
+    updated_by: String(row.updated_by ?? ''),
+    updated_by_name: row.updated_by_name || '',
+
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+};
+
 
 
 
@@ -158,9 +230,9 @@ interface FinancialDocument {
   payment_method?: string;
   payment_reference?: string;
   created_by?: string;
-  created_by_name?: string;    
-  updated_by?:string;
-  updated_by_name?:string;
+  created_by_name?: string;
+  updated_by?: string;
+  updated_by_name?: string;
   approved_by?: string | null;
   requires_approval?: boolean;
   shared_channels?: string[];
@@ -198,35 +270,30 @@ const AccountsPage: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [receiptsBootstrapped, setReceiptsBootstrapped] = useState(false); // to avoid re-adding
   // ✅ NEW
-  const loadAllPropertyReceipts = useCallback(async () => {
-    try {
-      setLoadingReceipts(true);
-      setLoadError(null);
+ // 👇 yeh function pehle se hai; hum isko reuse karenge
+const loadAllPropertyReceipts = useCallback(async () => {
+  try {
+    setLoadingReceipts(true);
+    setLoadError(null);
+    const res = await propertyPaymentReceiptAPI.getAll();
+    const rows: any[] = res?.items ?? res?.data?.items ?? [];
+    const mapped: FD[] = rows.map(mapRowToFD);
 
-      const res = await propertyPaymentReceiptAPI.getAll();
-      // ✅ your backend returns { items: [...] }
-      const rows: any[] = res?.items ?? res?.data?.items ?? [];
-console.log("first",res)
-      const mapped: FD[] = rows.map(mapRowToFD);
+    setDocuments(prev => {
+      const others = prev.filter(d => d.type !== 'property_payment_receipt');
+      return [...mapped, ...others];
+    });
 
-      // merge strategy:
-      // - remove any existing property_payment_receipt docs
-      // - prepend the freshly fetched ones
-      setDocuments(prev => {
-        const others = prev.filter(d => d.type !== 'property_payment_receipt');
-        return [...mapped, ...others];
-      });
+    setReceiptsBootstrapped(true);
+  } catch (err: any) {
+    console.error("loadAllPropertyReceipts", err);
+    setLoadError(err?.message || "Failed to load receipts");
+    toast.error("Failed to load property receipts");
+  } finally {
+    setLoadingReceipts(false);
+  }
+}, []);
 
-      setReceiptsBootstrapped(true);
-      toast.success(`Loaded ${mapped.length} receipts`);
-    } catch (err: any) {
-      console.error("loadAllPropertyReceipts", err);
-      setLoadError(err?.message || "Failed to load receipts");
-      toast.error("Failed to load property receipts");
-    } finally {
-      setLoadingReceipts(false);
-    }
-  }, []);
 
   // ✅ NEW
   useEffect(() => {
@@ -238,7 +305,7 @@ console.log("first",res)
     try {
       const res = await propertyPaymentReceiptAPI.getById(id);
       const row = res?.data?.item ?? res?.item ?? res?.data ?? res;
-      return mapRowToFD(row);
+      return mapRowToFD(row); // now preserves ids + txn json
     } catch (err) {
       console.error("fetchReceiptById", err);
       toast.error("Could not fetch latest receipt");
@@ -571,128 +638,125 @@ console.log("first",res)
     link.remove();
   };
 
-  const handleSaveDocument = async (data: Partial<FinancialDocument>) => {
-    try {
-      // Property Payment Receipt
-      if (data.type === 'property_payment_receipt') {
-        // UPDATE
-        if (editingItem?.type === 'property_payment_receipt' && editingItem.id) {
-          const res = await propertyPaymentReceiptAPI.update(editingItem.id, {
-            type: 'property_payment_receipt',
-            status: data.status ?? 'paid',
-            payment_status: data.payment_status ?? 'paid',
-            related_party: data.related_party,
+const handleSaveDocument = async (data: Partial<FinancialDocument>) => {
+  try {
+    if (data.type === 'property_payment_receipt') {
+      // UPDATE
+      if (editingItem?.type === 'property_payment_receipt' && editingItem.id) {
+        await propertyPaymentReceiptAPI.update(editingItem.id, {
+          type: 'property_payment_receipt',
+          status: data.status ?? 'paid',
+          payment_status: data.payment_status ?? 'paid',
+          related_party: data.related_party,
 
-            // parties
-            seller_id: data.seller_id,
-            seller_name: data.seller_name,
-            seller_phone: data.seller_phone,
-            seller_email: data.seller_email,
-            buyer_id: data.buyer_id,
-            buyer_name: data.buyer_name,
-            buyer_phone: data.buyer_phone,
-            buyer_email: data.buyer_email,
+          // parties
+          seller_id: data.seller_id,
+          seller_name: data.seller_name,
+          seller_phone: data.seller_phone,
+          seller_email: data.seller_email,
+          buyer_id: data.buyer_id,
+          buyer_name: data.buyer_name,
+          buyer_phone: data.buyer_phone,
+          buyer_email: data.buyer_email,
 
-            // property
-            property_id: data.property_id,
-            property_address: data.property_address,
-            property_details: data.property_details,
+          // property
+          property_id: data.property_id,
+          property_address: data.property_address,
+          property_details: data.property_details,
 
-            // money + dates
-            deal_value: data.deal_value,
-            payment_type: data.payment_type,
-            amount: data.amount,
-            amount_in_words: data.amount_in_words,
-            receipt_date: data.receipt_date,
-            payment_date: data.payment_date,
-            payment_reference: data.payment_reference,
-            payment_method:data.payment_method,
+          // money + dates
+          deal_value: data.deal_value,
+          payment_type: data.payment_type,
+          amount: data.amount,
+          amount_in_words: data.amount_in_words,
+          receipt_date: data.receipt_date,
+          payment_date: data.payment_date,
+          payment_reference: data.payment_reference,
+          payment_method: data.payment_method,
 
-            // misc
-            transaction_details: (data as any).transaction_details,
-            notes: data.notes,
-            ledger_entries: data.ledger_entries,
-          });
+          // misc
+          transaction_details: (data as any).transaction_details,
+          notes: data.notes,
+          ledger_entries: data.ledger_entries,
+        });
 
-          const row = res.data || res;
-          const updated: FD = mapRowToFD(row); // ✅ mapper ensures client_name
-          setDocuments(prev => prev.map(d => (d.id === editingItem.id ? updated : d)));
-          toast.success("updated ")
-        } else {
-          // CREATE
-          const res = await propertyPaymentReceiptAPI.create({
-            type: 'property_payment_receipt',
-            status: 'paid',
-            payment_status: 'paid',
-            related_party: data.related_party,
+        toast.success('Receipt Updated');
 
-            // parties
-            seller_id: data.seller_id,
-            seller_name: data.seller_name,
-            seller_phone: data.seller_phone,
-            seller_email: data.seller_email,
-            buyer_id: data.buyer_id,
-            buyer_name: data.buyer_name,
-            buyer_phone: data.buyer_phone,
-            buyer_email: data.buyer_email,
-
-            // property
-            property_id: data.property_id,
-            property_address: data.property_address,
-            property_details: data.property_details,
-
-            // money + dates
-            deal_value: data.deal_value,
-            payment_type: data.payment_type,
-            amount: data.amount,
-            amount_in_words: data.amount_in_words,
-            receipt_date: data.receipt_date,
-            payment_date: data.payment_date,
-            payment_reference: data.payment_reference,
-
-            // misc
-            transaction_details: (data as any).transaction_details,
-            notes: data.notes,
-            ledger_entries: data.ledger_entries,
-            created_by: data.created_by,
-            updated_by: data.updated_by,
-          });
-
-          const row = res.data || res;
-          const created: FD = mapRowToFD(row); // ✅ mapper ensures client_name
-          setDocuments(prev => [created, ...prev]);
-        }
+        // 🔁 server se latest list laao (IDs/timestamps accurate)
+        await loadAllPropertyReceipts();
 
       } else {
-        // बाकी doc types (existing local flow)
-        if (editingItem) {
-          // ensure client_name exist for safety (derive from buyer/seller if missing)
-          const safe: any = {
-            ...editingItem,
-            ...data,
-          };
-          if (!safe.client_name) {
-            safe.client_name = data.buyer_name || data.seller_name || editingItem.client_name || '—';
-          }
-          setDocuments(prev => prev.map(doc => (doc.id === editingItem.id ? (safe as FinancialDocument) : doc)));
-        } else {
-          const maxId = documents.length ? Math.max(...documents.map(d => d.id)) : 0;
-          const safe: any = { ...data, id: maxId + 1 };
-          if (!safe.client_name) {
-            safe.client_name = data?.buyer_name || data?.seller_name || '—';
-          }
-          setDocuments(prev => [safe as FinancialDocument, ...prev]);
-        }
+        // CREATE
+        await propertyPaymentReceiptAPI.create({
+          type: 'property_payment_receipt',
+          status: 'paid',
+          payment_status: 'paid',
+          related_party: data.related_party,
+
+          // parties
+          seller_id: data.seller_id,
+          seller_name: data.seller_name,
+          seller_phone: data.seller_phone,
+          seller_email: data.seller_email,
+          buyer_id: data.buyer_id,
+          buyer_name: data.buyer_name,
+          buyer_phone: data.buyer_phone,
+          buyer_email: data.buyer_email,
+
+          // property
+          property_id: data.property_id,
+          property_address: data.property_address,
+          property_details: data.property_details,
+
+          // money + dates
+          deal_value: data.deal_value,
+          payment_type: data.payment_type,
+          amount: data.amount,
+          amount_in_words: data.amount_in_words,
+          receipt_date: data.receipt_date,
+          payment_date: data.payment_date,
+          payment_reference: data.payment_reference,
+
+          // misc
+          transaction_details: (data as any).transaction_details,
+          notes: data.notes,
+          ledger_entries: data.ledger_entries,
+          created_by: data.created_by,
+          updated_by: data.updated_by,
+        });
+
+        toast.success('Receipt Created');
+
+        // 🔁 turant fresh list fetch
+        await loadAllPropertyReceipts();
       }
-    } catch (e) {
-      console.error('Save error', e);
-    } finally {
-      setShowInvoiceForm(false);
-      setShowReceiptForm(false);
-      setShowPropertyForm(false);
-      setEditingItem(null);
+
+    } else {
+      // बाकी doc types ka existing local flow
+      if (editingItem) {
+        const safe: any = { ...editingItem, ...data };
+        if (!safe.client_name) {
+          safe.client_name = data.buyer_name || data.seller_name || editingItem.client_name || '—';
+        }
+        setDocuments(prev => prev.map(doc => (doc.id === editingItem.id ? (safe as FinancialDocument) : doc)));
+      } else {
+        const maxId = documents.length ? Math.max(...documents.map(d => d.id)) : 0;
+        const safe: any = { ...data, id: maxId + 1 };
+        if (!safe.client_name) safe.client_name = data?.buyer_name || data?.seller_name || '—';
+        setDocuments(prev => [safe as FinancialDocument, ...prev]);
+      }
     }
-  };
+  } catch (e) {
+    console.error('Save error', e);
+    toast.error('Failed to save document');
+  } finally {
+    setShowInvoiceForm(false);
+    setShowReceiptForm(false);
+    setShowPropertyForm(false);
+    setEditingItem(null);
+  }
+};
+
 
 
 
@@ -1000,8 +1064,15 @@ console.log("first",res)
                         <div>
                           <div className="font-semibold text-gray-900">{doc.invoice_id ?? doc.receipt_id}</div>
                           <div className="text-sm text-gray-600">{typeInfo.label}</div>
-                          <div className="text-xs text-gray-500">Created: {doc.date ?? doc.receipt_date}</div>
-                          {doc.payment_date && <div className="text-xs text-green-600">Paid: {doc.payment_date}</div>}
+                          <div className="text-xs text-gray-500">
+                            Created: {formatDisplayDateTime(doc.date ?? doc.receipt_date)}
+                          </div>
+                          {doc.payment_date && (
+                            <div className="text-xs text-green-600">
+                              Paid: {formatDisplayDateTime(doc.payment_date)}
+                            </div>
+                          )}
+
                         </div>
                       </div>
                     </td>
@@ -1036,7 +1107,12 @@ console.log("first",res)
                         )}
                         <div className="font-bold text-lg text-gray-900">₹{(doc.total_amount ?? doc.amount ?? 0).toLocaleString('en-IN')}</div>
                         <div className="text-xs text-gray-500">{doc.amount_in_words}</div>
-                        {doc.payment_method && <div className="text-xs text-blue-600">via {doc.payment_method}</div>}
+                       {doc.payment_method && (
+  <div className="text-xs text-blue-600">
+    via {doc.payment_method}{doc.payment_date ? ` • ${formatDisplayDateTime(doc.payment_date)}` : ''}
+  </div>
+)}
+
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -1239,6 +1315,7 @@ console.log("first",res)
           userRole={userRole}          // pass through if needed
         />
       )}
+
 
       {showLedgerModal && selectedItem && (
         <LedgerModal

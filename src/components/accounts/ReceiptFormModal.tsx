@@ -257,7 +257,7 @@ const ReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }: any) =
                 <h2 className="text-2xl font-bold text-gray-900">
                   {receipt ? 'Edit Receipt' : 'Create Receipt'}
                 </h2>
-                <p className="text-gray-600 mt-1">Payment acknowledgment with transaction details</p>
+                <p className="text-gray-600 mt-1">Brokerage Payment Receipt  acknowledgment with transaction details</p>
               </div>
             </div>
             <button
@@ -271,45 +271,7 @@ const ReceiptFormModal = ({ isOpen, onClose, receipt, onSave, userRole }: any) =
 
         <div className="p-6 max-h-[75vh] overflow-y-auto">
           {/* Receipt Type Selection */}
-          {!receipt && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Receipt Type</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button
-                  onClick={() => handleReceiptTypeChange('brokerage_receipt')}
-                  className={`p-4 border-2 rounded-xl transition-all ${
-                    receiptType === 'brokerage_receipt'
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Receipt className="text-green-600" size={24} />
-                    <div className="text-left">
-                      <div className="font-semibold text-gray-900">Brokerage Receipt</div>
-                      <div className="text-sm text-gray-600">Commission payment received</div>
-                    </div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleReceiptTypeChange('property_payment_receipt')}
-                  className={`p-4 border-2 rounded-xl transition-all ${
-                    receiptType === 'property_payment_receipt'
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <CreditCard className="text-orange-600" size={24} />
-                    <div className="text-left">
-                      <div className="font-semibold text-gray-900">Property Payment Receipt</div>
-                      <div className="text-sm text-gray-600">Property transaction payment</div>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </div>
-          )}
+        
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Left Column */}
