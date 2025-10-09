@@ -479,6 +479,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     } catch { }
   }, [property]);
 
+
+  const getMonthName = (value?: string | number | null) => {
+    if (!value) return "";
+    const month = typeof value === "string" ? parseInt(value) : value;
+    if (isNaN(month) || month < 1 || month > 12) return "";
+    return new Date(0, month - 1).toLocaleString("en", { month: "long" });
+  };
+
   const toggleLiked = (e?: React.MouseEvent) => {
     if (e) { e.stopPropagation(); e.preventDefault(); }
     if (!property) return;
@@ -679,7 +687,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 {/* Like */}
                 <button
                   onClick={toggleLiked}
-                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
+                  className="p-2 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/60"
                   aria-label={liked ? 'Remove from shortlist' : 'Add to shortlist'}
                 >
                   <Heart
@@ -694,7 +702,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 {/* Share */}
                 <button
                   onClick={() => setOpen(true)}
-                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
+                  className="p-2 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/60"
                   aria-label="Share property"
                 >
                   <Share className="w-5 h-5 text-gray-700" />
@@ -702,7 +710,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
                 {/* Bookmark */}
                 <button
-                  className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
+                  className="p-2 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/60"
                   aria-label="Bookmark property"
                 >
                   <Bookmark className="w-5 h-5 text-gray-700" />
@@ -743,7 +751,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                    bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-3 rounded-full z-20 
                     transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                   >
-                    <ChevronLeft size={18} />
+                    <ChevronLeft size={12} />
                   </button>
                   <button
                     onClick={() => setCurrentImageIndex((p) => (p + 1) % images.length)}
@@ -751,13 +759,13 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                    bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-3 rounded-full z-20 
                     transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                   >
-                    <ChevronRight size={18} />
+                    <ChevronRight size={12} />
                   </button>
                 </>
               )}
 
               {/* Image Counter */}
-              <div className="absolute bottom-4 right-4 z-20 bg-gradient-to-r from-slate-900/70 to-black/60 backdrop-blur-md text-white px-3.5 py-1.5 rounded-full text-sm font-semibold shadow-lg ring-1 ring-white/20">
+              <div className="absolute bottom-4 right-4 z-20 bg-gradient-to-r from-slate-900/70 to-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs shadow-lg ring-1 ring-white/20">
                 {currentImageIndex + 1} / {images.length}
               </div>
 
@@ -784,9 +792,9 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     setPhotoGalleryStartIndex(currentImageIndex);
                     setShowPhotoGallery(true);
                   }}
-                  className="bg-white/95 backdrop-blur-md text-gray-900 px-2.5 py-1.5 rounded-xl flex items-center gap-2 hover:bg-white hover:scale-105 transition-all duration-200 text-sm font-semibold shadow-xl border border-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
+                  className="bg-white/95 backdrop-blur-md text-gray-900 px-1 py-1 rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-xs font-semibold shadow-xl border border-white/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/60"
                 >
-                  <Camera size={18} />
+                  <Camera size={12} />
                   <span>Photos</span>
                 </button>
                 {showPhotoGallery && (
@@ -798,8 +806,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   />
 
                 )}
-                <button className="bg-white/95 backdrop-blur-md text-gray-900 px-2.5 py-1.5 rounded-xl flex items-center gap-2 hover:bg-white hover:scale-105 transition-all duration-200 text-sm font-semibold shadow-xl border border-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60">
-                  <Video size={18} />
+                <button className="bg-white/95 backdrop-blur-md text-gray-900 px-1 py-1 rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-xs font-semibold shadow-xl border border-white/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/60">
+                  <Video size={12} />
                   <span>Tour</span>
                 </button>
               </div>
@@ -895,10 +903,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       <div>
                         <span className="font-semibold text-gray-800">Possession:</span>
                         <span className="text-gray-600 ml-1">
-                          {[property?.possessionMonth, property?.possessionYear].filter(Boolean).join(' ')}
+                          {[
+                            getMonthName(property?.possessionMonth),
+                            property?.possessionYear
+                          ].filter(Boolean).join(' ')}
                         </span>
                       </div>
                     )}
+
                     {property?.raw?.selling_rights && (
                       <div>
                         <span className="font-semibold text-gray-800">Selling Rights:</span>
@@ -1315,8 +1327,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
             <div className="fixed inset-x-0 bottom-[max(env(safe-area-inset-bottom,0),8px)] z-[60] md:hidden pointer-events-none">
               <div className="mx-auto max-w-sm px-3">
                 <div
-                  className="pointer-events-auto bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80
-      rounded-2xl shadow-[0_10px_30px_-10px_rgba(0,0,0,.35)]
+                  className="pointer-events-auto bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 z-50
+       shadow-[0_10px_30px_-10px_rgba(0,0,0,.35)]
       ring-1 ring-gray-200 border border-white/60 p-2.5"
                   role="toolbar"
                   aria-label="Mobile quick actions"
@@ -1405,7 +1417,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     <Eye className="text-green-600" size={16} />
                     <span className="text-sm font-medium text-gray-700">Total Views</span>
                   </div>
-                  <span className="text-green-600">{displayOrDash(property?.views) === ' - ' ? ' - ' : property?.views}</span>
+                  <span className="text-green-600">{property?.views ?? '—'}</span>
+
                 </div>
 
                 <div className="flex items-center justify-between p-1 bg-blue-50 rounded-lg">

@@ -399,6 +399,51 @@ function normalizeProperty(r: any, idx: number): UIProperty {
   //   });
   //   console.groupEnd();
   // }
+  // ---- PRICE NORMALIZATION (updated) ----
+  const normalizedPriceType = ((): 'Fixed' | 'Negotiable' => {
+    // 1) strongest signal = boolean flags
+    if (typeof r?.is_negotiable === 'boolean') return r.is_negotiable ? 'Negotiable' : 'Fixed';
+    if (typeof r?.negotiable === 'boolean') return r.negotiable ? 'Negotiable' : 'Fixed';
+
+    // 2) text fields (fallback)
+    const raw =
+      r?.priceType ??
+      r?.price_type ??
+      r?.pricing_type ??
+      r?.price_status ??
+      '';
+
+    if (typeof raw === 'string') {
+      if (/negotiable/i.test(raw)) return 'Negotiable';
+      if (/fixed/i.test(raw)) return 'Fixed';
+    }
+    // 3) default
+    return 'Fixed';
+  })();
+
+  const normalizedFinalPrice = (() => {
+    // ONLY take the actual price fields; do NOT fall back to budget
+    const raw =
+      r?.finalPrice ??
+      r?.final_price ??
+      r?.price ??
+      null;
+
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : '';
+  })();
+
+  // Optional: keep budget totally separate from final price
+  const normalizedBudget = (() => {
+    const raw =
+      r?.budget ??
+      r?.expected_price ??
+      r?.asking_price ??
+      null;
+
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : ' - ';
+  })();
 
   return {
     id: r.id ?? idx + 1,
@@ -408,18 +453,18 @@ function normalizeProperty(r: any, idx: number): UIProperty {
     subtype: r.property_subtype_name || r.property_subtype || ' - ',
     unitType: r.unit_type || ' - ',
     wing: r.wing_name || r.wing || ' - ',
-    unitNo: r.unit_no || r.unit || ' - ',
+    unitNo: r.unit_no || r.unit || 0,
     furnishing: r.furnishing || r.furnishing_status || ' - ',
     furnishingItems,
     parkingType: r.parking_type || ' - ',
-    parkingQty: r.parking_qty ?? ' - ',
+    parkingQty: r.parking_qty ?? 0,
     city: r.city_name || r.city || ' - ',
     location: r.location_name || r.location || ' - ',
     society: r.society_name || r.society || ' - ',
     floor: r.floor ?? ' - ',
     totalFloors: r.total_floors ?? ' - ',
-    carpetArea: r.carpet_area ?? ' - ',
-    builtupArea: r.builtup_area ?? ' - ',
+    carpetArea: r.carpet_area ?? 0,
+    builtupArea: r.builtup_area ?? 0,
     status: r.status || ' - ',
     leadSource: r.lead_source || ' - ',
     purchaseMonth: r.purchase_month ?? ' - ',
@@ -434,12 +479,14 @@ function normalizeProperty(r: any, idx: number): UIProperty {
 
 
     // ...existing seeds
-    bedrooms: r.bedrooms || '-',
-    bathrooms: r.bathrooms || '-',
-    facing: r.facing || '',
+    bedrooms: r.bedrooms || '' ,
+    bathrooms: r.bathrooms || '',
+    facing: r.facing || ' ',
 
-    priceType: (r.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
-    finalPrice: r.finalPrice || '-',
+    // budget: normalizedBudget,          // ← stays independent
+    // ...
+    priceType: normalizedPriceType,    // ← derived from is_negotiable/negotiable/text
+    finalPrice: normalizedFinalPrice,  // ← from final_price/price only
 
     seller: {
       id: r.seller_id,
@@ -469,51 +516,62 @@ function normalizeProperty(r: any, idx: number): UIProperty {
   };
 }
 
-/* ---------------------- Edit Initial Data Builder ---------------------- */
+
+/* ---------------------- Edit Initial Data Builder (fixed) ---------------------- */
+const clean = (v: any) => {
+  if (v === null || v === undefined) return '';
+  const s = String(v).trim();
+  return (s === '-' || s === ' - ') ? '' : s;
+};
+
 const buildInitialData = (p: UIProperty) => {
   return {
     id: p.id,
-    seller: p.seller?.name || '',
-    propertyType: p.type || '',
-    propertySubtype: p.subtype || '',
-    unitType: p.unitType || '',
-    wing: p.wing || '',
-    unitNo: p.unitNo || '',
-    furnishing: p.furnishing || '',
+    seller: clean(p.seller?.name),
+    propertyType: clean(p.type),
+    propertySubtype: clean(p.subtype),
+    unitType: clean(p.unitType),
+    wing: clean(p.wing),
+    unitNo: clean(p.unitNo),
+    furnishing: clean(p.furnishing),
 
-    // add new
-    facing: p.facing || '',
-    bedrooms: p.bathrooms || '',
-    bathrooms: p.bathrooms || '',
+    // ✅ new bits
+    facing: clean(p.facing),
+    bedrooms: clean(p.bedrooms),          // <-- fixed mapping
+    bathrooms: clean(p.bathrooms),
 
     priceType: (p.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
-    finalPrice: p.finalPrice ? String(p.finalPrice) : '',  // <-- add
+    finalPrice: clean(p.finalPrice),       // input-friendly string
 
-    parkingType: p.parkingType || '',
-    parkingQty: String(p.parkingQty ?? ''),
-    city: p.city || '',
-    location: p.location || '',
-    society: p.society || '',
-    floor: String(p.floor ?? ''),
-    totalFloors: String(p.totalFloors ?? ''),
-    carpetArea: String(p.carpetArea ?? ''),
-    builtupArea: String(p.builtupArea ?? ''),
-    budget: String(p.budget ?? ''),
-    address: p.address || '',
-    status: p.status || '',
-    leadSource: p.leadSource || '',
-    possessionMonth: String(p.possessionMonth ?? ''),
-    possessionYear: String(p.possessionYear ?? ''),
-    purchaseMonth: String(p.purchaseMonth ?? ''),
-    purchaseYear: String(p.purchaseYear ?? ''),
-    sellingRights: p.selling_rights || 'Standard',
+    parkingType: clean(p.parkingType),
+    parkingQty: clean(p.parkingQty),
+    city: clean(p.city),
+    location: clean(p.location),
+    society: clean(p.society),
+    floor: clean(p.floor),
+    totalFloors: clean(p.totalFloors),
+    carpetArea: clean(p.carpetArea),
+    builtupArea: clean(p.builtupArea),
+    budget: clean(p.budget),
+    address: clean(p.address),
+    status: clean(p.status),
+    leadSource: clean(p.leadSource),
+    possessionMonth: clean(p.possessionMonth),
+    possessionYear: clean(p.possessionYear),
+    purchaseMonth: clean(p.purchaseMonth),
+    purchaseYear: clean(p.purchaseYear),
+    sellingRights: clean(p.selling_rights) || 'Standard',
+
     amenities: Array.isArray(p.amenities) ? p.amenities : [],
     furnishingItems: Array.isArray(p.furnishingItems) ? p.furnishingItems : [],
-    description: p.description || '',
+    description: clean(p.description),
+
     nearby_places: Array.isArray(p.nearby_places) ? p.nearby_places : [],
-    existingOwnershipDocUrl: p.ownershipDocUrl || '',
-    existingOwnershipDocName: p.ownershipDocName || '',
-    existingOwnershipDocId: p.ownershipDocId || '',
+
+    existingOwnershipDocUrl: clean(p.ownershipDocUrl),
+    existingOwnershipDocName: clean(p.ownershipDocName),
+    existingOwnershipDocId: clean(p.ownershipDocId),
+
     existingPhotos: (p.photos || []).map((url, idx) => ({
       id: String(idx + 1),
       url,
@@ -521,6 +579,7 @@ const buildInitialData = (p: UIProperty) => {
     })),
   };
 };
+
 /* ---------------------- Tailwind Color Helpers (no dynamic classes) ---------------------- */
 
 const TAB_STYLES: Record<string, { badge: string; btn: string; btnActive: string; countActive: string }> = {

@@ -1,4 +1,4 @@
-// src/pages/public/BlogDetailPage.tsx
+// // src/pages/public/BlogDetailPage.tsx
 import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -6,19 +6,17 @@ import {
   Clock,
   User,
   Eye,
-  Share2,
+  Share as ShareIcon,
   Mail,
   Twitter,
   Bookmark,
   MessageSquare,
   Heart,
-  Share,
-  X, // for share modal close
+  X, // for share modal close (used inside ShareModalBlog)
 } from "lucide-react";
 import blogsAPI from "@/lib/blogsAPI";
 import { useNavigate } from "react-router-dom";
 import ShareModalBlog from "./ShareModalBlog";
-
 
 export interface BlogPost {
   id: number | string;
@@ -56,6 +54,31 @@ export interface BlogComment {
 
 const LOCAL_BOOKMARKS_KEY = "bookmarks:v1";
 const LOCAL_LIKES_KEY = "likes:v1";
+
+/** ---------- Safe helpers ---------- */
+type AnyRec = Record<string, unknown>;
+const isObj = (v: unknown): v is AnyRec => !!v && typeof v === "object";
+const isArr = (v: unknown): v is any[] => Array.isArray(v);
+
+/** Returns an array if the API gave one (directly or wrapped), or [] */
+const unwrapArray = (raw: unknown): any[] => {
+  if (isArr(raw)) return raw;
+  if (!isObj(raw)) return [];
+  if ("data" in raw && isArr((raw as AnyRec).data)) return (raw as AnyRec).data as any[];
+  if ("items" in raw && isArr((raw as AnyRec).items)) return (raw as AnyRec).items as any[];
+  if ("posts" in raw && isArr((raw as AnyRec).posts)) return (raw as AnyRec).posts as any[];
+  if ("results" in raw && isArr((raw as AnyRec).results)) return (raw as AnyRec).results as any[];
+  const r = raw as AnyRec;
+  if (r?.id || r?.title || r?.slug) return [r];
+  return [];
+};
+
+/** Returns a single object; supports {data: obj} or a bare object */
+const unwrapSingle = <T = any>(raw: unknown): T | undefined => {
+  if (!isObj(raw)) return undefined;
+  if ("data" in raw) return (raw as AnyRec).data as T;
+  return raw as T;
+};
 
 function safeParseTags(v: any): string[] {
   if (!v) return [];
@@ -182,8 +205,8 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
         if (initialPost && initialPost.slug === slug && initialPost.content) {
           setPost(initialPost);
         } else {
-          const res = await blogsAPI.getPostBySlug(slug);
-          const p = res?.data ?? res;
+          const res: unknown = await blogsAPI.getPostBySlug(slug);
+          const p = unwrapSingle<any>(res);
           if (!p) {
             setPost(null);
             return;
@@ -195,8 +218,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
             excerpt:
               p.excerpt ??
               (typeof p.content === "string"
-                ? p.content.slice(0, 160) +
-                (p.content.length > 160 ? "…" : "")
+                ? p.content.slice(0, 160) + (p.content.length > 160 ? "…" : "")
                 : ""),
             content: p.content ?? "",
             author: p.author ?? "Admin",
@@ -241,56 +263,46 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     let cancelled = false;
     const loadRelatedAndMeta = async () => {
       try {
-        const raw = (await blogsAPI.getAllPosts?.()) ?? [];
-        let list: any[] = [];
-        if (Array.isArray(raw)) list = raw;
-        else if (raw?.data && Array.isArray(raw.data)) list = raw.data;
-        else if (raw?.items && Array.isArray(raw.items)) list = raw.items;
-        else if (raw?.posts && Array.isArray(raw.posts)) list = raw.posts;
-        else if (raw?.results && Array.isArray(raw.results)) list = raw.results;
+        const raw: unknown = (await blogsAPI.getAllPosts?.()) ?? [];
+        const list: any[] = unwrapArray(raw);
 
-        const normalized: BlogPost[] = (list || []).map(
-          (p: any, idx: number) => {
-            const tags = safeParseTags(p.tags ?? p.tag ?? []);
-            const slug =
-              p.slug ??
-              p.slugified ??
-              (p.title
-                ? String(p.title).toLowerCase().replace(/\s+/g, "-")
-                : String(p.id ?? idx));
-            return {
-              id: p.id ?? p._id ?? slug ?? idx,
-              slug,
-              title: p.title ?? "Untitled",
-              excerpt:
-                p.excerpt ??
-                (typeof p.content === "string"
-                  ? p.content.slice(0, 160) +
-                  (p.content.length > 160 ? "…" : "")
-                  : ""),
-              content: p.content ?? "",
-              author: p.author ?? "Admin",
-              date:
-                p.publishedAt ??
-                p.published_at ??
-                p.createdAt ??
-                p.created_at ??
-                new Date().toISOString(),
-              category: p.category ?? "Uncategorized",
-              readTime: p.readTime
-                ? String(p.readTime)
-                : p.read_time
-                  ? String(p.read_time)
-                  : "5 min read",
-              image: p.featuredImage ?? p.featured_image ?? p.image ?? "",
-              tags,
-              views: Number(p.views ?? 0),
-              likes: Number(p.likes ?? 0),
-              comments: Number(p.comments ?? 0),
-              featured: !!p.featured,
-            } as BlogPost;
-          }
-        );
+        const normalized: BlogPost[] = (list || []).map((p: any, idx: number) => {
+          const tags = safeParseTags(p.tags ?? p.tag ?? []);
+          const slug =
+            p.slug ??
+            p.slugified ??
+            (p.title ? String(p.title).toLowerCase().replace(/\s+/g, "-") : String(p.id ?? idx));
+          return {
+            id: p.id ?? p._id ?? slug ?? idx,
+            slug,
+            title: p.title ?? "Untitled",
+            excerpt:
+              p.excerpt ??
+              (typeof p.content === "string"
+                ? p.content.slice(0, 160) + (p.content.length > 160 ? "…" : "")
+                : ""),
+            content: p.content ?? "",
+            author: p.author ?? "Admin",
+            date:
+              p.publishedAt ??
+              p.published_at ??
+              p.createdAt ??
+              p.created_at ??
+              new Date().toISOString(),
+            category: p.category ?? "Uncategorized",
+            readTime: p.readTime
+              ? String(p.readTime)
+              : p.read_time
+                ? String(p.read_time)
+                : "5 min read",
+            image: p.featuredImage ?? p.featured_image ?? p.image ?? "",
+            tags,
+            views: Number(p.views ?? 0),
+            likes: Number(p.likes ?? 0),
+            comments: Number(p.comments ?? 0),
+            featured: !!p.featured,
+          } as BlogPost;
+        });
 
         if (!cancelled) {
           const recent = [...normalized]
@@ -343,18 +355,16 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
       if (!post) return;
       setCommentsLoading(true);
       try {
-        const res = await (blogsAPI.getCommentsByPostSlug
+        const res: unknown = await (blogsAPI.getCommentsByPostSlug
           ? blogsAPI.getCommentsByPostSlug(post.slug ?? String(post.id))
           : blogsAPI.getComments?.(post.slug ?? String(post.id)));
-        const data = res?.data ?? res ?? [];
+        const data = unwrapArray(res);
         const list: BlogComment[] = Array.isArray(data)
           ? data.map((c: any) => ({
             id:
               c.id ??
               c._id ??
-              `${c.email || "anon"}-${Math.random()
-                .toString(36)
-                .slice(2, 8)}`,
+              `${c.email || "anon"}-${Math.random().toString(36).slice(2, 8)}`,
             postId: c.postId ?? c.post_id ?? post.id,
             author: c.author ?? c.name ?? "Anonymous",
             email: c.email,
@@ -439,7 +449,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
       setPost((p) =>
         p ? { ...p, likes: (p.likes ?? 0) + (previouslyLiked ? 1 : -1) } : p
       );
-      
     } finally {
       setLikeProcessing(false);
     }
@@ -493,7 +502,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
       }
     } catch (err) {
       setIsBookmarked(previously);
-    
     } finally {
       setBookmarkProcessing(false);
     }
@@ -517,12 +525,12 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     setCommentSubmitting(true);
     try {
       if (blogsAPI.postComment) {
-        const res = await blogsAPI.postComment(post.slug ?? String(post.id), {
+        const res: unknown = await blogsAPI.postComment(post.slug ?? String(post.id), {
           author: commentObj.author,
           email: commentObj.email,
           content: commentObj.content,
         });
-        const saved = res?.data ?? res;
+        const saved = unwrapSingle<any>(res);
         if (saved) {
           setComments((c) =>
             c.map((it) =>
@@ -611,28 +619,28 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                   />
 
                   <div className="absolute top-3 right-3 flex flex-col gap-2">
-                    {/* Like - property-style toggle */}
+                    {/* Like */}
                     <button
                       onClick={toggleLiked}
-                      className="p-2.5 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
                       aria-label={liked ? "Remove from shortlist" : "Add to shortlist"}
+                      className={`w-10 h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 
+      hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60`}
                     >
                       <Heart
-                        className={
-                          liked
-                            ? "w-5 h-5 text-red-500 fill-current"
-                            : "w-5 h-5 text-gray-700"
-                        }
+                        className={`w-5 h-5 ${liked ? "text-red-500 fill-current" : "text-gray-700"}`}
                       />
                     </button>
 
                     {/* Share */}
                     <button
                       onClick={() => setShareOpen(true)}
-                      className="p-2 rounded-full shadow bg-white hover:bg-gray-100 text-gray-700 hover:text-blue-500"
                       title="Share"
+                      className="w-10 h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 
+      hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 
+      text-gray-700 hover:text-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
                     >
-                      <Share size={18} />
+                      <ShareIcon size={20} />
                     </button>
 
                     {/* Bookmark */}
@@ -641,15 +649,12 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                       disabled={bookmarkProcessing}
                       aria-pressed={isBookmarked}
                       title={isBookmarked ? "Saved" : "Save"}
-                      className={`p-2 rounded-full shadow bg-white hover:bg-gray-100 ${isBookmarked
-                          ? "text-yellow-500"
-                          : "text-gray-700 hover:text-yellow-500"
-                        }`}
+                      className={`w-10 h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 
+      hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60
+      ${isBookmarked ? "text-yellow-500" : "text-gray-700 hover:text-yellow-500"}`}
                     >
-                      <Bookmark
-                        size={18}
-                        className={isBookmarked ? "fill-current" : ""}
-                      />
+                      <Bookmark size={20} className={isBookmarked ? "fill-current" : ""} />
                     </button>
                   </div>
                 </div>
@@ -677,9 +682,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                     onClick={handleLike}
                     disabled={likeProcessing}
                     title={isLiked ? "Unlike" : "Like"}
-                    className={`flex items-center gap-1 px-2 py-1 rounded ${isLiked
-                        ? "text-red-600"
-                        : "text-gray-600 hover:text-red-600"
+                    className={`flex items-center gap-1 px-2 py-1 rounded ${isLiked ? "text-red-600" : "text-gray-600 hover:text-red-600"
                       } transition-colors`}
                     aria-pressed={isLiked}
                   >
@@ -782,6 +785,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
           {relatedPosts.length > 0 && (
             <div className="mt-8">
               <h3 className="text-xl font-semibold mb-4">Related articles</h3>
+
               <div className="grid md:grid-cols-2 gap-4">
                 {relatedPosts.map((r) => (
                   <div
@@ -796,16 +800,24 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                           className="w-24 h-16 object-cover rounded"
                         />
                       ) : null}
+
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-medium">{r.title}</h4>
-                          <span className="text-xs text-gray-500">
-                            {r.readTime}
-                          </span>
+                          {/* 👇 Clickable title with underline on hover */}
+                          <a
+                            href={`/blogs/${r.slug || r.id}`}
+                            className="font-medium text-gray-800 hover:text-blue-600 hover:underline underline-offset-2 transition-colors"
+                          >
+                            {r.title}
+                          </a>
+
+                          <span className="text-xs text-gray-500">{r.readTime}</span>
                         </div>
+
                         <p className="text-sm text-gray-600 mt-2 line-clamp-2">
                           {r.excerpt}
                         </p>
+
                         <div className="flex items-center gap-3 text-xs text-gray-500 mt-3">
                           <span>{r.author}</span>
                           <span>·</span>
@@ -820,6 +832,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
               </div>
             </div>
           )}
+
         </div>
 
         {/* Right sidebar */}

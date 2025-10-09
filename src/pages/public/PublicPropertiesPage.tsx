@@ -1664,7 +1664,12 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           {property.verified && (<span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center space-x-1"><CheckCircle size={10} /><span>VERIFIED</span></span>)}
                           {(property.aiScore || 0) > 90 && (<span className="bg-purple-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"><Bot size={10} className="mr-1" />AI {property.aiScore}</span>)}
                         </div>
-
+                        {/* ✅ Watermark Overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="text-white text-2xl font-bold opacity-40 select-none">
+                            ResaleExpert.in
+                          </span>
+                        </div>
                         <button onClick={(e) => { e.stopPropagation(); toggleLike(property.id.toString()); }} className="absolute top-3 right-3 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all">
                           <Heart size={16} className={likedProperties.includes(property.id.toString()) ? 'text-red-500 fill-current' : 'text-gray-600'} />
                         </button>
