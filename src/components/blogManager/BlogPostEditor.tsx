@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
-  Save, Send, X, Wand2, // 👈 added Wand2
+  Save, Send, X, Wand2,
   Bold as BoldIcon, Italic as ItalicIcon, Underline as UnderlineIcon, Strikethrough as StrikeIcon,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List as BulletIcon, ListOrdered as NumberedIcon,
@@ -69,7 +69,7 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [tagsInput, setTagsInput] = useState('');
   const [saving, setSaving] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false); // 👈 NEW
+  const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [imgLoading, setImgLoading] = useState(false);
@@ -227,7 +227,11 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
     return new Blob([u8], { type: mime });
   };
 
-  const buildPayload = (): { payload: FormData | Record<string, any>; isFormData: boolean } => {
+  // 🔸 Build payload with explicit status override from buttons
+  const buildPayload = (
+    statusOverride?: 'draft' | 'published' | 'archived'
+  ): { payload: FormData | Record<string, any>; isFormData: boolean } => {
+    const effectiveStatus = statusOverride ?? (formData.status as any) ?? 'draft';
     const payloadObj: Record<string, any> = {
       title: formData.title || '',
       content: formData.content || '',
@@ -238,8 +242,8 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
       featured: !!formData.featured,
       seoTitle: formData.seoTitle || '',
       seoDescription: formData.seoDescription || '',
-      status: formData.status || 'draft',
-      publishedAt: formData.publishedAt || undefined,
+      status: effectiveStatus,
+      publishedAt: effectiveStatus === 'published' ? new Date().toISOString() : null,
     };
 
     if (formData.featuredImage && typeof formData.featuredImage === 'string' && formData.featuredImage.startsWith('data:')) {
@@ -264,8 +268,7 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
   const savePost = async (status: 'draft' | 'published' | 'archived') => {
     setSaving(true); setError(null);
     try {
-      setFormData(prev => ({ ...prev, status, publishedAt: status === 'published' ? new Date().toISOString() : prev.publishedAt }));
-      const { payload, isFormData } = buildPayload();
+      const { payload, isFormData } = buildPayload(status);
       const id = getPostId();
       let responseData: any;
 
@@ -331,7 +334,7 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
 
   const authorOptions = Array.from(new Set([...(baseAuthorOptions || []), formData.author || ''].filter(Boolean)));
 
-  // ✨ AI Write handler
+  // ✨ AI Write handler (always drafts)
   const handleAIWrite = async () => {
     if (!formData.title) { setError("Enter a title first"); return; }
     setAiLoading(true); setError(null);
@@ -359,6 +362,7 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
         tags: Array.isArray(a.tags) ? a.tags : prev.tags,
         category: a.category || prev.category,
         status: "draft",
+        publishedAt: null,
       }));
       setMode("visual");
       setActiveTab("preview");
@@ -758,7 +762,7 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
         {/* Footer */}
         <div className="flex flex-col sm:flex-row items-center justify-between p-3 border-t bg-gray-50 gap-2">
           <div className="text-xs text-gray-600">
-            Status:{' '}
+            Status{' '}
             <span className={`font-medium ${formData.status === 'published' ? 'text-green-600' : formData.status === 'draft' ? 'text-yellow-600' : 'text-gray-600'}`}>
               {String(formData.status || 'draft').charAt(0).toUpperCase() + String(formData.status || 'draft').slice(1)}
             </span>
