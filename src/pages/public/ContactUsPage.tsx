@@ -20,7 +20,8 @@ import {
   Facebook,
   Twitter,
   Instagram,
-  Linkedin
+  Linkedin,
+  ChevronDown
 } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import { contactsAPI } from '@/lib/contactsAPI'; 
@@ -41,6 +42,10 @@ const ContactUsPage = () => {
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
   const [feedback, setFeedback] = useState({ type: '', message: '' }); // type: 'success' | 'error' | ''
+  // which FAQ is open (null = sab band)
+  const [openIndex, setOpenIndex] = useState(null);
+  const toggle = (idx) => setOpenIndex((prev) => (prev === idx ? null : idx));
+
 
   useEffect(() => {
     const fetchMasters = async () => {
@@ -126,52 +131,52 @@ const ContactUsPage = () => {
     {
       icon: Phone,
       title: 'Call Us',
-      details: ['+91 99999 99999', '+91 88888 88888'],
+      details: ['+91 9637 00 9639', '+91 9146 00 9176'],
       description: '24/7 Customer Support',
       color: 'green'
     },
     {
       icon: Mail,
       title: 'Email Us',
-      details: ['info@resaleexpert.in', 'support@resaleexpert.in'],
+      details: ['info@resaleexpert.in'],
       description: 'Quick Response Guaranteed',
       color: 'blue'
     },
     {
       icon: MapPin,
       title: 'Visit Us',
-      details: ['Office 501, Business Tower', 'Andheri West, Mumbai - 400058'],
-      description: 'Maharashtra, India',
+      details: ['Shubhchandra, Nakhate Chowk', 'Rahatani, Pimpri-Chinchwad'],
+      description: ' Pune, Maharashtra 411017, India',
       color: 'purple'
     },
     {
       icon: Clock,
       title: 'Office Hours',
-      details: ['Mon - Sat: 9:00 AM - 8:00 PM', 'Sunday: 10:00 AM - 6:00 PM'],
+      details: ['Mon - Fri: 10:00 AM - 8:00 PM', 'Sat - Sun: 9:00 AM - 9:00 PM'],
       description: 'Extended Hours Available',
       color: 'orange'
     }
   ];
 
   const officeLocations = [
-    {
-      city: 'Mumbai',
-      address: 'Office 501, Business Tower, Andheri West, Mumbai - 400058',
-      phone: '+91 99999 99999',
-      email: 'mumbai@resaleexpert.in'
-    },
+    // {
+    //   city: 'Mumbai',
+    //   address: 'Office 501, Business Tower, Andheri West, Mumbai - 400058',
+    //   phone: '+91 99999 99999',
+    //   email: 'mumbai@resaleexpert.in'
+    // },
     {
       city: 'Pune',
-      address: 'Floor 3, Tech Park, Hinjewadi, Pune - 411057',
-      phone: '+91 99999 99998',
+      address: 'Shubhchandra, Rahatani, Pune - 411017',
+      phone: '+91 9637 00 9639',
       email: 'pune@resaleexpert.in'
     },
-    {
-      city: 'Delhi',
-      address: 'Tower A, Business Complex, Connaught Place, Delhi - 110001',
-      phone: '+91 99999 99997',
-      email: 'delhi@resaleexpert.in'
-    }
+    // {
+    //   city: 'Delhi',
+    //   address: 'Tower A, Business Complex, Connaught Place, Delhi - 110001',
+    //   phone: '+91 99999 99997',
+    //   email: 'delhi@resaleexpert.in'
+    // }
   ];
 
   const faqs = [
@@ -204,7 +209,7 @@ const ContactUsPage = () => {
        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-3 text-[#E6761D]">
+            <h2 className="text-3xl font-bold mb-3 text-white">
               Get in Touch
             </h2>
             <p className="text-lg  mb-2 text-blue-100 max-w-3xl mx-auto">
@@ -427,7 +432,7 @@ const ContactUsPage = () => {
   <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
     {/* Call = Call-green */}
     <button
-      onClick={() => window.open('tel:+919999999999')}
+                    onClick={() => window.open('tel:+91 9637 00 9639+91 9637 00 9639')}
       aria-label="Call Now"
       className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 
                  text-white py-3 px-4 rounded-lg font-semibold
@@ -440,7 +445,7 @@ const ContactUsPage = () => {
 
     {/* WhatsApp = WhatsApp-green */}
     <button
-      onClick={() => window.open('https://wa.me/919999999999', '_blank')}
+      onClick={() => window.open('https://wa.me/919637009639', '_blank')}
       aria-label="WhatsApp"
       className="flex-1 bg-[#25D366] hover:bg-[#1ebe57] active:bg-[#19a94d]
                  text-white py-3 px-4 rounded-lg font-semibold 
@@ -497,25 +502,55 @@ const ContactUsPage = () => {
           </div>
         </div>
       </section>
-
       {/* FAQ Section */}
       <section className="py-3 bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* full width container */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Frequently Asked Questions</h2>
             <p className="text-xl text-gray-600">Quick answers to common questions</p>
           </div>
 
-          <div className="space-y-6">
-            {faqs.map((faq, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-[#E6761D] mb-3">{faq.question}</h3>
-                <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
-              </div>
-            ))}
+          <div className="space-y-2 sm:space-y-3">
+            {faqs.map((faq, index) => {
+              const isOpen = openIndex === index;
+              return (
+                <div key={index} className="bg-white rounded-xl border border-gray-200">
+                  {/* Header as a button with chevron */}
+                  <button
+                    type="button"
+                    onClick={() => toggle(index)}
+                    aria-expanded={isOpen}
+                    aria-controls={`faq-panel-${index}`}
+                    className="w-full flex items-center justify-between gap-4 p-6 text-left"
+                  >
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                      {faq.question}
+                    </h3>
+                    <ChevronDown
+                      className={`shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+
+                  {/* Smooth collapse */}
+                  <div
+                    id={`faq-panel-${index}`}
+                    role="region"
+                    className={`grid transition-[grid-template-rows] duration-300 ease-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="px-6 pb-6 pt-0 text-gray-700 leading-relaxed">
+                        {faq.answer}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
+
 
       {/* Social Media & Additional Contact */}
       <section className="py-3  text-white"
