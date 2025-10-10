@@ -1,4 +1,4 @@
-// // src/pages/public/BlogDetailPage.tsx
+// src/pages/public/BlogDetailPage.tsx
 import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -12,7 +12,7 @@ import {
   Bookmark,
   MessageSquare,
   Heart,
-  X, // for share modal close (used inside ShareModalBlog)
+  X,
 } from "lucide-react";
 import blogsAPI from "@/lib/blogsAPI";
 import { useNavigate } from "react-router-dom";
@@ -24,7 +24,7 @@ export interface BlogPost {
   excerpt?: string;
   content?: string;
   author?: string;
-  date?: string; // ISO
+  date?: string;
   category?: string;
   readTime?: string;
   image?: string;
@@ -60,7 +60,6 @@ type AnyRec = Record<string, unknown>;
 const isObj = (v: unknown): v is AnyRec => !!v && typeof v === "object";
 const isArr = (v: unknown): v is any[] => Array.isArray(v);
 
-/** Returns an array if the API gave one (directly or wrapped), or [] */
 const unwrapArray = (raw: unknown): any[] => {
   if (isArr(raw)) return raw;
   if (!isObj(raw)) return [];
@@ -73,7 +72,6 @@ const unwrapArray = (raw: unknown): any[] => {
   return [];
 };
 
-/** Returns a single object; supports {data: obj} or a bare object */
 const unwrapSingle = <T = any>(raw: unknown): T | undefined => {
   if (!isObj(raw)) return undefined;
   if ("data" in raw) return (raw as AnyRec).data as T;
@@ -88,10 +86,7 @@ function safeParseTags(v: any): string[] {
       const parsed = JSON.parse(v);
       if (Array.isArray(parsed)) return parsed.map((x) => String(x));
     } catch {
-      return v
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      return v.split(",").map((s) => s.trim()).filter(Boolean);
     }
   }
   return [];
@@ -107,37 +102,36 @@ const CommentComposer: React.FC<{
   const [email, setEmail] = useState("");
 
   return (
-    <div className="border rounded-lg p-4 bg-gray-50">
+    <div className="border border-gray-200 rounded-xl p-4 sm:p-5 lg:p-6 bg-gradient-to-br from-gray-50 to-white shadow-sm">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={3}
-        placeholder="Write your comment..."
-        className="w-full px-3 py-2 border rounded-md mb-3"
+        placeholder="Share your thoughts..."
+        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg mb-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base resize-none transition-all"
       />
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4">
         <input
-          className="px-3 py-2 border rounded-md"
+          className="px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base transition-all"
           placeholder="Name (optional)"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <input
-          className="px-3 py-2 border rounded-md"
+          className="px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base transition-all"
           placeholder="Email (optional)"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <div />
       </div>
-      <div className="flex gap-2 justify-end">
+      <div className="flex flex-col-reverse sm:flex-row gap-2 justify-end">
         <button
           onClick={() => {
             setText("");
             setName("");
             setEmail("");
           }}
-          className="px-3 py-1.5 border rounded-md"
+          className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all text-sm sm:text-base font-medium"
         >
           Clear
         </button>
@@ -147,7 +141,7 @@ const CommentComposer: React.FC<{
             setText("");
           }}
           disabled={posting || !text.trim()}
-          className="px-3 py-1.5 bg-blue-600 text-white rounded-md disabled:opacity-60"
+          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all text-sm sm:text-base font-medium"
         >
           {posting ? "Posting..." : "Post Comment"}
         </button>
@@ -176,25 +170,20 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
   const [commentSubmitting, setCommentSubmitting] = useState<boolean>(false);
   const [commentError, setCommentError] = useState<string | null>(null);
 
-  // engagement state
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
   const [likeProcessing, setLikeProcessing] = useState<boolean>(false);
   const [bookmarkProcessing, setBookmarkProcessing] = useState<boolean>(false);
 
-  // share modal state
   const [shareOpen, setShareOpen] = useState<boolean>(false);
 
-  // property-style local liked state + key helper
   const [liked, setLiked] = useState<boolean>(false);
   const likeKeyFor = (p: BlogPost) => `blog_like:${p.slug ?? p.id}`;
 
-  /* --- initialise post from parent --- */
   useEffect(() => {
     setPost(initialPost ?? null);
   }, [initialPost]);
 
-  /* --- load post by slug (if provided) --- */
   useEffect(() => {
     if (!slug) return;
     let cancelled = false;
@@ -258,7 +247,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     };
   }, [slug, initialPost]);
 
-  /* --- related/recent/categories --- */
   useEffect(() => {
     let cancelled = false;
     const loadRelatedAndMeta = async () => {
@@ -348,7 +336,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     };
   }, [post]);
 
-  /* --- comments load --- */
   useEffect(() => {
     let cancelled = false;
     const loadComments = async () => {
@@ -386,7 +373,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     };
   }, [post]);
 
-  /* --- init like/bookmark from localStorage if available --- */
   useEffect(() => {
     if (!post) return;
     try {
@@ -405,7 +391,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     } catch { }
   }, [post]);
 
-  // initialise property-style 'liked' from local key, fallback to isLiked
   useEffect(() => {
     if (!post) return;
     try {
@@ -417,7 +402,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     }
   }, [post, isLiked]);
 
-  /* ---------- Like handler ---------- */
   const persistLocalLike = (id: string | number, add: boolean) => {
     try {
       const raw = localStorage.getItem(LOCAL_LIKES_KEY);
@@ -454,7 +438,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     }
   };
 
-  // property-style toggle (localStorage + call handleLike for count/api)
   const toggleLiked = (e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
@@ -473,7 +456,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     handleLike();
   };
 
-  /* ---------- Bookmark handler ---------- */
   const toggleLocalBookmark = (id: string | number) => {
     try {
       const raw = localStorage.getItem(LOCAL_BOOKMARKS_KEY);
@@ -507,7 +489,6 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     }
   };
 
-  /* ---------- Comment submit ---------- */
   const submitComment = async (text: string, author?: string, email?: string) => {
     setCommentError(null);
     if (!post) return setCommentError("Cannot post comment: missing post.");
@@ -567,7 +548,9 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 ">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30">
+      {/* Sticky Header - Fully Responsive */}
+
       <div
         className="bg-white shadow-sm border-b pt-20 sticky top-0 z-40"
         style={{ background: "linear-gradient(to right, #0b3856, #0c3854)" }}
@@ -585,7 +568,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
         </div>
       </div>
 
-      {/* Share Modal (now using ShareModalBlog) */}
+      {/* Share Modal */}
       {shareOpen && (
         <ShareModalBlog
           slug={post?.slug || String(post?.id || "")}
@@ -593,42 +576,55 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
           description={post?.excerpt}
           image={post?.image}
           onClose={() => setShareOpen(false)}
-        // forcedCopyUrl="https://investordeal.in/blogs/custom-slug" // (optional override)
         />
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-8 mt-2">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-8 mt-2 sm:mt-3 md:mt-4 pb-6 sm:pb-8 lg:pb-12">
+        {/* Main Content */}
         <div className="lg:col-span-2">
           {loadingInternal ? (
-            <div className="bg-white rounded-xl p-8 shadow">Loading article...</div>
+            <div className="bg-white rounded-xl p-4 sm:p-6 md:p-8 shadow-lg">
+              <div className="animate-pulse space-y-4">
+                <div className="h-3 sm:h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-3 sm:h-4 bg-gray-200 rounded"></div>
+                <div className="h-3 sm:h-4 bg-gray-200 rounded w-5/6"></div>
+              </div>
+            </div>
           ) : error ? (
-            <div className="bg-white rounded-xl p-8 shadow text-red-600">
-              {error}
+            <div className="bg-white rounded-xl p-4 sm:p-6 md:p-8 shadow-lg">
+              <div className="text-center">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                  <X className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 text-red-600" />
+                </div>
+                <p className="text-red-600 text-sm sm:text-base">{error}</p>
+              </div>
             </div>
           ) : !post ? (
-            <div className="bg-white rounded-xl p-8 shadow">Article not found.</div>
+            <div className="bg-white rounded-xl p-4 sm:p-6 md:p-8 shadow-lg text-center">
+              <p className="text-gray-600 text-sm sm:text-base">Article not found.</p>
+            </div>
           ) : (
-            <article className="bg-white rounded-xl shadow overflow-hidden">
-              {/* FEATURED IMAGE WITH OVERLAY ACTIONS (property-style) */}
+            <article className="bg-white rounded-xl shadow-xl overflow-hidden">
+              {/* Featured Image with Action Buttons */}
               {post.image && (
-                <div className="relative w-full h-64">
+                <div className="relative w-full h-52 sm:h-64 md:h-80 lg:h-96 overflow-hidden group">
                   <img
                     src={post.image}
                     alt={post.title}
-                    className="w-full h-64 object-cover rounded-t-xl"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
 
-                  <div className="absolute top-3 right-3 flex flex-col gap-2">
+                  {/* Action Buttons - Fully Responsive */}
+                  <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 flex flex-col gap-1.5 sm:gap-2">
                     {/* Like */}
                     <button
                       onClick={toggleLiked}
                       aria-label={liked ? "Remove from shortlist" : "Add to shortlist"}
-                      className={`w-10 h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 
-      hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 
-      focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60`}
+                      className="w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
                     >
                       <Heart
-                        className={`w-5 h-5 ${liked ? "text-red-500 fill-current" : "text-gray-700"}`}
+                        className={`w-4 h-4 sm:w-5 sm:h-5 ${liked ? "text-red-500 fill-current" : "text-gray-700"}`}
                       />
                     </button>
 
@@ -636,11 +632,9 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                     <button
                       onClick={() => setShareOpen(true)}
                       title="Share"
-                      className="w-10 h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 
-      hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 
-      text-gray-700 hover:text-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
+                      className="w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 text-gray-700 hover:text-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
                     >
-                      <ShareIcon size={20} />
+                      <ShareIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
 
                     {/* Bookmark */}
@@ -649,57 +643,61 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                       disabled={bookmarkProcessing}
                       aria-pressed={isBookmarked}
                       title={isBookmarked ? "Saved" : "Save"}
-                      className={`w-10 h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 
-      hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 
-      focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60
-      ${isBookmarked ? "text-yellow-500" : "text-gray-700 hover:text-yellow-500"}`}
+                      className={`w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 ${isBookmarked ? "text-yellow-500" : "text-gray-700 hover:text-yellow-500"
+                        }`}
                     >
-                      <Bookmark size={20} className={isBookmarked ? "fill-current" : ""} />
+                      <Bookmark className={`w-4 h-4 sm:w-5 sm:h-5 ${isBookmarked ? "fill-current" : ""}`} />
                     </button>
                   </div>
                 </div>
               )}
 
-              {!post.image && null}
+              <div className="p-4 sm:p-6 md:p-8 lg:p-10">
+                {/* Title - Responsive Typography */}
+                <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4 text-gray-900 leading-tight">
+                  {post.title}
+                </h1>
 
-              <div className="p-8">
-                <div className="flex items-center gap-3 text-sm text-gray-500 mb-4">
+                {/* Meta Info - Fully Responsive */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 mb-4 sm:mb-5 md:mb-6">
                   <span className="flex items-center">
-                    <User className="w-4 h-4 mr-1" />
-                    {post.author}
+                    <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                    <span className="truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">{post.author}</span>
                   </span>
+                  <span className="hidden sm:inline">•</span>
                   <span className="flex items-center">
-                    <Clock className="w-4 h-4 mr-1" />
-                    {new Date(post.date ?? "").toLocaleDateString()}
-                  </span>
-                  <span className="flex items-center">
-                    <Eye className="w-4 h-4 mr-1" />
-                    {post.views ?? 0} views
+                    <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                    <span className="hidden sm:inline">{post.views ?? 0} views</span>
+                    <span className="sm:hidden">{post.views ?? 0}</span>
                   </span>
 
-                  {/* Existing like meta (kept as-is, shows count) */}
+                  {/* Like Button - Responsive */}
                   <button
                     onClick={handleLike}
                     disabled={likeProcessing}
                     title={isLiked ? "Unlike" : "Like"}
-                    className={`flex items-center gap-1 px-2 py-1 rounded ${isLiked ? "text-red-600" : "text-gray-600 hover:text-red-600"
-                      } transition-colors`}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${isLiked ? "text-red-600 bg-red-50" : "text-gray-600 hover:text-red-600 hover:bg-red-50"
+                      }`}
                     aria-pressed={isLiked}
                   >
-                    <Heart className="w-4 h-4" />
-                    <span className="text-xs">{post.likes ?? 0}</span>
+                    <Heart className={`w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${isLiked ? "fill-current" : ""}`} />
+                    <span className="text-xs sm:text-sm">{post.likes ?? 0}</span>
                   </button>
 
                   <span className="flex items-center">
-                    <MessageSquare className="w-4 h-4 mr-1" />
-                    {comments.length} comments
+                    <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                    <span className="hidden sm:inline">{comments.length} comments</span>
+                    <span className="sm:hidden">{comments.length}</span>
                   </span>
                 </div>
 
-                <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
-                <p className="text-gray-600 mb-6">{post.excerpt}</p>
+                {/* Excerpt - Responsive */}
+                <p className="text-sm sm:text-base md:text-lg text-gray-600 mb-4 sm:mb-6 leading-relaxed">
+                  {post.excerpt}
+                </p>
 
-                <div className="prose max-w-none text-gray-800 mb-6">
+                {/* Content - Responsive */}
+                <div className="prose prose-sm sm:prose md:prose-lg max-w-none text-gray-800 mb-6 sm:mb-8">
                   {post.content ? (
                     <div dangerouslySetInnerHTML={{ __html: post.content }} />
                   ) : (
@@ -707,20 +705,21 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                   )}
                 </div>
 
-                <div className="flex flex-wrap gap-2 mt-4">
+                {/* Tags - Responsive */}
+                <div className="flex flex-wrap gap-2 mt-4 sm:mt-6">
                   {(post.tags || []).map((t) => (
                     <span
                       key={t}
-                      className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full"
+                      className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-600 bg-gray-100 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full hover:bg-gray-200 transition-colors"
                     >
-                      <Tag className="w-3 h-3" /> {t}
+                      <Tag className="w-3 h-3 flex-shrink-0" /> {t}
                     </span>
                   ))}
                 </div>
 
-                {/* Comments Section */}
-                <section className="mt-10">
-                  <h3 className="text-xl font-semibold mb-4">
+                {/* Comments Section - Responsive */}
+                <section className="mt-8 sm:mt-10 lg:mt-12">
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-semibold mb-4 sm:mb-5">
                     Comments ({comments.length})
                   </h3>
 
@@ -729,44 +728,44 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                     posting={commentSubmitting}
                   />
                   {commentError && (
-                    <div className="text-sm text-red-600 mt-2">
+                    <div className="text-xs sm:text-sm text-red-600 mt-2 p-2 bg-red-50 rounded">
                       {commentError}
                     </div>
                   )}
 
-                  <div className="space-y-4 mt-6">
+                  <div className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
                     {commentsLoading ? (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 text-center py-4">
                         Loading comments...
                       </div>
                     ) : comments.length === 0 ? (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 text-center py-6 bg-gray-50 rounded-lg">
                         No comments yet — be the first to comment.
                       </div>
                     ) : (
                       comments.map((c) => (
                         <div
                           key={c.id}
-                          className="bg-white rounded-lg p-4 shadow-sm"
+                          className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
                         >
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-medium text-gray-700">
+                          <div className="flex items-start gap-2 sm:gap-3">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-medium text-white text-xs sm:text-sm flex-shrink-0">
                               {String(c.author ?? "A")
                                 .split(" ")
                                 .map((n) => n[0])
                                 .join("")
                                 .slice(0, 2)}
                             </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <div className="text-sm font-medium">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2 mb-1 sm:mb-2">
+                                <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">
                                   {c.author}
                                 </div>
-                                <div className="text-xs text-gray-400">
+                                <div className="text-xs text-gray-400 flex-shrink-0">
                                   {fmtDate(c.date)}
                                 </div>
                               </div>
-                              <div className="text-gray-700 mt-2 whitespace-pre-wrap">
+                              <div className="text-xs sm:text-sm md:text-base text-gray-700 whitespace-pre-wrap break-words">
                                 {c.content}
                               </div>
                             </div>
@@ -776,53 +775,50 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                     )}
                   </div>
                 </section>
-                {/* end comments */}
               </div>
             </article>
           )}
 
-          {/* related under content */}
+          {/* Related Posts - Responsive */}
           {relatedPosts.length > 0 && (
-            <div className="mt-8">
-              <h3 className="text-xl font-semibold mb-4">Related articles</h3>
+            <div className="mt-6 sm:mt-8">
+              <h3 className="text-lg sm:text-xl md:text-2xl font-semibold mb-3 sm:mb-4">Related articles</h3>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {relatedPosts.map((r) => (
                   <div
                     key={r.id}
-                    className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition"
+                    className="bg-white rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all border border-gray-100"
                   >
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-3 sm:gap-4">
                       {r.image ? (
                         <img
                           src={r.image}
                           alt={r.title}
-                          className="w-24 h-16 object-cover rounded"
+                          className="w-20 h-16 sm:w-24 sm:h-20 object-cover rounded flex-shrink-0"
                         />
                       ) : null}
 
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          {/* 👇 Clickable title with underline on hover */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-2">
                           <a
                             href={`/blogs/${r.slug || r.id}`}
-                            className="font-medium text-gray-800 hover:text-blue-600 hover:underline underline-offset-2 transition-colors"
+                            className="font-medium text-sm sm:text-base text-gray-800 hover:text-blue-600 hover:underline underline-offset-2 transition-colors line-clamp-2"
                           >
                             {r.title}
                           </a>
-
-                          <span className="text-xs text-gray-500">{r.readTime}</span>
+                          <span className="text-xs text-gray-500 flex-shrink-0 hidden sm:block">{r.readTime}</span>
                         </div>
 
-                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                        <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 mb-2">
                           {r.excerpt}
                         </p>
 
-                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-3">
-                          <span>{r.author}</span>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span className="truncate">{r.author}</span>
                           <span>·</span>
-                          <span>
-                            {new Date(r.date ?? "").toLocaleDateString()}
+                          <span className="flex-shrink-0">
+                            {new Date(r.date ?? "").toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
                         </div>
                       </div>
@@ -832,92 +828,91 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
               </div>
             </div>
           )}
-
         </div>
 
-        {/* Right sidebar */}
-        <aside className="space-y-6">
-          {/* Author card */}
-          <div className="bg-white rounded-xl p-5 shadow">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+        {/* Right Sidebar - Responsive */}
+        <aside className="space-y-4 sm:space-y-5 lg:space-y-6">
+          {/* Author Card - Responsive */}
+          <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0">
                 {String(post?.author ?? "A")
                   .split(" ")
                   .map((n) => n[0])
                   .join("")}
               </div>
-              <div>
-                <p className="font-medium">{post?.author ?? "Admin"}</p>
+              <div className="min-w-0">
+                <p className="font-medium text-sm sm:text-base truncate">{post?.author ?? "Admin"}</p>
                 <p className="text-xs text-gray-500">Contributor</p>
               </div>
             </div>
-            <p className="text-sm text-gray-600 mt-4">
+            <p className="text-xs sm:text-sm text-gray-600 mt-3 sm:mt-4">
               {post?.author
                 ? `Read more from ${post.author}.`
                 : "This author shares insights, market analysis and real estate tips."}
             </p>
-            <div className="mt-4 flex gap-2">
-              <button className="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm">
+            <div className="mt-3 sm:mt-4 flex gap-2">
+              <button className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium hover:shadow-lg transition-all">
                 Follow
               </button>
 
               <button
                 onClick={handleBookmark}
                 disabled={bookmarkProcessing}
-                className={`flex items-center gap-2 border px-3 py-2 rounded text-sm ${isBookmarked
-                    ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                    : "border-gray-200"
+                className={`flex items-center gap-1.5 sm:gap-2 border px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${isBookmarked
+                  ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                  : "border-gray-200 hover:bg-gray-50"
                   }`}
                 title={isBookmarked ? "Remove bookmark" : "Save"}
                 aria-pressed={isBookmarked}
               >
-                <Bookmark className="w-4 h-4" />
-                <span>{isBookmarked ? "Saved" : "Save"}</span>
+                <Bookmark className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">{isBookmarked ? "Saved" : "Save"}</span>
               </button>
             </div>
           </div>
 
-          {/* Recent posts */}
-          <div className="bg-white rounded-xl p-5 shadow">
-            <h4 className="font-medium mb-3">Recent posts</h4>
+          {/* Recent Posts - Responsive */}
+          <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
+            <h4 className="font-medium text-sm sm:text-base mb-3 sm:mb-4">Recent posts</h4>
             <div className="space-y-3">
               {recentPosts.map((r) => (
-                <div key={r.id} className="flex items-start gap-3">
+                <div key={r.id} className="flex items-start gap-2 sm:gap-3 group">
                   {r.image ? (
                     <img
                       src={r.image}
                       alt={r.title}
-                      className="w-16 h-12 object-cover rounded"
+                      className="w-14 h-12 sm:w-16 sm:h-12 object-cover rounded flex-shrink-0 group-hover:opacity-80 transition-opacity"
                     />
                   ) : (
-                    <div className="w-16 h-12 bg-gray-100 rounded" />
+                    <div className="w-14 h-12 sm:w-16 sm:h-12 bg-gray-100 rounded flex-shrink-0" />
                   )}
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <button
                       onClick={() => {
                         navigate(
                           `/blogs/${encodeURIComponent(String(r.slug ?? r.id))}`
                         );
                       }}
-                      className="text-sm text-left font-medium hover:underline"
+                      className="text-xs sm:text-sm text-left font-medium hover:text-blue-600 hover:underline line-clamp-2 transition-colors"
                     >
                       {r.title}
                     </button>
                     <div className="text-xs text-gray-500 mt-1">
-                      {new Date(r.date ?? "").toLocaleDateString()}
+                      {new Date(r.date ?? "").toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </div>
                   </div>
                 </div>
               ))}
               {recentPosts.length === 0 && (
-                <div className="text-sm text-gray-500">No recent posts</div>
+                <div className="text-xs sm:text-sm text-gray-500 text-center py-3">No recent posts</div>
               )}
             </div>
           </div>
 
-          {/* Categories */}
-          <div className="bg-white rounded-xl p-5 shadow">
-            <h4 className="font-medium mb-3">Categories</h4>
+          {/* Categories - Responsive */}
+          <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
+            <h4 className="font-medium text-sm sm:text-base mb-3 sm:mb-4">Categories</h4>
             <div className="flex flex-wrap gap-2">
               {categories.map((c) => (
                 <button
@@ -925,31 +920,31 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                   onClick={() => {
                     navigate(`/blogs?category=${encodeURIComponent(c)}`);
                   }}
-                  className="px-3 py-1 bg-gray-100 text-sm rounded"
+                  className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-gray-100 text-xs sm:text-sm rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   {c}
                 </button>
               ))}
               {categories.length === 0 && (
-                <div className="text-sm text-gray-500">No categories</div>
+                <div className="text-xs sm:text-sm text-gray-500 text-center w-full py-2">No categories</div>
               )}
             </div>
           </div>
 
-          {/* Newsletter / CTA */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white rounded-xl p-5 shadow">
-            <h4 className="text-lg font-semibold mb-2">Join our newsletter</h4>
-            <p className="text-sm mb-4">
+          {/* Newsletter / CTA - Responsive */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white rounded-xl p-4 sm:p-5 shadow-lg">
+            <h4 className="text-base sm:text-lg font-semibold mb-2">Join our newsletter</h4>
+            <p className="text-xs sm:text-sm mb-3 sm:mb-4 opacity-95">
               Weekly insights, market updates and featured listings — delivered
               to your inbox.
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="email"
                 placeholder="Your email"
-                className="flex-1 px-3 py-2 rounded text-black"
+                className="flex-1 px-3 py-2 rounded-lg text-black text-sm focus:ring-2 focus:ring-white/50 focus:outline-none"
               />
-              <button className="px-4 py-2 bg-white text-blue-600 rounded">
+              <button className="px-4 py-2 bg-white text-blue-600 rounded-lg font-medium text-sm hover:bg-gray-100 transition-colors whitespace-nowrap">
                 Subscribe
               </button>
             </div>
@@ -959,5 +954,4 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     </div>
   );
 };
-
-export default BlogDetailPage;
+export default BlogDetailPage; 

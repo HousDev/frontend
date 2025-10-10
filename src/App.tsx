@@ -78,6 +78,7 @@ import ServicesPageCMS from './pages/dashboard/ServicesPageCMS';
 import StandaloneBuyerAccountPage from './components/buyers/StandaloneBuyerAccountPage';
 import StandaloneSellerAccountPage from './components/sellers/StandaloneSellerAccountPage';
 import VariableCenter from './pages/settings/VariableCenter';
+import HomePageCMS from './pages/dashboard/HomePageCMS';
 
 function App() {
   useDynamicHead(); // ✅ Automatically set favicon + title
@@ -187,6 +188,7 @@ function App() {
 
                     {/* CMS Features */}
 
+                    <Route path='home-manager'element={<HomePageCMS/>}/>
                     <Route path='blog-manager' element={<BlogManagement />} />
                     <Route path='about-cms' element={<AboutPageCMS />} />
                     <Route path='contact-cms' element={<ContactPageCMS />} /> 
