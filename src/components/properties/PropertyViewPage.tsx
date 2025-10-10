@@ -114,7 +114,8 @@ import {
   CloudLightning,
   Umbrella,
   Snowflake,
-  Share2
+  Share2,
+  IndianRupee
 } from 'lucide-react';
 import AmenityPill from "../properties/AmenityPill";
 import FurnishingPill from '../properties/FurnishingPill'
@@ -159,8 +160,8 @@ interface UIProperty {
   bedrooms: string,
   bathrooms: string,
   priceType?: 'Fixed' | 'Negotiable' | string;
-  finalPrice?: number | string;   
-  
+  finalPrice?: number | string;
+
   furnishingItems?: string[];
   parkingType: string;
   parkingQty: number | string;
@@ -251,8 +252,10 @@ const safeDaysOnMarket = (createdAt?: string) => {
   return Math.floor((Date.now() - created) / (1000 * 60 * 60 * 24));
 };
 
+
 // Build initial data for edit form
 const buildInitialData = (p: UIProperty) => {
+
   return {
     id: p.id,
     seller: p.seller?.name || '',
@@ -264,10 +267,10 @@ const buildInitialData = (p: UIProperty) => {
     furnishing: p.furnishing || '',
 
     // add new
-    facing: p.facing||'',
-    bedrooms: p.bathrooms || '',
-    bathrooms: p.bathrooms || '',
-    
+    facing: p.facing || '',
+    bedrooms: p.bedrooms ? String(p.bedrooms) : '',
+    bathrooms: p.bathrooms ? String(p.bathrooms) : '',
+
     priceType: (p.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
     finalPrice: p.finalPrice ? String(p.finalPrice) : '',  // <-- add
 
@@ -283,7 +286,7 @@ const buildInitialData = (p: UIProperty) => {
     budget: String(p.budget ?? ''),
     address: p.address || '',
     status: p.status || '',
-    leadSource: p.leadSource || '',
+    leadSource: p.seller?.leadSource ?? p.leadSource ?? '',
     possessionMonth: String(p.possessionMonth ?? ''),
     possessionYear: String(p.possessionYear ?? ''),
     purchaseMonth: String(p.purchaseMonth ?? ''),
@@ -345,12 +348,12 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
   onViewBuyers
 }) => {
   // restore tab from ?tab=... or localStorage, fallback 'overview'
-const [activeTab, setActiveTab] = useState<string>(() => {
-  const sp = new URLSearchParams(window.location.search);
-  const fromUrl = sp.get('tab');
-  const fromStorage = localStorage.getItem(`pv_tab_${String(property?.id)}`);
-  return (fromUrl || fromStorage || 'overview');
-});
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const fromUrl = sp.get('tab');
+    const fromStorage = localStorage.getItem(`pv_tab_${String(property?.id)}`);
+    return (fromUrl || fromStorage || 'overview');
+  });
   const [showEditModal, setShowEditModal] = useState(false);
   const [showStageModal, setShowStageModal] = useState(false);
   const [showVisitModal, setShowVisitModal] = useState(false);
@@ -374,60 +377,60 @@ const [activeTab, setActiveTab] = useState<string>(() => {
   const prevRef = React.useRef<HTMLButtonElement | null>(null);
   const nextRef = React.useRef<HTMLButtonElement | null>(null);
   const [overviewKey, setOverviewKey] = useState(0);
-const prevShowEditRef = useRef(showEditModal);
+  const prevShowEditRef = useRef(showEditModal);
 
-useEffect(() => {
-  if (!property) return;
-  const idChanged = property.id !== propertyData.id;
-  const tsChanged = property.updated_at !== propertyData.updated_at;
-  if (idChanged || tsChanged) {
-    setPropertyData(property);
-    setOverviewKey(k => k + 1); // ✅ OverviewTab key bump -> fresh render
-  }
-}, [property?.id, property?.updated_at]); // dhyaan: propertyData ko dep me mat daalo
+  useEffect(() => {
+    if (!property) return;
+    const idChanged = property.id !== propertyData.id;
+    const tsChanged = property.updated_at !== propertyData.updated_at;
+    if (idChanged || tsChanged) {
+      setPropertyData(property);
+      setOverviewKey(k => k + 1); // ✅ OverviewTab key bump -> fresh render
+    }
+  }, [property?.id, property?.updated_at]); // dhyaan: propertyData ko dep me mat daalo
 
 
-// ⬇️ propertyData ke useState ke baad yeh effect add/replace karo
-useEffect(() => {
-  if (!property) return;
+  // ⬇️ propertyData ke useState ke baad yeh effect add/replace karo
+  useEffect(() => {
+    if (!property) return;
 
-  const idChanged = property.id !== propertyData.id;
-  const tsChanged = property.updated_at !== propertyData.updated_at;
+    const idChanged = property.id !== propertyData.id;
+    const tsChanged = property.updated_at !== propertyData.updated_at;
 
-  if (idChanged || tsChanged) {
-    setPropertyData(property);
-    // force OverviewTab fresh render with latest data
-    setOverviewKey(k => k + 1);
-  }
-}, [property?.id, property?.updated_at]); // dhyaan: propertyData ko dep me mat daalo
+    if (idChanged || tsChanged) {
+      setPropertyData(property);
+      // force OverviewTab fresh render with latest data
+      setOverviewKey(k => k + 1);
+    }
+  }, [property?.id, property?.updated_at]); // dhyaan: propertyData ko dep me mat daalo
 
-// 🔊 listen once, remount Overview on event
-useEffect(() => {
-  const handler = (e: any) => {
-    // ⚠️ agar tum id-check kar rahe ho to dhyaan: propertyId pass ho
-    // if (e?.detail?.id && e.detail.id !== propertyData.id) return;
+  // 🔊 listen once, remount Overview on event
+  useEffect(() => {
+    const handler = (e: any) => {
+      // ⚠️ agar tum id-check kar rahe ho to dhyaan: propertyId pass ho
+      // if (e?.detail?.id && e.detail.id !== propertyData.id) return;
 
-    // force remount + optional tab switch
-    setOverviewKey(k => k + 1);
-    setActiveTab('overview'); // nahi chahiye to hata do
-  };
+      // force remount + optional tab switch
+      setOverviewKey(k => k + 1);
+      setActiveTab('overview'); // nahi chahiye to hata do
+    };
 
-  window.addEventListener('overview:refresh', handler);
-  return () => window.removeEventListener('overview:refresh', handler);
-}, [propertyData.id]);
+    window.addEventListener('overview:refresh', handler);
+    return () => window.removeEventListener('overview:refresh', handler);
+  }, [propertyData.id]);
 
   // inside PropertyViewPage
   useEffect(() => {
     setPropertyData(property);
   }, [property]);
-// when property id changes, try restoring its last-opened tab
-useEffect(() => {
-  const sp = new URLSearchParams(window.location.search);
-  const fromUrl = sp.get('tab');
-  const fromStorage = localStorage.getItem(`pv_tab_${String(property?.id)}`);
-  const next = (fromUrl || fromStorage);
-  if (next && next !== activeTab) setActiveTab(next);
-}, [property?.id]); // intentionally not depending on activeTab
+  // when property id changes, try restoring its last-opened tab
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const fromUrl = sp.get('tab');
+    const fromStorage = localStorage.getItem(`pv_tab_${String(property?.id)}`);
+    const next = (fromUrl || fromStorage);
+    if (next && next !== activeTab) setActiveTab(next);
+  }, [property?.id]); // intentionally not depending on activeTab
 
   // Property stages with automatic progression
   const propertyStages = [
@@ -619,45 +622,45 @@ useEffect(() => {
     setShowEditModal(true);
   };
 
-    useEffect(() => {
-  localStorage.setItem(`pv_tab_${String(propertyData.id)}`, activeTab);
-  const sp = new URLSearchParams(window.location.search);
-  sp.set('tab', activeTab);
-  window.history.replaceState(null, '', `${window.location.pathname}?${sp.toString()}`);
-}, [activeTab, propertyData.id]);
+  useEffect(() => {
+    localStorage.setItem(`pv_tab_${String(propertyData.id)}`, activeTab);
+    const sp = new URLSearchParams(window.location.search);
+    sp.set('tab', activeTab);
+    window.history.replaceState(null, '', `${window.location.pathname}?${sp.toString()}`);
+  }, [activeTab, propertyData.id]);
 
-const handleEditSubmit = (result: any) => {
-  const updatedProperty = {
-    ...propertyData,
-    ...result,
-    updated_at: new Date().toISOString(),
-    activities: [
-      ...(activities || []),
-      {
-        id: Date.now(),
-        type: 'property_update',
-        description: 'Property details updated',
-        date: new Date().toISOString().split('T')[0],
-        time: new Date().toLocaleTimeString(),
-        user: 'Admin User',
-      },
-    ],
+  const handleEditSubmit = (result: any) => {
+    const updatedProperty = {
+      ...propertyData,
+      ...result,
+      updated_at: new Date().toISOString(),
+      activities: [
+        ...(activities || []),
+        {
+          id: Date.now(),
+          type: 'property_update',
+          description: 'Property details updated',
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toLocaleTimeString(),
+          user: 'Admin User',
+        },
+      ],
+    };
+
+    setPropertyData(updatedProperty);
+    onUpdateProperty?.(updatedProperty);
+
+    // 👇 force re-mount (key bump)
+    setOverviewKey((k) => k + 1);
+
+    // 👇 tumhare listener ke liye custom event fire karo (id pass karo)
+    window.dispatchEvent(
+      new CustomEvent('overview:refresh', { detail: { id: updatedProperty.id } })
+    );
+
+    setShowEditModal(false);
+    toast.success('Property updated successfully!');
   };
-
-  setPropertyData(updatedProperty);
-  onUpdateProperty?.(updatedProperty);
-
-  // 👇 force re-mount (key bump)
-  setOverviewKey((k) => k + 1);
-
-  // 👇 tumhare listener ke liye custom event fire karo (id pass karo)
-  window.dispatchEvent(
-    new CustomEvent('overview:refresh', { detail: { id: updatedProperty.id } })
-  );
-
-  setShowEditModal(false);
-  toast.success('Property updated successfully!');
-};
 
 
 
@@ -938,13 +941,13 @@ const handleEditSubmit = (result: any) => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-4">
-       {activeTab === 'overview' && (
-  <OverviewTab
-    key={`ov-${propertyData.id}-${overviewKey}`}
-    property={propertyData}
-    onUpdate={setPropertyData}
-  />
-)}
+        {activeTab === 'overview' && (
+          <OverviewTab
+            key={`ov-${propertyData.id}-${overviewKey}`}
+            property={propertyData}
+            onUpdate={setPropertyData}
+          />
+        )}
 
         {activeTab === 'stages' && (
           <StagesTab
@@ -1143,18 +1146,18 @@ const OverviewTab = ({ property, onUpdate }: any) => {
   const nextRef = React.useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-  setQuotePrice(property.budget || 0);
-  setNegotiablePrice(
-    property.negotiablePrice ?? (property.budget ? property.budget * 0.95 : 0)
-  );
-}, [property.budget, property.negotiablePrice, property.updated_at]);
-// utils/helper
-const getMonthName = (value?: string | number | null) => {
-  if (!value) return "";
-  const month = typeof value === "string" ? parseInt(value) : value;
-  if (isNaN(month) || month < 1 || month > 12) return "";
-  return new Date(0, month - 1).toLocaleString("en", { month: "long" });
-};
+    setQuotePrice(property.budget || 0);
+    setNegotiablePrice(
+      property.negotiablePrice ?? (property.budget ? property.budget * 0.95 : 0)
+    );
+  }, [property.budget, property.negotiablePrice, property.updated_at]);
+  // utils/helper
+  const getMonthName = (value?: string | number | null) => {
+    if (!value) return "";
+    const month = typeof value === "string" ? parseInt(value) : value;
+    if (isNaN(month) || month < 1 || month > 12) return "";
+    return new Date(0, month - 1).toLocaleString("en", { month: "long" });
+  };
 
 
   const handlePriceUpdate = () => {
@@ -1300,15 +1303,9 @@ const getMonthName = (value?: string | number | null) => {
                             {formatINRShort(quotePrice)}
                           </p>
                         )}
-                        <button
-                          onClick={() => setEditingPrice(!editingPrice)}
-                          className="p-1 text-gray-400 hover:text-gray-600"
-                        >
-                          <Edit size={12} />
-                        </button>
                       </div>
                     </div>
-                    <DollarSign className="text-green-600" size={20} />
+                    <IndianRupee className="text-green-600" size={20} />
                   </div>
                 </div>
 
@@ -1318,12 +1315,13 @@ const getMonthName = (value?: string | number | null) => {
                     <div>
                       <p className="text-sm text-gray-600">Negotiable Price</p>
                       <p className="text-lg font-bold text-orange-600">
-                        {formatINRShort(negotiablePrice)}
+                        {formatINRShort(property?.finalPrice)}
                       </p>
                     </div>
                     <Percent className="text-orange-600" size={20} />
                   </div>
                 </div>
+
 
                 {/* Total Visits */}
                 <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -1399,12 +1397,14 @@ const getMonthName = (value?: string | number | null) => {
                   <span className="ml-2">{property?.parkingQty ? `${property.parkingQty} ${property.parkingType}` : "-"}</span>
                 </div>
                 <div><span className="font-semibold">Furnishing:</span><span className="ml-2">{property?.furnishing || "-"}</span></div>
-                <div><span className="font-semibold">Possession:</span><span className="ml-2">{property?.possessionMonth} {property?.possessionYear || "-"}</span></div>
+                <div><span className="font-semibold">Possession:</span><span className="ml-2">{getMonthName(property?.possessionMonth)} {property?.possessionYear || "-"}
+                </span></div>
 
                 {/* Row 6 */}
-                <div><span className="font-semibold">Purchase Date:</span><span className="ml-2">{property?.purchaseMonth} {property?.purchaseYear || "-"}</span></div>
+                <div><span className="font-semibold">Purchase Date:</span><span className="ml-2">{getMonthName(property?.possessionMonth)} {property?.possessionYear || "-"}
+                </span></div>
                 <div><span className="font-semibold">Selling Rights:</span><span className="ml-2">{property?.selling_rights || "-"}</span></div>
-                <div><span className="font-semibold">Lead Source:</span><span className="ml-2">{property.seller?.leadSource || "-"}</span></div>
+                <div><span className="font-semibold">Lead Source:</span><span className="ml-2">{property?.leadSource || "-"}</span></div>
 
                 {/* Row 7 */}
                 <div><span className="font-semibold">Status:</span><span className="ml-2">{property?.status || "-"}</span></div>
@@ -1520,24 +1520,24 @@ const getMonthName = (value?: string | number | null) => {
               </div>
             </div>
 
-           {/* Key Dates */}
-<div className="bg-white rounded-xl border border-gray-200 p-4">
-  <h3 className="font-semibold text-gray-900 mb-3">Key Dates</h3>
-  <div className="space-y-2 text-sm text-gray-700">
-    <div className="flex items-center justify-between">
-      <span className="text-gray-500">Purchase</span>
-      <span className="font-medium">
-        {getMonthName(property?.purchaseMonth)} {property?.purchaseYear || "-"}
-      </span>
-    </div>
-    <div className="flex items-center justify-between">
-      <span className="text-gray-500">Possession</span>
-      <span className="font-medium">
-        {getMonthName(property?.possessionMonth)} {property?.possessionYear || "-"}
-      </span>
-    </div>
-  </div>
-</div>
+            {/* Key Dates */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-3">Key Dates</h3>
+              <div className="space-y-2 text-sm text-gray-700">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Purchase</span>
+                  <span className="font-medium">
+                    {getMonthName(property?.purchaseMonth)} {property?.purchaseYear || "-"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Possession</span>
+                  <span className="font-medium">
+                    {getMonthName(property?.possessionMonth)} {property?.possessionYear || "-"}
+                  </span>
+                </div>
+              </div>
+            </div>
 
           </div>
         </div>

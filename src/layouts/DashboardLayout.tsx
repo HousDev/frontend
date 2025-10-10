@@ -326,6 +326,7 @@ const [unreadCount, setUnreadCount] = useState(0);
         type: 'dropdown',
         key: 'cms',
         submenu: [
+          { name: 'Home Manager', href: '/dashboard/home-manager', icon: Home, colorClass: navTextClass },
           { name: 'Blog Manager', href: '/dashboard/blog-manager', icon: Edit3, colorClass: navTextClass },
           { name: 'About Manager', href: '/dashboard/about-cms', icon: Info, colorClass: navTextClass },
           { name: 'Contact Manager', href: '/dashboard/contact-cms', icon: Phone, colorClass: navTextClass },

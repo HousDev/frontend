@@ -155,7 +155,7 @@ const AIChatbot: React.FC = () => {
   // Floating button for closed state
   if (!isOpen) {
     return (
-      <div className={`fixed ${isMobile ? 'bottom-4 right-4' : 'bottom-6 right-6'} z-50`}>
+      <div className={`fixed ${isMobile ? 'bottom-24 right-4' : 'bottom-6 right-6'} z-[70]`}>
         <button
           onClick={() => setIsOpen(true)}
           aria-label="Open chat"
@@ -195,7 +195,7 @@ const AIChatbot: React.FC = () => {
       )}
 
       <div
-        className={`fixed z-50 ${isMobile ? 'inset-x-0 bottom-0 flex justify-center' : 'bottom-6 right-6'}`}
+        className={`fixed z-[70] ${isMobile ? 'inset-x-0 bottom-0 flex justify-center' : 'bottom-6 right-6'}`}
         role="dialog"
         aria-modal="true"
         aria-label="RE AI Agent chat"

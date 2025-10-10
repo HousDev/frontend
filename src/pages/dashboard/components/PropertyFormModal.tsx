@@ -850,7 +850,7 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
     selling_rights: fd.sellingRights,
     amenities: fd.amenities,
     nearby_places: fd.nearby_places,
-
+    description: fd.description, 
     // ...existing mappings
     bedrooms: fd.bedrooms,
     bathrooms: fd.bathrooms,
@@ -1197,27 +1197,45 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
           
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Carpet Area (sq.ft)*</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Carpet Area (sq.ft)*
+            </label>
             <input
-              type="number"
+              type="text"
               placeholder="Enter carpet area"
               value={formData.carpetArea}
-              onChange={(e) => handleInputChange('carpetArea', e.target.value)}
-              className={`w-full px-3 py-2 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.carpetArea ? 'border-red-500' : 'border-gray-300'}`}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (/^\d*\.?\d*$/.test(val) || val === '') {
+                  handleInputChange('carpetArea', val);
+                }
+              }}
+              className={`w-full px-3 py-2 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.carpetArea ? 'border-red-500' : 'border-gray-300'
+                }`}
             />
-            {errors.carpetArea && <p className="text-red-500 text-xs mt-1">{errors.carpetArea}</p>}
+            {errors.carpetArea && (
+              <p className="text-red-500 text-xs mt-1">{errors.carpetArea}</p>
+            )}
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Builtup Area (sq.ft) (optional)</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Builtup Area (sq.ft) (optional)
+            </label>
             <input
-              type="number"
+              type="text"
               placeholder="Enter builtup area"
               value={formData.builtupArea}
-              onChange={(e) => handleInputChange('builtupArea', e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (/^\d*\.?\d*$/.test(val) || val === '') {
+                  handleInputChange('builtupArea', val);
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+
 
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Property Status</label>
