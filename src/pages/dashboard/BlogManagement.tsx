@@ -15,18 +15,13 @@ import {
   Heart,
   Wand2,
   Save,
-  Send,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
   X,
   Globe as GlobeIcon,
   MessageSquare,
   CornerUpLeft,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  RefreshCw,
-  Calendar,
-  Tag,
-  User,
 } from 'lucide-react';
 
 import { BlogPost, RSSSource, BlogCategory, BlogStatus } from '../../types/blog';
@@ -36,13 +31,14 @@ import AIBlogWriter from '@/components/blogManager/AIBlogWriter';
 import RSSSourceManager from '@/components/blogManager/RSSSourceManager';
 import SocialMediaManager from '@/components/blogManager/SocialMediaManager';
 import BlogAnalytics from '@/components/blogManager/BlogAnalytics';
-import blogsAPI from '@/lib/blogsAPI';
+
+import blogsAPIDefault from '@/lib/blogsAPI';
 import { rssAPI } from '@/lib/rssAPI';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 
-interface CommentItem {
+type CommentItem = {
   id: string;
   author: string;
   email?: string;
@@ -50,7 +46,10 @@ interface CommentItem {
   createdAt: string;
   likes?: number;
   replies?: CommentItem[];
-}
+};
+
+// Support both default- and named-export styles of blogsAPI
+const blogsAPI: any = (blogsAPIDefault as any)?.default ?? blogsAPIDefault;
 
 const BlogManagement: React.FC = () => {
   const { user } = useAuth() ?? { user: null };
@@ -90,7 +89,6 @@ const BlogManagement: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedStatus, setSelectedStatus] = useState<string>('All');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [autoApprove] = useState(false);
 
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [postsError, setPostsError] = useState<string | null>(null);
@@ -116,6 +114,9 @@ const BlogManagement: React.FC = () => {
   const [autoPublishAfterAI, setAutoPublishAfterAI] =
     useState<null | { originalId: string | number }>(null);
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   /** Map: sourceId -> sourceName (used where only sourceId is present) */
   const sourceNameById = useMemo<Record<string, string>>(
     () =>
@@ -125,6 +126,21 @@ const BlogManagement: React.FC = () => {
         return acc;
       }, {}),
     [rssources]
+  );
+
+  const getPostSourceName = useCallback(
+    (p: any) => {
+      const explicit = p?.sourceName ?? p?.source_name ?? p?.source?.name;
+      const sid =
+        p?.sourceId ??
+        p?.source_id ??
+        p?.rssSourceId ??
+        p?.rss_source_id ??
+        (p?.source?.id ?? undefined);
+      const mapped = sid != null ? sourceNameById[String(sid)] : undefined;
+      return (explicit || mapped || '') as string;
+    },
+    [sourceNameById]
   );
 
   const tabs = [
@@ -174,7 +190,6 @@ const BlogManagement: React.FC = () => {
       seoDescription: p.seoDescription ?? p.seo_description ?? p.metaDescription ?? '',
       readTime:
         typeof p.readTime === 'number' ? p.readTime : Math.ceil(((p.content || '').length || 0) / 200),
-      // extras we care about:
       ...(sourceId !== undefined ? { sourceId } : {}),
       ...(sourceName ? { sourceName } : {}),
     } as any;
@@ -201,6 +216,7 @@ const BlogManagement: React.FC = () => {
 
       const normalized = (list || []).map(normalizePost) as BlogPost[];
       setPosts(normalized);
+      setSelectedIds(new Set()); // reset bulk selection on refresh
     } catch (err: any) {
       console.error('Failed to load posts', err);
       if (err?.response) {
@@ -214,15 +230,19 @@ const BlogManagement: React.FC = () => {
       }
       toast.error('Could not fetch posts from server');
       setPosts([]);
+      setSelectedIds(new Set());
     } finally {
       setLoadingPosts(false);
     }
   }, []);
 
+  // ⬇️ Load posts based on sub-tab (server-side filter)
   useEffect(() => {
-    loadPosts();
-  }, [loadPosts]);
+    // request only the status we want
+    loadPosts({ status: postStateTab });
+  }, [loadPosts, postStateTab]);
 
+  // Load RSS sources
   useEffect(() => {
     (async () => {
       try {
@@ -238,7 +258,7 @@ const BlogManagement: React.FC = () => {
   const handleRefresh = async () => {
     try {
       setPage(1);
-      await loadPosts({ _ts: Date.now() });
+      await loadPosts({ status: postStateTab, _ts: Date.now() });
       toast.success('List refreshed');
     } catch { }
   };
@@ -283,10 +303,109 @@ const BlogManagement: React.FC = () => {
       setPosts((curr) =>
         (Array.isArray(curr) ? curr : []).filter((p) => String(p.id) !== String(postId))
       );
-      await blogsAPI.deletePost(postId);
+      if (typeof blogsAPI.deletePost === 'function') {
+        await blogsAPI.deletePost(postId);
+      }
       toast.success('Post deleted successfully!');
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(String(postId));
+        return next;
+      });
     } catch {
       toast.error('Failed to delete post. Refreshing list.');
+      handleRefresh();
+    }
+  };
+
+  // ---------- Bulk actions ----------
+  const toggleSelectOne = (id: string | number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const key = String(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const areAllCurrentPageSelected = (pageItems: BlogPost[]) =>
+    pageItems.length > 0 && pageItems.every((p) => selectedIds.has(String(p.id)));
+
+  const toggleSelectAllOnPage = (pageItems: BlogPost[]) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = areAllCurrentPageSelected(pageItems);
+      for (const p of pageItems) {
+        const key = String(p.id);
+        if (allSelected) next.delete(key);
+        else next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const bulkDeleteSelected = async (pageItems?: BlogPost[]) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return toast.info('No posts selected');
+
+    if (!window.confirm(`Delete ${ids.length} selected post(s)? This cannot be undone.`)) return;
+
+    try {
+      // Optimistic UI
+      setPosts((prev) => (prev ?? []).filter((p) => !selectedIds.has(String(p.id))));
+      setSelectedIds(new Set());
+
+      if (typeof blogsAPI.deleteMany === 'function') {
+        await blogsAPI.deleteMany(ids);
+      } else if (typeof blogsAPI.bulkDelete === 'function') {
+        await blogsAPI.bulkDelete({ ids });
+      } else if (typeof blogsAPI.deletePost === 'function') {
+        // fallback: delete sequentially (ignore per-item failures)
+        await Promise.all(
+          ids.map((id) =>
+            blogsAPI.deletePost(id).catch(() => {
+              // swallow; we already removed in UI
+            })
+          )
+        );
+      }
+
+      toast.success('Selected posts deleted');
+    } catch (e) {
+      console.error(e);
+      toast.error('Bulk delete failed. Refreshing list to resync.');
+      handleRefresh();
+    }
+  };
+
+  const bulkPublishSelected = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return toast.info('No posts selected');
+
+    try {
+      const nowISO = new Date().toISOString();
+      // Optimistic UI
+      setPosts((prev) =>
+        (prev ?? []).map((p) =>
+          ids.includes(String(p.id)) ? { ...p, status: 'published', publishedAt: nowISO } : p
+        )
+      );
+
+      if (typeof blogsAPI.bulkUpdate === 'function') {
+        await blogsAPI.bulkUpdate({ ids, data: { status: 'published', publishedAt: nowISO } });
+      } else if (typeof blogsAPI.updatePost === 'function') {
+        await Promise.all(
+          ids.map((id) => blogsAPI.updatePost(id, { status: 'published', publishedAt: nowISO }))
+        );
+      }
+
+      toast.success('Selected posts published');
+      setSelectedIds(new Set());
+      setPostStateTab('published');
+    } catch (e) {
+      console.error(e);
+      toast.error('Bulk publish failed. Refreshing list to resync.');
       handleRefresh();
     }
   };
@@ -342,9 +461,9 @@ const BlogManagement: React.FC = () => {
     if (typeof window === 'undefined') return;
     const safeTitle = (p.title || 'Preview').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const src =
-      (p as any).sourceName ||
-      (p as any).sourceId && sourceNameById[String((p as any).sourceId)] ||
-      '';
+      (p as any)?.sourceName
+      || ((p as any)?.sourceId && sourceNameById[String((p as any).sourceId)])
+      || '';
     const srcDot = src ? ` • ${src}` : '';
     const bodyHtml = `<article style="max-width:900px;margin:20px auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#111827;line-height:1.7;">
       <header style="margin-bottom:16px;">
@@ -373,8 +492,8 @@ const BlogManagement: React.FC = () => {
     }
     setLoadingComments(true);
     try {
-      if (typeof (blogsAPI as any).getComments === 'function') {
-        const res = await (blogsAPI as any).getComments(postId);
+      if (typeof blogsAPI.getComments === 'function') {
+        const res = await blogsAPI.getComments(postId);
         const list = res && (res.data ?? res.comments ?? res) ? (res.data ?? res.comments ?? res) : [];
         setCommentsForPost(Array.isArray(list) ? list : []);
       } else {
@@ -430,13 +549,13 @@ const BlogManagement: React.FC = () => {
     setReplyState((prev) => ({ ...prev, [parentCommentId]: { open: false, text: '' } }));
 
     try {
-      if (typeof (blogsAPI as any).replyComment === 'function') {
-        await (blogsAPI as any).replyComment(activeCommentsPost.id, parentCommentId, {
+      if (typeof blogsAPI.replyComment === 'function') {
+        await blogsAPI.replyComment(activeCommentsPost.id, parentCommentId, {
           author: replyObj.author,
           content: replyObj.content,
         });
-      } else if (typeof (blogsAPI as any).createComment === 'function') {
-        await (blogsAPI as any).createComment(activeCommentsPost.id, {
+      } else if (typeof blogsAPI.createComment === 'function') {
+        await blogsAPI.createComment(activeCommentsPost.id, {
           author: replyObj.author,
           content: replyObj.content,
           parentId: parentCommentId,
@@ -466,8 +585,8 @@ const BlogManagement: React.FC = () => {
     setCommentsForPost((prev) => [newComment, ...prev]);
 
     try {
-      if (typeof (blogsAPI as any).createComment === 'function') {
-        await (blogsAPI as any).createComment(activeCommentsPost.id, {
+      if (typeof blogsAPI.createComment === 'function') {
+        await blogsAPI.createComment(activeCommentsPost.id, {
           author: newComment.author,
           email: newComment.email,
           content: newComment.content,
@@ -549,8 +668,8 @@ const BlogManagement: React.FC = () => {
             : p
         )
       );
-      if (typeof (blogsAPI as any).updatePost === 'function') {
-        await (blogsAPI as any).updatePost(postId, {
+      if (typeof blogsAPI.updatePost === 'function') {
+        await blogsAPI.updatePost(postId, {
           status: 'published',
           publishedAt: new Date().toISOString(),
         });
@@ -571,7 +690,7 @@ const BlogManagement: React.FC = () => {
 
   const postsArray = Array.isArray(posts) ? posts : [];
 
-  // filters + sub-tab
+  // filters + sub-tab (client-side fallback filter too)
   const baseFiltered = postsArray.filter((post) => {
     const matchesSearch =
       !searchTerm ||
@@ -613,6 +732,7 @@ const BlogManagement: React.FC = () => {
 
   const statuses: BlogStatus[] = ['draft', 'published', 'archived'];
 
+  // ---------- Views ----------
   const renderDashboard = () => (
     <div className="space-y-6">
       {/* Summary cards */}
@@ -715,16 +835,12 @@ const BlogManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Recent posts (now also shows source) */}
+      {/* Recent posts (with source) */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Posts</h3>
         <div className="space-y-3">
           {postsArray.slice(0, 5).map((post) => {
-            const src =
-              (post as any).sourceName ||
-              ((post as any).sourceId &&
-                sourceNameById[String((post as any).sourceId)]) ||
-              '';
+            const src = getPostSourceName(post);
             return (
               <div
                 key={post.id}
@@ -761,10 +877,10 @@ const BlogManagement: React.FC = () => {
                       {src ? <span>• {src}</span> : null}
                       <span
                         className={`px-2 py-0.5 rounded-full text-xs ${post.status === 'published'
-                            ? 'bg-green-100 text-green-800'
-                            : post.status === 'draft'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
+                          ? 'bg-green-100 text-green-800'
+                          : post.status === 'draft'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-800'
                           }`}
                       >
                         {post.status}
@@ -796,372 +912,437 @@ const BlogManagement: React.FC = () => {
     </div>
   );
 
-  const renderContentManagement = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-          <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-full">
-            <button
-              onClick={() => setPostStateTab('draft')}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition ${postStateTab === 'draft' ? 'bg-white shadow border text-gray-900' : 'text-gray-600 hover:text-gray-900'
-                }`}
-            >
-              Draft
-            </button>
-            <button
-              onClick={() => setPostStateTab('published')}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition ${postStateTab === 'published'
+  const renderContentManagement = () => {
+    const allSelectedOnPage = areAllCurrentPageSelected(paginatedPosts);
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-full">
+              <button
+                onClick={() => setPostStateTab('draft')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition ${postStateTab === 'draft' ? 'bg-white shadow border text-gray-900' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+              >
+                Draft
+              </button>
+              <button
+                onClick={() => setPostStateTab('published')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition ${postStateTab === 'published'
                   ? 'bg-white shadow border text-gray-900'
                   : 'text-gray-600 hover:text-gray-900'
-                }`}
-            >
-              Published
-            </button>
+                  }`}
+              >
+                Published
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPostEditor(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              >
+                <Plus size={18} />
+                <span>New Post</span>
+              </button>
+              <button
+                onClick={handleRefresh}
+                disabled={loadingPosts}
+                className={`px-3 py-2 border rounded-md transition-colors flex items-center gap-2 ${loadingPosts ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100'
+                  }`}
+                title="Refresh list"
+              >
+                <RefreshCw size={16} className={loadingPosts ? 'animate-spin' : ''} />
+                <span>{loadingPosts ? 'Refreshing...' : 'Refresh'}</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowPostEditor(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-            >
-              <Plus size={18} />
-              <span>New Post</span>
-            </button>
-            <button
-              onClick={handleRefresh}
-              disabled={loadingPosts}
-              className={`px-3 py-2 border rounded-md transition-colors flex items-center gap-2 ${loadingPosts ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100'
-                }`}
-              title="Refresh list"
-            >
-              <RefreshCw size={16} className={loadingPosts ? 'animate-spin' : ''} />
-              <span>{loadingPosts ? 'Refreshing...' : 'Refresh'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder={`Search ${postStateTab === 'draft' ? 'drafts' : 'published'}...`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="All">All Categories</option>
-            {categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="All">All Status</option>
-            {statuses.map((status) => (
-              <option key={status} value={status}>
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </option>
-            ))}
-          </select>
-
-          {/* Page size */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Page size</span>
+          {/* Filters */}
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder={`Search ${postStateTab === 'draft' ? 'drafts' : 'published'}...`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
             <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="px-3 py-2 border rounded-md"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
-              {[5, 10, 15, 20].map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              <option value="All">All Categories</option>
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
                 </option>
               ))}
             </select>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <h3 className="text-lg font-bold text-gray-900">
-            {postStateTab === 'draft' ? 'Draft Posts' : 'Published Posts'} ({totalItems})
-          </h3>
-
-          {/* Pagination header controls */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage <= 1}
-              className={`p-2 rounded-md border ${currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                }`}
-              title="Previous"
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
-              <ChevronLeft size={18} />
-            </button>
-            <div className="text-sm text-gray-700">
-              Page <span className="font-semibold">{currentPage}</span> / {totalPages}
+              <option value="All">All Status</option>
+              {['draft', 'published', 'archived'].map((status) => (
+                <option key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </option>
+              ))}
+            </select>
+
+            {/* Page size */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Page size</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="px-3 py-2 border rounded-md"
+              >
+                {[5, 10, 15, 20].map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
+        </div>
+
+        {/* Bulk action bar */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+          <div className="text-sm">
+            Selected: <span className="font-semibold">{selectedIds.size}</span>
+          </div>
+          <div className="flex gap-2">
             <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage >= totalPages}
-              className={`p-2 rounded-md border ${currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+              onClick={bulkPublishSelected}
+              disabled={selectedIds.size === 0}
+              className={`px-3 py-2 rounded-md border ${selectedIds.size === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
                 }`}
-              title="Next"
+              title="Publish selected"
             >
-              <ChevronRight size={18} />
+              Publish Selected
+            </button>
+            <button
+              onClick={() => bulkDeleteSelected(paginatedPosts)}
+              disabled={selectedIds.size === 0}
+              className={`px-3 py-2 rounded-md border text-red-600 ${selectedIds.size === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50 border-red-300'
+                }`}
+              title="Delete selected"
+            >
+              Delete Selected
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              disabled={selectedIds.size === 0}
+              className={`px-3 py-2 rounded-md border ${selectedIds.size === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                }`}
+            >
+              Clear Selection
             </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Title</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Category</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Stats</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Quality</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedPosts.map((post) => {
-                const getQualityScore = (content: string) => {
-                  const seoScore = content.includes('#') && content.includes('##') ? 85 : 65;
-                  const readabilityScore = content.length > 500 ? 88 : 75;
-                  const overall = Math.round((seoScore + readabilityScore) / 2);
-                  return { overall, seo: seoScore, readability: readabilityScore };
-                };
-                const getPlagiarismScore = (content: string) =>
-                  Math.floor(Math.random() * 5) + 95;
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between gap-3 mb-6">
+            <h3 className="text-lg font-bold text-gray-900">
+              {postStateTab === 'draft' ? 'Draft Posts' : 'Published Posts'} ({totalItems})
+            </h3>
 
-                const qualityScore = getQualityScore(post.content || '');
-                const plagiarismScore = getPlagiarismScore(post.content || '');
-                const isDraft = post.status === 'draft';
+            {/* Pagination header controls */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className={`p-2 rounded-md border ${currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                  }`}
+                title="Previous"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <div className="text-sm text-gray-700">
+                Page <span className="font-semibold">{currentPage}</span> / {totalPages}
+              </div>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className={`p-2 rounded-md border ${currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                  }`}
+                title="Next"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
 
-                const src =
-                  (post as any).sourceName ||
-                  ((post as any).sourceId &&
-                    sourceNameById[String((post as any).sourceId)]) ||
-                  '';
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="py-3 px-4">
+                    <input
+                      type="checkbox"
+                      checked={allSelectedOnPage}
+                      onChange={() => toggleSelectAllOnPage(paginatedPosts)}
+                    />
+                  </th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Title</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Source</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Category</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Stats</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Quality</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedPosts.map((post) => {
+                  const getQualityScore = (content: string) => {
+                    const seoScore = content.includes('#') && content.includes('##') ? 85 : 65;
+                    const readabilityScore = content.length > 500 ? 88 : 75;
+                    const overall = Math.round((seoScore + readabilityScore) / 2);
+                    return { overall, seo: seoScore, readability: readabilityScore };
+                  };
+                  const getPlagiarismScore = (content: string) => Math.floor(Math.random() * 5) + 95;
 
-                return (
-                  <tr key={post.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center space-x-3">
-                        {post.featuredImage ? (
-                          <img
-                            src={post.featuredImage}
-                            alt={post.title}
-                            className="w-10 h-10 object-cover rounded-lg"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-5 h-5"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="1.5"
-                                d="M3 3v18h18"
-                              />
-                            </svg>
+                  const qualityScore = getQualityScore(post.content || '');
+                  const plagiarismScore = getPlagiarismScore(post.content || '');
+                  const srcName = getPostSourceName(post);
+
+                  const checked = selectedIds.has(String(post.id));
+
+                  return (
+                    <tr key={post.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSelectOne(post.id!)}
+                        />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-3">
+                          {post.featuredImage ? (
+                            <img
+                              src={post.featuredImage}
+                              alt={post.title}
+                              className="w-10 h-10 object-cover rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-5 h-5"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="1.5"
+                                  d="M3 3v18h18"
+                                />
+                              </svg>
+                            </div>
+                          )}
+                          <div>
+                            <h4 className="font-medium text-gray-900">{post.title}</h4>
+                            <p className="text-xs text-gray-600">
+                              {post.author} • {new Date(post.createdAt || Date.now()).toLocaleDateString()}
+                            </p>
                           </div>
-                        )}
-                        <div>
-                          <h4 className="font-medium text-gray-900">{post.title}</h4>
-                          <p className="text-xs text-gray-600">
-                            {post.author} • {new Date(post.createdAt || Date.now()).toLocaleDateString()}
-                            {src ? ` • ${src}` : ''}
-                          </p>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                        {post.category}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs ${post.status === 'published'
+                      </td>
+
+                      {/* SOURCE */}
+                      <td className="py-3 px-4">
+                        {srcName ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-xs">
+                            <GlobeIcon size={12} />
+                            {srcName}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">—</span>
+                        )}
+                      </td>
+
+                      {/* CATEGORY */}
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-blue-800  px-2 py-1 text-xs">
+                          {post.category}
+                        </span>
+                      </td>
+
+                      {/* STATUS */}
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs ${post.status === 'published'
                             ? 'bg-green-100 text-green-800'
                             : post.status === 'draft'
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-gray-100 text-gray-800'
-                          }`}
-                      >
-                        {post.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="text-xs text-gray-600">
-                        <div>{post.views || 0} views</div>
-                        <div>{post.likes || 0} likes</div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <div className="text-xs text-gray-600">SEO:</div>
-                          <div
-                            className={`text-xs font-medium ${qualityScore.seo > 80 ? 'text-green-600' : 'text-yellow-600'
-                              }`}
+                            }`}
+                        >
+                          {post.status}
+                        </span>
+                      </td>
+
+                      {/* STATS */}
+                      <td className="py-3 px-4">
+                        <div className="text-xs text-gray-600">
+                          <div>{post.views || 0} views</div>
+                          <div>{post.likes || 0} likes</div>
+                        </div>
+                      </td>
+
+                      {/* QUALITY */}
+                      <td className="py-3 px-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <div className="text-xs text-gray-600">SEO:</div>
+                            <div
+                              className={`text-xs font-medium ${qualityScore.seo > 80 ? 'text-green-600' : 'text-yellow-600'
+                                }`}
+                            >
+                              {qualityScore.seo}%
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className="text-xs text-gray-600">Original:</div>
+                            <div className="text-xs font-medium text-green-600">{plagiarismScore}%</div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* ACTIONS */}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3 whitespace-nowrap">
+                          <button
+                            onClick={() => handleEditPost(post)}
+                            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition"
+                            title="Edit"
                           >
-                            {qualityScore.seo}%
-                          </div>
+                            <Edit size={18} className="shrink-0" />
+                          </button>
+
+                          <button
+                            onClick={() => handlePreviewPost(post)}
+                            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition"
+                            title="Preview"
+                          >
+                            <Eye size={18} className="shrink-0" />
+                          </button>
+
+                          <button
+                            onClick={() => openCommentsForPost(post)}
+                            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition"
+                            title="Comments"
+                          >
+                            <MessageSquare size={18} className="shrink-0" />
+                          </button>
+
+                          <button
+                            onClick={() => rewriteWithAI(post.id!)}
+                            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 transition"
+                            title="AI Rewrite"
+                          >
+                            <Wand2 size={18} className="shrink-0" />
+                          </button>
+
+                          <button
+                            onClick={() => handleDeletePost(post.id!)}
+                            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition"
+                            title="Delete"
+                          >
+                            <Trash2 size={18} className="shrink-0" />
+                          </button>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="text-xs text-gray-600">Original:</div>
-                          <div className="text-xs font-medium text-green-600">
-                            {plagiarismScore}%
-                          </div>
-                        </div>
-                      </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {paginatedPosts.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="py-10 text-center text-gray-500">
+                      No {postStateTab} posts found.
                     </td>
-                    <td className="py-3 px-4">
-                      {/* one straight row, consistent icon buttons */}
-                      <div className="flex items-center gap-3 whitespace-nowrap">
-                        <button
-                          onClick={() => handleEditPost(post)}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition"
-                          title="Edit"
-                        >
-                          <Edit size={18} className="shrink-0" />
-                        </button>
-
-                        <button
-                          onClick={() => handlePreviewPost(post)}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition"
-                          title="Preview"
-                        >
-                          <Eye size={18} className="shrink-0" />
-                        </button>
-
-                        <button
-                          onClick={() => openCommentsForPost(post)}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition"
-                          title="Comments"
-                        >
-                          <MessageSquare size={18} className="shrink-0" />
-                        </button>
-
-                        <button
-                          onClick={() => rewriteWithAI(post.id!)}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 transition"
-                          title="AI Rewrite"
-                        >
-                          <Wand2 size={18} className="shrink-0" />
-                        </button>
-
-                        <button
-                          onClick={() => handleDeletePost(post.id!)}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition"
-                          title="Delete"
-                        >
-                          <Trash2 size={18} className="shrink-0" />
-                        </button>
-                      </div>
-                    </td>
-
                   </tr>
-                );
-              })}
-              {paginatedPosts.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-10 text-center text-gray-500">
-                    No {postStateTab} posts found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer pagination */}
-        <div className="mt-6 flex items-center justify-between flex-wrap gap-3">
-          <div className="text-sm text-gray-600">
-            Showing{' '}
-            <span className="font-semibold">
-              {totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1}
-            </span>
-            {' - '}
-            <span className="font-semibold">{Math.min(currentPage * pageSize, totalItems)}</span>{' '}
-            of <span className="font-semibold">{totalItems}</span>
+                )}
+              </tbody>
+            </table>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(1)}
-              disabled={currentPage === 1}
-              className={`px-3 py-2 border rounded-md ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                }`}
-            >
-              First
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className={`px-3 py-2 border rounded-md ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                }`}
-            >
-              Prev
-            </button>
-            <span className="px-3 py-2 text-sm">
-              Page <span className="font-semibold">{currentPage}</span> / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className={`px-3 py-2 border rounded-md ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                }`}
-            >
-              Next
-            </button>
-            <button
-              onClick={() => setPage(totalPages)}
-              disabled={currentPage === totalPages}
-              className={`px-3 py-2 border rounded-md ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                }`}
-            >
-              Last
-            </button>
-            <button
-              onClick={handleRefresh}
-              disabled={loadingPosts}
-              className={`ml-2 px-3 py-2 border rounded-md transition-colors flex items-center gap-2 ${loadingPosts ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50'
-                }`}
-              title="Refresh list"
-            >
-              <RefreshCw size={16} className={loadingPosts ? 'animate-spin' : ''} />
-              <span>{loadingPosts ? 'Refreshing...' : 'Refresh'}</span>
-            </button>
+
+          {/* Footer pagination */}
+          <div className="mt-6 flex items-center justify-between flex-wrap gap-3">
+            <div className="text-sm text-gray-600">
+              Showing{' '}
+              <span className="font-semibold">
+                {totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+              </span>
+              {' - '}
+              <span className="font-semibold">{Math.min(currentPage * pageSize, totalItems)}</span>{' '}
+              of <span className="font-semibold">{totalItems}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(1)}
+                disabled={currentPage === 1}
+                className={`px-3 py-2 border rounded-md ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                  }`}
+              >
+                First
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className={`px-3 py-2 border rounded-md ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                  }`}
+              >
+                Prev
+              </button>
+              <span className="px-3 py-2 text-sm">
+                Page <span className="font-semibold">{currentPage}</span> / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-2 border rounded-md ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                  }`}
+              >
+                Next
+              </button>
+              <button
+                onClick={() => setPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-2 border rounded-md ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                  }`}
+              >
+                Last
+              </button>
+              <button
+                onClick={handleRefresh}
+                disabled={loadingPosts}
+                className={`ml-2 px-3 py-2 border rounded-md transition-colors flex items-center gap-2 ${loadingPosts ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50'
+                  }`}
+                title="Refresh list"
+              >
+                <RefreshCw size={16} className={loadingPosts ? 'animate-spin' : ''} />
+                <span>{loadingPosts ? 'Refreshing...' : 'Refresh'}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  // --- comments / AI tools / SEO tools remain as in your version (unchanged) ---
   const renderCommentsTab = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
@@ -1191,13 +1372,13 @@ const BlogManagement: React.FC = () => {
                 onClick={() => {
                   if (activeCommentsPost) loadCommentsForPost(activeCommentsPost.id);
                 }}
-                className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w-full sm:w-auto"
+                className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w/full sm:w-auto"
               >
                 Refresh
               </button>
               <button
                 onClick={() => setActiveCommentsPost(null)}
-                className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w-full sm:w-auto"
+                className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w/full sm:w-auto"
               >
                 Clear
               </button>
@@ -1220,8 +1401,7 @@ const BlogManagement: React.FC = () => {
                 >
                   <div className="font-medium text-gray-900 truncate">{p.title ?? 'Untitled'}</div>
                   <div className="text-xs text-gray-500 mt-1 truncate">
-                    {p.author ?? 'Unknown'} •{' '}
-                    {new Date(p.createdAt || Date.now()).toLocaleDateString()}
+                    {p.author ?? 'Unknown'} • {new Date(p.createdAt || Date.now()).toLocaleDateString()}
                   </div>
                 </button>
               ))}
@@ -1525,8 +1705,8 @@ const BlogManagement: React.FC = () => {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center space-x-2 px-5 py-3 sm:px-6 sm:py-4 font-medium transition-colors whitespace-nowrap shrink-0 ${activeTab === tab.id
-                      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                 >
                   <Icon size={18} className="shrink-0" />
@@ -1582,12 +1762,7 @@ const BlogManagement: React.FC = () => {
           </div>
         )}
 
-        {showRSSManager && (
-          <RSSSourceManager
-            isOpen={true}
-            onClose={() => setShowRSSManager(false)}
-          />
-        )}
+        {showRSSManager && <RSSSourceManager isOpen={true} onClose={() => setShowRSSManager(false)} />}
 
         {showSocialManager && (
           <SocialMediaManager
@@ -1614,13 +1789,13 @@ const BlogManagement: React.FC = () => {
                   <h3 className="text-lg font-bold text-gray-900">{previewPost.title}</h3>
                   <div className="text-xs text-gray-500">
                     {previewPost.author} • {formatDate(previewPost.publishedAt || previewPost.createdAt)}
-                    {(previewPost as any).sourceName ||
-                      ((previewPost as any).sourceId &&
-                        sourceNameById[String((previewPost as any).sourceId)])
-                      ? ` • ${(previewPost as any).sourceName ||
-                      sourceNameById[String((previewPost as any).sourceId)]
-                      }`
-                      : ''}
+                    {(() => {
+                      const src =
+                        (previewPost as any).sourceName ||
+                        ((previewPost as any).sourceId &&
+                          sourceNameById[String((previewPost as any).sourceId)]);
+                      return src ? ` • ${src}` : '';
+                    })()}
                   </div>
                 </div>
               </div>

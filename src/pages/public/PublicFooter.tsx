@@ -91,7 +91,7 @@ const PublicFooter = ({ onPageChange }: any) => {
 
 
   return (
-    <footer className="bg-gray-900 text-white">
+    <footer className="bg-gray-900 text-white lg:pb-0 md:pb-0 pb-24 z-[70]">
       {/* Main Footer */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="grid grid-cols-2 md:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8 md:gap-8 sm:gap-8 gap-2">
