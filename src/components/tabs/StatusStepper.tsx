@@ -9,7 +9,7 @@ export type StepKey =
   | 'shared'
   | 'on_hold'
   | 'otp_verified'
-  | 'esign_pending'      // normalized from "e-sign_pending"
+  | 'esign_pending' // normalized from "e-sign_pending"
   | 'completed'
   | 'cancelled';
 
@@ -49,10 +49,10 @@ const COLORS: Record<StepKey, { ring: string; fill: string; text: string; line: 
 
 /** strict prerequisites (can’t skip OTP) */
 const PREREQ: Partial<Record<StepKey, StepKey>> = {
-  shared: 'created',            // (soft) allow after created
-  otp_verified: 'shared',       // must be shared before OTP
-  esign_pending: 'otp_verified',// must be OTP-verified before e-sign
-  completed: 'esign_pending',   // must be e-sign pending before completed
+  shared: 'created',             // (soft) allow after created
+  otp_verified: 'shared',        // must be shared before OTP
+  esign_pending: 'otp_verified', // must be OTP-verified before e-sign
+  completed: 'esign_pending',    // must be e-sign pending before completed
   // on_hold / cancelled: no hard prereq beyond created
 };
 
@@ -88,24 +88,36 @@ export default function StatusStepper({
     return STEP_ORDER.indexOf(req) <= currentIndex;
   };
 
-  // ✅ Only allow moving forward AND after prerequisites
+  /** only allow moving forward and after prerequisites */
   const canClick = (step: StepKey) => {
     const idx = STEP_ORDER.indexOf(step);
-    if (idx <= currentIndex) return false;       // no current/past step
-    if (disabled || working) return false;
+    if (idx <= currentIndex) return false;  // no current/past step
+    if (disabled || !!working) return false;
+
+    // 🚫 NEW RULE: once completed, you cannot go to "cancelled"
+    if (normalized === 'completed' && step === 'cancelled') return false;
+
     return hasPrereq(step);
   };
-// somewhere central (e.g., DocumentsPage mount)
-useEffect(() => {
-  const onStatus = (e: any) => {
-    const { id, status } = e.detail || {};
-    // refresh the row / stepper for doc `id`
-  };
-  window.addEventListener("doc:status", onStatus as any);
-  return () => window.removeEventListener("doc:status", onStatus as any);
-}, []);
+
+  // status event listener (if you broadcast elsewhere)
+  useEffect(() => {
+    const onStatus = (e: any) => {
+      const { id, status } = e.detail || {};
+      // refresh the row / stepper for doc `id` if you keep local cache here
+      // (left intentionally blank; parent usually updates via onSynced)
+    };
+    window.addEventListener('doc:status', onStatus as any);
+    return () => window.removeEventListener('doc:status', onStatus as any);
+  }, []);
 
   const onToggle = async (target: StepKey) => {
+    // extra guard (defensive)
+    if (normalized === 'completed' && target === 'cancelled') {
+      toast.info('This document is already completed and cannot be cancelled.');
+      return;
+    }
+
     if (!canClick(target)) {
       // UX hints (strict, OTP-style)
       if (target === 'otp_verified') {
@@ -134,7 +146,7 @@ useEffect(() => {
       };
       await documentStatusAPI.setStatus(docId, payload);
 
-      // Server snapshot = single source of truth
+      // server snapshot = single source of truth
       const snap = await documentStatusAPI.getSnapshot(docId);
       onSynced?.({
         id: docId,
@@ -178,11 +190,21 @@ useEffect(() => {
                 <Clock size={16} className={color.text} />
               )}
             </button>
-            <div className={['text-[11px] font-medium', done ? 'text-green-700' : color.text].join(' ')}>
+            <div
+              className={[
+                'text-[11px] font-medium',
+                done ? 'text-green-700' : color.text,
+              ].join(' ')}
+            >
               {LABELS[step]}
             </div>
             {i < STEP_ORDER.length - 1 && (
-              <div className={['w-6 h-0.5 rounded-full', i < currentIndex ? 'bg-green-400' : color.line].join(' ')} />
+              <div
+                className={[
+                  'w-6 h-0.5 rounded-full',
+                  i < currentIndex ? 'bg-green-400' : color.line,
+                ].join(' ')}
+              />
             )}
           </div>
         );
