@@ -1,37 +1,74 @@
 import { api } from "./api";
 
 export type PartyRole = "Seller" | "Buyer";
-export type EsignStatus = "created" | "otp_sent" | "otp_verified" | "redirected" | "signed" | "failed";
+export type EsignStatus =
+  | "created"
+  | "otp_sent"
+  | "otp_verified"
+  | "redirected"
+  | "signed"
+  | "failed";
 
-export type InitSessionResponse = {
+/** Common "ok" envelope your backend returns */
+type OkEnvelope = { ok?: boolean };
+
+/** /esign/init */
+export type InitSessionResponse = OkEnvelope & {
   session_id: string;
-  redirect_url?: string;
+  redirect_url?: string | null;
+  /** Dev-only helpers (mock provider) */
+  mock_otp?: string;
+  mock_otp_expires_at?: string; // ISO
+  /** When an active session exists and we rotated OTP instead of creating new */
+  reused?: boolean;
 };
 
-export type ResendOtpResponse = { ok: true };
+/** /esign/resend-otp */
+export type ResendOtpResponse = OkEnvelope & {
+  resent: boolean;
+  mock_otp?: string;
+  mock_otp_expires_at?: string;
+};
 
-export type VerifyOtpResponse = {
+/** /esign/verify-otp */
+export type VerifyOtpResponse = OkEnvelope & {
+  /** Your current backend returns only this: */
   verified: boolean;
+  /** If you later decide to return redirect directly, keep these optional: */
+  status?: EsignStatus;               // e.g., "otp_verified" or "redirected"
+  redirect_url?: string | null;       // if BE creates redirect in verify step
+  signed_at?: string | null;
 };
 
-export type RedirectUrlResponse = {
+/** /esign/redirect-url */
+export type RedirectUrlResponse = OkEnvelope & {
   redirect_url: string;
 };
 
-export type PollStatusResponse = {
+/** /esign/status */
+export type PollStatusResponse = OkEnvelope & {
   status: EsignStatus;
-  signed_at?: string;
+  signed_at?: string | null;
+  redirect_url?: string | null; // your backend also returns redirect_url here
 };
 
-export type ArtifactsResponse = {
-  signed_pdf_url?: string;
-  audit_trail_url?: string;
+/** /esign/artifacts */
+export type ArtifactsResponse = OkEnvelope & {
+  signed_pdf_url?: string | null;
+  audit_trail_url?: string | null;
+};
+
+/** (optional) /esign/session helper */
+export type GetSessionResponse = OkEnvelope & {
+  session_id: string;
+  status: EsignStatus;
+  redirect_url?: string | null;
+  signed_at?: string | null;
 };
 
 // Normalize axios/fetch responses to T
 const data = async <T>(p: Promise<any>): Promise<T> => {
   const r = await p;
-  // if using axios, prefer r.data; if fetch/other, r itself may be the payload
   return (r?.data ?? r) as T;
 };
 
@@ -66,5 +103,10 @@ export const electronicSignAPI = {
 
   fetchArtifacts(session_id: string): Promise<ArtifactsResponse> {
     return data<ArtifactsResponse>(api.get("/esign/artifacts", { params: { session_id } }));
+  },
+
+  /** optional helper you already have on BE */
+  getSession(session_id: string): Promise<GetSessionResponse> {
+    return data<GetSessionResponse>(api.get("/esign/session", { params: { session_id } }));
   },
 };

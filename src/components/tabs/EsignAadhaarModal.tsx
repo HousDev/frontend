@@ -58,8 +58,7 @@ const mergeOrAppend = (arr: SessionInfo[], item: SessionInfo): SessionInfo[] => 
 };
 
 const onlyDigits = (val: string) => val.replace(/\D/g, "");
-const norm = (s?: string) =>
-  s === "e-sign_pending" ? "esign_pending" : (s || "created");
+const norm = (s?: string) => (s === "e-sign_pending" ? "esign_pending" : (s || "created"));
 
 type PartyFlags = { buyer_verified?: boolean; seller_verified?: boolean };
 const hasPartyFlags = (s: unknown): s is PartyFlags =>
@@ -73,6 +72,15 @@ const requireBothVerified = async (documentId: number) => {
   }
   // fallback to stage status
   return status === "otp_verified";
+};
+
+// --- new helpers for session control ---
+const ACTIVE_PHASES: SessionInfo["status"][] = ["otp_sent", "otp_verified", "redirected"];
+const getLastSession = (list: SessionInfo[], role: PartyRole) =>
+  [...list].reverse().find((s) => s.role === role);
+const hasLiveSession = (list: SessionInfo[], role: PartyRole) => {
+  const s = getLastSession(list, role);
+  return !!s && (ACTIVE_PHASES.includes(s.status) || s.status === "signed");
 };
 
 /* --------------------------------- UI ---------------------------------- */
@@ -125,19 +133,30 @@ export default function EsignAadhaarModal({
   }, [buyer, seller, consent]);
 
   const buyerSession = useMemo(
-    () => [...allSessions].reverse().find((s) => s.role === "Buyer"),
+    () => getLastSession(allSessions, "Buyer"),
     [allSessions]
   );
   const sellerSession = useMemo(
-    () => [...allSessions].reverse().find((s) => s.role === "Seller"),
+    () => getLastSession(allSessions, "Seller"),
     [allSessions]
   );
+
   const buyerOtpOk = !!buyerSession && (buyerSession.status === "otp_verified" || buyerSession.status === "signed");
   const sellerOtpOk = !!sellerSession && (sellerSession.status === "otp_verified" || sellerSession.status === "signed");
-  const bothEsignOtpVerified = buyerOtpOk && sellerOtpOk;
+
+  const buyerSigned = !!buyerSession && buyerSession.status === "signed";
+  const sellerSigned = !!sellerSession && sellerSession.status === "signed";
+
+  // Sequential rule: Seller locked until Buyer fully signed
+  const sellerLocked = !buyerSigned;
+
+  // Continue button enablement (for current role)
+  const canContinueForBuyer = !!buyerSession && buyerSession.status === "otp_verified";
+  const canContinueForSeller = buyerSigned && !!sellerSession && sellerSession.status === "otp_verified";
 
   const [progressSent, setProgressSent] = useState(false);
-  const hasPartialVerification = (buyerOtpOk && !sellerOtpOk) || (!buyerOtpOk && sellerOtpOk);
+  const hasPartialVerification =
+    (buyerOtpOk && !sellerOtpOk) || (!buyerOtpOk && sellerOtpOk);
 
   const handleClose = () => {
     if (hasPartialVerification) {
@@ -168,7 +187,13 @@ export default function EsignAadhaarModal({
   const beginEsignFor = async (role: PartyRole) => {
     if (loading) return;
 
-    // gate behind step-1 completion
+    // Sequential gate: Seller cannot start until Buyer is fully signed
+    if (role === "Seller" && sellerLocked) {
+      toast.error("Start Seller only after Buyer has completed e-sign.");
+      return;
+    }
+
+    // Step-1 (identity) gate
     try {
       const ok = await requireBothVerified(documentId);
       if (!ok) {
@@ -177,6 +202,16 @@ export default function EsignAadhaarModal({
       }
     } catch {
       toast.error("Could not validate verification status.");
+      return;
+    }
+
+    // Reuse any live session for this role
+    const existing = getLastSession(allSessions, role);
+    if (existing && (ACTIVE_PHASES.includes(existing.status) || existing.status === "signed")) {
+      setActiveRole(role);
+      setCurrentSession(existing);
+      setStep(existing.status === "otp_verified" ? "form" : existing.status === "redirected" ? "redirect" : "otp");
+      toast.info(`${role} session already active. Reusing it.`);
       return;
     }
 
@@ -194,33 +229,26 @@ export default function EsignAadhaarModal({
         email: p.email || "",
         phone: p.phone || "",
         aadhaar: p.aadhaar,
-        consent_text:
-          "I hereby consent to use my Aadhaar for authentication and eSign the document.",
+        consent_text: "I hereby consent to use my Aadhaar for authentication and eSign the document.",
       });
 
       const session_id = (init as any)?.session_id;
       if (!session_id) throw new Error("No session_id from /esign/init");
 
       let redirectUrl: string | undefined = (init as any)?.redirect_url;
-
-      setCurrentSession({
-        session_id,
-        status: "otp_sent",
-        redirect_url: redirectUrl,
-        role,
-      });
-
       if (!redirectUrl) {
         try {
           const ru = await electronicSignAPI.getRedirectUrl(session_id);
           redirectUrl = (ru as any)?.redirect_url;
-          if (redirectUrl) {
-            setCurrentSession((s) => (s ? { ...s, redirect_url: redirectUrl } : s));
-          }
         } catch {}
       }
 
+      const info: SessionInfo = { session_id, status: "otp_sent", redirect_url: redirectUrl, role };
+      setCurrentSession(info);
+      setAllSessions((prev) => mergeOrAppend(prev, info));
+
       setStep("otp");
+      setActiveRole(role);
       toast.success(`${role} — OTP sent`);
       focusTimerRef.current = window.setTimeout(() => otpRef.current?.focus(), 150);
     } catch (e: any) {
@@ -248,7 +276,6 @@ export default function EsignAadhaarModal({
       const ok = isOtpVerified(res);
       if (!ok) throw new Error("OTP verification failed");
 
-      // fetch redirect after verify in case gateway releases it now
       let redirectUrl = currentSession.redirect_url;
       if (!redirectUrl) {
         try {
@@ -266,29 +293,12 @@ export default function EsignAadhaarModal({
 
       const merged = mergeOrAppend(allSessions, updated);
       setAllSessions(merged);
-      setCurrentSession(null);
+      setCurrentSession(null); // close session until Continue
       toast.success(`${activeRole} OTP verified ✓`);
 
-      const b = merged.find((s) => s.role === "Buyer");
-      const s = merged.find((s) => s.role === "Seller");
-      const buyerDone = !!b && (b.status === "otp_verified" || b.status === "signed");
-      const sellerDone = !!s && (s.status === "otp_verified" || s.status === "signed");
-
-      if (buyerDone && sellerDone) {
-        // ✅ Both OTP verified — now and only now tell StatusStepper to park at "otp_verified"
-        window.dispatchEvent(
-          new CustomEvent("doc:status", {
-            detail: { id: documentId, status: "otp_verified" },
-          })
-        );
-        toast.info("Both parties verified! Click Continue.");
-        setStep("form");
-      } else {
-        const nextRole = activeRole === "Buyer" ? "Seller" : "Buyer";
-        toast.info(`Now verify OTP for ${nextRole}`);
-        setActiveRole(nextRole);
-        setStep("form");
-      }
+      // Stay on form (sequential) – next step is Continue for same role
+      setStep("form");
+      toast.info(`Click "Continue to e-Sign" for ${activeRole}.`);
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || "OTP verification failed");
@@ -297,55 +307,142 @@ export default function EsignAadhaarModal({
     }
   };
 
+  // Continue only for CURRENT role (sequential). Not "both".
+  const continueForCurrentRole = async () => {
+    const role = activeRole;
+    const sess = role === "Buyer" ? buyerSession : sellerSession;
+
+    // Guards
+    if (role === "Seller" && sellerLocked) {
+      toast.error("Seller can proceed only after Buyer has completed e-sign.");
+      return;
+    }
+    if (!sess || sess.status !== "otp_verified") {
+      toast.error(`Verify OTP for ${role} first.`);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Identity gate re-check
+      const docOk = await requireBothVerified(documentId);
+      if (!docOk) {
+        toast.error("Party identity verification is incomplete. Verify both first.");
+        return;
+      }
+
+      // esign_pending: set when first redirect happens (i.e., Buyer Continue)
+      // We set once; subsequent continues won't re-send.
+      if (!progressSent) {
+        const sessionIds = Array.from(new Set(allSessions.map((s) => s.session_id)));
+
+        try {
+          setProgressSent(true);
+          if (onProgress) {
+            await onProgress({ docId: documentId, sessionIds });
+          } else {
+            await documentStatusAPI.setStatus(documentId, {
+              new_status: "esign_pending",
+              details: {
+                session_ids: sessionIds,
+                buyer_otp: buyerSession?.session_id,
+                seller_otp: sellerSession?.session_id,
+              },
+            });
+          }
+
+          window.dispatchEvent(
+            new CustomEvent("doc:status", {
+              detail: { id: documentId, status: "esign_pending" },
+            })
+          );
+          toast.success("Document status updated to E-Sign Pending.");
+        } catch (e) {
+          setProgressSent(false);
+          throw e;
+        }
+      }
+
+      // Open current role tab and enter redirect mode with this session as current
+      let url = sess.redirect_url;
+      if (!url) {
+        try {
+          const ru = await electronicSignAPI.getRedirectUrl(sess.session_id);
+          url = (ru as any)?.redirect_url;
+        } catch {}
+      }
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+
+      setCurrentSession({ ...sess, status: "redirected" });
+      setAllSessions((prev) => mergeOrAppend(prev, { ...sess, status: "redirected" }));
+      setStep("redirect");
+      toast.info("Signing page opened (if available).");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Could not continue");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const pollCurrent = async () => {
     if (loading) return;
-    if (!currentSession?.session_id) return;
+    if (!currentSession?.session_id) {
+      toast.error("No active signing session to check.");
+      return;
+    }
     try {
       setLoading(true);
       const s = await electronicSignAPI.pollStatus(currentSession.session_id);
       const raw = String((s as any)?.status ?? "created").toLowerCase();
       const status: SessionInfo["status"] =
-        raw === "completed" || raw === "done" ? "signed"
-        : (["created", "otp_sent", "otp_verified", "redirected", "signed", "failed"] as const).includes(raw as any)
-        ? (raw as SessionInfo["status"])
-        : "created";
+        raw === "completed" || raw === "done"
+          ? "signed"
+          : (["created", "otp_sent", "otp_verified", "redirected", "signed", "failed"] as const).includes(raw as any)
+          ? (raw as SessionInfo["status"])
+          : "created";
 
       const signed = status === "signed";
       const newInfo: SessionInfo = {
         ...currentSession,
         status,
-        signed_at: signed ? ((s as any)?.signed_at || new Date().toISOString()) : currentSession.signed_at,
+        signed_at: signed ? ( (s as any)?.signed_at || new Date().toISOString() ) : currentSession.signed_at,
       };
+
+      // persist
+      const merged = mergeOrAppend(allSessions, newInfo);
+      setAllSessions(merged);
       setCurrentSession(newInfo);
 
-      if (signed) {
-        const merged = mergeOrAppend(allSessions, newInfo);
-        setAllSessions(merged);
-        toast.success(`Signed ✓ (${activeRole})`);
-
-        const buyerSigned = (activeRole === "Buyer" ? true : (merged.find(m => m.role==="Buyer")?.status === "signed"));
-        const sellerSigned = (activeRole === "Seller" ? true : (merged.find(m => m.role==="Seller")?.status === "signed"));
-
-        if (buyerSigned && sellerSigned) {
-          const bothOk = await requireBothVerified(documentId);
-          if (!bothOk) {
-            toast.error("Cannot complete: both parties are not verified anymore.");
-            setStep("form");
-            setActiveRole("Buyer");
-            setCurrentSession(null);
-            return;
-          }
-          setStep("done");
-          await onBothSigned?.({ docId: documentId, sessions: merged });
-        } else {
-          const nextRole = activeRole === "Buyer" ? "Seller" : "Buyer";
-          setActiveRole(nextRole);
-          setStep("form");
-          setCurrentSession(null);
-          toast.info(`${nextRole} needs to complete signing now.`);
-        }
-      } else {
+      if (!signed) {
         toast.info(`Status: ${status}`);
+        return;
+      }
+
+      toast.success(`Signed ✓ (${activeRole})`);
+
+      if (activeRole === "Buyer") {
+        // Buyer done → move to Seller (now unlocked)
+        setCurrentSession(null);
+        setActiveRole("Seller");
+        setStep("form");
+        toast.info("Buyer completed. Now start Seller e-sign.");
+        return;
+      }
+
+      // If Seller signed, complete flow
+      if (activeRole === "Seller") {
+        const bothOk = await requireBothVerified(documentId);
+        if (!bothOk) {
+          toast.error("Cannot complete: both parties are not verified anymore.");
+          setStep("form");
+          setActiveRole("Buyer");
+          setCurrentSession(null);
+          return;
+        }
+        setStep("done");
+        await onBothSigned?.({ docId: documentId, sessions: merged });
       }
     } catch (e: any) {
       console.error(e);
@@ -355,84 +452,10 @@ export default function EsignAadhaarModal({
     }
   };
 
-  /** Continue only when BOTH parties’ Aadhaar eSign OTPs are verified */
-  const continueAfterBothVerified = async () => {
-    // 🔒 HARD GUARD — until BOTH OTP verified, do nothing
-    if (!bothEsignOtpVerified || !buyerSession || !sellerSession) {
-      toast.error("Both Buyer and Seller must verify their Aadhaar OTP first.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Re-check identity gate (step-1) from server snapshot
-      const docOk = await requireBothVerified(documentId);
-      if (!docOk) {
-        toast.error("Party identity verification is incomplete. Verify both first.");
-        return;
-      }
-
-      if (progressSent) {
-        toast.warn("Status update already in progress.");
-        return;
-      }
-
-      // ✅ Now allowed to set esign_pending
-      const sessionIds = Array.from(new Set(allSessions.map(s => s.session_id)));
-
-      try {
-        setProgressSent(true);
-
-        if (onProgress) {
-          await onProgress({ docId: documentId, sessionIds });
-        } else {
-          await documentStatusAPI.setStatus(documentId, {
-            new_status: "esign_pending",
-            details: {
-              session_ids: sessionIds,
-              buyer_otp: buyerSession.session_id,
-              seller_otp: sellerSession.session_id
-            },
-          });
-        }
-
-        // Tell StatusStepper now to move to esign_pending (only after both verified)
-        window.dispatchEvent(
-          new CustomEvent("doc:status", {
-            detail: { id: documentId, status: "esign_pending" },
-          })
-        );
-
-        toast.success("Document status updated to E-Sign Pending.");
-      } catch (e) {
-        setProgressSent(false);
-        throw e;
-      }
-
-      // Open both signing pages (best-effort)
-      for (const sess of [buyerSession, sellerSession]) {
-        let url = sess.redirect_url;
-        if (!url) {
-          try {
-            const ru = await electronicSignAPI.getRedirectUrl(sess.session_id);
-            url = (ru as any)?.redirect_url;
-          } catch {}
-        }
-        if (url) window.open(url, "_blank", "noopener,noreferrer");
-      }
-
-      setStep("redirect");
-      toast.info("Signing pages opened (if available).");
-    } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || "Could not continue");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (!isOpen) return null;
+
+  const continueEnabled =
+    activeRole === "Buyer" ? canContinueForBuyer : canContinueForSeller;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 !mt-0">
@@ -441,48 +464,71 @@ export default function EsignAadhaarModal({
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold text-gray-900">Aadhaar e-Sign</h3>
-            <p className="text-xs text-gray-600">Step 2 • eSign OTP + Redirect</p>
+            <p className="text-xs text-gray-600">Step 2 • eSign OTP + Redirect (Sequential)</p>
           </div>
-          <button onClick={handleClose} className="p-2 rounded-lg hover:bg-gray-100" aria-label="Close" type="button">
+          <button
+            onClick={handleClose}
+            className="p-2 rounded-lg hover:bg-gray-100"
+            aria-label="Close"
+            type="button"
+          >
             <X size={18} />
           </button>
         </div>
 
         {/* Quick status for both parties */}
         <div className="px-5 pt-3 flex items-center gap-2 text-xs">
-          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${
-              buyerOtpOk ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"
-            }`}>
-            Buyer {buyerOtpOk ? "OTP Verified ✓" : "Pending"}
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${
+              buyerSigned
+                ? "bg-green-100 text-green-800"
+                : (buyerOtpOk ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-700")
+            }`}
+          >
+            Buyer {buyerSigned ? "Signed ✓" : buyerOtpOk ? "OTP Verified" : "Pending"}
           </span>
-          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${
-              sellerOtpOk ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"
-            }`}>
-            Seller {sellerOtpOk ? "OTP Verified ✓" : "Pending"}
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${
+              sellerSigned
+                ? "bg-green-100 text-green-800"
+                : (sellerOtpOk ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-700")
+            }`}
+          >
+            Seller {sellerSigned ? "Signed ✓" : sellerOtpOk ? "OTP Verified" : "Pending"}
           </span>
-          {(hasPartialVerification) && (
+          {sellerLocked && (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-[10px] font-medium">
-              Complete both verifications
+              Seller locked until Buyer completes
             </span>
           )}
         </div>
 
         {/* Role tabs */}
         <div className="px-5 pt-3 flex gap-2">
-          {(["Buyer", "Seller"] as PartyRole[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setActiveRole(r)}
-              className={`px-3 py-1.5 rounded-lg text-sm border ${
-                activeRole === r ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-300"
-              }`}
-              disabled={loading || step === "otp" || step === "redirect"}
-              type="button"
-              aria-pressed={activeRole === r}
-            >
-              {r}
-            </button>
-          ))}
+          {(["Buyer", "Seller"] as PartyRole[]).map((r) => {
+            const disabled =
+              loading ||
+              step === "otp" ||
+              step === "redirect" ||
+              (r === "Seller" && sellerLocked);
+            return (
+              <button
+                key={r}
+                onClick={() => setActiveRole(r)}
+                className={`px-3 py-1.5 rounded-lg text-sm border ${
+                  activeRole === r
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-300"
+                } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                disabled={disabled}
+                type="button"
+                aria-pressed={activeRole === r}
+                title={r === "Seller" && sellerLocked ? "Buyer must complete signing first" : ""}
+              >
+                {r}
+              </button>
+            );
+          })}
         </div>
 
         {/* Content */}
@@ -564,9 +610,13 @@ export default function EsignAadhaarModal({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => beginEsignFor(activeRole)}
-                  disabled={loading}
+                  disabled={
+                    loading ||
+                    (activeRole === "Seller" && sellerLocked)
+                  }
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50"
                   type="button"
+                  title={activeRole === "Seller" && sellerLocked ? "Buyer must complete signing first" : ""}
                 >
                   {loading ? "Starting…" : `Send OTP to ${activeRole}`}
                 </button>
@@ -669,33 +719,35 @@ export default function EsignAadhaarModal({
           </div>
 
           <div className="flex items-center gap-2">
-            {!bothEsignOtpVerified && (
-              <span className="text-xs text-gray-500 mr-2">
-                {!buyerOtpOk && !sellerOtpOk
-                  ? "Verify both parties first"
-                  : !buyerOtpOk
-                  ? "Buyer verification pending"
-                  : "Seller verification pending"}
-              </span>
-            )}
+            <span className="text-xs text-gray-500 mr-2">
+              {activeRole === "Seller" && sellerLocked
+                ? "Seller locked until Buyer completes"
+                : activeRole === "Buyer"
+                ? (canContinueForBuyer ? "Ready to continue" : "Verify Buyer OTP first")
+                : (canContinueForSeller ? "Ready to continue" : "Verify Seller OTP first")}
+            </span>
 
             <button
-              onClick={continueAfterBothVerified}
-              disabled={!bothEsignOtpVerified || loading}
+              onClick={continueForCurrentRole}
+              disabled={!continueEnabled || loading}
               className={`px-4 py-2 rounded-lg text-sm transition-all ${
-                bothEsignOtpVerified ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-300 text-gray-500"
+                continueEnabled ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-300 text-gray-500"
               }`}
               type="button"
               title={
-                !bothEsignOtpVerified
-                  ? "Verify OTP for both Buyer and Seller first"
-                  : "Update status to E-Sign Pending & open signing pages"
+                continueEnabled
+                  ? `Open ${activeRole} signing page`
+                  : `Verify OTP for ${activeRole} first`
               }
             >
-              {loading ? "Processing..." : "Continue (Both Verified)"}
+              {loading ? "Processing..." : "Continue to e-Sign"}
             </button>
 
-            <button onClick={handleClose} className="px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200" type="button">
+            <button
+              onClick={handleClose}
+              className="px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200"
+              type="button"
+            >
               Close
             </button>
           </div>

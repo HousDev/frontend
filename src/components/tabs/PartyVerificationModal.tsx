@@ -6,7 +6,7 @@ import { documentStatusAPI } from '@/lib/documentStatusAPI';
 
 export interface PartyVerificationPayload {
   buyer: { name: string; email: string; phone: string; channel: 'sms' | 'email' };
-  seller: { name: string; email: string; phone: string; channel: 'sms' };
+  seller: { name: string; email: string; phone: string; channel: 'sms' | 'email' };
   note?: string;
 }
 
@@ -46,6 +46,9 @@ const PartyVerificationModal: React.FC<PartyVerificationModalProps> = ({
   const [sellerName, setSellerName] = React.useState(defaultSeller?.name || '');
   const [sellerEmail, setSellerEmail] = React.useState(defaultSeller?.email || '');
   const [sellerPhone, setSellerPhone] = React.useState(defaultSeller?.phone || '');
+  const [sellerChannel, setSellerChannel] = React.useState<'sms' | 'email'>(
+    defaultSeller?.email ? 'email' : 'sms'
+  );
   const [sellerOtp, setSellerOtp] = React.useState('');
   const [sellerSending, setSellerSending] = React.useState(false);
   const [sellerVerifying, setSellerVerifying] = React.useState(false);
@@ -65,7 +68,7 @@ const PartyVerificationModal: React.FC<PartyVerificationModalProps> = ({
   if (!isOpen) return null;
 
   /* =========================
-      Buyer OTP functions
+     Buyer OTP functions
   ========================== */
   const sendBuyerOtp = async () => {
     try {
@@ -110,20 +113,23 @@ const PartyVerificationModal: React.FC<PartyVerificationModalProps> = ({
   };
 
   /* =========================
-      Seller OTP functions
+     Seller OTP functions
   ========================== */
   const sendSellerOtp = async () => {
-    if (!/^\+?\d{10,15}$/.test(sellerPhone))
-      return alert('Seller phone invalid');
     try {
+      if (sellerChannel === 'sms' && !/^\+?\d{10,15}$/.test(sellerPhone))
+        return alert('Seller phone invalid');
+      if (sellerChannel === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sellerEmail))
+        return alert('Seller email invalid');
+        
       setSellerSending(true);
       await documentStatusAPI.requestOtp(documentId, {
         role: 'seller',
-        channel: 'sms',
-        to: sellerPhone,
+        channel: sellerChannel,
+        to: sellerChannel === 'sms' ? sellerPhone : sellerEmail,
         name: sellerName || 'Seller',
       });
-      toast.success('Seller OTP sent via SMS');
+      toast.success(`Seller OTP sent via ${sellerChannel.toUpperCase()}`);
       setSellerCooldown(60);
     } catch (e: any) {
       console.error(e);
@@ -154,7 +160,7 @@ const PartyVerificationModal: React.FC<PartyVerificationModalProps> = ({
   const bothVerified = buyerVerified && sellerVerified;
 
   /* =========================
-          RENDER
+         RENDER
   ========================== */
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -285,7 +291,24 @@ const PartyVerificationModal: React.FC<PartyVerificationModalProps> = ({
           </div>
 
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm">Send via SMS</span>
+            <label className="text-sm">Send via:</label>
+            <label className="flex items-center gap-1 text-sm">
+              <input
+                type="radio"
+                checked={sellerChannel === 'sms'}
+                onChange={() => setSellerChannel('sms')}
+              />
+              SMS
+            </label>
+            <label className="flex items-center gap-1 text-sm">
+              <input
+                type="radio"
+                checked={sellerChannel === 'email'}
+                onChange={() => setSellerChannel('email')}
+                disabled={!sellerEmail}
+              />
+              Email
+            </label>
             <button
               onClick={sendSellerOtp}
               disabled={sellerSending || sellerCooldown > 0}
@@ -333,7 +356,7 @@ const PartyVerificationModal: React.FC<PartyVerificationModalProps> = ({
             onClick={() =>
               onBothVerified({
                 buyer: { name: buyerName, email: buyerEmail, phone: buyerPhone, channel: buyerChannel },
-                seller: { name: sellerName, email: sellerEmail, phone: sellerPhone, channel: 'sms' },
+                seller: { name: sellerName, email: sellerEmail, phone: sellerPhone, channel: sellerChannel },
                 note: note.trim() || undefined,
               })
             }

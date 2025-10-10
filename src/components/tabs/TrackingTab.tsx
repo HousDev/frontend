@@ -119,7 +119,7 @@ export type DocumentsGeneratedPayload = {
   updated_by?: number;
 };
 // Add this interface before your component
-interface DocumentData {
+export interface DocumentData {
   seller_name: string;
   buyer_name: string;
   seller_phone: string;
@@ -159,6 +159,7 @@ interface DocumentData {
   loan_account?: string;
 }
 
+
 interface TrackingHistoryItem {
   id: number;
   action: string;
@@ -168,7 +169,6 @@ interface TrackingHistoryItem {
   stage: string;
   icon: string;
 }
-
 interface Document {
   id: number;
   title: string;
@@ -219,76 +219,16 @@ const TrackingTab = () => {
   const [showEsignModal, setShowEsignModal] = React.useState(false);
   const [esignDoc, setEsignDoc] = React.useState<Document | null>(null);
 
+  useEffect(() => {
+    const onStatus = (e: any) => {
+      const { id, status } = e.detail || {};
+      // refresh stepper status here
+    };
+    window.addEventListener("doc:status", onStatus);
+    return () => window.removeEventListener("doc:status", onStatus);
+  }, []);
 
-  // Add this interface before your component
-  interface DocumentData {
-    seller_name: string;
-    buyer_name: string;
-    seller_phone: string;
-    seller_email: string;
-    buyer_phone: string;
-    buyer_email: string;
-    property_address: string;
-    property_type: string;
-    property_area: string;
-    property_area_label: string;
-    type_area_line: string;
-    sale_amount: number;
-    token_amount: number;
-    sales_executive: string;
-    executive_phone: string;
-    executive_email: string;
-    document_id: string;
-    document_date: string;
-    booking_amount: number;
-    executive_id: string;
-    buyer_id: string;
-    seller_id: string;
-    property_id: string;
-    property_ids: string[];
-    total_paid: number;
-    total_due: number;
-    outstanding_amount: number;
-    receipt_count: number;
-    last_payment_date: string;
-    next_due_date: string;
-    notes: string;
-    // Optional fields for specific document types
-    society_name?: string;
-    flat_number?: string;
-    commission_rate?: string;
-    validity_period?: string;
-    loan_account?: string;
-  }
 
-  interface TrackingHistoryItem {
-    id: number;
-    action: string;
-    timestamp: string;
-    user: string;
-    details: string;
-    stage: string;
-    icon: string;
-  }
-
-  interface Document {
-    id: number;
-    title: string;
-    template_name: string;
-    template_id: number;
-    data: DocumentData;
-    status: string;
-    priority: string;
-    created_by: string;
-    assigned_to: string;
-    created_at: string;
-    updated_at: string;
-    shared_channels: string[];
-    stage_progress: number;
-    tracking_history: TrackingHistoryItem[];
-    otp_verified_at?: string;
-    completed_at?: string;
-  }
 
   const openStatusModal = async () => {
     if (!selectedDocuments.length) return;
@@ -728,13 +668,18 @@ const TrackingTab = () => {
   ]);
 
   const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch =
+      doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       doc.data.seller_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.data.buyer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (doc.data.buyer_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       doc.data.property_address.toLowerCase().includes(searchTerm.toLowerCase()) ||
       doc.template_name.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
+    // 👇 normalize both sides (handles "e-sign_pending" vs "esign_pending")
+    const normDocStatus = normalizeStatusKey(doc.status);
+    const normFilterStatus = normalizeStatusKey(statusFilter);
+
+    const matchesStatus = statusFilter === 'all' || normDocStatus === normFilterStatus;
     const matchesPriority = priorityFilter === 'all' || doc.priority === priorityFilter;
     const matchesTemplate = templateFilter === 'all' || doc.template_name === templateFilter;
 
@@ -749,6 +694,7 @@ const TrackingTab = () => {
   const getStatusBadge = (status: string) => {
     // normalize: UI sometimes had "e-sign_pending"
     const key = status === 'e-sign_pending' ? 'esign_pending' : status;
+
 
     const statusConfig: Record<string, { bg: string; text: string; label: string; icon: any }> = {
       completed: { bg: 'bg-green-100', text: 'text-green-800', label: 'Completed', icon: CheckCircle },
@@ -1498,7 +1444,7 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
                   <option value="created">Created</option>
                   <option value="shared">Shared</option>
                   <option value="otp_verified">OTP Verified</option>
-                  <option value="e-sign_pending">E-Sign Pending</option>
+                  <option value="esign_pending">E-Sign Pending</option>
                   <option value="completed">Completed</option>
                 </select>
               </div>
@@ -1837,7 +1783,7 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
                                           return true;
                                         }
                                         case 'otp_verified': {
-                                          // ✅ open your new PartyVerificationModal
+
                                           setVerifyDoc(doc);
                                           setShowVerifyModal(true);
                                           setPendingStepDoc(doc);
@@ -2104,105 +2050,71 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
           onSubmit={handleDeleteConfirm}
         />
       )}
-     {showEsignModal && esignDoc && (
-  <EsignAadhaarModal
-    isOpen={showEsignModal}
-    onClose={() => {
-      console.log('[TrackingTab] 🔴 Modal closing...');
-      setShowEsignModal(false);
-      setEsignDoc(null);
-      setPendingStepDoc(null);
-    }}
-    documentId={esignDoc.id}
-    defaultBuyer={{
-      name: esignDoc.data?.buyer_name || '',
-      email: esignDoc.data?.buyer_email || '',
-      phone: esignDoc.data?.buyer_phone || '',
-    }}
-    defaultSeller={{
-      name: esignDoc.data?.seller_name || '',
-      email: esignDoc.data?.seller_email || '',
-      phone: esignDoc.data?.seller_phone || '',
-    }}
-    onProgress={async ({ docId, sessionIds }) => {
-      console.log('[TrackingTab] ⚠️ onProgress CALLED!', {
-        docId,
-        sessionIds,
-        sessionCount: sessionIds?.length,
-        timestamp: new Date().toISOString()
-      });
-      
-      // ✅ SAFETY CHECK 1: Must have sessions
-      if (!sessionIds || !Array.isArray(sessionIds)) {
-        console.error('[TrackingTab] ❌ BLOCKED: Invalid sessionIds', sessionIds);
-        return;
-      }
-      
-      // ✅ SAFETY CHECK 2: Must have BOTH parties (2 sessions minimum)
-      if (sessionIds.length < 2) {
-        console.error('[TrackingTab] ❌ BLOCKED: Incomplete sessions', {
-          expected: 2,
-          received: sessionIds.length,
-          sessions: sessionIds
-        });
-        toast.error('Both Buyer and Seller must verify before updating status!');
-        return;
-      }
-      
-      console.log('[TrackingTab] ✅ All safety checks passed. Updating status to esign_pending...');
-      
-      try {
-        await setStatusAndSync(docId, 'esign_pending', 'Aadhaar OTP verified for both parties; signing in progress');
-        console.log('[TrackingTab] ✅ Status updated successfully');
-      } catch (error) {
-        console.error('[TrackingTab] ❌ Status update failed:', error);
-        toast.error('Failed to update document status');
-      }
-    }}
-    onBothSigned={async ({ docId }) => {
-      console.log('[TrackingTab] ✅ onBothSigned called', { docId });
-      await setStatusAndSync(docId, 'completed', 'Both parties signed via Aadhaar eSign');
-      setShowEsignModal(false);
-      setEsignDoc(null);
-      setPendingStepDoc(null);
-    }}
-  />
-)}
-
-      {showVerifyModal && verifyDoc && (
-        <PartyVerificationModal
-          isOpen={showVerifyModal}
-          documentId={verifyDoc.id}
-          defaultBuyer={{
-            name: verifyDoc.data?.buyer_name || '',
-            email: verifyDoc.data?.buyer_email || '',
-            phone: verifyDoc.data?.buyer_phone || '',
-          }}
-          defaultSeller={{
-            name: verifyDoc.data?.seller_name || '',
-            email: verifyDoc.data?.seller_email || '',
-            phone: verifyDoc.data?.seller_phone || '',
-          }}
+      {showEsignModal && esignDoc && (
+        <EsignAadhaarModal
+          isOpen={showEsignModal}
           onClose={() => {
-            setShowVerifyModal(false);
-            setVerifyDoc(null);
+            console.log('[TrackingTab] 🔴 Modal closing...');
+            setShowEsignModal(false);
+            setEsignDoc(null);
             setPendingStepDoc(null);
           }}
-          onBothVerified={async (payload) => {
-            // payload: { buyer, seller, note? }
-            const { note } = payload;
-            if (!pendingStepDoc) return;
-            await setStatusAndSync(
-              pendingStepDoc.id,
-              'otp_verified',
-              note || 'Buyer & Seller verified'
-            );
-            setShowVerifyModal(false);
-            setVerifyDoc(null);
+          documentId={esignDoc.id}
+          defaultBuyer={{
+            name: esignDoc.data?.buyer_name || '',
+            email: esignDoc.data?.buyer_email || '',
+            phone: esignDoc.data?.buyer_phone || '',
+          }}
+          defaultSeller={{
+            name: esignDoc.data?.seller_name || '',
+            email: esignDoc.data?.seller_email || '',
+            phone: esignDoc.data?.seller_phone || '',
+          }}
+          onProgress={async ({ docId, sessionIds }) => {
+            console.log('[TrackingTab] ⚠️ onProgress CALLED!', {
+              docId,
+              sessionIds,
+              sessionCount: sessionIds?.length,
+              timestamp: new Date().toISOString()
+            });
+
+            // ✅ SAFETY CHECK 1: Must have sessions
+            if (!sessionIds || !Array.isArray(sessionIds)) {
+              console.error('[TrackingTab] ❌ BLOCKED: Invalid sessionIds', sessionIds);
+              return;
+            }
+
+            // ✅ SAFETY CHECK 2: Must have BOTH parties (2 sessions minimum)
+            if (sessionIds.length < 2) {
+              console.error('[TrackingTab] ❌ BLOCKED: Incomplete sessions', {
+                expected: 2,
+                received: sessionIds.length,
+                sessions: sessionIds
+              });
+              toast.error('Both Buyer and Seller must verify before updating status!');
+              return;
+            }
+
+            console.log('[TrackingTab] ✅ All safety checks passed. Updating status to esign_pending...');
+
+            try {
+              await setStatusAndSync(docId, 'esign_pending', 'Aadhaar OTP verified for both parties; signing in progress');
+              console.log('[TrackingTab] ✅ Status updated successfully');
+            } catch (error) {
+              console.error('[TrackingTab] ❌ Status update failed:', error);
+              toast.error('Failed to update document status');
+            }
+          }}
+          onBothSigned={async ({ docId }) => {
+            console.log('[TrackingTab] ✅ onBothSigned called', { docId });
+            await setStatusAndSync(docId, 'completed', 'Both parties signed via Aadhaar eSign');
+            setShowEsignModal(false);
+            setEsignDoc(null);
             setPendingStepDoc(null);
           }}
         />
       )}
+
 
       {showVerifyModal && verifyDoc && (
         <PartyVerificationModal
@@ -2237,7 +2149,6 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
           }}
         />
       )}
-
 
       {showShareModal && selectedDocument && (
         <DocumentShareModal
@@ -2249,8 +2160,6 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
           document={selectedDocument}
           onShare={(shareData: any) => {
             try {
-              // 🔥 No API calls here — DocumentShareModal already did them
-              // Just update UI state with new status & shared channels
 
               setDocuments(prev =>
                 prev.map(d =>
@@ -2327,21 +2236,11 @@ const StatusChangeModal = ({
 
   if (!isOpen) return null;
 
-  // const statusOptions = [
-  //   { value: 'created', label: 'Created', description: 'Document is created but not shared' },
-  //   { value: 'shared', label: 'Shared', description: 'Document has been shared with parties' },
-  //   { value: 'otp_verified', label: 'OTP Verified', description: 'Identity verification completed' },
-  //   { value: 'e-sign_pending', label: 'E-Sign Pending', description: 'Awaiting digital signature' },
-  //   { value: 'completed', label: 'Completed', description: 'All processes finished' },
-  //   { value: 'on_hold', label: 'On Hold', description: 'Document processing paused' },
-  //   { value: 'cancelled', label: 'Cancelled', description: 'Document cancelled' },
-  // ];
-
   const ALL = [
     { value: 'created', label: 'Created', description: 'Document is created but not shared' },
     { value: 'shared', label: 'Shared', description: 'Document has been shared with parties' },
     { value: 'otp_verified', label: 'OTP Verified', description: 'Identity verification completed' },
-    { value: 'e-sign_pending', label: 'E-Sign Pending', description: 'Awaiting digital signature' },
+    { value: 'esign_pending', label: 'E-Sign Pending', description: 'Awaiting digital signature' },
     { value: 'completed', label: 'Completed', description: 'All processes finished' },
     { value: 'on_hold', label: 'On Hold', description: 'Document processing paused' },
     { value: 'cancelled', label: 'Cancelled', description: 'Document cancelled' },
@@ -2470,4 +2369,6 @@ const StatusChangeModal = ({
     </div>
   );
 };
+
+
 export default TrackingTab;
