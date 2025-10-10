@@ -220,6 +220,9 @@ export interface SnapshotRow {
   changed_at: string;   // ISO
   updated_at: string;   // ISO
   created_by?: number | null; // joined from documents_generated
+   // 👇 add these (optional)
+  buyer_verified?: boolean;
+  seller_verified?: boolean;
 }
 
 export interface StatusEvent {
@@ -243,8 +246,8 @@ export interface TimelineRow {
   details: any | null;
 }
 
-export type RecipientType   = "phone" | "email";
-export type RecipientRole   = "Seller" | "Buyer" | "Custom";
+export type RecipientType = "phone" | "email";
+export type RecipientRole = "Seller" | "Buyer" | "Custom";
 export type RecipientStatus = "sent" | "generated" | "failed";
 
 export interface ShareBatch {
@@ -417,7 +420,7 @@ export const documentStatusAPI = {
       throw normalizeError(e);
     }
   },
-  
+
 
   /* GET /share-batches/:batchId/recipients */
   async getShareRecipients(batchId: number): Promise<ShareRecipient[]> {
@@ -468,7 +471,15 @@ export const documentStatusAPI = {
       throw normalizeError(e);
     }
   },
-  
+  // in lib/documentStatusAPI.ts (or wherever)
+  requestOtp: async (documentId: number, payload: { role: 'buyer' | 'seller'; channel: 'sms' | 'email'; to: string; name?: string }) => {
+    return api.post(`/doc-status/documents/${documentId}/otp/request`, payload);
+  },
+  verifyOtp: async (documentId: number, payload: { role: 'buyer' | 'seller'; code: string }) => {
+    return api.post(`/doc-status/documents/${documentId}/otp/verify`, payload);
+  },
+
+
 };
 
 

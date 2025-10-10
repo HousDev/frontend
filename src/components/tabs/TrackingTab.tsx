@@ -68,6 +68,8 @@ import { documentStatusAPI, StatusCode } from '@/lib/documentStatusAPI';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 import StatusStepper from './StatusStepper';
+import PartyVerificationModal from './PartyVerificationModal';
+import EsignAadhaarModal from './EsignAadhaarModal';
 
 
 const normalizeStatus = (s?: string) =>
@@ -211,8 +213,12 @@ const TrackingTab = () => {
   const [isLoading, setIsLoading] = useState(false);
   // state bucket (component top me)
   const [pendingStepDoc, setPendingStepDoc] = useState<Document | null>(null);
-  const [blankModalStep, setBlankModalStep] = useState<StatusCode | null>(null);
   const [statusAllowed, setStatusAllowed] = useState<StatusCode[] | undefined>(undefined);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [verifyDoc, setVerifyDoc] = useState<Document | null>(null);
+  const [showEsignModal, setShowEsignModal] = React.useState(false);
+  const [esignDoc, setEsignDoc] = React.useState<Document | null>(null);
+
 
   // Add this interface before your component
   interface DocumentData {
@@ -329,7 +335,7 @@ const TrackingTab = () => {
         ? {
           ...d,
           status: normalizeStatus(snap?.current_status),
-          stage_progress: typeof snap?.progress_pct === 'number' ? snap.progress_pct : d.stage_progress,
+          stage_progress: typeof snap?.progress_pct === 'number' ? snap.progress_pct : undefined,
           updated_at: snap?.updated_at ?? d.updated_at,
         }
         : d
@@ -1802,7 +1808,7 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
                                     onRequestStep={(target) => {
                                       switch (target) {
                                         case 'shared': {
-                                          setSelectedDocument(doc);     // reuse existing share modal
+                                          setSelectedDocument(doc);
                                           setShowShareModal(true);
                                           return true;
                                         }
@@ -1830,17 +1836,27 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
                                           setShowStatusModal(true);
                                           return true;
                                         }
-                                        case 'otp_verified':
-                                        case 'esign_pending': {
+                                        case 'otp_verified': {
+                                          // ✅ open your new PartyVerificationModal
+                                          setVerifyDoc(doc);
+                                          setShowVerifyModal(true);
                                           setPendingStepDoc(doc);
-                                          setBlankModalStep(target);
                                           return true;
                                         }
+                                        case 'esign_pending': {
+                                          // 🔓 Aadhaar e-sign flow open karega (reason modal nahi)
+                                          setEsignDoc(doc);
+                                          setShowEsignModal(true);
+                                          setPendingStepDoc(doc); // optional (aap already use kar rahe ho)
+                                          return true;
+                                        }
+
                                         default:
-                                          return false; // default flow (direct API call) ko chhodo
+                                          return false;
                                       }
                                     }}
                                   />
+
 
 
                                   {!!(doc.shared_channels && doc.shared_channels.length) && (
@@ -2088,79 +2104,193 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
           onSubmit={handleDeleteConfirm}
         />
       )}
-      <OtpConfirmModal
-        isOpen={!!blankModalStep}
-        title={blankModalStep === 'otp_verified' ? 'Mark as OTP Verified' : 'Move to E-Sign Pending'}
-        noteLabel="Note (optional)"
-        confirmText={blankModalStep === 'otp_verified' ? 'Mark OTP Verified' : 'Mark E-Sign Pending'}
-        onConfirm={async (note) => {
-          if (!pendingStepDoc || !blankModalStep) return;
-          await setStatusAndSync(
-            pendingStepDoc.id,
-            blankModalStep,
-            note || (blankModalStep === 'otp_verified' ? 'OTP verified' : 'E-Sign initiated')
-          );
-          setBlankModalStep(null);
-          setPendingStepDoc(null);
-        }}
-        onClose={() => {
-          setBlankModalStep(null);
-          setPendingStepDoc(null);
-        }}
-      />
-
-     {showShareModal && selectedDocument && (
-  <DocumentShareModal
-    isOpen={showShareModal}
+     {showEsignModal && esignDoc && (
+  <EsignAadhaarModal
+    isOpen={showEsignModal}
     onClose={() => {
-      setShowShareModal(false);
-      setSelectedDocument(null);
+      console.log('[TrackingTab] 🔴 Modal closing...');
+      setShowEsignModal(false);
+      setEsignDoc(null);
+      setPendingStepDoc(null);
     }}
-    document={selectedDocument}
-    onShare={(shareData: any) => {
-      try {
-        // 🔥 No API calls here — DocumentShareModal already did them
-        // Just update UI state with new status & shared channels
-
-        setDocuments(prev =>
-          prev.map(d =>
-            d.id === selectedDocument.id
-              ? {
-                  ...d,
-                  status: (shareData?.snapshot?.current_status as string) || 'shared',
-                  stage_progress:
-                    typeof shareData?.snapshot?.progress_pct === 'number'
-                      ? shareData.snapshot.progress_pct
-                      : d.stage_progress,
-                  shared_channels: Array.from(
-                    new Set([...(d.shared_channels || []), ...(shareData.channels || [])])
-                  ),
-                  tracking_history: [
-                    ...d.tracking_history,
-                    {
-                      id: d.tracking_history.length + 1,
-                      action: `Shared via ${shareData.channels.join(', ')}`,
-                      timestamp: new Date().toISOString(),
-                      user: 'Admin User',
-                      details: shareData.message || 'Shared',
-                      stage: 'shared',
-                      icon: 'Send',
-                    },
-                  ],
-                }
-              : d
-          )
-        );
-      } catch (err) {
-        console.error('Share UI update failed:', err);
-        alert('Share UI update failed');
-      } finally {
-        setShowShareModal(false);
-        setSelectedDocument(null);
+    documentId={esignDoc.id}
+    defaultBuyer={{
+      name: esignDoc.data?.buyer_name || '',
+      email: esignDoc.data?.buyer_email || '',
+      phone: esignDoc.data?.buyer_phone || '',
+    }}
+    defaultSeller={{
+      name: esignDoc.data?.seller_name || '',
+      email: esignDoc.data?.seller_email || '',
+      phone: esignDoc.data?.seller_phone || '',
+    }}
+    onProgress={async ({ docId, sessionIds }) => {
+      console.log('[TrackingTab] ⚠️ onProgress CALLED!', {
+        docId,
+        sessionIds,
+        sessionCount: sessionIds?.length,
+        timestamp: new Date().toISOString()
+      });
+      
+      // ✅ SAFETY CHECK 1: Must have sessions
+      if (!sessionIds || !Array.isArray(sessionIds)) {
+        console.error('[TrackingTab] ❌ BLOCKED: Invalid sessionIds', sessionIds);
+        return;
       }
+      
+      // ✅ SAFETY CHECK 2: Must have BOTH parties (2 sessions minimum)
+      if (sessionIds.length < 2) {
+        console.error('[TrackingTab] ❌ BLOCKED: Incomplete sessions', {
+          expected: 2,
+          received: sessionIds.length,
+          sessions: sessionIds
+        });
+        toast.error('Both Buyer and Seller must verify before updating status!');
+        return;
+      }
+      
+      console.log('[TrackingTab] ✅ All safety checks passed. Updating status to esign_pending...');
+      
+      try {
+        await setStatusAndSync(docId, 'esign_pending', 'Aadhaar OTP verified for both parties; signing in progress');
+        console.log('[TrackingTab] ✅ Status updated successfully');
+      } catch (error) {
+        console.error('[TrackingTab] ❌ Status update failed:', error);
+        toast.error('Failed to update document status');
+      }
+    }}
+    onBothSigned={async ({ docId }) => {
+      console.log('[TrackingTab] ✅ onBothSigned called', { docId });
+      await setStatusAndSync(docId, 'completed', 'Both parties signed via Aadhaar eSign');
+      setShowEsignModal(false);
+      setEsignDoc(null);
+      setPendingStepDoc(null);
     }}
   />
 )}
+
+      {showVerifyModal && verifyDoc && (
+        <PartyVerificationModal
+          isOpen={showVerifyModal}
+          documentId={verifyDoc.id}
+          defaultBuyer={{
+            name: verifyDoc.data?.buyer_name || '',
+            email: verifyDoc.data?.buyer_email || '',
+            phone: verifyDoc.data?.buyer_phone || '',
+          }}
+          defaultSeller={{
+            name: verifyDoc.data?.seller_name || '',
+            email: verifyDoc.data?.seller_email || '',
+            phone: verifyDoc.data?.seller_phone || '',
+          }}
+          onClose={() => {
+            setShowVerifyModal(false);
+            setVerifyDoc(null);
+            setPendingStepDoc(null);
+          }}
+          onBothVerified={async (payload) => {
+            // payload: { buyer, seller, note? }
+            const { note } = payload;
+            if (!pendingStepDoc) return;
+            await setStatusAndSync(
+              pendingStepDoc.id,
+              'otp_verified',
+              note || 'Buyer & Seller verified'
+            );
+            setShowVerifyModal(false);
+            setVerifyDoc(null);
+            setPendingStepDoc(null);
+          }}
+        />
+      )}
+
+      {showVerifyModal && verifyDoc && (
+        <PartyVerificationModal
+          isOpen={showVerifyModal}
+          documentId={verifyDoc.id}
+          defaultBuyer={{
+            name: verifyDoc.data?.buyer_name || '',
+            email: verifyDoc.data?.buyer_email || '',
+            phone: verifyDoc.data?.buyer_phone || '',
+          }}
+          defaultSeller={{
+            name: verifyDoc.data?.seller_name || '',
+            email: verifyDoc.data?.seller_email || '',
+            phone: verifyDoc.data?.seller_phone || '',
+          }}
+          onClose={() => {
+            setShowVerifyModal(false);
+            setVerifyDoc(null);
+            setPendingStepDoc(null);
+          }}
+          onBothVerified={async (payload) => {
+            const { note } = payload;
+            if (!pendingStepDoc) return;
+            await setStatusAndSync(
+              pendingStepDoc.id,
+              'otp_verified',
+              note || 'Buyer & Seller verified'
+            );
+            setShowVerifyModal(false);
+            setVerifyDoc(null);
+            setPendingStepDoc(null);
+          }}
+        />
+      )}
+
+
+      {showShareModal && selectedDocument && (
+        <DocumentShareModal
+          isOpen={showShareModal}
+          onClose={() => {
+            setShowShareModal(false);
+            setSelectedDocument(null);
+          }}
+          document={selectedDocument}
+          onShare={(shareData: any) => {
+            try {
+              // 🔥 No API calls here — DocumentShareModal already did them
+              // Just update UI state with new status & shared channels
+
+              setDocuments(prev =>
+                prev.map(d =>
+                  d.id === selectedDocument.id
+                    ? {
+                      ...d,
+                      status: (shareData?.snapshot?.current_status as string) || 'shared',
+                      stage_progress:
+                        typeof shareData?.snapshot?.progress_pct === 'number'
+                          ? shareData.snapshot.progress_pct
+                          : d.stage_progress,
+                      shared_channels: Array.from(
+                        new Set([...(d.shared_channels || []), ...(shareData.channels || [])])
+                      ),
+                      tracking_history: [
+                        ...d.tracking_history,
+                        {
+                          id: d.tracking_history.length + 1,
+                          action: `Shared via ${shareData.channels.join(', ')}`,
+                          timestamp: new Date().toISOString(),
+                          user: 'Admin User',
+                          details: shareData.message || 'Shared',
+                          stage: 'shared',
+                          icon: 'Send',
+                        },
+                      ],
+                    }
+                    : d
+                )
+              );
+            } catch (err) {
+              console.error('Share UI update failed:', err);
+              alert('Share UI update failed');
+            } finally {
+              setShowShareModal(false);
+              setSelectedDocument(null);
+            }
+          }}
+        />
+      )}
 
 
     </div>
@@ -2340,62 +2470,4 @@ const StatusChangeModal = ({
     </div>
   );
 };
-
-function OtpConfirmModal({
-  isOpen,
-  title,
-  noteLabel = 'Note (optional)',
-  confirmText = 'Confirm',
-  onConfirm,
-  onClose,
-}: {
-  isOpen: boolean;
-  title: string;
-  noteLabel?: string;
-  confirmText?: string;
-  onConfirm: (note?: string) => void;
-  onClose: () => void;
-}) {
-  const [note, setNote] = useState('');
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100">
-            <X size={18} />
-          </button>
-        </div>
-
-        <label className="block text-sm text-gray-700 mb-1">{noteLabel}</label>
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          rows={3}
-          className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-          placeholder="e.g. OTP received on buyer's phone"
-        />
-
-        <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-100 hover:bg-gray-200">
-            Cancel
-          </button>
-          <button
-            onClick={() => onConfirm(note.trim() || undefined)}
-            className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-          >
-            {confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default TrackingTab;
-
-
-
-

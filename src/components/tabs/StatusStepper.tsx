@@ -1,5 +1,5 @@
 // src/components/documents/StatusStepper.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Clock } from 'lucide-react';
 import { documentStatusAPI, StatusCode } from '@/lib/documentStatusAPI';
 import { toast } from 'react-toastify';
@@ -47,12 +47,21 @@ const COLORS: Record<StepKey, { ring: string; fill: string; text: string; line: 
   completed:     { ring: 'ring-green-300',  fill: 'bg-green-100',   text: 'text-green-700',  line: 'bg-green-200' },
 };
 
+/** strict prerequisites (can’t skip OTP) */
+const PREREQ: Partial<Record<StepKey, StepKey>> = {
+  shared: 'created',            // (soft) allow after created
+  otp_verified: 'shared',       // must be shared before OTP
+  esign_pending: 'otp_verified',// must be OTP-verified before e-sign
+  completed: 'esign_pending',   // must be e-sign pending before completed
+  // on_hold / cancelled: no hard prereq beyond created
+};
+
 export default function StatusStepper({
   docId,
   currentStatus,
   onSynced,
   disabled,
-  onRequestStep, // 👈 NEW
+  onRequestStep, // parent can intercept (e.g., open OTP modal)
 }: {
   docId: number;
   currentStatus: string;
@@ -60,7 +69,6 @@ export default function StatusStepper({
   disabled?: boolean;
   onRequestStep?: (target: StepKey) => boolean | void; // return true = parent handled
 }) {
-
   const normalized = normalize(currentStatus);
   const [working, setWorking] = useState<StepKey | null>(null);
 
@@ -69,19 +77,52 @@ export default function StatusStepper({
     [normalized]
   );
 
-  // ✅ Skip allowed: aap directly aage ke kisi bhi step par ja sakte ho.
-  const canClick = (step: StepKey) => {
-    const idx = STEP_ORDER.indexOf(step);
-    return idx > currentIndex && !disabled && !working;
+  /** check if all prerequisites for target are satisfied */
+  const hasPrereq = (target: StepKey) => {
+    // on_hold / cancelled can be taken anytime after created
+    if (target === 'on_hold' || target === 'cancelled') {
+      return currentIndex >= 0;
+    }
+    const req = PREREQ[target];
+    if (!req) return true;
+    return STEP_ORDER.indexOf(req) <= currentIndex;
   };
 
-  const onToggle = async (target: StepKey) => {
-  if (!canClick(target)) return;
+  // ✅ Only allow moving forward AND after prerequisites
+  const canClick = (step: StepKey) => {
+    const idx = STEP_ORDER.indexOf(step);
+    if (idx <= currentIndex) return false;       // no current/past step
+    if (disabled || working) return false;
+    return hasPrereq(step);
+  };
+// somewhere central (e.g., DocumentsPage mount)
+useEffect(() => {
+  const onStatus = (e: any) => {
+    const { id, status } = e.detail || {};
+    // refresh the row / stepper for doc `id`
+  };
+  window.addEventListener("doc:status", onStatus as any);
+  return () => window.removeEventListener("doc:status", onStatus as any);
+}, []);
 
-  if (onRequestStep) {            // 👈 NEW
-    const handled = onRequestStep(target);
-    if (handled) return;          // parent ne modal khola, default flow skip
-  }
+  const onToggle = async (target: StepKey) => {
+    if (!canClick(target)) {
+      // UX hints (strict, OTP-style)
+      if (target === 'otp_verified') {
+        toast.info('Please share the document before OTP verification.');
+      } else if (target === 'esign_pending') {
+        toast.info('Buyer & Seller must be OTP verified first.');
+      } else if (target === 'completed') {
+        toast.info('Move to E-Sign Pending and finish signatures before completing.');
+      }
+      return;
+    }
+
+    // let parent intercept (OTP modal, eSign modal, etc.)
+    if (onRequestStep) {
+      const handled = onRequestStep(target);
+      if (handled) return; // parent opened a modal etc.
+    }
 
     try {
       setWorking(target);
@@ -114,7 +155,6 @@ export default function StatusStepper({
   return (
     <div className="flex items-center gap-2">
       {STEP_ORDER.map((step, i) => {
-        // ✅ Visual rule: agar aap aage jump karte ho toh beech ke steps GREEN (done) dikhेंगे
         const done = i <= currentIndex;
         const enabled = canClick(step);
         const color = COLORS[step];
