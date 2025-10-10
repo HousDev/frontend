@@ -23,13 +23,12 @@ import {
   Zap,
   CheckCircle,
   Bot,
-  ShieldCheck,Handshake
+  ShieldCheck, Handshake
 } from 'lucide-react';
 import SubscriptionModal from '@/components/subscription/SubscriptionModal';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import PublicPropertyDetailPage from './PublicPropertyDetailPage';
 import { propertiesAPI } from '@/lib/propertiesAPI';
-
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
@@ -37,6 +36,9 @@ import viewsAPI from '@/lib/viewAPI';
 import PublicSellPropertyForm from './PublicSellPropertyForm';
 import { FaWhatsapp } from 'react-icons/fa6';
 import WhySellModal from './WhySellModal';
+
+// ✅ NEW: import hero API & types
+import homeHeroAPI, { HeroBlock, PhotoPreview } from '@/lib/homeHeroAPI';
 
 interface Property {
   id: number;
@@ -68,8 +70,8 @@ interface Property {
   public_views?: number | null;
   total_views?: number;
   agent?: { phone?: string };
-  featured?: boolean;   // ⬅️ add this
-  verified?: boolean;   // ⬅️ add this
+  featured?: boolean;
+  verified?: boolean;
 }
 
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
@@ -93,17 +95,18 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const [isSellerModalOpen, setIsSellerModalOpen] = useState<boolean>(false);
-  
   const [open, setOpen] = useState(false);
-    
+
+  // ✅ NEW: hero state
+  const [heroBlocks, setHeroBlocks] = useState<HeroBlock[]>([]);
+  const [heroSlides, setHeroSlides] = useState<
+    { url: string; title?: string; description?: string }[]
+  >([]);
+  const [heroIndex, setHeroIndex] = useState(0);
+  const heroTimerRef = useRef<number | null>(null);
 
   const navigate = useNavigate();
   const location = useLocation();
-
-
-
-
-
 
   // Parse original query params and preserve both key and value.
   const queryParams = new URLSearchParams(location.search);
@@ -112,6 +115,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       (queryParams.has('tf') ? 'tf' : undefined);
   const filterToken = filterParamKey ? (queryParams.get(filterParamKey) as string | null) ?? undefined : undefined;
 
+  // ---------- Masters ----------
   useEffect(() => {
     const fetchMasters = async () => {
       try {
@@ -127,10 +131,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     fetchMasters();
   }, []);
 
-
   // --- Likes state (persisted in localStorage) ---
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
-
   useEffect(() => {
     try {
       const raw = localStorage.getItem("liked_properties");
@@ -140,27 +142,19 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       }
     } catch { }
   }, []);
-
   const persistLikes = (setObj: Set<number>) => {
     try {
       localStorage.setItem("liked_properties", JSON.stringify(Array.from(setObj)));
     } catch { }
   };
-
   const isLiked = (id: number) => likedIds.has(id);
-
   const toggleLike = async (property: Property) => {
     const id = property.id;
     const next = new Set(likedIds);
     const nowLiked = !next.has(id);
-
-    if (nowLiked) next.add(id);
-    else next.delete(id);
-
+    if (nowLiked) next.add(id); else next.delete(id);
     setLikedIds(next);
     persistLikes(next);
-
-    // optional: fire analytics/event to backend if available
     try {
       await propertiesAPI?.sendPropertyEvent?.(
         id,
@@ -169,9 +163,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         { source: "homepage", title: property.title ?? null },
         { slug: property.slug ?? undefined }
       );
-    } catch (e) {
-      // ignore failures, UI already updated
-    }
+    } catch { /* ignore */ }
   };
 
   const { systemSettings } = useSystemSettings();
@@ -187,6 +179,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     }
   };
 
+  // ---------- Featured Properties (unchanged) ----------
   useEffect(() => {
     const fetchFeaturedProperties = async () => {
       try {
@@ -198,12 +191,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         });
 
         const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
-        const onlyFeatured = rawList.filter((p: any) => {
-          const isFeatured = !!(p.featured ?? p.is_featured ?? p.isFeatured ?? 0);
-          return isFeatured;
-        });
-
-
         const mapped = await Promise.all(rawList.map(async (p: any) => {
           const images: string[] =
             Array.isArray(p.photos)
@@ -232,16 +219,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
           const viewCounts = await fetchPropertyViews(p.id);
           const featured =
-            p.featured ??
-            p.is_featured ??
-            p.isFeatured ??
-            (p.badge ? String(p.badge).toLowerCase().includes('featured') : true);
-
+            p.featured ?? p.is_featured ?? p.isFeatured ?? (p.badge ? String(p.badge).toLowerCase().includes('featured') : true);
           const verified =
-            p.verified ??
-            p.is_verified ??
-            p.isVerified ??
-            (p.verification_status ? String(p.verification_status).toLowerCase() === 'verified' : true);
+            p.verified ?? p.is_verified ?? p.isVerified ?? (p.verification_status ? String(p.verification_status).toLowerCase() === 'verified' : true);
 
           return {
             id: p.id,
@@ -273,8 +253,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             created_at: p.created_at ?? null,
             public_views: p.public_views ?? null,
             agent: { phone: p.agent_phone || p.agent?.phone || p.owner_phone || '' },
-            // badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
-            // ⬇️ IMPORTANT
             featured: !!featured,
             verified: !!verified,
           } as Property;
@@ -298,10 +276,48 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     return () => clearInterval(t);
   }, [featuredProperties.length]);
 
-  const handleViewProperty = (property: Property) => {
-    setCurrentPropertyView(property);
-  };
+  // ---------- ✅ HERO: fetch & build slides ----------
+  useEffect(() => {
+    const fetchHero = async () => {
+      try {
+        const blocks = await homeHeroAPI.list();
+        setHeroBlocks(blocks || []);
+        const slides: { url: string; title?: string; description?: string }[] = [];
+        for (const b of blocks || []) {
+          const photos = Array.isArray(b.photos) ? b.photos as PhotoPreview[] : [];
+          photos.forEach((p) => {
+            const url = (p?.url || '').replace(/\\/g, '/');
+            if (url) slides.push({ url, title: b.title, description: b.description });
+          });
+        }
+        setHeroSlides(slides);
+        setHeroIndex(0);
+      } catch (e) {
+        console.warn('[HomePage] homeHeroAPI.list() failed, will fallback to featured images', e);
+        setHeroBlocks([]);
+        setHeroSlides([]);
+      }
+    };
+    fetchHero();
+  }, []);
 
+  // ✅ Autoplay for hero (5s)
+  useEffect(() => {
+    if (!heroSlides.length) return;
+    if (heroTimerRef.current) window.clearInterval(heroTimerRef.current);
+    heroTimerRef.current = window.setInterval(() => {
+      setHeroIndex((i) => (i + 1) % heroSlides.length);
+    }, 5000) as unknown as number;
+    return () => {
+      if (heroTimerRef.current) window.clearInterval(heroTimerRef.current);
+    };
+  }, [heroSlides.length]);
+
+  const heroPrev = () => setHeroIndex((i) => (i - 1 + heroSlides.length) % heroSlides.length);
+  const heroNext = () => setHeroIndex((i) => (i + 1) % heroSlides.length);
+
+  // ---------- search helpers ----------
+  const handleViewProperty = (property: Property) => setCurrentPropertyView(property);
   const internalAuthAction = (action: string) => {
     if (action === 'subscribe') setIsSubOpen(true);
     if (onAuthAction) onAuthAction(action);
@@ -334,9 +350,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
     return `₹${num.toLocaleString('en-IN')}`;
   };
-
   const formatCurrency = (price: any) => formatPrice(price);
-
   const [transactionType, setTransactionType] = useState<'buy' | 'rent'>('buy');
 
   const addLocality = (value?: string) => {
@@ -363,9 +377,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     setShowSuggestions(false);
   };
 
-  const removeLocality = (idx: number) => {
-    setLocalities(prev => prev.filter((_, i) => i !== idx));
-  };
+  const removeLocality = (idx: number) => setLocalities(prev => prev.filter((_, i) => i !== idx));
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -388,78 +400,24 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-
     if (transactionType === 'rent') {
       console.warn('Rent search not implemented yet. Only Buy is active.');
       return;
     }
-
     const city = selectedCity.trim();
     const locationStrings = localities.map(loc => loc.trim());
-
     if (!city && locationStrings.length === 0) {
-      // अगर कोई इनपुट नहीं है, तो सभी प्रॉपर्टीज दिखाएं
       navigate(`/properties?status=Available`);
       return;
     }
-
-    // API कॉल के लिए पैरामीटर्स बनाएं
-    const params: { city: string; locations?: string | string[] } = {
-      city: city,
-    };
-    if (locationStrings.length > 0) {
-      params.locations = locationStrings;
-    }
+    const params: { city: string; locations?: string | string[] } = { city };
+    if (locationStrings.length > 0) params.locations = locationStrings;
 
     try {
       setLoading(true);
       const response = await propertiesAPI.searchByCityLocation(params);
-
       const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
-
-      const mapped = await Promise.all(rawList.map(async (p: any) => {
-
-        const images: string[] = Array.isArray(p.photos) ? p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/')) : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
-        const city = p.city_name || p.city || p.town || p.cityName || '';
-        const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
-        const state = p.state || p.region || '';
-        const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
-
-        return {
-          id: p.id,
-          title: p.title,
-          price: Number(p.budget || p.price || p.amount) || 0,
-          bedrooms: Number(p.bedrooms) || undefined,
-          bathrooms: Number(p.bathrooms) || undefined,
-          square_feet: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
-          city,
-          property_type: p.property_type_name || p.property_type || '',
-          status: p.status || '',
-          images,
-          location,
-          area: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
-          type: p.property_type_name || p.property_type || '',
-          unitType: (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim(),
-          subtype: (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim(),
-          amenities: Array.isArray(p.amenities) ? p.amenities : [],
-          badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
-          rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
-          views: p.total_views || 0,
-          total_views: p.total_views,
-          aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
-          sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
-          slug: p?.slug ?? p?.url_slug ?? p?.generated_slug,
-          possessionMonth: p.possession_month ?? p.possessionMonth ?? null,
-          possessionYear: p.possession_year ?? p.possessionYear ?? null,
-          property_status: p.property_status ?? p.status ?? '',
-          created_at: p.created_at ?? null,
-          public_views: p.public_views ?? null,
-          agent: { phone: p.agent_phone || p.agent?.phone || p.owner_phone || '' },
-          featured: !!(p.featured ?? p.is_featured ?? p.isFeatured ?? 0),
-          verified: !!(p.verified ?? p.is_verified ?? p.isVerified ?? (p.verification_status ? String(p.verification_status).toLowerCase() === 'verified' : true)),
-        };
-      }));
-
+      await Promise.all(rawList.map(async (_p: any) => _p)); // mapping skipped; we only build the querystring below
 
       const searchParams = new URLSearchParams();
       if (city) searchParams.set('city', city);
@@ -467,30 +425,20 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       if (selectedPropertyType) searchParams.set('propertyType', selectedPropertyType);
       if (selectedBudget) searchParams.set('budget', selectedBudget);
       searchParams.set('status', 'Available');
-
-      if (filterToken && filterParamKey) {
-        searchParams.set(filterParamKey, filterToken);
-      }
+      if (filterToken && filterParamKey) searchParams.set(filterParamKey, filterToken);
 
       const qs = searchParams.toString();
-     
-    navigate(`/properties${qs ? `?${qs}` : ''}`, { replace: true });
-
-
+      navigate(`/properties${qs ? `?${qs}` : ''}`, { replace: true });
     } catch (error) {
       console.error('Error fetching properties from city/location API:', error);
-
     } finally {
       setLoading(false);
     }
   };
 
   const handleSellPropertyClick = () => {
-    if (onAuthAction) {
-      onAuthAction('sell');
-    } else {
-      setIsSellerModalOpen(true);
-    }
+    if (onAuthAction) onAuthAction('sell');
+    else setIsSellerModalOpen(true);
   };
 
   const handleSellerSave = async (formData: any) => {
@@ -509,7 +457,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       console.warn('Attempted to navigate to property without slug:', id);
       return;
     }
-
     if (viewedProperties.has(id)) {
       let dest = `/properties/${encodeURIComponent(String(slug))}`;
       if (filterToken) {
@@ -519,7 +466,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       navigate(dest);
       return;
     }
-
     const inferredFilters = {
       search: searchQuery || null,
       location: localities.length ? localities.join(', ') : null,
@@ -529,11 +475,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       source: 'homepage',
       clickedPropertyId: id,
     };
-
     try {
       let finalToken = filterToken;
       let finalParamKey = filterParamKey || 'tf';
-
       if (!finalToken) {
         try {
           const createRes = await propertiesAPI.createFilterContext({ filters: inferredFilters });
@@ -543,7 +487,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           console.warn('createFilterContext failed (proceeding without token):', err);
         }
       }
-
       try {
         await propertiesAPI.sendPropertyEvent(
           id,
@@ -552,16 +495,12 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           { source: 'homepage', title: property.title || null },
           { slug, filterToken: finalToken || undefined, filterParamKey: finalParamKey }
         );
-
         setViewedProperties(prev => new Set(prev).add(id));
       } catch (err) {
         console.warn('sendPropertyEvent failed (we will still navigate):', err);
       }
-
       let dest = `/properties/${encodeURIComponent(String(slug))}`;
-      if (finalToken) {
-        dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(finalToken)}`;
-      }
+      if (finalToken) dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(finalToken)}`;
       navigate(dest);
     } catch (err) {
       console.error('handleNavigateToProperty unexpected error:', err);
@@ -573,32 +512,68 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     return <PublicPropertyDetailPage property={currentPropertyView} onBack={() => setCurrentPropertyView(null)} />;
   }
 
+  // ---------- HERO background source preference ----------
+  // 1) Use hero slides if present, else 2) fallback to featured property images
+  const activeHeroUrl =
+    heroSlides.length > 0
+      ? heroSlides[heroIndex]?.url
+      : (featuredProperties[featuredIndex]?.images?.[0] || '');
+
+  const activeHeroTitle =
+    heroSlides.length > 0 ? (heroSlides[heroIndex]?.title || '') : '';
+
+  const activeHeroDesc =
+    heroSlides.length > 0 ? (heroSlides[heroIndex]?.description || '') : '';
+
   return (
     <div className="">
-      {/* hero/search */}
+      {/* HERO / SEARCH */}
       <section className="relative bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white overflow-hidden min-h-[calc(100vh-80px)] md:min-h-[calc(100vh-80px)]">
         <div className="absolute inset-0 bg-black/30"></div>
-        {featuredProperties.length > 0 && (
+
+        {/* ✅ dynamic background (hero first, then fallback) */}
+        {activeHeroUrl && (
           <div
             className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
             style={{
-              backgroundImage: `url(${featuredProperties[featuredIndex]?.images?.[0] || ''})`,
+              backgroundImage: `url(${activeHeroUrl})`,
               filter: 'brightness(0.35)',
             }}
           />
         )}
 
+        {/* ✅ manual controls & dots (shown only if we have hero slides) */}
+        {heroSlides.length > 0 && (
+          <>
+            <div className="absolute bottom-6 left-0 right-0 z-20 flex items-center justify-center gap-2">
+              {heroSlides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setHeroIndex(i)}
+                  aria-label={`Go to slide ${i + 1}`}
+                  className={`h-2.5 w-2.5 rounded-full transition-all ${i === heroIndex ? 'bg-white w-6' : 'bg-white/60'}`}
+                  type="button"
+                />
+              ))}
+            </div>
+          </>
+        )}
+
         <div className="relative z-10 min-h-screen flex items-center justify-center">
           <div className="w-full max-w-4xl mx-auto">
             <div className="text-center px-4">
-              <h1 className="text-3xl font-bold mb-2 ">
-                {/* Find Your <span className="block bg-clip-text text-[#E6761D]">Dream Property</span> */}
-
-                Find Your Perfect Resale Property in Pune & PCMC
-              </h1>
-              <p className="text-blue-100 mb-6">Browse verified resale flats, apartments, and commercial properties. Trusted by homeowners and buyers for transparent, hassle-free transactions.</p>
-
-              {/* Row: Buy/Rent + PropertyType (responsive, no gradient edges) */}
+              {/* ✅ Show hero title/desc if provided from block */}
+              {(activeHeroTitle || activeHeroDesc) && (
+                <div className="mb-4">
+                  {activeHeroTitle && (
+                    <h1 className="text-3xl font-bold mb-2 ">{activeHeroTitle}</h1>
+                  )}
+                  {activeHeroDesc && (
+                    <p className="text-blue-100 mb-6">{activeHeroDesc}</p>
+                  )}
+                </div>
+              )}
+              {/* Row: Buy/Rent + PropertyType (your original UI) */}
               <div className="grid grid-cols-1  gap-1 md:gap-2 mb-4 items-center justify-center text-center">
                 {/* Buy / Rent */}
                 <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
@@ -606,27 +581,23 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     type="button"
                     onClick={() => setTransactionType("buy")}
                     className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
-        ${transactionType === "buy"
+        ${'buy' === "buy"
                         ? "bg-[#E6761D] text-white"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
-                    aria-pressed={transactionType === "buy"}
+                    aria-pressed={true}
                   >
                     Buy
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setTransactionType("rent")}
-                    className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
-        ${transactionType === "rent"
-                        ? "bg-gray-300 text-gray-600"
-                        : "bg-gray-100 text-gray-700"
-                      } opacity-60 cursor-not-allowed`}
+                    onClick={() => { }}
+                    className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition bg-gray-100 text-gray-700 opacity-60 cursor-not-allowed`}
                     title="Rent search not available yet"
                     disabled
                     aria-disabled="true"
-                    aria-pressed={transactionType === "rent"}
+                    aria-pressed={false}
                   >
                     Rent
                   </button>
@@ -690,14 +661,13 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 </div>
               </div>
 
-
               {/* FORM */}
               <form
                 onSubmit={handleSearch}
                 className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-4 shadow-xl max-w-5xl mx-auto"
               >
                 <div className="flex flex-col gap-3 md:flex-row">
-                  {/* City dropdown (transparent) */}
+                  {/* City dropdown */}
                   <div className="relative w-full md:w-48">
                     <select
                       value={selectedCity}
@@ -714,7 +684,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                         </option>
                       ))}
                     </select>
-                    {/* custom arrow */}
                     <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
                       <ChevronRight className="text-white rotate-90" size={14} />
                     </div>
@@ -735,17 +704,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                           setShowSuggestions(false);
                         }
                       }}
-                      onFocus={() => {
-                        if (suggestions.length > 0) setShowSuggestions(true);
-                      }}
-                      onBlur={() => {
-                        setTimeout(() => setShowSuggestions(false), 120);
-                      }}
+                      onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                      onBlur={() => { setTimeout(() => setShowSuggestions(false), 120); }}
                       className="pl-10 pr-16 h-10 w-full text-sm bg-white/10 text-white placeholder-white/70 outline-none focus:ring-1 focus:ring-gray-400 rounded-lg"
                       placeholder="Search properties by locality or area"
                     />
-
-                    {/* Suggestions */}
                     {showSuggestions && suggestions.length > 0 && (
                       <ul className="absolute left-0 right-0 mt-1 max-h-32 lg:max-w-60 overflow-auto bg-[#0b3856] border rounded-lg shadow-lg z-[200] custom-scroll">
                         {suggestions.map((s, idx) => (
@@ -790,43 +753,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </div>
           </div>
         </div>
-
-
-        {featuredProperties.length > 0 && (
-          <>
-            {/* Dots */}
-            <div className="hidden sm:flex absolute bottom-4 left-1/2 -translate-x-1/2 space-x-2">
-              {featuredProperties.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setFeaturedIndex(i)}
-                  className={`w-2 h-2 rounded-full ${i === featuredIndex ? "bg-white" : "bg-white/50"}`}
-                />
-              ))}
-            </div>
-
-            {/* Left Button */}
-            <button
-              onClick={() =>
-                setFeaturedIndex(
-                  (i) => (i - 1 + featuredProperties.length) % featuredProperties.length
-                )
-              }
-              className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/20 rounded-full"
-            >
-              <ChevronLeft className="text-white" />
-            </button>
-
-            {/* Right Button */}
-            <button
-              onClick={() => setFeaturedIndex((i) => (i + 1) % featuredProperties.length)}
-              className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/20 rounded-full"
-            >
-              <ChevronRight className="text-white" />
-            </button>
-          </>
-        )}
       </section>
+
+
 
       {/* AI Insights */}
 
@@ -1165,7 +1094,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   >
                     List My Property
                   </button>
-                  
+
 
                   {/* Secondary CTA */}
                   <button
@@ -1414,7 +1343,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </button>
           </div>
 
-          
+
         </div>
       </section>
 

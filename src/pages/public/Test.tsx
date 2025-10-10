@@ -1,729 +1,1397 @@
-// src/components/blogManager/BlogPostEditor.tsx
-import React, { useState, useEffect } from 'react';
+// HomePage.tsx
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  Save, Send, X, Bold, Italic, List, Quote, Code, Heading,
-  Calendar, Tag, User, Link
+  Home,
+  Search,
+  MapPin,
+  Building,
+  Star,
+  Phone,
+  Eye,
+  Heart,
+  ChevronLeft,
+  ChevronRight,
+  Brain,
+  BarChart3,
+  Target,
+  Sparkles,
+  TrendingUp,
+  Users,
+  Award,
+  Shield,
+  IndianRupee,
+  Zap,
+  CheckCircle,
+  Bot,
+  ShieldCheck, Handshake
 } from 'lucide-react';
-import blogsAPI from '@/lib/blogsAPI';
+import SubscriptionModal from '@/components/subscription/SubscriptionModal';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import PublicPropertyDetailPage from './PublicPropertyDetailPage';
+import { propertiesAPI } from '@/lib/propertiesAPI';
 
-interface BlogPost {
-  title: string;
-  content: string;
-  excerpt: string;
-  author: string;
-  category: string;
-  tags: string[];
-  featured: boolean;
-  featuredImage: string;
-  seoTitle: string;
-  seoDescription: string;
-  status: 'draft' | 'published' | 'archived';
-  publishedAt?: string;
-  id?: number | string;
+import { useSystemSettings } from '@/contexts/SystemSettingsContext';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
+import viewsAPI from '@/lib/viewAPI';
+import PublicSellPropertyForm from './PublicSellPropertyForm';
+import { FaWhatsapp } from 'react-icons/fa6';
+import WhySellModal from './WhySellModal';
+
+interface Property {
+  id: number;
+  title?: string;
+  price?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  square_feet?: number;
+  city?: string;
+  property_type?: string;
+  status?: string;
+  images?: string[];
+  location?: string;
+  area?: number;
+  type?: string;
+  unitType?: string;
+  subtype?: string;
+  amenities?: string[];
+  badge?: string;
+  rating?: number;
+  views?: number;
+  aiScore?: number;
+  sellerName?: string;
+  slug?: string | undefined;
+  property_status?: string;
+  possessionMonth?: string | null;
+  possessionYear?: string | null;
+  created_at?: string | null;
+  public_views?: number | null;
+  total_views?: number;
+  agent?: { phone?: string };
+  featured?: boolean;   // ⬅️ add this
+  verified?: boolean;   // ⬅️ add this
 }
 
-interface BlogPostEditorProps {
-  post?: BlogPost | null;
-  onSave: (post: Partial<BlogPost>) => void;
-  onCancel: () => void;
-  isOpen: boolean;
-  currentUserName?: string;
-  lockAuthor?: boolean; // kept for compatibility, no longer disables dropdown
-}
+const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
+  const [localityInput, setLocalityInput] = useState('');
+  const [localities, setLocalities] = useState<string[]>([]);
+  const [selectedBudget, setSelectedBudget] = useState('');
+  const [selectedPropertyType, setSelectedPropertyType] = useState('');
+  const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [featuredIndex, setFeaturedIndex] = useState(0);
+  const [isSubOpen, setIsSubOpen] = useState(false);
+  const [currentPropertyView, setCurrentPropertyView] = useState<any | null>(null);
+  const [viewedProperties, setViewedProperties] = useState<Set<number>>(new Set());
 
-const categories = [
-  'Real Estate', 'Investment', 'Market Analysis', 'Legal',
-  'Home Buying', 'Home Selling', 'Property News', 'Construction', 'Finance'
-];
+  const [masterLoading, setMasterLoading] = useState(true);
+  const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
 
-const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
-  post, onSave, onCancel, isOpen, currentUserName, lockAuthor = false
-}) => {
-  const isEditing = !!post?.id;
+  const [suggestions, setSuggestions] = useState<MasterOption[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // Build author options (unique) – you can extend this from API later
-  const baseAuthorOptions = [
-    currentUserName || 'Admin',
-    'Admin',
-    post?.author || '',
-  ].filter(Boolean) as string[];
+  const [isSellerModalOpen, setIsSellerModalOpen] = useState<boolean>(false);
 
-  const [formData, setFormData] = useState<Partial<BlogPost>>({
-    title: '', content: '', excerpt: '',
-    author: currentUserName || 'Admin',
-    category: '', tags: [], featured: false, featuredImage: '',
-    seoTitle: '', seoDescription: '', status: 'draft'
-  });
+  const [open, setOpen] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
-  const [tagsInput, setTagsInput] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // image preview / validation state
-  const [imgLoading, setImgLoading] = useState(false);
-  const [imgError, setImgError] = useState<string | null>(null);
-  const [imgDimensions, setImgDimensions] = useState<{ w: number; h: number } | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+
+
+
+
+
+  // Parse original query params and preserve both key and value.
+  const queryParams = new URLSearchParams(location.search);
+  const filterParamKey =
+    queryParams.has('filterToken') ? 'filterToken' :
+      (queryParams.has('tf') ? 'tf' : undefined);
+  const filterToken = filterParamKey ? (queryParams.get(filterParamKey) as string | null) ?? undefined : undefined;
 
   useEffect(() => {
-    if (post) {
-      // Edit mode: load post as-is
-      setFormData({ ...post });
-      setTagsInput(post.tags?.join(', ') || '');
-
-      if (post.featuredImage && typeof post.featuredImage === 'string' && !post.featuredImage.startsWith('data:')) {
-        validateImageUrl(post.featuredImage);
-      } else {
-        setImgError(null);
-        setImgLoading(false);
-        setImgDimensions(null);
+    const fetchMasters = async () => {
+      try {
+        setMasterLoading(true);
+        const data = await getMasterDropdownOptions(['common', 'lead', 'property']);
+        setMasters(data || {});
+      } catch (err) {
+        console.error('Error fetching master options:', err);
+      } finally {
+        setMasterLoading(false);
       }
-    } else {
-      // Create mode: default author = currentUserName (editable via dropdown)
-      setFormData({
-        title: '', content: '', excerpt: '',
-        author: currentUserName || 'Admin',
-        category: '', tags: [], featured: false, featuredImage: '',
-        seoTitle: '', seoDescription: '', status: 'draft'
-      });
-      setTagsInput('');
-      setImgError(null);
-      setImgLoading(false);
-      setImgDimensions(null);
+    };
+    fetchMasters();
+  }, []);
+
+
+  // --- Likes state (persisted in localStorage) ---
+  const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("liked_properties");
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) setLikedIds(new Set(arr.map(Number)));
+      }
+    } catch { }
+  }, []);
+
+  const persistLikes = (setObj: Set<number>) => {
+    try {
+      localStorage.setItem("liked_properties", JSON.stringify(Array.from(setObj)));
+    } catch { }
+  };
+
+  const isLiked = (id: number) => likedIds.has(id);
+
+  const toggleLike = async (property: Property) => {
+    const id = property.id;
+    const next = new Set(likedIds);
+    const nowLiked = !next.has(id);
+
+    if (nowLiked) next.add(id);
+    else next.delete(id);
+
+    setLikedIds(next);
+    persistLikes(next);
+
+    // optional: fire analytics/event to backend if available
+    try {
+      await propertiesAPI?.sendPropertyEvent?.(
+        id,
+        nowLiked ? "like" : "unlike",
+        "user_like_toggle",
+        { source: "homepage", title: property.title ?? null },
+        { slug: property.slug ?? undefined }
+      );
+    } catch (e) {
+      // ignore failures, UI already updated
     }
-  }, [post, currentUserName]);
+  };
 
-  if (!isOpen) return null;
+  const { systemSettings } = useSystemSettings();
+  const companyName = systemSettings?.company_name;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    const checked = (e.target as HTMLInputElement).checked;
+  const fetchPropertyViews = async (propertyId: number): Promise<{ total_views: number }> => {
+    try {
+      const viewData = await viewsAPI.getByProperty(propertyId, false);
+      return { total_views: viewData?.total_views || 0 };
+    } catch (err) {
+      console.error(`Error fetching views for property ${propertyId}:`, err);
+      return { total_views: 0 };
+    }
+  };
 
-    if (name === 'featuredImage') {
-      const url = value;
-      setFormData(prev => ({ ...prev, featuredImage: url }));
-      if (typeof url === 'string' && url.startsWith('data:')) {
-        setImgError(null);
-        setImgLoading(false);
-        setImgDimensions(null);
-      } else {
-        validateImageUrl(String(url));
+  useEffect(() => {
+    const fetchFeaturedProperties = async () => {
+      try {
+        setLoading(true);
+        const response = await propertiesAPI.getProperties({
+          status: 'Available',
+          featured: true,
+          limit: 6,
+        });
+
+        const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
+        const onlyFeatured = rawList.filter((p: any) => {
+          const isFeatured = !!(p.featured ?? p.is_featured ?? p.isFeatured ?? 0);
+          return isFeatured;
+        });
+
+
+        const mapped = await Promise.all(rawList.map(async (p: any) => {
+          const images: string[] =
+            Array.isArray(p.photos)
+              ? p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'))
+              : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
+
+          const city = p.city_name || p.city || p.town || p.cityName || '';
+          const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
+          const state = p.state || p.region || '';
+          const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
+
+          let amenities: string[] = [];
+          if (Array.isArray(p.amenities)) amenities = p.amenities.map(String).map(s => s.trim()).filter(Boolean);
+          else if (typeof p.amenities === 'string') amenities = p.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+          else if (p.features) {
+            if (Array.isArray(p.features)) amenities = p.features.map(String).map(s => s.trim()).filter(Boolean);
+            else if (typeof p.features === 'string') amenities = p.features.split(',').map((s: string) => s.trim()).filter(Boolean);
+          }
+
+          const unitType = (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim();
+          const subtype = (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim();
+
+          const rawSlug = p?.slug ?? p?.url_slug ?? p?.generated_slug;
+          const slug = typeof rawSlug === 'string' && rawSlug.trim().length > 0 ? rawSlug.trim() : undefined;
+          if (!slug) console.warn('[HomePage] Missing backend slug for property id:', p?.id);
+
+          const viewCounts = await fetchPropertyViews(p.id);
+          const featured =
+            p.featured ??
+            p.is_featured ??
+            p.isFeatured ??
+            (p.badge ? String(p.badge).toLowerCase().includes('featured') : true);
+
+          const verified =
+            p.verified ??
+            p.is_verified ??
+            p.isVerified ??
+            (p.verification_status ? String(p.verification_status).toLowerCase() === 'verified' : true);
+
+          return {
+            id: p.id,
+            title: (p.title || `${unitType ? unitType + ' ' : ''}${p.property_type_name || p.property_type || ''}`).trim(),
+            price: Number(p.budget || p.price || p.amount) || 0,
+            bedrooms: Number(p.bedrooms) || undefined,
+            bathrooms: Number(p.bathrooms) || undefined,
+            square_feet: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
+            city,
+            property_type: p.property_type_name || p.property_type || '',
+            status: p.status || '',
+            images,
+            location,
+            area: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
+            type: p.property_type_name || p.property_type || '',
+            unitType,
+            subtype,
+            amenities,
+            badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
+            rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
+            views: viewCounts.total_views || 0,
+            total_views: viewCounts.total_views,
+            aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
+            sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
+            slug,
+            possessionMonth: p.possession_month ?? p.possessionMonth ?? null,
+            possessionYear: p.possession_year ?? p.possessionYear ?? null,
+            property_status: p.property_status ?? p.status ?? '',
+            created_at: p.created_at ?? null,
+            public_views: p.public_views ?? null,
+            agent: { phone: p.agent_phone || p.agent?.phone || p.owner_phone || '' },
+            // badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
+            // ⬇️ IMPORTANT
+            featured: !!featured,
+            verified: !!verified,
+          } as Property;
+        }));
+
+        setFeaturedProperties(mapped);
+      } catch (err) {
+        console.error('Error fetching featured properties:', err);
+        setFeaturedProperties([]);
+      } finally {
+        setLoading(false);
       }
+    };
+
+    fetchFeaturedProperties();
+  }, []);
+
+  useEffect(() => {
+    if (!featuredProperties.length) return;
+    const t = setInterval(() => setFeaturedIndex(i => (i + 1) % featuredProperties.length), 5000);
+    return () => clearInterval(t);
+  }, [featuredProperties.length]);
+
+  const handleViewProperty = (property: Property) => {
+    setCurrentPropertyView(property);
+  };
+
+  const internalAuthAction = (action: string) => {
+    if (action === 'subscribe') setIsSubOpen(true);
+    if (onAuthAction) onAuthAction(action);
+  };
+
+  const findMasterOptions = (candidateKeys: string[]) => {
+    if (!masters || typeof masters !== 'object') return [];
+    const lowerKeyMap: Record<string, string> = {};
+    Object.keys(masters).forEach(k => (lowerKeyMap[k.toLowerCase().replace(/\s+/g, '')] = k));
+    for (const ck of candidateKeys) {
+      const n = ck.toLowerCase().replace(/\s+/g, '');
+      if (lowerKeyMap[n]) return masters[lowerKeyMap[n]];
+    }
+    for (const ck of candidateKeys) {
+      const n = ck.toLowerCase().replace(/\s+/g, '');
+      const found = Object.keys(masters).find(k => k.toLowerCase().replace(/\s+/g, '').includes(n));
+      if (found) return masters[found];
+    }
+    return [];
+  };
+
+  const masterCity: MasterOption[] = findMasterOptions(['city']);
+  const propertyTypeOptions: MasterOption[] = findMasterOptions(['property type', 'property_type', 'propertytype', 'type', 'property']);
+  const masterLocation: MasterOption[] = findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']);
+
+  const formatPrice = (price: any) => {
+    const num = Number(price);
+    if (!Number.isFinite(num) || num <= 0) return ' - ';
+    if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
+    if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
+    return `₹${num.toLocaleString('en-IN')}`;
+  };
+
+  const formatCurrency = (price: any) => formatPrice(price);
+
+  const [transactionType, setTransactionType] = useState<'buy' | 'rent'>('buy');
+
+  const addLocality = (value?: string) => {
+    const v = (value ?? localityInput ?? '').toString().trim();
+    if (!v) return;
+    const normalized = v.replace(/\s{2,}/g, ' ').replace(/(^,|,$)/g, '').trim();
+    if (!normalized) return;
+    if (localities.includes(normalized)) {
+      setLocalityInput('');
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    if (localities.length >= 5) {
+      console.warn('Maximum 5 localities allowed');
+      setLocalityInput('');
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    setLocalities(prev => [...prev, normalized]);
+    setLocalityInput('');
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  const removeLocality = (idx: number) => {
+    setLocalities(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const q = (localityInput || '').trim().toLowerCase();
+    if (!q || !Array.isArray(masterLocation) || masterLocation.length === 0) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const matched = masterLocation
+      .filter(opt => {
+        const label = (opt.label || '').toString().toLowerCase();
+        const value = (opt.value || '').toString().toLowerCase();
+        return label.includes(q) || value.includes(q);
+      })
+      .slice(0, 10);
+    setSuggestions(matched);
+    setShowSuggestions(matched.length > 0);
+  }, [localityInput, masterLocation]);
+
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (transactionType === 'rent') {
+      console.warn('Rent search not implemented yet. Only Buy is active.');
       return;
     }
 
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
+    const city = selectedCity.trim();
+    const locationStrings = localities.map(loc => loc.trim());
 
-  const handleTagsChange = (value: string) => {
-    setTagsInput(value);
-    setFormData(prev => ({
-      ...prev,
-      tags: value.split(',').map(tag => tag.trim()).filter(Boolean)
-    }));
-  };
-
-  const insertMarkdown = (before: string, after: string = '') => {
-    const textarea = document.getElementById('content-editor') as HTMLTextAreaElement | null;
-    if (!textarea) return;
-
-    const { selectionStart: start, selectionEnd: end } = textarea;
-    const content = formData.content || '';
-    const selected = content.substring(start, end);
-    const newText = content.substring(0, start) + before + selected + after + content.substring(end);
-
-    setFormData(prev => ({ ...prev, content: newText }));
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + before.length, start + before.length + selected.length);
-    }, 0);
-  };
-
-  const generatePreview = () => {
-    if (!formData.content) return '';
-    return formData.content
-      .replace(/^# (.*$)/gim, '<h1 class="text-2xl sm:text-3xl font-bold mb-4">$1</h1>')
-      .replace(/^## (.*$)/gim, '<h2 class="text-xl sm:text-2xl font-bold mb-3">$1</h2>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-      .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded text-sm">$1</code>')
-      .replace(/^- (.*$)/gim, '<li class="ml-4 list-disc">$1</li>')
-      .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-blue-500 pl-4 italic">$1</blockquote>')
-      .replace(/\n\n/g, '</p><p class="mb-4">')
-      .replace(/\n/g, '<br>');
-  };
-
-  const toolbarButtons = [
-    { icon: Heading, action: () => insertMarkdown('# '), title: 'Heading' },
-    { icon: Bold, action: () => insertMarkdown('**', '**'), title: 'Bold' },
-    { icon: Italic, action: () => insertMarkdown('*', '*'), title: 'Italic' },
-    { icon: List, action: () => insertMarkdown('- '), title: 'List' },
-    { icon: Quote, action: () => insertMarkdown('> '), title: 'Quote' },
-    { icon: Code, action: () => insertMarkdown('`', '`'), title: 'Code' },
-    { icon: Link, action: () => insertMarkdown('[Link](', ')'), title: 'Link' }
-  ];
-
-  const dataURLtoBlob = (dataurl: string): Blob => {
-    const arr = dataurl.split(',');
-    const mimeMatch = arr[0].match(/:(.*?);/);
-    const mime = mimeMatch ? mimeMatch[1] : 'image/png';
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
+    if (!city && locationStrings.length === 0) {
+      // अगर कोई इनपुट नहीं है, तो सभी प्रॉपर्टीज दिखाएं
+      navigate(`/properties?status=Available`);
+      return;
     }
-    return new Blob([u8arr], { type: mime });
-  };
 
-  const buildPayload = (): { payload: FormData | Record<string, any>; isFormData: boolean } => {
-    const payloadObj: Record<string, any> = {
-      title: formData.title || '',
-      content: formData.content || '',
-      excerpt: formData.excerpt || '',
-      author: formData.author || '',
-      category: formData.category || '',
-      tags: formData.tags || [],
-      featured: !!formData.featured,
-      seoTitle: formData.seoTitle || '',
-      seoDescription: formData.seoDescription || '',
-      status: formData.status || 'draft',
-      publishedAt: formData.publishedAt || undefined,
+    // API कॉल के लिए पैरामीटर्स बनाएं
+    const params: { city: string; locations?: string | string[] } = {
+      city: city,
     };
-
-    if (formData.featuredImage && typeof formData.featuredImage === 'string' && formData.featuredImage.startsWith('data:')) {
-      const fd = new FormData();
-      Object.entries(payloadObj).forEach(([k, v]) => {
-        if (v === undefined) return;
-        if (k === 'tags') {
-          fd.append('tags', JSON.stringify(v));
-        } else {
-          fd.append(k, String(v));
-        }
-      });
-      const blob = dataURLtoBlob(formData.featuredImage);
-      const ext = blob.type.split('/')[1] || 'png';
-      const filename = `featured.${ext}`;
-      fd.append('featuredImage', blob, filename);
-      return { payload: fd, isFormData: true };
+    if (locationStrings.length > 0) {
+      params.locations = locationStrings;
     }
-
-    if (formData.featuredImage) {
-      payloadObj.featuredImage = formData.featuredImage;
-    }
-
-    return { payload: payloadObj, isFormData: false };
-  };
-
-  const getPostId = (): number | string | undefined => {
-    return (post as any)?.id ?? (formData as any)?.id;
-  };
-
-  const savePost = async (status: 'draft' | 'published' | 'archived') => {
-    setSaving(true);
-    setError(null);
 
     try {
-      setFormData(prev => ({ ...prev, status, publishedAt: status === 'published' ? new Date().toISOString() : prev.publishedAt }));
+      setLoading(true);
+      const response = await propertiesAPI.searchByCityLocation(params);
 
-      const { payload, isFormData } = buildPayload();
-      const id = getPostId();
-      let responseData: any;
+      const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
 
-      if (id !== undefined && id !== null) {
-        if (isFormData) {
-          responseData = await blogsAPI.updatePost(id, payload as FormData);
-        } else {
-          responseData = await blogsAPI.updatePost(id, payload as Record<string, any>);
-        }
-      } else {
-        if (isFormData) {
-          responseData = await blogsAPI.createPost(payload as FormData);
-        } else {
-          responseData = await blogsAPI.createPost(payload as Record<string, any>);
-        }
+      const mapped = await Promise.all(rawList.map(async (p: any) => {
+
+        const images: string[] = Array.isArray(p.photos) ? p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/')) : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
+        const city = p.city_name || p.city || p.town || p.cityName || '';
+        const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
+        const state = p.state || p.region || '';
+        const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
+
+        return {
+          id: p.id,
+          title: p.title,
+          price: Number(p.budget || p.price || p.amount) || 0,
+          bedrooms: Number(p.bedrooms) || undefined,
+          bathrooms: Number(p.bathrooms) || undefined,
+          square_feet: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
+          city,
+          property_type: p.property_type_name || p.property_type || '',
+          status: p.status || '',
+          images,
+          location,
+          area: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
+          type: p.property_type_name || p.property_type || '',
+          unitType: (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim(),
+          subtype: (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim(),
+          amenities: Array.isArray(p.amenities) ? p.amenities : [],
+          badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
+          rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
+          views: p.total_views || 0,
+          total_views: p.total_views,
+          aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
+          sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
+          slug: p?.slug ?? p?.url_slug ?? p?.generated_slug,
+          possessionMonth: p.possession_month ?? p.possessionMonth ?? null,
+          possessionYear: p.possession_year ?? p.possessionYear ?? null,
+          property_status: p.property_status ?? p.status ?? '',
+          created_at: p.created_at ?? null,
+          public_views: p.public_views ?? null,
+          agent: { phone: p.agent_phone || p.agent?.phone || p.owner_phone || '' },
+          featured: !!(p.featured ?? p.is_featured ?? p.isFeatured ?? 0),
+          verified: !!(p.verified ?? p.is_verified ?? p.isVerified ?? (p.verification_status ? String(p.verification_status).toLowerCase() === 'verified' : true)),
+        };
+      }));
+
+
+      const searchParams = new URLSearchParams();
+      if (city) searchParams.set('city', city);
+      if (localities.length > 0) searchParams.set('locations', localities.join(','));
+      if (selectedPropertyType) searchParams.set('propertyType', selectedPropertyType);
+      if (selectedBudget) searchParams.set('budget', selectedBudget);
+      searchParams.set('status', 'Available');
+
+      if (filterToken && filterParamKey) {
+        searchParams.set(filterParamKey, filterToken);
       }
 
-      onSave(responseData);
-      setFormData(prev => ({ ...prev, ...(responseData || {}) }));
+      const qs = searchParams.toString();
 
-    } catch (err: any) {
-      console.error('Error saving post', err);
-      setError(err?.message || 'Failed to save post. Please try again.');
+      navigate(`/properties${qs ? `?${qs}` : ''}`, { replace: true });
+
+
+    } catch (error) {
+      console.error('Error fetching properties from city/location API:', error);
 
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  const handleSaveDraftClick = () => savePost('draft');
-  const handlePublishClick = () => savePost('published');
+  const handleSellPropertyClick = () => {
+    if (onAuthAction) {
+      onAuthAction('sell');
+    } else {
+      setIsSellerModalOpen(true);
+    }
+  };
 
-  // image validation (url or data URL handled)
-  const validateImageUrl = (url: string) => {
-    if (!url) {
-      setImgError(null);
-      setImgLoading(false);
-      setImgDimensions(null);
+  const handleSellerSave = async (formData: any) => {
+    try {
+      console.log('Selling form submitted (stub):', formData);
+      setIsSellerModalOpen(false);
+    } catch (err) {
+      console.error('Error saving seller/property:', err);
+    }
+  };
+
+  const handleNavigateToProperty = async (property: Property) => {
+    const id = property.id;
+    const slug = property.slug;
+    if (!slug) {
+      console.warn('Attempted to navigate to property without slug:', id);
       return;
     }
 
-    if (url.startsWith('data:')) {
-      setImgError(null);
-      setImgLoading(false);
+    if (viewedProperties.has(id)) {
+      let dest = `/properties/${encodeURIComponent(String(slug))}`;
+      if (filterToken) {
+        const finalParamKey = filterParamKey || 'tf';
+        dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(filterToken)}`;
+      }
+      navigate(dest);
       return;
     }
+
+    const inferredFilters = {
+      search: searchQuery || null,
+      location: localities.length ? localities.join(', ') : null,
+      city: selectedCity || null,
+      budget: selectedBudget || null,
+      propertyType: selectedPropertyType || null,
+      source: 'homepage',
+      clickedPropertyId: id,
+    };
 
     try {
-      new URL(url);
-    } catch {
-      setImgError('Invalid image URL');
-      setImgLoading(false);
-      setImgDimensions(null);
-      return;
-    }
+      let finalToken = filterToken;
+      let finalParamKey = filterParamKey || 'tf';
 
-    setImgLoading(true);
-    setImgError(null);
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = url;
-    img.onload = () => {
-      setImgLoading(false);
-      setImgError(null);
-      setImgDimensions({ w: img.naturalWidth, h: img.naturalHeight });
-      setFormData(prev => ({ ...prev, featuredImage: url }));
-    };
-    img.onerror = () => {
-      setImgLoading(false);
-      setImgError('Could not load image from URL');
-      setImgDimensions(null);
-    };
-  };
+      if (!finalToken) {
+        try {
+          const createRes = await propertiesAPI.createFilterContext({ filters: inferredFilters });
+          if (createRes && createRes.id) finalToken = createRes.id;
+          else console.warn('createFilterContext did not return id, response:', createRes);
+        } catch (err) {
+          console.warn('createFilterContext failed (proceeding without token):', err);
+        }
+      }
 
-  const handleFileSelected = (file?: File | null) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      setFormData(prev => ({ ...prev, featuredImage: dataUrl }));
-      const img = new Image();
-      img.src = dataUrl;
-      setImgLoading(true);
-      img.onload = () => {
-        setImgLoading(false);
-        setImgError(null);
-        setImgDimensions({ w: img.naturalWidth, h: img.naturalHeight });
-      };
-      img.onerror = () => {
-        setImgLoading(false);
-        setImgError('Uploaded image could not be processed');
-        setImgDimensions(null);
-      };
-    };
-    reader.readAsDataURL(file);
-  };
+      try {
+        await propertiesAPI.sendPropertyEvent(
+          id,
+          'click',
+          'listing_card_click',
+          { source: 'homepage', title: property.title || null },
+          { slug, filterToken: finalToken || undefined, filterParamKey: finalParamKey }
+        );
 
-  const copyUrlToClipboard = async () => {
-    const url = formData.featuredImage || '';
-    if (!url) return;
-    try {
-      await navigator.clipboard.writeText(url);
-      alert('Image URL copied to clipboard');
-    } catch {
-      // ignore
+        setViewedProperties(prev => new Set(prev).add(id));
+      } catch (err) {
+        console.warn('sendPropertyEvent failed (we will still navigate):', err);
+      }
+
+      let dest = `/properties/${encodeURIComponent(String(slug))}`;
+      if (finalToken) {
+        dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(finalToken)}`;
+      }
+      navigate(dest);
+    } catch (err) {
+      console.error('handleNavigateToProperty unexpected error:', err);
+      navigate(`/properties/${encodeURIComponent(String(slug))}`);
     }
   };
 
-  const openImageInNewTab = () => {
-    const url = formData.featuredImage || '';
-    if (!url) return;
-    window.open(url, '_blank', 'noopener');
-  };
-
-  // Build final unique options including the current selected value to avoid mismatch
-  const authorOptions = Array.from(
-    new Set([...(baseAuthorOptions || []), formData.author || ''].filter(Boolean))
-  );
+  if (currentPropertyView) {
+    return <PublicPropertyDetailPage property={currentPropertyView} onBack={() => setCurrentPropertyView(null)} />;
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col">
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 sm:p-4 rounded-t-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold">
-                {post ? 'Edit Post' : 'Create New Blog Post'}
-              </h2>
-              <p className="text-xs opacity-90 hidden sm:block">
-                {post ? `Editing: ${post.title}` : 'Write and publish new content'}
-              </p>
-            </div>
-            <button onClick={onCancel} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-              <X size={18} />
-            </button>
-          </div>
-        </div>
+    <div className="">
+      {/* hero/search */}
+      <section className="relative bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white overflow-hidden min-h-[calc(100vh-80px)] md:min-h-[calc(100vh-80px)]">
+        <div className="absolute inset-0 bg-black/30"></div>
+        {featuredProperties.length > 0 && (
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
+            style={{
+              backgroundImage: `url(${featuredProperties[featuredIndex]?.images?.[0] || ''})`,
+              filter: 'brightness(0.35)',
+            }}
+          />
+        )}
 
-        <div className="border-b border-gray-200 bg-gray-50">
-          <div className="flex">
-            {['edit', 'preview'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab as 'edit' | 'preview')}
-                className={`px-4 py-2 font-medium capitalize text-sm transition-colors ${activeTab === tab
-                  ? 'bg-white text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-                  }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
+        <div className="relative z-10 min-h-screen flex items-center justify-center">
+          <div className="w-full max-w-4xl mx-auto">
+            <div className="text-center px-4">
+              <h1 className="text-3xl font-bold mb-2 ">
+                {/* Find Your <span className="block bg-clip-text text-[#E6761D]">Dream Property</span> */}
 
-        <div className="flex-1 overflow-hidden">
-          {activeTab === 'edit' ? (
-            <div className="h-full overflow-y-auto p-3 sm:p-4 space-y-3">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-medium mb-1">Title *</label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                    className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter title"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1">Category *</label>
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
-                    className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
-                    required
+                Find Your Perfect Resale Property in Pune & PCMC
+              </h1>
+              <p className="text-blue-100 mb-6">Browse verified resale flats, apartments, and commercial properties. Trusted by homeowners and buyers for transparent, hassle-free transactions.</p>
+
+              {/* Row: Buy/Rent + PropertyType (responsive, no gradient edges) */}
+              <div className="grid grid-cols-1  gap-1 md:gap-2 mb-4 items-center justify-center text-center">
+                {/* Buy / Rent */}
+                <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setTransactionType("buy")}
+                    className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+        ${transactionType === "buy"
+                        ? "bg-[#E6761D] text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    aria-pressed={transactionType === "buy"}
                   >
-                    <option value="">Select category</option>
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
+                    Buy
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTransactionType("rent")}
+                    className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+        ${transactionType === "rent"
+                        ? "bg-gray-300 text-gray-600"
+                        : "bg-gray-100 text-gray-700"
+                      } opacity-60 cursor-not-allowed`}
+                    title="Rent search not available yet"
+                    disabled
+                    aria-disabled="true"
+                    aria-pressed={transactionType === "rent"}
+                  >
+                    Rent
+                  </button>
                 </div>
 
-                {/* Author as dropdown: default = currentUserName on create; editable in both modes */}
-                <div>
-                  <label className="block text-xs font-medium mb-1">Author</label>
-                  <select
-                    name="author"
-                    value={formData.author || ''}
-                    onChange={handleChange}
-                    className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
-                  >
-                    {authorOptions.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
+                {/* Property-type chips */}
+                <div className="w-full grid justify-center md:w-auto">
+                  {masterLoading ? (
+                    <div className="text-sm text-white/80 px-3 py-1">Loading types...</div>
+                  ) : (
+                    <div
+                      className="
+          mx-auto max-w-full
+          overflow-x-auto
+          [-webkit-overflow-scrolling:touch]
+          [scrollbar-width:none]
+          [-ms-overflow-style:none]
+          px-1
+        "
+                      style={{ scrollbarWidth: "none" }}
+                    >
+                      <div className="flex gap-2 py-1 snap-x snap-mandatory">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPropertyType("")}
+                          aria-pressed={selectedPropertyType === ""}
+                          className={`
+              shrink-0 snap-start whitespace-nowrap
+              px-3 sm:px-4 py-1.5 rounded-full text-sm
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+              ${selectedPropertyType === ""
+                              ? "bg-white text-black"
+                              : "bg-white/30 text-white hover:bg-white/40"
+                            }`}
+                        >
+                          All
+                        </button>
+
+                        {propertyTypeOptions.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setSelectedPropertyType(opt.value)}
+                            aria-pressed={selectedPropertyType === opt.value}
+                            title={opt.label}
+                            className={`
+                shrink-0 snap-start whitespace-nowrap
+                px-3 sm:px-4 py-1.5 rounded-full text-sm
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+                ${selectedPropertyType === opt.value
+                                ? "bg-white text-black"
+                                : "bg-white/20 text-white hover:bg-white/30"
+                              }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium mb-1">Featured Image</label>
-                  <div className="space-y-2">
-                    <input
-                      type="url"
-                      name="featuredImage"
-                      value={formData.featuredImage || ''}
-                      onChange={handleChange}
-                      className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
-                      placeholder="https://example.com/image.jpg"
-                    />
 
+              {/* FORM */}
+              <form
+                onSubmit={handleSearch}
+                className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-4 shadow-xl max-w-5xl mx-auto"
+              >
+                <div className="flex flex-col gap-3 md:flex-row">
+                  {/* City dropdown (transparent) */}
+                  <div className="relative w-full md:w-48">
+                    <select
+                      value={selectedCity}
+                      onChange={(e) => setSelectedCity(e.target.value)}
+                      disabled={masterLoading}
+                      className="appearance-none px-3 py-2 border z-10 rounded-lg w-full bg-transparent text-white border-white/30 focus:outline-none focus:ring-1 focus:ring-white"
+                    >
+                      <option value="" className="bg-[#0b3856] text-white">
+                        {masterLoading ? "Loading cities..." : "Select city"}
+                      </option>
+                      {masterCity.map((o) => (
+                        <option key={o.value} value={o.value} className="bg-[#0b3856] text-white">
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                    {/* custom arrow */}
+                    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                      <ChevronRight className="text-white rotate-90" size={14} />
+                    </div>
+                  </div>
+
+                  {/* Locality input */}
+                  <div className="relative flex-grow">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white" size={18} />
                     <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = (e.target as HTMLInputElement).files?.[0];
-                        handleFileSelected(file);
+                      ref={inputRef}
+                      value={localityInput}
+                      onChange={(e) => setLocalityInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addLocality();
+                        } else if (e.key === "Escape") {
+                          setShowSuggestions(false);
+                        }
                       }}
-                      className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      onFocus={() => {
+                        if (suggestions.length > 0) setShowSuggestions(true);
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowSuggestions(false), 120);
+                      }}
+                      className="pl-10 pr-16 h-10 w-full text-sm bg-white/10 text-white placeholder-white/70 outline-none focus:ring-1 focus:ring-gray-400 rounded-lg"
+                      placeholder="Search properties by locality or area"
                     />
 
-                    <div className="text-xs text-gray-500">
-                      {imgLoading && <span>Validating image...</span>}
-                      {imgError && <span className="text-red-600">{imgError}</span>}
-                      {!imgLoading && !imgError && imgDimensions && (
-                        <span>Image size: {imgDimensions.w}×{imgDimensions.h}px</span>
+                    {/* Suggestions */}
+                    {showSuggestions && suggestions.length > 0 && (
+                      <ul className="absolute left-0 right-0 mt-1 max-h-32 lg:max-w-60 overflow-auto bg-[#0b3856] border rounded-lg shadow-lg z-[200] custom-scroll">
+                        {suggestions.map((s, idx) => (
+                          <li
+                            key={`${s.value}-${idx}`}
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => {
+                              const toAdd = s.label?.toString().trim() || s.value?.toString().trim();
+                              addLocality(toAdd);
+                            }}
+                            className="px-3 py-2 hover:bg-white/20 cursor-pointer text-sm"
+                          >
+                            {s.label || s.value}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Search button */}
+                  <button
+                    type="submit"
+                    className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-lg w-full md:w-28 text-base transition-colors duration-300"
+                  >
+                    Search
+                  </button>
+                </div>
+
+                {/* Locality chips */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {localities.map((loc, idx) => (
+                    <div key={idx} className="flex items-center bg-white/20 text-white px-3 py-1 rounded-full text-sm">
+                      <span className="mr-2">{loc}</span>
+                      <button type="button" onClick={() => removeLocality(idx)} className="text-gray-200 hover:text-white">
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                  {localities.length === 0 && <div className="text-xs text-gray-100">Add up to 1 localities.</div>}
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Insights */}
+
+      <section className="py-6 bg-white">
+        <div className="max-w-7xl mx-auto px-4">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-[#0b3856] to-[#0c3854] bg-clip-text text-transparent">
+              AI Market Intelligence
+            </h2>
+            <p className="text-gray-600 text-sm">
+              Real-time market analysis powered by advanced AI algorithms
+            </p>
+          </div>
+
+          {/* Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Price Trends */}
+            <div className="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-3">
+                <div className="p-2 rounded-xl bg-green-50 ring-1 ring-green-100">
+                  <TrendingUp className="text-green-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Price Trends</h3>
+                  <div className="text-xs text-gray-500">
+                    Andheri West <span className="font-medium text-green-600">+12.5%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Best ROI */}
+            <div className="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-3">
+                <div className="p-2 rounded-xl bg-blue-50 ring-1 ring-blue-100">
+                  <Target className="text-blue-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Best ROI</h3>
+                  <div className="text-xs text-gray-500">
+                    Bandra West <span className="font-medium text-blue-600">18.2%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Market Heat */}
+            <div className="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-3">
+                <div className="p-2 rounded-xl bg-purple-50 ring-1 ring-purple-100">
+                  <BarChart3 className="text-purple-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Market Heat</h3>
+                  <div className="text-xs">
+                    <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 text-[11px]">
+                      Powai · Hot
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Score */}
+            <div className="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-3">
+                <div className="p-2 rounded-xl bg-orange-50 ring-1 ring-orange-100">
+                  <Sparkles className="text-orange-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">AI Score</h3>
+                  <div className="text-xs text-gray-500">
+                    Avg <span className="font-medium text-orange-600">92/100</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          {/* CTA */}
+          <div className="text-center mt-6">
+            <button
+              onClick={() => internalAuthAction('subscribe')}
+              className="inline-flex items-center justify-center gap-2 bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E6761D]"
+            >
+              Get Full AI Report
+            </button>
+            <SubscriptionModal isOpen={isSubOpen} onClose={() => setIsSubOpen(false)} />
+          </div>
+        </div>
+      </section>
+
+
+
+      {/* Featured properties cards */}
+      <section className="py-3 bg-white">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Featured Properties</h2>
+            <p className="text-gray-600">Handpicked premium properties with AI recommendations</p>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center"><LoadingSpinner size="lg" /></div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {featuredProperties.map((property) => (
+                <div key={property.id} className="bg-white rounded-2xl shadow-lg overflow-hidden group">
+                  <div className="relative">
+                    {property.images && property.images.length ? (
+                      <div
+                        onClick={() => handleNavigateToProperty(property)}
+                        className="cursor-pointer relative"
+                      >
+                        <img
+                          src={property.images[0]}
+                          alt={property.title || 'Property image'}
+                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
+                        />
+
+                        {/* ✅ Watermark Overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="text-white text-2xl font-bold opacity-40 select-none">
+                            ResaleExpert.in
+                          </span>
+                        </div>
+                      </div>
+
+
+
+                    ) : (
+                      <div className="h-48 bg-gray-200 flex items-center justify-center"><Building className="text-gray-400" /></div>
+                    )}
+
+                    {/* <div className="absolute top-4 left-4">
+                      <span className={`px-3 py-1 rounded-full text-white text-sm ${property.badge === 'Premium' ? 'bg-[#0b3856]' : 'bg-[#1de631]'}`}>{property.badge || 'Featured'}</span>
+                    </div> */}
+
+                    <div className="absolute top-3 left-3 flex space-x-2">
+                      {property.featured && (<span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"><Zap size={10} className="mr-1" />FEATURED</span>)}
+                      {property.verified && (<span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center space-x-1"><CheckCircle size={10} /><span>VERIFIED</span></span>)}
+                      {(property.aiScore || 0) > 90 && (<span className="bg-purple-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"><Bot size={10} className="mr-1" />AI {property.aiScore}</span>)}
+                    </div>
+                    <div className="absolute top-2 right-4 flex space-x-2">
+                      <div className="absolute top-2 right-4 flex space-x-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleLike(property); }}
+                          className={`p-2 rounded-full transition
+      ${isLiked(property.id) ? "bg-white" : "bg-white hover:bg-white"}`}
+                          title={isLiked(property.id) ? "Unlike" : "Like"}
+                          aria-pressed={isLiked(property.id)}
+                        >
+                          <Heart
+                            size={18}
+                            className={isLiked(property.id) ? 'text-red-500 fill-current' : 'text-gray-600'}
+                          />
+                        </button>
+                      </div>
+                      {/* <button className="p-2 bg-white/80 rounded-full"><Eye className="text-blue-500" /></button> */}
+                    </div>
+
+                    <div className="absolute bottom-4 left-4 flex items-center gap-2">
+                      <div className="bg-white/90 rounded-full px-2 py-1 flex items-center gap-1">
+                        <Star className="text-yellow-500" size={12} />
+                        <span className="text-xs font-semibold text-gray-900">{(property.rating || 4.5).toFixed(1)}</span>
+                      </div>
+                      <div className="bg-white/90 rounded-full px-2 py-1">
+                        <span className="text-xs font-semibold text-gray-900">
+                          {property.total_views || property.views || 0} views
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="pr-4">
+                        <div className="text-lg font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">
+                          {[property.type, property.unitType, property.subtype].filter(Boolean).join('  ') || ' - '}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <div className="text-xl font-bold text-green-600">{formatPrice(property.price)}</div>
+                        <div className="text-sm text-gray-500">{property.unitType || property.type} • {property.square_feet ?? property.area ?? ' - '} sq ft</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-500">Price per sq ft</div>
+                        <div className="font-semibold text-gray-900">
+                          ₹{Math.round((property.price || 0) / (property.square_feet || property.area || 1)).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center text-gray-600 mb-3">
+                      <MapPin size={16} className="mr-2" />
+                      <span>{property.location || property.city || ' - '}</span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {(property.amenities || []).slice(0, 3).map((a, i) => (
+                        <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{a}</span>
+                      ))}
+                      {property.amenities && property.amenities.length > 3 && (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">+{property.amenities.length - 3} more</span>
                       )}
                     </div>
 
-                    {formData.featuredImage && (
-                      <div className="relative">
-                        <img
-                          src={formData.featuredImage}
-                          alt="Featured preview"
-                          className="w-full h-20 object-cover rounded-md border"
-                          onLoad={(e) => {
-                            const img = e.currentTarget as HTMLImageElement;
-                            if (!imgDimensions) {
-                              setImgDimensions({ w: img.naturalWidth, h: img.naturalHeight });
-                              setImgError(null);
-                              setImgLoading(false);
-                            }
-                          }}
-                          onError={() => {
-                            setImgError('Could not load preview');
-                          }}
-                        />
-                        <div className="absolute top-1 right-1 flex gap-1">
+                    <div className="flex items-center gap-3">
+                      {property.slug ? (
+                        <div className="flex-1">
                           <button
-                            type="button"
-                            onClick={openImageInNewTab}
-                            className="bg-white text-gray-700 rounded px-4 py-2 text-xs hover:bg-gray-100"
+                            onClick={() => handleNavigateToProperty(property)}
+                            className="w-full bg-[#E6761D] text-white py-2 rounded-lg hover:bg-[#CC6A1A] transition-colors"
                           >
-                            Open
-                          </button>
-                          <button
-                            type="button"
-                            onClick={copyUrlToClipboard}
-                            className="bg-white text-gray-700 rounded px-4 py-2 text-xs hover:bg-gray-100"
-                          >
-                            Copy
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFormData(prev => ({ ...prev, featuredImage: '' }));
-                              setImgDimensions(null);
-                              setImgError(null);
-                            }}
-                            className="bg-red-500 text-white rounded px-4 py-2 text-xs hover:bg-red-600"
-                          >
-                            <X size={12} />
+                            View Details
                           </button>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1">Tags</label>
-                  <input
-                    type="text"
-                    value={tagsInput}
-                    onChange={(e) => handleTagsChange(e.target.value)}
-                    className="w-full px-4 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
-                    placeholder="tag1, tag2, tag3"
-                  />
-                </div>
-              </div>
+                      ) : (
+                        <button
+                          disabled
+                          className="w-full bg-gray-300 text-gray-600 py-2 rounded-lg cursor-not-allowed"
+                          title="Details not available"
+                        >
+                          View Details
+                        </button>
+                      )}
 
-              <div>
-                <label className="block text-xs font-medium mb-1">Excerpt *</label>
-                <textarea
-                  name="excerpt"
-                  value={formData.excerpt}
-                  onChange={handleChange}
-                  rows={2}
-                  className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
-                  placeholder="Brief description"
-                  required
-                />
-              </div>
+                      {/* Call Button (static number) */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          const phone = "919876543210"; // ✅ Static number
+                          const telLink = `tel:${phone}`;
+                          window.location.href = telLink;
+                        }}
+                        className="p-3 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white relative z-10"
+                        title="Call"
+                        type="button"
+                      >
+                        <Phone size={18} />
+                      </button>
 
-              {formData.tags && formData.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {formData.tags.map((tag, i) => (
-                    <span key={i} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
+                      {/* WhatsApp Button (static number) */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
 
-              <div className="border rounded-lg">
-                <div className="flex flex-wrap gap-1 p-1.5 border-b bg-gray-50">
-                  {toolbarButtons.map(({ icon: Icon, action, title }, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={action}
-                      className="p-1.5 text-gray-600 hover:bg-gray-200 rounded transition-colors"
-                      title={title}
-                    >
-                      <Icon size={14} />
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  id="content-editor"
-                  name="content"
-                  value={formData.content}
-                  onChange={handleChange}
-                  className="w-full px-2 py-2 border-0 focus:ring-0 font-mono text-xs resize-none h-32"
-                  placeholder="Write your content using Markdown..."
-                />
-              </div>
+                          const phone = "919876543210"; // ✅ Static number
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-xs font-medium mb-1">SEO Title</label>
-                    <input
-                      type="text"
-                      name="seoTitle"
-                      value={formData.seoTitle}
-                      onChange={handleChange}
-                      className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
-                      maxLength={60}
-                    />
-                    <div className="text-xs text-gray-500">{formData.seoTitle?.length || 0}/60</div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">SEO Description</label>
-                    <textarea
-                      name="seoDescription"
-                      value={formData.seoDescription}
-                      onChange={handleChange}
-                      rows={2}
-                      className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
-                      maxLength={160}
-                    />
-                    <div className="text-xs text-gray-500">{formData.seoDescription?.length || 0}/160</div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div>
-                    <label className="flex items-center text-sm">
-                      <input
-                        type="checkbox"
-                        name="featured"
-                        checked={!!formData.featured}
-                        onChange={handleChange}
-                        className="rounded mr-2"
-                      />
-                      <span>Featured Post</span>
-                    </label>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Status</label>
-                    <select
-                      name="status"
-                      value={formData.status}
-                      onChange={handleChange}
-                      className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="draft">Draft</option>
-                      <option value="published">Published</option>
-                      <option value="archived">Archived</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="h-full overflow-y-auto p-3 sm:p-4">
-              <article className="max-w-4xl mx-auto">
-                <header className="text-center mb-4">
-                  <h1 className="text-xl sm:text-2xl font-bold mb-2">{formData.title}</h1>
-                  <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <User size={14} />
-                      <span>{formData.author}</span>
+                          const title =
+                            property.title ||
+                            [property.unitType, property.type].filter(Boolean).join(" ") ||
+                            "a property";
+
+                          const loc =
+                            property.location ||
+                            property.city ||
+                            "your listed property location";
+
+                          const priceText =
+                            typeof formatCurrency === "function"
+                              ? formatCurrency(property.price)
+                              : `₹${Number(property.price || 0).toLocaleString("en-IN")}`;
+
+                          const link = property.slug
+                            ? `${window.location.origin}/properties/${encodeURIComponent(
+                              String(property.slug)
+                            )}`
+                            : `${window.location.origin}/properties`;
+
+                          const message =
+                            `Hi, I'm interested in ${title} at ${loc}. ` +
+                            `Price: ${priceText}. ` +
+                            `Can you share more details?\n${link}`;
+
+                          const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+                          window.open(url, "_blank", "noopener,noreferrer");
+                        }}
+                        className="p-3 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57] relative z-10"
+                        title="WhatsApp"
+                        type="button"
+                      >
+                        <FaWhatsapp size={18} />
+                      </button>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar size={14} />
-                      <span>{new Date().toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Tag size={14} />
-                      <span>{formData.category}</span>
-                    </div>
+
                   </div>
-                </header>
-
-                {formData.featuredImage && (
-                  <img
-                    src={formData.featuredImage}
-                    alt={formData.title}
-                    className="w-full h-32 sm:h-40 object-cover rounded-lg mb-4"
-                  />
-                )}
-
-                <div className="prose prose-sm max-w-none text-sm">
-                  <div dangerouslySetInnerHTML={{
-                    __html: `<p class="leading-relaxed">${generatePreview()}</p>`
-                  }} />
                 </div>
-
-                {formData.tags && formData.tags.length > 0 && (
-                  <footer className="mt-4 pt-4 border-t">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Tag size={16} />
-                      <span className="font-medium text-sm">Tags:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {formData.tags.map((tag, i) => (
-                        <span key={i} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </footer>
-                )}
-              </article>
+              ))}
             </div>
           )}
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-center justify-between p-3 border-t bg-gray-50 gap-2">
-          <div className="text-xs text-gray-600">
-            Status: <span className={`font-medium ${formData.status === 'published' ? 'text-green-600' :
-              formData.status === 'draft' ? 'text-yellow-600' : 'text-gray-600'
-              }`}>
-              {String(formData.status || 'Draft').charAt(0).toUpperCase() + String(formData.status || 'draft').slice(1)}
-            </span>
-            {error && <span className="text-red-600 ml-3">Error: {error}</span>}
-          </div>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <button
-              onClick={onCancel}
-              className="flex-1 sm:flex-none px-3 py-1.5 text-sm border text-gray-700 rounded-md hover:bg-gray-100 transition-colors"
-              disabled={saving}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveDraftClick}
-              className="flex-1 sm:flex-none px-3 py-1.5 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center justify-center gap-1"
-              disabled={saving}
-              title={saving ? 'Saving...' : 'Save as draft'}
-            >
-              <Save size={14} />
-              <span>{saving ? 'Saving...' : 'Draft'}</span>
-            </button>
-            <button
-              onClick={handlePublishClick}
-              className="flex-1 sm:flex-none px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
-              disabled={saving}
-              title={saving ? 'Publishing...' : 'Publish'}
-            >
-              <Send size={14} />
-              <span>{saving ? (formData.status === 'published' ? 'Publishing...' : 'Processing...') : 'Publish'}</span>
-            </button>
+          <div className="text-center mt-4">
+            <Link to="/properties">
+              <button
+                onClick={() => onPageChange && onPageChange('properties')}
+                className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-xl font-medium transition-colors duration-300"
+              >
+                View All Properties
+              </button>
+            </Link>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Sell CTA / Footer minimal */}
+      <section
+        className="py-8 text-white"
+        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
+      >
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+            {/* Left Content */}
+            <div>
+              <h2 className="text-2xl font-bold mb-2">
+                Sell Your Resale Property Faster & Smarter in Pune
+              </h2>
+              <p className="text-gray-200 mb-4">
+                Get instant AI-based property valuation, connect with verified buyers, and close deals faster — all with Resale Expert.
+              </p>
+              <div className="w-full">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+
+                  {/* Primary CTA */}
+                  <button
+                    onClick={handleSellPropertyClick}
+                    className="w-full sm:w-auto shrink-0 bg-[#E6761D] hover:bg-[#CC6A1A] text-white
+                 px-5 py-3 rounded-lg font-medium shadow-md transition-colors duration-300
+                 text-sm sm:text-base"
+                  >
+                    List My Property
+                  </button>
+
+
+                  {/* Secondary CTA */}
+                  <button
+                    className="w-full sm:w-auto border-2 border-white/90 text-white
+                 px-5 py-3 rounded-lg font-medium transition-colors duration-300
+                 hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white
+                 text-sm sm:text-base"
+                  >
+                    Free Valuation
+                  </button>
+
+                  <button
+                    onClick={() => setOpen(true)}
+                    className="w-full sm:w-auto border-2 border-white/90 text-white
+                 px-5 py-3 rounded-lg font-medium transition-colors duration-300
+                 hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white
+                 text-sm sm:text-base"
+                  >
+                    Why Sell ResaleExpert
+                  </button>
+
+
+                </div>
+              </div>
+
+            </div>
+
+            {/* Right Image */}
+            <div className="relative inline-block">
+              <img
+                src="https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600"
+                alt="Sell"
+                className="rounded-2xl shadow-xl w-full object-cover"
+              />
+
+              {/* Badge */}
+              <div className="absolute -bottom-4 left-4 bg-white px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 border border-gray-100">
+                <IndianRupee className="text-[#0b3856] w-5 h-5" />
+                <span className="text-sm font-semibold text-gray-700">
+                  ₹500Cr+ Properties Sold
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Us - Compact */}
+      <section className="py-3 bg-gray-50 border-t border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">
+              Why Choose&nbsp;{companyName}?
+            </h2>
+            <h2>Trusted Resale Property Consultant in Pune & PCMC</h2>
+            <p className="text-gray-600">
+              Buying or selling a resale property can be overwhelming. That’s why thousands of homeowners and buyers choose Resale Expert for hassle-free transactions.
+
+
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mt-10">
+            {/* Card 1 */}
+            <div className="text-center group">
+              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+                <ShieldCheck className="text-white" size={26} />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Verified Listings Only
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Every property undergoes legal and documentation checks.
+              </p>
+            </div>
+
+            {/* Card 2 */}
+            <div className="text-center group">
+              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+                <Brain className="text-white" size={26} />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Fair Market Valuation
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Transparent pricing — no hidden charges, no inflated rates.
+              </p>
+            </div>
+
+            {/* Card 3 */}
+            <div className="text-center group">
+              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+                <Users className="text-white" size={26} />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Local Market Expertise
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Deep understanding of Pune and PCMC real estate trends.
+              </p>
+            </div>
+
+            {/* Card 4 */}
+            <div className="text-center group">
+              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+                <Handshake className="text-white" size={26} />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                End-to-End Assistance
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                From property search to registration and possession.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats - Compact */}
+      <section className="py-3 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
+            <div className="group">
+              <div className="bg-blue-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Home className="text-blue-600" size={20} />
+              </div>
+              <div className="text-2xl font-bold text-gray-900">10K+</div>
+              <div className="text-gray-600 text-sm">Properties</div>
+            </div>
+            <div className="group">
+              <div className="bg-green-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Users className="text-green-600" size={20} />
+              </div>
+              <div className="text-2xl font-bold text-gray-900">25K+</div>
+              <div className="text-gray-600 text-sm">Customers</div>
+            </div>
+            <div className="group">
+              <div className="bg-orange-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Award className="text-orange-600" size={20} />
+              </div>
+              <div className="text-2xl font-bold text-gray-900">15+</div>
+              <div className="text-gray-600 text-sm">Years</div>
+            </div>
+            <div className="group">
+              <div className="bg-purple-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Star className="text-purple-600" size={20} />
+              </div>
+              <div className="text-2xl font-bold text-gray-900">4.9★</div>
+              <div className="text-gray-600 text-sm">Rating</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials - Compact */}
+      <section
+        className="py-10 text-white border-b border-white"
+        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-bold mb-3">Customer Success Stories</h2>
+            <p className="text-sm text-gray-200">
+              See how our AI-powered solutions are helping people buy & sell properties smarter
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                name: 'Rajesh Kumar',
+                text: 'Found my dream home in 2 weeks with AI matching!',
+                rating: 5,
+                property: '3BHK Andheri',
+              },
+              {
+                name: 'Priya Sharma',
+                text: 'Sold my property 20% above market rate with their AI pricing.',
+                rating: 5,
+                property: 'Villa Koregaon',
+              },
+              {
+                name: 'Amit Patel',
+                text: 'Seamless process from search to registration.',
+                rating: 5,
+                property: '2BHK Gurgaon',
+              },
+            ].map((testimonial, index) => (
+              <div
+                key={index}
+                className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border-t-4 border-[#E6761D]"
+              >
+                {/* Stars */}
+                <div className="flex items-center space-x-1 mb-3">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <Star key={i} size={14} className="text-[#E6761D] fill-current" />
+                  ))}
+                </div>
+
+                {/* Testimonial text */}
+                <p className="text-gray-700 mb-4 text-sm italic">"{testimonial.text}"</p>
+
+                {/* User info */}
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-[#E6761D] rounded-full flex items-center justify-center text-white font-bold text-sm">
+                    {testimonial.name.split(' ').map((n) => n[0]).join('')}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900 text-sm">{testimonial.name}</div>
+                    <div className="text-xs text-gray-500">{testimonial.property}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA - Compact */}
+      <section
+        className="py-8 text-white"
+        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-2xl font-bold mb-4">
+            Ready to Find Your Perfect Property?
+          </h2>
+          <p className="text-gray-300 mb-6 max-w-2xl mx-auto">
+            Join thousands who found their dream properties with AI-powered search
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+            {/* Primary CTA */}
+            <button
+              onClick={() => onPageChange('properties')}
+              className="w-full sm:w-auto bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-3 rounded-xl font-semibold shadow-md transition-colors duration-300"
+            >
+              Browse Properties
+            </button>
+
+            {/* Secondary CTA */}
+            <button
+              className="w-full sm:w-auto px-5 py-3 rounded-xl font-semibold border-2 border-white text-white transition-colors duration-300 hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white"
+            >
+              View All Services
+            </button>
+          </div>
+
+
+        </div>
+      </section>
+
+      {/* Modal */}
+      <PublicSellPropertyForm
+        isOpen={isSellerModalOpen}
+        onClose={() => setIsSellerModalOpen(false)}
+        onSubmit={handleSellerSave}
+      />
+      {/* Why Sell modal */}
+      <WhySellModal open={open} onClose={() => setOpen(false)} />
     </div>
   );
 };
 
-export default BlogPostEditor;
+export default HomePage;

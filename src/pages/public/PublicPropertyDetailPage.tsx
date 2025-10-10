@@ -622,9 +622,9 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="relative w-full h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden rounded-xl md:rounded-2xl shadow-xl ring-1 ring-black/10 group">
-              {/* Main image */}
+          <div className="lg:col-span-2 space-y-4 sm:space-y-5 lg:space-y-6">
+            {/* Image Carousel - Responsive */}
+            <div className="relative w-full h-64 sm:h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl ring-1 ring-black/10 group">
               <img
                 src={images[currentImageIndex]}
                 alt={property?.title || "Property Image"}
@@ -632,152 +632,133 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
 
-              {/* === WATERMARK OVERLAYS === */}
+              {/* Watermark Overlay */}
               <div className="absolute inset-0 pointer-events-none select-none z-10">
-                {/* Large Center Watermark */}
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-20">
-                  <div className="text-white font-bold text-3xl md:text-4xl lg:text-5xl whitespace-nowrap drop-shadow-2xl">
+                  <div className="text-white font-bold text-2xl sm:text-3xl md:text-4xl lg:text-5xl whitespace-nowrap drop-shadow-2xl">
                     ResaleExpert.in
                   </div>
                 </div>
               </div>
 
-              {/* === TOP-LEFT overlay (Title + Badges + Location) === */}
-              <div className="absolute top-3 left-3 z-20 text-white max-w-[85%] flex flex-col gap-1">
-                {/* Title / Type / Subtype with modern card background */}
-                <div className="font-bold text-lg sm:text-xl truncate drop-shadow">
-                  {property?.type && <span className="mr-2">{property.type}</span>}
-                  {unitType && <span className="mr-2">{unitType}</span>}
-                  {subtype && <span className="mr-2">{subtype}</span>}
+              {/* Top-Left Info - Responsive */}
+              <div className="absolute top-2 sm:top-3 md:top-4 left-2 sm:left-3 md:left-4 z-20 text-white max-w-[75%] sm:max-w-[85%] flex flex-col gap-1">
+                <div className="font-bold text-base sm:text-lg md:text-xl truncate drop-shadow">
+                  {property?.type && <span className="mr-1 sm:mr-2">{property.type}</span>}
+                  {unitType && <span className="mr-1 sm:mr-2">{unitType}</span>}
+                  {subtype && <span className="mr-1 sm:mr-2">{subtype}</span>}
                 </div>
 
-                {/* Location with icon */}
-                <div className="flex items-center text-sm sm:text-base drop-shadow">
-                  <MapPin className="w-4 h-4 mr-1 shrink-0" />
-                  <span className="truncate">
-                    {displayOrDash(property?.locationNormalized)}
-                  </span>
+                <div className="flex items-center text-xs sm:text-sm md:text-base drop-shadow">
+                  <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 shrink-0" />
+                  <span className="truncate">{displayOrDash(property?.locationNormalized)}</span>
                 </div>
 
-                {/* Badges with enhanced design */}
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
                   {property?.featured && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                    text-xs font-bold uppercase tracking-wider text-white
-                    shadow-lg ring-2 ring-white/20
-                    backdrop-blur-sm animate-pulse">
-                      <Zap className="w-3.5 h-3.5" />
-                      FEATURED
+                    <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full
+                    text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white
+                    shadow-lg ring-1 sm:ring-2 ring-white/20 backdrop-blur-sm animate-pulse">
+                      <Zap className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
+                      <span className="hidden xs:inline">FEATURED</span>
                     </span>
                   )}
                   {property?.verified && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                    text-xs font-bold uppercase tracking-wider text-white
-                    shadow-lg ring-2 ring-white/20 bg-gradient-to-r from-green-500 to-emerald-600
-                    backdrop-blur-sm">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      VERIFIED
+                    <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full
+                    text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white
+                    shadow-lg ring-1 sm:ring-2 ring-white/20 bg-gradient-to-r from-green-500 to-emerald-600 backdrop-blur-sm">
+                      <CheckCircle className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
+                      <span className="hidden xs:inline">VERIFIED</span>
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* === TOP-RIGHT Action Buttons === */}
-              <div className="absolute top-4 right-4 z-20 flex flex-col space-y-2.5">
-                {/* Like */}
+              {/* Top-Right Action Buttons - Responsive */}
+              <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 z-20 flex flex-col space-y-1.5 sm:space-y-2">
                 <button
                   onClick={toggleLiked}
-                  className="p-2 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/60"
+                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
                   aria-label={liked ? 'Remove from shortlist' : 'Add to shortlist'}
                 >
-                  <Heart
-                    className={
-                      liked
-                        ? 'w-5 h-5 text-red-500 fill-current'
-                        : 'w-5 h-5 text-gray-700'
-                    }
-                  />
+                  <Heart className={liked ? 'w-4 h-4 sm:w-5 sm:h-5 text-red-500 fill-current' : 'w-4 h-4 sm:w-5 sm:h-5 text-gray-700'} />
                 </button>
 
-                {/* Share */}
                 <button
                   onClick={() => setOpen(true)}
-                  className="p-2 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/60"
+                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
                   aria-label="Share property"
                 >
-                  <Share className="w-5 h-5 text-gray-700" />
+                  <Share className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
                 </button>
 
-                {/* Bookmark */}
                 <button
-                  className="p-2 rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/60"
+                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
                   aria-label="Bookmark property"
                 >
-                  <Bookmark className="w-5 h-5 text-gray-700" />
+                  <Bookmark className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
                 </button>
               </div>
 
-              {/* === BOTTOM-LEFT overlay (Price) === */}
-              <div className="absolute bottom-10 left-4 z-20 w-[90%]">
-                <div className="flex gap-5 items-center">
-
-                  {/* Left side (Price + per sqft) */}
+              {/* Bottom-Left Price - Responsive */}
+              <div className="absolute bottom-8 sm:bottom-10 md:bottom-12 left-2 sm:left-3 md:left-4 z-20 w-[90%]">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 md:gap-5 items-start sm:items-center">
                   <div className="flex flex-col text-left">
-                    <div className="text-2xl font-bold text-white leading-tight">
+                    <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white leading-tight">
                       {formatCurrency(property?.price)}
                     </div>
-                    <div className="text-sm sm:text-base text-white mt-1">
+                    <div className="text-xs sm:text-sm md:text-base text-white mt-0.5 sm:mt-1">
                       {pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - '}
                     </div>
                   </div>
 
-                  {/* Right side (Carpet Area) */}
                   <div className="flex flex-col items-left">
-                    <span className="text-lg font-semibold text-white">
+                    <span className="text-sm sm:text-base md:text-lg font-semibold text-white">
                       Carpet Area
                     </span>
-                    <span className="text-xs sm:text-base text-white">
+                    <span className="text-xs sm:text-sm md:text-base text-white">
                       {displayOrDash(property?.square_feet)} sq ft
                     </span>
                   </div>
                 </div>
               </div>
-              {/* Navigation Arrows */}
+
+              {/* Navigation Arrows - Responsive */}
               {images.length > 1 && (
                 <>
                   <button
                     onClick={() => setCurrentImageIndex((p) => (p - 1 + images.length) % images.length)}
-                    className="absolute left-4 top-1/2 -translate-y-1/2
-                   bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-3 rounded-full z-20 
-                    transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    className="absolute left-2 sm:left-3 md:left-4 top-1/2 -translate-y-1/2
+                    bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-2 sm:p-2.5 md:p-3 rounded-full z-20 
+                    transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110"
                   >
-                    <ChevronLeft size={12} />
+                    <ChevronLeft size={12} className="sm:w-4 sm:h-4" />
                   </button>
                   <button
                     onClick={() => setCurrentImageIndex((p) => (p + 1) % images.length)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2
-                   bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-3 rounded-full z-20 
-                    transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    className="absolute right-2 sm:right-3 md:right-4 top-1/2 -translate-y-1/2
+                    bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-2 sm:p-2.5 md:p-3 rounded-full z-20 
+                    transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110"
                   >
-                    <ChevronRight size={12} />
+                    <ChevronRight size={12} className="sm:w-4 sm:h-4" />
                   </button>
                 </>
               )}
 
-              {/* Image Counter */}
-              <div className="absolute bottom-4 right-4 z-20 bg-gradient-to-r from-slate-900/70 to-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs shadow-lg ring-1 ring-white/20">
+              {/* Image Counter - Responsive */}
+              <div className="absolute bottom-3 sm:bottom-4 right-2 sm:right-3 md:right-4 z-20 bg-gradient-to-r from-slate-900/70 to-black/60 backdrop-blur-md text-white px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs shadow-lg ring-1 ring-white/20">
                 {currentImageIndex + 1} / {images.length}
               </div>
 
-              {/* Dot Indicators */}
+              {/* Dot Indicators - Responsive */}
               {images.length > 1 && images.length <= 8 && (
-                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
+                <div className="absolute bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 flex space-x-1.5 sm:space-x-2">
                   {images.map((_, idx) => (
                     <button
                       key={idx}
                       onClick={() => setCurrentImageIndex(idx)}
-                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === currentImageIndex
-                        ? "bg-white w-8 shadow-lg"
+                      className={`w-1.5 h-1.5 sm:w-2 sm:h-2 md:w-2.5 md:h-2.5 rounded-full transition-all duration-300 ${idx === currentImageIndex
+                        ? "bg-white w-6 sm:w-8 shadow-lg"
                         : "bg-white/50 hover:bg-white/75"
                         }`}
                     />
@@ -785,17 +766,17 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               )}
 
-              {/* View Options Buttons */}
-              <div className="absolute bottom-16 right-4 z-20 flex space-x-2.5">
+              {/* View Options Buttons - Responsive */}
+              <div className="absolute bottom-14 sm:bottom-16 right-2 sm:right-3 md:right-4 z-20 flex space-x-1.5 sm:space-x-2">
                 <button
                   onClick={() => {
                     setPhotoGalleryStartIndex(currentImageIndex);
                     setShowPhotoGallery(true);
                   }}
-                  className="bg-white/95 backdrop-blur-md text-gray-900 px-1 py-1 rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-xs font-semibold shadow-xl border border-white/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/60"
+                  className="bg-white/95 backdrop-blur-md text-gray-900 px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60"
                 >
-                  <Camera size={12} />
-                  <span>Photos</span>
+                  <Camera size={12} className="sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden xs:inline">Photos</span>
                 </button>
                 {showPhotoGallery && (
                   <PhotoGalleryModal
@@ -804,38 +785,34 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     onClose={() => setShowPhotoGallery(false)}
                     initialIndex={photoGalleryStartIndex}
                   />
-
                 )}
-                <button className="bg-white/95 backdrop-blur-md text-gray-900 px-1 py-1 rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-xs font-semibold shadow-xl border border-white/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/60">
-                  <Video size={12} />
-                  <span>Tour</span>
+                <button className="bg-white/95 backdrop-blur-md text-gray-900 px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60">
+                  <Video size={12} className="sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden xs:inline">Tour</span>
                 </button>
               </div>
             </div>
 
-            {/* Property Header */}
-            <div className="bg-white rounded-xl shadow-sm p-5 pt-0 !mt-0 ring-1 ring-gray-100">
-              {/* Description */}
-              <div className="bg-white rounded-xl shadow-sm p-3 ">
-                <h2 className="font-bold text-gray-900 text-sm mb-3">Property Description</h2>
-                <p className="text-gray-700 leading-relaxed">
-                  {displayOrDash(property?.description) === ' - '
-                    ? ' - '
-                    : property?.description}
+            {/* Property Details Section - Responsive */}
+            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 !mt-3 sm:!mt-4 ring-1 ring-gray-100">
+              {/* Description - Responsive */}
+              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
+                <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Property Description</h2>
+                <p className="text-xs sm:text-sm md:text-base text-gray-700 leading-relaxed">
+                  {displayOrDash(property?.description) === ' - ' ? ' - ' : property?.description}
                 </p>
               </div>
-              {/* Property Details */}
-              <div className="bg-white/95 backdrop-blur rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all ring-1 ring-gray-100">
-                <div className="px-5 pt-4">
-                  <h3 className="font-bold text-gray-900 text-sm mb-4">
+
+              {/* Property Details Grid - Fully Responsive */}
+              <div className="bg-white/95 backdrop-blur rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all ring-1 ring-gray-100">
+                <div className="px-3 sm:px-4 md:px-5 pt-3 sm:pt-4">
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-3 sm:mb-4">
                     Property Details
                   </h3>
                 </div>
 
-                <div className="px-5 pb-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3 gap-4 text-sm">
-
-                    {/* Row 1 */}
+                <div className="px-3 sm:px-4 md:px-5 pb-3 sm:pb-4 md:pb-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
                     <div>
                       <span className="font-semibold text-gray-800">Property type:</span>
                       <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.type)}</span>
@@ -851,7 +828,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.subtype)}</span>
                     </div>
 
-                    {/* Row 2 */}
                     {property?.raw?.wing && (
                       <div>
                         <span className="font-semibold text-gray-800">Wing:</span>
@@ -866,7 +842,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       </div>
                     )}
 
-                    {/* Row 3 */}
                     {(property?.raw?.floor || property?.raw?.totalFloors) && (
                       <div>
                         <span className="font-semibold text-gray-800">Floor:</span>
@@ -878,7 +853,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       </div>
                     )}
 
-                    {/* Row 4 */}
                     {property?.square_feet && (
                       <div>
                         <span className="font-semibold text-gray-800">Carpet Area:</span>
@@ -894,6 +868,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                         {formatCurrency(property?.price)}
                       </span>
                     </div>
+
                     <div>
                       <span className="font-semibold text-gray-800">Furnishing:</span>
                       <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.furnishing)}</span>
@@ -918,16 +893,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       </div>
                     )}
 
-                    {/* Row 7 */}
-                    {/* Nearby */}
                     {property?.raw?.nearby_places?.length > 0 && (
-                      <div className="sm:col-span-2 lg:col-span-3 xl:col-span-2 2xl:col-span-3">
+                      <div className="sm:col-span-2 lg:col-span-3">
                         <span className="font-semibold text-gray-800">Nearby:</span>
                         <div className="mt-1 flex flex-wrap gap-1">
                           {property.raw.nearby_places.map((p: any, i: number) => (
                             <span
                               key={i}
-                              className="inline-block bg-gray-100 px-2 py-0.5 rounded-full text-xs text-gray-700"
+                              className="inline-block bg-gray-100 px-2 py-0.5 rounded-full text-[10px] sm:text-xs text-gray-700"
                             >
                               {p?.name ?? "Place"}
                               {p?.distance ? ` (${p.distance}${p?.unit ?? ""})` : ""}
@@ -937,11 +910,11 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                         </div>
                       </div>
                     )}
-                    {/* Address */}
+
                     {property?.raw?.address && (
-                      <div className="sm:col-span-2 lg:col-span-3 xl:col-span-2 2xl:col-span-3">
+                      <div className="sm:col-span-2 lg:col-span-3">
                         <div className="font-semibold text-gray-800 mb-1">Address:</div>
-                        <div className="ml-1 text-gray-700 whitespace-pre-line break-words">
+                        <div className="ml-1 text-gray-700 whitespace-pre-line break-words text-xs sm:text-sm">
                           {property.raw.address}
                         </div>
                       </div>
@@ -949,71 +922,69 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   </div>
                 </div>
               </div>
-              {/* Amenities & Furnishing */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-3">
-                {/* Amenities */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4 ring-1 ring-gray-100">
-                  <h3 className="font-bold text-gray-900 text-sm mb-3">Amenities</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
-                    {(() => {
-                      // Try multiple sources for amenities
-                      let amenitiesList: string[] = [];
+              {/* Amenities & Furnishing - Responsive Grid */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4">
+                              {/* Amenities */}
+                              <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-3 sm:p-4 ring-1 ring-gray-100">
+                                <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Amenities</h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
+                                  {(() => {
+                                    let amenitiesList: string[] = [];
+                                    if (Array.isArray(property?.amenities) && property.amenities.length > 0) {
+                                      amenitiesList = property.amenities;
+                                    } else if (Array.isArray(property?.raw?.amenities) && property.raw.amenities.length > 0) {
+                                      amenitiesList = property.raw.amenities;
+                                    } else if (typeof property?.amenities === 'string' && property.amenities.trim()) {
+                                      amenitiesList = property.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+                                    } else if (typeof property?.raw?.amenities === 'string' && property.raw.amenities.trim()) {
+                                      amenitiesList = property.raw.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+                                    }
+              
+                                    return amenitiesList.length > 0 ? (
+                                      amenitiesList.map((name, i) => <AmenityPill key={i} name={name} />)
+                                    ) : (
+                                      <span className="text-xs sm:text-sm text-gray-500 col-span-full">No amenities listed</span>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+              
+                              {/* Furnishing Items */}
+                              <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-3 sm:p-4 ring-1 ring-gray-100">
+                                <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Furnishing Items</h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
+                                  {(() => {
+                                    let furnishingList: string[] = [];
+                                    if (Array.isArray(property?.furnishingItems) && property.furnishingItems.length > 0) {
+                                      furnishingList = property.furnishingItems;
+                                    } else if (Array.isArray(property?.raw?.furnishingItems) && property.raw.furnishingItems.length > 0) {
+                                      furnishingList = property.raw.furnishingItems;
+                                    } else if (Array.isArray(property?.raw?.furnishing_items) && property.raw.furnishing_items.length > 0) {
+                                      furnishingList = property.raw.furnishing_items;
+                                    }
+              
+                                    return furnishingList.length > 0 ? (
+                                      furnishingList.map((item: string, index: number) => (
+                                        <FurnishingPill key={index} name={item} />
+                                      ))
+                                    ) : (
+                                      <span className="text-xs sm:text-sm text-gray-500 col-span-full">No furnishing items listed</span>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            </div>
 
-                      if (Array.isArray(property?.amenities) && property.amenities.length > 0) {
-                        amenitiesList = property.amenities;
-                      } else if (Array.isArray(property?.raw?.amenities) && property.raw.amenities.length > 0) {
-                        amenitiesList = property.raw.amenities;
-                      } else if (typeof property?.amenities === 'string' && property.amenities.trim()) {
-                        amenitiesList = property.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
-                      } else if (typeof property?.raw?.amenities === 'string' && property.raw.amenities.trim()) {
-                        amenitiesList = property.raw.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
-                      }
-
-                      return amenitiesList.length > 0 ? (
-                        amenitiesList.map((name, i) => <AmenityPill key={i} name={name} />)
-                      ) : (
-                        <span className="text-sm text-gray-500 col-span-full">No amenities listed</span>
-                      );
-                    })()}
-                  </div>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 ring-1 ring-gray-100">
-                  <h3 className="font-bold text-gray-900 text-sm mb-3">Furnishing Items</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
-                    {(() => {
-                      // Try multiple sources for furnishing items
-                      let furnishingList: string[] = [];
-
-                      if (Array.isArray(property?.furnishingItems) && property.furnishingItems.length > 0) {
-                        furnishingList = property.furnishingItems;
-                      } else if (Array.isArray(property?.raw?.furnishingItems) && property.raw.furnishingItems.length > 0) {
-                        furnishingList = property.raw.furnishingItems;
-                      } else if (Array.isArray(property?.raw?.furnishing_items) && property.raw.furnishing_items.length > 0) {
-                        furnishingList = property.raw.furnishing_items;
-                      }
-
-                      return furnishingList.length > 0 ? (
-                        furnishingList.map((item: string, index: number) => (
-                          <FurnishingPill key={index} name={item} />
-                        ))
-                      ) : (
-                        <span className="text-sm text-gray-500 col-span-full">No furnishing items listed</span>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
-              {/* AI Insights Banner */}
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-8 mt-3 border border-purple-100 ring-1 ring-purple-100/70">
-                <div className="flex items-center space-x-3">
-
+              {/* AI Insights Banner - Responsive */}
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 md:mb-8 mt-3 sm:mt-4 border border-purple-100 ring-1 ring-purple-100/70">
+                <div className="flex items-center space-x-2 sm:space-x-3">
                   <div className="flex-1">
-                    <div className="flex items-center space-x-1 mb-4">
-                      <Bot className="text-purple-600" size={18} />
-                      <h3 className="font-bold text-gray-900 text-sm mb-1">AI Property Analysis</h3>
+                    <div className="flex items-center space-x-1 sm:space-x-1.5 mb-2 sm:mb-3 md:mb-4">
+                      <Bot className="text-purple-600" size={16} />
+                      <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-0.5 sm:mb-1">AI Property Analysis</h3>
                     </div>
                     {hasSubscription || !isLoggedIn ? (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 text-xs sm:text-sm">
                         <div>
                           <span className="text-gray-600">AI Score: </span>
                           <span className="font-bold text-purple-600">{displayOrDash(property?.aiScore ?? '94')}/100</span>
@@ -1033,7 +1004,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       </div>
                     ) : (
                       <div className="relative">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm blur-sm">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 text-xs sm:text-sm blur-sm">
                           <div>
                             <span className="text-gray-600">AI Score: </span>
                             <span className="font-bold text-purple-600">••/100</span>
@@ -1054,10 +1025,11 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                         <div className="absolute inset-0 flex items-center justify-center">
                           <button
                             onClick={() => handlePaywallOpen('ai-investment')}
-                            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all flex items-center space-x-2"
+                            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-lg hover:shadow-xl transition-all flex items-center space-x-1.5 sm:space-x-2"
                           >
-                            <Lock size={16} />
-                            <span>Unlock AI Analysis - ₹299</span>
+                            <Lock size={14} className="sm:w-4 sm:h-4" />
+                            <span className="hidden xs:inline">Unlock AI Analysis - ₹299</span>
+                            <span className="xs:hidden">Unlock ₹299</span>
                           </button>
                         </div>
                       </div>
@@ -1067,120 +1039,116 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
             </div>
 
-            {/* AI Recommendations */}
-            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 relative ring-1 ring-gray-100">
-              <div className="flex items-center space-x-2 sm:space-x-2 mb-3">
-                <div className=" bg-blue-100 rounded-lg">
-                  <Lightbulb className="text-blue-600" size={18} />
+            {/* AI Recommendations - Responsive */}
+            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 relative ring-1 ring-gray-100">
+              <div className="flex items-center space-x-1.5 sm:space-x-2 mb-2 sm:mb-3">
+                <div className="bg-blue-100 rounded-lg p-1">
+                  <Lightbulb className="text-blue-600" size={16} />
                 </div>
-                <h2 className="font-bold text-gray-900 text-sm">AI Recommendations</h2>
+                <h2 className="font-bold text-gray-900 text-sm sm:text-base">AI Recommendations</h2>
               </div>
 
               {hasSubscription ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  <div className="bg-green-50 rounded-lg p-3 border border-green-100">
-                    <div className="flex items-center space-x-1.5 mb-1.5">
-                      <TrendingUp className="text-green-600" size={16} />
-                      <span className="font-semibold text-green-800 text-sm">Price Appreciation</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
+                  <div className="bg-green-50 rounded-lg p-2.5 sm:p-3 border border-green-100">
+                    <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
+                      <TrendingUp className="text-green-600" />
+                      <span className="font-semibold text-green-800 text-xs sm:text-sm">Price Appreciation</span>
                     </div>
-                    <div className="text-xl font-bold text-green-600 leading-tight">+15.2%</div>
-                    <div className="text-xs text-green-700 mt-0.5">Expected in next 12 months</div>
+                    <div className="text-lg sm:text-xl font-bold text-green-600 leading-tight">+15.2%</div>
+                    <div className="text-[10px] sm:text-xs text-green-700 mt-0.5">Expected in next 12 months</div>
                   </div>
 
-                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                    <div className="flex items-center space-x-1.5 mb-1.5">
-                      <PieChart className="text-blue-600" size={16} />
-                      <span className="font-semibold text-blue-800 text-sm">Market Position</span>
+                  <div className="bg-blue-50 rounded-lg p-2.5 sm:p-3 border border-blue-100">
+                    <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
+                      <PieChart className="text-blue-600" />
+                      <span className="font-semibold text-blue-800 text-xs sm:text-sm">Market Position</span>
                     </div>
-                    <div className="text-xl font-bold text-blue-600 leading-tight">Top 10%</div>
-                    <div className="text-xs text-blue-700 mt-0.5">In this locality</div>
+                    <div className="text-lg sm:text-xl font-bold text-blue-600 leading-tight">Top 10%</div>
+                    <div className="text-[10px] sm:text-xs text-blue-700 mt-0.5">In this locality</div>
                   </div>
 
-                  <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
-                    <div className="flex items-center space-x-1.5 mb-1.5">
-                      <AlertCircle className="text-orange-600" size={16} />
-                      <span className="font-semibold text-orange-800 text-sm">Investment Timing</span>
+                  <div className="bg-orange-50 rounded-lg p-2.5 sm:p-3 border border-orange-100">
+                    <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
+                      <AlertCircle className="text-orange-600" />
+                      <span className="font-semibold text-orange-800 text-xs sm:text-sm">Investment Timing</span>
                     </div>
-                    <div className="text-xl font-bold text-orange-600 leading-tight">Excellent</div>
-                    <div className="text-xs text-orange-700 mt-0.5">Buy now recommended</div>
+                    <div className="text-lg sm:text-xl font-bold text-orange-600 leading-tight">Excellent</div>
+                    <div className="text-[10px] sm:text-xs text-orange-700 mt-0.5">Buy now recommended</div>
                   </div>
                 </div>
               ) : (
                 <div className="relative">
-                  {/* keep grid visible but smaller & non-interactive under the overlay */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 blur-md pointer-events-none select-none">
-                    <div className="bg-green-50 rounded-lg p-3 border border-green-100">
-                      <div className="flex items-center space-x-1.5 mb-1.5">
-                        <TrendingUp className="text-green-600" size={16} />
-                        <span className="font-semibold text-green-800 text-sm">Price Appreciation</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 blur-md pointer-events-none select-none">
+                    <div className="bg-green-50 rounded-lg p-2.5 sm:p-3 border border-green-100">
+                      <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
+                        <TrendingUp className="text-green-600" size={14} />
+                        <span className="font-semibold text-green-800 text-xs sm:text-sm">Price Appreciation</span>
                       </div>
-                      <div className="text-xl font-bold text-green-600 leading-tight">+••.•%</div>
-                      <div className="text-xs text-green-700 mt-0.5">Expected in next 12 months</div>
+                      <div className="text-lg sm:text-xl font-bold text-green-600 leading-tight">+••.•%</div>
+                      <div className="text-[10px] sm:text-xs text-green-700 mt-0.5">Expected in next 12 months</div>
                     </div>
 
-                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                      <div className="flex items-center space-x-1.5 mb-1.5">
-                        <PieChart className="text-blue-600" size={16} />
-                        <span className="font-semibold text-blue-800 text-sm">Market Position</span>
+                    <div className="bg-blue-50 rounded-lg p-2.5 sm:p-3 border border-blue-100">
+                      <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
+                        <PieChart className="text-blue-600" size={14} />
+                        <span className="font-semibold text-blue-800 text-xs sm:text-sm">Market Position</span>
                       </div>
-                      <div className="text-xl font-bold text-blue-600 leading-tight">Top ••%</div>
-                      <div className="text-xs text-blue-700 mt-0.5">In this locality</div>
+                      <div className="text-lg sm:text-xl font-bold text-blue-600 leading-tight">Top ••%</div>
+                      <div className="text-[10px] sm:text-xs text-blue-700 mt-0.5">In this locality</div>
                     </div>
 
-                    <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
-                      <div className="flex items-center space-x-1.5 mb-1.5">
-                        <AlertCircle className="text-orange-600" size={16} />
-                        <span className="font-semibold text-orange-800 text-sm">Investment Timing</span>
+                    <div className="bg-orange-50 rounded-lg p-2.5 sm:p-3 border border-orange-100">
+                      <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
+                        <AlertCircle className="text-orange-600" size={14} />
+                        <span className="font-semibold text-orange-800 text-xs sm:text-sm">Investment Timing</span>
                       </div>
-                      <div className="text-xl font-bold text-orange-600 leading-tight">••••••••</div>
-                      <div className="text-xs text-orange-700 mt-0.5">Buy now recommended</div>
+                      <div className="text-lg sm:text-xl font-bold text-orange-600 leading-tight">••••••••</div>
+                      <div className="text-[10px] sm:text-xs text-orange-700 mt-0.5">Buy now recommended</div>
                     </div>
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[80%]">
-                      <Lock className="text-blue-600 mx-auto mb-1" size={18} />
-                        <h3 className="font-bold text-gray-900 text-sm mb-1">Premium AI Insights</h3>
-                      <p className="text-gray-600 text-sm mb-3 leading-snug">
+                    <div className="text-center bg-white/95 p-3 sm:p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[85%] sm:w-[80%]">
+                      <Lock className="text-blue-600 mx-auto mb-1" size={16} />
+                      <h3 className="font-bold text-gray-900 text-xs sm:text-sm mb-1">Premium AI Insights</h3>
+                      <p className="text-gray-600 text-[10px] sm:text-xs mb-2 sm:mb-3 leading-snug">
                         Get detailed recommendations and market analysis
                       </p>
                       <button
                         onClick={() => handlePaywallOpen('ai-recommendations')}
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:shadow-md transition-all"
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold hover:shadow-md transition-all"
                       >
                         Unlock for ₹299
                       </button>
                     </div>
                   </div>
-
                 </div>
               )}
             </div>
 
+            {/* Location & Nearby - Responsive */}
+            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 ring-gray-100">
+              <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Location & Connectivity</h2>
 
-            {/* Location & Nearby */}
-            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 ring-1 ring-gray-100">
-              <h2 className="font-bold text-gray-900 text-sm mb-3">Location & Connectivity</h2>
-
-              {/* Map placeholder (reduced height) */}
-              <div className="h-40 sm:h-44 md:h-48 lg:h-52 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl mb-3 flex items-center justify-center ring-1 ring-slate-300/40">
+              <div className="h-36 sm:h-40 md:h-44 lg:h-48 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg sm:rounded-xl mb-2 sm:mb-3 flex items-center justify-center ring-1 ring-slate-300/40">
                 <div className="text-center text-gray-500 leading-tight">
-                  <MapPin size={32} className="mx-auto mb-1" />
-                  <p className="text-sm">Interactive Map Coming Soon</p>
+                  <MapPin size={24} className="sm:w-7 sm:h-7 md:w-8 md:h-8 mx-auto mb-1" />
+                  <p className="text-xs sm:text-sm">Interactive Map Coming Soon</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Transportation</h3>
-                  <ul className="space-y-1 text-sm text-gray-600 leading-tight">
+                  <h3 className="font-semibold text-gray-900 mb-1.5 sm:mb-2 text-xs sm:text-sm">Transportation</h3>
+                  <ul className="space-y-0.5 sm:space-y-1 text-xs sm:text-sm text-gray-600 leading-tight">
                     <li>• Bandra Station - 0.5 km</li>
                     <li>• Airport - 8 km</li>
                     <li>• Highway Access - 1 km</li>
                   </ul>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Essential Services</h3>
-                  <ul className="space-y-1 text-sm text-gray-600 leading-tight">
+                  <h3 className="font-semibold text-gray-900 mb-1.5 sm:mb-2 text-xs sm:text-sm">Essential Services</h3>
+                  <ul className="space-y-0.5 sm:space-y-1 text-xs sm:text-sm text-gray-600 leading-tight">
                     <li>• Shopping Mall - 0.3 km</li>
                     <li>• Hospital - 1.2 km</li>
                     <li>• School - 0.8 km</li>
@@ -1188,54 +1156,53 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               </div>
             </div>
-            {/* Reviews */}
-            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 ring-1 ring-gray-100">
-              <h2 className="font-bold text-gray-900 text-sm mb-3">Customer Reviews</h2>
 
-              <div className="flex items-center mb-4">
-                <div className="flex items-center space-x-1 mr-3">
+            {/* Reviews - Responsive */}
+            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 ring-gray-100">
+              <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Customer Reviews</h2>
+
+              <div className="flex items-center mb-3 sm:mb-4">
+                <div className="flex items-center space-x-0.5 sm:space-x-1 mr-2 sm:mr-3">
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} size={16} className="text-yellow-400 fill-current" />
+                    <Star key={star} size={14} className="sm:w-4 sm:h-4 text-yellow-400 fill-current" />
                   ))}
                 </div>
-                <span className="text-base sm:text-lg font-semibold text-gray-900 leading-none">4.8</span>
-                <span className="text-gray-600 ml-2 text-sm leading-none">(24 reviews)</span>
+                <span className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 leading-none">4.8</span>
+                <span className="text-gray-600 ml-1.5 sm:ml-2 text-xs sm:text-sm leading-none">(24 reviews)</span>
               </div>
 
-              {/* Compact grid instead of tall stack */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
                 {[
                   { name: 'Rajesh Kumar', rating: 5, comment: 'Excellent property with great amenities. Highly recommended!', date: '2 days ago' },
                   { name: 'Priya Sharma', rating: 4, comment: 'Beautiful location and well-maintained property.', date: '1 week ago' },
                   { name: 'Amit Patel', rating: 5, comment: 'Perfect for families. Great connectivity and facilities.', date: '2 weeks ago' }
                 ].map((review, index) => (
-                  <div key={index} className="border border-gray-100 rounded-lg p-3 bg-white shadow-sm hover:shadow ring-1 ring-gray-100/70 transition">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User size={14} className="text-blue-600" />
+                  <div key={index} className="border border-gray-100 rounded-lg p-2.5 sm:p-3 bg-white shadow-sm hover:shadow ring-1 ring-gray-100/70 transition">
+                    <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+                      <div className="flex items-center space-x-1.5 sm:space-x-2">
+                        <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User size={12} className="sm:w-3.5 sm:h-3.5 text-blue-600" />
                         </div>
-                        <span className="font-medium text-gray-900 text-sm sm:text-[15px]">{review.name}</span>
+                        <span className="font-medium text-gray-900 text-xs sm:text-sm truncate">{review.name}</span>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
                         <div className="flex items-center">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <Star
                               key={star}
-                              size={12}
-                              className={star <= review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}
+                              size={10}
+                              className={`sm:w-3 sm:h-3 ${star <= review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
                             />
                           ))}
                         </div>
-                        <span className="text-xs text-gray-500">{review.date}</span>
+                        <span className="text-[10px] sm:text-xs text-gray-500">{review.date}</span>
                       </div>
                     </div>
-                    <p className="text-gray-700 text-sm leading-snug">{review.comment}</p>
+                    <p className="text-gray-700 text-xs sm:text-sm leading-snug">{review.comment}</p>
                   </div>
                 ))}
               </div>
             </div>
-
           </div>
 
           {/* Sidebar (hidden on mobile/tablet; shows on lg+) */}
