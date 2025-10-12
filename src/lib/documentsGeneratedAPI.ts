@@ -11,7 +11,7 @@ export type DocumentsGeneratedPayload = {
   content?: string | null; // final HTML snapshot
   variables?: any | null;  // JSON object
   status?: GenStatus;      // 'draft' | 'created'
-    created_by?: number;
+  created_by?: number;
   updated_by?: number;
 
 };
@@ -63,9 +63,9 @@ function buildApiUrl(path: string, query?: Record<string, string>) {
   const root = base ? base.replace(/\/$/, "") : "/api";
   const q = query
     ? "?" +
-      Object.entries(query)
-        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-        .join("&")
+    Object.entries(query)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+      .join("&")
     : "";
   return `${root}${path}${q}`;
 }
@@ -144,8 +144,8 @@ export const documentsGeneratedAPI = {
       content: payload.content ?? null,
       variables: payload.variables ?? null,
       status: payload.status ?? "draft",
-        created_by: payload.created_by ?? null,
-  updated_by: payload.updated_by ?? null,
+      created_by: payload.created_by ?? null,
+      updated_by: payload.updated_by ?? null,
 
     };
     const res = await api.post("/documents-generated", body);
@@ -161,8 +161,8 @@ export const documentsGeneratedAPI = {
       content: payload.content ?? null,
       variables: payload.variables ?? null,
       status: payload.status ?? "draft",
-       created_by: payload.created_by ?? null,
-  updated_by: payload.updated_by ?? null,
+      created_by: payload.created_by ?? null,
+      updated_by: payload.updated_by ?? null,
 
     };
     const res = await api.patch(`/documents-generated/${id}`, body);
@@ -190,106 +190,106 @@ export const documentsGeneratedAPI = {
    * Download the PDF (save dialog) with the correct filename.
    * Requires server to expose `Content-Disposition` header.
    */
-// /src/lib/documentsGeneratedAPI.ts
-// Fix the downloadPdf method in documentsGeneratedAPI.ts
+  // /src/lib/documentsGeneratedAPI.ts
+  // Fix the downloadPdf method in documentsGeneratedAPI.ts
 
-// COMPLETE FIX for documentsGeneratedAPI.ts
+  // COMPLETE FIX for documentsGeneratedAPI.ts
 
-// Replace your entire downloadPdf method with this:
+  // Replace your entire downloadPdf method with this:
 
-downloadPdf: async (
-  id: string | number,
-  params?: { page?: 'a4' | 'legal'; filenameFallback?: string }
-) => {
-  const pageType = params?.page || 'a4';
+  downloadPdf: async (
+    id: string | number,
+    params?: { page?: 'a4' | 'legal'; filenameFallback?: string }
+  ) => {
+    const pageType = params?.page || 'a4';
 
-  const res = await api.get(`/documents-generated/${id}/download`, {
-    params: { page: pageType },
-    responseType: 'blob', // critical
-  });
+    const res = await api.get(`/documents-generated/${id}/download`, {
+      params: { page: pageType },
+      responseType: 'blob', // critical
+    });
 
-  const blob = new Blob([res.data], { type: 'application/pdf' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = params?.filenameFallback || 'document.pdf';
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-},
-// Fetch document with related entities
-getOneWithRelations: async (id: number | string) => {
-  const res = await api.get(`/documents-generated/with-relations/${id}`);
-  return res.data.data; // should contain document + buyer + seller + executive + properties
-},
+    const blob = new Blob([res.data], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = params?.filenameFallback || 'document.pdf';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+  // Fetch document with related entities
+  getOneWithRelations: async (id: number | string) => {
+    const res = await api.get(`/documents-generated/with-relations/${id}`);
+    return res.data.data; // should contain document + buyer + seller + executive + properties
+  },
 
-getAllWithRelations: async (params?: any) => {
-  const res = await api.get("/documents-generated/with-relations/getall", { params });
-  return res.data.data;
-},
+  getAllWithRelations: async (params?: any) => {
+    const res = await api.get("/documents-generated/with-relations/getall", { params });
+    return res.data.data;
+  },
 
-// 👉 add inside export const documentsGeneratedAPI = { ... }
-bulkDownloadZip: async (
-  ids: Array<number | string>,
-  options?: BulkZipOptions
-) => {
-  if (!Array.isArray(ids) || ids.length === 0) {
-    throw new Error("ids[] required");
-  }
+  // 👉 add inside export const documentsGeneratedAPI = { ... }
+  bulkDownloadZip: async (
+    ids: Array<number | string>,
+    options?: BulkZipOptions
+  ) => {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new Error("ids[] required");
+    }
 
-  // server route: POST /documents-generated/bulk-download
-  const res = await api.post(
-    "/documents-generated/bulk-download",
-    {
-      ids,
-      options: {
-        page: options?.page || "a4",
-        filenamePrefix: options?.filenamePrefix || "documents",
+    // server route: POST /documents-generated/bulk-download
+    const res = await api.post(
+      "/documents-generated/bulk-download",
+      {
+        ids,
+        options: {
+          page: options?.page || "a4",
+          filenamePrefix: options?.filenamePrefix || "documents",
+        },
       },
-    },
-    { responseType: "blob" } // 👈 ZIP as blob
-  );
+      { responseType: "blob" } // 👈 ZIP as blob
+    );
 
-  const blob: Blob = res.data;
-  const disp = res.headers?.["content-disposition"] || res.headers?.["Content-Disposition"];
-  const fallback = `${(options?.filenamePrefix || "documents")
-    .toString()
-    .replace(/[^\w\-]+/g, "_")}_${ids.length}_files.zip`;
+    const blob: Blob = res.data;
+    const disp = res.headers?.["content-disposition"] || res.headers?.["Content-Disposition"];
+    const fallback = `${(options?.filenamePrefix || "documents")
+      .toString()
+      .replace(/[^\w\-]+/g, "_")}_${ids.length}_files.zip`;
 
-  const filename = parseFilenameFromDisposition(disp, fallback);
-  triggerBlobDownload(blob, filename);
-  return { blob, filename };
-},
+    const filename = parseFilenameFromDisposition(disp, fallback);
+    triggerBlobDownload(blob, filename);
+    return { blob, filename };
+  },
 
-/** Same as above but returns blob (no auto download), handy for custom UX */
-bulkDownloadZipBlob: async (
-  ids: Array<number | string>,
-  options?: BulkZipOptions
-): Promise<{ blob: Blob; filename: string }> => {
-  if (!Array.isArray(ids) || ids.length === 0) {
-    throw new Error("ids[] required");
-  }
+  /** Same as above but returns blob (no auto download), handy for custom UX */
+  bulkDownloadZipBlob: async (
+    ids: Array<number | string>,
+    options?: BulkZipOptions
+  ): Promise<{ blob: Blob; filename: string }> => {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new Error("ids[] required");
+    }
 
-  const res = await api.post(
-    "/documents-generated/bulk-download",
-    {
-      ids,
-      options: {
-        page: options?.page || "a4",
-        filenamePrefix: options?.filenamePrefix || "documents",
+    const res = await api.post(
+      "/documents-generated/bulk-download",
+      {
+        ids,
+        options: {
+          page: options?.page || "a4",
+          filenamePrefix: options?.filenamePrefix || "documents",
+        },
       },
-    },
-    { responseType: "blob" }
-  );
+      { responseType: "blob" }
+    );
 
-  const blob: Blob = res.data;
-  const disp = res.headers?.["content-disposition"] || res.headers?.["Content-Disposition"];
-  const fallback = `${(options?.filenamePrefix || "documents")
-    .toString()
-    .replace(/[^\w\-]+/g, "_")}_${ids.length}_files.zip`;
-  const filename = parseFilenameFromDisposition(disp, fallback);
+    const blob: Blob = res.data;
+    const disp = res.headers?.["content-disposition"] || res.headers?.["Content-Disposition"];
+    const fallback = `${(options?.filenamePrefix || "documents")
+      .toString()
+      .replace(/[^\w\-]+/g, "_")}_${ids.length}_files.zip`;
+    const filename = parseFilenameFromDisposition(disp, fallback);
 
-  return { blob, filename };
-},
+    return { blob, filename };
+  },
   /**
    * Open the PDF in a new tab (view only).
    * Uses Blob URL so it also works with auth/cookies.
@@ -300,14 +300,61 @@ bulkDownloadZipBlob: async (
     window.open(blobUrl, "_blank", "noopener,noreferrer");
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
   },
+  savePdf: async (id: string | number, params?: { page?: 'a4' | 'legal' }) => {
+    const res = await api.post(`/documents-generated/${id}/save-pdf`, {}, {
+      params: { page: params?.page || 'a4' },
+    });
+    return res.data; // { ok, status, file_url, ... }
+  },
+  getVerificationSummary: async (id: number | string) => {
+    const res = await api.get(`/documents-generated/${id}/verification-summary`);
+    return res.data; // { ok, document_id, verification: {...} }
+  },
 
+
+ downloadFinalPdf: async (
+    id: number | string,
+    opts?: { filenameFallback?: string }
+  ) => {
+    const res = await api.get(`/documents-generated/${id}/final-pdf`, {
+      responseType: "blob",
+    });
+    const blob: Blob = res.data;
+    const disp =
+      (res.headers["content-disposition"] as string) ||
+      (res.headers["Content-Disposition"] as string) ||
+      "";
+    const filename =
+      parseFilenameFromDisposition(disp, opts?.filenameFallback || "final.pdf");
+    triggerBlobDownload(blob, filename);
+    return { blob, filename };
+  },
+
+/**
+ * Open final PDF in a new tab (inline viewer).
+ * Uses blob URL so it works with auth cookies.
+ */
+ openFinalPdf: async (id: number | string) => {
+    const res = await api.get(`/documents-generated/${id}/final-pdf`, {
+      responseType: "blob",
+    });
+    const blobUrl = URL.createObjectURL(res.data);
+    window.open(blobUrl, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  },
+
+/** Raw URL (useful for same-origin <a href> without auth blob fetch) */
+getFinalPdfUrl: (id: number | string, opts?: { mask?: boolean }) => {
+  const mask = opts?.mask === false ? "0" : "1";
+  return buildApiUrl(`/documents-generated/${id}/final-pdf`, { mask });
+},
   /**
    * Direct URL builder (for <a href>, public endpoints, or same-origin).
    * You can add &disposition=attachment to force browser download with server filename.
    */
-  getPdfUrl: (id: number | string, page: "a4" | "legal" = "a4") =>
-    buildApiUrl(`/documents-generated/${id}/pdf`, { page }),
+
 };
+
 
 
 

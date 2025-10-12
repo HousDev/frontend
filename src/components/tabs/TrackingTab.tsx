@@ -187,6 +187,7 @@ interface Document {
   otp_verified_at?: string;
   completed_at?: string;
 }
+
 const TrackingTab = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
@@ -791,22 +792,26 @@ const TrackingTab = () => {
     setShowShareModal(true);
   };
 
-  const handleDownloadDocument = async (doc: any) => {
-    try {
-      setDownloadingId(doc.id);
+ const handleDownloadDocument = async (doc: any) => {
+  try {
+    setDownloadingId(doc.id);
 
-      // ✅ real API call — server se PDF aayega aur download trigger hoga
-      await documentsGeneratedAPI.downloadPdf(doc.id, {
-        page: "a4",
-        filenameFallback: `${(doc.title || "document").toString().trim()}.pdf`,
-      });
-    } catch (err: any) {
-      console.error("PDF download failed:", err);
-      alert(err?.message || "PDF download failed");
-    } finally {
-      setDownloadingId(null);
-    }
-  };
+    // ✅ call the new Final PDF API (includes audit page)
+    await documentsGeneratedAPI.downloadFinalPdf(doc.id, {
+      filenameFallback: `${(doc.title || doc.name || "document")
+        .toString()
+        .trim()
+        .replace(/[^\w\s.-]+/g, "_")}.pdf`,
+    });
+
+  } catch (err: any) {
+    console.error("Final PDF download failed:", err);
+    alert(err?.message || "Final PDF download failed");
+  } finally {
+    setDownloadingId(null);
+  }
+};
+
   const handleSaveDocument = (updatedDoc: any) => {
     setDocuments(prev => prev.map(doc =>
       doc.id === updatedDoc.id ? { ...doc, ...updatedDoc } : doc

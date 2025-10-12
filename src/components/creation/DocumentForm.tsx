@@ -660,11 +660,11 @@ const DocumentForm: React.FC<DocumentFormProps> = ({
   };
 
   /* ---------- Payload (STRICT) ---------- */
-// ✅ CORRECT
-const docVars = useMemo(
-  () => resolveVariablesStrict(effectiveTemplate, formData),  // ← using merged template
-  [effectiveTemplate, formData]
-);
+  // ✅ CORRECT
+  const docVars = useMemo(
+    () => resolveVariablesStrict(effectiveTemplate, formData),  // ← using merged template
+    [effectiveTemplate, formData]
+  );
   const mergedDocData = useMemo(
     () => ({ ...formData, ...docVars }),
     [formData, docVars]
@@ -796,14 +796,15 @@ const docVars = useMemo(
       const id = await ensureCreatedThenUpdate('created');
       if (!id) throw new Error('Document ID not available');
 
-      setFormData((prev) => ({ ...prev, status: 'created' }));
+      // 1) persist to disk
+      await documentsGeneratedAPI.savePdf(id, {
+        page: (effectivePageType === 'Legal' ? 'legal' : 'a4')
+      });
 
-      // 🆕 call your download API
+      // 2) (optional) direct download or just show toast
       await documentsGeneratedAPI.downloadPdf(id, {
-        page: (effectivePageType === 'Legal' ? 'legal' : 'a4') as 'a4' | 'legal',
-        filenameFallback: `${(template?.name || 'document')
-          .toString()
-          .replace(/[^\w\-]+/g, '_')}.pdf`,
+        page: (effectivePageType === 'Legal' ? 'legal' : 'a4'),
+        filenameFallback: `${(template?.name || 'document').toString().replace(/[^\w\-]+/g, '_')}.pdf`
       });
 
       toast.success('Document generated successfully!');
@@ -1640,14 +1641,14 @@ const buildFormPatchFromReceipt = (raw: PropertyPaymentReceiptRow) => {
     },
 
     // -------- Property --------
-    id: raw.property_id,
+  
     property_address: raw.property_address,
     property_type,
     property_area,
-    property_floor, 
+    property_floor,
     property_facing,
     property: {
-      id: raw.property_id,
+     
       address: raw.property_address,
       type: property_type,
       area: property_area,
@@ -1745,47 +1746,71 @@ const DocumentStep: React.FC<DocumentStepProps> = ({
   onVariableInsert,
 }) => {
 
-// In your DocumentStep component
-
-// In your DocumentStep component
+  // In your DocumentStep component
 
 useEffect(() => {
-  const sellerId = formData.seller?.id;
-  const buyerId = formData.buyer?.id;
-  const propertyId = formData.property?.id;
+  const norm = (v:any)=> (v==null? '' : String(v).trim());
 
-  if (!sellerId || !buyerId || !propertyId) return;
+  const sellerId   = formData?.seller?.id ?? formData?.seller_id;
+  const buyerId    = formData?.buyer?.id  ?? formData?.buyer_id;
+  const propertyId = formData?.property?.id ?? formData?.property_id ?? formData?.id;
+
+  if (!norm(sellerId) || !norm(buyerId) || !norm(propertyId)) return;
 
   let alive = true;
   (async () => {
     try {
-      const res = await propertyPaymentReceiptAPI.getAll(); // no args
-      let rows = normalizeList<PropertyPaymentReceiptRow>(res);
+      const res = await propertyPaymentReceiptAPI.getAll();
+      let rows = normalizeList<PropertyPaymentReceiptRow>(res) || [];
 
-      // filter manually
+      // strict 3-way match (ignore rows without property_id)
+      const rowPropId = (r:any)=> r.property_id ?? r.propertyId ?? r.property?.id ?? r.property?.property_id ?? '';
       rows = rows.filter(r =>
-        String(r.seller_id) === String(sellerId) &&
-        String(r.buyer_id) === String(buyerId) &&
-        String(r.property_id) === String(propertyId)
+        norm(r.seller_id) === norm(sellerId) &&
+        norm(r.buyer_id) === norm(buyerId) &&
+        norm(rowPropId(r)) === norm(propertyId)
       );
 
-      if (!alive || !rows.length) return;
+      if (!alive || rows.length === 0) return;
 
-      const sorted = rows
+      const latest = rows
         .slice()
-        .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
+        .sort((a,b)=>{
+          const A = norm(a.created_at) || norm(a.receipt_date);
+          const B = norm(b.created_at) || norm(b.receipt_date);
+          return B.localeCompare(A);
+        })[0];
 
-      const latest = sorted[0];
+      if (!latest) return;
+
       const patch = buildFormPatchFromReceipt(latest);
 
-      applyPatchViaOnChange(patch, onInputChange, { skipIfAlreadySet: false, current: formData });
-    } catch (err) {
-      toast.error('Error fetching propertyPaymentReceipt:', err);
+      // 🔒 ID guardrails: never let patch change current selection
+      if (patch?.property?.id !== undefined) delete patch.property.id;
+      if (patch?.seller) patch.seller.id = sellerId;   // keep consistent
+      if (patch?.buyer)  patch.buyer.id  = buyerId;    // keep consistent
+      // Just in case:
+      if ('id' in patch) delete (patch as any).id;
+
+      applyPatchViaOnChange(patch, onInputChange, {
+        skipIfAlreadySet: false,
+        current: formData,
+      });
+    } catch (e:any) {
+      toast.error(`Error fetching receipts: ${e?.message || e}`);
     }
   })();
 
-  return () => { alive = false; };
-}, [formData.seller?.id, formData.buyer?.id, formData.property?.id]);
+  return ()=> { alive = false; };
+}, [
+  formData?.seller?.id,
+  formData?.seller_id,
+  formData?.buyer?.id,
+  formData?.buyer_id,
+  formData?.property?.id,
+  formData?.property_id,
+  formData?.id,
+]);
 
 
   return (
@@ -1844,65 +1869,124 @@ useEffect(() => {
             </div>
           </div>
 
-          {(template.variables.includes('sale_amount') ||
-            template.variables.includes('token_amount') ||
-            template.variables.includes('booking_amount')) && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
-                  <HiCurrencyRupee className="mr-2" size={16} />
-                  Financial Information
-                </h3>
+         {/* ===== Financial Information ===== */}
+<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+  <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
+    <HiCurrencyRupee className="mr-2" size={16} />
+    Financial Information
+  </h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {template.variables.includes('sale_amount') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Sale Amount (₹)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.sale_amount || ''}
-                        onChange={(e) => onInputChange('sale_amount', Number(e.target.value))}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
-                        placeholder="25000000"
-                      />
-                    </div>
-                  )}
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
-                  {template.variables.includes('token_amount') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Token Amount (₹)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.token_amount || ''}
-                        onChange={(e) => onInputChange('token_amount', Number(e.target.value))}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
-                        placeholder="500000"
-                      />
-                    </div>
-                  )}
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Payment Type
+      </label>
+      <select
+        value={formData.payment_type || ""}
+        onChange={(e) => onInputChange("payment_type", e.target.value)}
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="" disabled>Select type</option>
+        <option value="token">Token</option>
+        <option value="booking">Booking</option>
+        <option value="part-payment">Part Payment</option>
+        <option value="full-and-final">Full & Final</option>
+        <option value="refund">Refund</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Receipt ID (auto)
+      </label>
+      <input
+        type="text"
+        value={formData.receipt_id || ""}
+        readOnly
+        placeholder="Will be generated"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-gray-50"
+      />
+    </div>
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Amount (₹)
+      </label>
+      <input
+        type="number"
+        value={formData.amount ?? ""}
+        onChange={(e) => {
+          const v = Number(e.target.value || 0);
+          onInputChange("amount", v);
+          if (template?.variables?.includes?.("token_amount")) {
+            onInputChange("token_amount", v);
+          }
+        }}
+        placeholder="500000"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Payment Method
+      </label>
+      <select
+        value={formData.payment_method || ""}
+        onChange={(e) => onInputChange("payment_method", e.target.value)}
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="" disabled>Select method</option>
+        <option value="cash">Cash</option>
+        <option value="upi">UPI</option>
+        <option value="neft">NEFT</option>
+        <option value="rtgs">RTGS</option>
+        <option value="imps">IMPS</option>
+        <option value="cheque">Cheque</option>
+        <option value="dd">Demand Draft</option>
+        <option value="online">Online</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div className="md:col-span-2">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Payment Reference 
+      </label>
+      <input
+        type="text"
+        value={formData.payment_reference || ""}
+        onChange={(e) => onInputChange("payment_reference", e.target.value)}
+        placeholder="Txn/UTR/Cheque No. etc."
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Buyer Bank Name
+      </label>
+      <input
+        type="text"
+        value={formData.buyer_bank_name || ""}
+        onChange={(e) => onInputChange("buyer_bank_name", e.target.value)}
+        placeholder="e.g., HDFC Bank"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
 
-                  {template.variables.includes('booking_amount') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Booking Amount (₹)
-                      </label>
-
-                      <input
-                        type="number"
-                        value={formData.booking_amount || ''}
-                        onChange={(e) => onInputChange('booking_amount', Number(e.target.value))}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
-                        placeholder="1000000"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
+    {/* Seller Bank Name */}
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Seller Bank Name
+      </label>
+      <input
+        type="text"
+        value={formData.seller_bank_name || ""}
+        onChange={(e) => onInputChange("seller_bank_name", e.target.value)}
+        placeholder="e.g., ICICI Bank"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+  </div>
+</div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <h3 className="text-base font-semibold text-gray-900 mb-3">Additional Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1967,13 +2051,10 @@ useEffect(() => {
             </div>
           </div>
         </div>
-
-        {/* Right: Variables Sidebar */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-fit">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-gray-900">Variables</h3>
           </div>
-
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Inserted Placeholder
           </label>
@@ -1996,7 +2077,6 @@ useEffect(() => {
               </option>
             ))}
           </select>
-
           <div className="mt-3 text-[11px] text-gray-500">
             Only variables used by this template are listed.
           </div>
@@ -2005,6 +2085,7 @@ useEffect(() => {
     </div>
   );
 };
+
 type ReviewStepProps = {
   formData: Record<string, any>;
   template: Template;
@@ -2025,10 +2106,6 @@ type ReviewStepProps = {
     selfOnly?: boolean;
   }>;
 };
-
-
-
-
 const ReviewStep: React.FC<ReviewStepProps> = ({
   formData,
   template,
@@ -2041,29 +2118,22 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
   executivesList,
 }) => {
   const formatDate = (dateString) => {
-    // अगर डेट खाली है तो खाली स्ट्रिंग लौटाएं
     if (!dateString) {
       return '';
     }
-
     const [year, month, day] = dateString.split('-');
     return `${day}-${month}-${year}`;
   };
-
   return (
     <div className="space-y-5 text-xs">
-      {/* Heading */}
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-1">Review & Finalize</h2>
         <p className="text-gray-600">Review all information before generating the document.</p>
       </div>
-
-      {/* Document Summary */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <h3 className="text-base font-semibold text-gray-900 mb-4">Document Summary</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left: Document Info */}
           <div>
             <h4 className="font-medium text-gray-900 mb-2">Document Information</h4>
             <div className="space-y-1.5">
@@ -2087,8 +2157,6 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Right: Parties Info */}
           <div>
             <h4 className="font-medium text-gray-900 mb-2">Parties Information</h4>
             <div className="space-y-2">
@@ -2112,7 +2180,6 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
                   </div>
                 </div>
               )}
-
               {requiresBuyer && (
                 <div className="space-y-1.5">
                   <div className="grid grid-cols-2">
@@ -2137,15 +2204,11 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Sales Executive + Property Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left: Sales Executive */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
           <h3 className="text-base font-semibold text-gray-900 mb-4">
             Assigned Sales Executive
           </h3>
-
           <div className="flex gap-2">
             <select
               value={formData.executive_id || ""}
@@ -2181,7 +2244,6 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
                 </option>
               ))}
             </select>
-
             {formData.executive_id && (
               <button
                 type="button"
@@ -2245,8 +2307,6 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Right: Property Summary */}
         {requiresProperty && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
             <h3 className="text-base font-semibold text-gray-900 mb-3">
@@ -2277,16 +2337,11 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
           </div>
         )}
       </div>
-
-
-      {/* Financial Summary */}
       {(formData.sale_amount || formData.token_amount || formData.booking_amount) && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-gray-900">Financial Summary</h3>
-           
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {formData.sale_amount && (
               <div className="text-center p-3 bg-green-50 rounded-lg">
@@ -2315,11 +2370,8 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
           </div>
         </div>
       )}
-
-      {/* Checklist */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <h3 className="text-base font-semibold text-gray-900 mb-3">Pre-Generation Checklist</h3>
-
         <div className="space-y-2">
           {requiresSeller && (
             <div className="flex items-center space-x-2">
@@ -2333,7 +2385,6 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
               </span>
             </div>
           )}
-
           {requiresBuyer && (
             <div className="flex items-center space-x-2">
               {formData.buyer ? (
@@ -2346,7 +2397,6 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
               </span>
             </div>
           )}
-
           {requiresProperty && (
             <div className="flex items-center space-x-2">
               {formData.property_address || formData.property ? (
@@ -2363,7 +2413,6 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
               </span>
             </div>
           )}
-
           <div className="flex items-center space-x-2">
             {formData.title && formData.document_date ? (
               <CheckCircle className="text-green-600" size={16} />
@@ -2377,15 +2426,12 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
         </div>
       </div>
     </div>
-
-
   );
 };
 const FinalPreviewStep: React.FC<{
   template: Template;
   formData: Record<string, any>;
   pageType: 'A4' | 'Legal';
-  // 🆕
   documentId?: number | string | null;
   onEnsureSaved?: () => Promise<void>;
 }> = ({ template, formData, pageType, documentId, onEnsureSaved }) => {
@@ -2393,7 +2439,6 @@ const FinalPreviewStep: React.FC<{
     () => resolveVariablesStrict(template, formData),
     [template, formData]
   );
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
       <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
@@ -2405,15 +2450,10 @@ const FinalPreviewStep: React.FC<{
         documentData={{ ...formData, ...resolvedVars }}
         isVisible={true}
         pageType={pageType}
-        // 🆕 pass id + saver
         documentId={documentId ?? undefined}
         onEnsureSaved={onEnsureSaved}
       />
     </div>
   );
 };
-
-
-
-
 export default DocumentForm;

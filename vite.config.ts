@@ -44,6 +44,10 @@ export default defineConfig({
         target: "http://investordeal.in" ,  // for server
         changeOrigin: true,
       },
+      '/artifacts': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
     },
   },
 
