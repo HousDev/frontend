@@ -163,6 +163,32 @@ const pickClient = (baseURLOverride?: string): AxiosInstance =>
       return res.data;
     },
 
+
+
+    //public
+    PublicgetProperties: async (params?: any) => {
+      const res = await api.get("/properties/get-all/", { params });
+      return res.data;
+    },
+
+    PublicgetProperty: async (id: string) => {
+      const res = await api.get(`/properties/get-one/${id}`);
+      return res.data;
+    },
+
+
+    PublicgetPropertyBySlug: async (slug: string) => {
+    try {
+      // debug logs intentionally kept
+      const res = await api.get(`/properties/pro-page/${slug}`);
+      return res.data;
+    } catch (err) {
+      throw err;
+    }
+  },
+
+
+
     createProperty: async (data: any) => {
       const res = await api.post("/properties/create", data);
       return res.data;

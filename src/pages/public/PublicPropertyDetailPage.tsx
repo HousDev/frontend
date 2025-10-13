@@ -300,7 +300,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       if (!slug) return;
       try {
         setLoading(true);
-        const res = await propertiesAPI.getPropertyBySlug(slug as string);
+        const res = await propertiesAPI.PublicgetPropertyBySlug(slug as string);
         const payload = res?.data ?? res ?? null;
         const normalized = normalizeProperty(payload);
         setProperty(normalized);
@@ -377,7 +377,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
             });
           }
         } else if (slugId) {
-          const resp = await propertiesAPI.getPropertyBySlug(slugId);
+          const resp = await propertiesAPI.PublicgetPropertyBySlug(slugId);
           const payload = resp?.data ?? resp ?? null;
           const normalized = normalizeProperty(payload);
           if (normalized?.views !== undefined) {
@@ -448,7 +448,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
         }
       }
       if (slugId) {
-        const resp = await propertiesAPI.getPropertyBySlug(slugId);
+        const resp = await propertiesAPI.PublicgetPropertyBySlug(slugId);
         const payload = resp?.data ?? resp ?? null;
         const normalized = normalizeProperty(payload);
         if (normalized?.views !== undefined) {
