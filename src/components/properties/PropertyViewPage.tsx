@@ -142,6 +142,7 @@ import { Navigation } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import PropertyFormModal from '@/pages/dashboard/components/PropertyFormModal';
+import ShareModal from '@/pages/public/ShareModal';
 
 // ---------- Types ----------
 interface UIProperty {
@@ -333,6 +334,55 @@ const ImageZoom: React.FC<{
     </div>
   );
 };
+
+
+
+
+// ✅ make a clean slug if property.slug missing/dirty
+const toSlug = (s: string) =>
+  (s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 120);
+
+// ✅ stable tracking id per property (so analytics consistent rahe)
+const getOrMakeFltCnt = (propId: string | number) => {
+  const key = `fltcnt_${propId}`;
+  let v = localStorage.getItem(key);
+  if (!v) {
+    v = (crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
+    localStorage.setItem(key, v);
+  }
+  return v;
+};
+
+// ✅ build the public property URL
+const buildPublicPropertyUrl = (property: any) => {
+  const origin =
+    import.meta.env.VITE_PUBLIC_SITE_ORIGIN // e.g. https://investordeal.in
+    || window.location.origin;              // fallback: http://localhost:5173
+
+  const id = property?.id ?? property?.propertyId;
+  const slug =
+    property?.slug
+      ? toSlug(String(property.slug))
+      : toSlug(
+          [
+            property?.type,
+            property?.unitType,
+            property?.subtype,
+            property?.city,
+            property?.location,
+          ]
+            .filter(Boolean)
+            .join(" ")
+        );
+
+  const fltcnt = getOrMakeFltCnt(id);
+  return `${origin}/properties/${id}-${slug}?fltcnt=${encodeURIComponent(fltcnt)}`;
+};
+
 
 // ---------- Main Component ----------
 const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
@@ -1144,7 +1194,7 @@ const OverviewTab = ({ property, onUpdate }: any) => {
 
   const prevRef = React.useRef<HTMLButtonElement | null>(null);
   const nextRef = React.useRef<HTMLButtonElement | null>(null);
-
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     setQuotePrice(property.budget || 0);
     setNegotiablePrice(
@@ -1495,7 +1545,9 @@ const OverviewTab = ({ property, onUpdate }: any) => {
               <h3 className="font-semibold text-gray-900 mb-3">Actions</h3>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 {/* Share */}
-                <button className="flex items-center gap-2 px-3 py-2 border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-50 transition">
+                <button
+                  onClick={() => setOpen(true)}
+                className="flex items-center gap-2 px-3 py-2 border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-50 transition">
                   <Share2 size={16} />
                   Share
                 </button>
@@ -1520,6 +1572,7 @@ const OverviewTab = ({ property, onUpdate }: any) => {
               </div>
             </div>
 
+           
             {/* Key Dates */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="font-semibold text-gray-900 mb-3">Key Dates</h3>
@@ -1580,6 +1633,48 @@ const OverviewTab = ({ property, onUpdate }: any) => {
           </div>
         </div>
       </div>
+       {open && (
+  (() => {
+    const displayType = property?.type ?? '';
+    const titleParts = [displayType, property?.unitType ?? '', property?.subtype ?? '']
+      .map(s => (s || '').toString().trim())
+      .filter(Boolean);
+    const shareTitle = titleParts.length ? titleParts.join(' ') : (property?.title || 'Property Listing');
+
+    const shareDescription =
+      property?.description && property.description !== ''
+        ? property.description
+        : (property?.raw?.description ?? property?.raw?.short_description ?? '');
+
+    const shareImage =
+      (Array.isArray(property?.images) && property.images[0]) ||
+      (Array.isArray(property?.photos) && property.photos[0]) ||
+      property?.raw?.image ||
+      property?.raw?.photo ||
+      '';
+
+    // ❌ pehle yeh current URL tha:
+    // const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+    // ✅ ab canonical public URL:
+    const shareUrl = buildPublicPropertyUrl(property);
+
+    return (
+      <ShareModal
+        // agar tumhare ShareModal me `forcedCopyUrl` prop hai to usko bhi pass karo:
+        // forcedCopyUrl={shareUrl}
+        url={shareUrl}
+        title={shareTitle}
+        description={shareDescription}
+        image={shareImage}
+        propertyId={property.id}
+        slug={`${property.id}-${toSlug(property.slug || shareTitle)}`}
+        onClose={() => setOpen(false)}
+      />
+    );
+  })()
+)}
+
     </div>
   );
 };
