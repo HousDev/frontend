@@ -1,78 +1,85 @@
+// src/lib/electronicSignAPI.ts
 import { api } from "./api";
 
+/* ================================
+   Common Types
+   ================================ */
 export type PartyRole = "Seller" | "Buyer";
-export type EsignStatus =
-  | "created"
-  | "otp_sent"
-  | "otp_verified"
-  | "redirected"
-  | "signed"
-  | "failed";
 
-/** Common "ok" envelope your backend returns */
+/** Common envelope */
 type OkEnvelope = { ok?: boolean };
 
-/** /esign/init */
-export type InitSessionResponse = OkEnvelope & {
+/** Aadhaar / KYC / eSign status lifecycle */
+export type EsignStatus =
+  | "created"         // session created
+  | "otp_sent"        // Aadhaar OTP sent
+  | "otp_verified"    // OTP verified successfully
+  | "kyc_pending"     // waiting for KYC completion
+  | "kyc_done"        // one party KYC done
+  | "kyc_verified"    // both Buyer & Seller verified
+  | "failed";         // any error or invalid OTP
+
+/* ================================
+   Aadhaar-KYC API responses
+   ================================ */
+
+/** /aadhaar/init */
+export type AadhaarInitResponse = OkEnvelope & {
   session_id: string;
-  redirect_url?: string | null;
-  /** Dev-only helpers (mock provider) */
-  mock_otp?: string;
-  mock_otp_expires_at?: string; // ISO
-  /** When an active session exists and we rotated OTP instead of creating new */
-  reused?: boolean;
+  masked_last4?: string;
+  reference_id?: string;
+  message?: string;
 };
 
-/** /esign/resend-otp */
-export type ResendOtpResponse = OkEnvelope & {
+/** /aadhaar/resend-otp */
+export type AadhaarResendOtpResponse = OkEnvelope & {
   resent: boolean;
-  mock_otp?: string;
-  mock_otp_expires_at?: string;
+  reference_id?: string;
+  message?: string;
 };
 
-/** /esign/verify-otp */
-export type VerifyOtpResponse = OkEnvelope & {
-  /** Your current backend returns only this: */
+/** /aadhaar/verify-otp */
+export type AadhaarVerifyOtpResponse = OkEnvelope & {
   verified: boolean;
-  /** If you later decide to return redirect directly, keep these optional: */
-  status?: EsignStatus;               // e.g., "otp_verified" or "redirected"
-  redirect_url?: string | null;       // if BE creates redirect in verify step
-  signed_at?: string | null;
+  status?: EsignStatus; // may return "otp_verified" or "kyc_done"
+  kyc?: {
+    name?: string;
+    gender?: string;
+    dob?: string;
+    address?: Record<string, any> | null;
+  };
 };
 
-/** /esign/redirect-url */
-export type RedirectUrlResponse = OkEnvelope & {
-  redirect_url: string;
+/** /aadhaar/kyc */
+export type AadhaarGetKycResponse = OkEnvelope & {
+  party_role: PartyRole;
+  name: string;
+  aadhaar_last4?: string;
+  consent_at?: string;
+  otp_sent_at?: string;
+  otp_verified_at?: string;
+  kyc_verified_at?: string;
+  kyc?: {
+    name?: string;
+    gender?: string;
+    dob?: string;
+    address?: Record<string, any> | null;
+  };
 };
 
-/** /esign/status */
-export type PollStatusResponse = OkEnvelope & {
-  status: EsignStatus;
-  signed_at?: string | null;
-  redirect_url?: string | null; // your backend also returns redirect_url here
-};
-
-/** /esign/artifacts */
-export type ArtifactsResponse = OkEnvelope & {
-  signed_pdf_url?: string | null;
-  audit_trail_url?: string | null;
-};
-
-/** (optional) /esign/session helper */
-export type GetSessionResponse = OkEnvelope & {
-  session_id: string;
-  status: EsignStatus;
-  redirect_url?: string | null;
-  signed_at?: string | null;
-};
-
-// Normalize axios/fetch responses to T
+/* ================================
+   Utility: unwrap axios responses
+   ================================ */
 const data = async <T>(p: Promise<any>): Promise<T> => {
   const r = await p;
   return (r?.data ?? r) as T;
 };
 
+/* ================================
+   Aadhaar-KYC API client
+   ================================ */
 export const electronicSignAPI = {
+  /** Step-1: Initiate Aadhaar OTP (Generate OTP) */
   initSession(params: {
     document_id: number | string;
     party_role: PartyRole;
@@ -81,32 +88,28 @@ export const electronicSignAPI = {
     phone?: string;
     aadhaar: string;
     consent_text: string;
-  }): Promise<InitSessionResponse> {
-    return data<InitSessionResponse>(api.post("/esign/init", params));
+  }): Promise<AadhaarInitResponse> {
+    return data<AadhaarInitResponse>(api.post("/esign/aadhaar/init", params));
   },
 
-  resendOtp(session_id: string): Promise<ResendOtpResponse> {
-    return data<ResendOtpResponse>(api.post("/esign/resend-otp", { session_id }));
+  /** Step-2: Resend OTP */
+  resendOtp(session_id: string): Promise<AadhaarResendOtpResponse> {
+    return data<AadhaarResendOtpResponse>(
+      api.post("/esign/aadhaar/resend-otp", { session_id })
+    );
   },
 
-  verifyOtp(session_id: string, otp: string): Promise<VerifyOtpResponse> {
-    return data<VerifyOtpResponse>(api.post("/esign/verify-otp", { session_id, otp }));
+  /** Step-3: Verify OTP */
+  verifyOtp(session_id: string, otp: string): Promise<AadhaarVerifyOtpResponse> {
+    return data<AadhaarVerifyOtpResponse>(
+      api.post("/esign/aadhaar/verify-otp", { session_id, otp })
+    );
   },
 
-  getRedirectUrl(session_id: string): Promise<RedirectUrlResponse> {
-    return data<RedirectUrlResponse>(api.get("/esign/redirect-url", { params: { session_id } }));
-  },
-
-  pollStatus(session_id: string): Promise<PollStatusResponse> {
-    return data<PollStatusResponse>(api.get("/esign/status", { params: { session_id } }));
-  },
-
-  fetchArtifacts(session_id: string): Promise<ArtifactsResponse> {
-    return data<ArtifactsResponse>(api.get("/esign/artifacts", { params: { session_id } }));
-  },
-
-  /** optional helper you already have on BE */
-  getSession(session_id: string): Promise<GetSessionResponse> {
-    return data<GetSessionResponse>(api.get("/esign/session", { params: { session_id } }));
+  /** Step-4: Fetch saved KYC summary */
+  getKyc(session_id: string): Promise<AadhaarGetKycResponse> {
+    return data<AadhaarGetKycResponse>(
+      api.get("/esign/aadhaar/kyc", { params: { session_id } })
+    );
   },
 };
