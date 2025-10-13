@@ -17,6 +17,7 @@ import {
 import blogsAPI from "@/lib/blogsAPI";
 import { useNavigate } from "react-router-dom";
 import ShareModalBlog from "./ShareModalBlog";
+import { FaWhatsapp } from "react-icons/fa6";
 
 export interface BlogPost {
   id: number | string;
@@ -685,7 +686,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                   </button>
 
                   <span className="flex items-center">
-                    <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                    <FaWhatsapp className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                     <span className="hidden sm:inline">{comments.length} comments</span>
                     <span className="sm:hidden">{comments.length}</span>
                   </span>

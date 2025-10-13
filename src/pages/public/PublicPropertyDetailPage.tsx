@@ -1802,6 +1802,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               title={shareTitle}
               description={shareDescription}
               image={shareImage}
+              propertyId={property.id}
+              slug={`${property.id}-${property.slug}`} 
               onClose={() => setOpen(false)}
             />
           );
