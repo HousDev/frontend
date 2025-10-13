@@ -78,7 +78,6 @@ import ServicesPageCMS from './pages/dashboard/ServicesPageCMS';
 import StandaloneBuyerAccountPage from './components/buyers/StandaloneBuyerAccountPage';
 import StandaloneSellerAccountPage from './components/sellers/StandaloneSellerAccountPage';
 import VariableCenter from './pages/settings/VariableCenter';
-import SessionPage from './pages/SessionPage';
 import HomePageCMS from './pages/dashboard/HomePageCMS';
 
 function App() {
@@ -219,7 +218,6 @@ function App() {
 
                     <Route path="settings/import-export" element={<ImportExportPage />} />
                   </Route>
-<Route path="/session/:id" element={<SessionPage />} />
                   {/* Fallback route */}
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
