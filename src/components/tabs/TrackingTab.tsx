@@ -289,7 +289,7 @@ const TrackingTab = () => {
       setIsLoading(true);
 
       const res = await documentsGeneratedAPI.getAllWithRelations();
-      console.log('Raw docs:', res);
+    
 
       /* ---------- normalize API shapes to an array ---------- */
       const toArray = (r: any): any[] => {
@@ -2059,7 +2059,7 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
         <EsignAadhaarModal
           isOpen={showEsignModal}
           onClose={() => {
-            console.log('[TrackingTab] 🔴 Modal closing...');
+          
             setShowEsignModal(false);
             setEsignDoc(null);
             setPendingStepDoc(null);
@@ -2076,12 +2076,7 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
             phone: esignDoc.data?.seller_phone || '',
           }}
           onProgress={async ({ docId, sessionIds }) => {
-            console.log('[TrackingTab] ⚠️ onProgress CALLED!', {
-              docId,
-              sessionIds,
-              sessionCount: sessionIds?.length,
-              timestamp: new Date().toISOString()
-            });
+            
 
             // ✅ SAFETY CHECK 1: Must have sessions
             if (!sessionIds || !Array.isArray(sessionIds)) {
@@ -2100,19 +2095,18 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
               return;
             }
 
-            console.log('[TrackingTab] ✅ All safety checks passed. Updating status to esign_pending...');
 
             try {
-              await setStatusAndSync(docId, 'esign_pending', 'Aadhaar OTP verified for both parties; signing in progress');
-              console.log('[TrackingTab] ✅ Status updated successfully');
+              await setStatusAndSync(Number(docId), 'esign_pending', 'Aadhaar OTP verified for both parties; signing in progress');
+              toast.success('[TrackingTab] ✅ Status updated successfully');
             } catch (error) {
               console.error('[TrackingTab] ❌ Status update failed:', error);
               toast.error('Failed to update document status');
             }
           }}
           onBothSigned={async ({ docId }) => {
-            console.log('[TrackingTab] ✅ onBothSigned called', { docId });
-            await setStatusAndSync(docId, 'completed', 'Both parties signed via Aadhaar eSign');
+           
+            await setStatusAndSync(Number(docId), 'completed', 'Both parties signed via Aadhaar eSign');
             setShowEsignModal(false);
             setEsignDoc(null);
             setPendingStepDoc(null);
