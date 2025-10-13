@@ -500,9 +500,9 @@ useEffect(() => {
         if (qp.get('search')) simpleParams.q = qp.get('search'); // only if your API supports
 
         try {
-          response = await propertiesAPI.getProperties(simpleParams);
+          response = await propertiesAPI.PublicgetProperties(simpleParams);
         } catch (err) {
-          console.warn('getProperties failed, fallback to empty', err);
+          console.warn(' PublicgetProperties failed, fallback to empty', err);
           response = { data: [] };
         }
       }

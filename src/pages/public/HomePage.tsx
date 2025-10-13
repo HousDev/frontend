@@ -184,7 +184,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     const fetchFeaturedProperties = async () => {
       try {
         setLoading(true);
-        const response = await propertiesAPI.getProperties({
+        const response = await propertiesAPI.PublicgetProperties({
           status: 'Available',
           featured: true,
           limit: 6,
