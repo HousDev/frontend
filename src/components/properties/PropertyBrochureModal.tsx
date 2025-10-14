@@ -157,8 +157,8 @@ const layoutOptions = [
 ];
 
 const defaultCustomizations = (): Customizations => ({
-  primaryColor: '#3B82F6',
-  secondaryColor: '#10B981',
+  primaryColor: '#E6761D',
+  secondaryColor: '#0b3856',
   fontStyle: 'modern',
   layout: 'standard',
   watermark: true,
@@ -361,7 +361,7 @@ const BrochurePreview: React.FC<{ property: Property | null; customizations: Cus
           <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-gray-200">
             {selected.has('propertyType') && (
               <h1 className="text-xl font-bold mb-1" style={{ color: customizations.primaryColor }}>
-                {[property?.type, property?.unitType, property?.subtype].filter(Boolean).join(' • ') || 'Property Title'}
+                {[property?.type, property?.unitType, property?.subtype].filter(Boolean).join('  ') || 'Property Title'}
               </h1>
             )}
             {selected.has('location') && (

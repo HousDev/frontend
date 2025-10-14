@@ -528,6 +528,31 @@ searchByCityLocation: async (params: {
   });
   return res.data;
 },
+ generateBrochuresBulkSinglePDF: async (
+    contextId: string, // e.g. "bulk"
+    payload: {
+      ids: (string | number)[];           // required
+      template?: string;
+      customizations?: {
+        primaryColor?: string;
+        secondaryColor?: string;
+        fontStyle?: string;
+        layout?: string;
+        watermark?: boolean;
+        selectedContent?: string[];
+      };
+      includeCover?: boolean;
+      includeTOC?: boolean;
+      fileName?: string;
+    }
+  ) => {
+    const res = await api.post(
+      `/properties/${encodeURIComponent(contextId)}/BrochuresBulkSinglePDF`,
+      payload,
+      { responseType: "blob" } // IMPORTANT
+    );
+    return res.data as Blob; // application/pdf
+  },
 /* ---- Brochure PDF Generation ---- */
  downloadBrochure: (id: string|number, payload?: any) =>
     api.post(`/properties/${id}/brochure`, payload, { responseType: 'blob' })

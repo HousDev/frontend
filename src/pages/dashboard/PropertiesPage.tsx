@@ -18,6 +18,7 @@ import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import { getImageUrl, FILE_BASE, API_GLOBAL_BASE } from "@/lib/helpers";
 
 import PropertyFilterModal from './PropertyFilterModal';
+import PropertyBulkBrochureModal from '@/components/properties/PropertyBulkBrochureModal';
 
 /* ---------------------- Types ---------------------- */
 interface UIProperty {
@@ -479,7 +480,7 @@ function normalizeProperty(r: any, idx: number): UIProperty {
 
 
     // ...existing seeds
-    bedrooms: r.bedrooms || '' ,
+    bedrooms: r.bedrooms || '',
     bathrooms: r.bathrooms || '',
     facing: r.facing || ' ',
 
@@ -627,7 +628,7 @@ const PropertiesPage = () => {
   const [isOffline, setIsOffline] = useState(false);
 
   const [bulkLoading, setBulkLoading] = useState(false);
-
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
   useEffect(() => {
@@ -802,7 +803,9 @@ const PropertiesPage = () => {
   const totalPages = Math.max(1, Math.ceil(filteredProperties.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedProperties = filteredProperties.slice(startIndex, startIndex + itemsPerPage);
-
+  const handlebrochureDownloadsy = () => {
+    setBulkModalOpen(true);
+  };
   const handleAddProperty = () => { setEditingProperty(null); setShowPropertyForm(true); };
   const handleEditProperty = (property: UIProperty) => { setEditingProperty(property); setShowPropertyForm(true); };
   const handleViewProperty = (property: UIProperty) => {
@@ -1127,9 +1130,20 @@ const PropertiesPage = () => {
               <Plus size={14} />
               <span>Add</span>
             </button>
+            <button
+              onClick={handlebrochureDownloadsy}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md hover:from-blue-600 hover:to-indigo-700 transition-all text-xs"
+            >
+              <Download size={14} />
+              <span>brochureDownloads</span>
+            </button>
+
           </div>
         </div>
-
+        <PropertyBulkBrochureModal
+          isOpen={bulkModalOpen}
+          onClose={() => setBulkModalOpen(false)}
+        />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-3 text-white">
             <div className="flex items-center justify-between">
