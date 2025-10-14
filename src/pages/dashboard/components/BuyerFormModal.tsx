@@ -226,7 +226,7 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
         setMasters(data as any);
       } catch (err) {
         console.error("Error fetching master options:", err);
-        toast.error("Failed to load dropdown options");
+        // toast.error("Failed to load dropdown options");
       } finally {
         setMasterLoading(false);
       }

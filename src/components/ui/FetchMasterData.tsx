@@ -157,7 +157,7 @@ const MultiSelectDropdown: React.FC<{
             console.log("Fetched master data:", data);
           } catch (err) {
             console.error('Error fetching master options:', err);
-            // toast.error('Failed to load dropdown options');
+            
           } finally {
             setMasterLoading(false);
           }

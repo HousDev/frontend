@@ -171,7 +171,7 @@ const SettingsPage: React.FC = () => {
       });
     } catch (error) {
       console.error("Failed to load master data:", error);
-      toast.error("Failed to load dropdown options");
+      console.error("Failed to load dropdown options");
     }
   };
 
