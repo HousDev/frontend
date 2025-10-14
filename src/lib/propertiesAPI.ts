@@ -528,6 +528,11 @@ searchByCityLocation: async (params: {
   });
   return res.data;
 },
+/* ---- Brochure PDF Generation ---- */
+ downloadBrochure: (id: string|number, payload?: any) =>
+    api.post(`/properties/${id}/brochure`, payload, { responseType: 'blob' })
+
+
 };
 
 export default propertiesAPI;

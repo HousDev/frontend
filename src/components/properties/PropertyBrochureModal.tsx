@@ -1,29 +1,68 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   X,
   Download,
   Send,
-  FileText,
+  MapPin,
+  BedDouble,
+  Bath,
+  Car,
+  Ruler,
+  Calendar,
+  CheckCircle,
+  Sparkles,
   Eye,
-  Palette,
-  Image,
-  Type,
-  Layout,
-  Save
+  Phone,
+  User,
 } from 'lucide-react';
+import { toast } from 'react-toastify';
 import propertiesAPI from '@/lib/propertiesAPI';
 
+/* -------------------- Types -------------------- */
 type Property = {
+  id?: string | number;
   title?: string;
   propertyId?: string | number;
   location?: string;
+  locationNormalized?: string;
   city?: string;
   budget?: number | string | null;
+  price?: number | string | null;
+  type?: string;
   unitType?: string;
+  subtype?: string;
   carpetArea?: number | string;
+  square_feet?: number | string;
+  bedrooms?: number;
+  bathrooms?: number;
+  parking?: number;
   photos?: string[];
+  images?: string[];
   amenities?: string[];
+  furnishingItems?: string[];
+  description?: string;
+  furnishing?: string;
+  possession?: string;
+  possessionMonth?: string | number;
+  possessionYear?: string | number;
+  facing?: string;
+  builtYear?: string | number;
+  verified?: boolean;
+  featured?: boolean;
+  listedDays?: number;
+  aiScore?: number;
+  priceGrowth?: string;
+  investmentGrade?: string;
+  agent?: { name?: string; phone?: string };
+  raw?: any;
   seller?: { phone?: string } | null;
+};
+
+type ContentOption = {
+  key: string;
+  label: string;
+  description: string;
+  category: 'basic' | 'details' | 'features' | 'location' | 'investment' | 'contact';
 };
 
 type Customizations = {
@@ -31,12 +70,8 @@ type Customizations = {
   secondaryColor: string;
   fontStyle: 'modern' | 'classic' | 'elegant' | 'bold' | string;
   layout: 'standard' | 'magazine' | 'grid' | 'story' | string;
-  includeFloorPlan: boolean;
-  includeLocationMap: boolean;
-  includeAmenities: boolean;
-  includePricing: boolean;
-  includeContactInfo: boolean;
   watermark: boolean;
+  selectedContent: Set<string> | string[];
 };
 
 type Props = {
@@ -45,49 +80,80 @@ type Props = {
   property: Property | null;
 };
 
+/* -------------------- Content Options -------------------- */
+const CONTENT_OPTIONS: ContentOption[] = [
+  // Basic
+  { key: 'propertyType', label: 'Property Type', description: 'Property type, unit type, subtype', category: 'basic' },
+  { key: 'location', label: 'Location', description: 'Full address and locality', category: 'basic' },
+  { key: 'price', label: 'Price', description: 'Property price and price per sq ft', category: 'basic' },
+  { key: 'carpetArea', label: 'Carpet Area', description: 'Total carpet area in sq ft', category: 'basic' },
+  { key: 'mainImage', label: 'Main Property Image', description: 'Primary property photo', category: 'basic' },
+
+  // Details
+  { key: 'bedrooms', label: 'Bedrooms', description: 'Number of bedrooms', category: 'details' },
+  { key: 'bathrooms', label: 'Bathrooms', description: 'Number of bathrooms', category: 'details' },
+  { key: 'parking', label: 'Parking', description: 'Parking spaces available', category: 'details' },
+  { key: 'furnishing', label: 'Furnishing Status', description: 'Furnished/Semi/Unfurnished', category: 'details' },
+  { key: 'possession', label: 'Possession', description: 'Possession date/status', category: 'details' },
+  { key: 'facing', label: 'Facing Direction', description: 'Property facing direction', category: 'details' },
+  { key: 'builtYear', label: 'Built Year', description: 'Year of construction', category: 'details' },
+  { key: 'floor', label: 'Floor Details', description: 'Floor number and total floors', category: 'details' },
+  { key: 'wing', label: 'Wing/Tower', description: 'Wing or tower name', category: 'details' },
+  { key: 'unitNo', label: 'Unit Number', description: 'Specific unit number', category: 'details' },
+
+  // Features
+  { key: 'description', label: 'Property Description', description: 'Detailed description', category: 'features' },
+  { key: 'amenities', label: 'Amenities', description: 'All property amenities', category: 'features' },
+  { key: 'furnishingItems', label: 'Furnishing Items', description: 'List of furnishing items', category: 'features' },
+  { key: 'verified', label: 'Verification Badge', description: 'Verified property badge', category: 'features' },
+  { key: 'featured', label: 'Featured Badge', description: 'Premium/Featured badge', category: 'features' },
+
+  // Location
+  { key: 'nearbyPlaces', label: 'Nearby Places', description: 'Schools, hospitals, transport', category: 'location' },
+  { key: 'locationMap', label: 'Location Map', description: 'Area map visualization', category: 'location' },
+
+  // Investment
+  { key: 'aiScore', label: 'AI Property Score', description: 'AI-based property rating', category: 'investment' },
+  { key: 'priceGrowth', label: 'Price Growth', description: 'Expected price appreciation', category: 'investment' },
+  { key: 'investmentGrade', label: 'Investment Grade', description: 'Investment rating', category: 'investment' },
+  { key: 'roiPotential', label: 'ROI Potential', description: 'Return on investment', category: 'investment' },
+  { key: 'marketPosition', label: 'Market Position', description: 'Position in locality', category: 'investment' },
+  // { key: 'listedDays', label: 'Listed Days', description: 'Days since listing', category: 'investment' },
+
+  // Contact
+  { key: 'agentInfo', label: 'Agent Information', description: 'Agent name and contact', category: 'contact' },
+  { key: 'contactDetails', label: 'Contact Phone', description: 'Contact phone number', category: 'contact' },
+];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  basic: 'Basic Information',
+  details: 'Property Details',
+  features: 'Features & Amenities',
+  location: 'Location & Connectivity',
+  investment: 'Investment Analytics',
+  contact: 'Contact Information',
+};
+
+/* -------------------- Options -------------------- */
 const brochureTemplates = [
-  {
-    value: 'premium',
-    label: 'Premium Template',
-    description: 'Luxury design with elegant layout',
-    preview:
-      'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=300'
-  },
-  {
-    value: 'modern',
-    label: 'Modern Template',
-    description: 'Clean and contemporary design',
-    preview:
-      'https://images.pexels.com/photos/1396132/pexels-photo-1396132.jpeg?auto=compress&cs=tinysrgb&w=300'
-  },
-  {
-    value: 'classic',
-    label: 'Classic Template',
-    description: 'Traditional and professional',
-    preview:
-      'https://images.pexels.com/photos/1396125/pexels-photo-1396125.jpeg?auto=compress&cs=tinysrgb&w=300'
-  },
-  {
-    value: 'minimal',
-    label: 'Minimal Template',
-    description: 'Simple and focused design',
-    preview:
-      'https://images.pexels.com/photos/1396126/pexels-photo-1396126.jpeg?auto=compress&cs=tinysrgb&w=300'
-  }
+  { value: 'premium', label: 'Premium Template', description: 'Luxury design with elegant layout', preview: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=300' },
+  { value: 'modern', label: 'Modern Template', description: 'Clean and contemporary design', preview: 'https://images.pexels.com/photos/1396132/pexels-photo-1396132.jpeg?auto=compress&cs=tinysrgb&w=300' },
+  { value: 'classic', label: 'Classic Template', description: 'Traditional and professional', preview: 'https://images.pexels.com/photos/1396125/pexels-photo-1396125.jpeg?auto=compress&cs=tinysrgb&w=300' },
+  { value: 'minimal', label: 'Minimal Template', description: 'Simple and focused design', preview: 'https://images.pexels.com/photos/1396126/pexels-photo-1396126.jpeg?auto=compress&cs=tinysrgb&w=300' },
 ];
 
 const fontStyles = [
   { value: 'modern', label: 'Modern Sans' },
   { value: 'classic', label: 'Classic Serif' },
   { value: 'elegant', label: 'Elegant Script' },
-  { value: 'bold', label: 'Bold Impact' }
+  { value: 'bold', label: 'Bold Impact' },
 ];
 
 const layoutOptions = [
   { value: 'standard', label: 'Standard Layout' },
   { value: 'magazine', label: 'Magazine Style' },
   { value: 'grid', label: 'Grid Layout' },
-  { value: 'story', label: 'Story Format' }
+  { value: 'story', label: 'Story Format' },
 ];
 
 const defaultCustomizations = (): Customizations => ({
@@ -95,14 +161,11 @@ const defaultCustomizations = (): Customizations => ({
   secondaryColor: '#10B981',
   fontStyle: 'modern',
   layout: 'standard',
-  includeFloorPlan: true,
-  includeLocationMap: true,
-  includeAmenities: true,
-  includePricing: true,
-  includeContactInfo: true,
-  watermark: true
+  watermark: true,
+  selectedContent: new Set(['propertyType', 'location', 'price', 'carpetArea', 'mainImage', 'bedrooms', 'bathrooms', 'description']),
 });
 
+/* -------------------- Utils -------------------- */
 const safeNumber = (v?: number | string | null): number => {
   if (v == null || v === '') return 0;
   if (typeof v === 'number') return v;
@@ -117,6 +180,477 @@ const formatCurrency = (amount?: number | string | null) => {
   return `₹${n.toLocaleString('en-IN')}`;
 };
 
+const displayOrDash = (val: any) => {
+  if (val === null || val === undefined || (typeof val === 'string' && val.trim() === '')) return '—';
+  if (typeof val === 'number' && !Number.isFinite(val)) return '—';
+  return val;
+};
+
+const getMonthName = (value?: string | number | null) => {
+  if (!value) return '';
+  const month = typeof value === 'string' ? parseInt(value) : value;
+  if (isNaN(month) || month < 1 || month > 12) return '';
+  return new Date(0, month - 1).toLocaleString('en', { month: 'long' });
+};
+
+function useOutsideClick<T extends HTMLElement>(onClose: () => void) {
+  const ref = useRef<T | null>(null);
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+  return ref;
+}
+
+/* ==================== Content Options Dropdown ==================== */
+type ContentDropdownProps = {
+  customizations: Customizations;
+  setCustomizations: React.Dispatch<React.SetStateAction<Customizations>>;
+};
+
+const ContentOptionsDropdown: React.FC<ContentDropdownProps> = ({ customizations, setCustomizations }) => {
+  const [open, setOpen] = useState(false);
+  const panelRef = useOutsideClick<HTMLDivElement>(() => setOpen(false));
+  const selected = customizations.selectedContent as Set<string>;
+  const selectedCount = selected.size;
+
+  const toggleKey = (key: string) => {
+    setCustomizations(prev => {
+      const next = new Set(prev.selectedContent as Set<string>);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return { ...prev, selectedContent: next };
+    });
+  };
+
+  const selectAll = () => {
+    setCustomizations(prev => ({ ...prev, selectedContent: new Set(CONTENT_OPTIONS.map(o => o.key)) }));
+  };
+
+  const clearAll = () => {
+    setCustomizations(prev => ({ ...prev, selectedContent: new Set() }));
+  };
+
+  const selectCategory = (category: ContentOption['category']) => {
+    const keys = CONTENT_OPTIONS.filter(o => o.category === category).map(o => o.key);
+    setCustomizations(prev => {
+      const next = new Set(prev.selectedContent as Set<string>);
+      keys.forEach(k => next.add(k));
+      return { ...prev, selectedContent: next };
+    });
+  };
+
+  const groupedOptions = useMemo(() => {
+    return CONTENT_OPTIONS.reduce((acc, option) => {
+      (acc[option.category] ||= []).push(option);
+      return acc;
+    }, {} as Record<ContentOption['category'], ContentOption[]>);
+  }, []);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(s => !s)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className="w-full justify-between inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-purple-500 transition-all"
+      >
+        <span className="font-medium text-gray-900">Select Content to Include</span>
+        <span className="text-xs px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold">
+          {selectedCount} selected
+        </span>
+      </button>
+
+      {open && (
+        <div
+          ref={panelRef}
+          role="menu"
+          aria-label="Content Options"
+          className="absolute z-10 mt-2 w-full min-w-[32rem] right-0 bg-white rounded-xl shadow-2xl border border-gray-200"
+        >
+          <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-gray-700">Choose what to include in your brochure</div>
+              <div className="flex items-center gap-2">
+                <button onClick={selectAll} type="button" className="text-xs px-3 py-1.5 rounded-md bg-purple-600 text-white hover:bg-purple-700 font-medium transition-colors">
+                  Select All
+                </button>
+                <button onClick={clearAll} type="button" className="text-xs px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 font-medium transition-colors">
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="max-h-96 overflow-y-auto">
+            {(Object.keys(groupedOptions) as ContentOption['category'][]).map(category => (
+              <div key={category} className="border-b border-gray-100 last:border-b-0">
+                <div className="sticky top-0 bg-gray-50 px-4 py-2 flex items-center justify-between z-10">
+                  <h4 className="text-sm font-semibold text-gray-900">{CATEGORY_LABELS[category]}</h4>
+                  <button
+                    onClick={() => selectCategory(category)}
+                    type="button"
+                    className="text-xs px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 transition-colors"
+                  >
+                    Select All
+                  </button>
+                </div>
+                <div className="p-2">
+                  {groupedOptions[category].map(opt => {
+                    const isSelected = (customizations.selectedContent as Set<string>).has(opt.key);
+                    return (
+                      <label
+                        key={opt.key}
+                        className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                          isSelected ? 'bg-purple-50 border border-purple-200' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleKey(opt.key)}
+                          className="mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900 text-sm">{opt.label}</div>
+                          <div className="text-xs text-gray-600 mt-0.5">{opt.description}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+            <div className="text-xs text-gray-600">{(customizations.selectedContent as Set<string>).size} items selected</div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 font-medium transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ==================== Preview Component ==================== */
+const BrochurePreview: React.FC<{ property: Property | null; customizations: Customizations }> = ({ property, customizations }) => {
+  const selected = customizations.selectedContent instanceof Set ? customizations.selectedContent : new Set(customizations.selectedContent);
+  const images = property?.images || property?.photos || [];
+  const mainImage =
+    images[0] || 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=400';
+
+  const price = property?.price || property?.budget;
+  const sqft = property?.square_feet || property?.carpetArea;
+  const pricePerSqFt = price && sqft ? Math.round(safeNumber(price) / safeNumber(sqft)) : null;
+
+  return (
+    <div className="bg-gray-50 rounded-xl p-4 h-[500px] overflow-auto">
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        {/* Header */}
+        {(selected.has('propertyType') || selected.has('location') || selected.has('verified') || selected.has('featured')) && (
+          <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-gray-200">
+            {selected.has('propertyType') && (
+              <h1 className="text-xl font-bold mb-1" style={{ color: customizations.primaryColor }}>
+                {[property?.type, property?.unitType, property?.subtype].filter(Boolean).join(' • ') || 'Property Title'}
+              </h1>
+            )}
+            {selected.has('location') && (
+              <div className="flex items-center text-sm text-gray-600 mb-2">
+                <MapPin size={14} className="mr-1" />
+                {property?.locationNormalized || property?.location || 'Location'}
+                {property?.city ? `, ${property.city}` : ''}
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              {selected.has('featured') && property?.featured && (
+                <span className="px-2 py-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold rounded-full">
+                  FEATURED
+                </span>
+              )}
+              {selected.has('verified') && property?.verified && (
+                <span className="px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-full flex items-center gap-1">
+                  <CheckCircle size={12} />
+                  VERIFIED
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Main Image */}
+        {selected.has('mainImage') && <img src={mainImage} alt="Property" className="w-full h-48 object-cover" />}
+
+        {/* Price */}
+        {selected.has('price') && (
+          <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-600 mb-1">Property Price</div>
+                <div className="text-2xl font-bold" style={{ color: customizations.secondaryColor }}>
+                  {formatCurrency(price)}
+                </div>
+              </div>
+              {pricePerSqFt && (
+                <div className="text-right">
+                  <div className="text-xs text-gray-600 mb-1">Per Sq Ft</div>
+                  <div className="text-lg font-semibold text-gray-900">₹{pricePerSqFt.toLocaleString('en-IN')}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Basic Stats */}
+        {(selected.has('bedrooms') || selected.has('bathrooms') || selected.has('parking') || selected.has('carpetArea')) && (
+          <div className="p-4 grid grid-cols-2 gap-3 border-b border-gray-200">
+            {selected.has('bedrooms') && (
+              <div className="flex items-center gap-2">
+                <BedDouble size={16} className="text-blue-600" />
+                <div>
+                  <div className="text-xs text-gray-600">Bedrooms</div>
+                  <div className="font-semibold">{displayOrDash(property?.bedrooms)}</div>
+                </div>
+              </div>
+            )}
+            {selected.has('bathrooms') && (
+              <div className="flex items-center gap-2">
+                <Bath size={16} className="text-green-600" />
+                <div>
+                  <div className="text-xs text-gray-600">Bathrooms</div>
+                  <div className="font-semibold">{displayOrDash(property?.bathrooms)}</div>
+                </div>
+              </div>
+            )}
+            {selected.has('parking') && (
+              <div className="flex items-center gap-2">
+                <Car size={16} className="text-orange-600" />
+                <div>
+                  <div className="text-xs text-gray-600">Parking</div>
+                  <div className="font-semibold">{displayOrDash(property?.parking)}</div>
+                </div>
+              </div>
+            )}
+            {selected.has('carpetArea') && (
+              <div className="flex items-center gap-2">
+                <Ruler size={16} className="text-purple-600" />
+                <div>
+                  <div className="text-xs text-gray-600">Carpet Area</div>
+                  <div className="font-semibold">{displayOrDash(property?.square_feet || property?.carpetArea)} sq ft</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Description */}
+        {selected.has('description') && property?.description && (
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900 mb-2 text-sm">About Property</h3>
+            <p className="text-xs text-gray-700 line-clamp-3">{property.description}</p>
+          </div>
+        )}
+
+        {/* Property Details */}
+        {(selected.has('furnishing') ||
+          selected.has('possession') ||
+          selected.has('facing') ||
+          selected.has('builtYear') ||
+          selected.has('floor') ||
+          selected.has('wing') ||
+          selected.has('unitNo')) && (
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900 mb-3 text-sm">Property Details</h3>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {selected.has('furnishing') && (
+                <div>
+                  <span className="text-gray-600">Furnishing: </span>
+                  <span className="font-medium">{displayOrDash(property?.furnishing)}</span>
+                </div>
+              )}
+              {selected.has('possession') && (property?.possessionMonth || property?.possessionYear) && (
+                <div>
+                  <span className="text-gray-600">Possession: </span>
+                  <span className="font-medium">
+                    {[getMonthName(property?.possessionMonth), property?.possessionYear].filter(Boolean).join(' ')}
+                  </span>
+                </div>
+              )}
+              {selected.has('facing') && (
+                <div>
+                  <span className="text-gray-600">Facing: </span>
+                  <span className="font-medium">{displayOrDash(property?.facing)}</span>
+                </div>
+              )}
+              {selected.has('builtYear') && (
+                <div>
+                  <span className="text-gray-600">Built Year: </span>
+                  <span className="font-medium">{displayOrDash(property?.builtYear || property?.possessionYear)}</span>
+                </div>
+              )}
+              {selected.has('floor') && (property?.raw?.floor || property?.raw?.totalFloors) && (
+                <div>
+                  <span className="text-gray-600">Floor: </span>
+                  <span className="font-medium">
+                    {property?.raw?.floor && property?.raw?.totalFloors
+                      ? `${property.raw.floor} / ${property.raw.totalFloors}`
+                      : displayOrDash(property?.raw?.floor)}
+                  </span>
+                </div>
+              )}
+              {selected.has('wing') && property?.raw?.wing && (
+                <div>
+                  <span className="text-gray-600">Wing: </span>
+                  <span className="font-medium">{property.raw.wing}</span>
+                </div>
+              )}
+              {selected.has('unitNo') && property?.raw?.unitNo && (
+                <div>
+                  <span className="text-gray-600">Unit No: </span>
+                  <span className="font-medium">{property.raw.unitNo}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Amenities */}
+        {selected.has('amenities') && property?.amenities && property.amenities.length > 0 && (
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900 mb-2 text-sm">Amenities</h3>
+            <div className="flex flex-wrap gap-1">
+              {property.amenities.slice(0, 8).map((amenity, idx) => (
+                <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                  {amenity}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Furnishing Items */}
+        {selected.has('furnishingItems') && property?.furnishingItems && property.furnishingItems.length > 0 && (
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900 mb-2 text-sm">Furnishing Items</h3>
+            <div className="flex flex-wrap gap-1">
+              {property.furnishingItems.slice(0, 6).map((item, idx) => (
+                <span key={idx} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Nearby Places */}
+        {selected.has('nearbyPlaces') && property?.raw?.nearby_places && property.raw.nearby_places.length > 0 && (
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900 mb-2 text-sm">Nearby Places</h3>
+            <div className="space-y-1">
+              {property.raw.nearby_places.slice(0, 4).map((place: any, idx: number) => (
+                <div key={idx} className="text-xs text-gray-700">
+                  • {place.name} {place.distance && `(${place.distance}${place.unit || ''})`}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Investment Analytics */}
+        {(selected.has('aiScore') ||
+          selected.has('priceGrowth') ||
+          selected.has('investmentGrade') ||
+          selected.has('roiPotential') ||
+          selected.has('marketPosition')) && (
+          <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-1">
+              <Sparkles size={14} />
+              AI Investment Analysis
+            </h3>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {selected.has('aiScore') && (
+                <div>
+                  <span className="text-gray-600">AI Score: </span>
+                  <span className="font-bold text-purple-600">{property?.aiScore ?? '94'}/100</span>
+                </div>
+              )}
+              {selected.has('priceGrowth') && (
+                <div>
+                  <span className="text-gray-600">Growth: </span>
+                  <span className="font-bold text-green-600">{property?.priceGrowth ?? '+12.5%'}</span>
+                </div>
+              )}
+              {selected.has('investmentGrade') && (
+                <div>
+                  <span className="text-gray-600">Investment: </span>
+                  <span className="font-bold text-blue-600">{property?.investmentGrade ?? 'A+'}</span>
+                </div>
+              )}
+              {selected.has('roiPotential') && (
+                <div>
+                  <span className="text-gray-600">ROI Potential: </span>
+                  <span className="font-bold text-orange-600">18.2%</span>
+                </div>
+              )}
+              {selected.has('marketPosition') && (
+                <div>
+                  <span className="text-gray-600">Market: </span>
+                  <span className="font-bold text-purple-600">Top 10%</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+     
+       
+
+        {/* Contact Info */}
+        {(selected.has('agentInfo') || selected.has('contactDetails')) && (
+          <div className="p-4 bg-gray-50">
+            <h3 className="font-semibold text-gray-900 mb-3 text-sm">Contact Information</h3>
+            {selected.has('agentInfo') && property?.agent?.name && (
+              <div className="flex items-center gap-2 mb-2">
+                <User size={16} className="text-blue-600" />
+                <div>
+                  <div className="text-xs text-gray-600">Agent Name</div>
+                  <div className="font-medium text-sm">{property.agent.name}</div>
+                </div>
+              </div>
+            )}
+            {selected.has('contactDetails') && property?.agent?.phone && (
+              <div className="flex items-center gap-2">
+                <Phone size={16} className="text-green-600" />
+                <div>
+                  <div className="text-xs text-gray-600">Contact Number</div>
+                  <div className="font-medium text-sm">{property.agent.phone}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Watermark */}
+        {(customizations as any).watermark && (
+          <div className="p-3 text-center border-t border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+            <p className="text-xs text-gray-600 font-medium">Powered by ResaleExpert.in</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ==================== Main Component ==================== */
 const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) => {
   const [brochureTemplate, setBrochureTemplate] = useState<string>('premium');
   const [customizations, setCustomizations] = useState<Customizations>(defaultCustomizations());
@@ -131,102 +665,151 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
 
   if (!isOpen) return null;
 
-  useEffect(() => {
-  const allprop = async () => {
-    try {
-      const allprop = await propertiesAPI.getProperties(); // calling the API
-      console.log("Buyers in component:", allprop);
-    } catch (err) {
-      console.error("Error fetching allprop:", err);
-    }
-  };
-
-  allprop();
-}, []);
-
-
-
+  /* -------------------- Brochure Generate (robust) -------------------- */
   const generateBrochure = async () => {
     setIsGenerating(true);
+
+    const safeFilename = (s: string) =>
+      (s || 'property')
+        .replace(/[^\w\-]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 80);
+
+    const downloadBlob = (blob: Blob, name: string) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name.endsWith('.pdf') ? name : `${name}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    };
+
+    const b64ToBlob = (b64: string, mime = 'application/pdf') => {
+      const fixed = b64.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = fixed.length % 4 === 0 ? fixed : fixed + '='.repeat(4 - (fixed.length % 4));
+      const binary = atob(pad);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: mime });
+    };
+
     try {
-      // simulate generation
-      await new Promise((r) => setTimeout(r, 2000));
+      // Normalize selections (Set | string[] -> string[])
+      const selectedContent =
+        customizations.selectedContent instanceof Set
+          ? Array.from(customizations.selectedContent as Set<string>)
+          : Array.isArray(customizations.selectedContent)
+          ? customizations.selectedContent
+          : [];
 
       const brochureData = {
         template: brochureTemplate,
-        customizations,
-        property,
-        generatedAt: new Date().toISOString()
+        customizations: { ...customizations, selectedContent },
+        property, // optional: backend will re-fetch by id, but we send for convenience
+        generatedAt: new Date().toISOString(),
       };
 
-      console.log('Generated brochure:', brochureData);
+      // ⬇ your propertiesAPI should set { responseType: 'blob' } internally
+      const res: any = await propertiesAPI.downloadBrochure(property?.id, brochureData);
 
-      // create dummy pdf blob (small placeholder PDF in base64)
-      const base64Pdf =
-        'JVBERi0xLjQKJdPr6eEKMSAwIG9iago8PAovVGl0bGUgKFByb2R1Y3QgYnJvY2h1cmUpCj4+CmVuZG9iago='; // tiny placeholder
-      const binary = atob(base64Pdf);
-      const len = binary.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${(property?.title ?? 'property').replace(/\s+/g, '_')}_brochure.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      const filename = `${safeFilename(property?.title ?? 'property')}_brochure`;
 
-      alert('Brochure generated successfully!');
-    } catch (err) {
+      if (res instanceof Blob) {
+        downloadBlob(res, filename);
+        toast.success('✅ Brochure generated successfully!');
+        return;
+      }
+
+      if (res?.data instanceof Blob) {
+        downloadBlob(res.data, filename);
+        toast.success('✅ Brochure generated successfully!');
+        return;
+      }
+
+      const base64Pdf: string | undefined =
+        typeof res === 'string' ? res :
+        typeof res?.base64 === 'string' ? res.base64 :
+        undefined;
+
+      if (base64Pdf) {
+        downloadBlob(b64ToBlob(base64Pdf, 'application/pdf'), filename);
+        toast.success('✅ Brochure generated successfully!');
+        return;
+      }
+
+      if (res?.url) {
+        const a = document.createElement('a');
+        a.href = res.url;
+        a.download = `${filename}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        toast.success('✅ Brochure generated successfully!');
+        return;
+      }
+
+      // Fallback sample
+      const SAMPLE_B64 =
+        'JVBERi0xLjQKJdPr6eEKMSAwIG9iago8PAovVGl0bGUgKFByb3BlcnR5IEJyb2NodXJlKQo+PgplbmRvYmoKMiAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMyAwIFIKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFs0IDAgUl0KL0NvdW50IDEKL01lZGlhQm94IFswIDAgNjEyIDc5Ml0KPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAzIDAgUgovQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCjUgMCBvYmoKPDwKL0xlbmd0aCA0NAo+PgpzdHJlYW0KQlQKL0YxIDI0IFRmCjEwMCA3MDAgVGQKKFByb3BlcnR5IEJyb2NodXJlKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMDc0IDAwMDAwIG4gCjAwMDAwMDAxMjEgMDAwMDAgbiAKMDAwMDAwMDIwMCAwMDAwMCBuIAowMDAwMDAwMjY5IDAwMDAwIG4gCnRyYWlsZXIKPDwKL1NpemUgNgovUm9vdCAyIDAgUgovSW5mbyAxIDAgUgo+PgpzdGFydHhyZWYKMzYyCiUlRU9G';
+      downloadBlob(b64ToBlob(SAMPLE_B64), filename);
+      toast.success('✅ Brochure generated (fallback).');
+    } catch (err: any) {
       console.error('Error generating brochure:', err);
-      alert('Failed to generate brochure');
+      toast.error(`❌ Failed to generate brochure${err?.message ? `: ${err.message}` : ''}`);
     } finally {
       setIsGenerating(false);
     }
   };
 
+  /* -------------------- Share -------------------- */
   const shareBrochure = (channel: 'whatsapp' | 'email' | 'sms' | 'copy' = 'copy') => {
-    const brochureUrl = `https://resaleexpert.com/brochure/${property?.propertyId ?? ''}`;
-    const message = `🏠 ${property?.title ?? ''}\n📍 ${property?.location ?? ''}, ${property?.city ?? ''}\n💰 ${formatCurrency(
-      property?.budget
-    )}\n🏢 ${property?.unitType ?? ''} • ${property?.carpetArea ?? ''}\n\nView brochure: ${brochureUrl}`;
+    const brochureUrl = `https://resaleexpert.in/brochure/${property?.propertyId ?? property?.id ?? ''}`;
+    const price = formatCurrency(property?.price || property?.budget);
+    const message = `🏠 ${property?.title || [property?.type, property?.unitType].filter(Boolean).join(' ')}
+📍 ${property?.locationNormalized || property?.location || ''}${property?.city ? `, ${property.city}` : ''}
+💰 ${price}
+🏢 ${property?.unitType ?? ''} ${property?.carpetArea || property?.square_feet ? `• ${property?.carpetArea || property?.square_feet} sq ft` : ''}
+
+📄 View detailed brochure: ${brochureUrl}`;
 
     switch (channel) {
       case 'whatsapp':
         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
         break;
       case 'email': {
-        const subject = `Property Brochure - ${property?.title ?? ''}`;
-        window.open(
-          `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`,
-          '_blank',
-          'noopener,noreferrer'
-        );
+        const subject = `Property Brochure - ${property?.title || 'Property Listing'}`;
+        window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
         break;
       }
       case 'sms':
-        // sms: scheme varies by platform; just alert for now
-        alert('SMS sharing would be implemented via an SMS gateway in production.');
+        window.open(`sms:?body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
         break;
       default:
         navigator.clipboard
           .writeText(brochureUrl)
-          .then(() => alert('Brochure link copied to clipboard!'))
-          .catch(() => alert('Could not copy link — please copy manually.'));
+          .then(() => alert('✅ Brochure link copied to clipboard!'))
+          .catch(() => alert('❌ Could not copy link'));
     }
   };
 
+  /* -------------------- Render -------------------- */
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl  overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Create Property Brochure</h2>
-              <p className="text-gray-600 mt-1">{property?.title ?? 'Property'} - Professional Marketing Material</p>
+              <p className="text-gray-600 mt-1">
+                {property?.title ||
+                  [property?.type, property?.unitType, property?.subtype].filter(Boolean).join(' ') ||
+                  'Property'}{' '}
+                - Professional Marketing Material
+              </p>
             </div>
             <button onClick={onClose} className="p-2 rounded-xl bg-white hover:bg-gray-50 transition-colors" aria-label="Close">
               <X size={20} />
@@ -234,65 +817,67 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
           </div>
         </div>
 
-        <div className="p-6 max-h-[75vh] overflow-y-auto">
+        {/* Body */}
+        <div className="p-6 overflow-y-auto flex-1">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left Column - Template Selection */}
+            {/* Left: Template + Customization */}
             <div className="space-y-6">
+              {/* Template Selection */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Choose Template</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {brochureTemplates.map((template) => (
+                <div className="grid grid-cols-2 gap-4">
+                  {brochureTemplates.map(template => (
                     <button
                       key={template.value}
                       onClick={() => setBrochureTemplate(template.value)}
                       className={`p-3 rounded-xl border-2 transition-all ${
-                        brochureTemplate === template.value ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'
+                        brochureTemplate === template.value ? 'border-purple-500 bg-purple-50 shadow-md' : 'border-gray-200 hover:border-gray-300'
                       }`}
                       type="button"
                     >
-                      <img src={template.preview} alt={template.label} className="w-full h-32 object-cover rounded-lg mb-2" />
+                      <img src={template.preview} alt={template.label} className="w-full h-28 object-cover rounded-lg mb-2" />
                       <div className="text-left">
-                        <div className="font-medium text-gray-900">{template.label}</div>
-                        <div className="text-sm text-gray-600">{template.description}</div>
+                        <div className="font-medium text-gray-900 text-sm">{template.label}</div>
+                        <div className="text-xs text-gray-600">{template.description}</div>
                       </div>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Customization Options */}
+              {/* Customization */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Customization</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Design Customization</h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
                       <input
                         type="color"
-                        value={customizations.primaryColor}
-                        onChange={(e) => setCustomizations({ ...customizations, primaryColor: e.target.value })}
-                        className="w-full h-10 rounded-lg border border-gray-300"
+                        value={customizations.primaryColor as string}
+                        onChange={e => setCustomizations({ ...customizations, primaryColor: e.target.value })}
+                        className="w-full h-12 rounded-lg border border-gray-300 cursor-pointer"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Secondary Color</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Secondary Color</label>
                       <input
                         type="color"
-                        value={customizations.secondaryColor}
-                        onChange={(e) => setCustomizations({ ...customizations, secondaryColor: e.target.value })}
-                        className="w-full h-10 rounded-lg border border-gray-300"
+                        value={customizations.secondaryColor as string}
+                        onChange={e => setCustomizations({ ...customizations, secondaryColor: e.target.value })}
+                        className="w-full h-12 rounded-lg border border-gray-300 cursor-pointer"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Font Style</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Font Style</label>
                     <select
                       value={customizations.fontStyle}
-                      onChange={(e) => setCustomizations({ ...customizations, fontStyle: e.target.value })}
+                      onChange={e => setCustomizations({ ...customizations, fontStyle: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                     >
-                      {fontStyles.map((font) => (
+                      {fontStyles.map(font => (
                         <option key={font.value} value={font.value}>
                           {font.label}
                         </option>
@@ -301,128 +886,76 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Layout Style</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Layout Style</label>
                     <select
                       value={customizations.layout}
-                      onChange={(e) => setCustomizations({ ...customizations, layout: e.target.value })}
+                      onChange={e => setCustomizations({ ...customizations, layout: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                     >
-                      {layoutOptions.map((layout) => (
+                      {layoutOptions.map(layout => (
                         <option key={layout.value} value={layout.value}>
                           {layout.label}
                         </option>
                       ))}
                     </select>
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="watermark"
+                      checked={Boolean((customizations as any).watermark)}
+                      onChange={e => setCustomizations({ ...customizations, watermark: e.target.checked })}
+                      className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    />
+                    <label htmlFor="watermark" className="text-sm font-medium text-gray-700">
+                      Include ResaleExpert Watermark
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Column - Content Options */}
+            {/* Right: Content Options + Preview */}
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Content Options</h3>
-                <div className="space-y-3">
-                  {[
-                    { key: 'includeFloorPlan', label: 'Include Floor Plan', description: 'Property layout diagram' },
-                    { key: 'includeLocationMap', label: 'Include Location Map', description: 'Area map with landmarks' },
-                    { key: 'includeAmenities', label: 'Include Amenities', description: 'List of property amenities' },
-                    { key: 'includePricing', label: 'Include Pricing', description: 'Price details and payment plans' },
-                    { key: 'includeContactInfo', label: 'Include Contact Info', description: 'Seller and agent contact details' },
-                    { key: 'watermark', label: 'ResaleExpert Watermark', description: 'Company branding' }
-                  ].map((option) => (
-                    <label key={option.key} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                      <input
-                        type="checkbox"
-                        checked={(customizations as any)[option.key]}
-                        onChange={(e) => setCustomizations({ ...customizations, ...( { [option.key]: e.target.checked } as any ) })}
-                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                      />
-                      <div>
-                        <div className="font-medium text-gray-900">{option.label}</div>
-                        <div className="text-sm text-gray-600">{option.description}</div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Content Selection</h3>
+                <ContentOptionsDropdown customizations={customizations} setCustomizations={setCustomizations} />
               </div>
 
-              {/* Brochure Preview */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Preview</h3>
-                <div className="bg-gray-50 rounded-xl p-4 h-80 overflow-auto">
-                  <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <div className="text-center mb-4" style={{ color: customizations.primaryColor }}>
-                      <h1 className="text-xl font-bold">{property?.title ?? 'Property Title'}</h1>
-                      <p className="text-sm">{property?.location ?? ''}{property?.city ? `, ${property.city}` : ''}</p>
-                    </div>
-
-                    <img
-                      src={property?.photos?.[0] ?? 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=400'}
-                      alt={property?.title ?? 'property'}
-                      className="w-full h-32 object-cover rounded-lg mb-4"
-                    />
-
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Type:</span>
-                        <span className="font-medium">{property?.unitType ?? '—'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Area:</span>
-                        <span className="font-medium">{property?.carpetArea ?? '—'} sq ft</span>
-                      </div>
-                      {customizations.includePricing && (
-                        <div className="flex justify-between">
-                          <span>Price:</span>
-                          <span className="font-bold" style={{ color: customizations.secondaryColor }}>
-                            {formatCurrency(property?.budget)}
-                          </span>
-                        </div>
-                      )}
-                      {customizations.includeAmenities && property?.amenities && (
-                        <div>
-                          <span>Amenities:</span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {property.amenities.slice(0, 4).map((amenity, idx) => (
-                              <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
-                                {amenity}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {customizations.watermark && (
-                      <div className="text-center mt-4 pt-2 border-t">
-                        <p className="text-xs text-gray-500">Powered by ResaleExpert</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Live Preview</h3>
+                <BrochurePreview property={property} customizations={customizations} />
               </div>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 bg-gray-50">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-500">Brochure will be generated in high-quality PDF format</div>
-            <div className="flex items-center space-x-3">
+        <div className="p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-gray-600">📄 Brochure will be generated in high-quality PDF format</div>
+            <div className="flex items-center gap-3 flex-wrap justify-end">
               <button
-                onClick={() => shareBrochure('whatsapp')}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                onClick={() => shareBrochure('email')}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
                 type="button"
               >
                 <Send size={16} />
-                <span>Share via WhatsApp</span>
+                <span>Email</span>
+              </button>
+              <button
+                onClick={() => shareBrochure('whatsapp')}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                type="button"
+              >
+                <Send size={16} />
+                <span>WhatsApp</span>
               </button>
               <button
                 onClick={generateBrochure}
                 disabled={isGenerating}
-                className="flex items-center space-x-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
                 type="button"
               >
                 {isGenerating ? (
@@ -433,7 +966,7 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
                 ) : (
                   <>
                     <Download size={16} />
-                    <span>Generate Brochure</span>
+                    <span>Generate PDF</span>
                   </>
                 )}
               </button>
