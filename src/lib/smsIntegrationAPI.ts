@@ -17,7 +17,7 @@ export const smsIntegrationAPI = {
   },
 
   // Toggle enable/disable
-  toggleIntegration: async (payload: { id: string; enabled: boolean }) => {
+  toggleIntegration: async (payload: { id: string; enabled: boolean }) =>{
     const response = await api.post("/sms-integration/toggle", payload);
     return response.data;
   },
