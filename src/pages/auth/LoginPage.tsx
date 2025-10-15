@@ -583,7 +583,7 @@ if (user.role === 'buyer' && user.buyer_id) {
             <div className="mt-6 space-y-3 text-center">
               <div>
                 <span className="text-blue-300 text-sm">Don't have an account? </span>
-                <Link to="/register" className="font-medium text-orange-400 hover:text-orange-300 transition-colors">Sign up</Link>
+                {/* <Link to="/register" className="font-medium text-orange-400 hover:text-orange-300 transition-colors">Sign up</Link> */}
               </div>
               <div>
                 <Link to="/" className="text-sm text-blue-300 hover:text-blue-200 transition-colors inline-flex items-center gap-1">← Back to website</Link>

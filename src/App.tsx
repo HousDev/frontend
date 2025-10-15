@@ -149,14 +149,14 @@ function App() {
                       </PublicRoute>
                     }
                   />
-                  <Route
+                  {/* <Route
                     path="/register"
                     element={
                       <PublicRoute>
                         <RegisterPage />
                       </PublicRoute>
                     }
-                  />
+                  /> */}
 
                   {/* Protected Dashboard Routes (EXISTING - NO CHANGE) */}
                   <Route

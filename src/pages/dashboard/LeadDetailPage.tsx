@@ -553,7 +553,7 @@ const LeadDetailPage: React.FC = () => {
         })),
       }));
     } catch (err: any) {
-      toast.error("❌ Failed to load master data:", err);
+      console.error("❌ Failed to load master data:", err);
       setError(
         `Failed to load dropdown options: ${err instanceof Error ? err.message : String(err)}`
       );
