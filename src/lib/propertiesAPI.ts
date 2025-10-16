@@ -202,6 +202,20 @@ const pickClient = (baseURLOverride?: string): AxiosInstance =>
   deleteProperty: async (id: string) => {
     const res = await api.delete(`/properties/delete/${id}`);
     return res.data;
+    },
+  
+  
+   /* ---- OPTIONAL: Server-side bulk import (if backend provides /properties/import-bulk) ---- */
+  importBulk: async (rows: any[]) => {
+    // rows = array of plain objects (no files). If you need files, keep per-row createProperty().
+    const res = await api.post("/properties/import-bulk", { rows });
+    return res.data as {
+      success: boolean;
+      imported?: number;
+      failed?: number;
+      results?: Array<{ index: number; success: boolean; error?: string }>;
+      message?: string;
+    };
   },
 
   /* ---- Status APIs (mounted at /api/status-update) ---- */
@@ -559,5 +573,7 @@ searchByCityLocation: async (params: {
 
 
 };
+
+
 
 export default propertiesAPI;

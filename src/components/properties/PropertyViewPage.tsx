@@ -382,6 +382,43 @@ const buildPublicPropertyUrl = (property: any) => {
   const fltcnt = getOrMakeFltCnt(id);
   return `${origin}/properties/${id}-${slug}?fltcnt=${encodeURIComponent(fltcnt)}`;
 };
+// ---- number helpers
+const toNum = (v: unknown): number | undefined => {
+  if (v === '' || v == null) return undefined;
+  const n = typeof v === 'string' ? Number(v.replace(/[, ]/g, '')) : Number(v);
+  return Number.isFinite(n) ? n : undefined;
+};
+const toNumOrNull = (v: unknown): number | null =>
+  v == null || v === '' ? null : (toNum(v) ?? null);
+
+// ---- domain type only if you need it
+type PropertyForModals = Omit<UIProperty,
+  'bedrooms' | 'bathrooms' | 'parkingQty' | 'floor' | 'totalFloors' |
+  'carpetArea' | 'builtupArea' | 'budget' | 'finalPrice'
+> & {
+  bedrooms?: number;
+  bathrooms?: number;
+  parkingQty?: number;
+  floor?: number;
+  totalFloors?: number;
+  carpetArea?: number;
+  builtupArea?: number;
+  budget?: number | null;
+  finalPrice?: number | null;
+};
+
+const normalizeProperty = (p: UIProperty): PropertyForModals => ({
+  ...p,
+  bedrooms: toNum(p.bedrooms),
+  bathrooms: toNum(p.bathrooms),
+  parkingQty: toNum(p.parkingQty),
+  floor: toNum(p.floor),
+  totalFloors: toNum(p.totalFloors),
+  carpetArea: toNum(p.carpetArea),
+  builtupArea: toNum(p.builtupArea),
+  budget: toNumOrNull(p.budget),
+  finalPrice: toNumOrNull(p.finalPrice),
+});
 
 
 // ---------- Main Component ----------
@@ -1110,7 +1147,7 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
         <PropertyBrochureModal
           isOpen={showBrochureModal}
           onClose={() => setShowBrochureModal(false)}
-          property={propertyData}
+          property={normalizeProperty(propertyData)} 
         />
       )}
 
