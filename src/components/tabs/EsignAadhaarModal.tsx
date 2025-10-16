@@ -9,10 +9,15 @@ import {
   Fingerprint,
   RefreshCw,
   CheckCircle,
+  ExternalLink,
+  Link as LinkIcon,
+  Copy as CopyIcon,
+  FileText,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { electronicSignAPI, PartyRole } from "@/lib/electronicSignAPI";
 import documentStatusAPI from "@/lib/documentStatusAPI";
+import { documentsGeneratedAPI } from "@/lib/documentsGeneratedAPI";
 
 /* -------------------------------- Types -------------------------------- */
 
@@ -21,7 +26,7 @@ type PartyInput = {
   name: string;
   email?: string;
   phone?: string;
-  aadhaar: string; // 12 digits
+  aadhaar: string;
 };
 
 export type SessionInfo = {
@@ -43,14 +48,10 @@ type Props = {
   documentId: number | string;
   defaultBuyer?: { name?: string; email?: string; phone?: string };
   defaultSeller?: { name?: string; email?: string; phone?: string };
-
-  /** fires after sessions are created/updated; useful to track provider session IDs */
   onProgress?: (args: {
     docId: number | string;
     sessionIds: { buyer?: string; seller?: string };
   }) => void | Promise<void>;
-
-  /** fires once BOTH parties complete KYC (kyc_done) */
   onBothSigned?: (args: { docId: number | string }) => void | Promise<void>;
 };
 
@@ -81,7 +82,6 @@ const requireBothVerified = async (documentId: number | string) => {
   } catch {
     // ignore and allow
   }
-  // fallback: allow if snapshot absent — don’t block KYC
   return true;
 };
 
@@ -182,7 +182,6 @@ export default function EsignAadhaarModal({
   const buyerKycOk = !!buyerSession && buyerSession.status === "kyc_done";
   const sellerKycOk = !!sellerSession && sellerSession.status === "kyc_done";
 
-  // Sequential rule: Seller locked until Buyer KYC completes
   const sellerLocked = !buyerKycOk;
 
   const bothConfigured = useMemo(() => {
@@ -202,7 +201,6 @@ export default function EsignAadhaarModal({
     onClose();
   };
 
-  // progress bar: 0 / 50 / 100
   const progressPct = buyerKycOk && sellerKycOk ? 100 : buyerKycOk || sellerKycOk ? 50 : 0;
 
   useEffect(() => {
@@ -220,98 +218,94 @@ export default function EsignAadhaarModal({
     }
   }, [isOpen]);
 
-  // Emit progress helper (latest session ids)
   const emitProgress = (sessions: SessionInfo[]) => {
     const buyerSid = [...sessions].reverse().find(s => s.role === "Buyer")?.session_id;
     const sellerSid = [...sessions].reverse().find(s => s.role === "Seller")?.session_id;
     onProgress?.({ docId: documentId, sessionIds: { buyer: buyerSid, seller: sellerSid } });
   };
 
-  // After both done, notify parent once
   useEffect(() => {
     if (!buyerKycOk || !sellerKycOk) return;
     onBothSigned?.({ docId: documentId });
   }, [buyerKycOk, sellerKycOk, documentId, onBothSigned]);
 
-const beginKycFor = async (role: PartyRole) => {
-  if (loading) return;
+  const beginKycFor = async (role: PartyRole) => {
+    if (loading) return;
 
-  if (role === "Seller" && sellerLocked) {
-    toast.error("Start Seller only after Buyer completes KYC.");
-    return;
-  }
-
-  try {
-    const ok = await requireBothVerified(documentId);
-    console.debug("[KYC] requireBothVerified ->", ok);
-  } catch {
-    // ignore
-  }
-
-  const existing = getLastSession(allSessions, role);
-  if (existing && (existing.status === "otp_sent" || existing.status === "otp_verified" || existing.status === "kyc_done")) {
-    setActiveRole(role);
-    setCurrentSession(existing.status === "kyc_done" ? null : existing);
-    setStep(existing.status === "otp_sent" || existing.status === "otp_verified" ? "otp" : "form");
-    toast.info(`${role} session already active. Reusing it.`);
-    return;
-  }
-
-  const p = role === "Buyer" ? buyer : seller;
-  if (!/^\d{12}$/.test(p.aadhaar)) return toast.error(`${role}: Enter valid 12-digit Aadhaar`);
-  if (!p.name?.trim()) return toast.error(`${role}: Name is required`);
-  if (!consent) return toast.warn("Please accept the Aadhaar consent");
-
-  const mask = (v: string) => v ? v.replace(/\d(?=\d{4})/g, "•") : v;
-
-  try {
-    setLoading(true);
-
-    const payload = {
-      document_id: documentId,
-      party_role: role,
-      name: p.name.trim(),
-      email: p.email || "",
-      phone: p.phone || "",
-      aadhaar: p.aadhaar,
-      consent_text: "I consent to use my Aadhaar for KYC.",
-    };
-    console.debug("[KYC_INIT] request payload:", { ...payload, aadhaar: mask(payload.aadhaar as string) });
-
-    const init = await electronicSignAPI.initSession(payload);
-    console.debug("[KYC_INIT] response:", init);
-
-    // helpful hint if we’re in Sandbox test error
-    if ((init as any)?.ok === false && /Test environment/i.test((init as any)?.error || "")) {
-      toast.error("Sandbox test mode needs the exact saved example. Try Aadhaar 999988887777 and OTP 123456, or enable SANDBOX_MOCK=1.");
+    if (role === "Seller" && sellerLocked) {
+      toast.error("Start Seller only after Buyer completes KYC.");
       return;
     }
 
-    const session_id = (init as any)?.session_id;
-    if (!session_id) throw new Error((init as any)?.error || "No session_id from /aadhaar/init");
+    try {
+      const ok = await requireBothVerified(documentId);
+      console.debug("[KYC] requireBothVerified ->", ok);
+    } catch {
+      // ignore
+    }
 
-    const info: SessionInfo = { session_id, status: "otp_sent", role };
-    setCurrentSession(info);
-    const merged = mergeOrAppend(allSessions, info);
-    setAllSessions(merged);
-    emitProgress(merged);
+    const existing = getLastSession(allSessions, role);
+    if (existing && (existing.status === "otp_sent" || existing.status === "otp_verified" || existing.status === "kyc_done")) {
+      setActiveRole(role);
+      setCurrentSession(existing.status === "kyc_done" ? null : existing);
+      setStep(existing.status === "otp_sent" || existing.status === "otp_verified" ? "otp" : "form");
+      toast.info(`${role} session already active. Reusing it.`);
+      return;
+    }
 
-    setStep("otp");
-    setActiveRole(role);
-    toast.success(`${role} — OTP sent`);
-    focusTimerRef.current = window.setTimeout(() => otpRef.current?.focus(), 150);
-  } catch (e: any) {
-    const status = e?.response?.status;
-    const msg = e?.response?.data?.error || e?.message || "Failed to start Aadhaar KYC";
-    console.error("[KYC_INIT_ERROR] status:", status);
-    console.error("[KYC_INIT_ERROR] data:", e?.response?.data);
-    console.error("[KYC_INIT_ERROR] headers:", e?.response?.headers);
-    toast.error(msg);
-  } finally {
-    setLoading(false);
-  }
-};
+    const p = role === "Buyer" ? buyer : seller;
+    if (!/^\d{12}$/.test(p.aadhaar)) return toast.error(`${role}: Enter valid 12-digit Aadhaar`);
+    if (!p.name?.trim()) return toast.error(`${role}: Name is required`);
+    if (!consent) return toast.warn("Please accept the Aadhaar consent");
 
+    const mask = (v: string) => (v ? v.replace(/\d(?=\d{4})/g, "•") : v);
+
+    try {
+      setLoading(true);
+
+      const payload = {
+        document_id: documentId,
+        party_role: role,
+        name: p.name.trim(),
+        email: p.email || "",
+        phone: p.phone || "",
+        aadhaar: p.aadhaar,
+        consent_text: "I consent to use my Aadhaar for KYC.",
+      };
+      console.debug("[KYC_INIT] request payload:", { ...payload, aadhaar: mask(payload.aadhaar as string) });
+
+      const init = await electronicSignAPI.initSession(payload);
+      console.debug("[KYC_INIT] response:", init);
+
+      if ((init as any)?.ok === false && /Test environment/i.test((init as any)?.error || "")) {
+        toast.error("Sandbox test mode: try Aadhaar 999988887777 & OTP 123456, or enable SANDBOX_MOCK=1.");
+        return;
+      }
+
+      const session_id = (init as any)?.session_id;
+      if (!session_id) throw new Error((init as any)?.error || "No session_id from /aadhaar/init");
+
+      const info: SessionInfo = { session_id, status: "otp_sent", role };
+      setCurrentSession(info);
+      const merged = mergeOrAppend(allSessions, info);
+      setAllSessions(merged);
+      emitProgress(merged);
+
+      setStep("otp");
+      setActiveRole(role);
+      toast.success(`${role} — OTP sent`);
+      focusTimerRef.current = window.setTimeout(() => otpRef.current?.focus(), 150);
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.error || e?.message || "Failed to start Aadhaar KYC";
+      console.error("[KYC_INIT_ERROR] status:", status);
+      console.error("[KYC_INIT_ERROR] data:", e?.response?.data);
+      console.error("[KYC_INIT_ERROR] headers:", e?.response?.headers);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const verifyOtp = async (otp: string) => {
     if (loading) return;
@@ -338,11 +332,10 @@ const beginKycFor = async (role: PartyRole) => {
 
       toast.success(`${activeRole} KYC verified ✓`);
 
-      // If both done → done screen
       const buyerDone = !!merged.find((s) => s.role === "Buyer" && s.status === "kyc_done");
       const sellerDone = !!merged.find((s) => s.role === "Seller" && s.status === "kyc_done");
       if (buyerDone && sellerDone) setStep("done");
-      else setStep("form"); // stay to let other party finish
+      else setStep("form");
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || "OTP verification failed");
@@ -351,18 +344,136 @@ const beginKycFor = async (role: PartyRole) => {
     }
   };
 
+  // ---------------------------- PDF PREVIEW STATE ----------------------------
+  const [showPreview, setShowPreview] = useState<boolean>(true);
+  const [previewPage, setPreviewPage] = useState<"a4" | "legal">("a4");
+  const [pdfUrl, setPdfUrl] = useState<string>("");
+  const [loadingPreview, setLoadingPreview] = useState<boolean>(false);
+
+  // ✅ Load PDF preview as blob URL (fixes auth issues)
+  const loadPreview = async () => {
+    if (!documentId) return;
+    try {
+      setLoadingPreview(true);
+      const url = await documentsGeneratedAPI.previewUrl(documentId, previewPage);
+      setPdfUrl(url);
+    } catch (err) {
+      console.error("Failed to load preview:", err);
+      toast.error("Failed to load PDF preview");
+      setPdfUrl("");
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && showPreview) {
+      loadPreview();
+    }
+    // Cleanup blob URL on unmount
+    return () => {
+      if (pdfUrl && pdfUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+    };
+  }, [isOpen, showPreview, previewPage, documentId]);
+
+  const openInNewTab = async () => {
+    try {
+      if (!documentId) throw new Error("Document ID not available");
+      await documentsGeneratedAPI.openPreview(documentId, previewPage);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to open preview");
+    }
+  };
+
+  const copyLink = async () => {
+    try {
+      if (!pdfUrl) throw new Error("PDF URL not ready");
+      await navigator.clipboard.writeText(pdfUrl);
+      toast.success("PDF link copied");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to copy link");
+    }
+  };
+
+  const refreshPreview = () => {
+    loadPreview();
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 !mt-0">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-5 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-gray-900">Aadhaar KYC (OTP)</h3>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                Aadhaar KYC (OTP)
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-600">
+                  <FileText size={14} /> Doc ID: <span className="truncate max-w-[160px]">{String(documentId)}</span>
+                </span>
+              </h3>
               <p className="text-xs text-gray-600">Verify Buyer → then Seller (sequential)</p>
             </div>
+
+            {/* PDF actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1">
+                <label className="text-xs text-gray-600">Page:</label>
+                <select
+                  value={previewPage}
+                  onChange={(e) => setPreviewPage(e.target.value as "a4" | "legal")}
+                  className="text-xs border rounded-lg px-2 py-1"
+                  title="Choose PDF page format"
+                >
+                  <option value="a4">A4</option>
+                  <option value="legal">Legal</option>
+                </select>
+              </div>
+
+              <button
+                onClick={() => setShowPreview((v) => !v)}
+                className="px-2 py-1.5 text-xs border rounded-lg hover:bg-gray-50"
+                type="button"
+                title="Toggle PDF preview"
+              >
+                {showPreview ? "Hide Preview" : "Show Preview"}
+              </button>
+
+              <button
+                onClick={openInNewTab}
+                className="px-2 py-1.5 text-xs border rounded-lg flex items-center gap-1 hover:bg-gray-50"
+                type="button"
+                title="Open in new tab"
+              >
+                <ExternalLink size={14} /> Open
+              </button>
+
+              <button
+                onClick={copyLink}
+                className="px-2 py-1.5 text-xs border rounded-lg flex items-center gap-1 hover:bg-gray-50"
+                type="button"
+                title="Copy direct URL"
+                disabled={!pdfUrl}
+              >
+                <CopyIcon size={14} /> Copy
+              </button>
+
+              <button
+                onClick={refreshPreview}
+                className="px-2 py-1.5 text-xs border rounded-lg flex items-center gap-1 hover:bg-gray-50"
+                type="button"
+                title="Refresh preview"
+                disabled={loadingPreview}
+              >
+                <RefreshCw size={14} className={loadingPreview ? "animate-spin" : ""} /> Refresh
+              </button>
+            </div>
+
             <button
               onClick={handleClose}
               className="p-2 rounded-lg hover:bg-gray-100"
@@ -391,211 +502,256 @@ const beginKycFor = async (role: PartyRole) => {
               </span>
             )}
           </div>
-        </div>
 
-        {/* Role tabs */}
-        <div className="px-5 pt-3 flex gap-2">
-          {(["Buyer", "Seller"] as PartyRole[]).map((r) => {
-            const disabled =
-              loading || step === "otp" || (r === "Seller" && sellerLocked);
-            return (
+          {/* URL strip (truncated, clickable) */}
+          {pdfUrl && (
+            <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-700">
+              <LinkIcon size={13} className="shrink-0" />
               <button
-                key={r}
-                onClick={() => setActiveRole(r)}
-                className={`px-3 py-1.5 rounded-lg text-sm border ${
-                  activeRole === r
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 border-gray-300"
-                } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
-                disabled={disabled}
+                onClick={openInNewTab}
+                className="truncate hover:underline text-left"
+                title={pdfUrl}
                 type="button"
-                aria-pressed={activeRole === r}
-                title={r === "Seller" && sellerLocked ? "Buyer must complete KYC first" : ""}
               >
-                {r}
+                {pdfUrl.startsWith('blob:') ? 'Preview ready (blob URL)' : pdfUrl}
               </button>
-            );
-          })}
+            </div>
+          )}
         </div>
 
         {/* Content */}
         <div className="p-5 flex-1 overflow-y-auto">
-          {step === "form" && (
+          {/* Split layout: left form, right preview */}
+          <div className={`grid gap-4 ${showPreview ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
+            {/* Left: KYC flow */}
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-700">Full Name</label>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <UserIcon size={14} className="text-gray-400" />
+              {/* Role tabs */}
+              <div className="pb-3 flex gap-2">
+                {(["Buyer", "Seller"] as PartyRole[]).map((r) => {
+                  const disabled =
+                    loading || step === "otp" || (r === "Seller" && sellerLocked);
+                  return (
+                    <button
+                      key={r}
+                      onClick={() => setActiveRole(r)}
+                      className={`px-3 py-1.5 rounded-lg text-sm border ${
+                        activeRole === r
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-700 border-gray-300"
+                      } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                      disabled={disabled}
+                      type="button"
+                      aria-pressed={activeRole === r}
+                      title={r === "Seller" && sellerLocked ? "Buyer must complete KYC first" : ""}
+                    >
+                      {r}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {step === "form" && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-700">Full Name</label>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <UserIcon size={14} className="text-gray-400" />
+                        <input
+                          value={party.name}
+                          onChange={(e) => setParty({ name: e.target.value })}
+                          className="w-full px-2 py-1.5 border rounded-lg text-sm"
+                          placeholder={`${activeRole} name`}
+                          autoComplete="off"
+                          disabled={(activeRole === "Buyer" && buyerKycOk) || (activeRole === "Seller" && sellerKycOk)}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-gray-700">Aadhaar Number</label>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <Fingerprint size={14} className="text-gray-400" />
+                        <input
+                          value={party.aadhaar}
+                          onChange={(e) => setParty({ aadhaar: onlyDigits(e.target.value).slice(0, 12) })}
+                          className="w-full px-2 py-1.5 border rounded-lg text-sm tracking-widest"
+                          placeholder="XXXXXXXXXXXX"
+                          autoComplete="off"
+                          inputMode="numeric"
+                          pattern="\d*"
+                          maxLength={12}
+                          disabled={(activeRole === "Buyer" && buyerKycOk) || (activeRole === "Seller" && sellerKycOk)}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-gray-700">Email (optional)</label>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <Mail size={14} className="text-gray-400" />
+                        <input
+                          value={party.email || ""}
+                          onChange={(e) => setParty({ email: e.target.value })}
+                          className="w-full px-2 py-1.5 border rounded-lg text-sm"
+                          placeholder="name@email.com"
+                          type="email"
+                          autoComplete="off"
+                          disabled={(activeRole === "Buyer" && buyerKycOk) || (activeRole === "Seller" && sellerKycOk)}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-gray-700">Phone (optional)</label>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <Phone size={14} className="text-gray-400" />
+                        <input
+                          value={party.phone || ""}
+                          onChange={(e) => setParty({ phone: onlyDigits(e.target.value).slice(0, 15) })}
+                          className="w-full px-2 py-1.5 border rounded-lg text-sm"
+                          placeholder="10-digit"
+                          autoComplete="off"
+                          inputMode="tel"
+                          pattern="\d*"
+                          maxLength={15}
+                          disabled={(activeRole === "Buyer" && buyerKycOk) || (activeRole === "Seller" && sellerKycOk)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <label className="flex items-start gap-2 text-sm">
                     <input
-                      value={party.name}
-                      onChange={(e) => setParty({ name: e.target.value })}
-                      className="w-full px-2 py-1.5 border rounded-lg text-sm"
-                      placeholder={`${activeRole} name`}
-                      autoComplete="off"
+                      type="checkbox"
+                      checked={consent}
+                      onChange={(e) => setConsent(e.target.checked)}
                       disabled={(activeRole === "Buyer" && buyerKycOk) || (activeRole === "Seller" && sellerKycOk)}
                     />
-                  </div>
-                </div>
+                    <span className="text-gray-700">
+                      I consent to use my Aadhaar for KYC verification for this document.
+                    </span>
+                  </label>
 
-                <div>
-                  <label className="text-xs text-gray-700">Aadhaar Number</label>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <Fingerprint size={14} className="text-gray-400" />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => beginKycFor(activeRole)}
+                      disabled={
+                        loading ||
+                        (activeRole === "Seller" && sellerLocked) ||
+                        ((activeRole === "Buyer" && buyerKycOk) || (activeRole === "Seller" && sellerKycOk))
+                      }
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50"
+                      type="button"
+                      title={activeRole === "Seller" && sellerLocked ? "Buyer must complete KYC first" : ""}
+                    >
+                      {loading ? "Starting…" : `Send OTP to ${activeRole}`}
+                    </button>
+
+                    <div className="text-xs text-gray-500">
+                      {bothConfigured ? "Both parties configured." : "Fill both parties & consent."}
+                    </div>
+                  </div>
+
+                  {/* KYC summary for current role */}
+                  <KycSummaryCard session={activeRole === "Buyer" ? buyerSession : sellerSession} />
+                </div>
+              )}
+
+              {step === "otp" && currentSession && (
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-700">
+                    OTP sent to the Aadhaar-linked mobile for <strong>{activeRole}</strong>.
+                  </div>
+                  <div className="flex items-center gap-2">
                     <input
-                      value={party.aadhaar}
-                      onChange={(e) => setParty({ aadhaar: onlyDigits(e.target.value).slice(0, 12) })}
-                      className="w-full px-2 py-1.5 border rounded-lg text-sm tracking-widest"
-                      placeholder="XXXXXXXXXXXX"
-                      autoComplete="off"
+                      ref={otpRef}
+                      placeholder="Enter 6-digit OTP"
+                      className="px-3 py-2 border rounded-lg text-sm w-40 tracking-widest"
+                      maxLength={6}
+                      autoComplete="one-time-code"
                       inputMode="numeric"
                       pattern="\d*"
-                      maxLength={12}
-                      disabled={(activeRole === "Buyer" && buyerKycOk) || (activeRole === "Seller" && sellerKycOk)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const v = (e.target as HTMLInputElement).value.trim();
+                          verifyOtp(v);
+                        }
+                      }}
                     />
+                    <button
+                      onClick={() => {
+                        const v = (otpRef.current?.value || "").trim();
+                        verifyOtp(v);
+                      }}
+                      disabled={loading}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm disabled:opacity-50"
+                      type="button"
+                    >
+                      Verify OTP
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!currentSession?.session_id) return;
+                        try {
+                          setLoading(true);
+                          await electronicSignAPI.resendOtp(currentSession.session_id);
+                          toast.success("OTP resent");
+                        } catch (e: any) {
+                          toast.error(e?.message || "Failed to resend");
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="px-3 py-2 border rounded-lg text-sm flex items-center gap-1"
+                      type="button"
+                    >
+                      <RefreshCw size={14} /> Resend
+                    </button>
                   </div>
                 </div>
+              )}
 
-                <div>
-                  <label className="text-xs text-gray-700">Email (optional)</label>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <Mail size={14} className="text-gray-400" />
-                    <input
-                      value={party.email || ""}
-                      onChange={(e) => setParty({ email: e.target.value })}
-                      className="w-full px-2 py-1.5 border rounded-lg text-sm"
-                      placeholder="name@email.com"
-                      type="email"
-                      autoComplete="off"
-                      disabled={(activeRole === "Buyer" && buyerKycOk) || (activeRole === "Seller" && sellerKycOk)}
-                    />
+              {step === "done" && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-green-700 text-sm">
+                    <CheckCircle size={18} /> Both Buyer &amp; Seller KYC verified.
                   </div>
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-700">Phone (optional)</label>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <Phone size={14} className="text-gray-400" />
-                    <input
-                      value={party.phone || ""}
-                      onChange={(e) => setParty({ phone: onlyDigits(e.target.value).slice(0, 15) })}
-                      className="w-full px-2 py-1.5 border rounded-lg text-sm"
-                      placeholder="10-digit"
-                      autoComplete="off"
-                      inputMode="tel"
-                      pattern="\d*"
-                      maxLength={15}
-                      disabled={(activeRole === "Buyer" && buyerKycOk) || (activeRole === "Seller" && sellerKycOk)}
-                    />
+                  <div className="text-xs text-gray-600">
+                    You can close this modal. KYC details have been saved to the document.
                   </div>
+
+                  {/* Show both summaries */}
+                  <KycSummaryCard session={buyerSession} />
+                  <KycSummaryCard session={sellerSession} />
                 </div>
-              </div>
-
-              <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={consent}
-                  onChange={(e) => setConsent(e.target.checked)}
-                  disabled={(activeRole === "Buyer" && buyerKycOk) || (activeRole === "Seller" && sellerKycOk)}
-                />
-                <span className="text-gray-700">
-                  I consent to use my Aadhaar for KYC verification for this document.
-                </span>
-              </label>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => beginKycFor(activeRole)}
-                  disabled={
-                    loading ||
-                    (activeRole === "Seller" && sellerLocked) ||
-                    ((activeRole === "Buyer" && buyerKycOk) || (activeRole === "Seller" && sellerKycOk))
-                  }
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50"
-                  type="button"
-                  title={activeRole === "Seller" && sellerLocked ? "Buyer must complete KYC first" : ""}
-                >
-                  {loading ? "Starting…" : `Send OTP to ${activeRole}`}
-                </button>
-
-                <div className="text-xs text-gray-500">
-                  {bothConfigured ? "Both parties configured." : "Fill both parties & consent."}
-                </div>
-              </div>
-
-              {/* KYC summary for current role */}
-              <KycSummaryCard session={activeRole === "Buyer" ? buyerSession : sellerSession} />
+              )}
             </div>
-          )}
 
-          {step === "otp" && currentSession && (
-            <div className="space-y-4">
-              <div className="text-sm text-gray-700">
-                OTP sent to the Aadhaar-linked mobile for <strong>{activeRole}</strong>.
+            {/* Right: PDF preview */}
+            {showPreview && (
+              <div className="min-h-[360px] border rounded-xl overflow-hidden bg-gray-100">
+                {loadingPreview ? (
+                  <div className="h-full flex items-center justify-center text-sm text-gray-600">
+                    <RefreshCw size={18} className="animate-spin mr-2" />
+                    Loading preview...
+                  </div>
+                ) : !pdfUrl ? (
+                  <div className="h-full flex items-center justify-center text-sm text-gray-600">
+                    PDF preview not available.
+                  </div>
+                ) : (
+                  <iframe
+                    key={pdfUrl}
+                    src={pdfUrl}
+                    title="Document Preview"
+                    className="w-full h-[65vh] lg:h-[70vh] bg-white"
+                    style={{ border: "0" }}
+                  />
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  ref={otpRef}
-                  placeholder="Enter 6-digit OTP"
-                  className="px-3 py-2 border rounded-lg text-sm w-40 tracking-widest"
-                  maxLength={6}
-                  autoComplete="one-time-code"
-                  inputMode="numeric"
-                  pattern="\d*"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      const v = (e.target as HTMLInputElement).value.trim();
-                      verifyOtp(v);
-                    }
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    const v = (otpRef.current?.value || "").trim();
-                    verifyOtp(v);
-                  }}
-                  disabled={loading}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm disabled:opacity-50"
-                  type="button"
-                >
-                  Verify OTP
-                </button>
-                <button
-                  onClick={async () => {
-                    if (!currentSession?.session_id) return;
-                    try {
-                      setLoading(true);
-                      await electronicSignAPI.resendOtp(currentSession.session_id);
-                      toast.success("OTP resent");
-                    } catch (e: any) {
-                      toast.error(e?.message || "Failed to resend");
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  className="px-3 py-2 border rounded-lg text-sm flex items-center gap-1"
-                  type="button"
-                >
-                  <RefreshCw size={14} /> Resend
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === "done" && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-green-700 text-sm">
-                <CheckCircle size={18} /> Both Buyer &amp; Seller KYC verified.
-              </div>
-              <div className="text-xs text-gray-600">
-                You can close this modal. KYC details have been saved to the document.
-              </div>
-
-              {/* Show both summaries */}
-              <KycSummaryCard session={buyerSession} />
-              <KycSummaryCard session={sellerSession} />
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Footer */}
