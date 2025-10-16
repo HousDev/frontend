@@ -1388,21 +1388,34 @@ const PropertiesPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {paginatedProperties.map((property) => (
                   <div key={property.id} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all group">
-                    <div className="relative overflow-hidden rounded-t-xl">
+                    <div
+                      className="relative overflow-hidden rounded-t-xl cursor-pointer group"
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Open property details"
+                      onClick={() => handleViewProperty(property)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') handleViewProperty(property);
+                      }}
+                    >
                       <ImageWithDebug
                         srcCandidate={Array.isArray(property.photos) && property.photos.length > 0 ? property.photos[0] : ''}
                         alt={dash(property.title)}
                         className="w-full h-48 rounded-t-xl transition-transform duration-300 ease-out group-hover:scale-105"
                         propertyCtx={{ title: property.title, propertyId: property.propertyId }}
                       />
+
                       <div className="absolute top-3 left-3">
                         <input
                           type="checkbox"
                           checked={selectedProperties.includes(property.id)}
                           onChange={() => handlePropertySelection(property.id)}
+                          onClick={(e) => e.stopPropagation()}          
                           className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                       </div>
+
+                      {/* baaki overlays same rahenge */}
                       <div className="absolute top-3 right-3 flex max-w-[78%] flex-wrap gap-1 justify-end">
                         <PropertyTags property={property} />
                         {property.isPublic && (
@@ -1415,6 +1428,7 @@ const PropertiesPage = () => {
                         {getStatusBadge(property.status)}
                       </div>
                     </div>
+
 
                     {/* ---------- UPDATED GRID CARD CONTENT (replace old p-4 block) ---------- */}
                     <div className="p-4">
@@ -1556,12 +1570,20 @@ const PropertiesPage = () => {
                       {/* ---------- UPDATED TABLE CELL: Property Details ---------- */}
                       <td className="px-4 py-3">
                         <div className="flex items-center space-x-3">
-                          <ImageWithDebug
-                            srcCandidate={Array.isArray(p.photos) && p.photos.length > 0 ? p.photos[0] : ''}
-                            alt={dash(p.title)}
-                            className="w-12 h-12 rounded-lg transition-transform duration-300 ease-out group-hover:scale-110"
-                            propertyCtx={{ title: p.title, propertyId: p.propertyId }}
-                          />
+                          <button
+                            type="button"
+                            className="relative"
+                            onClick={() => handleViewProperty(p)}
+                            aria-label="Open property details"
+                          >
+                            <ImageWithDebug
+                              srcCandidate={Array.isArray(p.photos) && p.photos.length > 0 ? p.photos[0] : ''}
+                              alt={dash(p.title)}
+                              className="w-12 h-12 rounded-lg transition-transform duration-300 ease-out group-hover:scale-110"
+                              propertyCtx={{ title: p.title, propertyId: p.propertyId }}
+                            />
+                          </button>
+
                           <div>
                             {/* <div className="font-semibold text-gray-900">{dash(p.title)}</div> */}
                             <div className="font-bold text-gray-900 text-lg">
@@ -1779,10 +1801,17 @@ const PropertiesPage = () => {
         <ImportPropertiesModal
           isOpen={showImportProperties}
           onClose={() => setShowImportProperties(false)}
-          onImport={(propertiesData) => {
-            const normalized = propertiesData.map((r: any, i: number) => normalizeProperty(r, i));
-            setProperties(prev => [...prev, ...normalized]);
-            setShowImportProperties(false);
+          onImport={(created) => {
+            const normalized = (Array.isArray(created) ? created : []).map((r: any, i: number) =>
+              normalizeProperty(r, i)
+            );
+            if (normalized.length) {
+              setProperties(prev => [...normalized, ...prev]); // show instantly
+            }
+          }}
+          onDone={async () => {
+            await loadProperties();                // ensure counts/tabs are perfect
+            setShowImportProperties(false);        // close after final sync
           }}
         />
       )}
