@@ -77,7 +77,7 @@ const BlogPostEditor: React.FC<BlogPostEditorProps> = ({
   const [imgDimensions, setImgDimensions] = useState<{ w: number; h: number } | null>(null);
 
   const editorRef = useRef<HTMLDivElement | null>(null);
-  const [mode, setMode] = useState<'visual' | 'source'>('source');
+  const [mode, setMode] = useState<'visual' | 'source'>('visual');
   const hydratedOnce = useRef(false);
   const [content, setContent] = useState<string>('');
 
