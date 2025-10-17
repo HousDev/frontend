@@ -983,20 +983,7 @@ const BlogManagement: React.FC = () => {
                 </option>
               ))}
             </select>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="All">All Status</option>
-              {['draft', 'published', 'archived'].map((status) => (
-                <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </option>
-              ))}
-            </select>
-
-            {/* Page size */}
+           {/* Page size */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">Page size</span>
               <select
@@ -1325,16 +1312,6 @@ const BlogManagement: React.FC = () => {
                   }`}
               >
                 Last
-              </button>
-              <button
-                onClick={handleRefresh}
-                disabled={loadingPosts}
-                className={`ml-2 px-3 py-2 border rounded-md transition-colors flex items-center gap-2 ${loadingPosts ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50'
-                  }`}
-                title="Refresh list"
-              >
-                <RefreshCw size={16} className={loadingPosts ? 'animate-spin' : ''} />
-                <span>{loadingPosts ? 'Refreshing...' : 'Refresh'}</span>
               </button>
             </div>
           </div>
@@ -1722,8 +1699,18 @@ const BlogManagement: React.FC = () => {
           {activeTab === 'content' && renderContentManagement()}
           {activeTab === 'comments' && renderCommentsTab()}
           {activeTab === 'ai-writer' && (
-            <AIBlogWriter onGenerate={generateAIContent} isGenerating={isGenerating} />
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">AI Content Studio</h3>
+              <p className="text-gray-600 mb-4">Generate long-form, SEO-optimized posts with images & ToC.</p>
+              <button
+                onClick={() => { setSelectedPost(null); setShowAIWriter(true); }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+              >
+                <Bot size={18} /> Open AI Writer
+              </button>
+            </div>
           )}
+
           {activeTab === 'ai-tools' && renderAITools()}
           {activeTab === 'rss' && <RSSSourceManager />}
           {activeTab === 'social' && <SocialMediaManager posts={postsArray} />}
@@ -1746,21 +1733,24 @@ const BlogManagement: React.FC = () => {
         )}
 
         {showAIWriter && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
-              <AIBlogWriter
-                isOpen={true}
-                onClose={() => {
-                  setShowAIWriter(false);
-                  setSelectedPost(null);
-                  setAutoPublishAfterAI(null);
-                }}
-                onGenerate={generateAIContent}
-                isGenerating={isGenerating}
-              />
-            </div>
-          </div>
+          <AIBlogWriter
+            isOpen={true}
+            post={selectedPost as any}
+            onSave={(p: Partial<BlogPost>) => {
+              handleSavePost(p);
+              setShowAIWriter(false);
+              setSelectedPost(null);
+              setAutoPublishAfterAI(null);
+            }}
+            onCancel={() => {
+              setShowAIWriter(false);
+              setSelectedPost(null);
+              setAutoPublishAfterAI(null);
+            }}
+            currentUserName={getUserDisplayName(user)}
+          />
         )}
+
 
         {showRSSManager && <RSSSourceManager isOpen={true} onClose={() => setShowRSSManager(false)} />}
 
