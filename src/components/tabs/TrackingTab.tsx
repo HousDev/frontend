@@ -2075,8 +2075,11 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
             email: esignDoc.data?.seller_email || '',
             phone: esignDoc.data?.seller_phone || '',
           }}
-          onProgress={async ({ docId, sessionIds }) => {
-            
+          onProgress={async (args: { docId: string | number; payload?: Record<string, any> }) => {
+            const { docId, payload } = args;
+            // session IDs may be provided under different keys depending on the caller
+            const sessionIds: any[] =
+              payload?.sessionIds ?? payload?.session_ids ?? payload?.sessions ?? [];
 
             // ✅ SAFETY CHECK 1: Must have sessions
             if (!sessionIds || !Array.isArray(sessionIds)) {
