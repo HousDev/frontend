@@ -17,6 +17,41 @@ const handleError = (error: any) => {
   }
 };
 
+// Type definitions for better TypeScript support
+export interface BuyerFollowupFilters {
+  buyerId?: string | number;
+  leadId?: string | number;
+  buyerLeadStage?: string;
+  buyerLeadStatus?: string;
+  priority?: 'High' | 'Medium' | 'Low';
+  assignedExecutive?: string | number;
+  fromDate?: string; // YYYY-MM-DD format
+  toDate?: string; // YYYY-MM-DD format
+  page?: number;
+  limit?: number;
+  sortOrder?: 'ASC' | 'DESC';
+}
+
+export interface BuyerFollowupResponse {
+  success: boolean;
+  data: any[];
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
+export interface BuyerFollowupCountResponse {
+  success: boolean;
+  data: {
+    total: number;
+  };
+}
+
 export const buyerFollowupAPI = {
   // Create new followup
   create: async (data: any) => {
@@ -28,18 +63,19 @@ export const buyerFollowupAPI = {
     }
   },
 
-  // Get all followups (with optional buyerId, pagination)
-  getAll: async (params?: { buyerId?: string; page?: number; limit?: number }) => {
+  // Get all followups (with optional filters + pagination)
+  getAll: async (params?: BuyerFollowupFilters): Promise<BuyerFollowupResponse> => {
     try {
       const res = await api.get("/buyer-followups/getall", { params });
       return res.data;
     } catch (error) {
       handleError(error);
+      throw error; // TypeScript requires this for type safety
     }
   },
 
   // Get single followup by ID
-  getById: async (id: string) => {
+  getById: async (id: string | number) => {
     try {
       const res = await api.get(`/buyer-followups/getbyid/${id}`);
       return res.data;
@@ -49,7 +85,7 @@ export const buyerFollowupAPI = {
   },
 
   // Update followup
-  update: async (id: string, data: any) => {
+  update: async (id: string | number, data: any) => {
     try {
       const res = await api.put(`/buyer-followups/update/${id}`, data);
       return res.data;
@@ -59,12 +95,23 @@ export const buyerFollowupAPI = {
   },
 
   // Delete followup
-  remove: async (id: string) => {
+  remove: async (id: string | number) => {
     try {
       const res = await api.delete(`/buyer-followups/remove/${id}`);
       return res.data;
     } catch (error) {
       handleError(error);
+    }
+  },
+
+  // Get count of followups (useful for stats/dashboard)
+  getCount: async (params?: Omit<BuyerFollowupFilters, 'page' | 'limit' | 'sortOrder'>): Promise<BuyerFollowupCountResponse> => {
+    try {
+      const res = await api.get("/buyer-followups/count", { params });
+      return res.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
     }
   },
 };
