@@ -2134,7 +2134,6 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         const raw =
           res?.data ??
           res ??
-          (res?.success ? res.data : undefined) ??
           (res?.data?.data ? res.data.data : undefined);
         const list = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : raw ?? [];
         if (!cancelled) setFollowups(mapAndNormalize(list));
