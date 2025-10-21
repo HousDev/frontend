@@ -20,15 +20,23 @@ import {
   Clock,
   CheckCircle
 } from 'lucide-react';
-import { Link, } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import AIChatbot from '@/components/ai/AIChatbot';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import { toast } from 'react-toastify';
+import { useLocation, matchPath } from 'react-router-dom';
 
 const PublicFooter = ({ onPageChange }: any) => {
+  const location = useLocation();
+  const isPropertyDetail = Boolean(
+    matchPath({ path: '/properties/:slug' }, location.pathname) ||
+    matchPath({ path: '/property/:slug' }, location.pathname)
+  );
+  
   const currentYear = new Date().getFullYear();
   const [masterLoading, setMasterLoading] = useState(true);
+  
   const quickLinks = [
     { id: 'home', label: 'Home' },
     { id: 'properties', label: 'Properties' },
@@ -45,42 +53,28 @@ const PublicFooter = ({ onPageChange }: any) => {
     { label: 'Property Management', href: '#' }
   ];
 
-  const locations = [
-    'Andheri West', 'Bandra West', 'Juhu', 'Powai', 'Versova', 'Malad West'
-  ];
-
   const socialLinks = [
-    { icon: Facebook, href: '#', color: 'text-blue-600' },
+    { icon: Facebook, href: 'https://www.instagram.com/resaleexpert.in/#', color: 'text-blue-600' },
     { icon: Twitter, href: '#', color: 'text-blue-400' },
-    { icon: Instagram, href: '#', color: 'text-pink-600' },
+    { icon: Instagram, href: 'https://www.facebook.com/resaleexpert.i', color: 'text-pink-600' },
     { icon: Linkedin, href: '#', color: 'text-blue-700' },
-    { icon: Youtube, href: '#', color: 'text-red-600' }
+    { icon: Youtube, href: 'https://www.youtube.com/channel/UCYuJPmp-d7HIdfPgSejWzvg', color: 'text-red-600' }
   ];
 
   const { systemSettings } = useSystemSettings();
   const companyName = systemSettings?.company_name;
   const footerLogo = systemSettings?.footer_logo;
-  const companyLogo = systemSettings?.company_logo; // Fallback to company logo if footer logo not available
-
-
-
-
-  // call anywhere in your components like this:
-
 
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
+  
   useEffect(() => {
     const fetchMasters = async () => {
       try {
         setMasterLoading(true);
-        const data = await getMasterDropdownOptions([
-          'common',
-        ]);
+        const data = await getMasterDropdownOptions(['common']);
         setMasters(data);
-
       } catch (err) {
         console.error('Error fetching master options:', err);
-        // toast.error('Failed to load dropdown options');
       } finally {
         setMasterLoading(false);
       }
@@ -89,9 +83,8 @@ const PublicFooter = ({ onPageChange }: any) => {
     fetchMasters();
   }, []);
 
-
   return (
-    <footer className="bg-gray-900 text-white lg:pb-0 md:pb-0 pb-24 z-[70]">
+    <footer className={`bg-gray-900 text-white lg:pb-0 md:pb-0 ${isPropertyDetail ? 'pb-24' : 'pb-0'} z-[70]`}>
       {/* Main Footer */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="grid grid-cols-2 md:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8 md:gap-8 sm:gap-8 gap-2">
@@ -99,53 +92,39 @@ const PublicFooter = ({ onPageChange }: any) => {
           <div className="lg:col-span-1">
             <div className="flex items-center space-x-3 mb-6">
               <Link to="/" className="flex items-center space-x-2">
-                {/* Company Info */}
-                <div className="lg:col-span-1">
-                  <div className="flex items-center space-x-3 mb-6">
-                    <Link to="/" className="flex items-center space-x-2">
-                      <div className="flex items-center space-x-3">
-                        {footerLogo ? (
-                          <img
-                            src={footerLogo}
-                            alt={`${companyName} Footer Logo`}
-                            className="h-14 w-auto object-contain"
-                          />
-                        ) : (
-                          <div className="hidden sm:block">
-                            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
-                              {companyName}
-                            </h1>
-                          </div>
-                        )}
-                      </div>
-                    </Link>
-                  </div>
-
-
-
-                  {/* Trust Indicators */}
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <Shield className="text-green-400" size={16} />
-                      <span className="text-sm text-gray-300">100% Verified Properties</span>
+                <div className="flex items-center space-x-3">
+                  {footerLogo ? (
+                    <img
+                      src={footerLogo}
+                      alt={`${companyName} Footer Logo`}
+                      className="h-14 w-auto object-contain"
+                    />
+                  ) : (
+                    <div className="hidden sm:block">
+                      <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
+                        {companyName}
+                      </h1>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Award className="text-yellow-400" size={16} />
-                      <span className="text-sm text-gray-300">Award Winning Service</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <CheckCircle className="text-blue-400" size={16} />
-                      <span className="text-sm text-gray-300">10,000+ Happy Customers</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
-
               </Link>
             </div>
 
-
-
-
+            {/* Trust Indicators */}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Shield className="text-green-400" size={16} />
+                <span className="text-sm text-gray-300">100% Verified Properties</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Award className="text-yellow-400" size={16} />
+                <span className="text-sm text-gray-300">Award Winning Service</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="text-blue-400" size={16} />
+                <span className="text-sm text-gray-300">10,000+ Happy Customers</span>
+              </div>
+            </div>
           </div>
 
           {/* Quick Links */}
@@ -246,7 +225,7 @@ const PublicFooter = ({ onPageChange }: any) => {
                   className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-colors text-sm"
                   title={loc.label}
                 >
-                  {loc.value} {/* ← show value */}
+                  {loc.value}
                 </button>
               ))}
             </div>
@@ -256,14 +235,11 @@ const PublicFooter = ({ onPageChange }: any) => {
         </div>
       </div>
 
-
       {/* Bottom Footer */}
       <div className="bg-gray-950 border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="text-gray-400 text-sm mb-4 md:mb-0">
-              © {currentYear} &nbsp;{companyName}&nbsp;. All rights reserved. | Designed with ❤️ for better real estate experience.
-            </div>
+           
 
             {/* Social Links */}
             <div className="flex items-center space-x-4">
@@ -283,12 +259,15 @@ const PublicFooter = ({ onPageChange }: any) => {
                 );
               })}
             </div>
+             <div className="text-gray-400 text-sm mb-4 md:mb-0">
+              © {currentYear} &nbsp;{companyName}&nbsp;. All rights reserved. | Designed with ❤️ for better real estate experience.
+            </div>
           </div>
         </div>
       </div>
 
-      {/* AI Chatbot */}
-      <AIChatbot />
+      {/* AI Chatbot - Pass isPropertyDetail prop */}
+      <AIChatbot isPropertyDetail={isPropertyDetail} />
     </footer>
   );
 };
