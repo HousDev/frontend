@@ -61,7 +61,7 @@ import FurnishingPill from '@/components/properties/FurnishingPill';
 import AmenityPill from '@/components/properties/AmenityPill';
 import { getTagStyle, DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 import propertyTagsAPI, { PropertyTagsRow } from '@/lib/propertyTagsAPI';
-
+import PropertyDescriptionSmart from './PropertyDescriptionSmart';
 type RawProperty = any;
 
 const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
@@ -865,11 +865,18 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 <PropertyTags tags={propertyTags} />
               </div>
               <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
+              {/* <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
+
                 <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Property Description</h2>
                 <p className="text-xs sm:text-sm md:text-base text-gray-700 leading-relaxed">
                   {displayOrDash(property?.description) === ' - ' ? ' - ' : property?.description}
                 </p>
-              </div>
+              </div> */}
+              <PropertyDescriptionSmart
+               description={property?.description}
+                property={property}
+/>
+              </div> 
 
               {/* Property Details Grid - Fully Responsive */}
               <div className="bg-white/95 backdrop-blur rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all ring-1 ring-gray-100">

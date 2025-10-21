@@ -14,7 +14,7 @@
 // import { rssAPI } from '@/lib/rssAPI';
 // import RSSSourceCard from './RSSSourceCard';
 // import { RSSSource as SharedRSSSource } from '../../types/blog';
-// import RSSSourceFormModal from './RSSSourceFormModal'; // ✅ NEW import
+// import RSSSourceFormModal from './RSSSourceFormModal';
 
 // /* =========================================================
 //    Types
@@ -285,42 +285,52 @@
 //     }
 //   };
 
-//   const handleDeleteSource = async (id: string) => {
-//     if (!confirm('Delete this RSS source?')) return;
-//     try {
-//       await rssAPI.delete(Number(id));
-//       setSources((prev) => prev.filter((s) => s.id !== id));
-//       toast.success('Source deleted');
-//     } catch (e: any) {
-//       toast.error(e?.message || 'Failed to delete');
-//     }
-//   };
-
-//   const handleSyncSingle = async (id: string) => {
+//   // SCAN one (no DB writes): updates newPosts/lastSync on server, returns latest source
+//   const handleScanSingle = async (id: string) => {
 //     try {
 //       setSyncingSourceId(id);
-//       const resp = await rssAPI.syncOne(Number(id));
+//       const resp = await rssAPI.scan(Number(id));
+//       // backend returns { success, data: updatedSource, meta: { fetched, newCount, previews } }
 //       const updated = normalizeOne(resp?.data);
 //       setSources((prev) => prev.map((s) => (s.id === id ? updated : s)));
 //       const meta = resp?.meta || {};
-//       toast.success(`Synced: ${meta?.inserted ?? 0} new / ${meta?.fetched ?? 0} fetched`);
+//       toast.success(`Scanned: ${meta?.newCount ?? 0} new / ${meta?.fetched ?? 0} fetched`);
 //     } catch (e: any) {
-//       toast.error(e?.message || 'Failed to sync');
+//       toast.error(e?.message || 'Failed to scan');
 //     } finally {
 //       setSyncingSourceId(null);
 //     }
 //   };
 
-//   const handleSyncAll = async () => {
+//   // IMPORT one (creates DRAFTs): server returns latest source w/ counters adjusted
+//   const handleImportSingle = async (id: string) => {
+//     try {
+//       setSyncingSourceId(id);
+//       const resp = await rssAPI.importDrafts(Number(id));
+//       // backend returns { success, data: updatedSource, meta: { fetched, inserted } }
+//       const updated = normalizeOne(resp?.data);
+//       setSources((prev) => prev.map((s) => (s.id === id ? updated : s)));
+//       const meta = resp?.meta || {};
+//       toast.success(`Imported ${meta?.inserted ?? 0} article(s) as drafts`);
+//       // Optional: if you want to also refresh your Drafts tab elsewhere, trigger a global refresh here.
+//     } catch (e: any) {
+//       toast.error(e?.message || 'Failed to import');
+//     } finally {
+//       setSyncingSourceId(null);
+//     }
+//   };
+
+//   // SCAN all (no DB writes)
+//   const handleScanAll = async () => {
 //     try {
 //       setSyncingAll(true);
-//       await rssAPI.syncAll();
+//       await rssAPI.syncAll(); // this is now "scan all" on backend
 //       const resp = await rssAPI.getAll();
 //       const fresh = normalizeList(resp);
 //       setSources(fresh);
-//       toast.success('Sync all completed');
+//       toast.success('Scan all completed');
 //     } catch (e: any) {
-//       toast.error(e?.message || 'Failed to sync all');
+//       toast.error(e?.message || 'Failed to scan all');
 //     } finally {
 //       setSyncingAll(false);
 //     }
@@ -342,7 +352,7 @@
 //       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
 //         <div>
 //           <h2 className="text-2xl font-bold text-gray-900 mb-2 sm:mb-1">RSS Source Management</h2>
-//           <p className="text-gray-600">Manage and monitor RSS feeds for automatic blog content</p>
+//           <p className="text-gray-600">Manage and monitor RSS feeds for controlled content import</p>
 //         </div>
 //         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
 //           <button
@@ -357,12 +367,12 @@
 //           </button>
 
 //           <button
-//             onClick={handleSyncAll}
+//             onClick={handleScanAll}
 //             disabled={syncingAll || loading}
 //             className="bg-green-600 disabled:opacity-60 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
 //           >
 //             <RefreshCw size={18} className={syncingAll ? 'animate-spin' : ''} />
-//             <span>{syncingAll ? 'Syncing…' : 'Sync All'}</span>
+//             <span>{syncingAll ? 'Scanning…' : 'Scan All'}</span>
 //           </button>
 //         </div>
 //       </div>
@@ -416,7 +426,8 @@
 //           key={source.id}
 //           source={source}
 //           isLoading={syncingSourceId === source.id}
-//           onSync={() => handleSyncSingle(source.id)}
+//           onSync={() => handleScanSingle(source.id)}   // SCAN only
+//           onImport={() => handleImportSingle(source.id)} // IMPORT (drafts)
 //           onToggle={() => handleToggleSource(source.id)}
 //           onEdit={() => handleEditSource(source)}
 //           onDelete={() => handleDeleteSource(source.id)}
@@ -430,7 +441,7 @@
 //       <div className="text-center py-12">
 //         <Globe className="mx-auto text-gray-300 mb-4" size={64} />
 //         <h3 className="text-xl font-bold text-gray-900 mb-2">No RSS Sources Found</h3>
-//         <p className="text-gray-600 mb-6">Add RSS sources to automatically generate blog content</p>
+//         <p className="text-gray-600 mb-6">Add RSS sources to scan and import articles as drafts</p>
 //         <button
 //           onClick={() => {
 //             setEditingSource(null);
@@ -488,7 +499,6 @@
 //     <div className="space-y-6">
 //       {Header}
 
-//       {/* ✅ NEW: Modal component replaces inline Add/Edit form */}
 //       <RSSSourceFormModal
 //         open={showAddForm}
 //         onClose={() => {
@@ -543,6 +553,8 @@
 // };
 
 // export default RSSSourceManager;
+
+
 
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -832,12 +844,24 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
     }
   };
 
-  // SCAN one (no DB writes): updates newPosts/lastSync on server, returns latest source
+  // ✅ NEWLY ADDED FUNCTION
+  const handleDeleteSource = async (id: string) => {
+    try {
+      if (!confirm('Are you sure you want to delete this source?')) return;
+
+      await rssAPI.delete(Number(id));
+      setSources((prev) => prev.filter((s) => s.id !== id));
+      toast.success('RSS source deleted');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to delete source');
+    }
+  };
+
+  // SCAN one
   const handleScanSingle = async (id: string) => {
     try {
       setSyncingSourceId(id);
       const resp = await rssAPI.scan(Number(id));
-      // backend returns { success, data: updatedSource, meta: { fetched, newCount, previews } }
       const updated = normalizeOne(resp?.data);
       setSources((prev) => prev.map((s) => (s.id === id ? updated : s)));
       const meta = resp?.meta || {};
@@ -849,17 +873,15 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
     }
   };
 
-  // IMPORT one (creates DRAFTs): server returns latest source w/ counters adjusted
+  // IMPORT one
   const handleImportSingle = async (id: string) => {
     try {
       setSyncingSourceId(id);
       const resp = await rssAPI.importDrafts(Number(id));
-      // backend returns { success, data: updatedSource, meta: { fetched, inserted } }
       const updated = normalizeOne(resp?.data);
       setSources((prev) => prev.map((s) => (s.id === id ? updated : s)));
       const meta = resp?.meta || {};
       toast.success(`Imported ${meta?.inserted ?? 0} article(s) as drafts`);
-      // Optional: if you want to also refresh your Drafts tab elsewhere, trigger a global refresh here.
     } catch (e: any) {
       toast.error(e?.message || 'Failed to import');
     } finally {
@@ -867,11 +889,11 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
     }
   };
 
-  // SCAN all (no DB writes)
+  // SCAN all
   const handleScanAll = async () => {
     try {
       setSyncingAll(true);
-      await rssAPI.syncAll(); // this is now "scan all" on backend
+      await rssAPI.syncAll();
       const resp = await rssAPI.getAll();
       const fresh = normalizeList(resp);
       setSources(fresh);
@@ -1100,6 +1122,3 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
 };
 
 export default RSSSourceManager;
-
-
-
