@@ -1,6 +1,5 @@
 // PublicPropertyDetailPage.tsx
 import React, { useEffect, useState } from 'react';
-
 import {
   ArrowLeft,
   MapPin,
@@ -60,6 +59,8 @@ import ShareModal from './ShareModal';
 import PhotoGalleryModal from './PhotoGalleryModal';
 import FurnishingPill from '@/components/properties/FurnishingPill';
 import AmenityPill from '@/components/properties/AmenityPill';
+import { getTagStyle, DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
+import propertyTagsAPI, { PropertyTagsRow } from '@/lib/propertyTagsAPI';
 
 type RawProperty = any;
 
@@ -72,10 +73,11 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const [paywallFeature, setPaywallFeature] = useState<'ai-recommendations' | 'ai-investment' | 'premium-details'>('ai-recommendations');
   const [hasSubscription, setHasSubscription] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
- 
+  const [propertyTags, setPropertyTags] = useState<string[]>([]);
+  const [tagsLoading, setTagsLoading] = useState(false);
+
   // add near other hooks / state
   const hasRecordedViewRef = React.useRef<{ [key: string]: boolean }>({});
-
   const [contactForm, setContactForm] = useState({
     name: '',
     phone: '',
@@ -91,7 +93,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const navigate = useNavigate();
   // local property state used across the component
   const [property, setProperty] = useState<any>(null);
-  console.log("sellername ", property?.agent?.seller_name);
 
   // helper: display value or dash
   const displayOrDash = (val: any) => {
@@ -160,6 +161,71 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       return `${secondLast}, ${last}`;
     }
     return ' - ';
+  };
+
+
+  // CSS-based responsive tag count (no window dependency) - Show ALL tags
+  const PropertyTags = ({ tags }: { tags: string[] }) => {
+    if (!tags || tags.length === 0) return null;
+
+    return (
+      <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3">
+        {tags.map((tag, index) => {
+          const style = getTagStyle(tag);
+
+          return (
+            <span
+              key={index}
+              className={`
+              inline-flex items-center px-2 sm:px-2.5 py-1 rounded-full 
+              text-[8px] xs:text-[10px] sm:text-xs font-bold uppercase 
+              transition-all duration-200 min-h-[24px] sm:min-h-[26px]
+              ${style.bg} ${style.text} ring-1 ${style.ring}
+              hover:scale-105 transform transition-transform
+            `}
+            >
+              {style.emoji && (
+                <>
+                  {typeof style.emoji === "string" ? (
+                    <span
+                      className="text-[8px] xs:text-[10px] sm:text-xs mr-1 uppercase flex-shrink-0"
+                      aria-hidden="true"
+                    >
+                      {style.emoji}
+                    </span>
+                  ) : (
+                    React.createElement(style.emoji, {
+                      size: "clamp(8px, 2vw, 12px)",
+                      className: "mr-1 uppercase flex-shrink-0",
+                      "aria-hidden": true,
+                    })
+                  )}
+                </>
+              )}
+              <span className="whitespace-nowrap truncate max-w-[80px] xs:max-w-[100px] sm:max-w-[120px] md:max-w-none">
+                {tag}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Fetch property tags
+  const fetchPropertyTags = async (propertyId: number | string) => {
+    if (!propertyId) return;
+
+    try {
+      setTagsLoading(true);
+      const tagsData = await propertyTagsAPI.getById(propertyId);
+      setPropertyTags(tagsData.tags || []);
+    } catch (error) {
+      console.error('Error fetching property tags:', error);
+      setPropertyTags([]);
+    } finally {
+      setTagsLoading(false);
+    }
   };
 
   // Normalize incoming raw property to the canonical shape we use everywhere
@@ -288,7 +354,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     if (propertyProp) {
       const normalized = normalizeProperty(propertyProp);
       setProperty(normalized);
-
     }
   }, [propertyProp]);
 
@@ -314,6 +379,16 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
     if (!propertyProp && slug) fetchProperty();
   }, [slug, propertyProp]);
+
+  // Fetch tags when property is loaded
+  useEffect(() => {
+    if (property) {
+      const propertyId = resolvePropertyIdNumber(property);
+      if (propertyId) {
+        fetchPropertyTags(propertyId);
+      }
+    }
+  }, [property]);
 
   const handleBack = () => {
     if (typeof onBack === 'function') {
@@ -479,7 +554,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     } catch { }
   }, [property]);
 
-
   const getMonthName = (value?: string | number | null) => {
     if (!value) return "";
     const month = typeof value === "string" ? parseInt(value) : value;
@@ -553,10 +627,10 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
             Back to Properties
           </button>
         </div>
-
       </div>
     );
   }
+
   const images: string[] = Array.isArray(property?.images) && property.images.length
     ? property.images
     : Array.isArray(property?.photos) && property.photos.length
@@ -569,7 +643,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
   const unitType = property?.unitType ?? '';
   const subtype = property?.subtype ?? '';
-
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -642,7 +715,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
 
               {/* Top-Left Info - Responsive */}
-              <div className="absolute top-2 sm:top-3 md:top-4 left-2 sm:left-3 md:left-4 z-20 text-white max-w-[75%] sm:max-w-[85%] flex flex-col gap-1">
+              <div className="absolute top-2 sm:top-3 md:top-6 left-2 sm:left-3 md:left-4 z-20 text-white max-w-[75%] sm:max-w-[85%] flex flex-col gap-1">
                 <div className="font-bold text-base sm:text-lg md:text-xl truncate drop-shadow">
                   {property?.type && <span className="mr-1 sm:mr-2">{property.type}</span>}
                   {unitType && <span className="mr-1 sm:mr-2">{unitType}</span>}
@@ -654,35 +727,24 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   <span className="truncate">{displayOrDash(property?.locationNormalized)}</span>
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
-                  {property?.featured && (
-                    <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full
-                    text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white
-                    shadow-lg ring-1 sm:ring-2 ring-white/20 backdrop-blur-sm animate-pulse">
-                      <Zap className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
-                      <span className="hidden xs:inline">FEATURED</span>
-                    </span>
-                  )}
-                  {property?.verified && (
-                    <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full
-                    text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white
-                    shadow-lg ring-1 sm:ring-2 ring-white/20 bg-gradient-to-r from-green-500 to-emerald-600 backdrop-blur-sm">
-                      <CheckCircle className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
-                      <span className="hidden xs:inline">VERIFIED</span>
-                    </span>
-                  )}
+                {/* Property Tags - Display fetched tags */}
+
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
+                <div className="absolute top-0 right-3 z-20 hidden sm:block">
+                  <PropertyTags tags={propertyTags} />
                 </div>
               </div>
 
               {/* Top-Right Action Buttons - Responsive */}
-              <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 z-20 flex flex-col space-y-1.5 sm:space-y-2">
-                <button
+              <div className="absolute top-2 sm:top-3 md:top-8 right-2 sm:right-3 md:right-4 z-20 flex flex-col space-y-1.5 sm:space-y-2">
+                {/* <button
                   onClick={toggleLiked}
                   className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
                   aria-label={liked ? 'Remove from shortlist' : 'Add to shortlist'}
                 >
                   <Heart className={liked ? 'w-4 h-4 sm:w-5 sm:h-5 text-red-500 fill-current' : 'w-4 h-4 sm:w-5 sm:h-5 text-gray-700'} />
-                </button>
+                </button> */}
 
                 <button
                   onClick={() => setOpen(true)}
@@ -693,12 +755,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </button>
 
                 <button
+                  onClick={() => setShowContactForm(true)}
                   className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
                   aria-label="Bookmark property"
                 >
-                  <Bookmark className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
+                  <Bookmark className="w-4 h-4 sm:w-5 sm-h-5 text-gray-700" />
                 </button>
               </div>
+
 
               {/* Bottom-Left Price - Responsive */}
               <div className="absolute bottom-8 sm:bottom-10 md:bottom-12 left-2 sm:left-3 md:left-4 z-20 w-[90%]">
@@ -796,6 +860,10 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
             {/* Property Details Section - Responsive */}
             <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 !mt-3 sm:!mt-4 ring-1 ring-gray-100">
               {/* Description - Responsive */}
+
+              <div className="  block sm:hidden">
+                <PropertyTags tags={propertyTags} />
+              </div>
               <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
                 <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Property Description</h2>
                 <p className="text-xs sm:text-sm md:text-base text-gray-700 leading-relaxed">
@@ -922,58 +990,59 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   </div>
                 </div>
               </div>
+
               {/* Amenities & Furnishing - Responsive Grid */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4">
-                              {/* Amenities */}
-                              <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-3 sm:p-4 ring-1 ring-gray-100">
-                                <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Amenities</h3>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
-                                  {(() => {
-                                    let amenitiesList: string[] = [];
-                                    if (Array.isArray(property?.amenities) && property.amenities.length > 0) {
-                                      amenitiesList = property.amenities;
-                                    } else if (Array.isArray(property?.raw?.amenities) && property.raw.amenities.length > 0) {
-                                      amenitiesList = property.raw.amenities;
-                                    } else if (typeof property?.amenities === 'string' && property.amenities.trim()) {
-                                      amenitiesList = property.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
-                                    } else if (typeof property?.raw?.amenities === 'string' && property.raw.amenities.trim()) {
-                                      amenitiesList = property.raw.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
-                                    }
-              
-                                    return amenitiesList.length > 0 ? (
-                                      amenitiesList.map((name, i) => <AmenityPill key={i} name={name} />)
-                                    ) : (
-                                      <span className="text-xs sm:text-sm text-gray-500 col-span-full">No amenities listed</span>
-                                    );
-                                  })()}
-                                </div>
-                              </div>
-              
-                              {/* Furnishing Items */}
-                              <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-3 sm:p-4 ring-1 ring-gray-100">
-                                <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Furnishing Items</h3>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
-                                  {(() => {
-                                    let furnishingList: string[] = [];
-                                    if (Array.isArray(property?.furnishingItems) && property.furnishingItems.length > 0) {
-                                      furnishingList = property.furnishingItems;
-                                    } else if (Array.isArray(property?.raw?.furnishingItems) && property.raw.furnishingItems.length > 0) {
-                                      furnishingList = property.raw.furnishingItems;
-                                    } else if (Array.isArray(property?.raw?.furnishing_items) && property.raw.furnishing_items.length > 0) {
-                                      furnishingList = property.raw.furnishing_items;
-                                    }
-              
-                                    return furnishingList.length > 0 ? (
-                                      furnishingList.map((item: string, index: number) => (
-                                        <FurnishingPill key={index} name={item} />
-                                      ))
-                                    ) : (
-                                      <span className="text-xs sm:text-sm text-gray-500 col-span-full">No furnishing items listed</span>
-                                    );
-                                  })()}
-                                </div>
-                              </div>
-                            </div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4">
+                {/* Amenities */}
+                <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-3 sm:p-4 ring-1 ring-gray-100">
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Amenities</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
+                    {(() => {
+                      let amenitiesList: string[] = [];
+                      if (Array.isArray(property?.amenities) && property.amenities.length > 0) {
+                        amenitiesList = property.amenities;
+                      } else if (Array.isArray(property?.raw?.amenities) && property.raw.amenities.length > 0) {
+                        amenitiesList = property.raw.amenities;
+                      } else if (typeof property?.amenities === 'string' && property.amenities.trim()) {
+                        amenitiesList = property.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+                      } else if (typeof property?.raw?.amenities === 'string' && property.raw.amenities.trim()) {
+                        amenitiesList = property.raw.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+                      }
+
+                      return amenitiesList.length > 0 ? (
+                        amenitiesList.map((name, i) => <AmenityPill key={i} name={name} />)
+                      ) : (
+                        <span className="text-xs sm:text-sm text-gray-500 col-span-full">No amenities listed</span>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Furnishing Items */}
+                <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-3 sm:p-4 ring-1 ring-gray-100">
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Furnishing Items</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
+                    {(() => {
+                      let furnishingList: string[] = [];
+                      if (Array.isArray(property?.furnishingItems) && property.furnishingItems.length > 0) {
+                        furnishingList = property.furnishingItems;
+                      } else if (Array.isArray(property?.raw?.furnishingItems) && property.raw.furnishingItems.length > 0) {
+                        furnishingList = property.raw.furnishingItems;
+                      } else if (Array.isArray(property?.raw?.furnishing_items) && property.raw.furnishing_items.length > 0) {
+                        furnishingList = property.raw.furnishing_items;
+                      }
+
+                      return furnishingList.length > 0 ? (
+                        furnishingList.map((item: string, index: number) => (
+                          <FurnishingPill key={index} name={item} />
+                        ))
+                      ) : (
+                        <span className="text-xs sm:text-sm text-gray-500 col-span-full">No furnishing items listed</span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
 
               {/* AI Insights Banner - Responsive */}
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 md:mb-8 mt-3 sm:mt-4 border border-purple-100 ring-1 ring-purple-100/70">
@@ -1374,7 +1443,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
             </div>
 
-
             {/* Interest & Shortlisted */}
             <div className="px-2 py-1 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
               <h3 className="font-bold text-gray-900 text-sm mb-4">Property Activity</h3>
@@ -1385,7 +1453,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     <span className="text-sm font-medium text-gray-700">Total Views</span>
                   </div>
                   <span className="text-green-600">{property?.views ?? '—'}</span>
-
                 </div>
 
                 <div className="flex items-center justify-between p-1 bg-blue-50 rounded-lg">
@@ -1405,6 +1472,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               </div>
             </div>
+
             {/* Property Highlights */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden ring-1 ring-gray-100">
               {/* Header */}
@@ -1515,10 +1583,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     </div>
                   </div>
                 </div>
-
-
               </div>
-
             </div>
 
             {/* Price Breakdown */}
@@ -1564,6 +1629,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               </div>
             </div>
+
             {/* AI Investment Analysis */}
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm p-4 sm:p-5 relative ring-1 ring-purple-100/70">
               <div className="flex items-center space-x-1 mb-3">
@@ -1663,6 +1729,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </div>
               )}
             </div>
+
             {/* Similar Properties */}
             <div className="bg-white rounded-xl shadow-sm p-5 ring-1 ring-gray-100">
               <h3 className="font-bold text-gray-900 text-sm mb-4">Similar Properties</h3>
@@ -1694,10 +1761,10 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-gray-900">Contact Agent</h3>
+              <h3 className="text-lg font-bold text-[#0b3856]">Contact Agent</h3>
               <button
                 onClick={() => setShowContactForm(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-[#0b3856]"
               >
                 <X size={20} />
               </button>
@@ -1705,57 +1772,58 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
             <form onSubmit={handleContactSubmit} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <label className="block text-sm font-medium text-[#0b3856] mb-1">Name</label>
                 <input
                   type="text"
                   value={contactForm.name}
                   onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <label className="block text-sm font-medium text-[#0b3856] mb-1">Phone</label>
                 <input
                   type="tel"
                   value={contactForm.phone}
                   onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium text-[#0b3856] mb-1">Email</label>
                 <input
                   type="email"
                   value={contactForm.email}
                   onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                <label className="block text-sm font-medium text-[#0b3856] mb-1">Message</label>
                 <textarea
                   value={contactForm.message}
                   onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
                   placeholder="I'm interested in this property..."
                   required
                 />
               </div>
+
               <div className="flex space-x-3">
                 <button
                   type="button"
                   onClick={() => setShowContactForm(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                  className="flex-1 px-4 py-2 border border-[#0b3856] text-[#0b3856] rounded-lg hover:bg-[#0b3856] hover:text-white transition-colors text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  className="flex-1 px-4 py-2 bg-[#E6761D] text-white rounded-lg hover:bg-[#CC6A1A] transition-colors text-sm"
                 >
                   Send Message
                 </button>
@@ -1764,6 +1832,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
           </div>
         </div>
       )}
+
 
       {/* Paywall Modal */}
       <AIPaywallOverlay
@@ -1803,7 +1872,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               description={shareDescription}
               image={shareImage}
               propertyId={property.id}
-              slug={`${property.id}-${property.slug}`} 
+              slug={`${property.id}-${property.slug}`}
               onClose={() => setOpen(false)}
             />
           );

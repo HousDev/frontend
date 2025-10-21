@@ -36,9 +36,13 @@ import viewsAPI from '@/lib/viewAPI';
 import PublicSellPropertyForm from './PublicSellPropertyForm';
 import { FaWhatsapp } from 'react-icons/fa6';
 import WhySellModal from './WhySellModal';
+import { getTagStyle, DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 
-// ✅ NEW: import hero API & types
+// ✅ Import hero API & types
 import homeHeroAPI, { HeroBlock, PhotoPreview } from '@/lib/homeHeroAPI';
+
+// ✅ Import property tags API
+import propertyTagsAPI, { PropertyTagsRow } from '@/lib/propertyTagsAPI';
 
 interface Property {
   id: number;
@@ -70,9 +74,75 @@ interface Property {
   public_views?: number | null;
   total_views?: number;
   agent?: { phone?: string };
-  featured?: boolean;
-  verified?: boolean;
+  // ✅ NEW: Add tags field
+  tags?: string[];
 }
+
+// ✅ Tag display component
+const PropertyTags = ({ tags }: { tags: string[] }) => {
+  if (!tags || tags.length === 0) return null;
+
+  // ✅ Only show first 2 tags
+  const displayTags = tags.slice(0, 2);
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-3">
+      {displayTags.map((tag, index) => {
+        const style = getTagStyle(tag);
+        const EmojiComponent = typeof style.emoji === 'string'
+          ? () => <span className="text-xs mr-1">{style.emoji
+            ? typeof style.emoji === "string"
+              ? (
+                <span className="text-xs mr-1 uppercase" aria-hidden="true">
+                  {style.emoji}
+                </span>
+              )
+              : (
+                // style.emoji is a component here (Lucide icon)
+                React.createElement(style.emoji, {
+                  size: 10,
+                  className: "mr-1 uppercase",
+                  "aria-hidden": true,
+                })
+              )
+            : null}
+          </span>
+          : style.emoji;
+
+
+        return (
+          <span
+            key={index}
+            className={`
+              inline-flex items-center px-2 py-1 rounded-full text-xs font-bold uppercase 
+              ${style.bg} ${style.text} ring-1 ${style.ring}
+              transition-all duration-200
+            `}
+          >
+            {style.emoji && (typeof style.emoji === 'string' ? <EmojiComponent /> : <EmojiComponent size={10} className="mr-1" />)}
+            {tag}
+          </span>
+        );
+      })}
+      {/* ✅ Show +count if there are more than 2 tags */}
+      {tags.length > 2 && (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+          +{tags.length - 2}
+        </span>
+      )}
+    </div>
+  );
+};
+
+const isPublicProp = (p: any): boolean => {
+  const flag =
+    p?.is_public ??
+    p?.isPublic ??
+    p?.public ??
+    (typeof p?.visibility === "string" && p.visibility.toLowerCase() === "public");
+
+  return !!flag;
+};
 
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -131,6 +201,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     fetchMasters();
   }, []);
 
+
   // --- Likes state (persisted in localStorage) ---
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   useEffect(() => {
@@ -179,88 +250,131 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     }
   };
 
-  // ---------- Featured Properties (unchanged) ----------
+  // ✅ Function to fetch tags for a property
+  const fetchPropertyTags = async (propertyId: number): Promise<string[]> => {
+    try {
+      const tagsData = await propertyTagsAPI.getById(propertyId);
+      return tagsData?.tags || [];
+    } catch (err) {
+      console.warn(`Could not load tags for property ${propertyId}:`, err);
+      return [];
+    }
+  };
+
+  // ---------- Featured Properties (public-only) ----------
   useEffect(() => {
     const fetchFeaturedProperties = async () => {
       try {
         setLoading(true);
+
+        // ✅ Ask server to return only public + featured
         const response = await propertiesAPI.PublicgetProperties({
           status: 'Available',
-          featured: true,
           limit: 6,
+          isPublic: true,
+          is_public: 1,
+          visibility: 'public',
+          publicOnly: 1,
         });
 
-        const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
-        const mapped = await Promise.all(rawList.map(async (p: any) => {
-          const images: string[] =
-            Array.isArray(p.photos)
-              ? p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'))
-              : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
+        const listRaw = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
+        // ✅ client-side safety filter (in case backend ignores filter)
+        let rawList = listRaw.filter(isPublicProp);
 
-          const city = p.city_name || p.city || p.town || p.cityName || '';
-          const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
-          const state = p.state || p.region || '';
-          const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
+        // ✅ if no featured found, fallback to ANY public properties (still public-only)
+        if (!rawList.length) {
+          const fallbackRes = await propertiesAPI.PublicgetProperties({
+            status: 'Available',
+            limit: 6,
+            isPublic: true,
+            is_public: 1,
+            visibility: 'public',
+            publicOnly: 1,
+          });
+          const fb = Array.isArray(fallbackRes?.data) ? fallbackRes.data : (Array.isArray(fallbackRes) ? fallbackRes : []);
+          rawList = fb.filter(isPublicProp);
+        }
 
-          let amenities: string[] = [];
-          if (Array.isArray(p.amenities)) amenities = p.amenities.map(String).map(s => s.trim()).filter(Boolean);
-          else if (typeof p.amenities === 'string') amenities = p.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
-          else if (p.features) {
-            if (Array.isArray(p.features)) amenities = p.features.map(String).map(s => s.trim()).filter(Boolean);
-            else if (typeof p.features === 'string') amenities = p.features.split(',').map((s: string) => s.trim()).filter(Boolean);
-          }
+        // ✅ optional: sort by publication_date desc (if field exists)
+        rawList.sort((a: any, b: any) => {
+          const ad = a?.publication_date ? new Date(a.publication_date).getTime() : 0;
+          const bd = b?.publication_date ? new Date(b.publication_date).getTime() : 0;
+          return bd - ad;
+        });
 
-          const unitType = (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim();
-          const subtype = (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim();
+        // ✅ map to UI shape + fetch tags for each property
+        const mapped = await Promise.all(
+          rawList.slice(0, 6).map(async (p: any) => {
+            const images: string[] =
+              Array.isArray(p.photos)
+                ? p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'))
+                : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
 
-          const rawSlug = p?.slug ?? p?.url_slug ?? p?.generated_slug;
-          const slug = typeof rawSlug === 'string' && rawSlug.trim().length > 0 ? rawSlug.trim() : undefined;
-          if (!slug) console.warn('[HomePage] Missing backend slug for property id:', p?.id);
+            const city = p.city_name || p.city || p.town || p.cityName || '';
+            const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
+            const state = p.state || p.region || '';
+            const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
 
-          const viewCounts = await fetchPropertyViews(p.id);
-          const featured =
-            p.featured ?? p.is_featured ?? p.isFeatured ?? (p.badge ? String(p.badge).toLowerCase().includes('featured') : true);
-          const verified =
-            p.verified ?? p.is_verified ?? p.isVerified ?? (p.verification_status ? String(p.verification_status).toLowerCase() === 'verified' : true);
+            let amenities: string[] = [];
+            if (Array.isArray(p.amenities)) amenities = p.amenities.map(String).map(s => s.trim()).filter(Boolean);
+            else if (typeof p.amenities === 'string') amenities = p.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+            else if (p.features) {
+              if (Array.isArray(p.features)) amenities = p.features.map(String).map(s => s.trim()).filter(Boolean);
+              else if (typeof p.features === 'string') amenities = p.features.split(',').map((s: string) => s.trim()).filter(Boolean);
+            }
 
-          return {
-            id: p.id,
-            title: (p.title || `${unitType ? unitType + ' ' : ''}${p.property_type_name || p.property_type || ''}`).trim(),
-            price: Number(p.budget || p.price || p.amount) || 0,
-            bedrooms: Number(p.bedrooms) || undefined,
-            bathrooms: Number(p.bathrooms) || undefined,
-            square_feet: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
-            city,
-            property_type: p.property_type_name || p.property_type || '',
-            status: p.status || '',
-            images,
-            location,
-            area: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
-            type: p.property_type_name || p.property_type || '',
-            unitType,
-            subtype,
-            amenities,
-            badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
-            rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
-            views: viewCounts.total_views || 0,
-            total_views: viewCounts.total_views,
-            aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
-            sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
-            slug,
-            possessionMonth: p.possession_month ?? p.possessionMonth ?? null,
-            possessionYear: p.possession_year ?? p.possessionYear ?? null,
-            property_status: p.property_status ?? p.status ?? '',
-            created_at: p.created_at ?? null,
-            public_views: p.public_views ?? null,
-            agent: { phone: p.agent_phone || p.agent?.phone || p.owner_phone || '' },
-            featured: !!featured,
-            verified: !!verified,
-          } as Property;
-        }));
+            const unitType = (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim();
+            const subtype = (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim();
+
+            const rawSlug = p?.slug ?? p?.url_slug ?? p?.generated_slug;
+            const slug = typeof rawSlug === 'string' && rawSlug.trim().length > 0 ? rawSlug.trim() : undefined;
+            if (!slug) console.warn('[HomePage] Missing backend slug for property id:', p?.id);
+
+            // ✅ Fetch tags for this property
+            const tags = await fetchPropertyTags(p.id);
+
+            // views (async)
+            const viewData = await fetchPropertyViews(p.id);
+
+            return {
+              id: p.id,
+              title: (p.title || `${unitType ? unitType + ' ' : ''}${p.property_type_name || p.property_type || ''}`).trim(),
+              price: Number(p.budget || p.price || p.amount) || 0,
+              bedrooms: Number(p.bedrooms) || undefined,
+              bathrooms: Number(p.bathrooms) || undefined,
+              square_feet: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
+              city,
+              property_type: p.property_type_name || p.property_type || '',
+              status: p.status || '',
+              images,
+              location,
+              area: Number(p.carpet_area) || Number(p.builtup_area) || Number(p.area) || undefined,
+              type: p.property_type_name || p.property_type || '',
+              unitType,
+              subtype,
+              amenities,
+              badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
+              rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
+              views: viewData.total_views || 0,
+              total_views: viewData.total_views,
+              aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
+              sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
+              slug,
+              possessionMonth: p.possession_month ?? p.possessionMonth ?? null,
+              possessionYear: p.possession_year ?? p.possessionYear ?? null,
+              property_status: p.property_status ?? p.status ?? '',
+              created_at: p.created_at ?? null,
+              public_views: p.public_views ?? null,
+              agent: { phone: p.agent_phone || p.agent?.phone || p.owner_phone || '' },
+
+              tags, // ✅ Add tags to property object
+            } as Property;
+          })
+        );
 
         setFeaturedProperties(mapped);
       } catch (err) {
-        console.error('Error fetching featured properties:', err);
+        console.error('Error fetching featured properties (public-only):', err);
         setFeaturedProperties([]);
       } finally {
         setLoading(false);
@@ -270,11 +384,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     fetchFeaturedProperties();
   }, []);
 
-  useEffect(() => {
-    if (!featuredProperties.length) return;
-    const t = setInterval(() => setFeaturedIndex(i => (i + 1) % featuredProperties.length), 5000);
-    return () => clearInterval(t);
-  }, [featuredProperties.length]);
 
   // ---------- ✅ HERO: fetch & build slides ----------
   useEffect(() => {
@@ -892,21 +1001,26 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                       <div className="h-48 bg-gray-200 flex items-center justify-center"><Building className="text-gray-400" /></div>
                     )}
 
-                    {/* <div className="absolute top-4 left-4">
-                      <span className={`px-3 py-1 rounded-full text-white text-sm ${property.badge === 'Premium' ? 'bg-[#0b3856]' : 'bg-[#1de631]'}`}>{property.badge || 'Featured'}</span>
-                    </div> */}
+                    <div className="absolute top-3 left-3 flex items-start flex-wrap gap-2 z-20">
+                      {(property.aiScore ?? 0) >= 90 && (
+                        <span className="flex-none whitespace-nowrap bg-purple-600 text-white px-2 py-1 rounded-full text-[8px] sm:text-xs font-bold leading-none flex items-center shadow-sm">
+                          <Bot size={12} className="mr-1" />
+                          AI {Math.round(property.aiScore ?? 0)}
+                        </span>
+                      )}
 
-                    <div className="absolute top-3 left-3 flex space-x-2">
-                      {property.featured && (<span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"><Zap size={10} className="mr-1" />FEATURED</span>)}
-                      {property.verified && (<span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center space-x-1"><CheckCircle size={10} /><span>VERIFIED</span></span>)}
-                      {(property.aiScore || 0) > 90 && (<span className="bg-purple-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"><Bot size={10} className="mr-1" />AI {property.aiScore}</span>)}
+                      {/* keep tags but let them take remaining space without squashing the badge */}
+                      <div className="max-w-[72vw] sm:max-w-none overflow-hidden">
+                        <PropertyTags tags={property.tags || []} />
+                      </div>
                     </div>
+
                     <div className="absolute top-2 right-4 flex space-x-2">
                       <div className="absolute top-2 right-4 flex space-x-2">
-                        <button
+                        {/* <button
                           onClick={(e) => { e.stopPropagation(); toggleLike(property); }}
                           className={`p-2 rounded-full transition
-      ${isLiked(property.id) ? "bg-white" : "bg-white hover:bg-white"}`}
+                              ${isLiked(property.id) ? "bg-white" : "bg-white hover:bg-white"}`}
                           title={isLiked(property.id) ? "Unlike" : "Like"}
                           aria-pressed={isLiked(property.id)}
                         >
@@ -914,9 +1028,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                             size={18}
                             className={isLiked(property.id) ? 'text-red-500 fill-current' : 'text-gray-600'}
                           />
-                        </button>
+                        </button> */}
                       </div>
-                      {/* <button className="p-2 bg-white/80 rounded-full"><Eye className="text-blue-500" /></button> */}
                     </div>
 
                     <div className="absolute bottom-4 left-4 flex items-center gap-2">
@@ -933,6 +1046,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   </div>
 
                   <div className="p-6">
+                    {/* ✅ Property Tags - Only show 2 tags */}
+
+
                     <div className="flex items-start justify-between mb-2">
                       <div className="pr-4">
                         <div className="text-lg font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">
@@ -1151,9 +1267,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </h2>
             <h2>Trusted Resale Property Consultant in Pune & PCMC</h2>
             <p className="text-gray-600">
-              Buying or selling a resale property can be overwhelming. That’s why thousands of homeowners and buyers choose Resale Expert for hassle-free transactions.
-
-
+              Buying or selling a resale property can be overwhelming. That's why thousands of homeowners and buyers choose Resale Expert for hassle-free transactions.
             </p>
           </div>
 
@@ -1173,7 +1287,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
             {/* Card 2 */}
             <div className="text-center group">
-              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+              <div className="bg-[#E6761D] w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
                 <Brain className="text-white" size={26} />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">

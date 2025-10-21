@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Home, Plus, Search, Filter, Eye, Edit, Trash2, Download, Upload,
   Grid, List, MapPin, Building, Users, MoreHorizontal, X,
   ChevronLeft, ChevronRight, Globe, Award, CheckCircle, User,
 } from 'lucide-react';
-
+import type { LucideIcon } from "lucide-react";
 import PropertyViewPage from '../../components/properties/PropertyViewPage';
 import BuyerMatchingModal from '../../components/properties/BuyerMatchingModal';
 import BuyerListModal from '../../components/properties/BuyerListModal';
@@ -19,6 +18,8 @@ import { getImageUrl, FILE_BASE, API_GLOBAL_BASE } from "@/lib/helpers";
 
 import PropertyFilterModal from './PropertyFilterModal';
 import PropertyBulkBrochureModal from '@/components/properties/PropertyBulkBrochureModal';
+import propertyTagsAPI from '@/lib/propertyTagsAPI';
+import getTagStyle, { DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 
 /* ---------------------- Types ---------------------- */
 interface UIProperty {
@@ -99,10 +100,176 @@ interface UIProperty {
   lastStatusUpdate?: string;
   lastUpdated?: string;
 }
-/* ---------------------- Utils ---------------------- */
 
+/* ---------------------- Utils ---------------------- */
 const dash = (v: any) => (v === null || v === undefined || v === '' ? ' - ' : v);
 const toNum = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
+/* ---------------------- Multi-select Tag Picker ---------------------- */
+const TagPickerRow: React.FC<{
+  label: "Add" | "Remove";
+  knownTags: string[];
+  selectedPropertyIds: (number | string)[];
+  propTags: Record<string, string[]>;
+  onApply: (tags: string[]) => void;
+}> = ({ label, knownTags, selectedPropertyIds, propTags, onApply }) => {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+
+  // Get currently selected tags from all selected properties
+  const currentTags = useMemo(() => {
+    const allTags = new Set<string>();
+    selectedPropertyIds.forEach(id => {
+      const tags = propTags[String(id)] || [];
+      tags.forEach(tag => allTags.add(tag));
+    });
+    return Array.from(allTags);
+  }, [selectedPropertyIds, propTags]);
+
+  const options = useMemo(() => {
+    const base = (knownTags?.length ? knownTags : Object.keys(DEFAULT_TAG_STYLE))
+      .map(t => String(t).trim())
+      .filter(Boolean);
+    const uniq = Array.from(new Map(base.map(t => [t.toLowerCase(), t])).values());
+    return uniq.sort((a, b) => a.localeCompare(b));
+  }, [knownTags]);
+
+  // Initialize selected state based on current tags for "Remove" mode
+  useEffect(() => {
+    if (label === "Remove" && open) {
+      // For remove mode, pre-select the tags that are currently applied to selected properties
+      setSelected(currentTags.filter(tag => options.includes(tag)));
+    } else if (label === "Add" && open) {
+      // For add mode, start with empty selection
+      setSelected([]);
+    }
+  }, [open, label, currentTags, options]);
+
+  const toggle = (t: string) => {
+    setSelected(prev => (prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]));
+  };
+
+  const selectAll = () => setSelected(options);
+  const clearAll = () => setSelected([]);
+
+  const apply = () => {
+    if (!selected.length) {
+      toast.warn(`Please select at least one tag to ${label.toLowerCase()}`);
+      return;
+    }
+    onApply(selected);
+    setOpen(false);
+  };
+
+  return (
+    <div className="mb-2 relative">
+      <button
+        className="w-full text-left text-xs px-2 py-1 rounded hover:bg-gray-50 font-medium border border-transparent hover:border-gray-200 transition-colors"
+        onClick={() => setOpen(o => !o)}
+        type="button"
+      >
+        {label} tags
+        {selected.length > 0 && (
+          <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px]">
+            {selected.length} selected
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute z-30 left-0 right-0 mt-1 border rounded-lg bg-white shadow-lg p-2 min-w-[250px]">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[11px] text-gray-500">
+              {options.length} available tags
+              {label === "Remove" && currentTags.length > 0 && (
+                <span className="ml-1 text-blue-600">
+                  ({currentTags.length} currently applied)
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={selectAll} 
+                className="text-[11px] px-2 py-1 border rounded hover:bg-gray-50 transition-colors"
+              >
+                Select all
+              </button>
+              <button 
+                onClick={clearAll} 
+                className="text-[11px] px-2 py-1 border rounded hover:bg-gray-50 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-64 overflow-auto">
+            <ul className="grid grid-cols-1 gap-2">
+              {options.map(t => {
+                const active = selected.includes(t);
+                const tone = getTagStyle(t);
+                const isCurrentlyApplied = currentTags.includes(t);
+
+                return (
+                  <li
+                    key={t}
+                    className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
+                      active 
+                        ? "border-blue-400 bg-blue-50/40 shadow-sm" 
+                        : "border-gray-200 hover:border-gray-300"
+                    } ${label === "Remove" && isCurrentlyApplied ? "ring-1 ring-green-200 bg-green-50/30" : ""}`}
+                    onClick={() => toggle(t)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() => toggle(t)}
+                      className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div 
+                      className={`flex items-center gap-1 px-2 py-1 rounded-full ring-1 ${tone.bg} ${tone.text} ${tone.ring} flex-1`}
+                      title={t}
+                    >
+                      <Emoji emoji={tone.emoji} size={12} className="text-xs mr-1" />
+                      <span className="text-[11px] leading-none capitalize">{t}</span>
+                    </div>
+                    {label === "Remove" && isCurrentlyApplied && (
+                      <span className="text-[10px] text-green-600 font-medium px-1.5 py-0.5 bg-green-100 rounded">
+                        Applied
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-200">
+            <div className="text-[11px] text-gray-500">
+              {selected.length} tag{selected.length !== 1 ? 's' : ''} selected
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setOpen(false)} 
+                className="px-3 py-1.5 border rounded text-xs hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={apply} 
+                className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={selected.length === 0}
+              >
+                {label} {selected.length} Tag{selected.length !== 1 ? 's' : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 /* ---------------------- Price Range Helper ---------------------- */
 function checkPriceRange(price: number, selectedRange: string) {
@@ -147,111 +314,84 @@ function checkPriceRange(price: number, selectedRange: string) {
   return true;
 }
 
+function Emoji({
+  emoji,
+  size = 12,
+  className = "",
+}: {
+  emoji?: string | LucideIcon;
+  size?: number;
+  className?: string;
+}) {
+  if (!emoji) return null;
+
+  // 🧩 For string emojis — force uppercase and slightly bolder
+  if (typeof emoji === "string") {
+    return (
+      <span
+        className={`${className} font-bold uppercase leading-none`}
+        aria-hidden="true"
+      >
+        {emoji}
+      </span>
+    );
+  }
+
+  // 🧩 For icon components — render normally
+  const Icon = emoji;
+  return <Icon size={size} className={className} aria-hidden="true" />;
+}
+
 /* ---------------------- Dynamic Tags System ---------------------- */
-
-const getPropertyTags = (property: UIProperty) => {
-  const tags: Array<{ label: string; emoji: string; color?: string; textColor?: string; priority: number }> = [];
-  const now = new Date();
-
-  const createdDate = property.created_at ? new Date(property.created_at) : null;
-  const daysSinceCreated = createdDate ? Math.floor((+now - +createdDate) / (1000 * 60 * 60 * 24)) : null;
-
-  const updatedDate = property.updated_at ? new Date(property.updated_at) : null;
-  const daysSinceUpdated = updatedDate ? Math.floor((+now - +updatedDate) / (1000 * 60 * 60 * 24)) : null;
-
-  if (daysSinceCreated !== null && daysSinceCreated <= 7) {
-    tags.push({ label: 'New Listing', emoji: '', priority: 9 });
-  }
-
-  if ((Number(property.hotLeads) || 0) > 3 || (Number(property.visits) || 0) > 120) {
-    tags.push({ label: 'Hot Deal', emoji: '🔥', priority: 10 });
-  }
-
-  if (property.ownershipDocUrl || property.ownershipDocName) {
-    tags.push({ label: 'Verified', emoji: '✅', priority: 7 });
-  }
-
-  if (property.selling_rights === 'Urgent' || property.stage === 'deal_closure') {
-    tags.push({ label: 'Urgent Sale', emoji: '⏳', priority: 8 });
-  }
-
-  if (property.selling_rights === 'Exclusive') {
-    tags.push({ label: 'Exclusive', emoji: '🔒', priority: 6 });
-  }
-
-  if (property.leadSource === 'Direct Owner' || property.leadSource === 'Owner') {
-    tags.push({ label: 'Direct Owner', emoji: '👤', priority: 5 });
-  }
-
-  if (property.isPublic && (Number(property.publicViews) || 0) > 300) {
-    tags.push({ label: 'Featured', emoji: '📢', priority: 4 });
-  }
-
-  if (daysSinceUpdated !== null && daysSinceUpdated <= 2 && (daysSinceCreated === null || daysSinceCreated > 7)) {
-    tags.push({ label: 'Recently Updated', emoji: '🕒', priority: 3 });
-  }
-
-  const budget = Number(property.budget) || 0;
-  if (budget > 0 && budget < 5_000_000) {
-    tags.push({ label: 'Best Price', emoji: '🏷️', priority: 2 });
-  }
-
-  if (budget > 20_000_000) {
-    tags.push({ label: 'Premium', emoji: '💎', priority: 1 });
-  }
-
-  return tags
-    .sort((a, b) => b.priority - a.priority)
-    .slice(0, 3);
-};
-
-const TAG_TONES: Record<string, { bg: string; text: string; ring: string }> = {
-  "New Listing": { bg: "bg-gradient-to-r from-green-500/90 to-emerald-600/90", text: "text-white", ring: "ring-green-300/40" },
-  "Hot Deal": { bg: "bg-rose-600/80", text: "text-white", ring: "ring-white/20" },
-  "Verified": { bg: "bg-white", text: "text-green-600", ring: "ring-white/20" },
-  "Urgent Sale": { bg: "bg-amber-600/80", text: "text-white", ring: "ring-white/20" },
-  "Exclusive": { bg: "bg-purple-600/80", text: "text-white", ring: "ring-white/20" },
-  "Direct Owner": { bg: "bg-teal-600/80", text: "text-white", ring: "ring-white/20" },
-  "Featured": { bg: "bg-fuchsia-600/80", text: "text-white", ring: "ring-white/20" },
-  "Recently Updated": { bg: "bg-cyan-600/80", text: "text-white", ring: "ring-white/20" },
-  "Best Price": { bg: "bg-yellow-600/80", text: "text-white", ring: "ring-white/20" },
-  "Premium": { bg: "bg-gradient-to-r from-amber-300 via-yellow-500 to-amber-600", text: "text-white font-semibold", ring: "ring-amber-200/50" }
-};
-
-const PropertyTags = ({ property, className = "" }: { property: UIProperty; className?: string }) => {
-  const tags = getPropertyTags(property);
-  if (!tags.length) return null;
+const PropertyTags = ({
+  tags,
+  className = "",
+  onClickTag,
+}: {
+  tags: string[];
+  className?: string;
+  onClickTag?: (tag: string) => void;
+}) => {
+  if (!tags?.length) return null;
 
   return (
     <div className={`flex flex-wrap gap-1.5 ${className}`}>
-      {tags.map((tag, i) => {
-        const tone = TAG_TONES[tag.label] || { bg: "bg-gray-50", text: "text-gray-700", ring: "ring-gray-200" };
+      {tags.map((raw, i) => {
+        const key = String(raw || "").trim();
+        const tone = getTagStyle(key);
+
+        const common =
+          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ring-1 shadow-sm leading-none";
+
+        const TagEl = onClickTag ? "button" as const : "span";
+
         return (
-          <span
-            key={`${tag.label}-${i}`}
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${tone.bg} ${tone.text} ${tone.ring} shadow-sm`}
+          <TagEl
+            key={`${key}-${i}`}
+            title={onClickTag ? `Filter by: ${key}` : key}
+            className={`${common} ${tone.bg} ${tone.text} ${tone.ring} ${
+              onClickTag ? "cursor-pointer hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400" : ""
+            }`}
+            onClick={onClickTag ? () => onClickTag(key) : undefined}
+            type={onClickTag ? "button" : undefined}
+            aria-label={onClickTag ? `Filter by tag ${key}` : undefined}
           >
-            <span className="leading-none">{tag.emoji}</span>
-            <span className="leading-none">{tag.label}</span>
-          </span>
+            <Emoji emoji={tone.emoji} size={12} className="text-xs mr-1" />
+            <span className="leading-none">{key}</span>
+          </TagEl>
         );
       })}
     </div>
   );
 };
 
-const getUniquePropertyTags = (properties: UIProperty[]) => {
-  const allTags = new Set<string>();
-  properties.forEach(property => {
-    getPropertyTags(property).forEach(tag => {
-      allTags.add(tag.label);
-    });
-  });
-  return Array.from(allTags);
+const getUniquePropertyTagsFromCache = (tagMap: Record<string, string[]>) => {
+  const set = new Set<string>();
+  Object.values(tagMap).forEach(list => (list || []).forEach(t => set.add(t)));
+  return Array.from(set);
 };
 
-/* ---------------------- IMAGE URL HELPERS + DEBUG ---------------------- */
-
+/* ---------------------- IMAGE URL HELPERS ---------------------- */
 const ImageWithDebug: React.FC<{
   srcCandidate?: string;
   alt?: string;
@@ -287,13 +427,7 @@ const ImageWithDebug: React.FC<{
       style={{ objectFit: fitCover ? 'cover' : undefined }}
       onLoad={() => {
         if (import.meta.env?.MODE !== 'production') {
-          // console.log('[IMG OK]', {
-          //   title: propertyCtx?.title,
-          //   propertyId: propertyCtx?.propertyId,
-          //   original: srcCandidate,
-          //   resolved,
-          //   fileBase: FILE_BASE
-          // });
+          // console.log('[IMG OK]', { title: propertyCtx?.title, propertyId: propertyCtx?.propertyId, original: srcCandidate, resolved, fileBase: FILE_BASE });
         }
       }}
       onError={() => {
@@ -311,7 +445,6 @@ const ImageWithDebug: React.FC<{
 };
 
 /* ---------------------- API helpers ---------------------- */
-
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 async function withTimeout<T>(p: Promise<T>, ms = 12000): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -334,7 +467,6 @@ function coerceStringArray(raw: any): string[] {
 }
 
 /* ---------------------- FurnishingItems Normalizer ---------------------- */
-
 function normalizeFurnishingItems(r: any): string[] {
   const furnishingItemsRaw =
     r?.furnishingItems ?? r?.furnishing_items ?? r?.furnished_items ?? r?.furnishing_details ?? r?.furnishing_list ?? r?.furnishingItem ?? r?.furnishing_item ?? (typeof r?.furnishing === 'string' && r.furnishing.includes(',') ? r.furnishing : undefined);
@@ -352,18 +484,10 @@ function normalizeFurnishingItems(r: any): string[] {
     )
   );
 
-  // if (import.meta.env?.MODE !== 'production') {
-  //   console.groupCollapsed('[FURNISH NORMALIZE]');
-  //   console.log('incoming', furnishingItemsRaw);
-  //   console.log('normalized', items);
-  //   console.groupEnd();
-  // }
-
   return items;
 }
 
 /* ---------------------- Normalizer: API -> UI ---------------------- */
-
 function normalizeProperty(r: any, idx: number): UIProperty {
   const serverPhotoUrls: string[] = Array.isArray(r?.photoUrls) ? r.photoUrls : [];
 
@@ -380,33 +504,10 @@ function normalizeProperty(r: any, idx: number): UIProperty {
 
   const furnishingItems = normalizeFurnishingItems(r);
 
-  // if (import.meta.env?.MODE !== 'production') {
-  //   console.groupCollapsed('[NORMALIZE PROPERTY]', r?.id ?? idx + 1);
-  //   console.log({
-  //     id: r?.id ?? idx + 1,
-  //     propertyId: r?.property_id,
-  //     incomingPhotos: r?.photos,
-  //     ownershipDocPath: r?.ownership_doc_path,
-  //     ownershipDocName: r?.ownership_doc_name,
-  //     ownershipDocId: r?.ownership_doc_id,
-  //     ownershipDocUrl: r?.ownershipDocUrl,
-  //     ownershipDocument: r?.ownership_document,
-  //     incomingPhotoUrls: r?.photoUrls,
-  //     normalizedPhotos,
-  //     incomingFurnishingItems:
-  //       r?.furnishingItems ?? r?.furnishing_items ?? r?.furnished_items ?? r?.furnishing_details ?? r?.furnishing_list ?? r?.furnishingItem ?? r?.furnishing_item ?? r?.furnishing,
-  //     normalizedFurnishingItems: furnishingItems,
-  //     note: 'Photo paths normalized to absolute URLs; furnishingItems coerced; ownership doc mapped.',
-  //   });
-  //   console.groupEnd();
-  // }
-  // ---- PRICE NORMALIZATION (updated) ----
   const normalizedPriceType = ((): 'Fixed' | 'Negotiable' => {
-    // 1) strongest signal = boolean flags
     if (typeof r?.is_negotiable === 'boolean') return r.is_negotiable ? 'Negotiable' : 'Fixed';
     if (typeof r?.negotiable === 'boolean') return r.negotiable ? 'Negotiable' : 'Fixed';
 
-    // 2) text fields (fallback)
     const raw =
       r?.priceType ??
       r?.price_type ??
@@ -418,12 +519,10 @@ function normalizeProperty(r: any, idx: number): UIProperty {
       if (/negotiable/i.test(raw)) return 'Negotiable';
       if (/fixed/i.test(raw)) return 'Fixed';
     }
-    // 3) default
     return 'Fixed';
   })();
 
   const normalizedFinalPrice = (() => {
-    // ONLY take the actual price fields; do NOT fall back to budget
     const raw =
       r?.finalPrice ??
       r?.final_price ??
@@ -434,7 +533,6 @@ function normalizeProperty(r: any, idx: number): UIProperty {
     return Number.isFinite(n) ? n : '';
   })();
 
-  // Optional: keep budget totally separate from final price
   const normalizedBudget = (() => {
     const raw =
       r?.budget ??
@@ -478,16 +576,12 @@ function normalizeProperty(r: any, idx: number): UIProperty {
     selling_rights: r.selling_rights || " - ",
     photos: normalizedPhotos,
 
-
-    // ...existing seeds
     bedrooms: r.bedrooms || '',
     bathrooms: r.bathrooms || '',
     facing: r.facing || ' ',
 
-    // budget: normalizedBudget,          // ← stays independent
-    // ...
-    priceType: normalizedPriceType,    // ← derived from is_negotiable/negotiable/text
-    finalPrice: normalizedFinalPrice,  // ← from final_price/price only
+    priceType: normalizedPriceType,
+    finalPrice: normalizedFinalPrice,
 
     seller: {
       id: r.seller_id,
@@ -517,8 +611,7 @@ function normalizeProperty(r: any, idx: number): UIProperty {
   };
 }
 
-
-/* ---------------------- Edit Initial Data Builder (fixed) ---------------------- */
+/* ---------------------- Edit Initial Data Builder ---------------------- */
 const clean = (v: any) => {
   if (v === null || v === undefined) return '';
   const s = String(v).trim();
@@ -536,13 +629,12 @@ const buildInitialData = (p: UIProperty) => {
     unitNo: clean(p.unitNo),
     furnishing: clean(p.furnishing),
 
-    // ✅ new bits
     facing: clean(p.facing),
-    bedrooms: clean(p.bedrooms),          // <-- fixed mapping
+    bedrooms: clean(p.bedrooms),
     bathrooms: clean(p.bathrooms),
 
     priceType: (p.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
-    finalPrice: clean(p.finalPrice),       // input-friendly string
+    finalPrice: clean(p.finalPrice),
 
     parkingType: clean(p.parkingType),
     parkingQty: clean(p.parkingQty),
@@ -581,8 +673,7 @@ const buildInitialData = (p: UIProperty) => {
   };
 };
 
-/* ---------------------- Tailwind Color Helpers (no dynamic classes) ---------------------- */
-
+/* ---------------------- Tailwind Color Helpers ---------------------- */
 const TAB_STYLES: Record<string, { badge: string; btn: string; btnActive: string; countActive: string }> = {
   blue: { badge: 'bg-blue-200', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-blue-100 text-blue-700 border border-blue-200', countActive: 'bg-blue-200' },
   green: { badge: 'bg-green-200', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-green-100 text-green-700 border border-green-200', countActive: 'bg-green-200' },
@@ -602,7 +693,6 @@ function tabCountClass(active: boolean, color: string) {
 }
 
 /* ---------------------- Component ---------------------- */
-
 const PropertiesPage = () => {
   const [activeTab, setActiveTab] = useState<string>(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -631,6 +721,12 @@ const PropertiesPage = () => {
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
+
+  // Dynamic tags cache: { [propertyId]: string[] }
+  const [propTags, setPropTags] = useState<Record<string, string[]>>({});
+  const [knownTags, setKnownTags] = useState<string[]>([]);
+
+  // Persist active tab
   useEffect(() => {
     if (!activeTab) return;
     localStorage.setItem('prop_list_tab', activeTab);
@@ -639,15 +735,13 @@ const PropertiesPage = () => {
     window.history.replaceState({}, '', url.toString());
   }, [activeTab]);
 
-
-
+  // Fetch master data
   useEffect(() => {
     const fetchMasters = async () => {
       try {
         setMasterLoading(true);
         const data = await getMasterDropdownOptions(['common', 'lead', 'property']);
         setMasters(data);
-
       } catch (err) {
         console.error('Error fetching master options:', err);
       } finally {
@@ -657,7 +751,6 @@ const PropertiesPage = () => {
 
     fetchMasters();
   }, []);
-
 
   const initialFilters = {
     dateFrom: '',
@@ -684,20 +777,36 @@ const PropertiesPage = () => {
     if (typeof (propertiesAPI as any)?.getProperties !== 'function') {
       throw new Error('propertiesAPI.getProperties is not a function (check import/path).');
     }
-    if (import.meta.env?.MODE !== 'production') {
-      // console.log('[FETCH] calling propertiesAPI.getProperties()…');
-    }
     const raw = await withTimeout(propertiesAPI.getProperties(), 12000);
     const list = Array.isArray(raw) ? raw : raw?.data || [];
-    if (import.meta.env?.MODE !== 'production') {
-      // console.log('[FETCH OK] raw count:', list.length);
-    }
     const mapped = list.map((r: any, idx: number) => normalizeProperty(r, idx));
-    if (import.meta.env?.MODE !== 'production') {
-      // console.log('[FETCH MAP] normalized count:', mapped.length);
-    }
     return mapped;
   };
+
+  const presetTags = useMemo(() => Object.keys(DEFAULT_TAG_STYLE), []);
+  const dynamicTagUniverse = useMemo(
+    () => getUniquePropertyTagsFromCache(propTags),
+    [propTags]
+  );
+
+  const handleClickTag = (tag: string) => {
+    setFilters((f) => ({ ...f, tags: tag }));
+    setActiveTab("all");
+    setCurrentPage(1);
+    toast.info(`Filtered by tag: ${tag}`, { autoClose: 1500 });
+  };
+
+  const knownTagsAll = useMemo(() => {
+    const set = new Set<string>([
+      ...presetTags,
+      ...knownTags,
+      ...dynamicTagUniverse,
+    ]);
+    return Array.from(set)
+      .map(t => String(t).trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [presetTags, knownTags, dynamicTagUniverse]);
 
   const loadProperties = async () => {
     setLoading(true);
@@ -708,24 +817,15 @@ const PropertiesPage = () => {
       let lastErr: any = null;
       for (let attempt = 0; attempt < 3 && !data; attempt++) {
         try {
-          if (import.meta.env?.MODE !== 'production') {
-            // console.log(`[LOAD] attempt ${attempt + 1}/3`);
-          }
           data = await fetchPropertiesOnce();
         }
         catch (e: any) {
           lastErr = e;
-          if (import.meta.env?.MODE !== 'production') {
-            // console.warn(`[LOAD] attempt ${attempt + 1} failed:`, e?.message || e);
-          }
           if (attempt < 2) await sleep(600 * (attempt + 1));
         }
       }
       if (!data) throw lastErr ?? new Error('Unknown fetch error');
       setProperties(data);
-      if (import.meta.env?.MODE !== 'production') {
-        // console.log('[LOAD DONE] properties:', data.length);
-      }
     } catch (e: any) {
       console.error('Error fetching properties:', e);
       const msg = e?.message || 'Failed to load properties.';
@@ -739,12 +839,15 @@ const PropertiesPage = () => {
     }
   };
 
+  // Load properties on mount
   useEffect(() => {
     loadProperties();
     const backOnline = () => navigator.onLine && loadProperties();
     window.addEventListener('online', backOnline);
     return () => window.removeEventListener('online', backOnline);
   }, []);
+
+  // Update current property view when properties change
   useEffect(() => {
     if (!currentPropertyView) return;
     const fresh = properties.find(pp =>
@@ -753,7 +856,83 @@ const PropertiesPage = () => {
     if (fresh && fresh.updated_at !== currentPropertyView.updated_at) {
       setCurrentPropertyView(fresh);
     }
-  }, [properties]); // deps: properties
+  }, [properties]);
+
+  // Load tags for properties
+  useEffect(() => {
+    if (!properties.length) return;
+
+    const slice = properties.slice(0, Math.min(80, properties.length));
+    (async () => {
+      try {
+        const updates: Record<string, string[]> = {};
+        const tagSet = new Set(knownTags);
+
+        for (const p of slice) {
+          const key = String(p.id);
+          if (propTags[key]) {
+            propTags[key].forEach(t => tagSet.add(t));
+            continue;
+          }
+          try {
+            const row = await propertyTagsAPI.getById(p.id);
+            const tags: string[] = Array.isArray(row?.tags) ? row.tags : [];
+            updates[key] = tags;
+            tags.forEach(t => tagSet.add(t));
+          } catch {/* ignore */ }
+        }
+
+        if (Object.keys(updates).length) {
+          setPropTags(prev => ({ ...prev, ...updates }));
+        }
+        setKnownTags(Array.from(tagSet).sort());
+      } catch {/* noop */ }
+    })();
+  }, [properties]);
+
+  // Load known tags from server
+  useEffect(() => {
+    (async () => {
+      try {
+        const serverKnown = await propertyTagsAPI.getKnown();
+        const merged = new Map<string, string>();
+        [...serverKnown, ...Object.keys(DEFAULT_TAG_STYLE)].forEach(t => merged.set(t.toLowerCase(), t));
+        setKnownTags(Array.from(merged.values()).sort((a, b) => a.localeCompare(b)));
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
+
+  // Auto-add "New Listing" tag for recent properties
+  useEffect(() => {
+    if (!properties.length) return;
+
+    const now = Date.now();
+    const needsNewListing: UIProperty[] = properties.filter(p => {
+      const created = p.created_at ? new Date(p.created_at).getTime() : 0;
+      const isNew = created && (now - created) / (1000 * 60 * 60 * 24) <= 7;
+      const key = String(p.id);
+      const hasTag = (propTags[key] || []).some(t => t.toLowerCase() === "new listing" || t.toLowerCase() === "new_listing");
+      return isNew && !hasTag;
+    });
+
+    if (!needsNewListing.length) return;
+
+    (async () => {
+      for (const p of needsNewListing) {
+        const key = String(p.id);
+        setPropTags(prev => ({
+          ...prev,
+          [key]: Array.from(new Set([...(prev[key] || []), "New Listing"]))
+        }));
+        try {
+          await propertyTagsAPI.add(p.id, ["New Listing"]);
+        } catch {/* ignore network errors */ }
+      }
+      setKnownTags(prev => (prev.includes("New Listing") ? prev : ["New Listing", ...prev]));
+    })();
+  }, [properties, propTags]);
 
   const tabs = useMemo(
     () => [
@@ -790,29 +969,32 @@ const PropertiesPage = () => {
         (filters.location === 'all' || p.location === filters.location || p.city === filters.location) &&
         (filters.stage === 'all' || p.stage === filters.stage.toLowerCase().replace(/\s+/g, "_")) &&
         (filters.priceRange === 'all' || checkPriceRange(Number(p.budget), filters.priceRange)) &&
-        (filters.tags === 'all' || getPropertyTags(p).some(tag => tag.label === filters.tags));
+        (
+          filters.tags === 'all' ||
+          (propTags[String(p.id)] || []).some(t => t === filters.tags)
+        );
 
       return matchesSearch && matchesTab && matchesFilters;
     });
-    if (import.meta.env?.MODE !== 'production') {
-      // console.debug('[FILTERED]', { total: properties.length, filtered: out.length, activeTab, searchTerm, filters });
-    }
     return out;
-  }, [properties, searchTerm, activeTab, filters]);
+  }, [properties, searchTerm, activeTab, filters, propTags]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProperties.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedProperties = filteredProperties.slice(startIndex, startIndex + itemsPerPage);
+
+  // Event handlers
   const handlebrochureDownloadsy = () => {
     setBulkModalOpen(true);
   };
+
   const handleAddProperty = () => { setEditingProperty(null); setShowPropertyForm(true); };
   const handleEditProperty = (property: UIProperty) => { setEditingProperty(property); setShowPropertyForm(true); };
+
   const handleViewProperty = (property: UIProperty) => {
     setCurrentPropertyView(property);
     const url = new URL(window.location.href);
     url.searchParams.set('view', String(property.id));
-    // (PV ka ?tab alag handle hoga — isse mat छेड़ो)
     window.history.replaceState({}, '', url.toString());
   };
 
@@ -820,7 +1002,7 @@ const PropertiesPage = () => {
     setCurrentPropertyView(null);
     const url = new URL(window.location.href);
     url.searchParams.delete('view');
-    url.searchParams.delete('tab'); // PV ka tab param list pe aane par clear
+    url.searchParams.delete('tab');
     window.history.replaceState({}, '', url.toString());
   };
 
@@ -833,7 +1015,6 @@ const PropertiesPage = () => {
       if (p) setCurrentPropertyView(p);
     }
   }, [loading, error, properties, currentPropertyView]);
-
 
   const handleDeleteProperty = async (propertyId: number | string) => {
     if (window.confirm("Are you sure you want to delete this property?")) {
@@ -888,6 +1069,56 @@ const PropertiesPage = () => {
     } catch (error: any) {
       console.error("Bulk status update failed:", error);
       toast.error(error?.response?.data?.message || "Error updating properties status");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkAddTags = async (tags: string[]) => {
+    if (!selectedProperties.length) return toast.warn("No properties selected");
+
+    const clean = Array.from(new Set(tags.map(t => String(t).trim()).filter(Boolean)));
+    if (!clean.length) return toast.warn("Pick at least one tag");
+
+    setBulkLoading(true);
+    try {
+      for (const id of selectedProperties) {
+        await propertyTagsAPI.add(id, clean);
+        const key = String(id);
+        setPropTags(prev => ({
+          ...prev,
+          [key]: Array.from(new Set([...(prev[key] || []), ...clean]))
+        }));
+      }
+      setKnownTags(prev => Array.from(new Set([...prev, ...clean])).sort());
+      toast.success("Tags added to selected properties");
+    } catch (e: any) {
+      console.error("Bulk add tags failed:", e);
+      toast.error(e?.response?.data?.message || "Failed to add tags");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkRemoveTags = async (tags: string[]) => {
+    if (!selectedProperties.length) return toast.warn("No properties selected");
+    const clean = Array.from(new Set(tags.map(t => String(t).trim()).filter(Boolean)));
+    if (!clean.length) return toast.warn("Pick at least one tag");
+
+    setBulkLoading(true);
+    try {
+      for (const id of selectedProperties) {
+        await propertyTagsAPI.remove(id, clean);
+        const key = String(id);
+        setPropTags(prev => {
+          const remain = (prev[key] || []).filter(t => !clean.some(r => r.toLowerCase() === t.toLowerCase()));
+          return { ...prev, [key]: remain };
+        });
+      }
+      toast.success("Tags removed from selected properties");
+    } catch (e: any) {
+      console.error("Bulk remove tags failed:", e);
+      toast.error(e?.response?.data?.message || "Failed to remove tags");
     } finally {
       setBulkLoading(false);
     }
@@ -1087,11 +1318,8 @@ const PropertiesPage = () => {
         onEdit={handleEditProperty}
         onBuyerMatching={handleBuyerMatching}
         onViewBuyers={handleViewBuyers}
-        // ✅ IMPORTANT: pass this
         onUpdateProperty={(p) => {
-          // current view turant update
           setCurrentPropertyView(p);
-          // list me bhi same id ko update karo
           setProperties(prev => prev.map(x => x.id === p.id ? { ...x, ...p } : x));
         }}
       />
@@ -1137,13 +1365,14 @@ const PropertiesPage = () => {
               <Download size={14} />
               <span>brochureDownloads</span>
             </button>
-
           </div>
         </div>
+
         <PropertyBulkBrochureModal
           isOpen={bulkModalOpen}
           onClose={() => setBulkModalOpen(false)}
         />
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-3 text-white">
             <div className="flex items-center justify-between">
@@ -1287,14 +1516,14 @@ const PropertiesPage = () => {
                     Mark Sold
                   </button>
                   <button
-                    onClick={handleBulkMakePublic}
+                    onClick={() => handleBulkMakePublic()}
                     disabled={bulkLoading}
                     className="px-2.5 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 disabled:opacity-50"
                   >
                     Mark Public
                   </button>
                   <button
-                    onClick={handleBulkMakePrivate}
+                    onClick={() => handleBulkMakePrivate()}
                     disabled={bulkLoading}
                     className="px-2.5 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 disabled:opacity-50"
                   >
@@ -1315,10 +1544,36 @@ const PropertiesPage = () => {
                     Delete
                   </button>
                 </div>
+
+                {/* Bulk Tags Menu */}
+                <div className="relative group">
+                  <button className="px-2.5 py-1 bg-gray-800 text-white rounded text-xs hover:bg-gray-900 transition-colors">
+                    Tags
+                  </button>
+                  <div className="absolute z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all min-w-[230px] right-0">
+                    <div className="p-3">
+                      <div className="text-xs font-medium text-gray-700 mb-2">Bulk Tag Operations</div>
+                      <TagPickerRow
+                        label="Add"
+                        knownTags={knownTagsAll}
+                        selectedPropertyIds={selectedProperties}
+                        propTags={propTags}
+                        onApply={handleBulkAddTags}
+                      />
+                      <TagPickerRow
+                        label="Remove"
+                        knownTags={knownTagsAll}
+                        selectedPropertyIds={selectedProperties}
+                        propTags={propTags}
+                        onApply={handleBulkRemoveTags}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedProperties([])}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-blue-600 hover:text-blue-800 transition-colors"
                 title="Clear selection"
               >
                 <X size={14} />
@@ -1327,7 +1582,6 @@ const PropertiesPage = () => {
           </div>
         )}
 
-        { /* Property Filter Sidebar Modal */}
         <PropertyFilterModal
           isOpen={showFilters}
           onClose={() => { setShowFilters(false); setCurrentPage(1); }}
@@ -1340,9 +1594,8 @@ const PropertiesPage = () => {
           locationOptions={(masters?.location || []).map(m => ({ label: m.label, value: m.value }))}
           sellerOptions={(masters?.["sellers"] || masters?.["agents"] || []).map(m => ({ label: m.label, value: m.value }))}
           stageOptions={(masters?.["property stages"] || []).map(m => ({ label: m.label, value: m.value }))}
-          tagsOptions={getUniquePropertyTags(properties).map(t => ({ label: t, value: t }))}
+          tagsOptions={knownTags.map(t => ({ label: t, value: t }))}
         />
-
       </div>
 
       {/* Loading / Error / Empty */}
@@ -1410,14 +1663,17 @@ const PropertiesPage = () => {
                           type="checkbox"
                           checked={selectedProperties.includes(property.id)}
                           onChange={() => handlePropertySelection(property.id)}
-                          onClick={(e) => e.stopPropagation()}          
+                          onClick={(e) => e.stopPropagation()}
                           className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                       </div>
 
-                      {/* baaki overlays same rahenge */}
                       <div className="absolute top-3 right-3 flex max-w-[78%] flex-wrap gap-1 justify-end">
-                        <PropertyTags property={property} />
+                        <PropertyTags
+                          tags={propTags[String(property.id)] || []}
+                          onClickTag={handleClickTag}
+                        />
+
                         {property.isPublic && (
                           <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 ring-1 ring-green-200 shadow-sm">
                             PUBLIC
@@ -1429,13 +1685,9 @@ const PropertiesPage = () => {
                       </div>
                     </div>
 
-
-                    {/* ---------- UPDATED GRID CARD CONTENT (replace old p-4 block) ---------- */}
                     <div className="p-4">
-                      {/* Title + meta (Type, UnitType, Subtype) */}
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          {/* <h3 className="font-bold text-gray-900 text-lg">{dash(property.title)}</h3> */}
                           <div className=" text-xs font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
                             {(property.type && property.type !== ' - ') && <span className="mr-2">{property.type}</span>}
                             {(property.unitType && property.unitType !== ' - ') && <span className="mr-2"> {property.unitType}</span>}
@@ -1445,12 +1697,10 @@ const PropertiesPage = () => {
                         <div className="text-xs text-gray-500">{dash(property.propertyId)}</div>
                       </div>
 
-                      {/* Price */}
                       <div className="text-xl font-bold text-green-600 mb-2">
                         {formatCurrency(property.budget)}
                       </div>
 
-                      {/* Small specs: UnitType • CarpetArea */}
                       <div className="space-y-1 mb-3">
                         <div className="flex items-center space-x-2 text-sm text-gray-600">
                           <Building size={12} />
@@ -1460,13 +1710,11 @@ const PropertiesPage = () => {
                           </span>
                         </div>
 
-                        {/* Location, City */}
                         <div className="flex items-center space-x-2 text-sm text-gray-600">
                           <MapPin size={12} />
                           <span>{[property.location, property.city].filter(Boolean).join(', ') || ' - '}</span>
                         </div>
 
-                        {/* Seller */}
                         <div className="flex items-center space-x-2 text-sm text-gray-600">
                           <User size={12} />
                           <span>{dash(property.seller?.name)}</span>
@@ -1525,11 +1773,8 @@ const PropertiesPage = () => {
                             </div>
                           </div>
                         </div>
-
                       </div>
                     </div>
-                    {/* ---------- END UPDATED GRID CARD CONTENT ---------- */}
-
                   </div>
                 ))}
               </div>
@@ -1567,7 +1812,6 @@ const PropertiesPage = () => {
                         />
                       </td>
 
-                      {/* ---------- UPDATED TABLE CELL: Property Details ---------- */}
                       <td className="px-4 py-3">
                         <div className="flex items-center space-x-3">
                           <button
@@ -1585,7 +1829,6 @@ const PropertiesPage = () => {
                           </button>
 
                           <div>
-                            {/* <div className="font-semibold text-gray-900">{dash(p.title)}</div> */}
                             <div className="font-bold text-gray-900 text-lg">
                               {(p.type && p.type !== ' - ') && <span className="mr-2">{p.type}</span>}
                               {(p.unitType && p.unitType !== ' - ') && <span className="mr-2"> {p.unitType}</span>}
@@ -1593,13 +1836,10 @@ const PropertiesPage = () => {
                             </div>
                             <div className="text-xs text-gray-500">{dash(p.propertyId)}</div>
                             <div className="text-sm font-bold text-green-600">{formatCurrency(p.budget)}</div>
-
                           </div>
                         </div>
                       </td>
-                      {/* ---------- END UPDATED TABLE CELL: Property Details ---------- */}
 
-                      {/* ---------- UPDATED TABLE CELL: Location & Seller ---------- */}
                       <td className="px-4 py-3">
                         <div className="space-y-1">
                           <div className="text-sm font-medium">{[p.location, p.city].filter(Boolean).join(', ') || ' - '}</div>
@@ -1607,7 +1847,6 @@ const PropertiesPage = () => {
                           <div className="text-xs text-gray-600">Seller: {dash(p.seller?.name)}</div>
                         </div>
                       </td>
-                      {/* ---------- END UPDATED TABLE CELL: Location & Seller ---------- */}
 
                       <td className="px-4 py-3">
                         <div className="space-y-1 text-xs">
@@ -1615,7 +1854,7 @@ const PropertiesPage = () => {
                           <div>{dash(p.floor)} of {dash(p.totalFloors)}</div>
                           <div>{dash(p.furnishing)}</div>
                           <div>Parking: {dash(p.parkingQty)} {dash(p.parkingType)}</div>
-                          <PropertyTags property={p} className="mt-2" />
+                          <PropertyTags tags={propTags[String(p.id)] || []} className="mt-2" />
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -1759,7 +1998,7 @@ const PropertiesPage = () => {
         </div>
       )}
 
-      {/* One modal only */}
+      {/* Modals */}
       {showPropertyForm && (
         <PropertyFormModal
           key={editingProperty ? `edit-${editingProperty.id}` : 'create-new'}
@@ -1769,7 +2008,7 @@ const PropertiesPage = () => {
           propertyId={editingProperty?.id}
           initialData={editingProperty ? buildInitialData(editingProperty) : null}
           onSubmit={async () => {
-            await loadProperties();   // ✅ API se fresh reload
+            await loadProperties();
             toast.success(editingProperty ? 'Property updated successfully' : 'Property created successfully');
           }}
         />
@@ -1806,12 +2045,12 @@ const PropertiesPage = () => {
               normalizeProperty(r, i)
             );
             if (normalized.length) {
-              setProperties(prev => [...normalized, ...prev]); // show instantly
+              setProperties(prev => [...normalized, ...prev]);
             }
           }}
           onDone={async () => {
-            await loadProperties();                // ensure counts/tabs are perfect
-            setShowImportProperties(false);        // close after final sync
+            await loadProperties();
+            setShowImportProperties(false);
           }}
         />
       )}
@@ -1820,7 +2059,6 @@ const PropertiesPage = () => {
 };
 
 /* ---------------------- Badges ---------------------- */
-
 function getStatusBadge(status: string) {
   const cfg: any = {
     'Available': { bg: 'bg-green-100', text: 'text-green-700', label: 'Available', icon: '🟢' },
