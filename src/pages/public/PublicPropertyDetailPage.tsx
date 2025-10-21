@@ -60,6 +60,7 @@ import ShareModal from './ShareModal';
 import PhotoGalleryModal from './PhotoGalleryModal';
 import FurnishingPill from '@/components/properties/FurnishingPill';
 import AmenityPill from '@/components/properties/AmenityPill';
+import PropertyDescriptionSmart from './PropertyDescriptionSmart';
 
 type RawProperty = any;
 
@@ -796,12 +797,17 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
             {/* Property Details Section - Responsive */}
             <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 !mt-3 sm:!mt-4 ring-1 ring-gray-100">
               {/* Description - Responsive */}
-              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
+              {/* <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
                 <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Property Description</h2>
                 <p className="text-xs sm:text-sm md:text-base text-gray-700 leading-relaxed">
                   {displayOrDash(property?.description) === ' - ' ? ' - ' : property?.description}
                 </p>
-              </div>
+              </div> */}
+              <PropertyDescriptionSmart
+               description={property?.description}
+                property={property}
+/>
+
 
               {/* Property Details Grid - Fully Responsive */}
               <div className="bg-white/95 backdrop-blur rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all ring-1 ring-gray-100">
