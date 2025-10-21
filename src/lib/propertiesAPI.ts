@@ -148,6 +148,18 @@ const pickClient = (baseURLOverride?: string): AxiosInstance =>
     ? axios.create({ baseURL: baseURLOverride, withCredentials: true })
     : api;
 
+
+     
+export interface AssignPropertyPayload {
+  assigned_to: number | null; // null to unassign
+}
+
+export interface AssignPropertyResponse {
+  success: boolean;
+  affected: number;
+  message: string;
+}
+
 /* ==========================
     Main API surface
     ========================== */
@@ -569,6 +581,18 @@ searchByCityLocation: async (params: {
     );
     return res.data as Blob; // application/pdf
   },
+  /** Assign / Reassign a property to an executive (or null to unassign) */
+ updateAssignedTo: async (
+    id: string | number,
+    payload: AssignPropertyPayload
+  ): Promise<AssignPropertyResponse> => {
+    const res = await api.patch<AssignPropertyResponse>(
+      `/properties/${id}/assigned-to`,
+      payload
+    );
+    return res.data;
+  },
+
 /* ---- Brochure PDF Generation ---- */
  downloadBrochure: (id: string|number, payload?: any) =>
     api.post(`/properties/${id}/brochure`, payload, { responseType: 'blob' })

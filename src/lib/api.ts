@@ -567,6 +567,21 @@ export const usersAPI = {
     const response = await api.get("/users/get-all-user", { params });
     return response.data;
   },
+   getSalesExecutives: async () => {
+    const response = await api.get('/users/filter', {
+      params: {
+        department: 'sales',
+        role: 'executive'
+      }
+    });
+    return response.data;
+  },
+
+  // ✅ Alternative: Server-side filtering के लिए
+  getUsersByFilter: async (filters: { department?: string; role?: string }) => {
+    const response = await api.get('/users/filter', { params: filters });
+    return response.data;
+  },
   getAgents: async () => {
     const response = await api.get("/users/agents");
     return response.data;
@@ -609,6 +624,18 @@ export const usersAPI = {
     const response = await api.get(`/users/get-user-by/${userId}`);
     return response.data;
   },
+    getSalesExecutivesByRoute: async (params?: { is_active?: number | boolean | string; limit?: number; offset?: number }) =>
+    (await api.get("/users/sales-executives", { params })).data,
+
+  /** GET /api/users/by-dept-role?department=sales&role=executive&is_active=1 */
+  getByDeptRole: async (params: {
+    department: string;
+    role: string;
+    is_active?: number | boolean | string;
+    limit?: number;
+    offset?: number;
+  }) => (await api.get("/users/by-dept-role", { params })).data,
+
 };
 
 export const leadsAPI = {
