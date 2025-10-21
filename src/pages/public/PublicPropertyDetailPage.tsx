@@ -876,7 +876,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                description={property?.description}
                 property={property}
 />
-
+              </div> 
 
               {/* Property Details Grid - Fully Responsive */}
               <div className="bg-white/95 backdrop-blur rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all ring-1 ring-gray-100">
