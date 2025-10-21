@@ -1,32 +1,9 @@
 // PublicPropertiesPage.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Search,
-  MapPin,
-  Building,
-  Star,
-  Heart,
-  Eye,
-  Phone,
-  MessageCircle,
-  Home,
-  Grid,
-  List,
-  Bed,
-  Car,
-  Wifi,
-  Dumbbell,
-  Shield,
-  TreePine,
-  Waves,
-  CheckCircle,
-  SlidersHorizontal,
-  Bot,
-  Zap,
-  Target,
-  BarChart3,
-  TrendingUp,
-  ChevronDown
+  Search, MapPin, Building, Star, Heart, Eye, Phone, Home, Grid, List,
+  Bed, Car, Wifi, Dumbbell, Shield, TreePine, Waves, CheckCircle,
+  SlidersHorizontal, Bot, BarChart3, TrendingUp, ChevronDown, Target
 } from 'lucide-react';
 import PublicPropertyDetailPage from './PublicPropertyDetailPage';
 import { propertiesAPI } from '@/lib/propertiesAPI';
@@ -36,6 +13,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import viewsAPI from '@/lib/viewAPI';
 import { FaWhatsapp } from 'react-icons/fa';
 
+// ✅ Import property tags API and styles
+import propertyTagsAPI from '@/lib/propertyTagsAPI';
+import { getTagStyle } from "@/lib/tagStyles";
+
+/* ==============================
+   Types
+============================== */
 interface Property {
   id: number;
   title: number | string;
@@ -55,8 +39,6 @@ interface Property {
   furnishing?: string;
   possession?: string;
   amenities?: string[];
-  featured?: boolean;
-  verified?: boolean;
   rating?: number;
   reviews?: number;
   postedDate?: string;
@@ -64,11 +46,7 @@ interface Property {
   aiScore?: number;
   priceGrowth?: string;
   investmentGrade?: string;
-  agent?: {
-    name: string;
-    phone: string;
-    rating: number;
-  };
+  agent?: { name: string; phone: string; rating: number; };
   highlights?: string[];
   nearbyPlaces?: Array<{ name: string; distance: string }>;
   unit_type?: string;
@@ -80,8 +58,239 @@ interface Property {
   total_views?: number;
   public_views?: number | null;
   floor?: number | null;
+  tags?: string[];
 }
 
+/* ==============================
+   Helpers
+============================== */
+
+// ✅ Public gate — client-side hard guard
+const isPublicProp = (p: any): boolean => {
+  // accept typical shapes: booleans, 0/1, strings
+  if (!p) return false;
+  const v = (p.visibility || p._raw?.visibility || '').toString().toLowerCase();
+  return (
+    p.is_public === 1 ||
+    p.isPublic === true ||
+    p.public === true ||
+    v === 'public'
+  );
+};
+
+// currency short
+const formatCurrency = (amount: number) => {
+  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
+  if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+  return `₹${amount.toLocaleString('en-IN')}`;
+};
+
+// amenity icon
+const getAmenityIcon = (amenity: string) => {
+  switch (amenity.toLowerCase()) {
+    case 'swimming pool': return <Waves size={14} />;
+    case 'gym': return <Dumbbell size={14} />;
+    case '24/7 security':
+    case 'security': return <Shield size={14} />;
+    case 'garden': return <TreePine size={14} />;
+    case 'parking': return <Car size={14} />;
+    case 'wifi': return <Wifi size={14} />;
+    default: return <CheckCircle size={14} />;
+  }
+};
+
+// unit extraction
+const extractUnitType = (p: Property) => {
+  const candidates = [p.type, (p as any)._raw?.unit_type, (p as any)._raw?.unit_type_name, p.title as any, p.property_type]
+    .filter(Boolean).map(String);
+  for (const c of candidates) {
+    const m = c.match(/(\d+\s*BHK|\d+BHK|studio|1RK)/i);
+    if (m) return m[0].replace(/\s+/g, '');
+  }
+  if (p.bedrooms && Number.isFinite(p.bedrooms) && p.bedrooms > 0) return `${p.bedrooms}BHK`;
+  return '';
+};
+
+const composeHeaderTitle = (p: Property) => {
+  const parts: string[] = [];
+  const type = (p.property_type || p.type || (p as any)._raw?.property_type_name || '').toString().trim();
+  if (type) parts.push(type);
+  const unit = extractUnitType(p);
+  if (unit) parts.push(unit);
+  const subtype = ((p as any)._raw?.property_subtype_name || (p as any)._raw?.property_subtype || (p as any)._raw?.subtype || p.society || '').toString().trim();
+  if (subtype) parts.push(subtype);
+  if (parts.length === 0 && p.title) return p.title as any;
+  return parts.join(' ');
+};
+
+const formatUnitAreaLine = (p: Property) => {
+  const unit = extractUnitType(p);
+  const area = p.area || p.square_feet || (p as any)._raw?.carpet_area || (p as any)._raw?.builtup_area;
+  const areaText = area ? `${Number(area).toFixed(area % 1 === 0 ? 0 : 2).replace(/\.0+$/, '')} sq ft` : '';
+  return [unit, areaText].filter(Boolean).join(' • ');
+};
+
+const splitLocationCity = (p: Property) => {
+  const loc = (p.location || '').toString();
+  if (!loc) return { locationPart: '', cityPart: p.city || '' };
+  const parts = loc.split(',').map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 1) return { locationPart: parts[0], cityPart: p.city || '' };
+  const cityPart = parts.slice(-1).join(', ');
+  const locationPart = parts.slice(0, -1).join(', ');
+  return { locationPart, cityPart: cityPart || (p.city || '') };
+};
+
+const parseMoneyToken = (tok: string) => {
+  if (!tok) return NaN;
+  const t = tok.toLowerCase().replace(/\s+/g, '');
+  const match = t.match(/^([0-9.,]+)(k|m|l|cr|crore|lakh)?\+?$/i);
+  if (match) {
+    let num = parseFloat(match[1].replace(/,/g, ''));
+    const unit = (match[2] || '').toLowerCase();
+    if (unit === 'k') num *= 1000;
+    else if (unit === 'm') num *= 1000000;
+    else if (unit === 'l' || unit === 'lakh') num *= 100000;
+    else if (unit === 'cr' || unit === 'crore') num *= 10000000;
+    return Math.round(num);
+  }
+  const plain = parseFloat(t.replace(/,/g, ''));
+  return isNaN(plain) ? NaN : plain;
+};
+
+const parseBudgetRange = (value: string): [number, number] => {
+  if (!value) return [Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY];
+  const v = value.toString().trim();
+  if (v.includes('-')) {
+    const parts = v.split('-').map((s) => s.trim());
+    const min = parseMoneyToken(parts[0]);
+    const max = parseMoneyToken(parts[1]);
+    return [isNaN(min) ? Number.NEGATIVE_INFINITY : min, isNaN(max) ? Number.POSITIVE_INFINITY : max];
+  }
+  if (v.endsWith('+')) {
+    const tok = v.replace(/\+$/, '');
+    const min = parseMoneyToken(tok);
+    return [isNaN(min) ? Number.NEGATIVE_INFINITY : min, Number.POSITIVE_INFINITY];
+  }
+  const nums = v.match(/([0-9.,]+)\s*(k|m|l|cr|crore|lakh)?/gi);
+  if (nums && nums.length === 1) {
+    const max = parseMoneyToken(nums[0]);
+    return [Number.NEGATIVE_INFINITY, isNaN(max) ? Number.POSITIVE_INFINITY : max];
+  }
+  return [Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY];
+};
+
+const matchesBudget = (property: Property, budget: string) => {
+  if (!budget) return true;
+  const [min, max] = parseBudgetRange(budget);
+  const price = property.price || 0;
+  return price >= (isFinite(min) ? min : Number.NEGATIVE_INFINITY) &&
+         price <= (isFinite(max) ? max : Number.POSITIVE_INFINITY);
+};
+
+const extractFloor = (p: any) => {
+  if (!p) return null;
+  if (p.floor !== undefined && p.floor !== null) return Number(p.floor);
+  if (p._raw?.floor_number) return Number(p._raw.floor_number);
+  if (p._raw?.floor) return Number(p._raw.floor);
+  if (p._raw?.current_floor) return Number(p._raw?.current_floor);
+  return null;
+};
+
+const extractBathrooms = (p: any) => {
+  if (!p) return null;
+  if (p.bathrooms !== undefined && p.bathrooms !== null) return Number(p.bathrooms);
+  if (p._raw?.bathrooms) return Number(p._raw?.bathrooms);
+  if (p._raw?.toilets) return Number(p._raw?.toilets);
+  return null;
+};
+
+const extractParkingTypes = (p: any) => {
+  const raw = p._raw || {};
+  let parkingTypes: string[] = [];
+  if (raw.parking_types) {
+    if (Array.isArray(raw.parking_types)) parkingTypes = raw.parking_types.map((s: string) => s.toString().toLowerCase());
+    else if (typeof raw.parking_types === 'string') parkingTypes = raw.parking_types.split(',').map((s: string) => s.trim().toLowerCase());
+  }
+  if (raw.parking_details) {
+    if (typeof raw.parking_details === 'string') parkingTypes = parkingTypes.concat(raw.parking_details.split(',').map((s: string) => s.trim().toLowerCase()));
+    else if (Array.isArray(raw.parking_details)) parkingTypes = parkingTypes.concat(raw.parking_details.map((s: string) => s.toString().toLowerCase()));
+  }
+  if (typeof p.parking === 'number' && p.parking > 0) {
+    parkingTypes.push('4w', '2w');
+  }
+  if (Array.isArray(p.amenities)) {
+    p.amenities.forEach((a: string) => {
+      const low = a.toLowerCase();
+      if (low.includes('2 wheeler') || low.includes('2-wheeler') || low.includes('two wheeler')) parkingTypes.push('2w');
+      if (low.includes('4 wheeler') || low.includes('4-wheeler') || low.includes('four wheeler') || low.includes('car parking')) parkingTypes.push('4w');
+    });
+  }
+  return Array.from(new Set(parkingTypes));
+};
+
+/* ==============================
+   Tags UI
+============================== */
+
+// ✅ Tag display component
+const PropertyTags = ({ tags }: { tags: string[] }) => {
+  if (!tags || tags.length === 0) return null;
+
+  // ✅ Only show first 2 tags
+  const displayTags = tags.slice(0, 2);
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-3">
+      {displayTags.map((tag, index) => {
+        const style = getTagStyle(tag);
+        const EmojiComponent = typeof style.emoji === 'string'
+          ? () => <span className="text-xs mr-1">{style.emoji
+            ? typeof style.emoji === "string"
+              ? (
+                <span className="text-xs mr-1 uppercase" aria-hidden="true">
+                  {style.emoji}
+                </span>
+              )
+              : (
+                // style.emoji is a component here (Lucide icon)
+                React.createElement(style.emoji, {
+                  size: 10,
+                  className: "mr-1 uppercase",
+                  "aria-hidden": true,
+                })
+              )
+            : null}
+          </span>
+          : style.emoji;
+
+
+        return (
+          <span
+            key={index}
+            className={`
+              inline-flex items-center px-2 py-1 rounded-full text-xs font-bold uppercase 
+              ${style.bg} ${style.text} ring-1 ${style.ring}
+              transition-all duration-200
+            `}
+          >
+            {style.emoji && (typeof style.emoji === 'string' ? <EmojiComponent /> : <EmojiComponent size={10} className="mr-1" />)}
+            {tag}
+          </span>
+        );
+      })}
+      {/* ✅ Show +count if there are more than 2 tags */}
+      {tags.length > 2 && (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+          +{tags.length - 2}
+        </span>
+      )}
+    </div>
+  );
+};
+
+/* ==============================
+   Component
+============================== */
 const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({ onPropertyView }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -109,9 +318,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
   const [viewedProperties, setViewedProperties] = useState<Set<number>>(new Set());
 
-  // advanced filter states
-  const [featuredOnly, setFeaturedOnly] = useState(false);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [minRating, setMinRating] = useState<number | null>(null);
   const [possessionFilter, setPossessionFilter] = useState('');
   const [parkingFilter, setParkingFilter] = useState<'any' | '2w' | '4w'>('any');
@@ -121,50 +327,24 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   const [selectedPropertySubtype, setSelectedPropertySubtype] = useState('');
   const [selectedUnitType, setSelectedUnitType] = useState('');
 
-  // New: transaction type (Buy / Rent) and property type buttons group selected (HomePage style)
+  // HomePage-style header states
   const [transactionType, setTransactionType] = useState<'buy' | 'rent'>('buy');
   const [selectedPropertyType, setSelectedPropertyType] = useState<string>('');
 
-  // read filter token param (keeps earlier logic) - but we will NOT preserve it on header search by default (per request)
+  // token passthrough (kept)
   const queryParams = new URLSearchParams(location.search);
   const filterParamKey =
     queryParams.has('filterToken') ? 'filterToken' : queryParams.has('fltcnt') ? 'fltcnt' : undefined;
   const filterTokenFromUrl =
     filterParamKey ? (queryParams.get(filterParamKey) as string | null) ?? undefined : undefined;
 
-  // ref for filters panel so we can scroll to it
+  // refs & autosuggest
   const filtersRef = useRef<HTMLDivElement | null>(null);
-
-
-
-  // --- autosuggest states for locality (new) ---
   const [suggestions, setSuggestions] = useState<MasterOption[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-
-
-  // consider "filters applied" when any of these are set
-  const hasActiveFilters = Boolean(
-    (selectedLocation && selectedLocation.trim()) ||
-    localities.length > 0 ||
-    (selectedBudget && selectedBudget.trim()) ||
-    (selectedType && selectedType.trim()) ||
-    (selectedBedrooms && selectedBedrooms.trim()) ||
-    (selectedPropertySubtype && selectedPropertySubtype.trim()) ||
-    (selectedUnitType && selectedUnitType.trim()) ||
-    featuredOnly ||
-    verifiedOnly ||
-    minRating !== null ||
-    (possessionFilter && possessionFilter.trim()) ||
-    (parkingFilter && parkingFilter !== 'any') ||
-    floorMin !== '' ||
-    floorMax !== '' ||
-    bathroomsFilter !== ''
-  );
-
-
-  // fetch masters
+  // masters
   useEffect(() => {
     const fetchMasters = async () => {
       try {
@@ -180,7 +360,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     fetchMasters();
   }, []);
 
-  // helper to find master arrays
+  // helpers
   const findMasterOptions = (candidateKeys: string[]) => {
     if (!masters || typeof masters !== 'object') return [];
     const normalizedMap: Record<string, string> = {};
@@ -207,11 +387,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         if (Array.isArray(arr)) return arr;
       }
     }
-
     return [];
   };
 
-  // master-driven option arrays
   const masterCity: any[] = findMasterOptions(['city']);
   const cityOptions = masterCity.map((o) => ({ value: o.value, label: o.label }));
 
@@ -240,128 +418,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     })
     .filter((v, i, arr) => arr.findIndex((x) => x.value === v.value) === i);
 
-  // masterLocation: try to find location/locality masters
   const masterLocation: MasterOption[] = findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']);
 
-  // parsing helpers (money, budget)
-  const parseMoneyToken = (tok: string) => {
-    if (!tok) return NaN;
-    const t = tok.toLowerCase().replace(/\s+/g, '');
-    const match = t.match(/^([0-9.,]+)(k|m|l|cr|crore|lakh)?\+?$/i);
-    if (match) {
-      let num = parseFloat(match[1].replace(/,/g, ''));
-      const unit = (match[2] || '').toLowerCase();
-      if (unit === 'k') num *= 1000;
-      else if (unit === 'm') num *= 1000000;
-      else if (unit === 'l' || unit === 'lakh') num *= 100000;
-      else if (unit === 'cr' || unit === 'crore') num *= 10000000;
-      return Math.round(num);
-    }
-    const plain = parseFloat(t.replace(/,/g, ''));
-    return isNaN(plain) ? NaN : plain;
-  };
-
-  const parseBudgetRange = (value: string): [number, number] => {
-    if (!value) return [Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY];
-    const v = value.toString().trim();
-    if (v.includes('-')) {
-      const parts = v.split('-').map((s) => s.trim());
-      const min = parseMoneyToken(parts[0]);
-      const max = parseMoneyToken(parts[1]);
-      return [isNaN(min) ? Number.NEGATIVE_INFINITY : min, isNaN(max) ? Number.POSITIVE_INFINITY : max];
-    }
-    if (v.endsWith('+')) {
-      const tok = v.replace(/\+$/, '');
-      const min = parseMoneyToken(tok);
-      return [isNaN(min) ? Number.NEGATIVE_INFINITY : min, Number.POSITIVE_INFINITY];
-    }
-    const nums = v.match(/([0-9.,]+)\s*(k|m|l|cr|crore|lakh)?/gi);
-    if (nums && nums.length === 1) {
-      const max = parseMoneyToken(nums[0]);
-      return [Number.NEGATIVE_INFINITY, isNaN(max) ? Number.POSITIVE_INFINITY : max];
-    }
-    return [Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY];
-  };
-
-  const matchesBudget = (property: Property, budget: string) => {
-    if (!budget) return true;
-    const [min, max] = parseBudgetRange(budget);
-    const price = property.price || 0;
-    return price >= (isFinite(min) ? min : Number.NEGATIVE_INFINITY) && price <= (isFinite(max) ? max : Number.POSITIVE_INFINITY);
-  };
-
-  // unit extractor & display helpers
-  const extractUnitType = (p: Property) => {
-    const candidates = [p.type, (p as any)._raw?.unit_type, (p as any)._raw?.unit_type_name, p.title as any, p.property_type].filter(Boolean).map(String);
-    for (const c of candidates) {
-      const m = c.match(/(\d+\s*BHK|\d+BHK|studio|Studio|1RK|1RK)/i);
-      if (m) return m[0].replace(/\s+/g, '');
-    }
-    if (p.bedrooms && Number.isFinite(p.bedrooms) && p.bedrooms > 0) return `${p.bedrooms}BHK`;
-    return '';
-  };
-
-  const composeHeaderTitle = (p: Property) => {
-    const parts: string[] = [];
-    const type = (p.property_type || p.type || (p as any)._raw?.property_type_name || '').toString().trim();
-    if (type) parts.push(type);
-    const unit = extractUnitType(p);
-    if (unit) parts.push(unit);
-    const subtype = ((p as any)._raw?.property_subtype_name || (p as any)._raw?.property_subtype || (p as any)._raw?.subtype || p.society || '').toString().trim();
-    if (subtype) parts.push(subtype);
-    if (parts.length === 0 && p.title) return p.title as any;
-    return parts.join(' ');
-  };
-
-  const formatUnitAreaLine = (p: Property) => {
-    const unit = extractUnitType(p);
-    const area = p.area || p.square_feet || (p as any)._raw?.carpet_area || (p as any)._raw?.builtup_area;
-    const areaText = area ? `${Number(area).toFixed(area % 1 === 0 ? 0 : 2).replace(/\.0+$/, '')} sq ft` : '';
-    return [unit, areaText].filter(Boolean).join(' • ');
-  };
-
-  const splitLocationCity = (p: Property) => {
-    const loc = (p.location || '').toString();
-    if (!loc) return { locationPart: '', cityPart: p.city || '' };
-    const parts = loc.split(',').map((s) => s.trim()).filter(Boolean);
-    if (parts.length === 1) return { locationPart: parts[0], cityPart: p.city || '' };
-    const cityPart = parts.slice(-1).join(', ');
-    const locationPart = parts.slice(0, -1).join(', ');
-    return { locationPart, cityPart: cityPart || (p.city || '') };
-  };
-
-  const formatCurrency = (amount: number) => {
-    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-    return `₹${amount.toLocaleString('en-IN')}`;
-  };
-
-  const getAmenityIcon = (amenity: string) => {
-    switch (amenity.toLowerCase()) {
-      case 'swimming pool': return <Waves size={14} />;
-      case 'gym': return <Dumbbell size={14} />;
-      case '24/7 security':
-      case 'security': return <Shield size={14} />;
-      case 'garden': return <TreePine size={14} />;
-      case 'parking': return <Car size={14} />;
-      case 'wifi': return <Wifi size={14} />;
-      default: return <CheckCircle size={14} />;
-    }
-  };
-
-  const toggleLike = (propertyId: string) => {
-    setLikedProperties((prev) =>
-      prev.includes(propertyId) ? prev.filter((id) => id !== propertyId) : [...prev, propertyId]
-    );
-  };
-
-  const preserveAndAddToken = (existingSearch: string, paramKey: string, token?: string | null) => {
-    const params = new URLSearchParams(existingSearch || '');
-    if (token) params.set(paramKey, token);
-    const s = params.toString();
-    return s ? `?${s}` : '';
-  };
-
+  // views/tags API wrappers
   const fetchPropertyViews = async (propertyId: number): Promise<{ total_views: number }> => {
     try {
       const viewData = await viewsAPI.getByProperty(propertyId, false);
@@ -372,58 +431,58 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     }
   };
 
-  // ---------- read URL params and set local filter states ----------
-useEffect(() => {
-  const qp = new URLSearchParams(location.search);
-
-  // city
-  const cityFromUrl = qp.get('city') || '';
-  setSelectedLocation(cityFromUrl);
-
-  // localities: support both ?location=... (repeat or csv) and ?locations=csv
-  let locs: string[] = [];
-
-  // repeated ?location=... or csv in each
-  const repeated = qp.getAll('location');
-  if (repeated.length > 0) {
-    repeated.forEach(v => {
-      v.split(',').forEach(s => {
-        const t = s.trim();
-        if (t) locs.push(t);
-      });
-    });
-  } else {
-    // single csv param ?locations=a,b
-    const csv = qp.get('locations');
-    if (csv) {
-      csv.split(',').forEach(s => {
-        const t = s.trim();
-        if (t) locs.push(t);
-      });
+  const fetchPropertyTags = async (propertyId: number): Promise<string[]> => {
+    try {
+      const tagsData = await propertyTagsAPI.getById(propertyId);
+      return tagsData?.tags || [];
+    } catch {
+      return [];
     }
-  }
+  };
 
-  // unique + cap at 5
-  locs = Array.from(new Set(locs)).slice(0, 5);
-  setLocalities(locs);
+  // url → state
+  useEffect(() => {
+    const qp = new URLSearchParams(location.search);
 
-  // search text (optional)
-  if (locs.length) setSearchQuery(locs.join(', '));
-  else if (cityFromUrl) setSearchQuery(cityFromUrl);
-  else setSearchQuery('');
+    const cityFromUrl = qp.get('city') || '';
+    setSelectedLocation(cityFromUrl);
 
-  setCurrentPage(1);
-}, [location.search]);
+    let locs: string[] = [];
+    const repeated = qp.getAll('location');
+    if (repeated.length > 0) {
+      repeated.forEach(v => {
+        v.split(',').forEach(s => {
+          const t = s.trim();
+          if (t) locs.push(t);
+        });
+      });
+    } else {
+      const csv = qp.get('locations');
+      if (csv) {
+        csv.split(',').forEach(s => {
+          const t = s.trim();
+          if (t) locs.push(t);
+        });
+      }
+    }
 
+    locs = Array.from(new Set(locs)).slice(0, 5);
+    setLocalities(locs);
 
-  // ---------- fetch properties based on URL params (or fallback) ----------
+    if (locs.length) setSearchQuery(locs.join(', '));
+    else if (cityFromUrl) setSearchQuery(cityFromUrl);
+    else setSearchQuery('');
+
+    setCurrentPage(1);
+  }, [location.search]);
+
+  // main loader (ONLY PUBLIC)
   const loadPropertiesFromSearch = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const qp = new URLSearchParams(location.search);
 
-      // ✅ ONLY advanced filters trigger the filter API
       const hasAdvanced =
         Boolean(
           qp.get('propertyType') || qp.get('property_type') ||
@@ -431,25 +490,29 @@ useEffect(() => {
           qp.get('budget_max') || qp.get('maxPrice') ||
           qp.get('unitTypes') || qp.get('unitType') || qp.get('unit_type') ||
           qp.get('furnishing') || qp.get('possession') ||
-          qp.get('featured') || qp.get('verified') ||
           qp.get('min_rating') || qp.get('parking') ||
           qp.get('floor_min') || qp.get('floor_max') ||
           qp.get('bathrooms') || qp.get('bedrooms') ||
           qp.get('property_subtype') || qp.get('propertySubtype') ||
-          qp.get('sort') // sort ko advanced maana hai toh rakhein; sirf header ke liye chahiye toh hata sakte ho
+          qp.get('sort')
         );
 
       let response: any = null;
 
       if (hasAdvanced) {
-        // 🔶 Advanced Filters -> FILTER API
-        const params: any = {};
+        // 🔷 Advanced -> Filter endpoint (still force public)
+        const params: any = {
+          // public gate
+          isPublic: true,
+          is_public: 1,
+          visibility: 'public',
+          publicOnly: 1,
+        };
 
-        // locations: prefer repeated 'location'
         if (qp.getAll('location').length > 0) params.location = qp.getAll('location').join(',');
         else if (qp.get('location')) params.location = qp.get('location');
-        if (qp.get('city')) params.city = qp.get('city');
 
+        if (qp.get('city')) params.city = qp.get('city');
         if (qp.get('propertyType')) params.propertyType = qp.get('propertyType');
         else if (qp.get('property_type')) params.propertyType = qp.get('property_type');
 
@@ -464,9 +527,6 @@ useEffect(() => {
 
         if (qp.get('furnishing')) params.furnishing = qp.get('furnishing');
         if (qp.get('possession')) params.possession = qp.get('possession');
-
-        if (qp.get('featured')) params.featured = qp.get('featured');
-        if (qp.get('verified')) params.verified = qp.get('verified');
         if (qp.get('min_rating')) params.minRating = Number(qp.get('min_rating'));
         if (qp.get('parking')) params.parking = qp.get('parking');
         if (qp.get('floor_min')) params.floor_min = Number(qp.get('floor_min'));
@@ -480,16 +540,21 @@ useEffect(() => {
         if (qp.get('unitType') || qp.get('unit_type')) {
           params.unitType = qp.get('unitType') || qp.get('unit_type');
         }
-
         if (qp.get('status')) params.status = qp.get('status');
         if (filterParamKey && filterTokenFromUrl) params.filterToken = filterTokenFromUrl;
 
+        // If you have a dedicated public-search endpoint, use that.
+        // For now, we call getSearch but still filter client-side.
         response = await propertiesAPI.getSearch(params);
       } else {
-        // ✅ Header-style basic search -> LISTING API
+        // ✅ Header/basic -> list endpoint (force public)
         const simpleParams: any = {
           status: qp.get('status') || 'Available',
           limit: 50,
+          isPublic: true,
+          is_public: 1,
+          visibility: 'public',
+          publicOnly: 1,
         };
 
         const allLocs = qp.getAll('location');
@@ -497,17 +562,17 @@ useEffect(() => {
         else if (qp.get('location')) simpleParams.location = qp.get('location');
 
         if (qp.get('city')) simpleParams.city = qp.get('city');
-        if (qp.get('search')) simpleParams.q = qp.get('search'); // only if your API supports
+        if (qp.get('search')) simpleParams.q = qp.get('search');
 
         try {
           response = await propertiesAPI.PublicgetProperties(simpleParams);
         } catch (err) {
-          console.warn(' PublicgetProperties failed, fallback to empty', err);
+          console.warn('PublicgetProperties failed, fallback to empty', err);
           response = { data: [] };
         }
       }
 
-      // normalize as you already do
+      // normalize
       let list: any[] = [];
       if (Array.isArray(response)) list = response;
       else if (response?.data && Array.isArray(response.data)) list = response.data;
@@ -515,9 +580,17 @@ useEffect(() => {
       else if (response?.properties && Array.isArray(response.properties)) list = response.properties;
       else if (Array.isArray(response?.items)) list = response.items;
 
+      // ✅ client-side strict public-only guard
+      list = list.filter(isPublicProp);
+
+      // map → UI + fetch (views & tags) in parallel per property
       const transformedProperties = await Promise.all(
         list.map(async (p: any, index: number) => {
-          const viewCounts = await fetchPropertyViews(p.id);
+          const [viewCounts, tags] = await Promise.all([
+            fetchPropertyViews(p.id),
+            fetchPropertyTags(p.id),
+          ]);
+
           return {
             id: p.id,
             slug: p.slug || p.url_slug || p.generated_slug,
@@ -529,7 +602,9 @@ useEffect(() => {
             city: p.city_name || p.city || '',
             property_type: p.property_type_name || p.property_type || '',
             status: p.status || '',
-            images: Array.isArray(p.photos) ? p.photos.map((ph: string) => ph.replace(/\\/g, '/')) : (Array.isArray(p.photoUrls) ? p.photoUrls : ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800']),
+            images: Array.isArray(p.photos) ? p.photos.map((ph: string) => ph.replace(/\\/g, '/')) :
+                    (Array.isArray(p.photoUrls) ? p.photoUrls :
+                      ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800']),
             location: `${p.location_name || p.location || ''}`.replace(/\s*,\s*$/, ''),
             society: p.society_name || p.project_name || `Society ${p.id}`,
             area: Number(p.carpet_area) || Number(p.builtup_area) || 0,
@@ -537,9 +612,11 @@ useEffect(() => {
             type: p.unit_type || p.property_subtype || p.property_type_name || p.property_type || 'Apartment',
             furnishing: p.furnishing_status || ['Fully Furnished', 'Semi Furnished', 'Unfurnished'][index % 3],
             possession: p.possession_status || ['Ready to Move', 'Under Construction'][index % 2],
-            amenities: p.amenities ? (Array.isArray(p.amenities) ? p.amenities : typeof p.amenities === 'string' ? p.amenities.split(',').map((a: string) => a.trim()) : ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup']) : ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'],
-            featured: p.featured || index < 3,
-            verified: p.verified !== false,
+            amenities: p.amenities
+              ? (Array.isArray(p.amenities) ? p.amenities :
+                 typeof p.amenities === 'string' ? p.amenities.split(',').map((a: string) => a.trim()) :
+                 ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'])
+              : ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'],
             rating: p.rating ? Number(p.rating) : (4.0 + Math.random() * 1.0),
             reviews: p.reviews ? Number(p.reviews) : Math.floor(Math.random() * 50) + 5,
             postedDate: p.created_at ? p.created_at.split('T')[0] : `2025-01-${String(Math.floor(Math.random() * 15) + 1).padStart(2, '0')}`,
@@ -560,7 +637,8 @@ useEffect(() => {
               { name: 'School', distance: `${(Math.random() * 2).toFixed(1)} km` }
             ],
             public_views: p.public_views ?? null,
-            floor: extractFloor(p),
+            floor: extractFloor({ ...p, _raw: p }),
+            tags,
             _raw: p
           } as Property;
         })
@@ -577,12 +655,12 @@ useEffect(() => {
     }
   }, [location.search, filterParamKey, filterTokenFromUrl]);
 
-  // load on mount and whenever URL changes (we depend on location.search via useCallback deps)
+  // run loader
   useEffect(() => {
     loadPropertiesFromSearch();
   }, [loadPropertiesFromSearch]);
 
-  // ------------------- LOCALITIES autosuggest logic -------------------
+  // autosuggest
   useEffect(() => {
     const q = (localityInput || '').trim().toLowerCase();
     if (!q || !Array.isArray(masterLocation) || masterLocation.length === 0) {
@@ -601,7 +679,7 @@ useEffect(() => {
     setShowSuggestions(matched.length > 0);
   }, [localityInput, masterLocation]);
 
-  // localities helpers (HomePage-style)
+  // localities
   const getSelectedCityPart = (selLoc: string) => {
     if (!selLoc) return '';
     const parts = selLoc.split(',').map(s => s.trim()).filter(Boolean);
@@ -616,17 +694,13 @@ useEffect(() => {
 
     setLocalities(prev => {
       const selectedCity = getSelectedCityPart(selectedLocation);
-      const newLocalities = [...prev];
-
+      const next = [...prev];
       for (const part of parts) {
-        if (newLocalities.length >= 5) break;
+        if (next.length >= 5) break;
         if (selectedCity && part.toLowerCase() === selectedCity) continue;
-        if (!newLocalities.includes(part)) {
-          newLocalities.push(part);
-        }
+        if (!next.includes(part)) next.push(part);
       }
-
-      return newLocalities;
+      return next;
     });
 
     setLocalityInput('');
@@ -638,9 +712,8 @@ useEffect(() => {
     setLocalities(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // When user clicks a property-type button in the new horizontal row
+  // header type buttons
   const handlePropertyTypeButton = (value: string) => {
-    // If user clicked "All" (empty value), reset ALL filters and show all properties.
     if (!value) {
       setSelectedPropertyType('');
       setSelectedType('');
@@ -652,15 +725,12 @@ useEffect(() => {
       setSelectedPropertySubtype('');
       setSelectedUnitType('');
       setTransactionType('buy');
-      setFeaturedOnly(false);
-      setVerifiedOnly(false);
       setMinRating(null);
       setPossessionFilter('');
       setParkingFilter('any');
       setFloorMin('');
       setFloorMax('');
       setBathroomsFilter('');
-      // navigate to base properties page (clears URL filters)
       navigate('/properties', { replace: true });
       return;
     }
@@ -668,12 +738,11 @@ useEffect(() => {
     setSelectedType(prev => (prev === value ? '' : value));
   };
 
-  // Sync selectedPropertyType with selectedType when selectedType changes externally
   useEffect(() => {
     setSelectedPropertyType(selectedType || '');
   }, [selectedType]);
 
-  // filtering logic
+  // search filtering (client)
   const filteredProperties = allProperties.filter((property) => {
     const title = String(property.title || '').toLowerCase();
     const propLocation = String(property.location || '').toLowerCase();
@@ -703,14 +772,10 @@ useEffect(() => {
       (localities.length > 0 && localities.some(l => propLocation.includes(l.toLowerCase())));
 
     const matchesType =
-      selType === '' ||
-      propType === selType ||
-      propType.includes(selType);
+      selType === '' || propType === selType || propType.includes(selType);
 
     const matchesSubtype =
-      selSubtype === '' ||
-      propSubtype === selSubtype ||
-      propSubtype.includes(selSubtype);
+      selSubtype === '' || propSubtype === selSubtype || propSubtype.includes(selSubtype);
 
     const matchesBudgetFilter = matchesBudget(property, selBudget);
 
@@ -734,13 +799,11 @@ useEffect(() => {
     if (!matchesSearch) return false;
     if (!matchesLocation) return false;
     if (!matchesBudgetFilter) return false;
-    if (!matchesBedrooms) return false;
-    if (featuredOnly && !property.featured) return false;
-    if (verifiedOnly && !property.verified) return false;
     if (minRating !== null && minRating !== undefined) {
       if ((property.rating || 0) < Number(minRating)) return false;
     }
-    if (possessionFilter && possessionFilter !== '' && !(String(property.possession || '').toLowerCase().includes(String(possessionFilter).toLowerCase()))) {
+    if (possessionFilter && possessionFilter !== '' &&
+        !(String(property.possession || '').toLowerCase().includes(String(possessionFilter).toLowerCase()))) {
       return false;
     }
     if (parkingFilter && parkingFilter !== 'any') {
@@ -763,24 +826,19 @@ useEffect(() => {
     return true;
   });
 
+  // sort/paginate
   const sortedProperties = [...filteredProperties].sort((a, b) => {
     switch (sortBy) {
-      case 'price_low':
-        return a.price - b.price;
-      case 'price_high':
-        return b.price - a.price;
-      case 'newest':
-        return new Date(b.postedDate || '').getTime() - new Date(a.postedDate || '').getTime();
-      case 'area_large':
-        return (b.area || b.square_feet || 0) - (a.area || a.square_feet || 0);
-      case 'rating':
-        return (b.rating || 0) - (a.rating || 0);
-      case 'ai_score':
-        return (b.aiScore || 0) - (a.aiScore || 0);
+      case 'price_low': return a.price - b.price;
+      case 'price_high': return b.price - a.price;
+      case 'newest': return new Date(b.postedDate || '').getTime() - new Date(a.postedDate || '').getTime();
+      case 'area_large': return (b.area || b.square_feet || 0) - (a.area || a.square_feet || 0);
+      case 'rating': return (b.rating || 0) - (a.rating || 0);
+      case 'ai_score': return (b.aiScore || 0) - (a.aiScore || 0);
       case 'price_growth':
-        return parseFloat((b.priceGrowth || '0').replace('+', '').replace('%', '')) - parseFloat((a.priceGrowth || '0').replace('+', '').replace('%', ''));
-      default:
-        return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
+        return parseFloat((b.priceGrowth || '0').replace('+', '').replace('%', '')) -
+               parseFloat((a.priceGrowth || '0').replace('+', '').replace('%', ''));
+      default: return 0;
     }
   });
 
@@ -788,7 +846,14 @@ useEffect(() => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedProperties = sortedProperties.slice(startIndex, startIndex + itemsPerPage);
 
-  // navigate to property (preserve token & analytics) - unchanged except Set clone already used
+  // nav helpers
+  const preserveAndAddToken = (existingSearch: string, paramKey: string, token?: string | null) => {
+    const params = new URLSearchParams(existingSearch || '');
+    if (token) params.set(paramKey, token);
+    const s = params.toString();
+    return s ? `?${s}` : '';
+  };
+
   const handleNavigateToProperty = async (property: Property) => {
     const id = property.id;
     const slug = property.slug;
@@ -853,248 +918,98 @@ useEffect(() => {
     navigate(dest);
   };
 
-  // ------------------ RENDER helpers repeated (floor/bath/parking) ------------------
-  const extractFloor = (p: any) => {
-    if (!p) return null;
-    if (p.floor !== undefined && p.floor !== null) return Number(p.floor);
-    if (p._raw?.floor_number) return Number(p._raw.floor_number);
-    if (p._raw?.floor) return Number(p._raw.floor);
-    if (p._raw?.current_floor) return Number(p._raw?.current_floor);
-    return null;
-  };
-
-  const extractBathrooms = (p: any) => {
-    if (!p) return null;
-    if (p.bathrooms !== undefined && p.bathrooms !== null) return Number(p.bathrooms);
-    if (p._raw?.bathrooms) return Number(p._raw?.bathrooms);
-    if (p._raw?.toilets) return Number(p._raw?.toilets);
-    return null;
-  };
-
-  const extractParkingTypes = (p: any) => {
-    const raw = p._raw || {};
-    let parkingTypes: string[] = [];
-    if (raw.parking_types) {
-      if (Array.isArray(raw.parking_types)) parkingTypes = raw.parking_types.map((s: string) => s.toString().toLowerCase());
-      else if (typeof raw.parking_types === 'string') parkingTypes = raw.parking_types.split(',').map((s: string) => s.trim().toLowerCase());
-    }
-    if (raw.parking_details) {
-      if (typeof raw.parking_details === 'string') parkingTypes = parkingTypes.concat(raw.parking_details.split(',').map((s: string) => s.trim().toLowerCase()));
-      else if (Array.isArray(raw.parking_details)) parkingTypes = parkingTypes.concat(raw.parking_details.map((s: string) => s.toString().toLowerCase()));
-    }
-    if (typeof p.parking === 'number' && p.parking > 0) {
-      parkingTypes.push('4w');
-      parkingTypes.push('2w');
-    }
-    if (Array.isArray(p.amenities)) {
-      p.amenities.forEach((a: string) => {
-        const low = a.toLowerCase();
-        if (low.includes('2 wheeler') || low.includes('2-wheeler') || low.includes('two wheeler')) parkingTypes.push('2w');
-        if (low.includes('4 wheeler') || low.includes('4-wheeler') || low.includes('four wheeler') || low.includes('car parking')) parkingTypes.push('4w');
-      });
-    }
-    return Array.from(new Set(parkingTypes));
-  };
-
-  useEffect(() => {
-  const qp = new URLSearchParams(location.search);
-  const cityFromUrl = qp.get('city') || '';
-  const locationsFromUrl =
-    qp.getAll('locations').length > 0
-      ? qp.getAll('locations')
-      : (qp.get('locations') ? qp.get('locations').split(',') : []);
-
-  setSelectedLocation(cityFromUrl);
-  setLocalities(locationsFromUrl.filter(Boolean));
-}, [location.search]);
-
-
-  // ------------------ HEADER search submit -> update URL (only on submit) ------------------
+  // header submit (basic search URL build)
   const handleHeaderSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    // Build params in the exact order you wanted: city -> location -> status
     const params = new URLSearchParams();
 
-    // Derive city and location
-    // If user added localities (chips), we set city (if available) first, then the location(s)
     if (localities.length > 0) {
-  // params.append('location', localities.join(','));
-  // city
-  const parts = (selectedLocation || '').split(',').map(s => s.trim()).filter(Boolean);
-  if (parts.length >= 1) {
-    const cityPart = parts.slice(-1).join(', ');
-    if (cityPart) params.append('city', cityPart);
-  }
-  // ✅ repeated params
-  localities.forEach(loc => {
-    if (loc && loc.trim()) params.append('location', loc.trim());
-  });
-}  else {
-      // no localities -> derive city/location from selectedLocation input
+      const parts = (selectedLocation || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.length >= 1) {
+        const cityPart = parts.slice(-1).join(', ');
+        if (cityPart) params.append('city', cityPart);
+      }
+      localities.forEach(loc => {
+        if (loc && loc.trim()) params.append('location', loc.trim());
+      });
+    } else {
       const raw = String(selectedLocation || '').trim();
       if (raw) {
         const parts = raw.split(',').map((s) => s.trim()).filter(Boolean);
-        if (parts.length === 1) {
-          // user selected only city
-          params.append('city', parts[0]);
-        } else if (parts.length >= 2) {
-          // last part is city, earlier parts are location
+        if (parts.length === 1) params.append('city', parts[0]);
+        else if (parts.length >= 2) {
           params.append('city', parts.slice(-1).join(', '));
           params.append('location', parts.slice(0, -1).join(', '));
         }
       }
     }
 
-    // IMPORTANT: include status=Available as default (so the URL becomes ?city=...&location=...&status=Available)
+    // always keep available + PUBLIC enforced in loader
     params.append('status', 'Available');
 
-    // NOTE: per user request we intentionally DO NOT include transaction/search/sort here for header-search.
-
-    // reset page to first
     setCurrentPage(1);
-
-    const qs = params.toString();
-    // replace: true so browser history isn't full of intermediate searches
-    navigate(`/properties${qs ? `?${qs}` : ''}`, { replace: true });
-    // loadPropertiesFromSearch will be triggered by useEffect when location.search changes
+    navigate(`/properties${params.toString() ? `?${params.toString()}` : ''}`, { replace: true });
   };
 
-  // apply advanced filters -> update URL (immediate when Apply Filters clicked)
-  const applyAdvancedFiltersToUrl = (opts?: { close?: boolean }) => {
-    const params = new URLSearchParams();
+  const onToggleFilters = () => setShowFilters(s => !s);
 
-    // localities: append repeated params (preferred)
-    if (localities.length > 0) {
-      localities.forEach(loc => {
-        if (loc && loc.trim()) params.append('location', loc.trim());
-      });
-      const parts = (selectedLocation || '').split(',').map(s => s.trim()).filter(Boolean);
-      if (parts.length >= 1) {
-        params.set('city', parts.slice(-1).join(', '));
-      }
-    } else if (selectedLocation) {
-      const raw = selectedLocation.trim();
-      const parts = raw.split(',').map((s) => s.trim()).filter(Boolean);
-      if (parts.length === 1) {
-        params.set('city', parts[0]);
-      } else if (parts.length >= 2) {
-        params.set('city', parts.slice(-1).join(', '));
-        params.set('location', parts.slice(0, -1).join(', '));
-      }
-    }
-
-    if (selectedType) params.set('propertyType', selectedType);
-    if (selectedBudget) params.set('budget', selectedBudget);
-    if (selectedBedrooms) params.set('bedrooms', selectedBedrooms);
-
-    if (featuredOnly) params.set('featured', '1');
-    if (verifiedOnly) params.set('verified', '1');
-    if (minRating !== null && minRating !== undefined) params.set('min_rating', String(minRating));
-    if (possessionFilter) params.set('possession', possessionFilter);
-    if (parkingFilter && parkingFilter !== 'any') params.set('parking', parkingFilter);
-    if (floorMin !== '') params.set('floor_min', String(floorMin));
-    if (floorMax !== '') params.set('floor_max', String(floorMax));
-    if (bathroomsFilter !== '') params.set('bathrooms', String(bathroomsFilter));
-    if (selectedPropertySubtype) params.set('property_subtype', selectedPropertySubtype);
-    if (selectedUnitType) params.set('unitType', selectedUnitType);
-
-    if (transactionType) params.set('transaction', transactionType);
-    if (searchQuery) params.set('search', searchQuery);
-    if (sortBy) params.set('sort', sortBy);
-
-    // Include status default for advanced filters too (keeps URLs consistent)
-    params.set('status', 'Available');
-
-    // reset page to first
-    setCurrentPage(1);
-
-    navigate(`/properties?${params.toString()}`, { replace: true });
-    if (opts?.close) setShowFilters(false);
-    // loadPropertiesFromSearch will run automatically because location.search changes
-  };
-
-  // When filter toggled open, scroll into view
-  // ✅ 1) Correct handler (no nested fn, no scrollIntoView)
-  const onToggleFilters = () => {
-    setShowFilters(s => !s);
-  };
-
-
-  // ------------------ RENDER ------------------
+  /* ==============================
+     Render
+  ============================== */
   if (currentPropertyView) {
     return <PublicPropertyDetailPage property={currentPropertyView} />;
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="  py-5 pt-28"
-        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
+      {/* Header / Search */}
+      <div className="py-5 pt-28" style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h2 className="text-3xl font-bold mb-3 text-white">Explore Premium Properties</h2>
             <p className="text-lg text-blue-100 mb-2 max-w-2xl mx-auto">
               Discover verified properties from trusted sellers across top locations
             </p>
-            {/* Compact Buy / Rent + property-type buttons row (HomePage-style) */}
+
+            {/* Buy/Rent + Type row */}
             <div className="grid grid-cols-1 gap-1 md:gap-2 mb-4 items-center justify-center text-center">
-              {/* Buy / Rent */}
               <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setTransactionType("buy")}
                   className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70
-        ${transactionType === "buy"
-                      ? "bg-[#E6761D] text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  aria-pressed={transactionType === "buy"}
+                    ${"buy" === "buy" ? "bg-[#E6761D] text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                  aria-pressed={true}
                 >
                   Buy
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setTransactionType("rent")}
-                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70
-        ${transactionType === "rent"
-                      ? "bg-gray-300 text-gray-600"
-                      : "bg-gray-100 text-gray-700"
-                    } opacity-60 cursor-not-allowed`}
+                  onClick={() => {}}
+                  className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base transition bg-gray-100 text-gray-700 opacity-60 cursor-not-allowed"
                   title="Rent search not available yet"
                   disabled
                   aria-disabled="true"
-                  aria-pressed={transactionType === "rent"}
+                  aria-pressed={false}
                 >
                   Rent
                 </button>
               </div>
 
-              {/* property-type buttons group (horizontal scrollable, no gradient edges) */}
               <div className="w-full grid justify-center md:w-auto">
                 {masterLoading ? (
                   <div className="text-sm text-white/80 px-3 py-1">Loading types...</div>
                 ) : (
-                  <div
-                    className="
-          relative
-          ml-2 md:ml-0
-          max-w-full
-          overflow-x-auto
-          [-webkit-overflow-scrolling:touch]
-          [scrollbar-width:none]
-          [-ms-overflow-style:none]
-          px-1
-        "
-                    style={{ scrollbarWidth: "none" }}
-                  >
+                  <div className="relative ml-2 md:ml-0 max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [-ms-overflow-style:none] px-1" style={{ scrollbarWidth: "none" }}>
                     <div className="flex gap-2 py-1 snap-x snap-mandatory">
                       <button
                         type="button"
                         onClick={() => handlePropertyTypeButton("")}
                         aria-pressed={selectedPropertyType === ""}
                         className={`shrink-0 snap-start whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
-              ${selectedPropertyType === "" ? "bg-white text-black" : "bg-white/30 text-white hover:bg-white/40"}`}
+                          ${selectedPropertyType === "" ? "bg-white text-black" : "bg-white/30 text-white hover:bg-white/40"}`}
                       >
                         All
                       </button>
@@ -1107,7 +1022,7 @@ useEffect(() => {
                           aria-pressed={selectedPropertyType === opt.value}
                           title={opt.label}
                           className={`shrink-0 snap-start whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
-                ${selectedPropertyType === opt.value ? "bg-white text-black" : "bg-white/20 text-white hover:bg-white/30"}`}
+                            ${selectedPropertyType === opt.value ? "bg-white text-black" : "bg-white/20 text-white hover:bg-white/30"}`}
                         >
                           {opt.label}
                         </button>
@@ -1118,14 +1033,10 @@ useEffect(() => {
               </div>
             </div>
 
-
-            {/* HEADER SEARCH: HomePage-style (city dropdown, locality chips, property type, search) */}
-            <form
-              onSubmit={handleHeaderSearchSubmit}
-              className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-2 shadow-xl max-w-4xl mx-auto"
-            >
+            {/* Header search */}
+            <form onSubmit={handleHeaderSearchSubmit} className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-2 shadow-xl max-w-4xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
-                {/* City dropdown */}
+                {/* City */}
                 <div className="md:col-span-1">
                   <select
                     value={selectedLocation}
@@ -1133,38 +1044,26 @@ useEffect(() => {
                       const newVal = e.target.value || '';
                       setSelectedLocation(newVal);
                       setSearchQuery(newVal);
-                      if (
-                        newVal &&
-                        newVal.split(',').map(s => s.trim()).filter(Boolean).length === 1
-                      ) {
+                      if (newVal && newVal.split(',').map(s => s.trim()).filter(Boolean).length === 1) {
                         setLocalities([]);
                       }
                     }}
                     disabled={masterLoading}
-                    className="appearance-none px-3 py-2 border rounded-lg w-full 
-               bg-white/30 text-white border-white/30
-               focus:outline-none focus:ring-1 focus:ring-white
-               disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="appearance-none px-3 py-2 border rounded-lg w-full bg-white/30 text-white border-white/30 focus:outline-none focus:ring-1 focus:ring-white disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="" className="bg-[#0b3856] text-white">
                       {masterLoading ? "Loading cities..." : "Select City"}
                     </option>
                     {cityOptions.map((o) => (
-                      <option
-                        key={o.value}
-                        value={o.value}
-                        className="bg-[#0b3856] text-white"
-                      >
+                      <option key={o.value} value={o.value} className="bg-[#0b3856] text-white">
                         {o.label}
                       </option>
                     ))}
                   </select>
                 </div>
 
-
-                {/* Localities input + Add button (with autosuggest) */}
+                {/* Locality input */}
                 <div className="relative md:col-span-3 flex items-center gap-2 bg-[#0b3856] border border-gray-200 rounded-xl w-full max-w-[700px] mx-auto">
-                  {/* Search Icon + Input */}
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white" size={16} />
                     <input
@@ -1172,38 +1071,20 @@ useEffect(() => {
                       value={localityInput}
                       onChange={(e) => setLocalityInput(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addLocality();
-                        } else if (e.key === "Escape") {
-                          setShowSuggestions(false);
-                        }
+                        if (e.key === "Enter") { e.preventDefault(); addLocality(); }
+                        else if (e.key === "Escape") { setShowSuggestions(false); }
                       }}
-                      onFocus={() => {
-                        if (suggestions.length > 0) setShowSuggestions(true);
-                      }}
-                      onBlur={() => {
-                        setTimeout(() => setShowSuggestions(false), 120);
-                      }}
+                      onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                      onBlur={() => { setTimeout(() => setShowSuggestions(false), 120); }}
                       className="pl-10 pr-16 h-10 w-full text-sm bg-white/10 text-white placeholder-white/70 outline-none focus:ring-1 focus:ring-gray-400 rounded-lg"
-                      placeholder={
-                        Array.isArray(masterLocation) && masterLocation.length > 0
-                          ? `Search properties by locality or area`
-                          : `Search properties by locality or area`
-                      }
+                      placeholder="Search properties by locality or area"
                       aria-autocomplete="list"
                       aria-haspopup="listbox"
                       aria-expanded={showSuggestions}
                       disabled={localities.length >= 5}
                     />
-
-                    {/* Suggestions */}
                     {showSuggestions && suggestions.length > 0 && (
-                      <ul
-                        role="listbox"
-                        className="absolute left-0 right-0 mt-1 max-h-32 lg:max-w-60 overflow-auto 
-               bg-[#0b3856] border rounded-lg shadow-lg z-[200] custom-scroll"
-                      >
+                      <ul role="listbox" className="absolute left-0 right-0 mt-1 max-h-32 lg:max-w-60 overflow-auto bg-[#0b3856] border rounded-lg shadow-lg z-[200] custom-scroll">
                         {suggestions.map((s, idx) => (
                           <li
                             key={`${s.value}-${idx}`}
@@ -1221,35 +1102,16 @@ useEffect(() => {
                       </ul>
                     )}
                   </div>
-
-                  {/* Add Button */}
-                  {/* <button
-                    type="button"
-                    onClick={() => addLocality()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 
-             bg-[#0b3856] hover:bg-[#0c3854] 
-             text-white px-3 py-1 rounded-lg text-sm 
-             transition-colors duration-300"
-                  >
-                    Add
-                  </button> */}
                 </div>
 
-                {/* Search button */}
+                {/* Buttons */}
                 <div className="md:col-span-1 flex items-center justify-center md:justify-end gap-1">
-                  {/* Search Button */}
-                  <button
-                    type="submit"
-                    className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-2 rounded-lg w-full md:w-28 text-base font-medium transition-colors duration-300"
-                  >
+                  <button type="submit" className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-2 rounded-lg w-full md:w-28 text-base font-medium transition-colors duration-300">
                     Search
                   </button>
-
-                  {/* Reset Button */}
                   <button
                     type="button"
                     onClick={() => {
-                      // 🔁 Reset all relevant search states here
                       setSearchQuery('');
                       setSelectedLocation('');
                       setLocalities([]);
@@ -1259,33 +1121,24 @@ useEffect(() => {
                       setSelectedBedrooms('');
                       setSelectedPropertySubtype('');
                       setSelectedUnitType('');
-                      navigate('/properties', { replace: true }); // optional: clears URL filters
+                      navigate('/properties', { replace: true });
                     }}
                     className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-5 py-2 rounded-lg w-full md:w-28 text-base font-medium transition-colors duration-300"
                   >
                     Reset
                   </button>
                 </div>
-
-
               </div>
 
-              {/* Chips Section */}
+              {/* Chips */}
               <div className="mt-3 flex flex-wrap gap-2">
                 {localities.map((loc, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center bg-white/30 text-white px-2 py-1 rounded-full text-xs"
-                  >
+                  <div key={idx} className="flex items-center bg-white/30 text-white px-2 py-1 rounded-full text-xs">
                     <span className="mr-1">{loc}</span>
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        removeLocality(idx);
-                      }}
-                      className="text-gray-500 hover:text-gray-800"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeLocality(idx); }}
+                      className="text-gray-200 hover:text-white"
                       aria-label={`Remove locality ${loc}`}
                     >
                       &times;
@@ -1293,36 +1146,28 @@ useEffect(() => {
                   </div>
                 ))}
                 {localities.length < 5 && (
-                  <div className="text-xs text-white px-2 py-1">
-                    Add up to 1 localities.
-                  </div>
+                  <div className="text-xs text-white px-2 py-1">Add up to 5 localities.</div>
                 )}
               </div>
             </form>
-
           </div>
         </div>
       </div>
 
-      {/* AI Recommendations */}
+      {/* AI Recommendations bar */}
       {showAIRecommendations && !loading && allProperties.length > 0 && (
         <div className="bg-gradient-to-r from-[#E6761D] via-[#CC6A1A] via-[#0b3856] to-[#0c3854] text-white py-2 transition-colors duration-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-start sm:items-center justify-between">
-
-              {/* Left: Info */}
               <div className="flex items-start sm:items-center space-x-2 sm:space-x-3">
                 <Bot className="text-yellow-300 drop-shadow-md shrink-0 mt-0.5 sm:mt-0" size={40} />
                 <div className="flex flex-col">
                   <span className="font-semibold">AI Recommendations:</span>
                   <span className="text-xs sm:text-sm">
-                    Found {allProperties.length} properties.{" "}
-                    {selectedLocation || "Top areas"} show strong growth potential
+                    Found {allProperties.length} public properties. {selectedLocation || "Top areas"} show strong growth potential
                   </span>
                 </div>
               </div>
-
-              {/* Right: Close */}
               <button
                 onClick={() => setShowAIRecommendations(false)}
                 className="ml-3 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2 py-1 rounded transition-colors duration-200"
@@ -1334,21 +1179,14 @@ useEffect(() => {
         </div>
       )}
 
-
-
+      {/* Body */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Advanced Filters: toggled under header — use ref to scroll into view */}
-        <div className="grid  grid-cols-1 mb-6">
+        {/* Header row */}
+        <div className="grid grid-cols-1 mb-6">
           <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 text-nowrap sm:items-center sm:justify-between mb-2">
-            {/* Left: Title + meta */}
             <div className="min-w-0">
-              {/* Title */}
-              <h2 className="text-2xl font-bold text-[#0b3856]">
-                All Properties
-              </h2>
-
-              {/* Meta line */}
-              {hasActiveFilters && (
+              <h2 className="text-2xl font-bold text-[#0b3856]">All Properties</h2>
+              {Boolean(selectedLocation || localities.length || selectedBudget) && (
                 <p className="text-gray-600 text-sm">
                   {selectedLocation && `in ${selectedLocation} • `}
                   {localities.length > 0 && `${localities.join(', ')} • `}
@@ -1357,26 +1195,21 @@ useEffect(() => {
                   Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedProperties.length)} results
                 </p>
               )}
-
             </div>
 
-            {/* Right: View toggle buttons */}
-            <div className="flex items-center justify-end sm:justify-end gap-2">
+            <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setViewMode('grid')}
                 aria-label="Grid view"
-                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center 
-        ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
+                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
                 title="Grid view"
               >
                 <Grid size={18} />
               </button>
-
               <button
                 onClick={() => setViewMode('list')}
                 aria-label="List view"
-                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center 
-        ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
+                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
                 title="List view"
               >
                 <List size={18} />
@@ -1384,15 +1217,12 @@ useEffect(() => {
             </div>
           </div>
 
-
-          {/* Top row: AI badge + Filters button (orange) */}
           <div className="flex items-end justify-end gap-3">
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <Target className="text-blue-600" size={16} />
               <span>AI-Powered Search</span>
             </div>
 
-            {/* Wrap button + panel so panel can be absolute */}
             <div className="relative">
               <button
                 type="button"
@@ -1407,18 +1237,13 @@ useEffect(() => {
               </button>
 
               {showFilters && (
-                <div
-                  id="advanced-filters-panel"
-                  ref={filtersRef}
-                  className="absolute right-0 top-full mt-2 z-20 w-[min(92vw,1000px)] bg-white rounded-2xl shadow-lg p-6 border border-gray-200 max-h-[70vh] overflow-auto"
-                > <h3 className="text-lg font-semibold text-[#0b3856] mb-4">Advanced Filters</h3>
+                <div id="advanced-filters-panel" ref={filtersRef} className="absolute right-0 top-full mt-2 z-20 w-[min(92vw,1000px)] bg-white rounded-2xl shadow-lg p-6 border border-gray-200 max-h-[70vh] overflow-auto">
+                  <h3 className="text-lg font-semibold text-[#0b3856] mb-4">Advanced Filters</h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     {/* Location */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Location</label>
-
-
                       <select
                         value={selectedLocation}
                         onChange={(e) => {
@@ -1437,11 +1262,10 @@ useEffect(() => {
                         ))}
                       </select>
                     </div>
+
                     {/* Budget */}
                     <div>
-
                       <label className="block text-xs font-medium text-gray-700 mb-1">Budget</label>
-
                       <select
                         value={selectedBudget}
                         onChange={(e) => setSelectedBudget(e.target.value)}
@@ -1456,6 +1280,7 @@ useEffect(() => {
                         ))}
                       </select>
                     </div>
+
                     {/* Property Type */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Property Type</label>
@@ -1488,7 +1313,7 @@ useEffect(() => {
                       </select>
                     </div>
 
-                    {/* Sort By */}
+                    {/* Sort */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
                       <select
@@ -1510,10 +1335,6 @@ useEffect(() => {
                         ))}
                       </select>
                     </div>
-
-
-
-
 
                     {/* Possession */}
                     <div>
@@ -1542,6 +1363,7 @@ useEffect(() => {
                         <option value="4w">4-Wheeler</option>
                       </select>
                     </div>
+
                     {/* Min Rating */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Min Rating</label>
@@ -1552,6 +1374,7 @@ useEffect(() => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
                       />
                     </div>
+
                     {/* Floor min */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Floor (min)</label>
@@ -1586,45 +1409,57 @@ useEffect(() => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
                       />
                     </div>
-                    {/* Featured */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Featured only</label>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={featuredOnly}
-                          onChange={(e) => setFeaturedOnly(e.target.checked)}
-                        />
-                        <span className="text-xs text-gray-600">Show only featured</span>
-                      </div>
-                    </div>
 
-                    {/* Verified */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Verified only</label>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={verifiedOnly}
-                          onChange={(e) => setVerifiedOnly(e.target.checked)}
-                        />
-                        <span className="text-xs text-gray-600">Show only verified</span>
-                      </div>
-                    </div>
-                    {/* ACTIONS */}
+                    {/* Actions */}
                     <div className="col-span-full flex gap-3 justify-end pt-2">
                       <button
-                        onClick={() => { applyAdvancedFiltersToUrl({ close: true }); }}
+                        onClick={() => {
+                          const params = new URLSearchParams();
+
+                          if (localities.length > 0) {
+                            localities.forEach(loc => { if (loc && loc.trim()) params.append('location', loc.trim()); });
+                            const parts = (selectedLocation || '').split(',').map(s => s.trim()).filter(Boolean);
+                            if (parts.length >= 1) params.set('city', parts.slice(-1).join(', '));
+                          } else if (selectedLocation) {
+                            const raw = selectedLocation.trim();
+                            const parts = raw.split(',').map((s) => s.trim()).filter(Boolean);
+                            if (parts.length === 1) params.set('city', parts[0]);
+                            else if (parts.length >= 2) {
+                              params.set('city', parts.slice(-1).join(', '));
+                              params.set('location', parts.slice(0, -1).join(', '));
+                            }
+                          }
+
+                          if (selectedType) params.set('propertyType', selectedType);
+                          if (selectedBudget) params.set('budget', selectedBudget);
+                          if (selectedBedrooms) params.set('bedrooms', selectedBedrooms);
+                          if (minRating !== null && minRating !== undefined) params.set('min_rating', String(minRating));
+                          if (possessionFilter) params.set('possession', possessionFilter);
+                          if (parkingFilter && parkingFilter !== 'any') params.set('parking', parkingFilter);
+                          if (floorMin !== '') params.set('floor_min', String(floorMin));
+                          if (floorMax !== '') params.set('floor_max', String(floorMax));
+                          if (bathroomsFilter !== '') params.set('bathrooms', String(bathroomsFilter));
+                          if (selectedPropertySubtype) params.set('property_subtype', selectedPropertySubtype);
+                          if (selectedUnitType) params.set('unitType', selectedUnitType);
+
+                          if (transactionType) params.set('transaction', transactionType);
+                          if (searchQuery) params.set('search', searchQuery);
+                          if (sortBy) params.set('sort', sortBy);
+                          params.set('status', 'Available');
+
+                          setCurrentPage(1);
+                          navigate(`/properties?${params.toString()}`, { replace: true });
+                          setShowFilters(false);
+                        }}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs"
                       >
                         Apply Filters
                       </button>
-                      <button
-                        onClick={() => setShowFilters(false)}
-                        className="border border-gray-300 px-4 py-2 rounded-lg text-xs hover:bg-gray-50"
-                      >
+
+                      <button onClick={() => setShowFilters(false)} className="border border-gray-300 px-4 py-2 rounded-lg text-xs hover:bg-gray-50">
                         Close
                       </button>
+
                       <button
                         onClick={() => {
                           setSelectedLocation('');
@@ -1632,8 +1467,6 @@ useEffect(() => {
                           setSelectedType('');
                           setSelectedBedrooms('');
                           setSearchQuery('');
-                          setFeaturedOnly(false);
-                          setVerifiedOnly(false);
                           setMinRating(null);
                           setPossessionFilter('');
                           setParkingFilter('any');
@@ -1658,7 +1491,6 @@ useEffect(() => {
               )}
             </div>
           </div>
-
         </div>
 
         {/* Loading / Error / Results */}
@@ -1687,24 +1519,43 @@ useEffect(() => {
                   const unitAreaLine = formatUnitAreaLine(property);
                   const { locationPart, cityPart } = splitLocationCity(property);
                   return (
-                    <div key={property.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group cursor-pointer" onClick={() => { if (property.slug) { handleNavigateToProperty(property); return; } setCurrentPropertyView(property); if (onPropertyView) onPropertyView(property); }}>
+                    <div
+                      key={property.id}
+                      className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group cursor-pointer"
+                      onClick={() => { if (property.slug) { handleNavigateToProperty(property); return; } setCurrentPropertyView(property); if (onPropertyView) onPropertyView(property); }}
+                    >
                       <div className="relative">
-                        <img src={property.images?.[0] || 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'} alt={String(property.title)} className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500" />
+                        <img
+                          src={property.images?.[0] || 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'}
+                          alt={String(property.title)}
+                          className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
 
-                        <div className="absolute top-3 left-3 flex space-x-2">
-                          {property.featured && (<span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"><Zap size={10} className="mr-1" />FEATURED</span>)}
-                          {property.verified && (<span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center space-x-1"><CheckCircle size={10} /><span>VERIFIED</span></span>)}
-                          {(property.aiScore || 0) > 90 && (<span className="bg-purple-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"><Bot size={10} className="mr-1" />AI {property.aiScore}</span>)}
-                        </div>
-                        {/* ✅ Watermark Overlay */}
+                        <div className="absolute top-3 left-3 flex items-center flex-wrap gap-2 z-20">
+  {/* ✅ Property Tags */}
+  <PropertyTags tags={property.tags || []} />
+
+  {(property.aiScore ?? 0) >= 90 && (
+    <span className="flex items-center bg-purple-600 text-white px-2 py-[3px] rounded-full text-[8px] sm:text-xs font-bold whitespace-nowrap shadow-sm">
+      <Bot size={12} className="mr-1" />
+      AI {Math.round(property.aiScore ?? 0)}
+    </span>
+  )}
+  {/* ✅ AI Score Badge */}
+</div>
+
+
+                        {/* Watermark */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span className="text-white text-2xl font-bold opacity-40 select-none">
-                            ResaleExpert.in
-                          </span>
+                          <span className="text-white text-2xl font-bold opacity-40 select-none">ResaleExpert.in</span>
                         </div>
-                        <button onClick={(e) => { e.stopPropagation(); toggleLike(property.id.toString()); }} className="absolute top-3 right-3 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all">
+
+                        {/* <button
+                          onClick={(e) => { e.stopPropagation(); setLikedProperties((prev) => prev.includes(property.id.toString()) ? prev.filter((id) => id !== property.id.toString()) : [...prev, property.id.toString()]); }}
+                          className="absolute top-3 right-3 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all"
+                        >
                           <Heart size={16} className={likedProperties.includes(property.id.toString()) ? 'text-red-500 fill-current' : 'text-gray-600'} />
-                        </button>
+                        </button> */}
 
                         <div className="absolute bottom-3 right-3 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full text-xs flex items-center space-x-1">
                           <Eye size={10} />
@@ -1715,7 +1566,10 @@ useEffect(() => {
                       <div className="p-6">
                         <div className="mb-3">
                           <h3 className="text-xs font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">{composedTitle}</h3>
-                          <div className="flex items-center text-gray-600 text-sm mb-1"><MapPin size={14} className="mr-1" /><span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span></div>
+                          <div className="flex items-center text-gray-600 text-sm mb-1">
+                            <MapPin size={14} className="mr-1" />
+                            <span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span>
+                          </div>
                         </div>
 
                         <div className="mb-4">
@@ -1753,48 +1607,29 @@ useEffect(() => {
                           {(property.amenities || []).length > 3 && <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">+{(property.amenities || []).length - 3}</span>}
                         </div>
 
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {(property.highlights || []).map((highlight: string, i: number) => (
-                            <span key={i} className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">{highlight}</span>
-                          ))}
-                        </div>
-
                         <div className="flex items-center space-x-2">
-                          {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
+                          {typeof property.slug === 'string' && property.slug.trim().length > 0 ? (
                             <div className="flex-1">
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleNavigateToProperty(property);
-                                }}
+                                onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }}
                                 className="w-full bg-[#E6761D] hover:bg-[#CC6A1A] text-white py-2 px-3 rounded-lg font-medium transition-colors duration-300 text-sm shadow-md"
                               >
                                 View Details
                               </button>
                             </div>
                           ) : (
-                            <button
-                              disabled
-                              aria-disabled="true"
-                              title="Details not available – missing backend slug"
-                              className="w-full bg-gray-300 text-gray-600 py-2 px-3 rounded-lg cursor-not-allowed text-sm"
-                            >
+                            <button disabled aria-disabled="true" title="Details not available – missing backend slug" className="w-full bg-gray-300 text-gray-600 py-2 px-3 rounded-lg cursor-not-allowed text-sm">
                               View Details
                             </button>
                           )}
-                          {/* Call Button */}
+
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.open(`tel:${property.agent?.phone}`);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); window.open(`tel:${property.agent?.phone}`); }}
                             className="p-2 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
                           >
                             <Phone size={16} />
                           </button>
 
-
-                          {/* WhatsApp Button */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1808,10 +1643,7 @@ useEffect(() => {
                           >
                             <FaWhatsapp size={16} />
                           </button>
-
-
                         </div>
-
                       </div>
                     </div>
                   );
@@ -1824,12 +1656,27 @@ useEffect(() => {
                   const unitAreaLine = formatUnitAreaLine(property);
                   const { locationPart, cityPart } = splitLocationCity(property);
                   return (
-                    <div key={property.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all group cursor-pointer" onClick={() => { if (property.slug) { handleNavigateToProperty(property); return; } setCurrentPropertyView(property); if (onPropertyView) onPropertyView(property); }}>
+                    <div
+                      key={property.id}
+                      className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all group cursor-pointer"
+                      onClick={() => { if (property.slug) { handleNavigateToProperty(property); return; } setCurrentPropertyView(property); if (onPropertyView) onPropertyView(property); }}
+                    >
                       <div className="md:flex">
                         <div className="md:w-1/3 relative">
-                          <img src={property.images?.[0] || 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'} alt={String(property.title)} className="w-full h-64 md:h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                          <div className="absolute top-3 left-3 flex space-x-2">{property.featured && <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">FEATURED</span>}{property.verified && <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold">VERIFIED</span>}</div>
-                          <div className="absolute bottom-3 right-3 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full text-xs flex items-center space-x-1"><Eye size={10} /><span>{property.total_views || property.views || 0} views</span></div>
+                          <img
+                            src={property.images?.[0] || 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'}
+                            alt={String(property.title)}
+                            className="w-full h-64 md:h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+
+                          <div className="absolute top-3 left-3 flex space-x-2">
+                            <PropertyTags tags={property.tags || []} />
+                          </div>
+
+                          <div className="absolute bottom-3 right-3 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full text-xs flex items-center space-x-1">
+                            <Eye size={10} />
+                            <span>{property.total_views || property.views || 0} views</span>
+                          </div>
                         </div>
 
                         <div className="md:w-2/3 p-6">
@@ -1875,7 +1722,9 @@ useEffect(() => {
                                 <button disabled aria-disabled="true" title="Details not available – missing backend slug" className="bg-gray-300 text-gray-600 px-6 py-2 rounded-lg cursor-not-allowed">View Details</button>
                               )}
 
-                              <button onClick={(e) => { e.stopPropagation(); toggleLike(property.id.toString()); }} className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"><Heart size={16} className={likedProperties.includes(property.id.toString()) ? 'text-red-500 fill-current' : 'text-gray-600'} /></button>
+                              <button onClick={(e) => { e.stopPropagation(); setLikedProperties((prev) => prev.includes(property.id.toString()) ? prev.filter((id) => id !== property.id.toString()) : [...prev, property.id.toString()]); }} className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                                <Heart size={16} className={likedProperties.includes(property.id.toString()) ? 'text-red-500 fill-current' : 'text-gray-600'} />
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1913,7 +1762,16 @@ useEffect(() => {
             <Home className="mx-auto text-gray-300 mb-6" size={64} />
             <h3 className="text-2xl font-bold text-[#0b3856] mb-4">No Properties Found</h3>
             <p className="text-gray-600 mb-8">Try adjusting your search criteria or browse all properties</p>
-            <button onClick={() => { setSearchQuery(''); setSelectedLocation(''); setSelectedBudget(''); setSelectedType(''); setSelectedBedrooms(''); setLocalities([]); setLocalityInput(''); setSelectedPropertyType(''); setTransactionType('buy'); }} className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold">Clear Filters</button>
+            <button
+              onClick={() => {
+                setSearchQuery(''); setSelectedLocation(''); setSelectedBudget(''); setSelectedType('');
+                setSelectedBedrooms(''); setLocalities([]); setLocalityInput(''); setSelectedPropertyType('');
+                setTransactionType('buy');
+              }}
+              className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold"
+            >
+              Clear Filters
+            </button>
           </div>
         )}
 
@@ -1922,7 +1780,9 @@ useEffect(() => {
             <Home className="mx-auto text-gray-300 mb-6" size={64} />
             <h3 className="text-2xl font-bold text-[#0b3856] mb-4">No Properties Available</h3>
             <p className="text-gray-600 mb-8">Properties will appear here once they are added to the system</p>
-            <button onClick={() => loadPropertiesFromSearch()} className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold">Refresh Page</button>
+            <button onClick={() => loadPropertiesFromSearch()} className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold">
+              Refresh Page
+            </button>
           </div>
         )}
       </div>
