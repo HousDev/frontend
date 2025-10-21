@@ -18,6 +18,10 @@ interface Message {
   suggestions?: string[];
 }
 
+interface AIChatbotProps {
+  isPropertyDetail?: boolean;
+}
+
 const useWindowSize = () => {
   const [size, setSize] = useState({ width: 0, height: 0 });
   useEffect(() => {
@@ -29,9 +33,9 @@ const useWindowSize = () => {
   return size;
 };
 
-const AIChatbot: React.FC = () => {
+const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
   const { width } = useWindowSize();
-  const isMobile = width > 0 ? width < 640 : false; // <640px treated as mobile
+  const isMobile = width > 0 ? width < 640 : false;
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -60,10 +64,20 @@ const AIChatbot: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isMinimized, isOpen]);
 
+  // Different positioning based on page type
+  const getChatbotPosition = () => {
+    if (isPropertyDetail) {
+      // For property detail pages - higher position
+      return isMobile ? 'bottom-24 right-4' : 'bottom-6 right-6';
+    } else {
+      // For normal pages - lower position
+      return isMobile ? 'bottom-6 right-4' : 'bottom-2 right-6';
+    }
+  };
+
   const generateBotResponse = (userMessage: string): { text: string; suggestions?: string[] } => {
     const lowerMessage = userMessage.toLowerCase();
 
-    // (kept same logic as you provided) - trimmed here for brevity; in practice copy all cases:
     if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('₹') || lowerMessage.includes('under')) {
       return {
         text: '💰 **Property Pricing Analysis**\n\nBased on current market data:\n\n📍 **Mumbai Average Prices:**\n• Andheri West: ₹15,000-₹22,000/sq ft\n• Bandra West: ₹25,000-₹35,000/sq ft\n• Powai: ₹12,000-₹18,000/sq ft\n• Juhu: ₹20,000-₹30,000/sq ft\n\n🏠 **For Budget ₹1 Cr, you can get:**\n• 600-800 sq ft in Andheri West\n• 450-550 sq ft in Bandra West\n• 700-900 sq ft in Powai\n\nWould you like me to show you specific properties in your budget range?',
@@ -148,14 +162,13 @@ const AIChatbot: React.FC = () => {
 
   const handleQuickQuestion = (question: string) => {
     setInputMessage(question);
-    // small delay so input updates before sending
     setTimeout(() => sendMessage(), 120);
   };
 
   // Floating button for closed state
   if (!isOpen) {
     return (
-      <div className={`fixed ${isMobile ? 'bottom-24 right-4' : 'bottom-6 right-6'} z-[70]`}>
+      <div className={`fixed ${getChatbotPosition()} z-[70]`}>
         <button
           onClick={() => setIsOpen(true)}
           aria-label="Open chat"
@@ -195,7 +208,7 @@ const AIChatbot: React.FC = () => {
       )}
 
       <div
-        className={`fixed z-[70] ${isMobile ? 'inset-x-0 bottom-0 flex justify-center' : 'bottom-6 right-6'}`}
+        className={`fixed z-[70] ${isMobile ? 'inset-x-0 bottom-0 flex justify-center' : getChatbotPosition()}`}
         role="dialog"
         aria-modal="true"
         aria-label="RE AI Agent chat"
