@@ -217,15 +217,15 @@ const ContactUsPage = () => {
             </p>
             <div className="flex items-center justify-center space-x-8 mt-6">
               <div className="text-center">
-                <div className="text-xl font-bold mb-2 text-[#E6761D]">2-4 Hours</div>
+                <div className="text-xl font-bold mb-2 text-white">2-4 Hours</div>
                 <div className="text-blue-200">Response Time</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold mb-2 text-[#E6761D]">24/7</div>
+                <div className="text-xl font-bold mb-2 text-white">24/7</div>
                 <div className="text-blue-200">Support Available</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold mb-2 text-[#E6761D]">98%</div>
+                <div className="text-xl font-bold mb-2 text-white">98%</div>
                 <div className="text-blue-200">Satisfaction Rate</div>
               </div>
             </div>
@@ -241,7 +241,7 @@ const ContactUsPage = () => {
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#E6761D] mb-2">Send us a Message</h2>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Send us a Message</h2>
                   <p className="text-gray-600">
                     Fill out the form below and we'll get back to you within 24 hours with personalized assistance.
                   </p>
@@ -396,7 +396,7 @@ const ContactUsPage = () => {
             {/* Contact Information */}
             <div className="space-y-8">
               <div>
-                <h2 className="text-2xl font-bold  mb-6 text-[#E6761D]">Contact Information</h2>
+                <h2 className="text-2xl font-bold  mb-6 text-gray-800">Contact Information</h2>
                 <p className="text-gray-600 mb-8">
                   Multiple ways to reach us. Choose what works best for you.
                 </p>
@@ -412,7 +412,7 @@ const ContactUsPage = () => {
                           <Icon className="text-white" size={20} />
                         </div>
                         <div>
-                          <h3 className="text-xl font-bold text-[#E6761D] mb-2">{info.title}</h3>
+                          <h3 className="text-xl font-bold text-gray-800 mb-2">{info.title}</h3>
                           <div className="space-y-1">
                             {info.details.map((detail, i) => (
                               <p key={i} className="text-gray-700 font-medium">{detail}</p>
@@ -467,7 +467,7 @@ const ContactUsPage = () => {
       <section className="py-3 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-2xl font-bold  mb-4 text-[#E6761D]">Our Office Locations</h2>
+            <h2 className="text-2xl font-bold  mb-4 text-gray-800">Our Office Locations</h2>
             <p className="text-xl text-gray-600">Visit us at our offices across major cities</p>
           </div>
 
@@ -478,7 +478,7 @@ const ContactUsPage = () => {
                   <div className="p-2 bg-blue-100 rounded-lg">
                     <Building className="text-blue-600" size={20} />
                   </div>
-                  <h3 className="text-xl font-bold text-[#E6761D]">{office.city}</h3>
+                  <h3 className="text-xl font-bold text-gray-800">{office.city}</h3>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-start space-x-2">
@@ -557,7 +557,7 @@ const ContactUsPage = () => {
        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-6 text-[#E6761D]">Stay Connected</h2>
+            <h2 className="text-2xl font-bold mb-6 text-white">Stay Connected</h2>
             <p className="text-lg text-blue-100 mb-8 max-w-2xl mx-auto">
               Follow us on social media for the latest updates, property listings, and real estate tips
             </p>
@@ -585,7 +585,7 @@ const ContactUsPage = () => {
             </div>
 
             <div className="bg-white bg-opacity-10 rounded-2xl p-8 backdrop-blur-sm">
-              <h3 className="text-2xl font-bold mb-4 text-[#E6761D]">Emergency Contact</h3>
+              <h3 className="text-2xl font-bold mb-4 text-white">Emergency Contact</h3>
               <p className="text-blue-100 mb-6">
                 Need urgent assistance outside business hours?
               </p>
