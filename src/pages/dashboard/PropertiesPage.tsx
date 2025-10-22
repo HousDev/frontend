@@ -924,7 +924,7 @@ const PropertiesPage = () => {
         }
       } catch (err) {
         console.error("Error fetching executives:", err);
-        toast.error("Failed to load sales executives");
+        
         setSalesExecutives([]);
       } finally {
         setExecutivesLoading(false);

@@ -48,7 +48,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  BedDouble, Bath, Ruler, IndianRupee, Grid
+  BedDouble, Bath, Ruler, IndianRupee, Grid,
+  Bed
 } from 'lucide-react';
 import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -62,8 +63,13 @@ import AmenityPill from '@/components/properties/AmenityPill';
 import { getTagStyle, DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 import propertyTagsAPI, { PropertyTagsRow } from '@/lib/propertyTagsAPI';
 import PropertyDescriptionSmart from './PropertyDescriptionSmart';
+import PublicSimilarProperties from './PublicSimilarProperties';
 type RawProperty = any;
 
+interface SimilarPropertiesProps {
+  properties?: []; // Add question mark to make it optional
+  // other props...
+}
 const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const [open, setOpen] = useState(false);
   // UI state
@@ -75,7 +81,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [propertyTags, setPropertyTags] = useState<string[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
-
+  const [similarProperties, setSimilarProperties] = useState<any[]>([]);
+  const [similarPropertiesLoading, setSimilarPropertiesLoading] = useState(false);
   // add near other hooks / state
   const hasRecordedViewRef = React.useRef<{ [key: string]: boolean }>({});
   const [contactForm, setContactForm] = useState({
@@ -93,6 +100,70 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const navigate = useNavigate();
   // local property state used across the component
   const [property, setProperty] = useState<any>(null);
+
+useEffect(() => {
+  const fetchSimilarProperties = async () => {
+    if (!property) return;
+    setSimilarPropertiesLoading(true);
+
+    try {
+      const primaryFilters = {
+        propertyId: property.id,
+        type: property.type,
+        propertyType: property.type,
+        subtype: property.subtype,
+        unitType: property.unitType,
+        city: property.city,
+        location: property.locationNormalized,
+        bedrooms: property.bedrooms,
+        furnishing: property.furnishing,
+        price: property.price,   // ✅
+        limit: 6,
+        excludeCurrent: true,
+      };
+
+      const similarData = await propertiesAPI.getSimilarProperties(primaryFilters);
+      const list = similarData?.data || [];
+
+      // 👉 Per item full fetch to get price/images/etc.
+      const enriched = await Promise.all(
+        list.map(async (p: any) => {
+          try {
+            const slug = p?.slug ?? p?.raw?.slug ?? null;
+            const id   = p?.id ?? p?.raw?.id ?? null;
+
+            let full: any = null;
+            if (slug && propertiesAPI.PublicgetPropertyBySlug) {
+              const r = await propertiesAPI.PublicgetPropertyBySlug(slug);
+              full = r?.data ?? r ?? null;
+            } else if (id && propertiesAPI.getProperty) {
+              const r = await propertiesAPI.getProperty(id);
+              full = r?.data ?? r ?? null;
+            }
+
+            // fallback to original if detail call fails
+            return normalizeProperty(full || p);
+          } catch {
+            return normalizeProperty(p);
+          }
+        })
+      );
+
+      setSimilarProperties(enriched);
+    } catch (e) {
+      console.error("❌ Error fetching similar:", e);
+      setSimilarProperties([]);
+    } finally {
+      setSimilarPropertiesLoading(false);
+    }
+  };
+
+  fetchSimilarProperties();
+}, [property]);
+
+
+
+
 
   // helper: display value or dash
   const displayOrDash = (val: any) => {
@@ -865,18 +936,18 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 <PropertyTags tags={propertyTags} />
               </div>
               <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
-              {/* <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
+                {/* <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
 
                 <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Property Description</h2>
                 <p className="text-xs sm:text-sm md:text-base text-gray-700 leading-relaxed">
                   {displayOrDash(property?.description) === ' - ' ? ' - ' : property?.description}
                 </p>
               </div> */}
-              <PropertyDescriptionSmart
-               description={property?.description}
-                property={property}
-/>
-              </div> 
+                <PropertyDescriptionSmart
+                  description={property?.description}
+                  property={property}
+                />
+              </div>
 
               {/* Property Details Grid - Fully Responsive */}
               <div className="bg-white/95 backdrop-blur rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all ring-1 ring-gray-100">
@@ -1493,7 +1564,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   <div className="rounded-lg p-2.5 md:p-3 border border-gray-200/70 bg-white ring-1 ring-gray-50 hover:shadow-md hover:-translate-y-0.5 transition-all">
                     <div className="flex items-center gap-1 mb-1">
                       <span className="inline-flex h-4 w-4 items-center justify-center rounded-lg bg-blue-50 ring-1 ring-blue-100">
-                        <BedDouble className="text-blue-600" size={16} />
+                        <Bed className="text-blue-600" size={16} />
                       </span>
                       <span className="text-[12px] font-semibold text-gray-500 tracking-wider">Bedrooms</span>
                     </div>
@@ -1698,18 +1769,21 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                           <span className="font-bold text-green-600 text-sm sm:text-base">•••••• •••</span>
                         </div>
                       </div>
+
                       <div className="bg-white rounded-lg p-3 border border-purple-100">
                         <div className="flex items-center justify-between">
                           <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
                           <span className="font-bold text-blue-600 text-sm sm:text-base">••.•%</span>
                         </div>
                       </div>
+
                       <div className="bg-white rounded-lg p-3 border border-purple-100">
                         <div className="flex items-center justify-between">
                           <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
                           <span className="font-bold text-yellow-600 text-sm sm:text-base">•••</span>
                         </div>
                       </div>
+
                       <div className="bg-white rounded-lg p-3 border border-purple-100">
                         <div className="flex items-center justify-between">
                           <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
@@ -1737,28 +1811,12 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               )}
             </div>
 
-            {/* Similar Properties */}
-            <div className="bg-white rounded-xl shadow-sm p-5 ring-1 ring-gray-100">
-              <h3 className="font-bold text-gray-900 text-sm mb-4">Similar Properties</h3>
-              <div className="space-y-4">
-                {[
-                  { title: 'Modern Apartment', price: 18000000, location: 'Andheri West', image: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg' },
-                  { title: 'Luxury Penthouse', price: 35000000, location: 'Worli', image: 'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg' }
-                ].map((similar, index) => (
-                  <div key={index} className="flex items-center space-x-3 p-2 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors cursor-pointer">
-                    <img src={similar.image} alt={similar.title} className="w-12 h-12 object-cover rounded-lg" />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 text-sm">{similar.title}</h4>
-                      <p className="text-xs text-gray-600 flex items-center">
-                        <MapPin size={12} className="mr-1" />
-                        {similar.location}
-                      </p>
-                      <p className="text-xs font-semibold text-blue-600">{formatCurrency(similar.price)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+           <PublicSimilarProperties
+  properties={similarProperties}
+  loading={similarPropertiesLoading}
+  debug={true}
+/>
+
           </div>
         </div>
       </div>

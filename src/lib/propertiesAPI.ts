@@ -159,6 +159,54 @@ export interface AssignPropertyResponse {
   affected: number;
   message: string;
 }
+export interface SimilarPropertiesFilters {
+  propertyId?: number | string;
+  type?: string;
+  propertyType?: string; // alias of type
+  subtype?: string;
+  unitType?: string;
+  city?: string;
+  location?: string;
+  bedrooms?: number;
+  furnishing?: string;
+  limit?: number;
+  excludeCurrent?: boolean;
+  // ⛔️ removed: priceRange, minPrice, maxPrice
+}
+
+export interface SimilarProperty {
+  id: number | string;
+  title: string;
+  location: string;
+  image: string | null;
+
+  // all optional now — backend may or may not include them
+  price?: number;
+  beds?: number;
+  baths?: number;
+  area?: number;
+  type?: string;
+  subtype?: string;
+  furnishing?: string;
+
+  slug?: string;
+  locationNormalized?: string;
+  square_feet?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  possession?: string;
+  sim_score?: number;
+
+  // ⛔️ removed: featured, verified (not selected by your SQL)
+}
+
+
+export interface SimilarPropertiesResponse {
+  success: boolean;
+  data: SimilarProperty[];
+  message?: string;
+  total?: number;
+}
 
 /* ==========================
     Main API surface
@@ -592,6 +640,38 @@ searchByCityLocation: async (params: {
     );
     return res.data;
   },
+getSimilarProperties: async (filters: SimilarPropertiesFilters): Promise<SimilarPropertiesResponse> => {
+  try {
+    const queryParams: any = {
+      limit: filters.limit ?? 6,
+      // default true unless explicitly false:
+      exclude_current: filters.excludeCurrent !== false,
+    };
+
+    if (filters.propertyId != null) queryParams.property_id = filters.propertyId;
+    if (filters.type) queryParams.type = filters.type;
+    if (!filters.type && filters.propertyType) queryParams.property_type = filters.propertyType;
+    if (filters.subtype) queryParams.subtype = filters.subtype;
+    if (filters.unitType) queryParams.unit_type = filters.unitType;
+    if (filters.city) queryParams.city = filters.city;
+    if (filters.location) queryParams.location = filters.location;
+    if (filters.furnishing) queryParams.furnishing = filters.furnishing;
+    if (filters.bedrooms != null) queryParams.bedrooms = filters.bedrooms; // allow 0
+
+    // ⛔️ removed: min_price, max_price, priceRange (not used by backend now)
+
+    const res = await api.get("/properties/similar", { params: queryParams });
+    return res.data as SimilarPropertiesResponse;
+  } catch (error) {
+    console.error("Error fetching similar properties:", error);
+    return {
+      success: false,
+      data: [],
+      message: "Failed to fetch similar properties",
+    };
+  }
+},
+
 
 /* ---- Brochure PDF Generation ---- */
  downloadBrochure: (id: string|number, payload?: any) =>
