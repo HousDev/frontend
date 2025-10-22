@@ -1,3 +1,4 @@
+
 // HomePage.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -36,13 +37,14 @@ import viewsAPI from '@/lib/viewAPI';
 import PublicSellPropertyForm from './PublicSellPropertyForm';
 import { FaWhatsapp } from 'react-icons/fa6';
 import WhySellModal from './WhySellModal';
-import { getTagStyle, DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
+import { getTagStyle } from "@/lib/tagStyles";
 
 // ✅ Import hero API & types
 import homeHeroAPI, { HeroBlock, PhotoPreview } from '@/lib/homeHeroAPI';
 
 // ✅ Import property tags API
-import propertyTagsAPI, { PropertyTagsRow } from '@/lib/propertyTagsAPI';
+import propertyTagsAPI from '@/lib/propertyTagsAPI';
+import ValuationModal from './ValuationModal';
 
 interface Property {
   id: number;
@@ -89,26 +91,14 @@ const PropertyTags = ({ tags }: { tags: string[] }) => {
     <div className="flex flex-wrap gap-1.5 mb-3">
       {displayTags.map((tag, index) => {
         const style = getTagStyle(tag);
-        const EmojiComponent = typeof style.emoji === 'string'
-          ? () => <span className="text-xs mr-1">{style.emoji
-            ? typeof style.emoji === "string"
-              ? (
-                <span className="text-xs mr-1 uppercase" aria-hidden="true">
-                  {style.emoji}
-                </span>
-              )
-              : (
-                // style.emoji is a component here (Lucide icon)
-                React.createElement(style.emoji, {
-                  size: 10,
-                  className: "mr-1 uppercase",
-                  "aria-hidden": true,
-                })
-              )
-            : null}
-          </span>
-          : style.emoji;
-
+        const EmojiComponent =
+          typeof style.emoji === "string"
+            ? () => (
+              <span className="text-xs mr-1 uppercase" aria-hidden="true">
+                {style.emoji as string}
+              </span>
+            )
+            : (style.emoji as any);
 
         return (
           <span
@@ -119,12 +109,16 @@ const PropertyTags = ({ tags }: { tags: string[] }) => {
               transition-all duration-200
             `}
           >
-            {style.emoji && (typeof style.emoji === 'string' ? <EmojiComponent /> : <EmojiComponent size={10} className="mr-1" />)}
+            {style.emoji &&
+              (typeof style.emoji === "string" ? (
+                <EmojiComponent />
+              ) : (
+                <EmojiComponent size={10} className="mr-1" />
+              ))}
             {tag}
           </span>
         );
       })}
-      {/* ✅ Show +count if there are more than 2 tags */}
       {tags.length > 2 && (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
           +{tags.length - 2}
@@ -167,6 +161,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [isSellerModalOpen, setIsSellerModalOpen] = useState<boolean>(false);
   const [open, setOpen] = useState(false);
 
+  const [isValuationOpen, setIsValuationOpen] = useState(false);
+
   // ✅ NEW: hero state
   const [heroBlocks, setHeroBlocks] = useState<HeroBlock[]>([]);
   const [heroSlides, setHeroSlides] = useState<
@@ -177,6 +173,19 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  // ⭐️ Helper: navigate using onPageChange if provided else router
+  const goTo = React.useCallback(
+    (page: 'properties' | 'services') => {
+      if (onPageChange) {
+        onPageChange(page);
+        return;
+      }
+      if (page === 'properties') navigate('/properties');
+      if (page === 'services') navigate('/services');
+    },
+    [onPageChange, navigate]
+  );
 
   // Parse original query params and preserve both key and value.
   const queryParams = new URLSearchParams(location.search);
@@ -200,7 +209,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     };
     fetchMasters();
   }, []);
-
 
   // --- Likes state (persisted in localStorage) ---
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
@@ -372,7 +380,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               },
 
 
-              tags, // ✅ Add tags to property object
+              tags,
             } as Property;
           })
         );
@@ -390,7 +398,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
     fetchFeaturedProperties();
   }, []);
-
 
   // ---------- ✅ HERO: fetch & build slides ----------
   useEffect(() => {
@@ -689,7 +696,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   )}
                 </div>
               )}
-              {/* Row: Buy/Rent + PropertyType (your original UI) */}
+              {/* Row: Buy/Rent + PropertyType */}
               <div className="grid grid-cols-1  gap-1 md:gap-2 mb-4 items-center justify-center text-center">
                 {/* Buy / Rent */}
                 <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
@@ -871,10 +878,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         </div>
       </section>
 
-
-
       {/* AI Insights */}
-
       <section className="py-6 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           {/* Header */}
@@ -952,7 +956,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </div>
           </div>
 
-
           {/* CTA */}
           <div className="text-center mt-6">
             <button
@@ -965,8 +968,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           </div>
         </div>
       </section>
-
-
 
       {/* Featured properties cards */}
       <section className="py-3 bg-white">
@@ -1001,9 +1002,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                           </span>
                         </div>
                       </div>
-
-
-
                     ) : (
                       <div className="h-48 bg-gray-200 flex items-center justify-center"><Building className="text-gray-400" /></div>
                     )}
@@ -1020,22 +1018,12 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                           AI {Math.round(property.aiScore ?? 0)}
                         </span>
                       )}
+
                     </div>
 
                     <div className="absolute top-2 right-4 flex space-x-2">
                       <div className="absolute top-2 right-4 flex space-x-2">
-                        {/* <button
-                          onClick={(e) => { e.stopPropagation(); toggleLike(property); }}
-                          className={`p-2 rounded-full transition
-                              ${isLiked(property.id) ? "bg-white" : "bg-white hover:bg-white"}`}
-                          title={isLiked(property.id) ? "Unlike" : "Like"}
-                          aria-pressed={isLiked(property.id)}
-                        >
-                          <Heart
-                            size={18}
-                            className={isLiked(property.id) ? 'text-red-500 fill-current' : 'text-gray-600'}
-                          />
-                        </button> */}
+                        {/* Like button placeholder */}
                       </div>
                     </div>
 
@@ -1053,9 +1041,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   </div>
 
                   <div className="p-6">
-                    {/* ✅ Property Tags - Only show 2 tags */}
-
-
                     <div className="flex items-start justify-between mb-2">
                       <div className="pr-4">
                         <div className="text-lg font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">
@@ -1208,7 +1193,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               </p>
               <div className="w-full">
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-
                   {/* Primary CTA */}
                   <button
                     onClick={handleSellPropertyClick}
@@ -1219,16 +1203,19 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     List My Property
                   </button>
 
-
                   {/* Secondary CTA */}
                   <button
-                    className="w-full sm:w-auto border-2 border-white/90 text-white
-                 px-5 py-3 rounded-lg font-medium transition-colors duration-300
-                 hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white
-                 text-sm sm:text-base"
+                    onClick={() => setIsValuationOpen(true)}
+                    className="w-full sm:w-auto border-2 border-white/90 text-white px-5 py-3 rounded-lg font-medium transition-colors duration-300 hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white text-sm sm:text-base"
                   >
                     Free Valuation
                   </button>
+
+                  <ValuationModal
+                    open={isValuationOpen}
+                    onClose={() => setIsValuationOpen(false)}
+                    onListProperty={() => setIsSellerModalOpen(true)}
+                  />
 
                   <button
                     onClick={() => setOpen(true)}
@@ -1239,11 +1226,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   >
                     Why Sell ResaleExpert
                   </button>
-
-
                 </div>
               </div>
-
             </div>
 
             {/* Right Image */}
@@ -1451,7 +1435,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
             {/* Primary CTA */}
             <button
-              onClick={() => onPageChange('properties')}
+              onClick={() => goTo('properties')}
               className="w-full sm:w-auto bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-3 rounded-xl font-semibold shadow-md transition-colors duration-300"
             >
               Browse Properties
@@ -1459,13 +1443,12 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
             {/* Secondary CTA */}
             <button
+              onClick={() => goTo('services')}
               className="w-full sm:w-auto px-5 py-3 rounded-xl font-semibold border-2 border-white text-white transition-colors duration-300 hover:bg-[#E6761D] hover:border-[#E6761D] hover:text-white"
             >
               View All Services
             </button>
           </div>
-
-
         </div>
       </section>
 
@@ -1476,7 +1459,16 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         onSubmit={handleSellerSave}
       />
       {/* Why Sell modal */}
-      <WhySellModal open={open} onClose={() => setOpen(false)} />
+      {/* <WhySellModal open={open} onClose={() => setOpen(false)} /> */}
+      <WhySellModal
+        open={open}
+        onClose={() => setOpen(false)}
+        onFreeValuation={() => {
+          setOpen(false);            // close WhySell modal
+          setIsValuationOpen(true);  // ✅ open ValuationModal
+        }}
+      />
+
     </div>
   );
 };
