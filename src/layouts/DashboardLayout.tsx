@@ -314,8 +314,8 @@ const [unreadCount, setUnreadCount] = useState(0);
     }
 
     structure.push(
-      { name: 'Seller Dashboard', href: '/dashboard/seller', icon: ShoppingBag, exact: true, colorClass: navTextClass, type: 'single' },
-      { name: 'Buyer Dashboard', href: '/dashboard/buyer', icon: Heart, exact: true, colorClass: navTextClass, type: 'single' }
+      // { name: 'Seller Dashboard', href: '/dashboard/seller', icon: ShoppingBag, exact: true, colorClass: navTextClass, type: 'single' },
+      // { name: 'Buyer Dashboard', href: '/dashboard/buyer', icon: Heart, exact: true, colorClass: navTextClass, type: 'single' }
     );
 
     structure.push(
@@ -328,10 +328,10 @@ const [unreadCount, setUnreadCount] = useState(0);
         submenu: [
           { name: 'Home Manager', href: '/dashboard/home-manager', icon: Home, colorClass: navTextClass },
           { name: 'Blog Manager', href: '/dashboard/blog-manager', icon: Edit3, colorClass: navTextClass },
-          { name: 'About Manager', href: '/dashboard/about-cms', icon: Info, colorClass: navTextClass },
-          { name: 'Contact Manager', href: '/dashboard/contact-cms', icon: Phone, colorClass: navTextClass },
-          { name: 'Service Manager', href: '/dashboard/service-cms', icon: Shield, colorClass: navTextClass },
-          { name: 'Footer Manager', href: '/dashboard/footer-cms', icon: PanelBottom, colorClass: navTextClass },
+          // { name: 'About Manager', href: '/dashboard/about-cms', icon: Info, colorClass: navTextClass },
+          // { name: 'Contact Manager', href: '/dashboard/contact-cms', icon: Phone, colorClass: navTextClass },
+          // { name: 'Service Manager', href: '/dashboard/service-cms', icon: Shield, colorClass: navTextClass },
+          // { name: 'Footer Manager', href: '/dashboard/footer-cms', icon: PanelBottom, colorClass: navTextClass },
         ]
       },
       {

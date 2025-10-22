@@ -1,56 +1,44 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Home,
-  Phone,
-  Mail,
-  MapPin,
-  Facebook,
-  Twitter,
-  Instagram,
-  Linkedin,
-  Youtube,
-  Building,
-  Users,
-  Briefcase,
-  FileText,
-  MessageCircle,
-  Star,
-  Shield,
-  Award,
-  Clock,
-  CheckCircle
+  Home, Phone, Mail, MapPin, Facebook, Twitter, Instagram, Linkedin, Youtube,
+  Building, Users, Briefcase, FileText, MessageCircle, Star, Shield, Award, Clock, CheckCircle
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, matchPath, useNavigate } from 'react-router-dom';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import AIChatbot from '@/components/ai/AIChatbot';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
-import { toast } from 'react-toastify';
-import { useLocation, matchPath } from 'react-router-dom';
+import PrivacyPolicyModal from './PrivacyPolicyModal';
+import TermsConditionsModal from './TermsConditionsModal';
 
 const PublicFooter = ({ onPageChange }: any) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isPropertyDetail = Boolean(
     matchPath({ path: '/properties/:slug' }, location.pathname) ||
     matchPath({ path: '/property/:slug' }, location.pathname)
   );
-  
+
   const currentYear = new Date().getFullYear();
   const [masterLoading, setMasterLoading] = useState(true);
-  
+
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+
+  // ✅ Direct routes for navigation
   const quickLinks = [
-    { id: 'home', label: 'Home' },
-    { id: 'properties', label: 'Properties' },
-    { id: 'about', label: 'About Us' },
-    { id: 'contact', label: 'Contact Us' }
+    { id: 'home', label: 'Home', to: '/home' },
+    { id: 'properties', label: 'Properties', to: '/properties' },
+    { id: 'about', label: 'About Us', to: '/about' },
+    { id: 'contact', label: 'Contact Us', to: '/contact' },
   ];
 
   const services = [
-    { label: 'Property Selling', href: '#' },
-    { label: 'Property Buying', href: '#' },
-    { label: 'Property Rental', href: '#' },
-    { label: 'Legal Services', href: '#' },
-    { label: 'Loan Assistance', href: '#' },
-    { label: 'Property Management', href: '#' }
+    { label: 'Property Selling', href: 'services' },
+    { label: 'Property Buying', href: 'services' },
+    { label: 'Property Rental', href: 'services' },
+    { label: 'Legal Services', href: 'services' },
+    { label: 'Loan Assistance', href: 'services' },
+    { label: 'Property Management', href: 'services' }
   ];
 
   const socialLinks = [
@@ -62,26 +50,29 @@ const PublicFooter = ({ onPageChange }: any) => {
   ];
 
   const { systemSettings } = useSystemSettings();
-  const companyName = systemSettings?.company_name;
+  const companyName = systemSettings?.company_name || 'Resale Expert';
   const footerLogo = systemSettings?.footer_logo;
 
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
-  
+
   useEffect(() => {
-    const fetchMasters = async () => {
+    (async () => {
       try {
         setMasterLoading(true);
         const data = await getMasterDropdownOptions(['common']);
         setMasters(data);
-      } catch (err) {
-        console.error('Error fetching master options:', err);
       } finally {
         setMasterLoading(false);
       }
-    };
-
-    fetchMasters();
+    })();
   }, []);
+
+  // helper for location chip click
+  const goToLocation = (locValue: string) => {
+    // optional: onPageChange?.('properties');
+    navigate(`/properties?location=${encodeURIComponent(locValue)}`);
+    // window.scrollTo(0, 0); // ScrollToTop component already present
+  };
 
   return (
     <footer className={`bg-gray-900 text-white lg:pb-0 md:pb-0 ${isPropertyDetail ? 'pb-24' : 'pb-0'} z-[70]`}>
@@ -94,11 +85,7 @@ const PublicFooter = ({ onPageChange }: any) => {
               <Link to="/" className="flex items-center space-x-2">
                 <div className="flex items-center space-x-3">
                   {footerLogo ? (
-                    <img
-                      src={footerLogo}
-                      alt={`${companyName} Footer Logo`}
-                      className="h-14 w-auto object-contain"
-                    />
+                    <img src={footerLogo} alt={`${companyName} Footer Logo`} className="h-14 w-auto object-contain" />
                   ) : (
                     <div className="hidden sm:block">
                       <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-orange-500 bg-clip-text text-transparent">
@@ -133,27 +120,38 @@ const PublicFooter = ({ onPageChange }: any) => {
             <ul className="space-y-3">
               {quickLinks.map((link) => (
                 <li key={link.id}>
-                  <button
-                    onClick={() => onPageChange(link.id)}
+                  <Link
+                    to={link.to}
                     className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+                    onClick={() => {
+                      // optional backward-compat:
+                      // onPageChange?.(link.id);
+                    }}
                   >
-                    <span className="w-1 h-1 bg-blue-500 rounded-full"></span>
+                    <span className="w-1 h-1 bg-blue-500 rounded-full" />
                     <span>{link.label}</span>
-                  </button>
+                  </Link>
                 </li>
               ))}
               <li>
-                <a href="#" className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2">
-                  <span className="w-1 h-1 bg-blue-500 rounded-full"></span>
+                <button
+                  onClick={() => setShowPrivacy(true)}
+                  className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+                >
+                  <span className="w-1 h-1 bg-blue-500 rounded-full" />
                   <span>Privacy Policy</span>
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2">
-                  <span className="w-1 h-1 bg-blue-500 rounded-full"></span>
+                <button
+                  onClick={() => setShowTerms(true)}
+                  className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+                >
+                  <span className="w-1 h-1 bg-blue-500 rounded-full" />
                   <span>Terms & Conditions</span>
-                </a>
+                </button>
               </li>
+
             </ul>
           </div>
 
@@ -164,7 +162,7 @@ const PublicFooter = ({ onPageChange }: any) => {
               {services.map((service, index) => (
                 <li key={index}>
                   <a href={service.href} className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2">
-                    <span className="w-1 h-1 bg-orange-500 rounded-full"></span>
+                    <span className="w-1 h-1 bg-orange-500 rounded-full" />
                     <span>{service.label}</span>
                   </a>
                 </li>
@@ -180,9 +178,9 @@ const PublicFooter = ({ onPageChange }: any) => {
                 <MapPin className="text-blue-400 mt-1 flex-shrink-0" size={18} />
                 <div>
                   <p className="text-gray-300">
-                   Shubhchandra, Nakhate Chowk,<br />
+                    Shubhchandra, Nakhate Chowk,<br />
                     Rahatani, Pimpri-Chinchwad<br />
-                   Pune, Maharashtra 411017, India
+                    Pune, Maharashtra 411017, India
                   </p>
                 </div>
               </div>
@@ -221,7 +219,7 @@ const PublicFooter = ({ onPageChange }: any) => {
               {masters.location.map((loc: MasterOption, idx: number) => (
                 <button
                   key={idx}
-                  onClick={() => onPageChange('properties')}
+                  onClick={() => goToLocation(loc.value)}
                   className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-colors text-sm"
                   title={loc.label}
                 >
@@ -233,40 +231,48 @@ const PublicFooter = ({ onPageChange }: any) => {
             <div className="text-gray-400 text-sm italic">No locations available</div>
           )}
         </div>
+
+        {/* Social Links */}
+        <div className="flex items-center space-x-4 mt-6">
+          <span className="text-gray-400 text-sm mr-2">Follow us:</span>
+          {socialLinks.map((social, index) => {
+            const Icon = social.icon;
+            return (
+              <a
+                key={index}
+                href={social.href}
+                className={`p-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors ${social.color}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Icon size={14} />
+              </a>
+            );
+          })}
+        </div>
       </div>
 
       {/* Bottom Footer */}
       <div className="bg-gray-950 border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between">
-           
-
-            {/* Social Links */}
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-400 text-sm mr-2">Follow us:</span>
-              {socialLinks.map((social, index) => {
-                const Icon = social.icon;
-                return (
-                  <a
-                    key={index}
-                    href={social.href}
-                    className={`p-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors ${social.color}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Icon size={18} />
-                  </a>
-                );
-              })}
-            </div>
-             <div className="text-gray-400 text-sm mb-4 md:mb-0">
-              © {currentYear} &nbsp;{companyName}&nbsp;. All rights reserved. | Designed with ❤️ for better real estate experience.
+            <div className="text-gray-400 text-sm mb-4 md:mb-0 text-center md:text-left">
+              © {currentYear} {companyName}. All rights reserved.{' '}
+              <span className="mx-2 text-gray-500">|</span>
+              <span className="text-gray-400">
+                Developed by <span className="font-semibold text-white">Hously Finntech Realty</span>
+              </span>
+              <span className="mx-2 text-gray-500">|</span>
+              <span className="text-gray-400">Real Estate Experience.</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* AI Chatbot - Pass isPropertyDetail prop */}
+      {/* Add these modals near end of component JSX */}
+              <PrivacyPolicyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
+              <TermsConditionsModal open={showTerms} onClose={() => setShowTerms(false)} />
+      {/* AI Chatbot */}
       <AIChatbot isPropertyDetail={isPropertyDetail} />
     </footer>
   );
