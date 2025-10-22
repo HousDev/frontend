@@ -46,7 +46,7 @@ interface Property {
   aiScore?: number;
   priceGrowth?: string;
   investmentGrade?: string;
-  agent?: { name: string; phone: string; rating: number; };
+  executiveTo?: { name: string; phone: string; rating: number; email?: string };
   highlights?: string[];
   nearbyPlaces?: Array<{ name: string; distance: string }>;
   unit_type?: string;
@@ -184,7 +184,7 @@ const matchesBudget = (property: Property, budget: string) => {
   const [min, max] = parseBudgetRange(budget);
   const price = property.price || 0;
   return price >= (isFinite(min) ? min : Number.NEGATIVE_INFINITY) &&
-         price <= (isFinite(max) ? max : Number.POSITIVE_INFINITY);
+    price <= (isFinite(max) ? max : Number.POSITIVE_INFINITY);
 };
 
 const extractFloor = (p: any) => {
@@ -591,7 +591,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             fetchPropertyTags(p.id),
           ]);
 
-          return {
+
+          const propertyData: Property = {
             id: p.id,
             slug: p.slug || p.url_slug || p.generated_slug,
             title: p.title || `${p.unit_type || ''} ${p.property_type_name || ''}`.trim() || `Property ${p.id}`,
@@ -603,8 +604,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             property_type: p.property_type_name || p.property_type || '',
             status: p.status || '',
             images: Array.isArray(p.photos) ? p.photos.map((ph: string) => ph.replace(/\\/g, '/')) :
-                    (Array.isArray(p.photoUrls) ? p.photoUrls :
-                      ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800']),
+              (Array.isArray(p.photoUrls) ? p.photoUrls :
+                ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800']),
             location: `${p.location_name || p.location || ''}`.replace(/\s*,\s*$/, ''),
             society: p.society_name || p.project_name || `Society ${p.id}`,
             area: Number(p.carpet_area) || Number(p.builtup_area) || 0,
@@ -614,8 +615,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             possession: p.possession_status || ['Ready to Move', 'Under Construction'][index % 2],
             amenities: p.amenities
               ? (Array.isArray(p.amenities) ? p.amenities :
-                 typeof p.amenities === 'string' ? p.amenities.split(',').map((a: string) => a.trim()) :
-                 ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'])
+                typeof p.amenities === 'string' ? p.amenities.split(',').map((a: string) => a.trim()) :
+                  ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'])
               : ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'],
             rating: p.rating ? Number(p.rating) : (4.0 + Math.random() * 1.0),
             reviews: p.reviews ? Number(p.reviews) : Math.floor(Math.random() * 50) + 5,
@@ -625,10 +626,16 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             aiScore: p.ai_score || Math.floor(Math.random() * 30) + 70,
             priceGrowth: p.price_growth || `+${(Math.random() * 20 + 5).toFixed(1)}%`,
             investmentGrade: p.investment_grade || ['A++', 'A+', 'A', 'B+'][Math.floor(Math.random() * 4)],
-            agent: {
-              name: p.agent_name || `Agent ${index + 1}`,
-              phone: p.agent_phone || `+91 99999 999${String(index % 100).padStart(2, '0')}`,
-              rating: p.agent_rating || (4 + Math.random())
+            executiveTo: p.assignedTo ? {
+              name: p.assignedTo.name || 'Not Assigned',
+              phone: p.assignedTo.phone || 'Not Available',
+              rating: p.rating || (4 + Math.random()),
+              email: p.assignedTo.email || 'Not Available'
+            } : {
+              name: 'Not Assigned',
+              phone: 'Not Available',
+              rating: p.rating || (4 + Math.random()),
+              email: 'Not Available'
             },
             highlights: p.highlights || ['Prime Location', 'Good Value', 'Verified', 'No Brokerage'].slice(0, (index % 4) + 1),
             nearbyPlaces: p.nearby_places || [
@@ -640,16 +647,20 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             floor: extractFloor({ ...p, _raw: p }),
             tags,
             _raw: p
-          } as Property;
+          };
+          return propertyData;
         })
       );
 
+
       setAllProperties(transformedProperties);
+
       setError('');
     } catch (err) {
       console.error('Error fetching properties:', err);
       setError('Failed to load properties. Please try again.');
       setAllProperties([]);
+
     } finally {
       setLoading(false);
     }
@@ -803,7 +814,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       if ((property.rating || 0) < Number(minRating)) return false;
     }
     if (possessionFilter && possessionFilter !== '' &&
-        !(String(property.possession || '').toLowerCase().includes(String(possessionFilter).toLowerCase()))) {
+      !(String(property.possession || '').toLowerCase().includes(String(possessionFilter).toLowerCase()))) {
       return false;
     }
     if (parkingFilter && parkingFilter !== 'any') {
@@ -837,7 +848,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       case 'ai_score': return (b.aiScore || 0) - (a.aiScore || 0);
       case 'price_growth':
         return parseFloat((b.priceGrowth || '0').replace('+', '').replace('%', '')) -
-               parseFloat((a.priceGrowth || '0').replace('+', '').replace('%', ''));
+          parseFloat((a.priceGrowth || '0').replace('+', '').replace('%', ''));
       default: return 0;
     }
   });
@@ -987,7 +998,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
                 <button
                   type="button"
-                  onClick={() => {}}
+                  onClick={() => { }}
                   className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base transition bg-gray-100 text-gray-700 opacity-60 cursor-not-allowed"
                   title="Rent search not available yet"
                   disabled
@@ -1532,17 +1543,17 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         />
 
                         <div className="absolute top-3 left-3 flex items-center flex-wrap gap-2 z-20">
-  {/* ✅ Property Tags */}
-  <PropertyTags tags={property.tags || []} />
+                          {/* ✅ Property Tags */}
+                          <PropertyTags tags={property.tags || []} />
 
-  {(property.aiScore ?? 0) >= 90 && (
-    <span className="flex items-center bg-purple-600 text-white px-2 py-[3px] rounded-full text-[8px] sm:text-xs font-bold whitespace-nowrap shadow-sm">
-      <Bot size={12} className="mr-1" />
-      AI {Math.round(property.aiScore ?? 0)}
-    </span>
-  )}
-  {/* ✅ AI Score Badge */}
-</div>
+                          {(property.aiScore ?? 0) >= 90 && (
+                            <span className="flex items-center bg-purple-600 text-white px-2 py-[3px] rounded-full text-[8px] sm:text-xs font-bold whitespace-nowrap shadow-sm">
+                              <Bot size={12} className="mr-1" />
+                              AI {Math.round(property.aiScore ?? 0)}
+                            </span>
+                          )}
+                          {/* ✅ AI Score Badge */}
+                        </div>
 
 
                         {/* Watermark */}
@@ -1623,26 +1634,48 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                             </button>
                           )}
 
-                          <button
-                            onClick={(e) => { e.stopPropagation(); window.open(`tel:${property.agent?.phone}`); }}
-                            className="p-2 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
-                          >
-                            <Phone size={16} />
-                          </button>
+                         {/* ✅ Updated Call Button */}
+<button
+  onClick={(e) => {
+    e.stopPropagation();
+    const phone = property.executiveTo?.phone || "919999999999"; // Use executiveTo, not executive
+    if (phone && phone !== "Not Available") {
+      window.open(`tel:${phone}`);
+    } else {
+      alert('Phone number not available');
+    }
+  }}
+  className="p-2 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
+  title="Call"
+>
+  <Phone size={16} />
+</button>
 
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const message = `Hi, I'm interested in ${property.title} at ${property.location}. Price: ${formatCurrency(property.price)}. Can you share more details?`;
-                              window.open(
-                                `https://wa.me/${(property.agent?.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(message)}`,
-                                '_blank'
-                              );
-                            }}
-                            className="p-2 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
-                          >
-                            <FaWhatsapp size={16} />
-                          </button>
+{/* ✅ Updated WhatsApp Button */}
+<button
+  onClick={(e) => {
+    e.stopPropagation();
+    const phone = property.executiveTo?.phone || "919999999999"; // Use executiveTo, not executive
+
+    if (phone && phone !== "Not Available") {
+      const title = String(property.title || '');
+      const location = property.location || '';
+      const priceText = formatCurrency(property.price);
+
+      const message = `Hi, I'm interested in ${title} at ${location}. Price: ${priceText}. Can you share more details?`;
+      window.open(
+        `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`,
+        '_blank'
+      );
+    } else {
+      alert('Phone number not available for WhatsApp');
+    }
+  }}
+  className="p-2 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
+  title="WhatsApp"
+>
+  <FaWhatsapp size={16} />
+</button>
                         </div>
                       </div>
                     </div>

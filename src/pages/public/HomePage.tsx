@@ -73,7 +73,7 @@ interface Property {
   created_at?: string | null;
   public_views?: number | null;
   total_views?: number;
-  agent?: { phone?: string };
+  executive?: { phone?: string, name?: string, email?: string };
   // ✅ NEW: Add tags field
   tags?: string[];
 }
@@ -365,14 +365,21 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               property_status: p.property_status ?? p.status ?? '',
               created_at: p.created_at ?? null,
               public_views: p.public_views ?? null,
-              agent: { phone: p.agent_phone || p.agent?.phone || p.owner_phone || '' },
+              executive: {
+                phone: p.executive_phone || p.executive?.phone || '',
+                name: p.executive_name || p.executive?.name || '',
+                email: p.executive_email || p.executive?.email || ''
+              },
+
 
               tags, // ✅ Add tags to property object
             } as Property;
           })
         );
+       
 
         setFeaturedProperties(mapped);
+       
       } catch (err) {
         console.error('Error fetching featured properties (public-only):', err);
         setFeaturedProperties([]);
@@ -1105,11 +1112,12 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                       )}
 
                       {/* Call Button (static number) */}
+                      {/* Call Button (executive number or default) */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           e.preventDefault();
-                          const phone = "919876543210"; // ✅ Static number
+                          const phone = property.executive?.phone || "919999999999"; // ✅ Executive number or default
                           const telLink = `tel:${phone}`;
                           window.location.href = telLink;
                         }}
@@ -1120,13 +1128,13 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                         <Phone size={18} />
                       </button>
 
-                      {/* WhatsApp Button (static number) */}
+                      {/* WhatsApp Button (executive number or default) */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           e.preventDefault();
 
-                          const phone = "919876543210"; // ✅ Static number
+                          const phone = property.executive?.phone || "919876543210"; // ✅ Executive number or default
 
                           const title =
                             property.title ||

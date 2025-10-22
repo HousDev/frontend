@@ -49,7 +49,8 @@ import {
   ChevronLeft,
   ChevronRight,
   BedDouble, Bath, Ruler, IndianRupee, Grid,
-  Bed
+  Bed,
+  ArrowRight
 } from 'lucide-react';
 import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -101,65 +102,65 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   // local property state used across the component
   const [property, setProperty] = useState<any>(null);
 
-useEffect(() => {
-  const fetchSimilarProperties = async () => {
-    if (!property) return;
-    setSimilarPropertiesLoading(true);
+  useEffect(() => {
+    const fetchSimilarProperties = async () => {
+      if (!property) return;
+      setSimilarPropertiesLoading(true);
 
-    try {
-      const primaryFilters = {
-        propertyId: property.id,
-        type: property.type,
-        propertyType: property.type,
-        subtype: property.subtype,
-        unitType: property.unitType,
-        city: property.city,
-        location: property.locationNormalized,
-        bedrooms: property.bedrooms,
-        furnishing: property.furnishing,
-        price: property.price,   // ✅
-        limit: 6,
-        excludeCurrent: true,
-      };
+      try {
+        const primaryFilters = {
+          propertyId: property.id,
+          type: property.type,
+          propertyType: property.type,
+          subtype: property.subtype,
+          unitType: property.unitType,
+          city: property.city,
+          location: property.locationNormalized,
+          bedrooms: property.bedrooms,
+          furnishing: property.furnishing,
+          price: property.price,   // ✅
+          limit: 6,
+          excludeCurrent: true,
+        };
 
-      const similarData = await propertiesAPI.getSimilarProperties(primaryFilters);
-      const list = similarData?.data || [];
+        const similarData = await propertiesAPI.getSimilarProperties(primaryFilters);
+        const list = similarData?.data || [];
 
-      // 👉 Per item full fetch to get price/images/etc.
-      const enriched = await Promise.all(
-        list.map(async (p: any) => {
-          try {
-            const slug = p?.slug ?? p?.raw?.slug ?? null;
-            const id   = p?.id ?? p?.raw?.id ?? null;
+        // 👉 Per item full fetch to get price/images/etc.
+        const enriched = await Promise.all(
+          list.map(async (p: any) => {
+            try {
+              const slug = p?.slug ?? p?.raw?.slug ?? null;
+              const id = p?.id ?? p?.raw?.id ?? null;
 
-            let full: any = null;
-            if (slug && propertiesAPI.PublicgetPropertyBySlug) {
-              const r = await propertiesAPI.PublicgetPropertyBySlug(slug);
-              full = r?.data ?? r ?? null;
-            } else if (id && propertiesAPI.getProperty) {
-              const r = await propertiesAPI.getProperty(id);
-              full = r?.data ?? r ?? null;
+              let full: any = null;
+              if (slug && propertiesAPI.PublicgetPropertyBySlug) {
+                const r = await propertiesAPI.PublicgetPropertyBySlug(slug);
+                full = r?.data ?? r ?? null;
+              } else if (id && propertiesAPI.getProperty) {
+                const r = await propertiesAPI.getProperty(id);
+                full = r?.data ?? r ?? null;
+              }
+
+              // fallback to original if detail call fails
+              return normalizeProperty(full || p);
+            } catch {
+              return normalizeProperty(p);
             }
+          })
+        );
 
-            // fallback to original if detail call fails
-            return normalizeProperty(full || p);
-          } catch {
-            return normalizeProperty(p);
-          }
-        })
-      );
+        setSimilarProperties(enriched);
+      } catch (e) {
+        console.error("❌ Error fetching similar:", e);
+        setSimilarProperties([]);
+      } finally {
+        setSimilarPropertiesLoading(false);
+      }
+    };
 
-      setSimilarProperties(enriched);
-    } catch (e) {
-      console.error("❌ Error fetching similar:", e);
-      setSimilarProperties([]);
-    } finally {
-      setSimilarPropertiesLoading(false);
-    }
-  };
-
-  fetchSimilarProperties();
-}, [property]);
+    fetchSimilarProperties();
+  }, [property]);
 
 
 
@@ -182,14 +183,14 @@ useEffect(() => {
   };
 
   // === NEW: tiny helpers for calling / whatsapp ===
-  const getAgentPhone = () => {
-    const raw = property?.agent?.phone || "";
+  const getexecutiveToPhone = () => {
+    const raw = property?.executiveTo?.phone || "";
     const digits = (raw || "").replace(/\D/g, "");
-    return digits || "9999999999"; // fallback if nothing present
+    return digits || "+91999999999"; // fallback if nothing present
   };
-  const callAgent = (e?: React.MouseEvent) => {
+  const callexecutiveTo = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const phone = getAgentPhone();
+    const phone = getexecutiveToPhone();
     if (!phone) return;
     if (typeof window !== "undefined") window.location.href = `tel:${phone}`;
   };
@@ -395,9 +396,10 @@ useEffect(() => {
       furnishing: p?.furnishing ?? p?.furnishing_status ?? '',
       builtYear: p?.builtYear ?? p?.year_built ?? p?.construction_year ?? '',
       facing: p?.facing ?? p?.direction ?? '',
-      agent: {
-        name: p?.agent?.name ?? p?.seller_name ?? '',
-        phone: p?.agent?.phone ?? p?.broker?.phone ?? p?.contact_phone ?? ''
+      executiveTo: {
+        name: p?.assignedTo?.name || p?.executiveTo?.name || 'Executive Not Assigned',
+        phone: p?.assignedTo?.phone || p?.executiveTo?.phone || '',
+        email: p?.assignedTo?.email || p?.executiveTo?.email || '',
       },
       aiScore: p?.aiScore ?? p?.score,
       priceGrowth: p?.priceGrowth,
@@ -1272,9 +1274,9 @@ useEffect(() => {
                 </div>
               )}
             </div>
-
+            {/* this is inisital start  */}
             {/* Location & Nearby - Responsive */}
-            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 ring-gray-100">
+            {/* <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 ring-gray-100">
               <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Location & Connectivity</h2>
 
               <div className="h-36 sm:h-40 md:h-44 lg:h-48 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg sm:rounded-xl mb-2 sm:mb-3 flex items-center justify-center ring-1 ring-slate-300/40">
@@ -1302,7 +1304,91 @@ useEffect(() => {
                   </ul>
                 </div>
               </div>
+            </div> */}
+            {/* this is inisitial code  */}
+
+            {/* we can comment if not need below code */}
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 md:p-6 ring-1 ring-gray-100">
+              {/* Header */}
+              <h2 className="font-bold text-[#0b3856] text-base sm:text-lg mb-3 flex items-center gap-2">
+                <MapPin className="text-[#E6761D] w-5 h-5" />
+                Location & Connectivity
+              </h2>
+
+              {/* ✅ Google Map Embed */}
+              <div className="rounded-lg overflow-hidden mb-4 ring-1 ring-[#0b3856]/20">
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3781.30130000024!2d73.78210647468123!3d18.60551298250459!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b92079f4046d%3A0xff65689f48a7dbd3!2sTamara%20Uprise!5e0!3m2!1sen!2sin!4v1761138421746!5m2!1sen!2sin"
+                  width="100%"
+                  height="250"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                ></iframe>
+              </div>
+
+              {/* Two-column section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                {/* Transportation */}
+                <div className="rounded-lg p-3 bg-[#0b3856]/5 ring-1 ring-[#0b3856]/20 hover:bg-[#0b3856]/10 transition-all duration-200">
+                  <h3 className="font-semibold text-[#0b3856] mb-2 flex items-center gap-1.5 text-sm">
+                    🚆 Transportation
+                  </h3>
+                  <ul className="space-y-1 text-sm text-[#0b3856] leading-tight">
+                    <li className="flex items-center gap-2">
+                      <ArrowRight className="w-3.5 h-3.5 text-[#E6761D]" />
+                      Bandra Station – 0.5 km
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <ArrowRight className="w-3.5 h-3.5 text-[#E6761D]" />
+                      Airport – 8 km
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <ArrowRight className="w-3.5 h-3.5 text-[#E6761D]" />
+                      Highway Access – 1 km
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Essential Services */}
+                <div className="rounded-lg p-3 bg-[#E6761D]/10 ring-1 ring-[#E6761D]/20 hover:bg-[#E6761D]/20 transition-all duration-200">
+                  <h3 className="font-semibold text-[#E6761D] mb-2 flex items-center gap-1.5 text-sm">
+                    🏥 Essential Services
+                  </h3>
+                  <ul className="space-y-1 text-sm text-[#0b3856] leading-tight">
+                    <li className="flex items-center gap-2">
+                      <ArrowRight className="w-3.5 h-3.5 text-[#0b3856]" />
+                      Shopping Mall – 0.3 km
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <ArrowRight className="w-3.5 h-3.5 text-[#0b3856]" />
+                      Hospital – 1.2 km
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <ArrowRight className="w-3.5 h-3.5 text-[#0b3856]" />
+                      School – 0.8 km
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* CTA Button */}
+              <div className="mt-5 text-center">
+                <a
+                  href="https://www.google.com/maps?q=Tamara+Uprise"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-white bg-[#0b3856] hover:bg-[#0c3854] font-semibold text-sm shadow-md transition-all duration-200"
+                >
+                  View on Google Maps
+                  <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                </a>
+              </div>
             </div>
+
+            {/* this last line of this code  */}
+
 
             {/* Reviews - Responsive */}
             <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 ring-gray-100">
@@ -1365,9 +1451,9 @@ useEffect(() => {
                     </div>
                     <div>
                       <h3 className="font-bold text-gray-900 text-sm">
-                        {displayOrDash(property?.agent?.name) === ' - '
+                        {displayOrDash(property?.executiveTo?.name) === ' - '
                           ? ' - '
-                          : property?.agent?.name || '-'}
+                          : property?.executiveTo?.name || '-'}
                       </h3>
                     </div>
                   </div>
@@ -1376,7 +1462,7 @@ useEffect(() => {
                   <div className="flex justify-between gap-2">
                     {/* Call */}
                     <button
-                      onClick={callAgent}
+                      onClick={callexecutiveTo}
                       className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
               bg-gradient-to-br from-blue-50 to-blue-100 
               text-blue-700 hover:from-blue-100 hover:to-blue-200 
@@ -1398,6 +1484,7 @@ useEffect(() => {
 
                     {/* Schedule */}
                     <button
+                      onClick={() => setShowContactForm(true)}
                       className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
               bg-gradient-to-br from-emerald-50 to-emerald-100 
               text-emerald-700 hover:from-emerald-100 hover:to-emerald-200 
@@ -1409,7 +1496,7 @@ useEffect(() => {
                     {/* WhatsApp */}
                     <button
                       onClick={() => {
-                        const phone = getAgentPhone();
+                        const phone = getexecutiveToPhone();
                         const cc =
                           phone.startsWith("91") || phone.length > 10 ? "" : "91";
                         const message = `Hi! I'm interested in ${property?.title ?? ""
@@ -1447,13 +1534,13 @@ useEffect(() => {
                   role="toolbar"
                   aria-label="Mobile quick actions"
                 >
-                  {/* Agent Info */}
+                  {/* executiveTo Info */}
                   <div className="flex items-center gap-2.5 mb-2">
                     <div className="w-6 h-6 rounded-full bg-blue-50 ring-1 ring-blue-200 flex items-center justify-center shadow-sm">
                       <User size={16} className="text-blue-600" aria-hidden="true" />
                     </div>
                     <h3 className="font-semibold text-gray-900 text-[13px] leading-none truncate">
-                      {displayOrDash(property?.agent?.name) === ' - ' ? ' - ' : property?.agent?.name || 'Rohit Sharma'}
+                      {displayOrDash(property?.executiveTo?.name) === ' - ' ? ' - ' : property?.executiveTo?.name || 'Rohit Sharma'}
                     </h3>
                   </div>
 
@@ -1461,8 +1548,8 @@ useEffect(() => {
                   <div className="grid grid-cols-4 gap-2">
                     {/* Call */}
                     <button
-                      onClick={callAgent}
-                      aria-label="Call agent"
+                      onClick={callexecutiveTo}
+                      aria-label="Call executiveTo"
                       className="flex flex-col items-center justify-center gap-1 rounded-xl
           bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700 border border-blue-200/60
           transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
@@ -1475,7 +1562,7 @@ useEffect(() => {
                     {/* Message */}
                     <button
                       onClick={() => setShowContactForm(true)}
-                      aria-label="Message agent"
+                      aria-label="Message executiveTo"
                       className="flex flex-col items-center justify-center gap-1 rounded-xl
           bg-gradient-to-br from-purple-50 to-purple-100 text-purple-700 border border-purple-200/60
           transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
@@ -1500,14 +1587,14 @@ useEffect(() => {
                     {/* WhatsApp */}
                     <button
                       onClick={() => {
-                        const phone = getAgentPhone();
+                        const phone = getexecutiveToPhone();
                         const cc = phone.startsWith('91') || phone.length > 10 ? '' : '91';
                         const message = `Hi! I'm interested in ${property?.title ?? ''} at ${property?.locationNormalized ?? ''}. Price: ${formatCurrency(property?.price ?? 0)}. Can you provide more details?`;
                         if (typeof window !== 'undefined') {
                           window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, '_blank');
                         }
                       }}
-                      aria-label="WhatsApp agent"
+                      aria-label="WhatsApp executiveTo"
                       className="flex flex-col items-center justify-center gap-1 rounded-xl
           bg-[#25D366]/10 hover:bg-[#25D366]/15 text-[#128C7E]
           border border-[#25D366]/30 transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
@@ -1811,11 +1898,11 @@ useEffect(() => {
               )}
             </div>
 
-           <PublicSimilarProperties
-  properties={similarProperties}
-  loading={similarPropertiesLoading}
-  debug={true}
-/>
+            <PublicSimilarProperties
+              properties={similarProperties}
+              loading={similarPropertiesLoading}
+              debug={true}
+            />
 
           </div>
         </div>
@@ -1826,7 +1913,7 @@ useEffect(() => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-[#0b3856]">Contact Agent</h3>
+              <h3 className="text-lg font-bold text-[#0b3856]">Contact Executive</h3>
               <button
                 onClick={() => setShowContactForm(false)}
                 className="text-gray-400 hover:text-[#0b3856]"
