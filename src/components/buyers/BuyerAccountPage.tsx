@@ -1,7 +1,8 @@
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { ArrowLeft, User, Building, FileText, SlidersHorizontal, CreditCard, Calculator, TrendingUp, Target, Bot, Calendar, Phone, Mail, MessageCircle, MapPin, DollarSign, Eye, Download, Upload, Share, Plus, Edit, Trash2, Star, Award, CheckCircle, AlertCircle, Bell, Shield, Crown, Gem, Heart, Bookmark, Flag, Tag, Link, ExternalLink, Copy, Send, Printer, Archive, RefreshCw, Filter, Search, SortAsc, Grid, List, Maximize2, MoreHorizontal, Settings, Activity, BarChart3, PieChart, Home, Car, Wifi, Dumbbell, TreePine, Waves, Zap, Flame, Droplets, Snowflake, Sun, Moon, Wind, Mountain, Flower, Coffee, Clock, Users, Globe, Smartphone, Laptop, Headphones, Camera, Video, Music, Book, Briefcase, ShoppingBag, Gift, Plane, Train, Bus, Bike, Truck, X, Menu, LogOut } from 'lucide-react';
+import { ArrowLeft, User, Building, FileText, SlidersHorizontal, CreditCard, Calculator, TrendingUp, Target, Bot, Calendar, Phone, Mail, MessageCircle, MapPin, DollarSign, Eye, Download, Upload, Share, Plus, Edit, Trash2, Star, Award, CheckCircle, AlertCircle, Bell, Shield, Crown, Gem, Heart, Bookmark, Flag, Tag, Link, ExternalLink, Copy, Send, Printer, Archive, RefreshCw, Filter, Search, SortAsc, Grid, List, Maximize2, MoreHorizontal, Settings, Activity, BarChart3, PieChart, Home, Car, Wifi, Dumbbell, TreePine, Waves, Zap, Flame, Droplets, Snowflake, Sun, Moon, Wind, Mountain, Flower, Coffee, Clock, Users, Globe, Smartphone, Laptop, Headphones, Camera, Video, Music, Book, Briefcase, ShoppingBag, Gift, Plane, Train, Bus, Bike, Truck, X, Menu, LogOut, Share2 } from 'lucide-react';
 import PropertySuggestionModal from './PropertySuggestionModal'; import LoanApplicationModal from './LoanApplicationModal'; import EMICalculatorModal from './EMICalculatorModal'; import PropertyMatchModal from './PropertyMatchModal'; import VisitModal from './VisitModal'; import { useProperties } from '@/hooks/properties'; import { useAuth } from '@/contexts/AuthContext';
+import ShareModal from '@/pages/public/ShareModal';
 
 const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
   const { logout } = useAuth();
@@ -473,8 +474,6 @@ const DashboardTab = ({ buyer }: any) => {
 
   );
 };
-
-
 type PropertySearchTabProps = {
   buyer: any;
   onShowPropertySuggestions: () => void;
@@ -495,9 +494,8 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     properties,
     loadingProps,
     propsError,
-    fetchProperties, // GET /properties -> all
-    searchProperties, // GET /properties/search -> server-side filter
-    logProperties,
+    fetchProperties,
+    searchProperties,
     utils,
   } = useProperties({ autoLog: true });
 
@@ -520,8 +518,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     facingFrom,
     parkingFrom,
     possessionFrom,
-    sellerFrom,
-    sellerPhoneFrom,
     photoFrom,
     computeReasons,
     computeMatchScore,
@@ -541,19 +537,37 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
   };
 
   const [searchFilters, setSearchFilters] = useState(defaultFilters);
-
-  // ✅ filters actually used to refine UI; only updated on Search
   const [appliedFilters, setAppliedFilters] = useState(defaultFilters);
   const [respectBuyerBudget, setRespectBuyerBudget] = useState(false);
   const [shortlisted, setShortlisted] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const filtersRef = useRef<HTMLDivElement | null>(null);
-  // first load → all properties
+
+  // Share modal state
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareData, setShareData] = useState<{
+    url?: string;
+    title?: string;
+    description?: string;
+    image?: string;
+    trackingToken?: string;
+  } | null>(null);
+
+  // first load → all properties (only is_public)
   useEffect(() => {
     fetchProperties();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Filter properties to only include is_public ones
+  const publicProperties = useMemo(() => {
+    if (!Array.isArray(properties)) return [];
+    return properties.filter((p: any) => {
+      const isPublic = p.is_public === 1 || p.is_public === true || p.is_public === "1";
+      return isPublic;
+    });
+  }, [properties]);
 
   // ---------------- search handler (ONLY user inputs) ----------------
   const handleSearch = async () => {
@@ -568,14 +582,12 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
           ? searchFilters.maxPrice
           : undefined,
       sort: searchFilters.sort,
-      propertyType: searchFilters.propertyType || undefined,
+      propertyType: (searchFilters as any).propertyType || undefined,
       unitTypes: searchFilters.unitTypes.length ? searchFilters.unitTypes : undefined,
+      is_public: 1, // Only search for public properties
     };
     await searchProperties(params);
-    // ✅ now “commit” the UI filters only after successful server search
     setAppliedFilters(searchFilters);
-    // optional: collapse the filter panel after searching
-    // setShowFilters(false);
     setHasSearched(true);
     setShowFilters(true);
   };
@@ -587,19 +599,110 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     setHasSearched(false);
   };
 
+  // ---------- URL + Filter Context Tracking ----------
+  const TRACKING_PARAM_KEY = "fltcnt";
+  const STORAGE_KEY_LATEST = "re_filter_token"; // points to the latest token (optional convenience)
+  const STORAGE_KEY_PREFIX = "re_filter_payload"; // each payload stored under `${PREFIX}:${token}`
+
+  const randomToken = () => {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return (crypto as any).randomUUID();
+    }
+    return `flt_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+    // or use a stronger fallback if you want
+  };
+
+  /** Save the current context (filters + buyer + selection) into localStorage and return {token, urlWithToken} */
+  const withFilterContext = (rawUrl: string, property: any) => {
+    try {
+      const token = randomToken();
+
+      const buyerSnap = (() => {
+        const b = buyer || {};
+        const req = b?.requirements || {};
+        return {
+          name: b?.name || undefined,
+          budgetMin: b?.budget?.min ?? b?.budget_min ?? undefined,
+          budgetMax: b?.budget?.max ?? b?.budget_max ?? undefined,
+          unitType: req?.unitType ?? req?.unitTypes ?? undefined,
+          preferredLocations: req?.preferredLocations ?? req?.preferredlocations ?? undefined,
+          city: req?.city ?? b?.city ?? undefined,
+        };
+      })();
+
+      const payload = {
+        ts: Date.now(),
+        source: "PropertySearchTab",
+        propertyId: property?.id ?? property?._raw?.id ?? null,
+        respectBuyerBudget,
+        appliedFilters,
+        buyer: buyerSnap,
+        // add a breadcrumb to come back
+        from: {
+          path: typeof window !== "undefined" ? window.location.pathname : undefined,
+          query: typeof window !== "undefined" ? window.location.search : undefined,
+        },
+      };
+
+      // Store as a separate key per token (helps when multiple tabs/windows)
+      if (typeof window !== "undefined") {
+        const k = `${STORAGE_KEY_PREFIX}:${token}`;
+        localStorage.setItem(k, JSON.stringify(payload));
+        localStorage.setItem(STORAGE_KEY_LATEST, token);
+      }
+
+      // Append ?fltcnt=token preserving existing params/hash
+      const u = new URL(rawUrl, typeof window !== "undefined" ? window.location.origin : "https://investordeal.in");
+      u.searchParams.set(TRACKING_PARAM_KEY, token);
+      return { token, urlWithToken: u.toString() };
+    } catch {
+      // If anything fails, just return the original URL without blocking flow
+      return { token: undefined, urlWithToken: rawUrl };
+    }
+  };
+
+  // ---------- Robust public URL builder (plural `/properties`) ----------
+  const buildPropertyUrl = (raw: any) => {
+    const origin =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : "https://investordeal.in";
+
+    // Prefer explicit/public url first
+    const given =
+      raw?.external_url || raw?.public_url || raw?.website || raw?.url || null;
+
+    if (typeof given === "string" && given.trim()) {
+      const s = given.trim();
+      if (/^https?:\/\//i.test(s)) return s;            // absolute
+      if (s.startsWith("//")) return `https:${s}`;       // protocol-relative
+      if (s.startsWith("/")) return `${origin}${s}`;     // absolute path
+      return `${origin}/${s.replace(/^\/+/, "")}`;       // relative -> absolute
+    }
+
+    // derive from slug/id (PUBLIC ROUTE = /properties/:slug)
+    const slug =
+      raw?.slug || raw?.property_slug || raw?.public_slug || raw?.seo_slug;
+    const id = raw?.id || raw?.property_id || raw?._id;
+
+    if (slug) return `${origin}/properties/${encodeURIComponent(String(slug).replace(/^\/+/, ""))}`;
+    if (id) return `${origin}/properties/${encodeURIComponent(String(id))}`;
+
+    // fallback public index
+    return `${origin}/properties`;
+  };
+
   // ---------------- mapping (presentation) ----------------
   const mappedItems = useMemo(() => {
     const locQuery = norm(appliedFilters.location);
     const minP = Number(appliedFilters.minPrice || 0);
     const maxP = Number(appliedFilters.maxPrice || 0);
-    const fType = norm(appliedFilters.propertyType);
+    const fType = norm((appliedFilters as any).propertyType);
     const fUnits = toArr(appliedFilters.unitTypes).map(norm);
 
     const withinSearchFilters = (p: any) => {
-      // Location (light client refine; server already filtered)
       if (locQuery && !hasAny(locTokensFrom(p), [locQuery])) return false;
 
-      // Price overlap (property range or single price)
       const { min: pMin, max: pMax } = priceRangeFrom(p);
       const pPrice = priceFrom(p);
       const hasRange = !!pMin && !!pMax && pMax >= pMin;
@@ -622,30 +725,32 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
       return true;
     };
 
-    let list = properties.filter(withinSearchFilters);
+    let list = publicProperties.filter(withinSearchFilters);
     if (respectBuyerBudget) list = list.filter((p) => isWithinBuyerBudget(p, buyer));
 
-    return list.map((p: any) => ({
-      id: String(p?.id ?? p?.property_id ?? p?._id ?? Math.random()),
-      title: titleFrom(p),
-      address: addressFrom(p),
-      price: priceFrom(p),
-      size: sizeFrom(p),
-      floorLine: p?.floor ? `Floor ${p.floor}` : floorLine(p),
-      facing: facingFrom(p),
-      parking: parkingFrom(p),
-      possession: possessionFrom(p),
-      amenities: p?.amenities || [],
-      seller: sellerFrom(p),
-      sellerPhone: sellerPhoneFrom(p),
-      statusText: p?.status || "Available",
-      matchScore: computeMatchScore(p, buyer),
-      photo: photoFrom(p),
-      _raw: p,
-      reasons: computeReasons(p, buyer),
-    }));
+    return list.map((p: any) => {
+      const publicUrl = buildPropertyUrl(p);
+      return {
+        id: String(p?.id ?? p?.property_id ?? p?._id ?? Math.random()),
+        title: titleFrom(p),
+        address: addressFrom(p),
+        price: priceFrom(p),
+        size: sizeFrom(p),
+        floorLine: p?.floor ? `Floor ${p.floor}` : floorLine(p),
+        facing: facingFrom(p),
+        parking: parkingFrom(p),
+        possession: possessionFrom(p),
+        amenities: p?.amenities || [],
+        statusText: p?.status || "Available",
+        matchScore: computeMatchScore(p, buyer),
+        photo: photoFrom(p),
+        _raw: p,
+        reasons: computeReasons(p, buyer),
+        publicUrl,
+      };
+    });
   }, [
-    properties,
+    publicProperties,
     appliedFilters,
     respectBuyerBudget,
     buyer,
@@ -666,8 +771,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     facingFrom,
     parkingFrom,
     possessionFrom,
-    sellerFrom,
-    sellerPhoneFrom,
     photoFrom,
     computeMatchScore,
     computeReasons,
@@ -697,25 +800,32 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     });
   };
 
-  const contactSeller = (name: string, phone: string, title: string) => {
-    const clean = (phone || "").replace(/\D/g, "");
-    if (!clean) return;
-    const msg = `Hi ${name || "there"}, I’d like to discuss your property: ${title}.`;
-    window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, "_blank");
+  // ---------- Actions that include filter context token ----------
+  const openShare = (p: any) => {
+    const baseUrl = p.publicUrl || buildPropertyUrl(p._raw);
+    const { token, urlWithToken } = withFilterContext(baseUrl, p);
+    setShareData({
+      url: urlWithToken,
+      title: p.title,
+      description: p.address || "",
+      image: p.photo,
+      trackingToken: token,
+    });
+    setShareOpen(true);
+  };
+
+  const openWebsite = (p: any) => {
+    const baseUrl = p.publicUrl || buildPropertyUrl(p._raw);
+    const { urlWithToken } = withFilterContext(baseUrl, p);
+    if (urlWithToken) window.open(urlWithToken, "_blank", "noopener,noreferrer");
   };
 
   return (
     <div className="p-6 pt-2 space-y-6">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 pt-0 py-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          {/* Title */}
-          <h3 className="text-lg font-bold text-gray-900 flex-shrink-0">
-            Property Search
-          </h3>
-
-          {/* Actions */}
+          <h3 className="text-lg font-bold text-gray-900 flex-shrink-0">Property Search</h3>
           <div className="flex flex-wrap items-center gap-2">
-            {/* Smart Match */}
             <button
               onClick={onShowPropertyMatch}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
@@ -724,7 +834,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
               <span>Smart Match</span>
             </button>
 
-            {/* AI Suggestions */}
             <button
               onClick={onShowPropertySuggestions}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-600 text-white text-xs rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all"
@@ -733,14 +842,11 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
               <span>AI Suggestions</span>
             </button>
 
-            {/* Filters Toggle */}
             <button
               onClick={() => {
                 if (showFilters) {
-                  // already open → hide
                   setShowFilters(false);
                 } else {
-                  // closed → open + scroll
                   setShowFilters(true);
                   requestAnimationFrame(() => {
                     filtersRef.current?.scrollIntoView({
@@ -756,17 +862,24 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
               <span>{showFilters ? "Hide Filters" : "Search Filters"}</span>
             </button>
 
-
+            <div className="flex items-center gap-2 ml-2">
+              <input
+                type="checkbox"
+                id="respectBudget"
+                checked={respectBuyerBudget}
+                onChange={(e) => setRespectBuyerBudget(e.target.checked)}
+                className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+              />
+              <label htmlFor="respectBudget" className="text-xs text-gray-700">
+                Respect Buyer Budget
+              </label>
+            </div>
           </div>
         </div>
       </div>
 
-
       {/* Filters */}
       <div className="">
-
-
-        {/* Filters form (collapsible) */}
         <div ref={filtersRef} className="scroll-mt-20">
           {showFilters && (
             <div className="mt-2">
@@ -776,7 +889,9 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                   <input
                     type="text"
                     value={searchFilters.location}
-                    onChange={(e) => setSearchFilters({ ...searchFilters, location: e.target.value })}
+                    onChange={(e) =>
+                      setSearchFilters({ ...searchFilters, location: e.target.value })
+                    }
                     className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                     placeholder="Enter location (e.g., hinjewadi)"
                   />
@@ -853,7 +968,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="mt-3 flex items-center justify-end gap-2">
                 <button
                   onClick={handleResetFilters}
@@ -948,7 +1062,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                         alt={property.title}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          // graceful fallback if 404
                           (e.currentTarget as HTMLImageElement).style.display = "none";
                         }}
                       />
@@ -963,9 +1076,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                   <div className="flex-1">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="text-sm font-semibold text-gray-900">
-                          {property.title}
-                        </h4>
+                        <h4 className="text-sm font-semibold text-gray-900">{property.title}</h4>
                         <div className="flex items-center gap-1 text-gray-600 mt-0.5 text-xs">
                           <MapPin size={12} />
                           <span>{property.address || "—"}</span>
@@ -1033,30 +1144,8 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                       </div>
                     )}
 
-                    {/* Seller row + contact */}
-                    <div className="mt-3 flex items-center justify-between">
-                      <div className="text-xs text-gray-700">
-                        <span className="text-gray-500">Seller: </span>
-                        <span className="font-medium">{property.seller}</span>
-                        <span className="mx-2 text-gray-400">|</span>
-                        <span className="text-gray-500">Contact: </span>
-                        <span className="font-medium">{property.sellerPhone || "—"}</span>
-                      </div>
-
-                      {property.sellerPhone && (
-                        <button
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs hover:bg-emerald-100"
-                          onClick={() =>
-                            contactSeller(property.seller, property.sellerPhone, property.title)
-                          }
-                        >
-                          <MessageCircle size={14} /> Contact
-                        </button>
-                      )}
-                    </div>
-
                     {/* Actions */}
-                    <div className="mt-3 flex items-center gap-2">
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
                         onClick={() =>
@@ -1084,16 +1173,28 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                         Details
                       </button>
 
-                      {property.sellerPhone && (
-                        <a
-                          href={`tel:${property.sellerPhone}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors text-xs"
-                        >
-                          <Phone size={14} />
-                          <span>Call</span>
-                        </a>
-                      )}
+                      {/* Visit Website (now carries filter context) */}
+                      <button
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-xs"
+                        onClick={() => openWebsite(property)}
+                        title="Open public property page"
+                      >
+                        <ExternalLink size={14} />
+                        <span>Visit Website</span>
+                      </button>
+
+                      {/* Share (now carries filter context) */}
+                      <button
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors text-xs"
+                        onClick={() => openShare(property)}
+                        title="Share property"
+                      >
+                        <Share2 size={14} />
+                        <span>Share</span>
+                      </button>
                     </div>
+
+                    {/* NOTE: Seller details intentionally removed as requested */}
                   </div>
                 </div>
               </div>
@@ -1102,7 +1203,21 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
         )}
       </div>
 
-
+      {/* Share Modal */}
+      {shareOpen && shareData && (
+        <ShareModal
+          url={shareData.url}
+          title={shareData.title}
+          description={shareData.description}
+          image={shareData.image}
+          // we also pass the token separately in case your ShareModal wants to construct its own link
+          trackingToken={shareData.trackingToken}
+          onClose={() => {
+            setShareOpen(false);
+            setShareData(null);
+          }}
+        />
+      )}
     </div>
   );
 };
