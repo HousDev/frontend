@@ -129,15 +129,15 @@ const AboutUsPage = () => {
             </p>
             <div className="flex items-center justify-center space-x-8">
               <div className="text-center">
-                <div className="text-xl font-bold text-[#E6761D]">15+</div>
+                <div className="text-xl font-bold text-white">15+</div>
                 <div className="text-blue-200">Years Experience</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold text-[#E6761D]">10K+</div>
+                <div className="text-xl font-bold text-white">10K+</div>
                 <div className="text-blue-200">Properties Sold</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold text-[#E6761D]">25K+</div>
+                <div className="text-xl font-bold text-white">25K+</div>
                 <div className="text-blue-200">Happy Customers</div>
               </div>
             </div>
@@ -346,24 +346,6 @@ const AboutUsPage = () => {
               <h3 className="text-xl font-bold text-gray-900 mb-2">Innovation in PropTech 2021</h3>
               <p className="text-gray-600">Technology Innovation Awards</p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Contact CTA */}
-      <section className="py-3 bg-gradient-to-r from-blue-600 to-purple-700 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl font-bold mb-4">Ready to Start Your Real Estate Journey?</h2>
-          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of satisfied customers who have found their dream properties with ResaleExpert
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-            <button className="bg-white text-blue-600 px-3 py-2 rounded-xl font-bold hover:bg-gray-100 transition-colors">
-              Browse Properties
-            </button>
-            <button className="border-2 border-white text-white px-3 py-2 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-colors">
-              Contact Us Today
-            </button>
           </div>
         </div>
       </section>
