@@ -999,6 +999,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     )}
 
                     <div className="absolute top-3 left-3 flex items-start flex-wrap gap-2 z-20">
+
+                      {/* keep tags but let them take remaining space without squashing the badge */}
+                      <div className="max-w-[72vw] sm:max-w-none overflow-hidden">
+                        <PropertyTags tags={property.tags || []} />
+                      </div>
                       {(property.aiScore ?? 0) >= 90 && (
                         <span className="flex-none whitespace-nowrap bg-purple-600 text-white px-2 py-1 rounded-full text-[8px] sm:text-xs font-bold leading-none flex items-center shadow-sm">
                           <Bot size={12} className="mr-1" />
@@ -1006,9 +1011,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                         </span>
                       )}
 
+
                       <div className="max-w-[72vw] sm:max-w-none overflow-hidden">
                         <PropertyTags tags={property.tags || []} />
                       </div>
+
                     </div>
 
                     <div className="absolute top-2 right-4 flex space-x-2">

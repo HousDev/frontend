@@ -3,6 +3,8 @@ import {
   Home, Plus, Search, Filter, Eye, Edit, Trash2, Download, Upload,
   Grid, List, MapPin, Building, Users, MoreHorizontal, X,
   ChevronLeft, ChevronRight, Globe, Award, CheckCircle, User,
+  UserCheck, UserPlus,
+  UserX
 } from 'lucide-react';
 import type { LucideIcon } from "lucide-react";
 import PropertyViewPage from '../../components/properties/PropertyViewPage';
@@ -20,6 +22,7 @@ import PropertyFilterModal from './PropertyFilterModal';
 import PropertyBulkBrochureModal from '@/components/properties/PropertyBulkBrochureModal';
 import propertyTagsAPI from '@/lib/propertyTagsAPI';
 import getTagStyle, { DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
+import { usersAPI } from '@/lib/api';
 
 /* ---------------------- Types ---------------------- */
 interface UIProperty {
@@ -68,6 +71,14 @@ interface UIProperty {
     email?: string;
     leadSource?: string;
   };
+  assignedTo?: {
+    id: number | string;
+    name: string;
+    email?: string;
+    phone?: string;
+    department?: string;
+    role?: string;
+  };
   stage: string;
   stageProgress: number;
   visits: number;
@@ -99,6 +110,17 @@ interface UIProperty {
   maintenanceReport?: any;
   lastStatusUpdate?: string;
   lastUpdated?: string;
+}
+
+/* ---------------------- Assignment Types ---------------------- */
+interface SalesExecutive {
+  id: number | string;
+  name: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  role?: string;
+  is_active?: boolean;
 }
 
 /* ---------------------- Utils ---------------------- */
@@ -188,14 +210,14 @@ const TagPickerRow: React.FC<{
               )}
             </div>
             <div className="flex gap-2">
-              <button 
-                onClick={selectAll} 
+              <button
+                onClick={selectAll}
                 className="text-[11px] px-2 py-1 border rounded hover:bg-gray-50 transition-colors"
               >
                 Select all
               </button>
-              <button 
-                onClick={clearAll} 
+              <button
+                onClick={clearAll}
                 className="text-[11px] px-2 py-1 border rounded hover:bg-gray-50 transition-colors"
               >
                 Clear
@@ -213,11 +235,10 @@ const TagPickerRow: React.FC<{
                 return (
                   <li
                     key={t}
-                    className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
-                      active 
-                        ? "border-blue-400 bg-blue-50/40 shadow-sm" 
+                    className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${active
+                        ? "border-blue-400 bg-blue-50/40 shadow-sm"
                         : "border-gray-200 hover:border-gray-300"
-                    } ${label === "Remove" && isCurrentlyApplied ? "ring-1 ring-green-200 bg-green-50/30" : ""}`}
+                      } ${label === "Remove" && isCurrentlyApplied ? "ring-1 ring-green-200 bg-green-50/30" : ""}`}
                     onClick={() => toggle(t)}
                   >
                     <input
@@ -227,7 +248,7 @@ const TagPickerRow: React.FC<{
                       className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       onClick={(e) => e.stopPropagation()}
                     />
-                    <div 
+                    <div
                       className={`flex items-center gap-1 px-2 py-1 rounded-full ring-1 ${tone.bg} ${tone.text} ${tone.ring} flex-1`}
                       title={t}
                     >
@@ -250,14 +271,14 @@ const TagPickerRow: React.FC<{
               {selected.length} tag{selected.length !== 1 ? 's' : ''} selected
             </div>
             <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setOpen(false)} 
+              <button
+                onClick={() => setOpen(false)}
                 className="px-3 py-1.5 border rounded text-xs hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
-              <button 
-                onClick={apply} 
+              <button
+                onClick={apply}
                 className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={selected.length === 0}
               >
@@ -267,6 +288,132 @@ const TagPickerRow: React.FC<{
           </div>
         </div>
       )}
+    </div>
+  );
+};
+/* ---------------------- Executive Assignment Modal ---------------------- */
+const AssignExecutiveModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  executives: SalesExecutive[];
+  selectedProperties: (number | string)[];
+  onAssign: (executiveId: number | string, executiveName: string) => Promise<void>;
+  isBulk?: boolean;
+}> = ({ isOpen, onClose, executives, selectedProperties, onAssign, isBulk = false }) => {
+  const [selectedExecutive, setSelectedExecutive] = useState<number | string>('');
+  const [assigning, setAssigning] = useState(false);
+
+  const handleAssign = async () => {
+    if (!selectedExecutive) {
+      toast.warn('Please select an executive');
+      return;
+    }
+
+    // Convert to string for comparison to handle both number and string IDs
+    const executive = executives.find(e => String(e.id) === String(selectedExecutive));
+    if (!executive) {
+      toast.error('Selected executive not found');
+      return;
+    }
+
+    setAssigning(true);
+    try {
+      await onAssign(selectedExecutive, executive.name);
+      setSelectedExecutive('');
+      onClose();
+    } catch (error) {
+      console.error('Assignment failed:', error);
+      toast.error('Failed to assign executive');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedExecutive('');
+      setAssigning(false);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">
+            {isBulk ? 'Bulk Assign Executive' : 'Assign Executive'}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="mb-4">
+          <p className="text-sm text-gray-600 mb-3">
+            {isBulk
+              ? `Assign ${selectedProperties.length} properties to sales executive`
+              : 'Assign this property to sales executive'
+            }
+          </p>
+
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Executive
+          </label>
+          <select
+            value={selectedExecutive}
+            onChange={(e) => setSelectedExecutive(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            disabled={assigning || executives.length === 0}
+          >
+            <option value="">Choose an executive...</option>
+            {executives.map((executive) => (
+              <option key={executive.id} value={executive.id}>
+                {executive.name}
+                {executive.department && ` - ${executive.department}`}
+                {executive.role && ` (${executive.role})`}
+              </option>
+            ))}
+          </select>
+          {executives.length === 0 && (
+            <p className="text-xs text-red-500 mt-1">
+              No sales executives available. Please check if executives are properly configured.
+            </p>
+          )}
+        </div>
+
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+            disabled={assigning}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleAssign}
+            disabled={!selectedExecutive || assigning || executives.length === 0}
+            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+          >
+            {assigning ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Assigning...</span>
+              </>
+            ) : (
+              <>
+                <UserCheck size={16} />
+                <span>Assign</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -369,9 +516,8 @@ const PropertyTags = ({
           <TagEl
             key={`${key}-${i}`}
             title={onClickTag ? `Filter by: ${key}` : key}
-            className={`${common} ${tone.bg} ${tone.text} ${tone.ring} ${
-              onClickTag ? "cursor-pointer hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400" : ""
-            }`}
+            className={`${common} ${tone.bg} ${tone.text} ${tone.ring} ${onClickTag ? "cursor-pointer hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400" : ""
+              }`}
             onClick={onClickTag ? () => onClickTag(key) : undefined}
             type={onClickTag ? "button" : undefined}
             aria-label={onClickTag ? `Filter by tag ${key}` : undefined}
@@ -544,9 +690,19 @@ function normalizeProperty(r: any, idx: number): UIProperty {
     return Number.isFinite(n) ? n : ' - ';
   })();
 
+  // Normalize assigned executive data
+  const normalizedAssignedTo = r?.assignedTo ? {
+    id: r.assignedTo.id || r.assignedTo.userId,
+    name: r.assignedTo.name || r.assignedTo.userName || 'Unknown',
+    email: r.assignedTo.email,
+    phone: r.assignedTo.phone,
+    department: r.assignedTo.department,
+    role: r.assignedTo.role,
+  } : undefined;
+
   return {
     id: r.id ?? idx + 1,
-    propertyId: r.property_id || `PROP${String(r.id ?? idx + 1).padStart(3, '0')}`,
+    propertyId: r.property_id || `REP${String(r.id ?? idx + 1).padStart(4, '0')}`,
     title: r.title || `${dash(r.unit_type)} ${dash(r.property_type_name || r.property_type || r.property_subtype_name)}`,
     type: r.property_type_name || r.property_type || ' - ',
     subtype: r.property_subtype_name || r.property_subtype || ' - ',
@@ -590,6 +746,7 @@ function normalizeProperty(r: any, idx: number): UIProperty {
       email: r.seller_email,
       leadSource: r.lead_source,
     },
+    assignedTo: normalizedAssignedTo,
     stage: r.stage || 'initial_contact',
     stageProgress: toNum(r.stage_progress ?? 0),
     visits: toNum(r.visits ?? 0),
@@ -692,6 +849,7 @@ function tabCountClass(active: boolean, color: string) {
   return `px-2 py-0.5 rounded-full text-[10px] ${active ? s.countActive : 'bg-gray-200 text-gray-700'}`;
 }
 
+
 /* ---------------------- Component ---------------------- */
 const PropertiesPage = () => {
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -713,6 +871,12 @@ const PropertiesPage = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedProperty, setSelectedProperty] = useState<UIProperty | null>(null);
 
+  // Executive assignment states
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assigningProperty, setAssigningProperty] = useState<UIProperty | null>(null);
+  const [salesExecutives, setSalesExecutives] = useState<SalesExecutive[]>([]);
+  const [executivesLoading, setExecutivesLoading] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
@@ -725,6 +889,50 @@ const PropertiesPage = () => {
   // Dynamic tags cache: { [propertyId]: string[] }
   const [propTags, setPropTags] = useState<Record<string, string[]>>({});
   const [knownTags, setKnownTags] = useState<string[]>([]);
+
+  // Fetch sales executives
+  useEffect(() => {
+    const fetchExecutives = async () => {
+      try {
+        setExecutivesLoading(true);
+        const res = await usersAPI.getByDeptRole({
+          department: "sales",
+          role: "executive",
+          is_active: 1,
+          limit: 50,
+        });
+
+        // Handle different response formats
+        const items = res?.items ?? res?.data ?? res ?? [];
+
+        if (Array.isArray(items)) {
+          const executives: SalesExecutive[] = items.map((user: any) => ({
+            id: user.id || user.userId,
+            name: user.name || user.fullName || user.username || 'Unknown',
+            email: user.email,
+            phone: user.phone || user.mobile,
+            department: user.department,
+            role: user.role,
+            is_active: user.is_active ?? user.active ?? true,
+          }));
+
+          setSalesExecutives(executives);
+          console.log("Sales executives loaded:", executives.length);
+        } else {
+          console.warn("Unexpected executives response format:", res);
+          setSalesExecutives([]);
+        }
+      } catch (err) {
+        console.error("Error fetching executives:", err);
+        
+        setSalesExecutives([]);
+      } finally {
+        setExecutivesLoading(false);
+      }
+    };
+
+    fetchExecutives();
+  }, []);
 
   // Persist active tab
   useEffect(() => {
@@ -778,6 +986,7 @@ const PropertiesPage = () => {
       throw new Error('propertiesAPI.getProperties is not a function (check import/path).');
     }
     const raw = await withTimeout(propertiesAPI.getProperties(), 12000);
+    console.log("properties", raw)
     const list = Array.isArray(raw) ? raw : raw?.data || [];
     const mapped = list.map((r: any, idx: number) => normalizeProperty(r, idx));
     return mapped;
@@ -1038,6 +1247,206 @@ const PropertiesPage = () => {
     else setSelectedProperties(paginatedProperties.map(p => p.id));
   };
 
+  /* ---------------------- Executive Assignment Handlers ---------------------- */
+  const handleAssignExecutive = (property: UIProperty) => {
+    setAssigningProperty(property);
+    setShowAssignModal(true);
+  };
+
+  const handleBulkAssignExecutive = () => {
+    if (selectedProperties.length === 0) {
+      toast.warn("No properties selected");
+      return;
+    }
+    setShowAssignModal(true);
+  };
+
+  const handleSingleAssign = async (executiveId: number | string, executiveName: string) => {
+    if (!assigningProperty) return;
+
+    try {
+      // Convert executiveId to number for the backend
+      const assignedToId = Number(executiveId);
+
+      // Use the correct payload format from propertiesAPI.ts
+      const payload = {
+        assigned_to: assignedToId
+      };
+
+      const response = await propertiesAPI.updateAssignedTo(assigningProperty.id, payload);
+
+      if (response.success) {
+        // Find the executive details to update the UI
+        const executive = salesExecutives.find(e => e.id === executiveId);
+        const updatedAssignedTo = executive ? {
+          id: executive.id,
+          name: executive.name,
+          email: executive.email,
+          phone: executive.phone,
+          department: executive.department,
+          role: executive.role
+        } : undefined;
+
+        setProperties(prev => prev.map(p =>
+          p.id === assigningProperty.id
+            ? { ...p, assignedTo: updatedAssignedTo }
+            : p
+        ));
+        toast.success(`Property assigned to ${executiveName}`);
+      } else {
+        toast.error("Failed to assign executive");
+      }
+    } catch (error: any) {
+      console.error("Assign executive failed:", error);
+      toast.error(error?.response?.data?.message || "Error assigning executive");
+    }
+  };
+
+  const handleBulkAssign = async (executiveId: number | string, executiveName: string) => {
+    if (selectedProperties.length === 0) return;
+
+    setBulkLoading(true);
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Convert executiveId to number for the backend
+      const assignedToId = Number(executiveId);
+      const executive = salesExecutives.find(e => e.id === executiveId);
+
+      const updatedAssignedTo = executive ? {
+        id: executive.id,
+        name: executive.name,
+        email: executive.email,
+        phone: executive.phone,
+        department: executive.department,
+        role: executive.role
+      } : undefined;
+
+      for (const propertyId of selectedProperties) {
+        try {
+          const payload = {
+            assigned_to: assignedToId
+          };
+
+          const response = await propertiesAPI.updateAssignedTo(propertyId, payload);
+
+          if (response.success) {
+            setProperties(prev => prev.map(p =>
+              p.id === propertyId
+                ? { ...p, assignedTo: updatedAssignedTo }
+                : p
+            ));
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to assign property ${propertyId}:`, error);
+          errorCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`${successCount} properties assigned to ${executiveName}`);
+      }
+      if (errorCount > 0) {
+        toast.warn(`${errorCount} properties failed to assign`);
+      }
+
+      setSelectedProperties([]);
+    } catch (error: any) {
+      console.error("Bulk assign failed:", error);
+      toast.error("Error during bulk assignment");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleAssignSubmit = async (executiveId: number | string, executiveName: string) => {
+    if (assigningProperty) {
+      await handleSingleAssign(executiveId, executiveName);
+    } else if (selectedProperties.length > 0) {
+      await handleBulkAssign(executiveId, executiveName);
+    }
+  };
+
+  const handleUnassignExecutive = async (propertyId: number | string) => {
+    try {
+      // Use null to unassign
+      const payload = {
+        assigned_to: null
+      };
+
+      const response = await propertiesAPI.updateAssignedTo(propertyId, payload);
+
+      if (response.success) {
+        setProperties(prev => prev.map(p =>
+          p.id === propertyId
+            ? { ...p, assignedTo: undefined }
+            : p
+        ));
+        toast.success("Executive unassigned successfully");
+      } else {
+        toast.error("Failed to unassign executive");
+      }
+    } catch (error: any) {
+      console.error("Unassign executive failed:", error);
+      toast.error(error?.response?.data?.message || "Error unassigning executive");
+    }
+  };
+
+  const handleBulkUnassign = async () => {
+    if (selectedProperties.length === 0) {
+      toast.warn("No properties selected");
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const propertyId of selectedProperties) {
+        try {
+          const payload = {
+            assigned_to: null
+          };
+
+          const response = await propertiesAPI.updateAssignedTo(propertyId, payload);
+
+          if (response.success) {
+            setProperties(prev => prev.map(p =>
+              p.id === propertyId
+                ? { ...p, assignedTo: undefined }
+                : p
+            ));
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to unassign property ${propertyId}:`, error);
+          errorCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`${successCount} properties unassigned`);
+      }
+      if (errorCount > 0) {
+        toast.warn(`${errorCount} properties failed to unassign`);
+      }
+
+      setSelectedProperties([]);
+    } catch (error: any) {
+      console.error("Bulk unassign failed:", error);
+      toast.error("Error during bulk unassignment");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const handleBulkStatusChange = async (status: string) => {
     if (selectedProperties.length === 0) {
       toast.warn("No properties selected");
@@ -1212,11 +1621,11 @@ const PropertiesPage = () => {
     } catch (error: any) {
       console.error("Bulk export failed:", error);
       const selected = properties.filter(p => selectedProperties.includes(p.id));
-      const headers = ["ID", "PropertyID", "Title", "Type", "Subtype", "UnitType", "City", "Location", "Society", "Status", "Stage", "Budget", "IsPublic"];
+      const headers = ["ID", "PropertyID", "Title", "Type", "Subtype", "UnitType", "City", "Location", "Society", "Status", "Stage", "Budget", "IsPublic", "AssignedTo"];
       const rows = selected.map(p => ([
         String(p.id), p.propertyId ?? "", (p.title ?? "").toString().replace(/\n/g, " "),
         p.type ?? "", p.subtype ?? "", p.unitType ?? "", p.city ?? "", p.location ?? "", p.society ?? "",
-        p.status ?? "", p.stage ?? "", String(p.budget ?? ""), p.isPublic ? "Yes" : "No",
+        p.status ?? "", p.stage ?? "", String(p.budget ?? ""), p.isPublic ? "Yes" : "No", p.assignedTo?.name ?? "",
       ]));
       const escape = (v: string) => { const needsQuotes = /[",\n]/.test(v); const safe = v.replace(/"/g, '""'); return needsQuotes ? `"${safe}"` : safe; };
       const csv = [headers.join(","), ...rows.map(r => r.map(escape).join(","))].join("\n");
@@ -1308,6 +1717,18 @@ const PropertiesPage = () => {
       return `₹${n.toLocaleString('en-IN')}`;
     }
     return ' - ';
+  };
+
+  // Executive badge component
+  const ExecutiveBadge = ({ assignedTo }: { assignedTo?: UIProperty['assignedTo'] }) => {
+    if (!assignedTo) return null;
+
+    return (
+      <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs border border-blue-200">
+        <UserCheck size={10} />
+        <span className="font-medium">{assignedTo.name}</span>
+      </div>
+    );
   };
 
   if (currentPropertyView) {
@@ -1408,12 +1829,12 @@ const PropertiesPage = () => {
           <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-3 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-orange-100 text-xs">Public Views</p>
+                <p className="text-orange-100 text-xs">Assigned</p>
                 <p className="text-lg font-bold">
-                  {properties.reduce((sum, p) => sum + (Number(p.publicViews) || 0), 0)}
+                  {properties.filter((p) => p.assignedTo).length}
                 </p>
               </div>
-              <ChevronRight size={18} className="text-orange-200" />
+              <UserCheck size={18} className="text-orange-200" />
             </div>
           </div>
         </div>
@@ -1514,6 +1935,22 @@ const PropertiesPage = () => {
                     className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
                   >
                     Mark Sold
+                  </button>
+                  <button
+                    onClick={handleBulkAssignExecutive}
+                    disabled={bulkLoading || executivesLoading}
+                    className="px-2.5 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 disabled:opacity-50 flex items-center space-x-1"
+                  >
+                    <UserPlus size={12} />
+                    <span>Assign Executive</span>
+                  </button>
+                  <button
+                    onClick={handleBulkUnassign}
+                    disabled={bulkLoading}
+                    className="px-2.5 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-1"
+                  >
+                    <UserX size={12} />
+                    <span>Unassign Executive</span>
                   </button>
                   <button
                     onClick={() => handleBulkMakePublic()}
@@ -1674,11 +2111,16 @@ const PropertiesPage = () => {
                           onClickTag={handleClickTag}
                         />
 
-                        {property.isPublic && (
+                        {property.isPublic ? (
                           <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 ring-1 ring-green-200 shadow-sm">
                             PUBLIC
                           </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 ring-1 ring-red-200 shadow-sm">
+                            PRIVATE
+                          </span>
                         )}
+
                       </div>
                       <div className="absolute bottom-3 left-3">
                         {getStatusBadge(property.status)}
@@ -1701,6 +2143,13 @@ const PropertiesPage = () => {
                         {formatCurrency(property.budget)}
                       </div>
 
+                      {/* Executive Assignment Badge */}
+                      {property.assignedTo && (
+                        <div className="mb-2">
+                          <ExecutiveBadge assignedTo={property.assignedTo} />
+                        </div>
+                      )}
+
                       <div className="space-y-1 mb-3">
                         <div className="flex items-center space-x-2 text-sm text-gray-600">
                           <Building size={12} />
@@ -1718,7 +2167,9 @@ const PropertiesPage = () => {
                         <div className="flex items-center space-x-2 text-sm text-gray-600">
                           <User size={12} />
                           <span>{dash(property.seller?.name)}</span>
+
                         </div>
+
                       </div>
 
                       <div className="flex items-center justify-between mb-3">
@@ -1749,6 +2200,23 @@ const PropertiesPage = () => {
                           </button>
                           <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                             <div className="p-1">
+                              {property.assignedTo ? (
+                                <button
+                                  onClick={() => handleUnassignExecutive(property.id)}
+                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
+                                >
+                                  <UserX size={12} />
+                                  <span>Unassign Executive</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleAssignExecutive(property)}
+                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-100 rounded w-full text-left"
+                                >
+                                  <UserPlus size={12} />
+                                  <span>Assign Executive</span>
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleEditProperty(property)}
                                 className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
@@ -1796,6 +2264,7 @@ const PropertiesPage = () => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location & Seller</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Specifications</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status & Stage</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
@@ -1870,6 +2339,28 @@ const PropertiesPage = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3">
+                        {p.assignedTo ? (
+                          <div className="flex items-center gap-2">
+                            <ExecutiveBadge assignedTo={p.assignedTo} />
+                            <button
+                              onClick={() => handleUnassignExecutive(p.id)}
+                              className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
+                              title="Unassign Executive"
+                            >
+                              <UserX size={12} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleAssignExecutive(p)}
+                            className="flex items-center space-x-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200 transition-colors"
+                          >
+                            <UserPlus size={10} />
+                            <span>Assign</span>
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
                         <div className="space-y-1 text-xs">
                           <div className="flex items-center space-x-1">
                             <Eye size={10} className="text-blue-500" />
@@ -1903,6 +2394,23 @@ const PropertiesPage = () => {
                           >
                             <Users size={14} />
                           </button>
+                          {p.assignedTo ? (
+                            <button
+                              onClick={() => handleUnassignExecutive(p.id)}
+                              className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
+                              title="Unassign Executive"
+                            >
+                              <UserX size={14} />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleAssignExecutive(p)}
+                              className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded transition-colors"
+                              title="Assign Executive"
+                            >
+                              <UserPlus size={14} />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleEditProperty(p)}
                             className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
@@ -1997,6 +2505,19 @@ const PropertiesPage = () => {
           </div>
         </div>
       )}
+
+      {/* Executive Assignment Modal */}
+      <AssignExecutiveModal
+        isOpen={showAssignModal}
+        onClose={() => {
+          setShowAssignModal(false);
+          setAssigningProperty(null);
+        }}
+        executives={salesExecutives}
+        selectedProperties={selectedProperties}
+        onAssign={handleAssignSubmit}
+        isBulk={!assigningProperty && selectedProperties.length > 0}
+      />
 
       {/* Modals */}
       {showPropertyForm && (

@@ -115,7 +115,8 @@ import {
   Umbrella,
   Snowflake,
   Share2,
-  IndianRupee
+  IndianRupee,
+  Bot // ✅ Added Bot icon for AI score
 } from 'lucide-react';
 import AmenityPill from "../properties/AmenityPill";
 import FurnishingPill from '../properties/FurnishingPill'
@@ -135,6 +136,10 @@ import PropertyStatusUpdateModal from './PropertyStatusUpdateModal';
 import BuyerMatchingModal from './BuyerMatchingModal';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import toast from 'react-hot-toast';
+
+// ✅ Import property tags API and tag styles
+import propertyTagsAPI, { PropertyTagsRow } from '@/lib/propertyTagsAPI';
+import { getTagStyle, DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 
 // --- Swiper imports ---
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -222,6 +227,8 @@ interface UIProperty {
   maintenanceReport?: any;
   lastStatusUpdate?: string;
   lastUpdated?: string;
+  aiScore?: number; // ✅ Added AI Score
+  tags?: string[]; // ✅ Added tags field
 }
 
 interface PropertyViewPageProps {
@@ -253,6 +260,60 @@ const safeDaysOnMarket = (createdAt?: string) => {
   return Math.floor((Date.now() - created) / (1000 * 60 * 60 * 24));
 };
 
+// ✅ Property Tags Component (same as HomePage)
+const PropertyTags = ({ tags }: { tags: string[] }) => {
+  if (!tags || tags.length === 0) return null;
+
+  // ✅ Only show first 2 tags
+  const displayTags = tags.slice(0, 20);
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-3">
+      {displayTags.map((tag, index) => {
+        const style = getTagStyle(tag);
+        const EmojiComponent = typeof style.emoji === 'string'
+          ? () => <span className="text-xs mr-1">{style.emoji
+            ? typeof style.emoji === "string"
+              ? (
+                <span className="text-xs mr-1 uppercase" aria-hidden="true">
+                  {style.emoji}
+                </span>
+              )
+              : (
+                // style.emoji is a component here (Lucide icon)
+                React.createElement(style.emoji, {
+                  size: 10,
+                  className: "mr-1 uppercase",
+                  "aria-hidden": true,
+                })
+              )
+            : null}
+          </span>
+          : style.emoji;
+
+        return (
+          <span
+            key={index}
+            className={`
+              inline-flex items-center px-2 py-1 rounded-full text-xs font-bold uppercase 
+              ${style.bg} ${style.text} ring-1 ${style.ring}
+              transition-all duration-200
+            `}
+          >
+            {style.emoji && (typeof style.emoji === 'string' ? <EmojiComponent /> : <EmojiComponent size={10} className="mr-1" />)}
+            {tag}
+          </span>
+        );
+      })}
+      {/* ✅ Show +count if there are more than 2 tags */}
+      {tags.length > 10 && (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+          +{tags.length - 2}
+        </span>
+      )}
+    </div>
+  );
+};
 
 // Build initial data for edit form
 const buildInitialData = (p: UIProperty) => {
@@ -308,13 +369,7 @@ const buildInitialData = (p: UIProperty) => {
   };
 };
 
-
-
-/* ---------- Image Zoom Wrapper ----------
-   Wrap any <img> in this to get a smooth hover zoom-in/out.
-   - Keeps rounded corners and prevents overflow
-   - GPU-accelerated transform for smoothness
-*/
+/* ---------- Image Zoom Wrapper ---------- */
 const ImageZoom: React.FC<{
   src: string;
   alt?: string;
@@ -334,9 +389,6 @@ const ImageZoom: React.FC<{
     </div>
   );
 };
-
-
-
 
 // ✅ make a clean slug if property.slug missing/dirty
 const toSlug = (s: string) =>
@@ -368,20 +420,21 @@ const buildPublicPropertyUrl = (property: any) => {
     property?.slug
       ? toSlug(String(property.slug))
       : toSlug(
-          [
-            property?.type,
-            property?.unitType,
-            property?.subtype,
-            property?.city,
-            property?.location,
-          ]
-            .filter(Boolean)
-            .join(" ")
-        );
+        [
+          property?.type,
+          property?.unitType,
+          property?.subtype,
+          property?.city,
+          property?.location,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
 
   const fltcnt = getOrMakeFltCnt(id);
   return `${origin}/properties/${id}-${slug}?fltcnt=${encodeURIComponent(fltcnt)}`;
 };
+
 // ---- number helpers
 const toNum = (v: unknown): number | undefined => {
   if (v === '' || v == null) return undefined;
@@ -419,7 +472,6 @@ const normalizeProperty = (p: UIProperty): PropertyForModals => ({
   budget: toNumOrNull(p.budget),
   finalPrice: toNumOrNull(p.finalPrice),
 });
-
 
 // ---------- Main Component ----------
 const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
@@ -466,40 +518,48 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
   const [overviewKey, setOverviewKey] = useState(0);
   const prevShowEditRef = useRef(showEditModal);
 
+  // ✅ Function to fetch tags for a property
+  const fetchPropertyTags = async (propertyId: number): Promise<string[]> => {
+    try {
+      const tagsData = await propertyTagsAPI.getById(propertyId);
+      return tagsData?.tags || [];
+    } catch (err) {
+      console.warn(`Could not load tags for property ${propertyId}:`, err);
+      return [];
+    }
+  };
+
+  // ✅ Fetch tags when property changes
+  useEffect(() => {
+    const fetchTags = async () => {
+      if (property?.id) {
+        const tags = await fetchPropertyTags(Number(property.id));
+        setPropertyData(prev => ({
+          ...prev,
+          tags
+        }));
+      }
+    };
+
+    fetchTags();
+  }, [property?.id]);
+
   useEffect(() => {
     if (!property) return;
     const idChanged = property.id !== propertyData.id;
     const tsChanged = property.updated_at !== propertyData.updated_at;
+
     if (idChanged || tsChanged) {
       setPropertyData(property);
       setOverviewKey(k => k + 1); // ✅ OverviewTab key bump -> fresh render
     }
-  }, [property?.id, property?.updated_at]); // dhyaan: propertyData ko dep me mat daalo
-
-
-  // ⬇️ propertyData ke useState ke baad yeh effect add/replace karo
-  useEffect(() => {
-    if (!property) return;
-
-    const idChanged = property.id !== propertyData.id;
-    const tsChanged = property.updated_at !== propertyData.updated_at;
-
-    if (idChanged || tsChanged) {
-      setPropertyData(property);
-      // force OverviewTab fresh render with latest data
-      setOverviewKey(k => k + 1);
-    }
-  }, [property?.id, property?.updated_at]); // dhyaan: propertyData ko dep me mat daalo
+  }, [property?.id, property?.updated_at]);
 
   // 🔊 listen once, remount Overview on event
   useEffect(() => {
     const handler = (e: any) => {
-      // ⚠️ agar tum id-check kar rahe ho to dhyaan: propertyId pass ho
-      // if (e?.detail?.id && e.detail.id !== propertyData.id) return;
-
-      // force remount + optional tab switch
       setOverviewKey(k => k + 1);
-      setActiveTab('overview'); // nahi chahiye to hata do
+      setActiveTab('overview');
     };
 
     window.addEventListener('overview:refresh', handler);
@@ -510,6 +570,7 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
   useEffect(() => {
     setPropertyData(property);
   }, [property]);
+
   // when property id changes, try restoring its last-opened tab
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -517,7 +578,7 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
     const fromStorage = localStorage.getItem(`pv_tab_${String(property?.id)}`);
     const next = (fromUrl || fromStorage);
     if (next && next !== activeTab) setActiveTab(next);
-  }, [property?.id]); // intentionally not depending on activeTab
+  }, [property?.id]);
 
   // Property stages with automatic progression
   const propertyStages = [
@@ -748,9 +809,6 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
     setShowEditModal(false);
     toast.success('Property updated successfully!');
   };
-
-
-
 
   const handleStageProgress = async (newStage: string, remarks: string) => {
     const updatedProperty = {
@@ -1147,7 +1205,7 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
         <PropertyBrochureModal
           isOpen={showBrochureModal}
           onClose={() => setShowBrochureModal(false)}
-          property={normalizeProperty(propertyData)} 
+          property={normalizeProperty(propertyData)}
         />
       )}
 
@@ -1238,6 +1296,7 @@ const OverviewTab = ({ property, onUpdate }: any) => {
       property.negotiablePrice ?? (property.budget ? property.budget * 0.95 : 0)
     );
   }, [property.budget, property.negotiablePrice, property.updated_at]);
+
   // utils/helper
   const getMonthName = (value?: string | number | null) => {
     if (!value) return "";
@@ -1245,7 +1304,6 @@ const OverviewTab = ({ property, onUpdate }: any) => {
     if (isNaN(month) || month < 1 || month > 12) return "";
     return new Date(0, month - 1).toLocaleString("en", { month: "long" });
   };
-
 
   const handlePriceUpdate = () => {
     const updatedProperty = {
@@ -1291,14 +1349,6 @@ const OverviewTab = ({ property, onUpdate }: any) => {
                   ]).map((photo: string, index: number) => (
                     <SwiperSlide key={index}>
                       <div className="relative w-full">
-                        {/* <img
-                          src={photo}
-                          alt={`${property.title || 'Property'} - ${index + 1}`}
-                          className="w-full h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px] xl:h-[400px] 2xl:h-[450px] object-cover rounded-xl"
-                          loading="eager"
-                          decoding="async"
-                          style={{ display: 'block' }}
-                        /> */}
                         {/* Hover zoom added here */}
                         <ImageZoom
                           src={photo}
@@ -1306,6 +1356,24 @@ const OverviewTab = ({ property, onUpdate }: any) => {
                           className="w-full h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px] xl:h-[400px] 2xl:h-[450px]"
                           imgClassName="rounded-xl"
                         />
+
+                        {/* ✅ Tags & AI Score Overlay */}
+                        {/* ✅ Tags & AI Score Overlay (Right Aligned) */}
+                        <div className="absolute top-3 right-3 flex items-start flex-wrap justify-end gap-2 z-20 text-right">
+                          {/* ✅ Property Tags first (right side) */}
+                          <div className="flex flex-wrap justify-end gap-1.5">
+                            <PropertyTags tags={property.tags || []} />
+                          </div>
+
+                          {/* AI Score Badge next to tags */}
+                          {(property.aiScore ?? 0) >= 90 && (
+                            <span className="flex-none whitespace-nowrap bg-purple-600 text-white px-2 py-1 rounded-full text-[8px] sm:text-xs font-bold leading-none flex items-center shadow-sm">
+                              <Bot size={12} className="mr-1" />
+                              AI {Math.round(property.aiScore ?? 0)}
+                            </span>
+                          )}
+                        </div>
+
                       </div>
                     </SwiperSlide>
                   ))}
@@ -1335,11 +1403,16 @@ const OverviewTab = ({ property, onUpdate }: any) => {
 
                 {/* Status badges */}
                 <div className="absolute top-4 left-4 flex flex-wrap gap-2 z-20">
-                  {property.isPublic && (
-                    <span className="px-3 py-1 bg-green-500 text-white rounded-full text-xs md:text-sm font-bold">
-                      PUBLIC
-                    </span>
-                  )}
+                  {property.isPublic ? (
+  <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 ring-1 ring-green-200 shadow-sm">
+    PUBLIC
+  </span>
+) : (
+  <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 ring-1 ring-red-200 shadow-sm">
+    PRIVATE
+  </span>
+)}
+
                   {property.hotLeads > 2 && (
                     <span className="px-3 py-1 bg-red-500 text-white rounded-full text-xs md:text-sm font-bold">
                       HOT PROPERTY
@@ -1408,7 +1481,6 @@ const OverviewTab = ({ property, onUpdate }: any) => {
                     <Percent className="text-orange-600" size={20} />
                   </div>
                 </div>
-
 
                 {/* Total Visits */}
                 <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -1534,7 +1606,8 @@ const OverviewTab = ({ property, onUpdate }: any) => {
           <div className="w-full xl:w-80 2xl:w-96 shrink-0 flex flex-col gap-4 xl:sticky xl:top-0 xl:h-fit xl:max-h-screen xl:overflow-y-auto">
             {/* Seller */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Seller</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">Seller Information
+              </h3>
               <div className="space-y-3 text-sm">
                 <div className="flex items-center gap-2">
                   <User className="text-gray-400" size={16} />
@@ -1551,7 +1624,7 @@ const OverviewTab = ({ property, onUpdate }: any) => {
                         className="ml-auto p-1 text-blue-600 hover:bg-blue-100 rounded"
                         aria-label="Call seller"
                       >
-                        <Phone size={12} />
+
                       </button>
                     </>
                   ) : (
@@ -1576,6 +1649,44 @@ const OverviewTab = ({ property, onUpdate }: any) => {
                 </div>
               </div>
             </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-3">Executive Information</h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <User className="text-gray-400" size={16} />
+                  <span className="font-medium">{property.assignedTo?.name || "Not Available"}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Phone className="text-gray-400" size={16} />
+                  {property.assignedTo?.phone ? (
+                    <>
+                      <span className="truncate">{property.assignedTo.phone}</span>
+                      <button
+                        onClick={() => window.open(`tel:${property.assignedTo.phone}`)}
+                        className="ml-auto p-1 text-blue-600 hover:bg-blue-100 rounded"
+                        aria-label="Call seller"
+                      >
+
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-gray-500">Not Available</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Mail className="text-gray-400" size={16} />
+                  {property.assignedTo?.email ? (
+                    <span className="truncate">{property.assignedTo.email}</span>
+                  ) : (
+                    <span className="text-gray-500">Not Available</span>
+                  )}
+                </div>
+
+
+              </div>
+            </div>
 
             {/* Actions */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
@@ -1584,7 +1695,7 @@ const OverviewTab = ({ property, onUpdate }: any) => {
                 {/* Share */}
                 <button
                   onClick={() => setOpen(true)}
-                className="flex items-center gap-2 px-3 py-2 border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-50 transition">
+                  className="flex items-center gap-2 px-3 py-2 border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-50 transition">
                   <Share2 size={16} />
                   Share
                 </button>
@@ -1609,7 +1720,7 @@ const OverviewTab = ({ property, onUpdate }: any) => {
               </div>
             </div>
 
-           
+
             {/* Key Dates */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="font-semibold text-gray-900 mb-3">Key Dates</h3>
@@ -1670,47 +1781,47 @@ const OverviewTab = ({ property, onUpdate }: any) => {
           </div>
         </div>
       </div>
-       {open && (
-  (() => {
-    const displayType = property?.type ?? '';
-    const titleParts = [displayType, property?.unitType ?? '', property?.subtype ?? '']
-      .map(s => (s || '').toString().trim())
-      .filter(Boolean);
-    const shareTitle = titleParts.length ? titleParts.join(' ') : (property?.title || 'Property Listing');
+      {open && (
+        (() => {
+          const displayType = property?.type ?? '';
+          const titleParts = [displayType, property?.unitType ?? '', property?.subtype ?? '']
+            .map(s => (s || '').toString().trim())
+            .filter(Boolean);
+          const shareTitle = titleParts.length ? titleParts.join(' ') : (property?.title || 'Property Listing');
 
-    const shareDescription =
-      property?.description && property.description !== ''
-        ? property.description
-        : (property?.raw?.description ?? property?.raw?.short_description ?? '');
+          const shareDescription =
+            property?.description && property.description !== ''
+              ? property.description
+              : (property?.raw?.description ?? property?.raw?.short_description ?? '');
 
-    const shareImage =
-      (Array.isArray(property?.images) && property.images[0]) ||
-      (Array.isArray(property?.photos) && property.photos[0]) ||
-      property?.raw?.image ||
-      property?.raw?.photo ||
-      '';
+          const shareImage =
+            (Array.isArray(property?.images) && property.images[0]) ||
+            (Array.isArray(property?.photos) && property.photos[0]) ||
+            property?.raw?.image ||
+            property?.raw?.photo ||
+            '';
 
-    // ❌ pehle yeh current URL tha:
-    // const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+          // ❌ pehle yeh current URL tha:
+          // const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 
-    // ✅ ab canonical public URL:
-    const shareUrl = buildPublicPropertyUrl(property);
+          // ✅ ab canonical public URL:
+          const shareUrl = buildPublicPropertyUrl(property);
 
-    return (
-      <ShareModal
-        // agar tumhare ShareModal me `forcedCopyUrl` prop hai to usko bhi pass karo:
-        // forcedCopyUrl={shareUrl}
-        url={shareUrl}
-        title={shareTitle}
-        description={shareDescription}
-        image={shareImage}
-        propertyId={property.id}
-        slug={`${property.id}-${toSlug(property.slug || shareTitle)}`}
-        onClose={() => setOpen(false)}
-      />
-    );
-  })()
-)}
+          return (
+            <ShareModal
+              // agar tumhare ShareModal me `forcedCopyUrl` prop hai to usko bhi pass karo:
+              // forcedCopyUrl={shareUrl}
+              url={shareUrl}
+              title={shareTitle}
+              description={shareDescription}
+              image={shareImage}
+              propertyId={property.id}
+              slug={`${property.id}-${toSlug(property.slug || shareTitle)}`}
+              onClose={() => setOpen(false)}
+            />
+          );
+        })()
+      )}
 
     </div>
   );
@@ -2427,4 +2538,3 @@ const ReportsTab = ({ property }: any) => {
 };
 
 export default PropertyViewPage;
-
