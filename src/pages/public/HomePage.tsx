@@ -1455,7 +1455,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         onSubmit={handleSellerSave}
       />
       {/* Why Sell modal */}
-      {/* <WhySellModal open={open} onClose={() => setOpen(false)} /> */}
       <WhySellModal
         open={open}
         onClose={() => setOpen(false)}

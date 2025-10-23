@@ -9,12 +9,10 @@ import Button from '@/components/ui/Button';
 import Dropdown from '@/components/ui/Dropdown';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { toast } from 'react-toastify';
-import BudgetInput from '../dashboard/components/BudgetInput';
-import PropertyDescriptionAI from '../dashboard/components/PropertyDescriptionAI';
 import { FaWhatsapp } from 'react-icons/fa';
 import { createPortal } from 'react-dom';
-// add this near other API imports
 import { sellerAPI } from '@/lib/sellersAPI'
+import PriceRangeSelector from '@/components/ui/PriceRangeSelector';
 
 /* ---------------- Types ---------------- */
 
@@ -77,6 +75,15 @@ interface PropertyFormData {
 
   ownershipDocUrl?: string;
   photoUrls?: string[];
+  // ...existing fields
+  bedrooms?: string;
+  bathrooms?: string;
+  facing?: string;
+  // ...existing
+  priceType?: 'Fixed' | 'Negotiable';
+  finalPrice?: string;          // store as rupee-integer string (e.g. "4500000")
+
+  
 }
 
 interface InitialDataFromParent {
@@ -123,6 +130,13 @@ interface InitialDataFromParent {
   existingOwnershipDocName?: string;
   existingOwnershipDocId?: string;
   existingPhotos?: Array<{ id: string; url: string; name?: string }>;
+  // ...existing fields
+  bedrooms?: string;
+  bathrooms?: string;
+  facing?: string;
+  // ...existing
+  priceType?: 'Fixed' | 'Negotiable';
+  finalPrice?: string;
 }
 
 interface PublicSellPropertyFormProps {
@@ -132,6 +146,34 @@ interface PublicSellPropertyFormProps {
   mode?: 'create' | 'edit';
   propertyId?: string | number;
   initialData?: InitialDataFromParent | null;
+}
+
+// --- helpers for budget <-> crores (TOP-LEVEL, outside any component) ---
+const RUPEE_PER_CRORE = 10_000_000;
+const RUPEE_PER_LAKH = 100_000;
+
+export function parseBudgetToRupees(text?: string): number {
+  const raw = (text || "").trim().toLowerCase();
+  if (!raw) return 0;
+
+  const cleaned = raw.replace(/₹/g, "").replace(/\s+/g, "");
+  const digitsOnly = cleaned.replace(/,/g, "");
+
+  if (/^\d+$/.test(digitsOnly)) return parseInt(digitsOnly, 10) || 0;
+
+  const lakhMatch = cleaned.match(/^([\d,.]+)l$/);
+  if (lakhMatch) return Math.round(parseFloat(lakhMatch[1].replace(/,/g, "")) * RUPEE_PER_LAKH) || 0;
+
+  const croreMatch = cleaned.match(/^([\d,.]+)(cr|c)$/);
+  if (croreMatch) return Math.round(parseFloat(croreMatch[1].replace(/,/g, "")) * RUPEE_PER_CRORE) || 0;
+
+  const n = parseFloat(digitsOnly);
+  return Number.isNaN(n) ? 0 : Math.round(n);
+}
+
+export function rupeesToCrores(r: number): number {
+  if (!r || r <= 0) return 0.01; // selector minimum (1L == 0.01 Cr)
+  return r / RUPEE_PER_CRORE;
 }
 
 /* ---------------- Style Constants ---------------- */
@@ -514,7 +556,13 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
     nearby_places: [],
 
     ownershipDoc: null,
-    photos: []
+    photos: [],
+     // ...existing defaults
+    bedrooms: '',
+    bathrooms: '',
+    facing: '',
+    priceType: 'Fixed',   // default: Fixed (no extra field)
+    finalPrice: '',
   }));
 
   const [ownershipDocPreview, setOwnershipDocPreview] = useState<FilePreview | null>(null);
@@ -684,6 +732,14 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
         photos: [],
         ownershipDocUrl: initialData.existingOwnershipDocUrl,
         photoUrls: (initialData.existingPhotos || []).map(p => p.url),
+
+        // ...existing seeds
+        bedrooms: initialData.bedrooms || '',
+        bathrooms: initialData.bathrooms || '',
+        facing: initialData.facing || '',
+
+        priceType: (initialData.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
+        finalPrice: initialData.finalPrice || '',
       };
 
       setFormData(seed);
@@ -1039,13 +1095,12 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       "furnishing", "parkingType", "parkingQty", "city", "location", "society",
       "floor", "totalFloors", "carpetArea", "builtupArea", "budget", "address",
       "status", "leadSource", "possessionMonth", "possessionYear",
-      "purchaseMonth", "purchaseYear", "sellingRights", "description"
+      "purchaseMonth", "purchaseYear", "sellingRights", "description",
+      "bedrooms", "bathrooms", "facing", "priceType", "finalPrice",
+
     ];
 
-    textFields.forEach((k) => {
-      const value = (formData as any)[k] ?? "";
-      fd.append(k, String(value));
-    });
+    textFields.forEach((k) => fd.append(k, String((formData as any)[k] ?? "")));
 
     // FIXED: Add society_name with proper fallback logic
     const societyOptions = masterOptions['society'] || [];
@@ -1517,6 +1572,39 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
                     <SafeDropdown placeholder="Select Parking Type" options={getOptions('parking type')} value={formData.parkingType} onChange={handleDropdownChange('parkingType')} className="w-full" />
                   </div>
 
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Bedrooms</label>
+                      <SafeDropdown
+                        placeholder="Select Bedrooms"
+                        options={getOptions('bedrooms')}
+                        value={formData.bedrooms}
+                        onChange={handleDropdownChange('bedrooms')}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Bathrooms</label>
+                      <SafeDropdown
+                        placeholder="Select Bathrooms"
+                        options={getOptions('bathrooms')}
+                        value={formData.bathrooms}
+                        onChange={handleDropdownChange('bathrooms')}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Facing</label>
+                      <SafeDropdown
+                        placeholder="Select Facing"
+                        options={getOptions('facing')}
+                        value={formData.facing}
+                        onChange={handleDropdownChange('facing')}
+                        className="w-full"
+                      />
+                    </div>
+
                   <div>
                     <label className={LABEL}>Parking Qty</label>
                     <SafeDropdown placeholder="Select Parking Quantity" options={getOptions('parking qty')} value={formData.parkingQty} onChange={handleDropdownChange('parkingQty')} className="w-full" />
@@ -1535,31 +1623,59 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
                   </div>
 
                   <div>
-                    <label className={LABEL}>Society <span className="text-red-500">*</span></label>
+                    <label className={LABEL}>Society Name<span className="text-red-500">*</span></label>
                     <SafeDropdown placeholder="Select Society" options={getOptions('society')} value={formData.society} onChange={handleDropdownChange('society')} className="w-full" />
                     {errors.society && <p className="text-red-500 text-xs mt-1">{errors.society}</p>}
                   </div>
+
+                    <div>
+                      <label className={LABEL}>Total Floors</label>
+                      <SafeDropdown placeholder="Select Total Floors" options={getOptions('total floors')} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" />
+                    </div>
 
                   <div>
                     <label className={LABEL}>Floor</label>
                     <SafeDropdown placeholder="Select Floor" options={getOptions('floor')} value={formData.floor} onChange={handleDropdownChange('floor')} className="w-full" />
                   </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Carpet Area (sq.ft)*
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter carpet area"
+                        value={formData.carpetArea}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (/^\d*\.?\d*$/.test(val) || val === '') {
+                            handleInputChange('carpetArea', val);
+                          }
+                        }}
+                        className={`w-full px-3 py-2 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.carpetArea ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                      />
+                      {errors.carpetArea && (
+                        <p className="text-red-500 text-xs mt-1">{errors.carpetArea}</p>
+                      )}
+                    </div>
 
-                  <div>
-                    <label className={LABEL}>Total Floors</label>
-                    <SafeDropdown placeholder="Select Total Floors" options={getOptions('total floors')} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" />
-                  </div>
-
-                  <div>
-                    <label className={LABEL}>Carpet Area (sq.ft) <span className="text-red-500">*</span></label>
-                    <input type="number" placeholder="Enter carpet area" value={formData.carpetArea} onChange={(e) => handleInputChange('carpetArea', e.target.value)} className={`${FIELD} ${errors.carpetArea ? 'border-red-400' : ''}`} />
-                    {errors.carpetArea && <p className="text-red-500 text-xs mt-1">{errors.carpetArea}</p>}
-                  </div>
-
-                  <div>
-                    <label className={LABEL}>Builtup Area (sq.ft) (optional)</label>
-                    <input type="number" placeholder="Enter builtup area" value={formData.builtupArea} onChange={(e) => handleInputChange('builtupArea', e.target.value)} className={FIELD} />
-                  </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Builtup Area (sq.ft) (optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter builtup area"
+                        value={formData.builtupArea}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (/^\d*\.?\d*$/.test(val) || val === '') {
+                            handleInputChange('builtupArea', val);
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
                   <div>
                     <label className={LABEL}>Property Status</label>
@@ -1617,10 +1733,100 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
                     <SafeDropdown placeholder="Select Selling Rights" options={getOptions('selling rights')} value={formData.sellingRights} onChange={handleDropdownChange('sellingRights')} className="w-full" />
                   </div>
 
-                  <div>
-                    <BudgetInput value={formData.budget} onChange={(v) => handleInputChange('budget', v)} error={errors.budget} />
-                  </div>
+                    {/* SELL PRICE — keep in grid, tidy spacing */}
+                    <div className="md:col-span-3 lg:col-span-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-semibold text-gray-800 bt-8">
+                          Sell Price (₹)*
 
+                        </label>
+                      </div>
+
+                      {/* ---- Main slider (now also controls Final Price when Negotiable) ---- */}
+                      <PriceRangeSelector
+                        initialMax={rupeesToCrores(parseBudgetToRupees(formData.budget))}
+                        max={10}
+                        /* keep old payload shape working; we also read rupees if present */
+                        onChange={({ max }) => {
+                          const rupeeVal = Math.round(max * 10_000_000); // crores → rupees
+
+                          handleInputChange('budget', String(rupeeVal));
+
+                          // when Negotiable, mirror into Final Price
+                          if (formData.priceType === 'Negotiable') {
+                            handleInputChange('finalPrice', String(rupeeVal));
+                          }
+                        }}
+                        className="p-0 mt-1"
+                      />
+                      <div className="flex items-center gap-4 mt-4">
+                        <label className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700">
+                          <input
+                            type="checkbox"
+                            name="priceType"
+                            className="h-3 w-3 text-orange-600 rounded focus:ring-orange-500"
+                            value="Fixed"
+                            checked={(formData.priceType || 'Fixed') === 'Fixed'}
+                            onChange={() => handleInputChange('priceType', 'Fixed')}
+                          />
+                          Fixed
+                        </label>
+
+                        <label className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700">
+                          <input
+                            type="checkbox"
+                            name="priceType"
+                            className="h-3 w-3 text-orange-600 rounded focus:ring-orange-500"
+                            value="Negotiable"
+                            checked={formData.priceType === 'Negotiable'}
+                            onChange={() => handleInputChange('priceType', 'Negotiable')}
+                          />
+                          Negotiable
+                        </label>
+                      </div>
+                      {/* ---- Final Price when Negotiable ---- */}
+                      {formData.priceType === 'Negotiable' && (
+                        <div className="mt-4">
+                          <label className="block text-xs font-medium text-gray-700 mb-2">
+                            Final Price (₹)
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9,]*"
+                              className="w-40 md:w-48 border rounded px-2 py-1.5 text-sm outline-none"
+                              value={formData.finalPrice || ''}
+                              onChange={(e) => {
+                                // keep raw typing; slider will follow via controlledRupees after blur/valid change
+                                handleInputChange('finalPrice', e.target.value);
+                              }}
+                              onBlur={(e) => {
+                                const rupees = parseBudgetToRupees(e.target.value);
+                                // normalize stored integer; this also drives the slider via controlledRupees
+                                handleInputChange('finalPrice', String(rupees));
+                              }}
+                              placeholder="e.g. 45,00,000"
+                              aria-label="Final negotiated price"
+                            />
+                            {/* compact readout: 30L / 1.25Cr */}
+                            <span className="text-[11px] text-green-800 whitespace-nowrap">
+                              {(() => {
+                                const v = parseBudgetToRupees(formData.finalPrice || '');
+                                if (!v || v <= 0) return '';
+                                if (v < 10_000_000) return `${Math.round(v / 100_000)}L`;
+                                return `${(v / 10_000_000).toFixed(v % 10_000_000 ? 2 : 0)}Cr`;
+                              })()}
+                            </span>
+
+                          </div>
+                        </div>
+                      )}
+
+                      {errors.budget && (
+                        <p className="text-red-500 text-xs mt-1">{errors.budget}</p>
+                      )}
+                    </div>
                   <div className="">
                     <MultiSelectDropdown
                       label="Amenities"
@@ -1701,7 +1907,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
 
                         <div className="col-span-6 md:col-span-2">
                           <label className={LABEL}>Distance</label>
-                          <input type="number" className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Enter distance" value={nearbyPlaceForm.distance} onChange={(e) => handleNearbyPlaceInputChange('distance', e.target.value)} />
+                          <input type="text" className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Enter distance" value={nearbyPlaceForm.distance} onChange={(e) => handleNearbyPlaceInputChange('distance', e.target.value)} />
                         </div>
 
                         <div className="col-span-6 md:col-span-2">
@@ -1801,9 +2007,23 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
                     </div>
                   </div>
                 </div>
-              </div>
+              </div>      
+                <div className="space-y-2 p-4">
+                  <label className="block text-xs font-medium text-gray-700">
+                    Description
+                  </label>
 
-              <PropertyDescriptionAI formData={formData} setFormData={(u) => setFormData((p) => u(p))} endpoint="/api/ai/generate-description" />
+                  <div className="relative">
+                    <textarea
+                      value={formData.description || ""}
+                      onChange={(e) =>
+                        setFormData((p) => ({ ...p, description: e.target.value } ))
+                      }
+                      className="w-full px-3 py-3 pr-32 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[160px]"
+                      placeholder="Additional property details, special features, etc."
+                    />
+                  </div>
+                </div>
 
               <div className="flex justify-between space-x-4 mt-4 pt-4 border-t border-gray-200">
                 <div className="flex gap-3">
