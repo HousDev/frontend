@@ -122,6 +122,22 @@ interface SalesExecutive {
   role?: string;
   is_active?: boolean;
 }
+// 🔧 put near utils
+const getDisplayName = (u: any): string => {
+  const pick = [
+    u?.assigned_to_full_name,   // if backend sends this
+    u?.full_name,
+    u?.fullName,
+    (u?.first_name && u?.last_name)
+  ? `${u.salutation ? u.salutation + ' ' : ''}${u.first_name} ${u.last_name}`
+  : '',
+    u?.name,
+    u?.username,
+    u?.email,
+  ].find(v => typeof v === 'string' && v.trim());
+  return (pick || 'Unnamed Executive').trim();
+};
+
 
 /* ---------------------- Utils ---------------------- */
 const dash = (v: any) => (v === null || v === undefined || v === '' ? ' - ' : v);
@@ -365,21 +381,24 @@ const AssignExecutiveModal: React.FC<{
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Select Executive
           </label>
-          <select
-            value={selectedExecutive}
-            onChange={(e) => setSelectedExecutive(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-            disabled={assigning || executives.length === 0}
-          >
-            <option value="">Choose an executive...</option>
-            {executives.map((executive) => (
-              <option key={executive.id} value={executive.id}>
-                {executive.name}
-                {executive.department && ` - ${executive.department}`}
-                {executive.role && ` (${executive.role})`}
-              </option>
-            ))}
-          </select>
+        
+
+<select
+  value={selectedExecutive}
+  onChange={(e) => setSelectedExecutive(e.target.value)}
+  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+  disabled={assigning || executives.length === 0}
+>
+  <option value="">Choose an executive...</option>
+  {executives.map((executive) => (
+    <option key={executive.id} value={executive.id}>
+      {/* ✅ सिर्फ executive.name use करें - वही proper formatted name है */}
+      {executive.name}
+      {executive.department && ` - ${executive.department}`}
+      {executive.role && ` (${executive.role})`}
+    </option>
+  ))}
+</select>
           {executives.length === 0 && (
             <p className="text-xs text-red-500 mt-1">
               No sales executives available. Please check if executives are properly configured.
@@ -691,14 +710,30 @@ function normalizeProperty(r: any, idx: number): UIProperty {
   })();
 
   // Normalize assigned executive data
-  const normalizedAssignedTo = r?.assignedTo ? {
-    id: r.assignedTo.id || r.assignedTo.userId,
-    name: r.assignedTo.name || r.assignedTo.userName || 'Unknown',
-    email: r.assignedTo.email,
-    phone: r.assignedTo.phone,
-    department: r.assignedTo.department,
-    role: r.assignedTo.role,
-  } : undefined;
+// Normalize assigned executive data — only if it has a valid id
+// Normalize assigned executive data - BETTER PRIORITY
+const normalizedAssignedTo = (() => {
+  const raw = r?.assignedTo ?? (r?.assigned_to != null ? { 
+    id: r.assigned_to,
+    name: r.assigned_to_name,
+    full_name: r.assigned_to_full_name
+  } : undefined);
+
+  if (!raw) return undefined;
+  const id = raw.id ?? raw.userId ?? raw.user_id ?? r?.assigned_to;
+  if (id === null || id === undefined || String(id).trim() === '') return undefined;
+
+  return {
+    id,
+    name: getDisplayName(raw),   // ✅ unified
+    email: raw.email,
+    phone: raw.phone,
+    department: raw.department,
+    role: raw.role,
+  };
+})();
+
+
 
   return {
     id: r.id ?? idx + 1,
@@ -891,48 +926,66 @@ const PropertiesPage = () => {
   const [knownTags, setKnownTags] = useState<string[]>([]);
 
   // Fetch sales executives
-  useEffect(() => {
-    const fetchExecutives = async () => {
-      try {
-        setExecutivesLoading(true);
-        const res = await usersAPI.getByDeptRole({
-          department: "sales",
-          role: "executive",
-          is_active: 1,
-          limit: 50,
-        });
+// Fetch sales executives - API response को better handle करें
+// Fetch sales executives - API response को better handle करें
+useEffect(() => {
+  const fetchExecutives = async () => {
+    try {
+      setExecutivesLoading(true);
+      const res = await usersAPI.getByDeptRole({
+        department: "sales",
+        role: "executive", 
+        is_active: 1,
+        limit: 50,
+      });
 
-        // Handle different response formats
-        const items = res?.items ?? res?.data ?? res ?? [];
+      // Handle different response formats
+      const items = res?.items ?? res?.data ?? res ?? [];
 
-        if (Array.isArray(items)) {
-          const executives: SalesExecutive[] = items.map((user: any) => ({
+      if (Array.isArray(items)) {
+        const executives: SalesExecutive[] = items.map((user: any) => {
+          // ✅ PRIORITY: fullName -> name -> username -> fallback
+          const displayName = 
+            user.fullName ||  // पहले fullName check करें
+            user.name ||      // फिर name
+            user.username ||  // फिर username
+            'Unnamed Executive';
+            
+          console.log("👤 Executive data:", { 
+            id: user.id, 
+            fullName: user.fullName,
+           name: getDisplayName(user),     
+            username: user.username,
+            displayName 
+          });
+
+          return {
             id: user.id || user.userId,
-            name: user.name || user.fullName || user.username || 'Unknown',
+            name: getDisplayName(user),     
             email: user.email,
             phone: user.phone || user.mobile,
             department: user.department,
             role: user.role,
             is_active: user.is_active ?? user.active ?? true,
-          }));
+          };
+        });
 
-          setSalesExecutives(executives);
-          console.log("Sales executives loaded:", executives.length);
-        } else {
-          console.warn("Unexpected executives response format:", res);
-          setSalesExecutives([]);
-        }
-      } catch (err) {
-        console.error("Error fetching executives:", err);
-        
+        setSalesExecutives(executives);
+        console.log("✅ Sales executives loaded with proper names:", executives);
+      } else {
+        console.warn("Unexpected executives response format:", res);
         setSalesExecutives([]);
-      } finally {
-        setExecutivesLoading(false);
       }
-    };
+    } catch (err) {
+      console.error("Error fetching executives:", err);
+      setSalesExecutives([]);
+    } finally {
+      setExecutivesLoading(false);
+    }
+  };
 
-    fetchExecutives();
-  }, []);
+  fetchExecutives();
+}, []);
 
   // Persist active tab
   useEffect(() => {
@@ -981,17 +1034,42 @@ const PropertiesPage = () => {
   };
   const [properties, setProperties] = useState<UIProperty[]>([]);
 
-  const fetchPropertiesOnce = async () => {
-    if (typeof (propertiesAPI as any)?.getProperties !== 'function') {
-      throw new Error('propertiesAPI.getProperties is not a function (check import/path).');
+// API call के बाद response को log करें
+// API call के बाद response को debug करें
+const fetchPropertiesOnce = async () => {
+  if (typeof (propertiesAPI as any)?.getProperties !== 'function') {
+    throw new Error('propertiesAPI.getProperties is not a function (check import/path).');
+  }
+  const raw = await withTimeout(propertiesAPI.getProperties(), 12000);
+  
+  // ✅ BETTER DEBUG: API response check करें
+  console.log("🔍 Raw API response for properties:", raw);
+  
+  if (Array.isArray(raw)) {
+    raw.forEach((property, index) => {
+      if (property.assigned_to) {
+        console.log(`🔍 Property ${index} assigned_to data:`, {
+          propertyId: property.property_id,
+          assigned_to: property.assigned_to,
+          assigned_to_name: property.assigned_to_name,
+          fullObject: property
+        });
+      }
+    });
+  }
+  
+  const list = Array.isArray(raw) ? raw : raw?.data || [];
+  const mapped = list.map((r: any, idx: number) => normalizeProperty(r, idx));
+  
+  // ✅ Check normalized data
+  mapped.forEach((property, index) => {
+    if (property.assignedTo) {
+      console.log(`✅ Normalized Property ${index} assignedTo:`, property.assignedTo);
     }
-    const raw = await withTimeout(propertiesAPI.getProperties(), 12000);
-    console.log("properties", raw)
-    const list = Array.isArray(raw) ? raw : raw?.data || [];
-    const mapped = list.map((r: any, idx: number) => normalizeProperty(r, idx));
-    return mapped;
-  };
-
+  });
+  
+  return mapped;
+};
   const presetTags = useMemo(() => Object.keys(DEFAULT_TAG_STYLE), []);
   const dynamicTagUniverse = useMemo(
     () => getUniquePropertyTagsFromCache(propTags),
@@ -1099,19 +1177,7 @@ const PropertiesPage = () => {
     })();
   }, [properties]);
 
-  // Load known tags from server
-  useEffect(() => {
-    (async () => {
-      try {
-        const serverKnown = await propertyTagsAPI.getKnown();
-        const merged = new Map<string, string>();
-        [...serverKnown, ...Object.keys(DEFAULT_TAG_STYLE)].forEach(t => merged.set(t.toLowerCase(), t));
-        setKnownTags(Array.from(merged.values()).sort((a, b) => a.localeCompare(b)));
-      } catch {
-        // ignore
-      }
-    })();
-  }, []);
+
 
   // Auto-add "New Listing" tag for recent properties
   useEffect(() => {
@@ -1251,6 +1317,7 @@ const PropertiesPage = () => {
   const handleAssignExecutive = (property: UIProperty) => {
     setAssigningProperty(property);
     setShowAssignModal(true);
+    
   };
 
   const handleBulkAssignExecutive = () => {
@@ -1261,107 +1328,121 @@ const PropertiesPage = () => {
     setShowAssignModal(true);
   };
 
-  const handleSingleAssign = async (executiveId: number | string, executiveName: string) => {
-    if (!assigningProperty) return;
+const handleSingleAssign = async (executiveId: number | string, executiveName: string) => {
+  if (!assigningProperty) return;
 
-    try {
-      // Convert executiveId to number for the backend
-      const assignedToId = Number(executiveId);
+  try {
+    const assignedToId = Number(executiveId);
+    const payload = { assigned_to: assignedToId };
 
-      // Use the correct payload format from propertiesAPI.ts
-      const payload = {
-        assigned_to: assignedToId
-      };
+    const response = await propertiesAPI.updateAssignedTo(assigningProperty.id, payload);
 
-      const response = await propertiesAPI.updateAssignedTo(assigningProperty.id, payload);
-
-      if (response.success) {
-        // Find the executive details to update the UI
-        const executive = salesExecutives.find(e => e.id === executiveId);
-        const updatedAssignedTo = executive ? {
-          id: executive.id,
-          name: executive.name,
-          email: executive.email,
-          phone: executive.phone,
-          department: executive.department,
-          role: executive.role
-        } : undefined;
-
-        setProperties(prev => prev.map(p =>
-          p.id === assigningProperty.id
-            ? { ...p, assignedTo: updatedAssignedTo }
-            : p
-        ));
-        toast.success(`Property assigned to ${executiveName}`);
-      } else {
-        toast.error("Failed to assign executive");
-      }
-    } catch (error: any) {
-      console.error("Assign executive failed:", error);
-      toast.error(error?.response?.data?.message || "Error assigning executive");
-    }
-  };
-
-  const handleBulkAssign = async (executiveId: number | string, executiveName: string) => {
-    if (selectedProperties.length === 0) return;
-
-    setBulkLoading(true);
-    try {
-      let successCount = 0;
-      let errorCount = 0;
-
-      // Convert executiveId to number for the backend
-      const assignedToId = Number(executiveId);
+    if (response.success) {
       const executive = salesExecutives.find(e => e.id === executiveId);
-
+      
+      // ✅ Executive details को properly set करें - SAME NAME USE करें
       const updatedAssignedTo = executive ? {
         id: executive.id,
-        name: executive.name,
+        name: executive.name, // ✅ यही वही name है जो dropdown में दिख रहा है
         email: executive.email,
         phone: executive.phone,
         department: executive.department,
         role: executive.role
-      } : undefined;
+      } : {
+        id: executiveId,
+        name: executiveName,
+        email: '',
+        phone: '',
+        department: '',
+        role: ''
+      };
 
-      for (const propertyId of selectedProperties) {
-        try {
-          const payload = {
-            assigned_to: assignedToId
-          };
+      console.log("🔄 Assigning executive - Consistency Check:", {
+        executiveId,
+        executiveNameFromParam: executiveName,
+        executiveFound: executive,
+        executiveNameFromObject: executive?.name,
+        updatedAssignedToName: updatedAssignedTo.name
+      });
 
-          const response = await propertiesAPI.updateAssignedTo(propertyId, payload);
-
-          if (response.success) {
-            setProperties(prev => prev.map(p =>
-              p.id === propertyId
-                ? { ...p, assignedTo: updatedAssignedTo }
-                : p
-            ));
-            successCount++;
-          } else {
-            errorCount++;
-          }
-        } catch (error) {
-          console.error(`Failed to assign property ${propertyId}:`, error);
-          errorCount++;
-        }
-      }
-
-      if (successCount > 0) {
-        toast.success(`${successCount} properties assigned to ${executiveName}`);
-      }
-      if (errorCount > 0) {
-        toast.warn(`${errorCount} properties failed to assign`);
-      }
-
-      setSelectedProperties([]);
-    } catch (error: any) {
-      console.error("Bulk assign failed:", error);
-      toast.error("Error during bulk assignment");
-    } finally {
-      setBulkLoading(false);
+      // ✅ ALL state updates
+      setProperties(prev => prev.map(p =>
+        p.id === assigningProperty.id
+          ? { ...p, assignedTo: updatedAssignedTo }
+          : p
+      ));
+      
+      setCurrentPropertyView(prev =>
+        prev && String(prev.id) === String(assigningProperty.id)
+          ? { ...prev, assignedTo: updatedAssignedTo }
+          : prev
+      );
+      
+      toast.success(`Property assigned to ${executiveName}`);
+      
+    } else {
+      toast.error("Failed to assign executive");
     }
-  };
+  } catch (error: any) {
+    console.error("Assign executive failed:", error);
+    toast.error(error?.response?.data?.message || "Error assigning executive");
+  }
+};
+const handleBulkAssign = async (executiveId: number | string, executiveName: string) => {
+  if (selectedProperties.length === 0) return;
+
+  setBulkLoading(true);
+  try {
+    const assignedToId = Number(executiveId);
+    const executive = salesExecutives.find(e => e.id === executiveId);
+
+    const updatedAssignedTo = executive ? {
+      id: executive.id,
+      name: executive.name,
+      email: executive.email,
+      phone: executive.phone,
+      department: executive.department,
+      role: executive.role
+    } : {
+      id: executiveId,
+      name: executiveName,
+      email: '',
+      phone: '',
+      department: '',
+      role: ''
+    };
+
+    let successCount = 0;
+    
+    for (const propertyId of selectedProperties) {
+      try {
+        const payload = { assigned_to: assignedToId };
+        const response = await propertiesAPI.updateAssignedTo(propertyId, payload);
+
+        if (response.success) {
+          // ✅ Immediate UI update
+          setProperties(prev => prev.map(p =>
+            p.id === propertyId
+              ? { ...p, assignedTo: updatedAssignedTo }
+              : p
+          ));
+          successCount++;
+        }
+      } catch (error) {
+        console.error(`Failed to assign property ${propertyId}:`, error);
+      }
+    }
+
+    toast.success(`${successCount} properties assigned to ${executiveName}`);
+    setSelectedProperties([]);
+    
+  } catch (error: any) {
+    console.error("Bulk assign failed:", error);
+    toast.error("Error during bulk assignment");
+  } finally {
+    setBulkLoading(false);
+  }
+};
 
   const handleAssignSubmit = async (executiveId: number | string, executiveName: string) => {
     if (assigningProperty) {
@@ -1720,16 +1801,27 @@ const PropertiesPage = () => {
   };
 
   // Executive badge component
-  const ExecutiveBadge = ({ assignedTo }: { assignedTo?: UIProperty['assignedTo'] }) => {
-    if (!assignedTo) return null;
+const ExecutiveBadge = ({ assignedTo }: { assignedTo?: UIProperty['assignedTo'] }) => {
+  if (!assignedTo || !assignedTo.name || assignedTo.name.trim() === "") {
+    return null;
+  }
 
-    return (
-      <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs border border-blue-200">
-        <UserCheck size={10} />
-        <span className="font-medium">{assignedTo.name}</span>
-      </div>
-    );
-  };
+  // ✅ Debug log for consistency check
+  console.log("🏷️ ExecutiveBadge rendering:", {
+    assignedToName: assignedTo.name,
+    assignedToId: assignedTo.id
+  });
+
+  return (
+    <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs border border-blue-200">
+      <UserCheck size={10} />
+      <span className="font-medium">{assignedTo.name}</span>
+      {assignedTo.department && (
+        <span className="text-[10px] text-blue-500">({assignedTo.department})</span>
+      )}
+    </div>
+  );
+};
 
   if (currentPropertyView) {
     return (
