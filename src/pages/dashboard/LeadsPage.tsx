@@ -1,3 +1,4 @@
+// src/pages/LeadsPage.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -12,12 +13,13 @@ import AddLeadModal from './components/AddLeadModal';
 import ImportLeadsModal from './components/ImportLeadsModal';
 import FilterModal from './components/FilterModal';
 import { leadsAPI, usersAPI } from '@/lib/api';
-
-
 import { notificationAPI } from '@/lib/notificationAPI';
 import { filterLeadsByRole } from '@/utils/roleBasedLeadFilter';
 import { canAddLead, canDeleteLead, canEditLead, canExportLeads, canImportLeads, canViewLead } from '@/utils/rolePermissions';
 import { toast } from 'react-toastify';
+
+// ✅ only-presales assign helper
+import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 
 interface Lead {
   id: string;
@@ -47,7 +49,7 @@ type TabID = 'all' | 'contacted' | 'new' | 'qualified' | 'unqualified';
 const LeadsPage: React.FC = () => {
   const { user } = useAuth();
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
-  const [presalesUsers, setPresalesUsers] = useState<any[]>([]); // ✅ presales users रखो
+  const [presalesUsers, setPresalesUsers] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [showFilterSidebar, setShowFilterSidebar] = useState(false);
@@ -80,9 +82,9 @@ const LeadsPage: React.FC = () => {
     status: 'all',
     source: 'all',
     leadType: 'all',
-    assignedExecutive: 'all',   // yeh hona chahiye
+    assignedExecutive: 'all',
     createdBy: 'all',
-     priority: 'all',
+    priority: 'all',
     city: '',
     location: '',
     dateFrom: '',
@@ -91,13 +93,40 @@ const LeadsPage: React.FC = () => {
     sortOrder: 'desc',
   });
 
-
+  // Bulk
   const [bulkStatus, setBulkStatus] = useState<string>('');
+  const [bulkAssignee, setBulkAssignee] = useState<string>(''); // id | 'Unassigned'
   const [bulkLoading, setBulkLoading] = useState<boolean>(false);
 
   const statusKey = (s: string | undefined | null) => String(s ?? '').trim().toLowerCase();
   const toOption = (v: string) => ({ label: v.charAt(0).toUpperCase() + v.slice(1), value: v });
 
+  // ---------- names ----------
+  const formatUserName = (u: any) => {
+    const sal = u?.salutation ? `${u.salutation} ` : '';
+    const fn = u?.first_name || u?.name || '';
+    const ln = u?.last_name || '';
+    return `${sal}${fn}${ln ? ' ' + ln : ''}`.trim();
+  };
+
+  const currentActorName = useMemo(() => formatUserName(user) || 'Admin', [user]);
+
+  const usersById = useMemo(() => {
+    const map: Record<string, any> = {};
+    (presalesUsers || []).forEach((u: any) => {
+      const id = String(u.id ?? u._id ?? u.user_id ?? u.value ?? '');
+      if (id) map[id] = u;
+    });
+    return map;
+  }, [presalesUsers]);
+
+  const resolveUserNameById = (id?: string | number | null) => {
+    if (!id) return '';
+    const u = usersById[String(id)];
+    return u ? formatUserName(u) : '';
+  };
+
+  // ---------- options ----------
   const statusOptions = useMemo(() => ([
     { label: "All", value: "all" },
     ...Array.from(new Set(allLeads.map(l => (l.status ? l.status.toLowerCase() : "new")).filter(Boolean))).map(toOption),
@@ -120,8 +149,6 @@ const LeadsPage: React.FC = () => {
     )).map(name => ({ label: name, value: name })),
   ]), [allLeads]);
 
-
-
   const sourceOptions = useMemo(() => ([
     { label: "All", value: "all" },
     ...Array.from(new Set(allLeads.map(l => (l.lead_source ? l.lead_source.toLowerCase() : "").replace(/\s+/g, '_')).filter(Boolean)))
@@ -133,6 +160,27 @@ const LeadsPage: React.FC = () => {
     ...Array.from(new Set(allLeads.map(l => (l.lead_type ? l.lead_type.toLowerCase() : "").trim()).filter(Boolean))).map(toOption),
   ]), [allLeads]);
 
+  // ---------- ONLY Presales Executives for bulk assign ----------
+  const presalesExecutivesOnly = useMemo(() => {
+    const n = (s: any) => (s ?? "").toString().trim().toLowerCase();
+    return (presalesUsers || []).filter((u: any) => {
+      const role = n(u.role);
+      const dept = n(u.department);
+      return (dept === 'presales' || dept === 'presale') && role === 'executive';
+    });
+  }, [presalesUsers]);
+
+  const assignableExecutives = useMemo(() => {
+    const list = getAssignableExecutives(user, presalesExecutivesOnly);
+    return list.map((u: any) => ({
+      id: String(u.id),
+      name: u.name, // "Salutation First Last" + (Self) if applicable
+      selfOnly: u.selfOnly ?? false,
+      raw: u.raw ?? null,
+    }));
+  }, [user, presalesExecutivesOnly]);
+
+  // ---------- tabs ----------
   const tabColorClasses: Record<string, { active: string; badge: string }> = {
     blue: { active: 'bg-blue-100 text-blue-700 border-blue-200', badge: 'bg-blue-200' },
     purple: { active: 'bg-purple-100 text-purple-700 border-purple-200', badge: 'bg-purple-200' },
@@ -149,80 +197,70 @@ const LeadsPage: React.FC = () => {
     { id: 'unqualified' as TabID, label: 'Unqualified', color: 'red', count: allLeads.filter(l => statusKey(l.status) === 'unqualified').length },
   ]), [allLeads]);
 
-const fetchLeads = async () => {
-  try {
-    setLoading(true);
-    const response = await leadsAPI.getLeads();
-    const data = Array.isArray(response?.data) ? response.data : response?.data?.data ?? [];
-    // पहले सारे leads लाओ
-    let leads: any[] = data;
+  // ---------- fetch ----------
+  const fetchLeads = async () => {
+    try {
+      setLoading(true);
+      const response = await leadsAPI.getLeads();
+      const data = Array.isArray(response?.data) ? response.data : response?.data?.data ?? [];
+      let leads: any[] = data;
 
-    // अगर presalesUsers अभी fetch नहीं हुए तो fetch कर लो (safety)
-    if (!presalesUsers || presalesUsers.length === 0) {
-      try {
-        const ures = await usersAPI.getAllUsers();
-        setPresalesUsers(ures.data || []);
-      } catch (e) {
-        console.error("Failed to fetch presales users inside fetchLeads", e);
+      if (!presalesUsers || presalesUsers.length === 0) {
+        try {
+          const ures = await usersAPI.getAllUsers();
+          setPresalesUsers(ures.data || []);
+        } catch (e) {
+          console.error("Failed to fetch presales users inside fetchLeads", e);
+        }
       }
+
+      const _usersById = (presalesUsers || []).reduce((acc: Record<string, any>, u: any) => {
+        acc[String(u.id ?? u._id ?? u.user_id ?? u.value ?? u.id)] = u;
+        return acc;
+      }, {});
+
+      leads = leads.map((l: any) => {
+        const copy = { ...l };
+        const lastContactId =
+          copy.last_contacted_by ??
+          copy.last_contact_by ??
+          copy.last_contact_id ??
+          copy.last_contacted_by_id ??
+          null;
+
+        copy.last_contacted_by_name =
+          copy.last_contacted_by_name ??
+          copy.last_contact_by_name ??
+          copy.last_contacted_name ??
+          copy.last_contact_name ??
+          null;
+
+        if (!copy.last_contacted_by_name && lastContactId) {
+          const u = _usersById[String(lastContactId)];
+          copy.last_contacted_by_name = u ? formatUserName(u) : null;
+        }
+
+        if (!copy.last_contacted_by_name) {
+          copy.last_contacted_by_name = copy.last_contacted_by_name ?? copy.updated_by_name ?? copy.updated_by ?? null;
+        }
+
+        return copy;
+      });
+
+      leads = filterLeadsByRole(user, leads, presalesUsers);
+      setAllLeads(leads);
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+      toast.error('Failed to fetch leads');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // Normalize / map leads: ensure last_contacted_by_name exists (from user list) and handle common field variants
-    const usersById = (presalesUsers || []).reduce((acc: Record<string, any>, u: any) => {
-      acc[String(u.id ?? u._id ?? u.user_id ?? u.value ?? u.id)] = u;
-      return acc;
-    }, {});
-
-    leads = leads.map((l: any) => {
-      const copy = { ...l };
-
-      // possible field names that backend might send
-      const lastContactId =
-        copy.last_contacted_by ??
-        copy.last_contact_by ??
-        copy.last_contact_id ??
-        copy.last_contacted_by_id ??
-        null;
-
-      // prefer explicit name field if provided
-      copy.last_contacted_by_name =
-        copy.last_contacted_by_name ??
-        copy.last_contact_by_name ??
-        copy.last_contacted_name ??
-        copy.last_contact_name ??
-        null;
-
-      // if id exists but no name, try to resolve from presalesUsers
-      if (!copy.last_contacted_by_name && lastContactId) {
-        const u = usersById[String(lastContactId)];
-        copy.last_contacted_by_name = u?.name ?? u?.full_name ?? u?.displayName ?? u?.username ?? null;
-      }
-
-      // fallbacks: maybe updated_by_name or updated_by holds who last contacted
-      if (!copy.last_contacted_by_name) {
-        copy.last_contacted_by_name = copy.last_contacted_by_name ?? copy.updated_by_name ?? copy.updated_by ?? null;
-      }
-
-      return copy;
-    });
-
-    // role-based filter
-    leads = filterLeadsByRole(user, leads, presalesUsers);
-
-    setAllLeads(leads);
-  } catch (error) {
-    console.error('Error fetching leads:', error);
-    toast.error('Failed to fetch leads');
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-  useEffect(() => { fetchLeads(); }, [user]);
+  useEffect(() => { fetchLeads(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [user]);
 
   useEffect(() => {
-    const fetchPresalesUsers = async () => {
+    const fetchUsers = async () => {
       try {
         const res = await usersAPI.getAllUsers();
         setPresalesUsers(res.data || []);
@@ -230,43 +268,41 @@ const fetchLeads = async () => {
         console.error("Failed to fetch presales users", e);
       }
     };
-    fetchPresalesUsers();
+    fetchUsers();
   }, []);
 
+  // persist itemsPerPage
+  useEffect(() => {
+    localStorage.setItem('leads_rows_per_page', String(itemsPerPage));
+  }, [itemsPerPage]);
 
+  // ---------- utils ----------
   const formatDate = (dateString: string) => {
     const d = new Date(dateString);
     if (isNaN(d.getTime())) return "Invalid Date";
-
     const day = String(d.getDate()).padStart(2, "0");
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const year = d.getFullYear();
-
     let hours = d.getHours();
     const minutes = String(d.getMinutes()).padStart(2, "0");
-
     const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12 || 12; // convert to 12-hour clock
+    hours = hours % 12 || 12;
     const hoursStr = String(hours).padStart(2, "0");
-
     return `${day}/${month}/${year} ${hoursStr}:${minutes} ${ampm}`;
   };
 
-const priorityOptions = useMemo(() => ([
-  { label: "All", value: "all" },
-  ...Array.from(new Set(allLeads.map(l => (l.priority ? l.priority.toLowerCase() : "").trim()).filter(Boolean)))
-    .map(p => ({ label: p.charAt(0).toUpperCase() + p.slice(1), value: p }))
-]), [allLeads]);
+  const priorityOptions = useMemo(() => ([
+    { label: "All", value: "all" },
+    ...Array.from(new Set(allLeads.map(l => (l.priority ? l.priority.toLowerCase() : "").trim()).filter(Boolean)))
+      .map(p => ({ label: p.charAt(0).toUpperCase() + p.slice(1), value: p }))
+  ]), [allLeads]);
 
   const filteredLeads = useMemo(() => {
     const f = filters, s = searchFilters;
     const normalize = (v?: string) => (v ?? '').toLowerCase();
 
-
     const inDateRange = (created_at: string) => {
-
       if (f.ignoreDate) return true;
-      
       if (!f.dateFrom && !f.dateTo) return true;
       const d = new Date(created_at);
       if (Number.isNaN(d.getTime())) return false;
@@ -281,46 +317,42 @@ const priorityOptions = useMemo(() => ([
       return true;
     };
 
- let results = allLeads.filter((lead) => {
-  if (f.status !== 'all' && normalize(lead.status) !== normalize(f.status)) return false;
-  if (f.source !== 'all' && normalize(lead.lead_source) !== normalize(f.source)) return false;
-  if (f.leadType !== 'all' && normalize(lead.lead_type) !== normalize(f.leadType)) return false;
-  if (f.city && !normalize(lead.city).includes(normalize(f.city))) return false;
-  if (f.location && !normalize(lead.location).includes(normalize(f.location))) return false;
-  if (!inDateRange(lead.created_at)) return false;
-  if (f.createdBy !== 'all' && lead.created_by_name !== f.createdBy) return false;
+    let results = allLeads.filter((lead) => {
+      if (f.status !== 'all' && normalize(lead.status) !== normalize(f.status)) return false;
+      if (f.source !== 'all' && normalize(lead.lead_source) !== normalize(f.source)) return false;
+      if (f.leadType !== 'all' && normalize(lead.lead_type) !== normalize(f.leadType)) return false;
+      if (f.city && !normalize(lead.city).includes(normalize(f.city))) return false;
+      if (f.location && !normalize(lead.location).includes(normalize(f.location))) return false;
+      if (!inDateRange(lead.created_at)) return false;
+      if (f.createdBy !== 'all' && lead.created_by_name !== f.createdBy) return false;
+      if (f.priority !== 'all' && normalize(lead.priority) !== normalize(f.priority)) return false;
 
-  // 🔎 Priority filter (from modal)
-  if (f.priority !== 'all' && normalize(lead.priority) !== normalize(f.priority)) return false;
+      if (s.name && !normalize(lead.name).includes(normalize(s.name))) return false;
+      if (s.contact) {
+        const needle = normalize(s.contact);
+        if (!normalize(lead.phone).includes(needle) && !normalize(lead.email).includes(needle)) return false;
+      }
+      if (s.location) {
+        const locNeedle = normalize(s.location);
+        if (!normalize(lead.city).includes(locNeedle) && !normalize(lead.location).includes(locNeedle)) return false;
+      }
+      if (s.source && !normalize(lead.lead_source).includes(normalize(s.source))) return false;
+      if (s.status && !normalize(lead.status).includes(normalize(s.status))) return false;
+      if (s.priority && !normalize(lead.priority).includes(normalize(s.priority))) return false;
+      if (s.created && !formatDate(lead.created_at).toLowerCase().includes(s.created.toLowerCase())) return false;
 
-  // 🔎 Search filters
-  if (s.name && !normalize(lead.name).includes(normalize(s.name))) return false;
-  if (s.contact) {
-    const needle = normalize(s.contact);
-    if (!normalize(lead.phone).includes(needle) && !normalize(lead.email).includes(needle)) return false;
-  }
-  if (s.location) {
-    const locNeedle = normalize(s.location);
-    if (!normalize(lead.city).includes(locNeedle) && !normalize(lead.location).includes(locNeedle)) return false;
-  }
-  if (s.source && !normalize(lead.lead_source).includes(normalize(s.source))) return false;
-  if (s.status && !normalize(lead.status).includes(normalize(s.status))) return false;
-  if (s.priority && !normalize(lead.priority).includes(normalize(s.priority))) return false;
-  if (s.created && !formatDate(lead.created_at).toLowerCase().includes(s.created.toLowerCase())) return false;
+      if (f.assignedExecutive !== 'all') {
+        if (f.assignedExecutive === 'Unassigned') {
+          if (lead.assigned_executive_name && lead.assigned_executive_name.trim() !== "") return false;
+        } else {
+          if (lead.assigned_executive_name !== f.assignedExecutive) return false;
+        }
+      }
 
-  if (f.assignedExecutive !== 'all') {
-    if (f.assignedExecutive === 'Unassigned') {
-      if (lead.assigned_executive_name && lead.assigned_executive_name.trim() !== "") return false;
-    } else {
-      if (lead.assigned_executive_name !== f.assignedExecutive) return false;
-    }
-  }
+      if (activeTab !== 'all' && statusKey(lead.status) !== activeTab) return false;
 
-  if (activeTab !== 'all' && statusKey(lead.status) !== activeTab) return false;
-
-  return true;
-});
-
+      return true;
+    });
 
     results = results.sort((a, b) => {
       const dA = new Date(a.created_at).getTime();
@@ -340,106 +372,69 @@ const priorityOptions = useMemo(() => ([
     return filteredLeads.slice(start, start + itemsPerPage);
   }, [filteredLeads, currentPage, itemsPerPage]);
 
+  // ---------- ADD ----------
+  const handleAddLead = async (newLeadData: any) => {
+    try {
+      const res = await leadsAPI.createLead(newLeadData);
+      const created = res?.data?.data ?? res?.data ?? {};
+      const createdId = created.id ?? created._id ?? String(Date.now());
 
-// const handleAddLead = async (newLeadData: any) => {
-//   try {
-//     // 1) Create on server
-//     await leadsAPI.createLead(newLeadData);
+      if (newLeadData.assigned_executive) {
+        const assigneeId = String(newLeadData.assigned_executive);
+        const assigneeName = resolveUserNameById(assigneeId) || "User";
 
-//     // 2) Immediately refetch full list (instant fresh data)
-//     await fetchLeads();          // <- aapka upar defined fetchLeads()
+        if (assigneeId === String(user?.id)) {
+          const adminUsers = presalesUsers.filter((u: any) =>
+            (u.role || '').toLowerCase() === 'admin' || (u.role || '').toLowerCase() === 'superadmin'
+          );
+          for (const admin of adminUsers) {
+            await notificationAPI.createNotification({
+              leadId: createdId,
+              userId: admin.id,
+              message: `Lead assigned to you by ${currentActorName}`,
+              type: "lead_assign",
+              link: `/dashboard/leads/${createdId}`,
+            });
+          }
+          toast.success("Lead created and assigned to you successfully");
+        } else {
+          await notificationAPI.createNotification({
+            leadId: createdId,
+            userId: assigneeId,
+            message: `New lead assigned to you by ${currentActorName}`,
+            type: "lead_assign",
+            link: `/dashboard/leads/${createdId}`,
+          });
+          toast.success(`Lead assigned to ${assigneeName} successfully`);
+        }
+      } else {
+        toast.success("Lead added successfully");
+      }
 
-//     // 3) (Optional) Make sure user can see it right away
-//     setActiveTab('all');
-//     setCurrentPage(1);
-
-//     // 4) Send notification if assigned (use the data you submitted)
-//     if (newLeadData.assigned_executive && newLeadData.assigned_executive_name) {
-//       await notificationAPI.createNotification({
-//         leadId: undefined, // server refetch se correct id aa jayegi UI me
-//         userId: newLeadData.assigned_executive,
-//         message: `New lead assigned to ${newLeadData.assigned_executive_name}`,
-//       });
-//     }
-
-//     toast.success("Lead added successfully");
-//     setShowAddLeadModal(false);
-//   } catch (error: any) {
-//     console.error("Error adding lead:", error);
-//     if (error?.response?.status === 409) {
-//       toast.error(error?.response?.data?.message || "Duplicate entry found");
-//     } else {
-//       toast.error("Failed to add lead");
-//     }
-//     // error pe modal open hi rakho
-//   }
-// };
-
-
-// ADD — create on server, create notification (if assigned), then refetch list
-const handleAddLead = async (newLeadData: any) => {
-  try {
-    // 1) Create on server
-    const res = await leadsAPI.createLead(newLeadData);
-    const created = res?.data?.data ?? res?.data ?? {};
-
-    // 2) Resolve the new lead's id
-    const createdId =
-      created.id ??
-      created._id ??
-      (typeof crypto?.randomUUID === "function"
-        ? crypto.randomUUID()
-        : String(Date.now()));
-
-    // 3) If assigned, create a notification (like edit flow)
-    if (newLeadData.assigned_executive) {
-      const assigneeId = newLeadData.assigned_executive;
-      const assigneeName =
-        newLeadData.assigned_executive_name ??
-        created.assigned_executive_name ??
-        "User"; // fallback
-
-      await notificationAPI.createNotification({
-        leadId: createdId,
-        userId: assigneeId,
-        message: `New lead assigned to You`,
-        type: "lead_assign",
-        link: `/dashboard/leads/${createdId}`,
-      });
-
-      // 🔔 Toast for assignment
-      toast.success(`Lead assigned Succesfully`);
+      await fetchLeads();
+      setActiveTab("all");
+      setCurrentPage(1);
+      setShowAddLeadModal(false);
+    } catch (error: any) {
+      console.error("Error adding lead:", error);
+      if (error?.response?.status === 409) {
+        toast.error(error?.response?.data?.message || "Duplicate entry found");
+      } else {
+        toast.error("Failed to add lead");
+      }
     }
+  };
 
-    // 4) Refetch (fresh data in table)
-    await fetchLeads();
-    setActiveTab("all");
-    setCurrentPage(1);
-
-    // ✅ Final success toast
-    toast.success("Lead added successfully");
-    setShowAddLeadModal(false);
-  } catch (error: any) {
-    console.error("Error adding lead:", error);
-    if (error?.response?.status === 409) {
-      toast.error(error?.response?.data?.message || "Duplicate entry found");
-    } else {
-      toast.error("Failed to add lead");
-    }
-  }
-};
-
-
+  // ---------- EDIT (single) ----------
   const handleEditLead = async (updatedLeadData: any) => {
     try {
-      const response = await leadsAPI.updateLead(
-        updatedLeadData.id,
-        updatedLeadData
-      );
+      const cleanPayload = { ...updatedLeadData, assigned_executive: updatedLeadData.assigned_executive };
+      delete (cleanPayload as any).assigned_executive_name;
+
+      const response = await leadsAPI.updateLead(cleanPayload.id, cleanPayload);
       const updated = response?.data ?? response?.data?.data;
 
       if (updated) {
-        // ✅ Update local state
         setAllLeads((prev) =>
           prev.map((lead) =>
             lead.id === (updated.id ?? updatedLeadData.id)
@@ -448,35 +443,21 @@ const handleAddLead = async (newLeadData: any) => {
           )
         );
 
-        // 🔔 Compare old vs new assignment
-        const prevLead = allLeads.find(
-          (l) => l.id === (updated.id ?? updatedLeadData.id)
-        );
+        const prevLead = allLeads.find((l) => l.id === (updated.id ?? updatedLeadData.id));
         const wasAssigned = prevLead?.assigned_executive;
-        const nowAssigned =
-          updated.assigned_executive ?? updatedLeadData.assigned_executive;
-        const nowAssignedName =
-          updated.assigned_executive_name ??
-          updatedLeadData.assigned_executive_name;
+        const nowAssigned = updated.assigned_executive ?? updatedLeadData.assigned_executive;
 
-        if (nowAssigned) {
+        if (nowAssigned && String(nowAssigned) !== String(wasAssigned || '')) {
           try {
-            await notificationAPI.updateNotification(
-              wasAssigned ? updated.notification_id ?? null : null,
-              {
-                leadId: updated.id ?? updatedLeadData.id,
-                userId: nowAssigned,
-                message: `Lead assigned to ${nowAssignedName}`,
-                type: "lead_assign",
-                link: `/dashboard/leads/${updated.id ?? updatedLeadData.id}`,
-              }
-            );
+            await notificationAPI.createNotification({
+              leadId: updated.id ?? updatedLeadData.id,
+              userId: nowAssigned,
+              message: `New lead assigned to you by ${currentActorName}`,
+              type: "lead_assign",
+              link: `/dashboard/leads/${updated.id ?? updatedLeadData.id}`,
+            });
           } catch (error: any) {
-            if (error?.response?.status === 409) {
-              toast.error(error?.response?.data?.message || "Duplicate entry found");
-            } else {
-              toast.error("Failed to update lead");
-            }
+            console.error("Failed to send notification:", error);
           }
         }
 
@@ -494,12 +475,7 @@ const handleAddLead = async (newLeadData: any) => {
     }
   };
 
-
-
-
-
-
-
+  // ---------- selection ----------
   const handleSelectLead = (leadId: string) => {
     setSelectedLeads(prev => prev.includes(leadId) ? prev.filter(id => id !== leadId) : [...prev, leadId]);
   };
@@ -524,25 +500,64 @@ const handleAddLead = async (newLeadData: any) => {
     }
   };
 
-  const exportLeads = async () => {
-    try {
-      const headers = ['Name', 'Phone', 'Email', 'City', 'Location', 'Lead Source', 'Lead Type', 'Status', 'Created At'];
-      const rows = filteredLeads.map(l => [l.name, l.phone, l.email, l.city, l.location, l.lead_source, l.lead_type, l.status, l.created_at]);
-      const csv = [headers, ...rows].map(r => r.map(x => `"${(x ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `leads-export-${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-      toast.success('Leads exported successfully');
-    } catch (error) {
-      console.error('Error exporting leads:', error);
-      toast.error('Failed to export leads');
-    }
-  };
+  // ---------- export ----------
+const exportLeads = async () => {
+  try {
+    // ✅ Added "Salutation" in headers
+    const headers = [
+      'Salutation',
+      'Name',
+      'Phone',
+      'Email',
+      'City',
+      'Location',
+      'Lead Source',
+      'Lead Type',
+      'Status',
+      'Created At',
+    ];
 
+    // ✅ Include l.salutation in each row
+    const rows = filteredLeads.map((l) => [
+      l.salutation,
+      l.name,
+      l.phone,
+      l.email,
+      l.city,
+      l.location,
+      l.lead_source,
+      l.lead_type,
+      l.status,
+      l.created_at,
+    ]);
+
+    // CSV formatting (safe escaping)
+    const csv = [headers, ...rows]
+      .map((r) =>
+        r
+          .map((x) => `"${(x ?? '').toString().replace(/"/g, '""')}"`)
+          .join(',')
+      )
+      .join('\n');
+
+    // Create and trigger download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leads-export-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast.success('Leads exported successfully');
+  } catch (error) {
+    console.error('Error exporting leads:', error);
+    toast.error('Failed to export leads');
+  }
+};
+
+
+  // ---------- badges ----------
   const getSourceBadgeClass = (src?: string) => {
     const key = (src || '').toLowerCase().replace(/[^a-z]/g, '');
     const map: Record<string, string> = {
@@ -594,33 +609,25 @@ const handleAddLead = async (newLeadData: any) => {
     return map[key] || "bg-gray-100 text-gray-700";
   };
 
-
-  // ---------------- BULK DELETE HANDLER ----------------
+  // ---------- BULK DELETE ----------
   const handleBulkDelete = async () => {
     if (selectedLeads.length === 0) {
       toast.error("No leads selected");
       return;
     }
-
     if (!window.confirm(`Are you sure you want to delete ${selectedLeads.length} lead(s)?`)) {
       return;
     }
-
     setBulkLoading(true);
     try {
-      // ✅ अगर backend में bulk delete API है
-      if (leadsAPI.bulkDeleteLeads) {
-        await leadsAPI.bulkDeleteLeads({ ids: selectedLeads });
+      if ((leadsAPI as any).bulkDeleteLeads) {
+        await (leadsAPI as any).bulkDeleteLeads({ ids: selectedLeads });
       } else {
-        // ❌ fallback: loop delete
         for (const id of selectedLeads) {
           await leadsAPI.deleteLead(id);
         }
       }
-
-      // ✅ Local state से हटाओ
       setAllLeads((prev) => prev.filter((l) => !selectedLeads.includes(l.id)));
-
       toast.success(`Deleted ${selectedLeads.length} lead${selectedLeads.length > 1 ? "s" : ""}`);
       setSelectedLeads([]);
     } catch (err) {
@@ -631,7 +638,7 @@ const handleAddLead = async (newLeadData: any) => {
     }
   };
 
-  // ---------------- BULK STATUS UPDATE HANDLER ----------------
+  // ---------- BULK STATUS ----------
   const handleBulkStatusUpdate = async () => {
     if (!bulkStatus) {
       toast.error('Please select a status to update');
@@ -641,16 +648,12 @@ const handleAddLead = async (newLeadData: any) => {
       toast.error('No leads selected');
       return;
     }
-
     setBulkLoading(true);
     try {
-      // Always call your bulk API
       await leadsAPI.bulkUpdateLeads({
         ids: selectedLeads,
         status: bulkStatus,
       });
-
-      // Update local state after success
       setAllLeads(prev =>
         prev.map(l =>
           selectedLeads.includes(l.id)
@@ -658,13 +661,7 @@ const handleAddLead = async (newLeadData: any) => {
             : l
         )
       );
-
-      toast.success(
-        `Updated ${selectedLeads.length} lead${selectedLeads.length > 1 ? 's' : ''
-        } to "${bulkStatus}"`
-      );
-
-      // Reset selections
+      toast.success(`Updated ${selectedLeads.length} lead${selectedLeads.length > 1 ? 's' : ''} to "${bulkStatus}"`);
       setSelectedLeads([]);
       setBulkStatus('');
     } catch (err) {
@@ -675,9 +672,119 @@ const handleAddLead = async (newLeadData: any) => {
     }
   };
 
+  // ---------- BULK ASSIGN (ONLY Presales Executives) ----------
+  const handleBulkAssign = async () => {
+    if (selectedLeads.length === 0) {
+      toast.error('No leads selected');
+      return;
+    }
+    if (!bulkAssignee) {
+      toast.error('Please choose an assignee (or Unassign)');
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const newAssigneeId = bulkAssignee === 'Unassigned' ? null : bulkAssignee;
+
+      // keep previous -> for notify diffs
+      const prevAssignByLead: Record<string, string | undefined> = {};
+      for (const id of selectedLeads) {
+        const lead = allLeads.find(l => l.id === id);
+        if (lead) prevAssignByLead[id] = lead.assigned_executive;
+      }
+
+      // server call (prefer /bulk/assign-executive)
+      if ((leadsAPI as any).bulkAssignExecutives) {
+        await (leadsAPI as any).bulkAssignExecutives({
+          ids: selectedLeads,
+          assigned_executive: newAssigneeId,
+        });
+      } else if ((leadsAPI as any).bulkUpdateLeads) {
+        await (leadsAPI as any).bulkUpdateLeads({
+          ids: selectedLeads,
+          assigned_executive: newAssigneeId,
+        });
+      } else {
+        // fallback loop
+        for (const id of selectedLeads) {
+          await leadsAPI.updateLead(id, { assigned_executive: newAssigneeId });
+        }
+      }
+
+      // local update
+      const newAssigneeName = newAssigneeId ? resolveUserNameById(newAssigneeId) : '';
+      setAllLeads(prev =>
+        prev.map(l =>
+          selectedLeads.includes(l.id)
+            ? {
+                ...l,
+                assigned_executive: newAssigneeId ?? undefined,
+                assigned_executive_name: newAssigneeId ? newAssigneeName : undefined,
+              }
+            : l
+        )
+      );
+
+      // notifications
+      const admins = presalesUsers.filter((u: any) =>
+        (u.role || '').toLowerCase() === 'admin' || (u.role || '').toLowerCase() === 'superadmin'
+      );
+
+      if (newAssigneeId) {
+        for (const leadId of selectedLeads) {
+          const prevAssigned = prevAssignByLead[leadId];
+          if (String(prevAssigned || '') !== String(newAssigneeId)) {
+            if (String(newAssigneeId) === String(user?.id)) {
+              // self-assign -> notify admins
+              for (const admin of admins) {
+                try {
+                  await notificationAPI.createNotification({
+                    leadId,
+                    userId: admin.id,
+                    message: `Lead assigned to you by ${currentActorName}`,
+                    type: "lead_assign",
+                    link: `/dashboard/leads/${leadId}`,
+                  });
+                } catch (e) {
+                  console.error('Admin notify failed (bulk self-assign):', e);
+                }
+              }
+            } else {
+              // assign to someone else -> notify assignee
+              try {
+                await notificationAPI.createNotification({
+                  leadId,
+                  userId: newAssigneeId,
+                  message: `New lead assigned to you by ${currentActorName}`,
+                  type: "lead_assign",
+                  link: `/dashboard/leads/${leadId}`,
+                });
+              } catch (e) {
+                console.error('Assignee notify failed (bulk):', e);
+              }
+            }
+          }
+        }
+      }
+
+      toast.success(
+        newAssigneeId
+          ? `Assigned ${selectedLeads.length} lead${selectedLeads.length > 1 ? 's' : ''} to ${newAssigneeName || 'User'}`
+          : `Unassigned ${selectedLeads.length} lead${selectedLeads.length > 1 ? 's' : ''}`
+      );
+      setSelectedLeads([]);
+      setBulkAssignee('');
+    } catch (err) {
+      console.error('Bulk assignment failed:', err);
+      toast.error('Bulk assignment failed');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   return (
-    <div className="flex  bg-gray-50">
+    <div className="flex bg-gray-50">
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="p-6 space-y-6">
           {/* Header */}
@@ -699,17 +806,17 @@ const handleAddLead = async (newLeadData: any) => {
                   <span>Export</span>
                 </Button>
               )}
-              {/* Import */}
+
               {canImportLeads(user) && (
                 <Button onClick={() => setShowImportModal(true)}>Import Leads</Button>
               )}
+
               {canAddLead(user) && (
                 <Button className="px-3 py-1 rounded-lg text-xs whitespace-nowrap" onClick={() => setShowAddLeadModal(true)}>
                   <Plus className="h-3 w-3" />
                   <span>Add Lead</span>
                 </Button>
               )}
-
             </div>
           </div>
 
@@ -738,7 +845,6 @@ const handleAddLead = async (newLeadData: any) => {
 
               {/* Rows selector + Filter & Clear Controls */}
               <div className="flex items-center gap-4 ml-4 flex-shrink-0">
-                {/* Rows per page selector (LEFT of Filters) */}
                 <div className="flex items-center gap-2 text-xs">
                   <select
                     value={itemsPerPage}
@@ -760,47 +866,50 @@ const handleAddLead = async (newLeadData: any) => {
                   filters.status !== 'all' ||
                   filters.source !== 'all' ||
                   filters.leadType !== 'all' ||
-                  filters.assignedExecutive !== 'all' ||   // ✅ Add this
-                  filters.createdBy !== 'all' ||           // ✅ Add this
-                  filters.sortOrder !== 'desc' ||          // ✅ Add this (if you want clear to reset sort too)
+                  filters.assignedExecutive !== 'all' ||
+                  filters.createdBy !== 'all' ||
+                  filters.sortOrder !== 'desc' ||
                   filters.city ||
                   filters.location ||
                   (!filters.ignoreDate && (filters.dateFrom || filters.dateTo))
                 ) && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setFilters({
-                          status: 'all',
-                          source: 'all',
-                          leadType: 'all',
-                          assignedExecutive: 'all', // ✅ reset
-                          createdBy: 'all',         // ✅ reset
-                           priority: 'all',
-                          city: '',
-                          location: '',
-                          dateFrom: '',
-                          dateTo: '',
-                          ignoreDate: false,
-                          sortOrder: 'desc',        // ✅ reset
-                        });
-                        setSearchFilters({ name: "", contact: "", location: "", source: "", status: "", created: "", priority: "", });
-                        setActiveTab('all');
-                      }}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      Clear All
-                    </Button>
-                  )}
-
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setFilters({
+                        status: 'all',
+                        source: 'all',
+                        leadType: 'all',
+                        assignedExecutive: 'all',
+                        createdBy: 'all',
+                        priority: 'all',
+                        city: '',
+                        location: '',
+                        dateFrom: '',
+                        dateTo: '',
+                        ignoreDate: false,
+                        sortOrder: 'desc',
+                      });
+                      setSearchFilters({ name: "", contact: "", location: "", source: "", status: "", created: "", priority: "" });
+                      setActiveTab('all');
+                    }}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    Clear All
+                  </Button>
+                )}
               </div>
             </div>
           </div>
 
           {/* BULK ACTIONS BAR */}
           {selectedLeads.length > 0 && (
-            <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-              <div className="text-sm">Selected: <span className="font-medium">{selectedLeads.length}</span></div>
+            <div className="flex flex-col md:flex-row md:items-center gap-3 bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+              <div className="text-sm">
+                Selected: <span className="font-medium">{selectedLeads.length}</span>
+              </div>
+
+              {/* Bulk Status */}
               <div className="flex items-center gap-2">
                 <label className="text-xs text-gray-600">Update status:</label>
                 <select
@@ -809,14 +918,38 @@ const handleAddLead = async (newLeadData: any) => {
                   className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
                 >
                   <option value="">-- choose --</option>
-                  {/* merge a helpful list with discovered statuses */}
-                  {['new', 'contacted', 'qualified', 'unqualified', 'hot', 'warm', 'cold', 'converted', 'lost', ...Array.from(new Set(statusOptions.map(o => o.value).filter(v => v !== 'all')))].
-                    filter((v, i, arr) => arr.indexOf(v) === i).
-                    map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
+                  {['new', 'contacted', 'qualified', 'unqualified', 'hot', 'warm', 'cold', 'converted', 'lost', ...Array.from(new Set(statusOptions.map(o => o.value).filter(v => v !== 'all')))]
+                    .filter((v, i, arr) => arr.indexOf(v) === i)
+                    .map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
                 </select>
                 <Button onClick={handleBulkStatusUpdate} disabled={bulkLoading || !bulkStatus}>
-                  {bulkLoading ? 'Updating…' : 'Apply'}
+                  {bulkLoading ? 'Updating…' : 'Apply Status'}
                 </Button>
+              </div>
+
+              <div className="hidden md:block h-6 w-px bg-gray-200" />
+
+              {/* Bulk Assign (ONLY Presales Executives) */}
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-600 whitespace-nowrap">Assign to:</label>
+                <select
+                  value={bulkAssignee}
+                  onChange={(e) => setBulkAssignee(e.target.value)}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm bg-white min-w-[220px]"
+                >
+                  <option value="">-- choose executive --</option>
+                  <option value="Unassigned">Unassign</option>
+                  {assignableExecutives.map((u: any) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+                <Button onClick={handleBulkAssign} disabled={bulkLoading || !bulkAssignee}>
+                  {bulkLoading ? 'Assigning…' : 'Apply Assignment'}
+                </Button>
+              </div>
+
+              {/* Delete + Clear */}
+              <div className="flex items-center gap-2 md:ml-auto">
                 {canDeleteLead(user) && (
                   <Button
                     variant="outline"
@@ -827,7 +960,6 @@ const handleAddLead = async (newLeadData: any) => {
                     {bulkLoading ? "Deleting…" : `Delete (${selectedLeads.length})`}
                   </Button>
                 )}
-
                 <Button variant="outline" onClick={() => setSelectedLeads([])}>
                   Clear Selection
                 </Button>
@@ -856,7 +988,7 @@ const handleAddLead = async (newLeadData: any) => {
                         <th className="px-3 py-3 min-w-[150px] text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                         <th className="px-3 py-3 min-w-[160px] text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                         <th className="px-3 py-3 min-w-[100px] text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                        <th className="px-3 py-3 min-w-[120px] text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source </th>
+                        <th className="px-3 py-3 min-w-[120px] text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
                         <th className="px-3 py-3 min-w-[100px] text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                         <th className="px-3 py-3 min-w-[100px] text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th className="px-3 py-3 min-w-[120px] text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
@@ -887,7 +1019,6 @@ const handleAddLead = async (newLeadData: any) => {
                             className="w-full border-gray-300 rounded text-xs py-1 px-2"
                           />
                         </th>
-
                         <th className="px-3 py-2">
                           <input type="text" placeholder="Search status..." value={searchFilters.status} onChange={(e) => setSearchFilters({ ...searchFilters, status: e.target.value })} className="w-full border-gray-300 rounded text-xs py-1 px-2" />
                         </th>
@@ -964,10 +1095,7 @@ const handleAddLead = async (newLeadData: any) => {
                             </td>
                             <td className="px-3 py-3 align-top">
                               <div className="flex flex-col gap-1 text-gray-800">
-                                {/* Created At */}
                                 <div className='text-gray-800'>{lead.created_at ? formatDate(lead.created_at) : 'N/A'}</div>
-
-                                {/* Assigned Executive */}
                                 {lead.assigned_executive_name ? (
                                   <div className="text-xs">
                                     <span className="text-purple-500 font-semibold">Assigned To:</span>{" "}
@@ -976,25 +1104,16 @@ const handleAddLead = async (newLeadData: any) => {
                                 ) : (
                                   <div className="text-xs text-gray-400">Unassigned</div>
                                 )}
-
-                                {/* Created By */}
                                 {lead.created_by_name && (
                                   <div className="text-xs">
                                     <span className="text-green-600 font-semibold">Created By:</span>{" "}
                                     <span className="text-gray-800">{lead.created_by_name}</span>
                                   </div>
                                 )}
-
-
                               </div>
                             </td>
-
-
-
-
                             <td className="px-3 py-3 text-right">
                               <div className="flex justify-end gap-2">
-                                {/* View */}
                                 {canViewLead(user, lead) && (
                                   <Link to={`/dashboard/leads/${lead.id}`}>
                                     <Button
@@ -1007,7 +1126,6 @@ const handleAddLead = async (newLeadData: any) => {
                                   </Link>
                                 )}
 
-                                {/* Edit */}
                                 {canEditLead(user, lead) && (
                                   <Button
                                     variant="outline"
@@ -1022,7 +1140,6 @@ const handleAddLead = async (newLeadData: any) => {
                                   </Button>
                                 )}
 
-                                {/* Delete */}
                                 {canDeleteLead(user) && (
                                   <Button
                                     variant="outline"
@@ -1035,13 +1152,11 @@ const handleAddLead = async (newLeadData: any) => {
                                 )}
                               </div>
                             </td>
-
-
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={8} className="px-3 py-6 text-center text-sm text-gray-500">No leads found</td>
+                          <td colSpan={9} className="px-3 py-6 text-center text-sm text-gray-500">No leads found</td>
                         </tr>
                       )}
                     </tbody>
@@ -1070,8 +1185,8 @@ const handleAddLead = async (newLeadData: any) => {
             source: 'all',
             leadType: 'all',
             assignedExecutive: 'all',
-            createdBy: 'all', 
-             priority: 'all', 
+            createdBy: 'all',
+            priority: 'all',
             city: '',
             location: '',
             dateFrom: '',
@@ -1084,10 +1199,9 @@ const handleAddLead = async (newLeadData: any) => {
         sourceOptions={sourceOptions}
         leadTypeOptions={leadTypeOptions}
         assignedOptions={assignedOptions}
-        createdByOptions={createdByOptions}   // ✅ नया prop पास करो
-          priorityOptions={priorityOptions}   // ✅ नया prop
+        createdByOptions={createdByOptions}
+        priorityOptions={priorityOptions}
       />
-
 
       {/* ADD */}
       <AddLeadModal
@@ -1096,7 +1210,7 @@ const handleAddLead = async (newLeadData: any) => {
         onSave={handleAddLead}
       />
 
-      {/* EDIT — same modal, but with lead + isOpen and edit handler */}
+      {/* EDIT (reuse Add modal) */}
       <AddLeadModal
         isOpen={showEditLeadModal}
         lead={selectedLead || undefined}
@@ -1104,29 +1218,10 @@ const handleAddLead = async (newLeadData: any) => {
         onSave={handleEditLead}
       />
 
-      {/* <ImportLeadsModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        onImport={async (file: File) => {
-          try {
-            const formData = new FormData();
-            formData.append('file', file);
-            await leadsAPI.importLeads(formData);
-            toast.success('Leads imported successfully');
-            setShowImportModal(false);
-            fetchLeads();
-          } catch (error) {
-            console.error('Error importing leads:', error);
-            toast.error('Failed to import leads');
-          }
-        }}
-      /> */}
-
       <ImportLeadsModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
       />
-
     </div>
   );
 };

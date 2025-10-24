@@ -3,8 +3,8 @@ import { api } from "./api";
 export const notificationAPI = {
   // ✅ Create Notification
   createNotification: async (data: {
-    leadId: number;
-    userId: number;
+    leadId: number | string;
+    userId: number | string;
     message: string;
     type?: string;
     link?: string;
@@ -34,8 +34,8 @@ export const notificationAPI = {
 updateNotification: async (
   id: number | null,
   data: {
-    leadId: string;
-    userId: number;
+    leadId: string | number;
+    userId: String | number;
     message: string;
     type?: string;
     link?: string;

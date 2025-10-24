@@ -900,7 +900,7 @@ type Lead = {
 };
 
 type Followup = {
-  id?: string;
+ id?: string | number;   
   type?: string;
   remark?: string;
   customRemark?: string;
@@ -962,7 +962,7 @@ async function notifyAssignOrUpdate({
   // NOTE: per your request this uses UPDATE only.
   // Assumes backend `updateNotification` upserts when id is null/invalid.
   await notificationAPI.updateNotification(maybeId, {
-    leadId: String(lead.id),
+    leadId: (lead.id),
     userId,
     message,
     type,

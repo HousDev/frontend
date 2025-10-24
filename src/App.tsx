@@ -79,6 +79,7 @@ import StandaloneBuyerAccountPage from './components/buyers/StandaloneBuyerAccou
 import StandaloneSellerAccountPage from './components/sellers/StandaloneSellerAccountPage';
 import VariableCenter from './pages/settings/VariableCenter';
 import HomePageCMS from './pages/dashboard/HomePageCMS';
+import DigioSuccess from './pages/DigioSuccess';
 
 function App() {
   useDynamicHead(); // ✅ Automatically set favicon + title
@@ -128,6 +129,8 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+
+                  <Route path="/digio/success" element={<DigioSuccess />} />
                   {/* Public Routes */}
                   <Route path='/' element={<PublicHeader />} >
                     <Route index element={<HomePage />} />

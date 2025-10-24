@@ -676,6 +676,10 @@ export const leadsAPI = {
     const response = await api.patch(`/leads/${id}/assign`, data);
     return response.data;
   },
+   bulkAssignExecutives: async (payload: { ids: string[]; assigned_executive?: string | null }) => {
+    const response = await api.patch(`/leads/bulk/assign-executive`, payload);
+    return response.data;
+  },
   importLeads: async (leads: any) => {
     const res = await api.post("/leads/import", leads);
     return res.data;
