@@ -927,7 +927,7 @@ const PropertiesPage = () => {
 
   // Fetch sales executives
 // Fetch sales executives - API response को better handle करें
-// Fetch sales executives - API response को better handle करें
+
 useEffect(() => {
   const fetchExecutives = async () => {
     try {
@@ -1805,15 +1805,8 @@ const ExecutiveBadge = ({ assignedTo }: { assignedTo?: UIProperty['assignedTo'] 
   if (!assignedTo || !assignedTo.name || assignedTo.name.trim() === "") {
     return null;
   }
-
-  // ✅ Debug log for consistency check
-  console.log("🏷️ ExecutiveBadge rendering:", {
-    assignedToName: assignedTo.name,
-    assignedToId: assignedTo.id
-  });
-
   return (
-    <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs border border-blue-200">
+    <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs">
       <UserCheck size={10} />
       <span className="font-medium">{assignedTo.name}</span>
       {assignedTo.department && (

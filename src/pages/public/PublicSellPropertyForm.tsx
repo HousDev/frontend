@@ -1417,7 +1417,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
                   className="sr-only"
                 />
                 <div
-                  className={`w-8 h-3 rounded-full relative transition-colors duration-200 ease-in-out ${formData.sameAsPhone ? 'bg-blue-500' : 'bg-gray-300'
+                  className={`w-8 h-3 rounded-full relative transition-colors duration-200 ease-in-out ${formData.sameAsPhone ? 'bg-[#E6761D]' : 'bg-gray-300'
                     }`}
                 >
                   <div

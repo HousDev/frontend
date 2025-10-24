@@ -315,7 +315,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
           onClick={() => setIsOpen(true)}
           aria-label="Open chat"
           className={`${isMobile ? "w-12 h-12 p-2" : "w-14 h-14 p-3"
-            } bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-2xl hover:scale-105 transform transition flex items-center justify-center relative overflow-hidden`}
+            } bg-gradient-to-r bg-white/50 text-white rounded-full ring-2 shadow-2xl hover:scale-105 transform transition flex items-center justify-center relative overflow-hidden`}
         >
           <img
             src={ChatbotLogo}

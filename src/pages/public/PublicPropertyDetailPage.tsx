@@ -50,7 +50,7 @@ import {
   ChevronRight,
   BedDouble, Bath, Ruler, IndianRupee, Grid,
   Bed,
-  ArrowRight
+  ArrowRight,
 } from 'lucide-react';
 import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -163,6 +163,13 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   }, [property]);
 
 
+
+  // put near other helpers (below resolvePropertyIdNumber is perfect)
+  const formatPropertyId = (normalized: any): string => {
+    const n = resolvePropertyIdNumber(normalized);
+    if (!n) return 'REP—';
+    return `REP${String(n).padStart(4, '0')}`;
+  };
 
 
 
@@ -789,20 +796,30 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
               {/* Top-Left Info - Responsive */}
               <div className="absolute top-2 sm:top-3 md:top-6 left-2 sm:left-3 md:left-4 z-20 text-white max-w-[75%] sm:max-w-[85%] flex flex-col gap-1">
-                <div className="font-bold text-base sm:text-lg md:text-xl truncate drop-shadow">
-                  {property?.type && <span className="mr-1 sm:mr-2">{property.type}</span>}
-                  {unitType && <span className="mr-1 sm:mr-2">{unitType}</span>}
-                  {subtype && <span className="mr-1 sm:mr-2">{subtype}</span>}
+
+                {/* 🔹 Title + REP ID in one row */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-bold text-base sm:text-lg md:text-xl truncate drop-shadow">
+                    {property?.type && <span className="mr-1 sm:mr-2">{property.type}</span>}
+                    {unitType && <span className="mr-1 sm:mr-2">{unitType}</span>}
+                    {subtype && <span className="mr-1 sm:mr-2">{subtype}</span>}
+                  </div>
+
+                  {/* 🔹 REP ID Badge (right side of title) */}
+                  <span
+                    className="text-white "
+                  >
+                    {formatPropertyId(property)}
+                  </span>
                 </div>
 
                 <div className="flex items-center text-xs sm:text-sm md:text-base drop-shadow">
                   <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 shrink-0" />
                   <span className="truncate">{displayOrDash(property?.locationNormalized)}</span>
                 </div>
-
-                {/* Property Tags - Display fetched tags */}
-
               </div>
+
+             {/* Property Tags - Display fetched tags */}
               <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
                 <div className="absolute top-0 right-3 z-20 hidden sm:block">
                   <PropertyTags tags={propertyTags} />
@@ -811,14 +828,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
               {/* Top-Right Action Buttons - Responsive */}
               <div className="absolute top-2 sm:top-3 md:top-8 right-2 sm:right-3 md:right-4 z-20 flex flex-col space-y-1.5 sm:space-y-2">
-                {/* <button
-                  onClick={toggleLiked}
-                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
-                  aria-label={liked ? 'Remove from shortlist' : 'Add to shortlist'}
-                >
-                  <Heart className={liked ? 'w-4 h-4 sm:w-5 sm:h-5 text-red-500 fill-current' : 'w-4 h-4 sm:w-5 sm:h-5 text-gray-700'} />
-                </button> */}
-
                 <button
                   onClick={() => setOpen(true)}
                   className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
@@ -835,8 +844,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   <Bookmark className="w-4 h-4 sm:w-5 sm-h-5 text-gray-700" />
                 </button>
               </div>
-
-
               {/* Bottom-Left Price - Responsive */}
               <div className="absolute bottom-8 sm:bottom-10 md:bottom-12 left-2 sm:left-3 md:left-4 z-20 w-[90%]">
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 md:gap-5 items-start sm:items-center">
