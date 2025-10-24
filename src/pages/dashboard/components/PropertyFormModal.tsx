@@ -1460,7 +1460,7 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
                 <div className="col-span-6 md:col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Distance</label>
                   <input
-                    type="number"
+                    type="text"
                     className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
                     placeholder="Enter distance"
                     value={nearbyPlaceForm.distance}
