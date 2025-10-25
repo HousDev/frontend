@@ -108,7 +108,7 @@ const AIPaywallOverlay: React.FC<AIPaywallOverlayProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-2xl">
+        <div className="relative  text-white p-6 rounded-t-2xl" style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-colors"
@@ -206,7 +206,7 @@ const AIPaywallOverlay: React.FC<AIPaywallOverlayProps> = ({
 
             <button
               onClick={handlePayment}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all font-semibold text-lg flex items-center justify-center space-x-2"
+              className="w-full  bg-[#E6761D]  hover:bg-[#E6761D]  text-white py-4 px-6 rounded-xl transition-all font-semibold text-lg flex items-center justify-center space-x-2"
             >
               <CreditCard size={20} />
               <span>Pay with Razorpay</span>

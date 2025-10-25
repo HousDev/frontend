@@ -427,14 +427,14 @@ const ContactUsPage = () => {
               </div>
 
               {/* Quick Contact Buttons */}
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-6 text-white">
+              <div className=" rounded-xl p-6 text-white" style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
   <h3 className="text-xl font-bold mb-4">Need Immediate Assistance?</h3>
   <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
     {/* Call = Call-green */}
     <button
                     onClick={() => window.open('tel:+91 9637 00 9639+91 9637 00 9639')}
       aria-label="Call Now"
-      className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 
+                    className="flex-1 bg-[#E6761D]
                  text-white py-3 px-4 rounded-lg font-semibold
                  transition-colors duration-300 flex items-center justify-center space-x-2
                  focus:outline-none focus:ring-2 focus:ring-white/30"

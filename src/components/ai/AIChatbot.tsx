@@ -302,7 +302,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
 
 
   const UserAvatar = (
-    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center">
+    <div className="w-8 h-8 rounded-full  bg-[#E6761D] text-white flex items-center justify-center">
       <User size={16} />
     </div>
   );
@@ -332,7 +332,8 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
     } overflow-hidden flex flex-col`;
 
   const headerBg =
-    "flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 rounded-t-2xl bg-gradient-to-r from-blue-600 to-purple-600 text-white";
+    "flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 rounded-t-2xl bg-gradient-to-r from-[#0b3856] to-[#0c3854] text-white";
+
 
   return (
     <>
@@ -356,7 +357,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
           <div className={headerBg}>
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden ring-1 ring-white/20">
+                <div className="w-9 h-9 rounded-full bg-white/50 flex items-center justify-center overflow-hidden ring-1 ring-white/20">
                   <img src={ChatbotLogo} alt="RE AI" className="w-8 h-8 object-contain" />
                 </div>
                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse ring-2 ring-blue-600" />
@@ -501,7 +502,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
                   <button
                     type="submit"
                     disabled={!inputMessage.trim() || isTyping}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                      className=" bg-[#E6761D] text-white p-2 rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                     aria-label="Send message"
                   >
                     <Send size={16} />

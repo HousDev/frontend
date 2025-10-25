@@ -820,8 +820,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
 
              {/* Property Tags - Display fetched tags */}
-              <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
-                <div className="absolute top-0 right-3 z-20 hidden sm:block">
+              <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 ">
+                <div className="absolute top-0 right-3 z-20 hidden sm:block ">
                   <PropertyTags tags={propertyTags} />
                 </div>
               </div>
@@ -1386,7 +1386,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   href="https://www.google.com/maps?q=Tamara+Uprise"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-white bg-[#0b3856] hover:bg-[#0c3854] font-semibold text-sm shadow-md transition-all duration-200"
+                  className="group inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-white bg-[#E6761D] hover:bg-[#E6761D]  font-semibold text-sm shadow-md transition-all duration-200"
                 >
                   View on Google Maps
                   <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />

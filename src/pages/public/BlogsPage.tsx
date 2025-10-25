@@ -452,8 +452,8 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
                     className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all text-xs sm:text-sm whitespace-nowrap ${selectedCategory === cat
-                        ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg scale-105"
-                        : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-blue-300"
+                      ? "bg-[#E6761D]  hover:bg-[#E6761D] text-white shadow-lg scale-105"
+                        : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                       }`}
                   >
                     {cat}
@@ -511,6 +511,7 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
+
                   <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-wrap gap-1.5 sm:gap-2 max-w-[calc(100%-1rem)]">
                     <span className="bg-blue-600 text-white px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-lg">
                       {post.category}

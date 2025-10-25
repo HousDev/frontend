@@ -259,7 +259,7 @@ const ServicesPage = () => {
               <button
                 className="inline-flex items-center justify-center
                w-full max-w-[240px] sm:max-w-none sm:w-auto
-               px-4 sm:px-5 py-2.5 sm:py-3
+               px-4 sm:px-5 py-2 sm:py-2
                text-[13px] sm:text-base
                rounded-lg sm:rounded-xl
                font-semibold text-white
@@ -679,7 +679,7 @@ const ServicesPage = () => {
               Get Free Consultation
             </button>
 
-            <button className="w-full sm:w-auto bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-3 rounded-xl font-semibold shadow-md transition-colors duration-300">
+            <button className="w-full sm:w-auto hover:bg-[#CC6A1A] border border-white text-white px-5 py-3 rounded-xl font-semibold shadow-md transition-colors duration-300">
               Call Now: {phonePretty}
             </button>
           </div>

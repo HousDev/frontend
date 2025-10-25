@@ -283,7 +283,7 @@ const PublicSimilarProperties: React.FC<PublicSimilarPropertiesProps> = ({
 
       <div className="text-center mt-4 pt-4 border-t border-gray-100">
         <button
-          className="bg-[#0b3856] hover:bg-[#0c3854] text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm w-full"
+          className="bg-[#E6761D]  hover:bg-[#E6761D]  text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm w-full"
           onClick={() => (window.location.href = "/properties")}
         >
           View All Properties
