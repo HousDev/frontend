@@ -1,7 +1,12 @@
-
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { ArrowLeft, User, Building, FileText, SlidersHorizontal, CreditCard, Calculator, TrendingUp, Target, Bot, Calendar, Phone, Mail, MessageCircle, MapPin, DollarSign, Eye, Download, Upload, Share, Plus, Edit, Trash2, Star, Award, CheckCircle, AlertCircle, Bell, Shield, Crown, Gem, Heart, Bookmark, Flag, Tag, Link, ExternalLink, Copy, Send, Printer, Archive, RefreshCw, Filter, Search, SortAsc, Grid, List, Maximize2, MoreHorizontal, Settings, Activity, BarChart3, PieChart, Home, Car, Wifi, Dumbbell, TreePine, Waves, Zap, Flame, Droplets, Snowflake, Sun, Moon, Wind, Mountain, Flower, Coffee, Clock, Users, Globe, Smartphone, Laptop, Headphones, Camera, Video, Music, Book, Briefcase, ShoppingBag, Gift, Plane, Train, Bus, Bike, Truck, X, Menu, LogOut, Share2 } from 'lucide-react';
-import PropertySuggestionModal from './PropertySuggestionModal'; import LoanApplicationModal from './LoanApplicationModal'; import EMICalculatorModal from './EMICalculatorModal'; import PropertyMatchModal from './PropertyMatchModal'; import VisitModal from './VisitModal'; import { useProperties } from '@/hooks/properties'; import { useAuth } from '@/contexts/AuthContext';
+import PropertySuggestionModal from './PropertySuggestionModal'; 
+import LoanApplicationModal from './LoanApplicationModal'; 
+import EMICalculatorModal from './EMICalculatorModal'; 
+import PropertyMatchModal from './PropertyMatchModal'; 
+import VisitModal from './VisitModal'; 
+import { useProperties } from '@/hooks/properties'; 
+import { useAuth } from '@/contexts/AuthContext';
 import ShareModal from '@/pages/public/ShareModal';
 
 const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
@@ -106,8 +111,6 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
 
       {/* Main Content */}
       <div className="flex-1 min-w-0 h-full flex flex-col">
-
-
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-purple-500 to-pink-600 text-white">
           <header className="sticky top-0 z-30 bg-gradient-to-r from-purple-500 to-pink-600 px-4 md:px-6 py-4">
@@ -126,7 +129,7 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
                 <div>
                   <h2 className="text-base sm:text-lg md:text-xl font-bold text-white leading-tight truncate">Welcome, {buyer.name}!</h2>
                   <p className="text-xs text-purple-100">Your personalized property search dashboard</p>
-                  <h2 className="flex  gap-x-2 md:gap-x-3 gap-y-0.5 text-[11px] sm:text-xs md:text-sm text-white/95 mt-1">Buyer Account</h2>
+                  <h2 className="flex gap-x-2 md:gap-x-3 gap-y-0.5 text-[11px] sm:text-xs md:text-sm text-white/95 mt-1">Buyer Account</h2>
                 </div>
               </div>
 
@@ -137,7 +140,6 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
               </div>
             </div>
           </header>
-
         </div>
 
         {/* Tabs Content */}
@@ -211,8 +213,6 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
   );
 };
 
-
-
 /* ================= Sidebar Content Component ================= */
 const SidebarContent = ({ buyer, activeTab, setActiveTab, logout, setShowPropertySuggestions, setShowEMICalculator }: any) => {
   const tabs = [
@@ -264,6 +264,10 @@ const SidebarContent = ({ buyer, activeTab, setActiveTab, logout, setShowPropert
             </span>
           </div>
           <div className="flex justify-between">
+            <span className="text-gray-500">Matched Properties:</span>
+            <span className="font-medium">{buyer.matchedProperties?.length || 0}</span>
+          </div>
+          <div className="flex justify-between">
             <span className="text-gray-500">Lead Score:</span>
             <span className="font-medium text-purple-600">{buyer.leadScore}/100</span>
           </div>
@@ -293,7 +297,6 @@ const SidebarContent = ({ buyer, activeTab, setActiveTab, logout, setShowPropert
       {/* Bottom */}
       <div className="p-4 border-t border-gray-200 shrink-0">
         <div className="space-y-2 text-sm">
-         
           <button
             onClick={() => setShowPropertySuggestions(true)}
             className="w-full flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all"
@@ -308,7 +311,7 @@ const SidebarContent = ({ buyer, activeTab, setActiveTab, logout, setShowPropert
             <Calculator size={14} />
             <span>EMI Calculator</span>
           </button>
-           <button
+          <button
             onClick={async () => {
               await logout();
               window.location.href = '/login';
@@ -341,9 +344,7 @@ const DashboardTab = ({ buyer }: any) => {
 
   return (
     <div className="">
-
-      <div className=' px-4 md:px-6 py-4 z-30 top-0 sticky'>
-
+      <div className='px-4 md:px-6 py-4 z-30 top-0 sticky'>
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {stats.map((stat, index) => {
@@ -471,9 +472,9 @@ const DashboardTab = ({ buyer }: any) => {
         </div>
       </div>
     </div>
-
   );
 };
+
 type PropertySearchTabProps = {
   buyer: any;
   onShowPropertySuggestions: () => void;
@@ -560,27 +561,62 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Filter properties to only include is_public ones
-  const publicProperties = useMemo(() => {
-    if (!Array.isArray(properties)) return [];
-    return properties.filter((p: any) => {
-      const isPublic = p.is_public === 1 || p.is_public === true || p.is_public === "1";
-      return isPublic;
-    });
-  }, [properties]);
+  // Robust public property detection
+  const isPublicProperty = (property: any) => {
+    if (!property) return false;
+    
+    // Check various possible public flags
+    const raw = property._raw || property;
+    
+    // Check multiple possible field names for public flag
+    const publicFlags = [
+      raw?.is_public,
+      raw?.isPublic,
+      raw?.public,
+      raw?.is_public_listing,
+      raw?.public_listing,
+      raw?.visible_to_buyers,
+      raw?.buyer_visible,
+      property?.is_public,
+      property?.isPublic,
+      property?.public,
+      property?.is_public_listing,
+      property?.public_listing,
+      property?.visible_to_buyers,
+      property?.buyer_visible
+    ];
+
+    // Return true if any public flag is truthy
+    return publicFlags.some(flag => 
+      flag === true || 
+      flag === 1 || 
+      flag === '1' || 
+      flag === 'true' || 
+      flag === 'yes'
+    );
+  };
+
+  const normalized = useMemo(
+    () => (Array.isArray(properties) ? properties.map((p) => utils.makeItem(p, buyer)) : []),
+    [properties, buyer, utils]
+  );
+
+  // Filter only public properties
+  const publicProperties = useMemo(
+    () => normalized.filter(isPublicProperty),
+    [normalized]
+  );
 
   // ---------------- search handler (ONLY user inputs) ----------------
   const handleSearch = async () => {
     const params = {
       location: searchFilters.location || undefined,
-      minPrice:
-        searchFilters.minPrice !== null && searchFilters.minPrice !== undefined
-          ? searchFilters.minPrice
-          : undefined,
-      maxPrice:
-        searchFilters.maxPrice !== null && searchFilters.maxPrice !== undefined
-          ? searchFilters.maxPrice
-          : undefined,
+      minPrice: searchFilters.minPrice !== null && searchFilters.minPrice !== undefined
+        ? searchFilters.minPrice
+        : undefined,
+      maxPrice: searchFilters.maxPrice !== null && searchFilters.maxPrice !== undefined
+        ? searchFilters.maxPrice
+        : undefined,
       sort: searchFilters.sort,
       propertyType: (searchFilters as any).propertyType || undefined,
       unitTypes: searchFilters.unitTypes.length ? searchFilters.unitTypes : undefined,
@@ -601,15 +637,14 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
 
   // ---------- URL + Filter Context Tracking ----------
   const TRACKING_PARAM_KEY = "fltcnt";
-  const STORAGE_KEY_LATEST = "re_filter_token"; // points to the latest token (optional convenience)
-  const STORAGE_KEY_PREFIX = "re_filter_payload"; // each payload stored under `${PREFIX}:${token}`
+  const STORAGE_KEY_LATEST = "re_filter_token";
+  const STORAGE_KEY_PREFIX = "re_filter_payload";
 
   const randomToken = () => {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
       return (crypto as any).randomUUID();
     }
     return `flt_${Math.random().toString(36).slice(2)}_${Date.now()}`;
-    // or use a stronger fallback if you want
   };
 
   /** Save the current context (filters + buyer + selection) into localStorage and return {token, urlWithToken} */
@@ -637,14 +672,13 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
         respectBuyerBudget,
         appliedFilters,
         buyer: buyerSnap,
-        // add a breadcrumb to come back
         from: {
           path: typeof window !== "undefined" ? window.location.pathname : undefined,
           query: typeof window !== "undefined" ? window.location.search : undefined,
         },
       };
 
-      // Store as a separate key per token (helps when multiple tabs/windows)
+      // Store as a separate key per token
       if (typeof window !== "undefined") {
         const k = `${STORAGE_KEY_PREFIX}:${token}`;
         localStorage.setItem(k, JSON.stringify(payload));
@@ -656,7 +690,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
       u.searchParams.set(TRACKING_PARAM_KEY, token);
       return { token, urlWithToken: u.toString() };
     } catch {
-      // If anything fails, just return the original URL without blocking flow
       return { token: undefined, urlWithToken: rawUrl };
     }
   };
@@ -674,10 +707,10 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
 
     if (typeof given === "string" && given.trim()) {
       const s = given.trim();
-      if (/^https?:\/\//i.test(s)) return s;            // absolute
-      if (s.startsWith("//")) return `https:${s}`;       // protocol-relative
-      if (s.startsWith("/")) return `${origin}${s}`;     // absolute path
-      return `${origin}/${s.replace(/^\/+/, "")}`;       // relative -> absolute
+      if (/^https?:\/\//i.test(s)) return s;
+      if (s.startsWith("//")) return `https:${s}`;
+      if (s.startsWith("/")) return `${origin}${s}`;
+      return `${origin}/${s.replace(/^\/+/, "")}`;
     }
 
     // derive from slug/id (PUBLIC ROUTE = /properties/:slug)
@@ -729,9 +762,11 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     if (respectBuyerBudget) list = list.filter((p) => isWithinBuyerBudget(p, buyer));
 
     return list.map((p: any) => {
-      const publicUrl = buildPropertyUrl(p);
+      const raw = p._raw ?? p;
+      const publicUrl = buildPropertyUrl(raw);
+
       return {
-        id: String(p?.id ?? p?.property_id ?? p?._id ?? Math.random()),
+        id: String(raw?.id ?? raw?.property_id ?? raw?._id ?? Math.random()),
         title: titleFrom(p),
         address: addressFrom(p),
         price: priceFrom(p),
@@ -744,7 +779,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
         statusText: p?.status || "Available",
         matchScore: computeMatchScore(p, buyer),
         photo: photoFrom(p),
-        _raw: p,
+        _raw: raw,
         reasons: computeReasons(p, buyer),
         publicUrl,
       };
@@ -754,7 +789,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     appliedFilters,
     respectBuyerBudget,
     buyer,
-    // utils:
     norm,
     toArr,
     hasAny,
@@ -1118,10 +1152,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                         <span className="font-semibold">{property.facing}</span>
                       </div>
                       <div>
-                        <span className="text-gray-500">Parking:</span>{" "}
-                        <span className="font-semibold">{property.parking || "—"}</span>
-                      </div>
-                      <div>
                         <span className="text-gray-500">Possession:</span>{" "}
                         <span className="font-semibold">{property.possession}</span>
                       </div>
@@ -1193,8 +1223,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                         <span>Share</span>
                       </button>
                     </div>
-
-                    {/* NOTE: Seller details intentionally removed as requested */}
                   </div>
                 </div>
               </div>
@@ -1210,7 +1238,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
           title={shareData.title}
           description={shareData.description}
           image={shareData.image}
-          // we also pass the token separately in case your ShareModal wants to construct its own link
           trackingToken={shareData.trackingToken}
           onClose={() => {
             setShareOpen(false);
@@ -1221,8 +1248,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     </div>
   );
 };
-
-
 
 // Shortlist Tab
 const ShortlistTab = ({ buyer }: any) => {
@@ -1296,7 +1321,6 @@ const ShortlistTab = ({ buyer }: any) => {
         </div>
       )}
     </div>
-
   );
 };
 
@@ -1437,7 +1461,6 @@ const VisitsTab = ({ buyer, onScheduleVisit }: any) => {
         ))}
       </div>
     </div>
-
   );
 };
 
@@ -1529,14 +1552,11 @@ const LoanCenterTab = ({ buyer, onShowLoanApplication }: any) => {
               <button className="bg-green-600 text-white px-3 py-1 text-sm rounded-md hover:bg-green-700 transition-colors">
                 Apply Now
               </button>
-
-
             </div>
           ))}
         </div>
       </div>
     </div>
-
   );
 };
 
@@ -1634,7 +1654,6 @@ const CalculatorsTab = ({ buyer, onShowEMICalculator }: any) => {
         </div>
       </div>
     </div>
-
   );
 };
 
@@ -1706,7 +1725,6 @@ const MarketInsightsTab = ({ buyer }: any) => {
         </div>
       </div>
     </div>
-
   );
 };
 
@@ -1772,7 +1790,6 @@ const MyDocumentsTab = ({ buyer }: any) => {
         </div>
       </div>
     </div>
-
   );
 };
 
@@ -1950,7 +1967,6 @@ const ProfileTab = ({ buyer, onUpdateBuyer }: any) => {
         </div>
       </div>
     </div>
-
   );
 };
 

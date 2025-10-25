@@ -1,20 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Phone,
-  Mail,
-  MapPin,
-  User as UserIcon,
-  ChevronDown,
-  Calendar,
-  Clock,
-  Users,
-  UserPlus,
-  ArrowLeftToLine,
-  ArrowRightToLine,
-  MessageSquare,
-  User,
-  Pencil,
-  Trash2,
+  Phone, Mail, MapPin, User as UserIcon, ChevronDown, Calendar, Clock,
+  Users, UserPlus, ArrowLeftToLine, ArrowRightToLine, MessageSquare,
+  User, Pencil, Trash2,
+  NotebookPen
 } from "lucide-react";
 import { FiArrowLeft, FiEdit, FiTrash2 } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
@@ -25,21 +14,28 @@ import { toast } from "react-toastify";
 import { leadsAPI, usersAPI } from "@/lib/api";
 import { masterDataAPI } from "@/lib/mastersAPI";
 import { followupAPI } from "@/lib/followupAPI";
-import { notificationAPI } from "@/lib/notificationAPI"; // ✅ Import notification API
+import { notificationAPI } from "@/lib/notificationAPI";
 
 import FollowupModal, { FOLLOWUP_TYPES, FollowupForm } from "@/pages/dashboard/components/FollowupModal";
 import BuyerFormModal from "./components/BuyerFormModal";
-
 import AddLeadModal from "./components/AddLeadModal";
 import { useAuth } from "@/contexts/AuthContext";
-
-
 import SellerFormModal from "./components/SellerFormModel";
-import { getAssignableExecutives } from "@/utils/roleBasedOptions";
 import { canDeleteLead } from "@/utils/rolePermissions";
 
 /* ===================== Types ===================== */
-type UserRole = "admin" | "manager" | "agent";
+type UserRole = "admin" | "manager" | "agent" | "executive";
+
+interface AuthUser {
+  id?: string;
+  user_id?: string;
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+  role?: string;
+  department?: string;
+  salutation?: string;
+}
 
 export interface Lead {
   id: string;
@@ -67,14 +63,11 @@ export interface Lead {
   created_by_name?: string;
   updated_at?: string;
 }
-type UILead = Lead & {
-  assigned_executive_name?: string;
-};
 
-type Followup = {
+interface Followup {
   priority: string;
-  id: string;
-  leadId: string;
+  id: string | number;
+  leadId: string | number;
   type: string;
   stage?: string;
   status?: string;
@@ -91,40 +84,147 @@ type Followup = {
   updatedByLastName?: string;
   last_contacted_by?: string;
   last_contacted_by_name?: string;
+}
+
+interface MasterOption {
+  value: string;
+  label: string;
+  role?: string;
+}
+
+interface MasterOptions {
+  salutation: MasterOption[];
+  leadType: MasterOption[];
+  leadSource: MasterOption[];
+  leadStatus: MasterOption[];
+  states: MasterOption[];
+  cities: MasterOption[];
+  locations: MasterOption[];
+  agents: MasterOption[];
+}
+
+interface PresalesUser {
+  id: string;
+  name: string;
+  department?: string;
+  role?: string;
+  selfOnly?: boolean;
+  salutation?: string;
+}
+
+interface NotificationData {
+  leadId: string;
+  userId: string;
+  message: string;
+  type: string;
+  link: string;
+}
+
+interface ApiResponse {
+  success?: boolean;
+  data?: any;
+  items?: any[];
+  payload?: any[];
+  result?: any[];
+}
+
+const getLatestFollowup = (arr?: Followup[] | null): Followup | null => (arr && arr.length ? arr[0] : null);
+
+const FOLLOWUP_COLOR_MAP: Record<
+  string,
+  { container: string; icon: string; leftBar: string; badge: string }
+> = {
+  blue: { container: "bg-blue-50 border-blue-200 hover:bg-blue-50", icon: "text-blue-600", leftBar: "border-blue-400", badge: "bg-blue-100 text-blue-800 border-blue-200" },
+  green: { container: "bg-green-50 border-green-200 hover:bg-green-50", icon: "text-green-600", leftBar: "border-green-400", badge: "bg-green-100 text-green-800 border-green-200" },
+  indigo: { container: "bg-indigo-50 border-indigo-200 hover:bg-indigo-50", icon: "text-indigo-600", leftBar: "border-indigo-400", badge: "bg-indigo-100 text-indigo-800 border-indigo-200" },
+  orange: { container: "bg-orange-50 border-orange-200 hover:bg-orange-50", icon: "text-orange-600", leftBar: "border-orange-400", badge: "bg-orange-100 text-orange-800 border-orange-200" },
+  purple: { container: "bg-purple-50 border-purple-200 hover:bg-purple-50", icon: "text-purple-600", leftBar: "border-purple-400", badge: "bg-purple-100 text-purple-800 border-purple-200" },
+  gray: { container: "bg-gray-50 border-gray-200 hover:bg-gray-50", icon: "text-gray-600", leftBar: "border-gray-400", badge: "bg-gray-100 text-gray-800 border-gray-200" },
 };
 
-// helpers (file-level)
-const getLatestFollowup = (arr?: Followup[] | null) => (arr && arr.length ? arr[0] : null);
-
-const shouldShowTransfer = (ld?: Lead | null, lf?: Followup | null) => {
-  const lStage = (ld?.stage || "").trim().toLowerCase();
-  const lStatus = (ld?.status || "").trim().toLowerCase();
-  const fStage = (lf?.stage || "").trim().toLowerCase();
-  const fStatus = (lf?.status || "").trim().toLowerCase();
-
-  const isLeadOK = (lStage === "contacted" || lStage === "connected") && lStatus === "qualified";
-  const isFollowupOK = (fStage === "contacted" || fStage === "connected") && fStatus === "qualified";
-
-  return isLeadOK || isFollowupOK;
+// Helper function to normalize strings for comparison
+const normalizeString = (str: any): string => {
+  return (str ?? "").toString().trim().toLowerCase().replace(/[\s-_/]+/g, "");
 };
 
-// export if you reuse elsewhere
-export const getFollowupTypeClasses = (t: string) => {
-  const color = FOLLOWUP_TYPES.find((ft) => ft.value === t)?.color || "gray";
-  const map: Record<string, { container: string; icon: string; leftBar: string; badge: string }> = {
-    blue: { container: "bg-blue-50 border-blue-200 hover:bg-blue-50", icon: "text-blue-600", leftBar: "border-blue-400", badge: "bg-blue-100 text-blue-800 border-blue-200" },
-    green: { container: "bg-green-50 border-green-200 hover:bg-green-50", icon: "text-green-600", leftBar: "border-green-400", badge: "bg-green-100 text-green-800 border-green-200" },
-    indigo: { container: "bg-indigo-50 border-indigo-200 hover:bg-indigo-50", icon: "text-indigo-600", leftBar: "border-indigo-400", badge: "bg-indigo-100 text-indigo-800 border-indigo-200" },
-    orange: { container: "bg-orange-50 border-orange-200 hover:bg-orange-50", icon: "text-orange-600", leftBar: "border-orange-400", badge: "bg-orange-100 text-orange-800 border-orange-200" },
-    purple: { container: "bg-purple-50 border-purple-200 hover:bg-purple-50", icon: "text-purple-600", leftBar: "border-purple-400", badge: "bg-purple-100 text-purple-800 border-purple-200" },
-    gray: { container: "bg-gray-50 border-gray-200 hover:bg-gray-50", icon: "text-gray-600", leftBar: "border-gray-400", badge: "bg-gray-100 text-gray-800 border-gray-200" },
+// Role-based executive assignment helper - FIXED VERSION
+// Role-based executive assignment helper - PRESALES ONLY VERSION
+const getAssignableExecutives = (user: any, presalesUsers: any[]) => {
+  const norm = (s: any) =>
+    (s ?? "")
+      .toString()
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-_/]+/g, "");
+
+  const role = norm(user?.role);
+  const dept = norm(user?.department);
+
+  const toExecutive = (u: any) => ({
+    id: u.id ?? u.user_id ?? u._id,
+    name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || "Executive",
+    department: u.department,
+    role: u.role,
+    selfOnly: false,
+    salutation: u.salutation || "",
+  });
+
+  // Presales Executive - can only assign to themselves
+  if (role === "executive" && (dept === "presales" || dept === "presale")) {
+    const selfExecutive = {
+      ...toExecutive(user),
+      selfOnly: true,
+      name: `${user?.salutation ? user.salutation + " " : ""}${user?.first_name || user?.name || "You"}${user?.last_name ? " " + user.last_name : ""} (Self)`,
+    };
+    return [selfExecutive];
+  }
+
+  // Presales Manager - can assign to all presales executives
+  if (role === "manager" && (dept === "presales" || dept === "presale")) {
+    return presalesUsers.map(toExecutive);
+  }
+
+  // Admin - can assign to all presales executives
+  if (role === "admin") {
+    return presalesUsers.map(toExecutive);
+  }
+
+  // Default - allow self-assignment for other roles
+  const selfExecutive = {
+    ...toExecutive(user),
+    selfOnly: true,
+    name: `${user?.salutation ? user.salutation + " " : ""}${user?.first_name || user?.name || "You"}${user?.last_name ? " " + user.last_name : ""} (Self)`,
+
   };
-  return map[color];
+  return [selfExecutive];
+};
+// Get filtered leads based on user role and assignment
+const getFilteredLeads = (allLeads: Lead[], user: AuthUser | null): Lead[] => {
+  if (!user) return allLeads;
+
+  const userRole = normalizeString(user.role);
+  const userId = user.id || user.user_id;
+
+  // Admin and Manager can see all leads
+  if (userRole === "admin" || userRole === "manager") {
+    return allLeads;
+  }
+
+  // Executive can only see leads assigned to them
+  if (userRole === "executive") {
+    return allLeads.filter(lead =>
+      lead.assigned_executive && String(lead.assigned_executive) === String(userId)
+    );
+  }
+
+  // Default: return all leads for other roles
+  return allLeads;
 };
 
 const LeadDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth() as { user: AuthUser | null };
 
   const [isFollowupModalOpen, setIsFollowupModalOpen] = useState(false);
   const [lead, setLead] = useState<Lead | null>(null);
@@ -132,13 +232,11 @@ const LeadDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
+  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [currentLeadIndex, setCurrentLeadIndex] = useState<number>(0);
 
-  const [showAgentDropdown, setShowAgentDropdown] = useState<boolean>(false);
   const [showTransferOptions, setShowTransferOptions] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
-  const [showBuyerComponent, setShowBuyerComponent] = useState(false);
-  const [showSellerComponent, setShowSellerComponent] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -146,114 +244,119 @@ const LeadDetailPage: React.FC = () => {
   const [followupsLoading, setFollowupsLoading] = useState(false);
   const [followupsError, setFollowupsError] = useState<string | null>(null);
 
-  const [masterOptions, setMasterOptions] = useState({
-    salutation: [] as { value: string; label: string }[],
-    leadType: [] as { value: string; label: string }[],
-    leadSource: [] as { value: string; label: string }[],
-    leadStatus: [] as { value: string; label: string }[],
-    states: [] as { value: string; label: string }[],
-    cities: [] as { value: string; label: string }[],
-    locations: [] as { value: string; label: string }[],
-    agents: [] as { value: string; label: string; role?: string }[],
+  const [masterOptions, setMasterOptions] = useState<MasterOptions>({
+    salutation: [],
+    leadType: [],
+    leadSource: [],
+    leadStatus: [],
+    states: [],
+    cities: [],
+    locations: [],
+    agents: [],
   });
 
-  const currentUserRole: UserRole = "admin";
-  const { user } = useAuth();
-  const [presalesUsers, setPreSalesUsers] = useState<any[]>([]);
+  const [presalesUsers, setPreSalesUsers] = useState<PresalesUser[]>([]);
+  const [execsLoading, setExecsLoading] = useState<boolean>(true);
   const [showExecDropdown, setShowExecDropdown] = useState(false);
 
-  // fetch presales users once (executives list)
+  const [showBuyerComponent, setShowBuyerComponent] = useState(false);
+  const [showSellerComponent, setShowSellerComponent] = useState(false);
+  const [editingFollowup, setEditingFollowup] = useState<Followup | null>(null);
+
+  /* ===================== Fetch Presales Executives ===================== */
+  /* ===================== Fetch Presales Executives Only ===================== */
   useEffect(() => {
-    (async () => {
+    let mounted = true;
+    const fetchExecs = async () => {
       try {
+        setExecsLoading(true);
+
+        // Fetch all users
         const resp = await usersAPI.getAllUsers?.();
-        const execs = (resp?.data || []).filter(
-          (u: any) =>
-            (String(u?.department || "").toLowerCase() === "presales" || String(u?.department || "").toLowerCase() === "pre-sales") &&
-            String(u?.role || "").toLowerCase() === "executive"
-        );
-        setPreSalesUsers(execs);
+        const raw = resp?.data ?? resp?.items ?? resp ?? [];
+        if (!mounted) return;
+
+        // Get only PRESALES executives
+        const presalesExecs: PresalesUser[] = (Array.isArray(raw) ? raw : [])
+          .filter((u: any) => {
+            const role = normalizeString(u?.role);
+            const dept = normalizeString(u?.department);
+            return role === "executive" &&
+              (dept === "presales" || dept === "presale");
+          })
+          .map((u: any) => ({
+            id: String(u.id ?? u.user_id ?? u._id ?? ""),
+            name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || "Executive",
+            department: u.department,
+            role: u.role,
+            salutation: u.salutation || "",
+          }));
+
+        setPreSalesUsers(presalesExecs);
       } catch (err) {
-        toast.error("Failed to load executives:", err);
+        console.error("Failed to load presales executives:", err);
+        // Don't show error toast - just use empty array and allow self-assignment
+        setPreSalesUsers([]);
+      } finally {
+        setExecsLoading(false);
       }
-    })();
+    };
+
+    fetchExecs();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // ✅ Fixed handleExecAssign with proper notification support
-  const handleExecAssign = async (execId: string, execName: string) => {
-    if (!lead) return;
+  /* ===================== Filter leads based on user role ===================== */
+  useEffect(() => {
+    const filtered = getFilteredLeads(allLeads, user);
+    setFilteredLeads(filtered);
 
-    try {
-      const previousExec = lead.assigned_executive;
-
-      // Update local state first for immediate UI feedback
-      setLead({ ...lead, assigned_executive: execId, assigned_executive_name: execName });
-      setShowExecDropdown(false);
-
-      // Call API to update assignment
-      await leadsAPI.assignToExecutive(lead.id, { assigned_executive: execId });
-
-      // ✅ Send notification if executive is being assigned (not unassigned) and it's a different executive
-      if (execId && execId.trim() !== "" && execId !== previousExec) {
-        try {
-          await notificationAPI.createNotification({
-            leadId: Number(lead.id), // ✅ Convert to string
-            userId: Number(execId),   // ✅ Convert to string
-            message: `lead assign to you ${lead.name || "-"}`,
-            type: "lead_assign",
-            link: `/dashboard/leads/${lead.id}`,
-          });
-
-          
-        } catch (notifErr) {
-        
-          toast.error("Notification error details:", notifErr?.response?.data || notifErr?.message);
-          // Don't fail the assignment for notification error
-          toast.warn("Lead assigned but notification failed to send");
-        }
-      }
-
-      toast.success(`Lead assigned to ${execName}`);
-    } catch (err) {
-    toast.error("Error assigning executive:", err);
-      // Revert local state on error
-      if (lead) {
-        setLead({ ...lead, assigned_executive: lead.assigned_executive, assigned_executive_name: lead.assigned_executive_name });
-      }
-      toast.error("Failed to assign. Please try again.");
+    // Update current index when filtered leads change
+    if (lead && filtered.length > 0) {
+      const index = filtered.findIndex((l: Lead) => String(l.id) === String(lead.id));
+      setCurrentLeadIndex(index >= 0 ? index : 0);
     }
-  };
+  }, [allLeads, user, lead]);
 
-  const getAssignedExecName = () => {
-    if (lead?.assigned_executive_name && lead.assigned_executive_name !== "Unassigned") {
+  /* ===================== Assignable executives based on role ===================== */
+  const assignableExecs = useMemo(() => {
+    return getAssignableExecutives(user, presalesUsers);
+  }, [user, presalesUsers]);
+
+  /* ===================== Resolve assigned exec name reliably ===================== */
+  const getAssignedExecName = (): string => {
+    if (!lead) return "Unassigned";
+
+    // If we already have a name, use it
+    if (lead.assigned_executive_name && lead.assigned_executive_name !== "Unassigned") {
       return lead.assigned_executive_name;
     }
-    if (lead?.assigned_executive && presalesUsers.length > 0) {
-      const exec = presalesUsers.find(u => String(u.id) === String(lead.assigned_executive));
-      return exec?.name || "Unassigned";
+
+    // Try to find in presales users
+    if (lead.assigned_executive && presalesUsers.length > 0) {
+      const exec = presalesUsers.find((u) => String(u.id) === String(lead.assigned_executive));
+      if (exec) {
+        return exec.name;
+      }
     }
+
+    // Check if current user is assigned to themselves
+    const currentUserId = user?.id ?? user?.user_id;
+    if (
+      lead.assigned_executive &&
+      String(lead.assigned_executive) === String(currentUserId)
+    ) {
+      return `${user?.salutation ? user.salutation + " " : ""
+        }${user?.first_name || user?.name || "You"}${user?.last_name ? " " + user.last_name : ""
+        } (Self)`;
+    }
+
     return "Unassigned";
   };
 
-  // Update lead when presalesUsers becomes available (resolve name)
-  useEffect(() => {
-    if (lead?.assigned_executive && presalesUsers.length > 0 &&
-      (!lead.assigned_executive_name || lead.assigned_executive_name === "Unassigned")) {
-      const exec = presalesUsers.find(u => String(u.id) === String(lead.assigned_executive));
-      if (exec) {
-        setLead(prev => prev ? ({ ...prev, assigned_executive_name: exec.name }) : prev);
-      }
-    }
-  }, [presalesUsers, lead]);
-
-  // editing follow-up
-  const [editingFollowup, setEditingFollowup] = useState<Followup | null>(null);
-
-  // latest follow-up (memoized)
-  const latestFollowup = useMemo(() => getLatestFollowup(followups), [followups]);
-
-  /* ===================== Effects ===================== */
-  // Close transfer dropdown on outside click
+  /* ===================== Handle outside click for transfer popup ===================== */
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -264,8 +367,8 @@ const LeadDetailPage: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch followups
-  const fetchFollowups = async (leadIdParam?: string) => {
+  /* ===================== Followups ===================== */
+  const fetchFollowups = async (leadIdParam?: string): Promise<Followup[]> => {
     const leadToUse = leadIdParam ?? id;
     if (!leadToUse) {
       setFollowups([]);
@@ -273,26 +376,18 @@ const LeadDetailPage: React.FC = () => {
       setFollowupsLoading(false);
       return [];
     }
-
     try {
       setFollowupsLoading(true);
       setFollowupsError(null);
-
       const response = await followupAPI.getFollowupsByLeadId(leadToUse);
 
-      // normalize various shapes
       let followupsData: Followup[] = [];
       if (Array.isArray(response?.data)) followupsData = response.data;
       else if (Array.isArray(response)) followupsData = response;
       else if (Array.isArray(response?.payload)) followupsData = response.payload;
       else if (Array.isArray(response?.result)) followupsData = response.result;
 
-      if (!followupsData || followupsData.length === 0) {
-        setFollowups([]);
-        return [];
-      }
-
-      followupsData = followupsData.map((f: any) => ({
+      followupsData = (followupsData || []).map((f: any) => ({
         id: f.id || f._id || f.followup_id || "",
         leadId: f.leadId || f.lead_id || leadToUse,
         type: f.type || f.followupType || "general",
@@ -309,7 +404,7 @@ const LeadDetailPage: React.FC = () => {
         ...f,
       }));
 
-      // sort latest first (scheduledDate -> createdAt)
+      // latest first
       followupsData.sort((a, b) => {
         const da = new Date(a.scheduledDate || a.createdAt || 0).getTime();
         const db = new Date(b.scheduledDate || b.createdAt || 0).getTime();
@@ -321,14 +416,14 @@ const LeadDetailPage: React.FC = () => {
       setFollowups(followupsData);
       return followupsData;
     } catch (e: any) {
+      console.error("Error fetching followups:", e);
       const status = e?.response?.status || e?.status;
       if (status === 404 || status === 204) {
-       
         setFollowups([]);
         setFollowupsError(null);
         return [];
       } else {
-        toast.error("Error fetching followups:", e);
+        toast.error("Failed to fetch follow-ups");
         setFollowupsError("Failed to fetch follow-ups");
         setFollowups([]);
         return [];
@@ -338,53 +433,33 @@ const LeadDetailPage: React.FC = () => {
     }
   };
 
-  const handleEditFollowups = (f: Followup) => {
-    setEditingFollowup(f);
-    setIsFollowupModalOpen(true);
-  };
-
-  const handleDeleteFollowups = async (followupId: string) => {
-    const prev = [...followups];
-    setFollowups((p) => p.filter((f) => f.id !== followupId));
-
-    try {
-      await followupAPI.deleteFollowup(followupId);
-      toast.success("Follow-up deleted successfully");
-    } catch (e) {
-      toast.error("Delete follow-up failed:", e);
-      setFollowups(prev); // rollback
-      toast.error("Failed to delete follow-up. Please try again.");
-    }
-  };
-
+  // Fetch followups when component mounts or id changes
   useEffect(() => {
-    fetchFollowups();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (id) {
+      fetchFollowups();
+    }
   }, [id]);
 
-  // Fetch lead + master data
+  /* ===================== Fetch Lead + Master Data ===================== */
   useEffect(() => {
     const fetchLead = async () => {
       try {
         setLoading(true);
 
-        // ensure we have presales users (resolve names from them if needed)
-        if (!presalesUsers || presalesUsers.length === 0) {
-          try {
-            const resp = await usersAPI.getAllUsers?.();
-            setPreSalesUsers(resp?.data || []);
-          } catch (e) {
-            toast.warn("Could not fetch presales users inside fetchLead:", e);
-          }
-        }
-
         if (id) {
-          const [response, allLeadsResponse] = await Promise.all([leadsAPI.getLead(id), leadsAPI.getLeads()]);
+          const [response, allLeadsResponse] = await Promise.all([
+            leadsAPI.getLead(id),
+            leadsAPI.getLeads(),
+          ]);
 
           if (allLeadsResponse?.success && allLeadsResponse.data) {
-            setAllLeads(allLeadsResponse.data);
-            const index = allLeadsResponse.data.findIndex((l: Lead) => l.id === id);
-            setCurrentLeadIndex(index >= 0 ? index : 0);
+            const leadsData: Lead[] = Array.isArray(allLeadsResponse.data)
+              ? allLeadsResponse.data.map((l: any) => ({
+                ...l,
+                id: String(l.id || l._id || "")
+              }))
+              : [];
+            setAllLeads(leadsData);
           }
 
           const data = response?.data ?? response;
@@ -393,35 +468,32 @@ const LeadDetailPage: React.FC = () => {
             return;
           }
 
-          const resolveUserName = (userId: any) => {
-            if (!userId) return null;
-            const found = (presalesUsers || []).find(u => String(u.id) === String(userId) || String(u._id) === String(userId) || String(u.user_id) === String(userId));
-            return found?.name ?? found?.full_name ?? found?.displayName ?? null;
+          const resolveExecName = (execId: any): string | null => {
+            if (!execId) return null;
+            const found = presalesUsers.find((u) => String(u.id) === String(execId));
+            return found?.name ?? null;
           };
 
-          const execName = data.assigned_executive_name || resolveUserName(data.assigned_executive) || "Unassigned";
+          const execName =
+            data.assigned_executive_name ||
+            resolveExecName(data.assigned_executive) ||
+            "Unassigned";
 
           const createdByName =
             data.created_by_name ||
-            resolveUserName(data.created_by) ||
             `${data.created_first_name || data.createdByFirstName || ""} ${data.created_last_name || data.createdByLastName || ""}`.trim() ||
             "System";
 
           const updatedByName =
             data.updated_by_name ||
-            resolveUserName(data.updated_by) ||
             `${data.updated_first_name || data.updatedByFirstName || ""} ${data.updated_last_name || data.updatedByLastName || ""}`.trim() ||
             "System";
 
           const lastContactedByName =
-            data.last_contacted_by_name ||
-            resolveUserName(data.last_contacted_by) ||
-            data.updated_by_name ||
-            data.updated_by ||
-            null;
+            data.last_contacted_by_name || data.updated_by_name || null;
 
           const leadData: Lead = {
-            id: data.id || data._id || "",
+            id: String(data.id || data._id || ""),
             salutation: data.salutation || "",
             name: data.name || "",
             phone: data.phone || "",
@@ -433,8 +505,8 @@ const LeadDetailPage: React.FC = () => {
             city: data.city || "",
             location: data.location || "",
             status: data.status || "New",
-            assigned_executive: data.assigned_executive || "",
-            assigned_executive_name: execName,
+            assigned_executive: data.assigned_executive ? String(data.assigned_executive) : "",
+            assigned_executive_name: execName || "Unassigned",
             created_at: data.created_at || new Date().toISOString(),
             updated_at: data.updated_at || new Date().toISOString(),
             priority: data.priority || " -",
@@ -442,7 +514,7 @@ const LeadDetailPage: React.FC = () => {
             created_by: data.created_by || data.createdBy || "System",
             last_contact: data.last_contact || data.lastContact || "",
             last_contacted_by: data.last_contacted_by || data.last_contact_by || data.lastContactedBy || "",
-            last_contacted_by_name: lastContactedByName,
+            last_contacted_by_name: lastContactedByName || undefined,
             created_by_name: createdByName,
             updated_by_name: updatedByName,
           };
@@ -450,323 +522,404 @@ const LeadDetailPage: React.FC = () => {
           setLead(leadData);
         }
       } catch (err) {
-        toast.error("Error fetching lead details:", err);
+        console.error("Error fetching lead details:", err);
+        toast.error("Error fetching lead details");
         setError("Failed to fetch lead details");
       } finally {
         setLoading(false);
       }
     };
 
-    const initializeData = async () => {
-      await Promise.all([fetchLead(), fetchMasterData()]);
+    const fetchMasters = async () => {
+      try {
+        setError(null);
+
+        const [leadMasterTypes, commonMasterTypes] = await Promise.all([
+          masterDataAPI.getAllMasterTypes("lead"),
+          masterDataAPI.getAllMasterTypes("common"),
+        ]);
+
+        const allMasterTypes = [...leadMasterTypes, ...commonMasterTypes];
+
+        const masterValues = await Promise.all(
+          allMasterTypes.map(async (masterType: any) => {
+            try {
+              const values = await masterDataAPI.getMasterValues(masterType.id);
+              return values;
+            } catch {
+              return [];
+            }
+          })
+        );
+
+        const organizedData: Record<string, MasterOption[]> = {};
+        allMasterTypes.forEach((masterType: any, index: number) => {
+          const values = masterValues[index] || [];
+          const normalizedName = (masterType.name || "").toLowerCase().trim();
+          organizedData[normalizedName] = values.map((item: any) => ({
+            value: item.value,
+            label: item.value || item.name || "Unknown",
+            role: item.role || "Agent",
+          }));
+        });
+
+        const agentData = organizedData["agent"] || organizedData["agents"] || [];
+        setMasterOptions((prev) => ({
+          ...prev,
+          salutation: organizedData["salutation"] || organizedData["salutations"] || [],
+          leadType: organizedData["lead type"] || organizedData["leadtype"] || organizedData["lead_type"] || [],
+          leadSource: organizedData["lead source"] || organizedData["leadsource"] || organizedData["lead_source"] || [],
+          leadStatus: organizedData["lead status"] || organizedData["leadstatus"] || organizedData["lead_status"] || organizedData["status"] || [],
+          states: organizedData["state"] || organizedData["states"] || [],
+          cities: organizedData["city"] || organizedData["cities"] || [],
+          locations: organizedData["location"] || organizedData["locations"] || [],
+          agents: agentData.map((item) => ({
+            value: item.value,
+            label: item.label,
+            role: item.role || "Agent",
+          })),
+        }));
+      } catch (err: any) {
+        console.error("Failed to load master data:", err);
+        setError(`Failed to load dropdown options`);
+      }
     };
 
-    initializeData();
+    // Load masters immediately; load lead after we at least started execs
+    fetchMasters();
+    fetchLead();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, execsLoading]);
 
-  const fetchMasterData = async () => {
-    try {
-      setError(null);
+  // When presalesUsers arrives later, resolve assigned name (no page refresh needed)
+  useEffect(() => {
+    if (lead?.assigned_executive && presalesUsers.length > 0) {
+      const exec = presalesUsers.find((u) => String(u.id) === String(lead.assigned_executive));
+      if (exec) {
+        setLead((prev) =>
+          prev
+            ? {
+              ...prev,
+              assigned_executive_name: exec.name,
+            }
+            : prev
+        );
+      }
+    }
+  }, [presalesUsers, lead?.assigned_executive]);
 
-      const [leadMasterTypes, commonMasterTypes] = await Promise.all([
-        masterDataAPI.getAllMasterTypes("lead"),
-        masterDataAPI.getAllMasterTypes("common"),
-      ]);
-
-      const allMasterTypes = [...leadMasterTypes, ...commonMasterTypes];
-
-      const masterValues = await Promise.all(
-        allMasterTypes.map(async (masterType: any) => {
-          try {
-            const values = await masterDataAPI.getMasterValues(masterType.id);
-            return values;
-          } catch (err) {
-            toast.error(`❌ Error fetching values for ${masterType.name}:`, err);
-            return [];
-          }
-        })
-      );
-
-      const organizedData: Record<string, { value: string; label: string; role?: string }[]> = {};
-      allMasterTypes.forEach((masterType: any, index: number) => {
-        const values = masterValues[index] || [];
-        const normalizedName = (masterType.name || "").toLowerCase().trim();
-        organizedData[normalizedName] = values.map((item: any) => ({
-          value: item.value,
-          label: item.value || item.name || "Unknown",
-          role: item.role || "Agent",
-        }));
-      });
-
-      const findAgentData = () => {
-        const possibleAgentKeys = [
-          "agent",
-          "agents",
-          "role",
-          "roles",
-          "user",
-          "users",
-          "employee",
-          "employees",
-          "staff",
-          "team member",
-          "team_member",
-        ];
-        for (const key of possibleAgentKeys) {
-          if (organizedData[key] && organizedData[key].length > 0) {
-            return organizedData[key];
-          }
+  /* ===================== Edit / Delete ===================== */
+  const handleDelete = async () => {
+    if (!id) return;
+    if (confirm("Are you sure you want to delete this lead?")) {
+      try {
+        const response = await leadsAPI.deleteLead(id);
+        if (response.success) {
+          toast.success("Lead deleted ✅");
+          navigate("/dashboard/leads");
+        } else {
+          toast.error("Failed to delete lead ❌");
         }
-       
-        return [];
-      };
+      } catch (err) {
+        console.error("Error deleting lead:", err);
+        toast.error("Error deleting lead");
+      }
+    }
+  };
 
-      const agentData = findAgentData();
+  /* ===================== Exec Assignment + Notification ===================== */
+  const handleExecAssign = async (execId: string, execName: string) => {
+    if (!lead) return;
 
-      setMasterOptions((prev) => ({
-        ...prev,
-        salutation: organizedData["salutation"] || organizedData["salutations"] || [],
-        leadType:
-          organizedData["lead type"] ||
-          organizedData["leadtype"] ||
-          organizedData["lead_type"] ||
-          [],
-        leadSource:
-          organizedData["lead source"] ||
-          organizedData["leadsource"] ||
-          organizedData["lead_source"] ||
-          [],
-        leadStatus:
-          organizedData["lead status"] ||
-          organizedData["leadstatus"] ||
-          organizedData["lead_status"] ||
-          organizedData["status"] ||
-          [],
-        states: organizedData["state"] || organizedData["states"] || [],
-        cities: organizedData["city"] || organizedData["cities"] || [],
-        locations: organizedData["location"] || organizedData["locations"] || [],
-        agents: agentData.map((item) => ({
-          value: item.value,
-          label: item.label,
-          role: item.role || "Agent",
-        })),
-      }));
-    } catch (err: any) {
-      console.error("❌ Failed to load master data:", err);
-      setError(
-        `Failed to load dropdown options: ${err instanceof Error ? err.message : String(err)}`
+    try {
+      const prevExec = lead.assigned_executive || "";
+
+      // optimistic UI
+      setLead({ ...lead, assigned_executive: execId, assigned_executive_name: execName });
+      setShowExecDropdown(false);
+
+      // update lead assignment on server
+      await leadsAPI.assignToExecutive(lead.id, { assigned_executive: execId });
+
+      // if changed → create notification for new assignee
+      if (execId && execId !== prevExec) {
+        try {
+          await notificationAPI.createNotification({
+            leadId: String(lead.id),
+            userId: String(execId),
+            message: `Lead assigned to ${execName}`,
+            type: "lead_assign",
+            link: `/dashboard/leads/${lead.id}`,
+          } as NotificationData);
+        } catch (notifErr: any) {
+          console.error("Notification error:", notifErr);
+          toast.warn("Lead assigned but notification failed");
+        }
+      }
+
+      toast.success(`Lead assigned to ${execName}`);
+    } catch (err) {
+      console.error("Error assigning executive:", err);
+      // rollback
+      setLead((prev) => (prev ? { ...prev, assigned_executive: lead.assigned_executive, assigned_executive_name: lead.assigned_executive_name } : prev));
+      toast.error("Failed to assign. Please try again.");
+    }
+  };
+
+  /* ===================== Save lead (edit) + Notification if assignee changed ===================== */
+  const handleSaveLead = async (updatedLead: Lead | null) => {
+    if (!updatedLead) return;
+    try {
+      const prevExec = lead?.assigned_executive || "";
+      const newExec = updatedLead.assigned_executive || "";
+
+      const response = await leadsAPI.updateLead(updatedLead.id!, updatedLead);
+      const savedLead = response?.data || response;
+
+      setLead((prev) => ({ ...(prev || {} as Lead), ...savedLead }));
+      setAllLeads((prev) => prev.map((l) => (String(l.id) === String(savedLead.id) ? { ...l, ...savedLead } : l)));
+
+      if (newExec && newExec !== prevExec) {
+        const exec = presalesUsers.find((u) => String(u.id) === String(newExec));
+        const execName = exec?.name || savedLead.assigned_executive_name || "Executive";
+        try {
+          await notificationAPI.createNotification({
+            leadId: String(updatedLead.id),
+            userId: String(newExec),
+            message: `Lead updated and assigned to ${execName}`,
+            type: "lead_update",
+            link: `/dashboard/leads/${updatedLead.id}`,
+          } as NotificationData);
+        } catch (notifErr) {
+          console.error("Notification error:", notifErr);
+        }
+      }
+
+      setIsEditModalOpen(false);
+      toast.success("Lead details updated successfully!");
+    } catch (err) {
+      console.error("Error saving lead:", err);
+      toast.error("Failed to save lead. Please try again.");
+    }
+  };
+
+  /* ===================== Followup Save (+ notify assignee) ===================== */
+  const handleFollowupSave = async (data: FollowupForm & { lead_id?: string }) => {
+    if (!lead?.id) {
+      toast.error("Lead not loaded.");
+      return;
+    }
+
+    let saved: any = null;
+    const scheduledISO = data.scheduleDate ? `${data.scheduleDate}T${(data.scheduleTime || "00:00")}:00` : null;
+
+    const followupPayload = {
+      leadId: data.lead_id ?? lead.id,
+      type: data.followupType,
+      stage: data.leadStage,
+      status: data.leadStatus,
+      remark: data.remark,
+      customRemark: data.customRemark,
+      nextAction: data.nextAction,
+      scheduledDate: scheduledISO,
+      priority: data.priority,
+      updated_by: user?.id ?? user?.user_id,
+    };
+
+    try {
+      if (editingFollowup) {
+        await followupAPI.updateFollowup(String(editingFollowup.id), followupPayload);
+        saved = { ...editingFollowup, ...followupPayload, updatedAt: new Date().toISOString() };
+        setEditingFollowup(null);
+        setFollowups((prev) => prev.map((f) => (f.id === editingFollowup.id ? saved : f)));
+        toast.success("Follow-up updated successfully!");
+      } else {
+        const resp = await followupAPI.createFollowup(followupPayload);
+        const newId = resp?.data?.id || resp?.id || `temp-${Date.now()}`;
+        saved = {
+          id: newId,
+          leadId: followupPayload.leadId,
+          type: followupPayload.type,
+          stage: followupPayload.stage,
+          status: followupPayload.status,
+          remark: followupPayload.remark,
+          customRemark: followupPayload.customRemark,
+          nextAction: followupPayload.nextAction,
+          scheduledDate: scheduledISO,
+          createdAt: new Date().toISOString(),
+          priority: followupPayload.priority,
+          createdByFirstName: user?.first_name || "",
+          createdByLastName: user?.last_name || "",
+        };
+        setFollowups((prev) => [saved, ...prev]);
+        toast.success("Follow-up saved successfully!");
+      }
+    } catch (err) {
+      console.error("Error saving followup:", err);
+      toast.error(`Failed to ${editingFollowup ? "update" : "save"} follow-up. Please try again.`);
+      return;
+    }
+
+    // Update lead status/stage/priority (non-blocking)
+    try {
+      await leadsAPI.updateLead(lead.id, {
+        stage: data.leadStage,
+        status: data.leadStatus,
+        priority: data.priority,
+        updated_by: user?.id ?? user?.user_id,
+      });
+      setLead((prev) =>
+        prev
+          ? {
+            ...prev,
+            stage: data.leadStage || prev.stage,
+            status: data.leadStatus || prev.status,
+            priority: data.priority,
+          }
+          : prev
       );
-    }
-  };
-
-  /* ===================== Helpers ===================== */
-  const canAssignAgents = ["admin", "manager"].includes(currentUserRole);
-
-  const handleTransferToBuyer = async () => {
-    if (!lead?.id) return;
-    try {
-      setShowTransferOptions(false);
-      const allFollowups = await fetchFollowups(lead.id);
-      setShowBuyerComponent(true);
-      if (allFollowups && Array.isArray(allFollowups)) {
-        setFollowups(allFollowups);
-      }
     } catch (err) {
-      toast.error("Failed to load followups before transfer:", err);
-      toast.error("Unable to load follow-ups. Try again.");
+      console.error("Error updating lead:", err);
     }
-  };
 
-  const handleTransferToSeller = async () => {
-    if (!lead?.id) return;
-    try {
-      setShowTransferOptions(false);
-      // fetch the latest followups for this lead and update state
-      const allFollowups = await fetchFollowups(lead.id);
-      if (allFollowups && Array.isArray(allFollowups)) {
-        setFollowups(allFollowups);
+    // Notify current assignee (non-blocking)
+    if (lead.assigned_executive && String(lead.assigned_executive).trim() !== "") {
+      try {
+        await notificationAPI.createNotification({
+          leadId: String(lead.id),
+          userId: String(lead.assigned_executive),
+          message: `New follow-up added for lead "${lead.name}" by ${user?.first_name || "User"}`,
+          type: "followup_add",
+          link: `/dashboard/leads/${lead.id}`,
+        } as NotificationData);
+      } catch (notifErr) {
+        console.error("Notification error:", notifErr);
       }
-      // open seller modal
-      setShowSellerComponent(true);
+    }
+
+    setIsFollowupModalOpen(false);
+
+    // background refresh for consistency
+    setTimeout(() => {
+      fetchFollowups();
+    }, 800);
+  };
+
+  /* ===================== Followup Edit/Delete Handlers ===================== */
+  const handleEditFollowup = (followup: Followup) => {
+    setEditingFollowup(followup);
+    setIsFollowupModalOpen(true);
+  };
+
+  const handleDeleteFollowup = async (followupId: string | number) => {
+    if (!confirm("Are you sure you want to delete this follow-up?")) return;
+
+    const prevFollowups = [...followups];
+    setFollowups((prev) => prev.filter((f) => f.id !== followupId));
+
+    try {
+      await followupAPI.deleteFollowup(String(followupId));
+      toast.success("Follow-up deleted successfully");
     } catch (err) {
-      toast.error("Failed to load followups before transfer to seller:", err);
-      toast.error("Unable to load follow-ups. Try again.");
+      console.error("Error deleting followup:", err);
+      setFollowups(prevFollowups);
+      toast.error("Failed to delete follow-up");
     }
   };
 
+  /* ===================== Navigation Handlers ===================== */
+  const handlePreviousLead = () => {
+    if (filteredLeads.length === 0 || currentLeadIndex <= 0) return;
+    const prevIndex = currentLeadIndex - 1;
+    const prevLead = filteredLeads[prevIndex];
+    setCurrentLeadIndex(prevIndex);
+    navigate(`/dashboard/leads/${prevLead.id}`);
+  };
 
+  const handleNextLead = () => {
+    if (filteredLeads.length === 0 || currentLeadIndex >= filteredLeads.length - 1) return;
+    const nextIndex = currentLeadIndex + 1;
+    const nextLead = filteredLeads[nextIndex];
+    setCurrentLeadIndex(nextIndex);
+    navigate(`/dashboard/leads/${nextLead.id}`);
+  };
+
+  /* ===================== Other helpers / UI ===================== */
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return { date: "-", time: "-" };
     try {
       const date = new Date(dateString);
       return {
-        date: date.toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
-        time: date.toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        }),
+        date: date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+        time: date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
       };
     } catch {
       return { date: "-", time: "-" };
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const shouldShowTransfer = (ld?: Lead | null, lf?: Followup | null): boolean => {
+    const lStage = (ld?.stage || "").trim().toLowerCase();
+    const lStatus = (ld?.status || "").trim().toLowerCase();
+    const fStage = (lf?.stage || "").trim().toLowerCase();
+    const fStatus = (lf?.status || "").trim().toLowerCase();
+    const isLeadOK = (lStage === "contacted" || lStage === "connected") && lStatus === "qualified";
+    const isFollowupOK = (fStage === "contacted" || fStage === "connected") && fStatus === "qualified";
+    return isLeadOK || isFollowupOK;
+  };
+
+  const getStatusColor = (status: string): string => {
     switch (status?.toLowerCase()) {
-      case "contacted":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "new":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      case "qualified":
-        return "bg-teal-100 text-teal-800 border-teal-200";
-      case "unqualified":
-        return "bg-red-100 text-red-800 border-red-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+      case "contacted": return "bg-blue-100 text-blue-800 border-blue-200";
+      case "new": return "bg-purple-100 text-purple-800 border-purple-200";
+      case "qualified": return "bg-teal-100 text-teal-800 border-teal-200";
+      case "unqualified": return "bg-red-100 text-red-800 border-red-200";
+      default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
-  const getLeadTypeColor = (type: string) => {
+  const getLeadTypeColor = (type: string): string => {
     switch (type?.toLowerCase()) {
-      case "buyer-self":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "buyer inverstor":
-        return "bg-indigo-100 text-indigo-800 border-indigo-200";
-      case "seller self":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "seller inverstor":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "seller builder":
-        return "bg-orange-100 text-orange-800 border-orange-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+      case "buyer-self": return "bg-green-100 text-green-800 border-green-200";
+      case "buyer inverstor": return "bg-indigo-100 text-indigo-800 border-indigo-200";
+      case "seller self": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "seller inverstor": return "bg-red-100 text-red-800 border-red-200";
+      case "seller builder": return "bg-orange-100 text-orange-800 border-orange-200";
+      default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority: string): string => {
     switch (priority?.toLowerCase()) {
-      case "high":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "low":
-        return "bg-green-100 text-green-800 border-green-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+      case "high": return "bg-red-100 text-red-800 border-red-200";
+      case "medium": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "low": return "bg-green-100 text-green-800 border-green-200";
+      default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
-  const getStageColor = (stage: string) => {
+  const getStageColor = (stage: string): string => {
     switch (stage?.toLowerCase()) {
-      case "attempting contact":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "contacted":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      case "converted to opportunity":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "disqualified":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "new":
-        return "bg-gray-100 text-gray-800 border-gray-200";
-      case "nurturing":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "qualified":
-        return "bg-teal-100 text-teal-800 border-teal-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+      case "attempting contact": return "bg-blue-100 text-blue-800 border-blue-200";
+      case "contacted": return "bg-purple-100 text-purple-800 border-purple-200";
+      case "converted to opportunity": return "bg-green-100 text-green-800 border-green-200";
+      case "disqualified": return "bg-red-100 text-red-800 border-red-200";
+      case "new": return "bg-gray-100 text-gray-800 border-gray-200";
+      case "nurturing": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "qualified": return "bg-teal-100 text-teal-800 border-teal-200";
+      default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
-  // header gradient
-  const getLeadHeaderGradient = () => {
-    const status = lead?.status?.toLowerCase() || "";
-    const stage = lead?.stage?.toLowerCase() || "";
-    const type = lead?.lead_type?.toLowerCase() || "";
-    const priority = lead?.priority?.toLowerCase() || "";
+  const latestFollowup = useMemo(() => getLatestFollowup(followups), [followups]);
+  const { date: createdDate, time: createdTime } = formatDateTime(lead?.created_at || null);
+  const { date: updatedDate, time: updatedTime } = formatDateTime(lead?.updated_at || null);
+  const { date: lastContactDate, time: lastContactTime } = formatDateTime(lead?.last_contact || "");
 
-    if (priority === "high") return "from-red-600 to-red-700";
-    if (priority === "low") return "from-green-600 to-green-700";
-
-    if (status === "qualified" || stage === "qualified") return "from-teal-600 to-teal-700";
-    if (status === "contacted" || stage === "contacted") return "from-purple-600 to-purple-700";
-    if (status === "unqualified" || stage === "disqualified") return "from-rose-600 to-rose-700";
-    if (type === "seller builder") return "from-orange-600 to-orange-700";
-    if (type === "buyer-self") return "from-green-600 to-green-700";
-    if (type === "buyer inverstor") return "from-indigo-600 to-indigo-700";
-
-    return "from-blue-600 to-indigo-700";
-  };
-
-  const handlePreviousLead = () => {
-    if (allLeads.length === 0 || currentLeadIndex <= 0) return;
-    const prevIndex = currentLeadIndex - 1;
-    const prevLead = allLeads[prevIndex];
-    setCurrentLeadIndex(prevIndex);
-    navigate(`/dashboard/leads/${prevLead.id}`);
-  };
-
-  const handleNextLead = () => {
-    if (allLeads.length === 0 || currentLeadIndex >= allLeads.length - 1) return;
-    const nextIndex = currentLeadIndex + 1;
-    const nextLead = allLeads[nextIndex];
-    setCurrentLeadIndex(nextIndex);
-    navigate(`/dashboard/leads/${nextLead.id}`);
-  };
-
-  // ✅ Fixed handleAgentAssign with proper notification support  
-  const handleAgentAssign = async (agentId: string, agentName: string) => {
-    if (!lead) return;
-
-    try {
-      const previousAgent = lead.assigned_executive;
-
-      // Update local state first for immediate UI feedback
-      setLead({ ...lead, assigned_executive: agentId, assigned_executive_name: agentName });
-      setShowAgentDropdown(false);
-
-      // Call API to update assignment
-      await leadsAPI.updateLead(lead.id, { assigned_executive: agentId });
-
-      // ✅ Send notification if agent is being assigned (not unassigned) and it's a different agent
-      if (agentId && agentId.trim() !== "" && agentId !== previousAgent) {
-        try {
-          await notificationAPI.createNotification({
-            leadId: Number(lead.id), // ✅ Convert to string
-            userId: Number(agentId),  // ✅ Convert to string
-            message: `Lead assigned to ${agentName}`,
-            type: "lead_assign",
-            link: `/dashboard/leads/${lead.id}`,
-          });
-
-          
-        } catch (notifErr) {
-        
-          toast.error("Agent notification error details:", notifErr?.response?.data || notifErr?.message);
-          // Don't fail the assignment for notification error
-          toast.warn("Agent assigned but notification failed to send");
-        }
-      }
-
-      toast.success(`Lead assigned to ${agentName}`);
-    } catch (error) {
-      toast.error("Error assigning agent:", error);
-      // Revert local state on error
-      if (lead) {
-        setLead({ ...lead, assigned_executive: lead.assigned_executive, assigned_executive_name: lead.assigned_executive_name });
-      }
-      toast.error("Failed to assign agent. Please try again.");
-    }
-  };
-
+  const handleBack = () => navigate("/dashboard/leads");
+  const handleEdit = () => setIsEditModalOpen(true);
   const handleCall = () => lead?.phone && window.open(`tel:${lead.phone}`, "_self");
-  const handleWhatsApp = () =>
-    lead?.whatsapp_number && window.open(`https://wa.me/${lead.whatsapp_number.replace(/\D/g, "")}`, "_blank");
+  const handleWhatsApp = () => lead?.whatsapp_number && window.open(`https://wa.me/${lead.whatsapp_number.replace(/\D/g, "")}`, "_blank");
   const handleEmail = () => lead?.email && window.open(`mailto:${lead.email}`, "_self");
   const handleScheduleMeeting = () =>
     lead &&
@@ -777,252 +930,17 @@ const LeadDetailPage: React.FC = () => {
       "_blank"
     );
 
-  const handleBack = () => navigate("/dashboard/leads");
-  const handleEdit = () => setIsEditModalOpen(true);
-
-  const handleDelete = async () => {
-    if (!id) return;
-    if (confirm("Are you sure you want to delete this lead?")) {
-      try {
-        const response = await leadsAPI.deleteLead(id);
-        if (response.success) {
-          toast.success("Lead deleted ✅");
-          await fetchMasterData();
-          handleBack();
-        } else {
-          toast.error("Failed to delete lead ❌");
-        }
-      } catch (error) {
-       
-        toast.error("Error deleting lead");
-      }
-    }
+  const typeIcon = (t: string) => {
+    const found = FOLLOWUP_TYPES.find((ft) => ft.value === t);
+    return found ? found.Icon : MessageSquare;
   };
 
-  // ✅ Enhanced handleSaveLead with notification support for assignment changes
-  const handleSaveLead = async (updatedLead: Lead | null) => {
-    if (!updatedLead) return;
-
-    try {
-      const previousExec = lead?.assigned_executive;
-      const newExec = updatedLead.assigned_executive;
-
-      const response = await leadsAPI.updateLead(updatedLead.id!, updatedLead);
-      const savedLead = response?.data || response;
-
-      setLead((prev) => ({ ...prev, ...savedLead }));
-      setAllLeads((prev) => prev.map((l) => (l.id === savedLead.id ? { ...l, ...savedLead } : l)));
-
-      // ✅ Send notification if executive assignment changed
-      if (newExec && newExec !== previousExec && newExec.trim() !== "") {
-        try {
-          const exec = presalesUsers.find(u => String(u.id) === String(newExec));
-          const execName = exec?.name || savedLead.assigned_executive_name || "Executive";
-
-          await notificationAPI.createNotification({
-            leadId: Number(updatedLead.id), // ✅ Convert to number
-            userId: Number(newExec),        // ✅ Convert to number
-            message: `Lead updated and assigned to ${execName}`,
-            type: "lead_update",
-            link: `/dashboard/leads/${updatedLead.id}`,
-          });
-
-         
-        } catch (notifErr) {
-          
-          toast.error("Update notification error details:", notifErr?.response?.data || notifErr?.message);
-          // Don't fail the update for notification error
-        }
-      }
-
-      setIsEditModalOpen(false);
-      toast.success("Lead details updated successfully!");
-    } catch (error) {
-      toast.error("❌ Error saving lead:", error);
-      toast.error("Failed to save lead. Please try again.");
-    }
+  const followupCardClasses = (t: string) => {
+    const color = FOLLOWUP_TYPES.find((ft) => ft.value === t)?.color || "gray";
+    return FOLLOWUP_COLOR_MAP[color] || FOLLOWUP_COLOR_MAP.gray;
   };
 
-  const handleFollowupSave = async (data: FollowupForm & { lead_id?: string }) => {
-    if (!lead?.id) {
-      toast.error("Lead not loaded.");
-      return;
-    }
-
-    let followupSavedSuccessfully = false;
-    let isUpdate = false;
-    let savedFollowupData = null; // Store the saved followup for immediate UI update
-
-    try {
-      
-
-      const scheduledISO = data.scheduleDate
-        ? `${data.scheduleDate}T${(data.scheduleTime || "00:00")}:00`
-        : null;
-
-      const followupPayload = {
-        leadId: data.lead_id ?? lead.id,
-        type: data.followupType,
-        stage: data.leadStage,
-        status: data.leadStatus,
-        remark: data.remark,
-        customRemark: data.customRemark,
-        nextAction: data.nextAction,
-        scheduledDate: scheduledISO,
-        priority: data.priority
-      };
-
-     
-
-      // Step 1: Create/Update followup - THIS IS THE MAIN OPERATION
-      try {
-        let response;
-
-        if (editingFollowup) {
-          
-          response = await followupAPI.updateFollowup(editingFollowup.id, {
-            ...followupPayload,
-            updated_by: user?.id,
-          });
-          isUpdate = true;
-          setEditingFollowup(null);
-
-          // For updates, use the existing followup structure with updated data
-          savedFollowupData = {
-            ...editingFollowup,
-            ...followupPayload,
-            updatedAt: new Date().toISOString(),
-          };
-        } else {
-          
-          response = await followupAPI.createFollowup({
-            ...followupPayload,
-            updated_by: user?.id,
-          });
-          isUpdate = false;
-
-          // For new followups, create the structure immediately
-          savedFollowupData = {
-            id: response?.data?.id || response?.id || `temp-${Date.now()}`, // Use returned ID or temp ID
-            leadId: followupPayload.leadId,
-            type: followupPayload.type,
-            stage: followupPayload.stage,
-            status: followupPayload.status,
-            remark: followupPayload.remark,
-            customRemark: followupPayload.customRemark,
-            nextAction: followupPayload.nextAction,
-            scheduledDate: scheduledISO,
-            createdAt: new Date().toISOString(),
-            priority: followupPayload.priority,
-            createdByFirstName: user?.first_name || "",
-            createdByLastName: user?.last_name || "",
-            ...response?.data, // Merge any additional data from API response
-          };
-        }
-
-       
-        followupSavedSuccessfully = true;
-
-      } catch (followupError) {
-        toast.error("❌ Followup save/update failed:", followupError);
-        const action = editingFollowup ? "update" : "save";
-        toast.error(`Failed to ${action} follow-up. Please try again.`);
-        return;
-      }
-
-      // ✅ IMMEDIATELY UPDATE UI STATE - Don't wait for API calls
-      if (savedFollowupData) {
-        if (isUpdate) {
-          // Update existing followup in the list
-          setFollowups(prevFollowups =>
-            prevFollowups.map(f =>
-              f.id === editingFollowup?.id ? savedFollowupData : f
-            )
-          );
-        } else {
-          // Add new followup to the top of the list
-          setFollowups(prevFollowups => [savedFollowupData, ...prevFollowups]);
-        }
-      }
-
-      // Step 2: Update lead (this can fail but shouldn't affect success)
-      try {
-        
-        await leadsAPI.updateLead(lead.id, {
-          stage: data.leadStage,
-          status: data.leadStatus,
-          priority: data.priority,
-          updated_by: user?.id,
-        });
-       
-
-        // Update lead state immediately
-        setLead((prev) =>
-          prev
-            ? {
-              ...prev,
-              stage: data.leadStage || prev.stage,
-              status: data.leadStatus || prev.status,
-              priority: data.priority
-            }
-            : prev
-        );
-      } catch (leadUpdateErr) {
-        toast.error("⚠️ Lead update failed (non-critical):", leadUpdateErr);
-      }
-
-      // Step 3: Send notification (this can fail but shouldn't affect success)
-      if (lead.assigned_executive && lead.assigned_executive.trim() !== "") {
-        try {
-         
-          const exec = presalesUsers.find(u => String(u.id) === String(lead.assigned_executive));
-          const execName = exec?.name || lead.assigned_executive_name || "Executive";
-
-          await notificationAPI.createNotification({
-            leadId: Number(lead.id),
-            userId: Number(lead.assigned_executive),
-            message: `New follow-up added for lead "${lead.name}" by ${user?.first_name || 'User'}`,
-            type: "followup_add",
-            link: `/dashboard/leads/${lead.id}`,
-          });
-
-         
-        } catch (notifErr) {
-          toast.error("⚠️ Notification failed (non-critical):", notifErr);
-        }
-      }
-
-      // ✅ Close modal and show success message
-      setIsFollowupModalOpen(false);
-
-      if (isUpdate) {
-        toast.success("Follow-up updated successfully!");
-      } else {
-        toast.success("Follow-up saved successfully!");
-      }
-
-      // Step 4: Background refresh to sync with server (optional, for data consistency)
-      try {
-        
-        setTimeout(async () => {
-          await fetchFollowups();
-        
-        }, 1000); // Refresh after 1 second in background
-      } catch (fetchErr) {
-        toast.error("⚠️ Background refresh failed (non-critical):", fetchErr);
-      }
-
-    } catch (unexpectedError) {
-      
-      if (!followupSavedSuccessfully) {
-        const action = editingFollowup ? "update" : "save";
-        toast.error(`Failed to ${action} follow-up. Please try again.`);
-        return;
-      }
-    }
-  };
-
-  const formatDateShort = (iso?: string | null) => {
+  const formatDateShort = (iso?: string | null): string => {
     if (!iso) return "-";
     const d = new Date(iso);
     const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -1030,35 +948,20 @@ const LeadDetailPage: React.FC = () => {
     return `${date} • ${time}`;
   };
 
-  const typeIcon = (t: string) => {
-    const found = FOLLOWUP_TYPES.find((ft) => ft.value === t);
-    return found ? found.Icon : MessageSquare;
-  };
-
-  const typePillClass = (t: string) => {
-    const foundColor = FOLLOWUP_TYPES.find((ft) => ft.value === t)?.color || "gray";
-    const map: Record<string, string> = {
-      blue: "bg-blue-100 text-blue-800 border-blue-200",
-      green: "bg-green-100 text-green-800 border-green-200",
-      indigo: "bg-indigo-100 text-indigo-800 border-indigo-200",
-      orange: "bg-orange-100 text-orange-800 border-orange-200",
-      purple: "bg-purple-100 text-purple-800 border-purple-200",
-      gray: "bg-gray-100 text-gray-800 border-gray-200",
-    };
-    return map[foundColor] || map.gray;
-  };
-
-  const followupCardClasses = (t: string) => {
-    const color = FOLLOWUP_TYPES.find((ft) => ft.value === t)?.color || "gray";
-    const map: Record<string, { container: string; icon: string; leftBar: string; badge: string }> = {
-      blue: { container: "bg-blue-50 border-blue-200 hover:bg-blue-50", icon: "text-blue-600", leftBar: "border-blue-400", badge: "bg-blue-100 text-blue-800 border-blue-200" },
-      green: { container: "bg-green-50 border-green-200 hover:bg-green-50", icon: "text-green-600", leftBar: "border-green-400", badge: "bg-green-100 text-green-800 border-green-200" },
-      indigo: { container: "bg-indigo-50 border-indigo-200 hover:bg-indigo-50", icon: "text-indigo-600", leftBar: "border-indigo-400", badge: "bg-indigo-100 text-indigo-800 border-indigo-200" },
-      orange: { container: "bg-orange-50 border-orange-200 hover:bg-orange-50", icon: "text-orange-600", leftBar: "border-orange-400", badge: "bg-orange-100 text-orange-800 border-orange-200" },
-      purple: { container: "bg-purple-50 border-purple-200 hover:bg-purple-50", icon: "text-purple-600", leftBar: "border-purple-400", badge: "bg-purple-100 text-purple-800 border-purple-200" },
-      gray: { container: "bg-gray-50 border-gray-200 hover:bg-gray-50", icon: "text-gray-600", leftBar: "border-gray-400", badge: "bg-gray-100 text-gray-800 border-gray-200" },
-    };
-    return map[color] || map.gray;
+  const getLeadHeaderGradient = (): string => {
+    const status = lead?.status?.toLowerCase() || "";
+    const stage = lead?.stage?.toLowerCase() || "";
+    const type = lead?.lead_type?.toLowerCase() || "";
+    const priority = lead?.priority?.toLowerCase() || "";
+    if (priority === "high") return "from-red-600 to-red-700";
+    if (priority === "low") return "from-green-600 to-green-700";
+    if (status === "qualified" || stage === "qualified") return "from-teal-600 to-teal-700";
+    if (status === "contacted" || stage === "contacted") return "from-purple-600 to-purple-700";
+    if (status === "unqualified" || stage === "disqualified") return "from-rose-600 to-rose-700";
+    if (type === "seller builder") return "from-orange-600 to-orange-700";
+    if (type === "buyer-self") return "from-green-600 to-green-700";
+    if (type === "buyer inverstor") return "from-indigo-600 to-indigo-700";
+    return "from-blue-600 to-indigo-700";
   };
 
   /* ===================== Render ===================== */
@@ -1072,8 +975,7 @@ const LeadDetailPage: React.FC = () => {
       </div>
     );
   }
-
-  if (loading) {
+  if (loading || !lead) {
     return (
       <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
         <div className="text-center">
@@ -1083,18 +985,6 @@ const LeadDetailPage: React.FC = () => {
       </div>
     );
   }
-
-  if (!lead) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
-        No lead data found
-      </div>
-    );
-  }
-
-  const { date: createdDate, time: createdTime } = formatDateTime(lead.created_at || null);
-  const { date: updatedDate, time: updatedTime } = formatDateTime(lead.updated_at || null);
-  const { date: lastContactDate, time: lastContactTime } = formatDateTime(lead.last_contact || "");
 
   const tabId = "lead";
   const leadId = id || "";
@@ -1110,20 +1000,14 @@ const LeadDetailPage: React.FC = () => {
               <span>Back to Leads</span>
             </button>
 
-            <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-4 gap-2">
-              <button
-                onClick={handleEdit}
-                className="flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 transition-colors bg-white"
-              >
+            <div className="grid grid-cols-4 gap-2">
+              <button onClick={handleEdit} className="flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 transition-colors bg-white">
                 <FiEdit className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Edit</span>
               </button>
 
-              {canDeleteLead(user) && (
-                <button
-                  onClick={handleDelete}
-                  className="flex items-center justify-center gap-1 px-2 py-1 text-xs border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors bg-white"
-                >
+              {canDeleteLead(user as any) && (
+                <button onClick={handleDelete} className="flex items-center justify-center gap-1 px-2 py-1 text-xs border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors bg-white">
                   <FiTrash2 className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Delete</span>
                 </button>
@@ -1132,10 +1016,8 @@ const LeadDetailPage: React.FC = () => {
               <button
                 onClick={handlePreviousLead}
                 disabled={currentLeadIndex <= 0}
-                className={`flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex <= 0
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:bg-gray-50"
-                  }`}
+                className={`flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex <= 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"}`}
+                title={`Previous lead (${currentLeadIndex > 0 ? filteredLeads[currentLeadIndex - 1]?.name : "No more leads"})`}
               >
                 <ArrowLeftToLine className="w-4 h-4" />
                 <span className="hidden sm:inline">Previous</span>
@@ -1143,20 +1025,17 @@ const LeadDetailPage: React.FC = () => {
 
               <button
                 onClick={handleNextLead}
-                disabled={currentLeadIndex >= allLeads.length - 1}
-                className={`flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex >= allLeads.length - 1
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:bg-gray-50"
-                  }`}
+                disabled={currentLeadIndex >= filteredLeads.length - 1}
+                className={`flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md transition-colors bg-white ${currentLeadIndex >= filteredLeads.length - 1 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"}`}
+                title={`Next lead (${currentLeadIndex < filteredLeads.length - 1 ? filteredLeads[currentLeadIndex + 1]?.name : "No more leads"})`}
               >
                 <span className="hidden sm:inline">Next</span>
                 <ArrowRightToLine className="w-4 h-4" />
               </button>
             </div>
-
           </div>
 
-          {/* Header Info */}
+          {/* Header */}
           <div className={`bg-gradient-to-r ${getLeadHeaderGradient()} px-3 py-3 sm:px-4 sm:py-4 text-white rounded-lg`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center space-x-3 min-w-0">
@@ -1168,64 +1047,60 @@ const LeadDetailPage: React.FC = () => {
                     {lead.salutation} {lead.name}
                   </h2>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <span className="text-xs sm:text-sm text-white text-opacity-80 truncate">Lead ID: {lead.id.slice(0, 4)}</span>
-
+                    <span className="text-xs sm:text-sm text-white text-opacity-80 truncate">Lead ID: {String(lead.id).slice(0, 4)}</span>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border w-fit ${getLeadTypeColor(lead.lead_type || "")}`}>
                       {lead.lead_type}
+                    </span>
+                    <span className="text-xs text-white text-opacity-80">
+                      ({currentLeadIndex + 1} of {filteredLeads.length})
                     </span>
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 justify-end">
-                {/* Follow Up Button */}
                 <button onClick={() => { setEditingFollowup(null); setIsFollowupModalOpen(true); }} className="flex items-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2.5 py-1.5 rounded-md shadow text-xs">
-                  <MessageSquare className="w-3.5 h-3.5" />
+                  <div className="p-1 rounded-md bg-[#ea8634]">
+                    <NotebookPen className="w-3.5 h-3.5 text-white" />
+                  </div>
                   <span className="hidden sm:inline">Follow Up</span>
                 </button>
 
                 {/* Assign Executive dropdown */}
                 <div className="relative">
-                  <button onClick={() => setShowExecDropdown(!showExecDropdown)} className="flex items-center justify-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2.5 py-1.5 rounded-md shadow text-xs" title="Assign Lead">
+                  <button
+                    onClick={() => !execsLoading && setShowExecDropdown((s) => !s)}
+                    className="flex items-center justify-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2.5 py-1.5 rounded-md shadow text-xs"
+                    title="Assign Lead"
+                    disabled={execsLoading || assignableExecs.length === 0}
+                  >
                     <UserPlus className="w-3.5 h-3.5" />
                     <ChevronDown className="w-2.5 h-2.5" />
                   </button>
 
                   {showExecDropdown && (
-                    <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border z-10 text-xs">
+                    <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border z-10 text-xs">
                       <div className="p-2">
                         <div className="text-[10px] text-gray-500 uppercase tracking-wide px-2 py-1 border-b truncate">
-                          Assign to Executive
+                          Assign to Presales Executive
                         </div>
 
-                        {(() => {
-                          // Use getAssignableExecutives instead of presalesUsers directly
-                          const assignableExecs = getAssignableExecutives(user, presalesUsers);
-
-                          if (assignableExecs.length === 0) {
-                            return (
-                              <div className="px-2 py-2 text-xs text-gray-500">
-                                <div>No executives available</div>
-                              </div>
-                            );
-                          }
-
-                          return assignableExecs.map((exec: any) => (
+                        {assignableExecs.length === 0 ? (
+                          <div className="px-2 py-2 text-xs text-gray-500">No presales executives available</div>
+                        ) : (
+                          assignableExecs.map((exec: PresalesUser) => (
                             <button
                               key={exec.id}
-                              onClick={() => handleExecAssign(String(exec.id), exec.name)} // ✅ Ensure string conversion
-                              className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${lead.assigned_executive === String(exec.id)
+                              onClick={() => handleExecAssign(String(exec.id), exec.name)}
+                              className={`w-full text-left px-2 py-2 hover:bg-gray-100 rounded text-xs truncate ${String(lead.assigned_executive) === String(exec.id)
                                 ? "bg-blue-50 text-blue-600 font-medium"
                                 : "text-gray-800"
                                 }`}
                             >
                               {exec.name}
-                              {exec.selfOnly && (
-                                <span className="text-[10px] text-gray-400 ml-1">(Self)</span>
-                              )}
                             </button>
-                          ));
-                        })()}
+                          ))
+                        )}
                       </div>
                     </div>
                   )}
@@ -1244,9 +1119,8 @@ const LeadDetailPage: React.FC = () => {
 
           {/* Main Content */}
           <div className="p-4 sm:p-6 pt-0 sm:pt-2">
-            {/* Contact & Location Details */}
+            {/* Contact & Location */}
             <div className="flex flex-col md:flex-row gap-6 items-start">
-              {/* Contact Details */}
               <div className="w-full md:w-auto">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Contact Details</h3>
                 <div className="p-4 bg-gray-50 rounded-lg space-y-4 w-full md:w-fit">
@@ -1274,7 +1148,6 @@ const LeadDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Location Details */}
               <div className="w-full md:w-auto">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Location Details</h3>
                 <div className="p-4 bg-gray-50 rounded-lg space-y-4 w-full md:w-fit">
@@ -1303,31 +1176,38 @@ const LeadDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Lead Classification */}
+            {/* Classification */}
             <div className="mt-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-3">Lead Classification</h3>
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-3">
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-500">Source:</span>
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">{lead.lead_source}</span>
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                      {lead.lead_source}
+                    </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-500">Priority:</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(lead.priority || "")}`}>{lead.priority || "-"}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(lead.priority || "")}`}>
+                      {lead.priority || "-"}
+                    </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-500">Stage:</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStageColor(lead.stage || "")}`}>{lead.stage || "-"}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStageColor(lead.stage || "")}`}>
+                      {lead.stage || "-"}
+                    </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-500">Status:</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(lead.status)}`}>{lead.status}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(lead.status)}`}>
+                      {lead.status}
+                    </span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 sm:flex sm:flex-wrap">
-                  {/* Created On */}
                   <div className="flex items-start space-x-1 p-1 bg-gray-50 rounded-md">
                     <Clock className="w-3 h-3 text-gray-500 mt-0.5 flex-shrink-0" />
                     <div className="flex space-x-2">
@@ -1344,7 +1224,6 @@ const LeadDetailPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* created_by_name */}
                   <div className="p-1 bg-gray-50 rounded-md">
                     <p className="text-[10px] text-gray-400 uppercase tracking-wide">Created By</p>
                     <p className="text-[11px] text-gray-700">{lead.created_by_name || "System"}</p>
@@ -1353,7 +1232,6 @@ const LeadDetailPage: React.FC = () => {
                     <p className="text-[11px] text-gray-700">{lead.updated_by_name || "System"}</p>
                   </div>
 
-                  {/* Last Contact */}
                   <div className="flex items-start space-x-2 p-2 bg-gray-50 rounded-lg">
                     <Clock className="w-4 h-4 text-gray-600 mt-1 flex-shrink-0" />
                     <div>
@@ -1363,7 +1241,6 @@ const LeadDetailPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Assigned To */}
                   <div className="flex items-start space-x-2 p-2 bg-green-50 rounded-lg border border-green-200">
                     <Users className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
                     <div>
@@ -1372,7 +1249,6 @@ const LeadDetailPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Transfer Options */}
                   <div className="relative inline-block" ref={dropdownRef}>
                     {shouldShowTransfer(lead, latestFollowup) && (
                       <button onClick={() => setShowTransferOptions(!showTransferOptions)} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md shadow hover:bg-blue-700">
@@ -1383,8 +1259,12 @@ const LeadDetailPage: React.FC = () => {
 
                     {showTransferOptions && (
                       <div className="absolute top-0 left-full ml-2 w-40 rounded z-[9999]">
-                        <button className="px-2 py-1 text-white text-xs rounded bg-green-500 hover:bg-green-600" onClick={handleTransferToBuyer}>Transfer to Buyer</button>
-                        <button className="px-2 py-1 text-white text-xs rounded bg-red-500 hover:bg-red-600" onClick={handleTransferToSeller}>Transfer to Seller</button>
+                        <button className="px-2 py-1 text-white text-xs rounded bg-green-500 hover:bg-green-600" onClick={() => { setShowTransferOptions(false); setShowBuyerComponent(true); }}>
+                          Transfer to Buyer
+                        </button>
+                        <button className="px-2 py-1 text-white text-xs rounded bg-red-500 hover:bg-red-600" onClick={() => { setShowTransferOptions(false); setShowSellerComponent(true); }}>
+                          Transfer to Seller
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1402,9 +1282,7 @@ const LeadDetailPage: React.FC = () => {
           </div>
 
           {followupsLoading && (<div className="text-xs text-gray-500">Loading follow-ups…</div>)}
-
           {!followupsLoading && !id && (<div className="text-xs text-gray-500">No follow-up data — invalid lead.</div>)}
-
           {!followupsLoading && id && followupsError && (<div className="text-xs text-red-600">{followupsError}</div>)}
 
           {!followupsLoading && id && !followupsError && followups.length === 0 && (
@@ -1420,21 +1298,17 @@ const LeadDetailPage: React.FC = () => {
                 const Ico = typeIcon(f.type);
                 const scheduledLabel = formatDateShort(f.scheduledDate || f.createdAt || "");
                 const color = followupCardClasses(f.type);
-
                 return (
                   <div key={f.id} className={`border rounded-lg p-3 transition ${color.container} border-l-4 ${color.leftBar}`}>
                     <div className="flex gap-3">
                       <div className="flex-shrink-0"><Ico className={`h-5 w-5 ${color.icon}`} /></div>
-
                       <div className="flex-1 space-y-2 text-xs">
                         <div className="flex items-center justify-between">
                           <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${color.badge}`}>{f.type}</span>
-
                           <div className="flex items-center gap-1">
-                            <button onClick={() => handleEditFollowups(f)} className="p-1 rounded hover:bg-gray-200 transition" title="Edit"><Pencil className="h-3.5 w-3.5 text-gray-600" /></button>
-
-                            {currentUserRole === "admin" && (
-                              <button onClick={() => handleDeleteFollowups(f.id)} className="p-1 rounded hover:bg-red-100 transition" title="Delete"><Trash2 className="h-3.5 w-3.5 text-red-600" /></button>
+                            <button onClick={() => handleEditFollowup(f)} className="p-1 rounded hover:bg-gray-200 transition" title="Edit"><Pencil className="h-3.5 w-3.5 text-gray-600" /></button>
+                            {(String(user?.role || "").toLowerCase() === "admin") && (
+                              <button onClick={() => handleDeleteFollowup(f.id)} className="p-1 rounded hover:bg-red-100 transition" title="Delete"><Trash2 className="h-3.5 w-3.5 text-red-600" /></button>
                             )}
                           </div>
                         </div>
@@ -1442,7 +1316,7 @@ const LeadDetailPage: React.FC = () => {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-gray-600">Lead Priority:</span>
                           {(f.priority || lead.priority) && (
-                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${getPriorityColor(f.priority || lead.priority)}`}>{f.priority || lead.priority}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${getPriorityColor(f.priority || lead.priority || "")}`}>{f.priority || lead.priority}</span>
                           )}
 
                           <span className="font-medium text-gray-600">Lead Stage:</span>
@@ -1462,7 +1336,6 @@ const LeadDetailPage: React.FC = () => {
                           </div>
                         </div>
                       </div>
-
                     </div>
                   </div>
                 );

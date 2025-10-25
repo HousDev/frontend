@@ -1,8 +1,7 @@
 // src/components/properties/PropertyMatchModal.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  X, Target, Search, Filter, Star, Building, MapPin, Eye,
-  Bookmark, Send, Phone, MessageCircle, Calendar, Globe, Share2
+  X, Target, Search, Building, MapPin, MessageCircle, Phone, Calendar, Globe, Share2, Bookmark
 } from "lucide-react";
 
 import { useProperties } from "@/hooks/properties";
@@ -17,10 +16,19 @@ type PropertyMatchModalProps = {
   buyer: any;
 };
 
-/** -------- small helpers -------- */
+/* ========================= Helpers ========================= */
 const str = (v: any) => (v == null ? "" : String(v));
 const cleanPhone = (s?: string) => str(s).replace(/\D/g, "");
 const nonEmpty = (x: any) => !!str(x).trim();
+
+const safeParse = <T = any,>(v: any, fallback: T): T => {
+  if (v == null) return fallback;
+  if (typeof v === "object") return v as T;
+  if (typeof v === "string") {
+    try { return JSON.parse(v) as T; } catch { return fallback; }
+  }
+  return fallback;
+};
 
 const TRACKING_PARAM_KEY = "fltcnt";
 const STORAGE_KEY = "re_filter_token";
@@ -52,14 +60,14 @@ const persistToken = (token: string) => {
   } catch {}
 };
 
-/** Parse truthy for flags that might be boolean/number/string */
+/** truthy flags normalizer */
 const isTruthy = (v: any) => {
   if (v === true || v === 1) return true;
   const s = String(v ?? "").trim().toLowerCase();
   return s === "1" || s === "true" || s === "yes";
 };
 
-/** Read `is_public` (or variants) from any item shape */
+/** read is_public from any shape */
 const getIsPublic = (it: any) => {
   const raw = it?._raw ?? it ?? {};
   return (
@@ -78,43 +86,15 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
   const [budgetTolerancePct, setBudgetTolerancePct] = useState<number>(0);
   const [shareItem, setShareItem] = useState<any | null>(null);
 
-  // Property Tags
+  // tags
   const [tagsByPropertyId, setTagsByPropertyId] = useState<Record<string, string[]>>({});
   const [loadingTags, setLoadingTags] = useState(false);
   const [tagsErr, setTagsErr] = useState<string | null>(null);
 
-  // Properties hook
-  const {
-    properties,
-    loadingProps,
-    propsError,
-    fetchProperties,
-    utils,
-  } = useProperties({ autoLog: false });
+  // properties
+  const { properties, loadingProps, propsError, fetchProperties, utils } = useProperties({ autoLog: false });
+  const { makeItem, formatCurrency, norm, toArr } = utils;
 
-  const {
-    makeItem,
-    formatCurrency,
-    norm,
-    toArr,
-  } = utils;
-
-  // Debug: Log properties to see executive data
-  useEffect(() => {
-    if (properties && properties.length > 0) {
-      console.log("Properties (raw) → checking is_public & executive:", properties.map((p: any) => ({
-        id: p.id,
-        title: p.title,
-        is_public: p.is_public ?? p._raw?.is_public ?? p.isPublic ?? p._raw?.isPublic,
-        assignedTo: p.assignedTo,
-        executive_name: p.executive_name ?? p._raw?.executive_name,
-        executive_email: p.executive_email ?? p._raw?.executive_email,
-        executive_phone: p.executive_phone ?? p._raw?.executive_phone,
-      })));
-    }
-  }, [properties]);
-
-  // Fetch properties and tags when modal opens
   useEffect(() => {
     if (!isOpen) return;
     fetchProperties();
@@ -127,9 +107,7 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
         const rows: PropertyTagsRow[] = await propertyTagsAPI.getAll();
         if (cancelled) return;
         const map: Record<string, string[]> = {};
-        for (const r of rows) {
-          map[String(r.property_id)] = Array.isArray(r?.tags) ? r.tags : [];
-        }
+        for (const r of rows) map[String(r.property_id)] = Array.isArray(r?.tags) ? r.tags : [];
         setTagsByPropertyId(map);
       } catch (e: any) {
         setTagsErr(e?.message || "Failed to load tags");
@@ -141,128 +119,88 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
     return () => { cancelled = true; };
   }, [isOpen, fetchProperties]);
 
-  // Server data → normalized items
+  // server data → normalized items
   const items = useMemo(() => {
     return Array.isArray(properties) ? properties.map((p) => makeItem(p, buyer)) : [];
   }, [properties, buyer, makeItem]);
 
-  // Only PUBLIC items
-  const publicItems = useMemo(() => {
-    return items.filter((it) => getIsPublic(it));
-  }, [items]);
+  // only PUBLIC
+  const publicItems = useMemo(() => items.filter((it) => getIsPublic(it)), [items]);
 
-  // Buyer-based filter helpers
+  /* ===================== Buyer Requirements ===================== */
+  const buyerReq = safeParse(buyer?.requirements, {}) as {
+    preferredLocations?: string[] | string;
+    unitTypes?: string[] | string;
+    furnishing?: string;
+  };
+
   const buyerMin = Number(buyer?.budget?.min ?? buyer?.budgetMin ?? 0);
   const buyerMax = Number(buyer?.budget?.max ?? buyer?.budgetMax ?? 0);
   const hasBuyerMin = Number.isFinite(buyerMin) && buyerMin > 0;
   const hasBuyerMax = Number.isFinite(buyerMax) && buyerMax > 0;
 
-  const req = buyer?.requirements || {};
-  const reqLocs = toArr(req.preferredLocations).map(norm);
-  const reqUnits = toArr(req.unitTypes).map(norm);
-  const reqFurn = norm(req.furnishing);
+  const reqLocs = toArr(buyerReq?.preferredLocations).map(norm);
+  const reqUnits = toArr(buyerReq?.unitTypes).map(norm);
+  const reqFurn = norm(buyerReq?.furnishing);
 
-  // Budget tolerance
+  // tolerance range (expands/relaxes min/max if set)
+  const tolActive = budgetTolerancePct > 0 && (hasBuyerMin || hasBuyerMax);
   const lower = hasBuyerMin ? Math.floor(buyerMin * (1 - budgetTolerancePct / 100)) : 0;
   const upper = hasBuyerMax ? Math.ceil(buyerMax * (1 + budgetTolerancePct / 100)) : Number.POSITIVE_INFINITY;
-  const budgetMatchesWithTol = (price: number) => price >= lower && price <= upper;
+  const withinStrict = (price: number) =>
+    (!hasBuyerMin || price >= buyerMin) && (!hasBuyerMax || price <= buyerMax);
+  const withinTol = (price: number) => price >= lower && price <= upper;
 
-  // Text search
+  // text search
   const q = norm(searchTerm);
 
-  // Field getters with comprehensive fallbacks
+  // field getters with fallbacks
   const getPropertyType = (it: any) =>
-    it.propertyType ||
-    it._raw?.property_type_name ||
-    it._raw?.property_type ||
-    it._raw?.propertyTypeName ||
-    it._raw?.category ||
-    "";
+    it.propertyType || it._raw?.property_type_name || it._raw?.property_type || it._raw?.propertyTypeName || it._raw?.category || "";
 
   const getPropertySubtype = (it: any) =>
-    it.propertySubtype ||
-    it._raw?.property_subtype_name ||
-    it._raw?.property_subtype ||
-    it._raw?.propertySubtypeName ||
-    it._raw?.sub_category ||
-    "";
+    it.propertySubtype || it._raw?.property_subtype_name || it._raw?.property_subtype || it._raw?.propertySubtypeName || it._raw?.sub_category || "";
 
   const getUnitType = (it: any) =>
-    it.unitType ||
-    it._raw?.unit_type ||
-    it._raw?.bhk_label ||
-    it._raw?.configuration ||
-    it._raw?.bhk ||
-    "";
+    it.unitType || it._raw?.unit_type || it._raw?.bhk_label || it._raw?.configuration || it._raw?.bhk || "";
 
-  const getSlug = (it: any) =>
-    it.slug ||
-    it._raw?.slug ||
-    "";
+  const getSlug = (it: any) => it.slug || it._raw?.slug || "";
 
-  // 🆕 IMPROVED EXECUTIVE DATA EXTRACTION
+  // executive
   const getExecutive = (it: any) => {
-    const rawData = it._raw || {};
-
-    // Method 1: Direct assignedTo object
-    if (it.assignedTo && typeof it.assignedTo === 'object') {
+    const raw = it._raw || {};
+    if (it.assignedTo && typeof it.assignedTo === "object") {
       return {
         name: it.assignedTo.name || null,
         email: it.assignedTo.email || null,
-        phone: it.assignedTo.phone || null
+        phone: it.assignedTo.phone || null,
       };
     }
-
-    // Method 2: Raw assignedTo object
-    if (rawData.assignedTo && typeof rawData.assignedTo === 'object') {
+    if (raw.assignedTo && typeof raw.assignedTo === "object") {
       return {
-        name: rawData.assignedTo.name || null,
-        email: rawData.assignedTo.email || null,
-        phone: rawData.assignedTo.phone || null
+        name: raw.assignedTo.name || null,
+        email: raw.assignedTo.email || null,
+        phone: raw.assignedTo.phone || null,
       };
     }
-
-    // Method 3: Individual executive fields
-    const name =
-      it.executive_name ||
-      rawData.executive_name ||
-      rawData.assigned_executive_name ||
-      rawData.executiveName ||
-      null;
-
-    const email =
-      it.executive_email ||
-      rawData.executive_email ||
-      rawData.assigned_executive_email ||
-      rawData.executiveEmail ||
-      null;
-
-    const phone =
-      it.executive_phone ||
-      rawData.executive_phone ||
-      rawData.assigned_executive_phone ||
-      rawData.executivePhone ||
-      null;
-
+    const name = it.executive_name || raw.executive_name || raw.assigned_executive_name || raw.executiveName || null;
+    const email = it.executive_email || raw.executive_email || raw.assigned_executive_email || raw.executiveEmail || null;
+    const phone = it.executive_phone || raw.executive_phone || raw.assigned_executive_phone || raw.executivePhone || null;
     return { name, email, phone };
   };
 
-  // Title generator
+  // title generator
   const buildDisplayTitle = (it: any) => {
     const parts = [getPropertyType(it), getUnitType(it), getPropertySubtype(it)]
-      .map((x) => str(x).trim())
-      .filter(nonEmpty);
+      .map((x) => str(x).trim()).filter(nonEmpty);
     if (!parts.length && nonEmpty(it.title)) return it.title;
     return parts.join(" ");
   };
 
-  // Tracking token
+  // tracking token helpers
   const ensureTrackingToken = async (): Promise<string | undefined> => {
     let token =
-      buyer?.filterContextId ||
-      buyer?.filter_id ||
-      buyer?.filterId ||
-      null;
+      buyer?.filterContextId || buyer?.filter_id || buyer?.filterId || null;
 
     if (!token) token = getParam(TRACKING_PARAM_KEY);
     if (!token) token = readTokenFromStorage();
@@ -270,10 +208,7 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
     if (!token) {
       try {
         const res = await propertiesAPI.createFilterContext({
-          filters: {
-            source: "property_match_visit",
-            buyerId: buyer?.id ?? null,
-          },
+          filters: { source: "property_match_visit", buyerId: buyer?.id ?? null },
           user_id: null,
         });
         token = res?.id || res?.data?.id || null;
@@ -286,7 +221,6 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
     return token || undefined;
   };
 
-  // Property URL
   const getPropertyUrl = (it: any, token?: string) => {
     const slug = str(getSlug(it)).replace(/^\//, "");
     const base =
@@ -305,99 +239,155 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
     }
   };
 
-  // Track event
-  const trackEvent = async (propertyId: string | number, eventName: string, payload: Record<string, any> = {}, token?: string) => {
+  const trackEvent = async (
+    propertyId: string | number,
+    eventName: string,
+    payload: Record<string, any> = {},
+    token?: string
+  ) => {
     try {
       await propertiesAPI.sendPropertyEvent(
         propertyId,
         "interaction",
         eventName,
-        payload,
-        {
-          slug: getSlug(payload?.item || {}) || undefined,
-          filterToken: token,
-          filterParamKey: "filter_token",
-        }
+        { ...payload, filterParamKey: TRACKING_PARAM_KEY },
+        { slug: getSlug(payload?.item || {}) || undefined, filterToken: token }
       );
     } catch {}
   };
 
-  // Filter properties (starts from ONLY public)
+  /* ===================== Match Analyser ===================== */
+  const analyzeMatch = (it: any) => {
+    const reasons: string[] = [];
+    const matched: Record<string, any> = {};
+    const price = Number(it.price || 0);
+
+    // Budget logic:
+    // - If tolerance set → only check broadened range
+    // - Else → check strict min/max if provided
+    if (tolActive) {
+      if (!withinTol(price)) {
+        return { pass: false, reasons: [`Price ${price} not within tolerance band ${lower} - ${upper}`], matched };
+      }
+      reasons.push(`Price ${price} within tolerance band ${lower} - ${upper}`);
+      matched.price = { price, lower, upper, tolerancePct: budgetTolerancePct };
+    } else {
+      if (!withinStrict(price)) {
+        return { pass: false, reasons: ["Price outside buyer strict range"], matched };
+      }
+      reasons.push(
+        hasBuyerMin || hasBuyerMax
+          ? `Price ${price} within ${hasBuyerMin ? buyerMin : "—"} to ${hasBuyerMax ? buyerMax : "—"}`
+          : `Price not constrained by buyer range`
+      );
+      matched.price = { price, buyerMin: hasBuyerMin ? buyerMin : null, buyerMax: hasBuyerMax ? buyerMax : null };
+    }
+
+    // Location
+    if (reqLocs.length) {
+      const addr = norm(it.address);
+      const hit = reqLocs.find((loc: string) => addr.includes(loc));
+      if (!hit) return { pass: false, reasons: ["Location not in preferredLocations"], matched };
+      reasons.push(`Location matched: "${hit}"`);
+      matched.location = { address: it.address, matchedToken: hit, allPreferred: reqLocs };
+    } else {
+      reasons.push("No preferredLocations constraint");
+    }
+
+    // Unit type
+    if (reqUnits.length) {
+      const unit = norm(getUnitType(it));
+      const hit = reqUnits.find((u: string) => unit.includes(u));
+      if (!hit) return { pass: false, reasons: ["Unit type not in required unitTypes"], matched };
+      reasons.push(`Unit type matched: "${hit}"`);
+      matched.unitType = { unitType: getUnitType(it), matchedToken: hit, allPreferred: reqUnits };
+    } else {
+      reasons.push("No unitTypes constraint");
+    }
+
+    // Furnishing → soft boost
+    if (reqFurn) {
+      const blob = `${str(it.furnishing || "")} ${(it.reasons || []).join(" ")}`.toLowerCase();
+      if (blob.includes(reqFurn)) {
+        reasons.push(`Furnishing soft-match: contains "${reqFurn}" → +5 score`);
+        matched.furnishing = { required: reqFurn };
+        it.matchScore = Math.min(100, (it.matchScore || 80) + 5);
+      } else {
+        reasons.push(`Furnishing desired "${reqFurn}" not found (soft check)`);
+      }
+    }
+
+    // Text search
+    const query = q;
+    if (query) {
+      const hay = `${norm(buildDisplayTitle(it))} ${norm(it.address)} ${norm(it.seller)} ${norm(
+        it.statusText
+      )} ${norm(it.size)} ${norm(getPropertyType(it))} ${norm(getPropertySubtype(it))} ${norm(getUnitType(it))}`;
+      if (!hay.includes(query)) return { pass: false, reasons: [`Text search miss for "${query}"`], matched };
+      reasons.push(`Text search hit for "${query}"`);
+      matched.text = { query };
+    } else {
+      reasons.push("No text query constraint");
+    }
+
+    return { pass: true, reasons, matched };
+  };
+
+  // filter + sort
   const filtered = useMemo(() => {
-    return publicItems
-      .filter((it: any) => {
-        const price = Number(it.price || 0);
+    const analyzed = publicItems.map((it: any) => {
+      const analysis = analyzeMatch(it);
+      (it as any)._match = analysis;
+      return it;
+    });
 
-        // Budget filter
-        if (hasBuyerMin && price < buyerMin) return false;
-        if (hasBuyerMax && price > buyerMax) return false;
+    const passing = analyzed.filter((it: any) => it._match?.pass);
 
-        if (budgetTolerancePct > 0 && !budgetMatchesWithTol(price)) return false;
-
-        // Location filter
-        if (reqLocs.length) {
-          const addr = norm(it.address);
-          const locHit = reqLocs.some((loc: string) => addr.includes(loc));
-          if (!locHit) return false;
-        }
-
-        // Unit type filter
-        if (reqUnits.length) {
-          const u = norm(getUnitType(it));
-          const unitHit = reqUnits.some((reqU: string) => u.includes(reqU));
-          if (!unitHit) return false;
-        }
-
-        // Furnishing soft boost
-        if (reqFurn) {
-          const reasonsBlob = (it.reasons || []).join(" ").toLowerCase();
-          if (reasonsBlob.includes(reqFurn)) {
-            it.matchScore = Math.min(100, (it.matchScore || 80) + 5);
-          }
-        }
-
-        // Text search
-        if (q) {
-          const hay = `${norm(buildDisplayTitle(it))} ${norm(it.address)} ${norm(it.seller)} ${norm(
-            it.statusText
-          )} ${norm(it.size)} ${norm(getPropertyType(it))} ${norm(getPropertySubtype(it))} ${norm(getUnitType(it))}`;
-          if (!hay.includes(q)) return false;
-        }
-
-        return true;
-      })
-      .sort((a: any, b: any) => {
-        if ((b.matchScore || 0) !== (a.matchScore || 0)) return (b.matchScore || 0) - (a.matchScore || 0);
-
-        if (hasBuyerMin && hasBuyerMax) {
-          const mid = (buyerMin + buyerMax) / 2;
-          const da = Math.abs((Number(a.price) || 0) - mid);
-          const db = Math.abs((Number(b.price) || 0) - mid);
-          if (da !== db) return da - db;
-        }
-
-        return (Number(a.price) || 0) - (Number(b.price) || 0);
+    // log concise, collapsible
+    if (passing.length) {
+      console.groupCollapsed(
+        `%cProperty matches for buyer: ${buyer?.name || ""} (${passing.length})`,
+        "color:#6b21a8;font-weight:600"
+      );
+      passing.forEach((it: any) => {
+        const title = buildDisplayTitle(it) || it.title || `#${it.id}`;
+        console.groupCollapsed(`%c✔ ${title} [ID: ${it.id}]`, "color:#16a34a;font-weight:600");
+        console.log("Reasons:", it._match.reasons);
+        console.log("Matched:", it._match.matched);
+        console.log("Price:", it.price, "Address:", it.address, "UnitType:", getUnitType(it));
+        console.groupEnd();
       });
+      console.groupEnd();
+    } else {
+      console.info("No property matches for buyer filter currently.");
+    }
+
+    return passing.sort((a: any, b: any) => {
+      if ((b.matchScore || 0) !== (a.matchScore || 0)) return (b.matchScore || 0) - (a.matchScore || 0);
+
+      if (hasBuyerMin && hasBuyerMax) {
+        const mid = (buyerMin + buyerMax) / 2;
+        const da = Math.abs((Number(a.price) || 0) - mid);
+        const db = Math.abs((Number(b.price) || 0) - mid);
+        if (da !== db) return da - db;
+      }
+
+      return (Number(a.price) || 0) - (Number(b.price) || 0);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     publicItems,
-    reqLocs,
-    reqUnits,
-    reqFurn,
-    q,
-    budgetTolerancePct,
-    hasBuyerMin,
-    hasBuyerMax,
-    buyerMin,
-    buyerMax,
+    budgetTolerancePct, hasBuyerMin, hasBuyerMax, buyerMin, buyerMax,
+    reqLocs, reqUnits, reqFurn, q
   ]);
 
-  // Selection handler
+  // selection
   const handlePropertySelection = (id: string | number) => {
     const key = String(id);
     setSelectedProperties((prev) => (prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]));
   };
 
-  // Send to buyer
+  // send to buyer (stub)
   const handleSendToSelected = () => {
     if (!selectedProperties.length) {
       alert("Please select properties to send to buyer");
@@ -409,15 +399,11 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
     setSelectedProperties([]);
   };
 
-  // Contact executive
+  // contact/call executive
   const handleContactExecutive = async (it: any) => {
     const exec = getExecutive(it);
     const phone = cleanPhone(exec.phone || "");
-
-    if (!phone) {
-      alert("Executive phone number not available");
-      return;
-    }
+    if (!phone) return alert("Executive phone number not available");
 
     const bMin = hasBuyerMin ? formatCurrency(buyerMin) : "";
     const bMax = hasBuyerMax ? formatCurrency(buyerMax) : "";
@@ -431,20 +417,14 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
-  // Call executive
   const handleCallExecutive = (it: any) => {
     const exec = getExecutive(it);
     const phone = cleanPhone(exec.phone || "");
-
-    if (!phone) {
-      alert("Executive phone number not available");
-      return;
-    }
-
+    if (!phone) return alert("Executive phone number not available");
     window.open(`tel:${phone}`, "_self");
   };
 
-  // Get tags for property
+  // tags
   const getTagsFor = (id: string | number, limit = 4) => {
     const list = tagsByPropertyId[String(id)] || [];
     if (!list.length) return { shown: [], more: 0 };
@@ -453,7 +433,7 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
     return { shown, more };
   };
 
-  // Visit website with tracking
+  // visit website with tracking
   const handleVisitWebsite = async (it: any, e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     const token = await ensureTrackingToken();
@@ -464,6 +444,7 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
 
   if (!isOpen || !buyer) return null;
 
+  /* =========================== UI =========================== */
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
@@ -489,7 +470,6 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
           {/* Buyer summary */}
           <div className="bg-purple-50 rounded-lg p-3 mb-4">
             <h3 className="font-semibold text-purple-900 mb-2 text-xs">BUYER REQUIREMENTS</h3>
-
             <div className="flex flex-wrap gap-4 text-xs items-center">
               <div>
                 <span className="text-purple-600">Budget:</span>
@@ -501,18 +481,16 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
               <div>
                 <span className="text-purple-600">Unit Types:</span>
                 <span className="font-bold text-purple-900 ml-1">
-                  {Array.isArray(buyer?.requirements?.unitTypes) && buyer.requirements.unitTypes.length > 0
-                    ? buyer.requirements.unitTypes.join(", ")
-                    : "—"}
+                  {toArr(buyerReq?.unitTypes).length > 0 ? toArr(buyerReq?.unitTypes).join(", ") : "—"}
                 </span>
               </div>
 
               <div>
                 <span className="text-purple-600">Locations:</span>
                 <span className="font-bold text-purple-900 ml-1">
-                  {toArr(buyer?.requirements?.preferredLocations).slice(0, 2).join(", ") || "—"}
-                  {toArr(buyer?.requirements?.preferredLocations).length > 2 &&
-                    ` +${toArr(buyer?.requirements?.preferredLocations).length - 2}`}
+                  {toArr(buyerReq?.preferredLocations).slice(0, 2).join(", ") || "—"}
+                  {toArr(buyerReq?.preferredLocations).length > 2 &&
+                    ` +${toArr(buyerReq?.preferredLocations).length - 2}`}
                 </span>
               </div>
 
@@ -525,19 +503,17 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
                   className="w-14 px-2 py-1 border border-purple-200 rounded"
                   value={budgetTolerancePct}
                   onChange={(e) =>
-                    setBudgetTolerancePct(
-                      Math.max(0, Math.min(50, Number(e.target.value) || 0))
-                    )
+                    setBudgetTolerancePct(Math.max(0, Math.min(50, Number(e.target.value) || 0)))
                   }
                 />
               </div>
             </div>
           </div>
 
-          {/* Search bar */}
+          {/* Search */}
           <div className="mb-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               <input
                 type="text"
                 placeholder="Search by property name, location, type..."
@@ -548,7 +524,6 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
             </div>
           </div>
 
-          {/* Loading / Error */}
           {(loadingProps || loadingTags) && (
             <div className="text-center py-8 text-xs text-gray-600">
               Loading properties{loadingTags ? " & tags" : ""}…
@@ -561,7 +536,7 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
             <div className="text-center py-4 text-xs text-amber-700">{tagsErr}</div>
           )}
 
-          {/* Properties List */}
+          {/* List */}
           {!loadingProps && !propsError && (
             <>
               <div className="space-y-3">
@@ -590,9 +565,7 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
                                 src={it.photo}
                                 alt={displayTitle}
                                 className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                                }}
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-gray-200">
@@ -644,7 +617,6 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
                               </div>
                             </div>
 
-                            {/* Tags row */}
                             {!!tagsShown.length && (
                               <div className="flex items-center flex-wrap gap-1 mb-2">
                                 {tagsShown.map((t) => {
@@ -671,25 +643,13 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
 
                             {/* Quick attributes */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 text-xs">
-                              <div className="truncate">
-                                <span className="text-gray-500">Floor:</span>
-                                <span className="font-medium ml-1">{it.floorLine || "—"}</span>
-                              </div>
-                              <div className="truncate">
-                                <span className="text-gray-500">Facing:</span>
-                                <span className="font-medium ml-1">{it.facing || "—"}</span>
-                              </div>
-                              <div className="truncate">
-                                <span className="text-gray-500">Parking:</span>
-                                <span className="font-medium ml-1">{it.parking || "—"}</span>
-                              </div>
-                              <div className="truncate">
-                                <span className="text-gray-500">Possession:</span>
-                                <span className="font-medium ml-1">{it.possession || "—"}</span>
-                              </div>
+                              <div className="truncate"><span className="text-gray-500">Floor:</span><span className="font-medium ml-1">{it.floorLine || "—"}</span></div>
+                              <div className="truncate"><span className="text-gray-500">Facing:</span><span className="font-medium ml-1">{it.facing || "—"}</span></div>
+                              <div className="truncate"><span className="text-gray-500">Parking:</span><span className="font-medium ml-1">{it.parking || "—"}</span></div>
+                              <div className="truncate"><span className="text-gray-500">Possession:</span><span className="font-medium ml-1">{it.possession || "—"}</span></div>
                             </div>
 
-                            {/* Executive Information */}
+                            {/* Executive */}
                             {hasExecutive && (
                               <div className="mb-3 p-2 bg-gray-50 rounded-md">
                                 <div className="flex items-center justify-between">
@@ -697,12 +657,8 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
                                     <div className="text-xs font-medium text-gray-900 truncate">
                                       Executive: {exec.name || "Not assigned"}
                                     </div>
-                                    {exec.email && (
-                                      <div className="text-xs text-gray-600 truncate">📧 {exec.email}</div>
-                                    )}
-                                    {exec.phone && (
-                                      <div className="text-xs text-gray-600 truncate">📞 {exec.phone}</div>
-                                    )}
+                                    {exec.email && <div className="text-xs text-gray-600 truncate">📧 {exec.email}</div>}
+                                    {exec.phone && <div className="text-xs text-gray-600 truncate">📞 {exec.phone}</div>}
                                     {!exec.name && !exec.email && !exec.phone && (
                                       <div className="text-xs text-gray-500">No executive details available</div>
                                     )}
@@ -782,9 +738,7 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
                 <div className="text-center py-8">
                   <Building className="mx-auto text-gray-300 mb-3" size={48} />
                   <h3 className="text-lg font-semibold text-gray-900 mb-1">No matching public properties found</h3>
-                  <p className="text-gray-500 text-xs">
-                    Adjust the search or widen the budget tolerance.
-                  </p>
+                  <p className="text-gray-500 text-xs">Adjust the search or widen the budget tolerance.</p>
                 </div>
               )}
             </>
@@ -806,7 +760,7 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
                   onClick={handleSendToSelected}
                   className="flex items-center gap-1 px-4 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-xs"
                 >
-                  <Send size={14} />
+                  <Share2 size={14} />
                   <span>Send to Buyer</span>
                 </button>
               )}

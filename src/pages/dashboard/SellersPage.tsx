@@ -31,12 +31,15 @@ import {
 import SellerFormModal from "../../components/sellers/SellerFormModal";
 import SellerViewPage from "../../components/sellers/SellerViewPage";
 import SellerAccountPage from "../../components/sellers/SellerAccountPage";
-import ImportLeadsModal from "../../components/sellers/ImportLeadsModal";
+import ImportSellersLeadsModal from "../../components/sellers/ImportSellersLeadsModal";
 import { sellerAPI } from "@/lib/sellersAPI";
 import { toast } from "react-toastify";
 import SellerSidebarFilter from "./components/SellerSidebarFilter";
 import { useNavigate } from "react-router-dom";
 import TableLoader from "@/components/ui/TableLoader";
+import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
+import { useAuth } from "@/contexts/AuthContext";
+import { usersAPI } from "@/lib/api";
 
 // ---------- Helpers ----------
 const safe = <T,>(v: T | null | undefined, fallback: string | number = "-") =>
@@ -55,7 +58,6 @@ const toDate = (v?: string | null) => {
   }
 };
 
-
 // --- array safety helpers ---
 const parseIfArrayJSON = (v: any): any[] => {
   if (Array.isArray(v)) return v;
@@ -71,12 +73,10 @@ const parseIfArrayJSON = (v: any): any[] => {
 };
 
 const ensureArray = (...candidates: any[]) => {
-  // first non-empty array wins
   for (const c of candidates) {
     const arr = parseIfArrayJSON(c);
     if (arr.length) return arr;
   }
-  // else parse first candidate (returns [] if not valid)
   return parseIfArrayJSON(candidates[0]);
 };
 
@@ -84,7 +84,7 @@ const ensureArray = (...candidates: any[]) => {
 const normalizeStage = (v?: string | null) =>
   v ? v.toLowerCase().replace(/\s+/g, "_") : "initial_contact";
 
-// ---------- Types used in UI (minimal) ----------
+// ---------- Types ----------
 type UISeller = {
   id: number;
   salutation: string;
@@ -96,11 +96,15 @@ type UISeller = {
   city: string;
   location: string;
   source: string;
-  priority: string; // 'high' | 'medium' | 'low' etc.
-  stage: string; // underscored keys for badges
+  priority: string;
+  stage: string;
   status: string;
   leadType: string;
   assigned: string;
+  assigned_to: number;
+  assigned_to_name: string;
+  assigned_to_email?: string;
+  assigned_to_phone?: string;
   leadScore: number;
   dealValue: number;
   expectedClose: string | null;
@@ -120,10 +124,16 @@ type UISeller = {
   responseRate: number;
   avgResponseTime: string | null;
   isActive: boolean;
-  notes: string,
-  seller_dob: string,
-  assigned_to: number,
-  assigned_to_name: string
+  notes: string;
+  seller_dob: string;
+};
+
+type Executive = {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  username?: string;
 };
 
 // Map API seller -> UI seller shape
@@ -140,23 +150,21 @@ export const mapApiSellerToUI = (api: any): UISeller => ({
   source: safe(api.source, "-") as string,
   leadType: safe(api.leadType, "-") as string,
   priority: (api.priority || "-").toString().toLowerCase(),
-
   stage: normalizeStage(api.stage || api.current_stage),
   status: safe(api.status, "-") as string,
   assigned: safe(api.assigned_to_name, "-") as string,
-
+  assigned_to: Number(api.assigned_to || 0),
+  assigned_to_name: safe(api.assigned_to_name, "-") as string,
+  assigned_to_email: api.assigned_to_email || null,
+  assigned_to_phone: api.assigned_to_phone || null,
   leadScore: Number(api.lead_score || 0),
   dealValue: Number(api.deal_value || 0),
   expectedClose: api.expected_close || null,
-
- properties: ensureArray(api.properties, api.props, api.property_list),
-
+  properties: ensureArray(api.properties, api.props, api.property_list),
   coSellers: ensureArray(api.coSellers, api.cosellers),
-
   activities: ensureArray(api.activities, api.metrics?.activities),
   followups: ensureArray(api.followups, api.metrics?.followups),
   documents: ensureArray(api.documents, api.metrics?.documents),
-
   visits: Number(api.visits || 0),
   totalVisits: Number(api.total_visits || 0),
   lastActivity:
@@ -166,45 +174,70 @@ export const mapApiSellerToUI = (api: any): UISeller => ({
     null,
   created_at: api.created_at || null,
   notifications: Number(api.notifications || 0),
-
   currentStage: normalizeStage(api.current_stage || api.stage),
   stageProgress: Number(api.stage_progress || 0),
   dealPotential: safe(api.deal_potential, "-") as string,
   responseRate: Number(api.response_rate || 0),
   avgResponseTime: api.avg_response_time || null,
   isActive: !!api.is_active,
-  notes: api.notes,
-  seller_dob: api.seller_dob,
-  assigned_to: api.assigned_to,
-  assigned_to_name: api.assigned_to_name,
-
+  notes: api.notes || "",
+  seller_dob: api.seller_dob || "",
 });
 
+// Helper to get master data array
+const getMasterArray = (masters: Record<string, MasterOption[]>, keys: string[]): MasterOption[] => {
+  for (const key of keys) {
+    if (masters[key] && Array.isArray(masters[key])) {
+      return masters[key];
+    }
+  }
+  return [];
+};
 
+// Helper to get assignable executives based on user permissions
+const getAssignableExecutives = (currentUser: any, executives: any[]): any[] => {
+  // Basic implementation - adjust based on your permission logic
+  if (!currentUser) return executives;
+  
+  // If user is admin/superadmin, return all executives
+  if (currentUser.role === 'admin' || currentUser.role === 'superadmin') {
+    return executives;
+  }
+  
+  // If user is a manager, return executives from their department
+  if (currentUser.role === 'manager') {
+    return executives.filter(exec => exec.department === currentUser.department);
+  }
+  
+  // For regular users, return empty or only themselves
+  return executives.filter(exec => exec.id === currentUser.id);
+};
 
 // ---------- Component ----------
 const SellersPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth(); // Get current user from auth context
+  
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSellers, setSelectedSellers] = useState<number[]>([]);
   const [showSellerForm, setShowSellerForm] = useState(false);
-  const [currentSellerView, setCurrentSellerView] = useState<UISeller | null>(
-    null
-  );
-  const [currentSellerAccount, setCurrentSellerAccount] =
-    useState<UISeller | null>(null);
+  const [currentSellerView, setCurrentSellerView] = useState<UISeller | null>(null);
+  const [currentSellerAccount, setCurrentSellerAccount] = useState<UISeller | null>(null);
   const [showImportLeads, setShowImportLeads] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [editingSeller, setEditingSeller] = useState<UISeller | null>(null);
   const [currentSellerIndex, setCurrentSellerIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-
   const [sellers, setSellers] = useState<UISeller[]>([]);
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg] = useState<string | null>(null);
-  const clearSelection = () => setSelectedSellers([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [executives, setExecutives] = useState<Executive[]>([]);
+  const [execsLoading, setExecsLoading] = useState(false);
+  const [masterLoading, setMasterLoading] = useState(true);
+  const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
 
   const [filters, setFilters] = useState({
     dateFrom: "",
@@ -218,75 +251,309 @@ const SellersPage: React.FC = () => {
     status: "all",
   });
 
+  // Fetch master data
   useEffect(() => {
-  const fetchSellers = async () => {
-    try {
-      setLoading(true);
-      const apiSellers = await sellerAPI.getAll();
-      const normalized = Array.isArray(apiSellers)
-        ? apiSellers.map(mapApiSellerToUI)
-        : [];
-      setSellers(normalized);
-    } catch (err) {
-      console.error("Error fetching sellers:", err);
-      setSellers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-  fetchSellers();
-}, []);
+    const fetchMasters = async () => {
+      try {
+        setMasterLoading(true);
+        const data = await getMasterDropdownOptions(['seller', 'lead']);
+        setMasters(data);
+        console.log("Fetched master data:", data);
+      } catch (err) {
+        console.error('Error fetching master options:', err);
+        toast.error('Failed to load dropdown options');
+      } finally {
+        setMasterLoading(false);
+      }
+    };
 
+    fetchMasters();
+  }, []);
+
+  // Fetch sellers
+  useEffect(() => {
+    const fetchSellers = async () => {
+      try {
+        setLoading(true);
+        const apiSellers = await sellerAPI.getAll();
+        console.log("get all", apiSellers);
+        const normalized = Array.isArray(apiSellers)
+          ? apiSellers.map(mapApiSellerToUI)
+          : [];
+        setSellers(normalized);
+      } catch (err) {
+        console.error("Error fetching sellers:", err);
+        setSellers([]);
+        setErrMsg("Failed to load sellers");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSellers();
+  }, []);
+
+  // Load executives
+  useEffect(() => {
+    const loadExecutives = async () => {
+      try {
+        setExecsLoading(true);
+
+        // Helper to format name with salutation
+        const formatName = (u: any) => {
+          const salutation = u?.salutation ? `${u.salutation} ` : '';
+          const firstName = u?.first_name || '';
+          const lastName = u?.last_name || '';
+          const usernameFallback = u?.username || u?.email || 'Executive';
+          const name = `${salutation}${firstName} ${lastName}`.trim();
+          return name || usernameFallback;
+        };
+
+        // Fetch executives
+        const get = async (department: string) =>
+          usersAPI.getByDeptRole?.({ department, role: 'executive', is_active: 1, limit: 100 });
+
+        let res: any;
+        try { 
+          res = await get('sales'); 
+        } catch { 
+          res = await get('sales'); 
+        }
+
+        const salesUsers = (res?.items ?? res?.data ?? res ?? []).map((u: any) => ({
+          ...u,
+          id: u.id ?? u.userId ?? u._id ?? u.uuid ?? String(u.email || u.username || Math.random()),
+          name: formatName(u),
+          email: u.email || null,
+          phone: u.phone || u.mobile || null,
+        }));
+
+        const allowed = getAssignableExecutives(user, salesUsers) || [];
+        const mapped: Executive[] = allowed.map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone,
+          username: u.raw?.username || u.username,
+        }));
+
+        setExecutives(mapped);
+      } catch (e) {
+        console.error('Error loading executives:', e);
+        toast.error('Could not fetch executives');
+      } finally {
+        setExecsLoading(false);
+      }
+    };
+
+    if (user) {
+      loadExecutives();
+    }
+  }, [user]);
+
+  /* ================= Derived Options from Masters ================= */
+  const toOptionLabel = (o: any) =>
+    (o?.label ?? o?.name ?? o?.title ?? o?.value ?? o?.key ?? '').toString();
+
+  const toOptionValue = (o: any) =>
+    (o?.value ?? o?.key ?? o?.code ?? o?.name ?? '').toString();
+
+  // Get stages and priorities from master data
+ const stageRaw = getMasterArray(masters, [
+    'seller lead stage',
+  ]);
+
+   const priorityRaw = getMasterArray(masters, [
+    'lead_priority',
+    'lead priority',
+  ]);
+
+  const stageOptions = stageRaw
+    .map((o) => ({ value: toOptionValue(o), label: toOptionLabel(o) }))
+    .filter((o) => o.value);
+
+  const priorityOptions = priorityRaw
+    .map((o) => ({ value: toOptionValue(o).toLowerCase(), label: toOptionLabel(o) }))
+    .filter((o) => o.value);
+
+  // Get available stages and priorities for filters
+  const availableStages = ['all', ...stageOptions.map(s => s.value)];
+  const availablePriorities = ['all', ...priorityOptions.map(p => p.value)];
 
   const formatDOB = (val: string | null) => {
     if (!val) return ' - ';
     const d = new Date(val);
     if (isNaN(d.getTime())) return ' - ';
     const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
     const yyyy = d.getFullYear();
-    return `${dd}/${mm}/${yyyy}`; // ✅ use slash separator
+    return `${dd}/${mm}/${yyyy}`;
   };
 
-  const handleExportAllFiltered = () => {
-    if (filteredSellers.length === 0) {
-      alert("No sellers to export based on current filters.");
+  // ==================== BULK OPERATIONS ====================
+
+  const handleBulkAssign = async (assignedTo: number) => {
+    if (selectedSellers.length === 0) {
+      toast.info("Please select sellers to assign");
       return;
     }
 
-    // Use `filteredSellers` which contains all matching sellers across all pages
-    const rows = filteredSellers.map(s => ({
-      id: s.id,
-      name: `${s.salutation} ${s.name}`.trim(),
-      phone: s.phone,
-      email: s.email,
-      location: s.location,
-      source: s.source,
-      priority: s.priority,
-      stage: s.stage,
-      status: s.status,
-      assigned: s.assigned,
-      created_at: s.created_at ?? "",
-    }));
+    try {
+      const sellerIds = selectedSellers.map(id => String(id));
+      await sellerAPI.bulkAssignExecutive(sellerIds, assignedTo);
 
-    const headers = Object.keys(rows[0]);
-    const csv = [
-      headers.join(","),
-      ...rows.map(r => headers.map(h => `"${String((r as any)[h] ?? "").replace(/"/g, '""')}"`).join(",")),
-    ].join("\n");
+      // Find executive details
+      const executive = executives.find(exec => exec.id === assignedTo);
+      
+      // Update local state
+      setSellers(prev => prev.map(seller =>
+        selectedSellers.includes(seller.id)
+          ? { 
+              ...seller, 
+              assigned_to: assignedTo,
+              assigned_to_name: executive?.name || 'Executive',
+              assigned_to_email: executive?.email,
+              assigned_to_phone: executive?.phone
+            }
+          : seller
+      ));
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `filtered_sellers.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+      setSelectedSellers([]);
+      toast.success(`Assigned ${selectedSellers.length} seller(s) successfully`);
+    } catch (err) {
+      console.error("Error bulk assigning:", err);
+      toast.error("Failed to assign sellers");
+    }
   };
 
-  const handleBulkAssign = () => {
-    // TODO: open Assign modal / API call
-    alert(`${selectedSellers.length} sellers selected for assign`);
+  const handleBulkStatusUpdate = async (status: string) => {
+    if (selectedSellers.length === 0) {
+      toast.info("Please select sellers to update status");
+      return;
+    }
+
+    try {
+      const sellerIds = selectedSellers.map(id => String(id));
+      await sellerAPI.bulkUpdateLeadField(
+        sellerIds,
+        "is_active",
+        status === "active" ? 1 : 0
+      );
+
+      setSellers(prev => prev.map(seller =>
+        selectedSellers.includes(seller.id)
+          ? { ...seller, isActive: status === "active" }
+          : seller
+      ));
+
+      setSelectedSellers([]);
+      toast.success(`Status updated for ${selectedSellers.length} seller(s)`);
+    } catch (err) {
+      console.error("Error bulk updating status:", err);
+      toast.error("Failed to update status");
+    }
+  };
+
+  const handleBulkStageUpdate = async (stage: string) => {
+    if (selectedSellers.length === 0) {
+      toast.info("Please select sellers to update stage");
+      return;
+    }
+
+    try {
+      const sellerIds = selectedSellers.map(id => String(id));
+      await sellerAPI.bulkUpdateLeadField(sellerIds, "stage", stage);
+
+      setSellers(prev => prev.map(seller =>
+        selectedSellers.includes(seller.id)
+          ? { ...seller, stage, currentStage: stage }
+          : seller
+      ));
+
+      setSelectedSellers([]);
+      toast.success(`Stage updated for ${selectedSellers.length} seller(s)`);
+    } catch (err) {
+      console.error("Error bulk updating stage:", err);
+      toast.error("Failed to update stage");
+    }
+  };
+
+  const handleBulkPriorityUpdate = async (priority: string) => {
+    if (selectedSellers.length === 0) {
+      toast.info("Please select sellers to update priority");
+      return;
+    }
+
+    try {
+      const sellerIds = selectedSellers.map(id => String(id));
+      await sellerAPI.bulkUpdateLeadField(sellerIds, "priority", priority);
+
+      setSellers(prev => prev.map(seller =>
+        selectedSellers.includes(seller.id)
+          ? { ...seller, priority }
+          : seller
+      ));
+
+      setSelectedSellers([]);
+      toast.success(`Priority updated for ${selectedSellers.length} seller(s)`);
+    } catch (err) {
+      console.error("Error bulk updating priority:", err);
+      toast.error("Failed to update priority");
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedSellers.length === 0) {
+      toast.info("⚠️ No sellers selected for deletion.");
+      return;
+    }
+
+    const ids = selectedSellers.map(id => String(id));
+
+    toast(
+      ({ closeToast }) => (
+        <div className="flex flex-col items-center text-center space-y-3 p-3">
+          <p className="text-sm font-medium">
+            Do you want to delete <b>{ids.length}</b> selected seller(s)?
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              className="px-4 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+              onClick={async () => {
+                const prevSellers = sellers;
+                try {
+                  setBulkDeleting(true);
+                  setSellers(prev => prev.filter(s => !ids.includes(String(s.id))));
+                  setSelectedSellers([]);
+                  await sellerAPI.bulkDelete(ids);
+                  toast.success(`🗑️ ${ids.length} seller(s) deleted successfully.`);
+                } catch (err) {
+                  console.error('Error bulk deleting sellers:', err);
+                  setSellers(prevSellers);
+                  toast.error('❌ Failed to delete sellers. Try again.');
+                } finally {
+                  setBulkDeleting(false);
+                  closeToast?.();
+                }
+              }}
+            >
+              ✅ Yes, Delete
+            </button>
+            <button
+              className="px-4 py-1 bg-gray-300 text-gray-800 rounded text-xs hover:bg-gray-400"
+              onClick={closeToast}
+            >
+              ❌ Cancel
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        autoClose: false,
+        closeOnClick: false,
+        draggable: false,
+        position: 'top-center',
+      }
+    );
   };
 
   const handleBulkExport = () => {
@@ -307,8 +574,19 @@ const SellersPage: React.FC = () => {
         stage: s.stage,
         status: s.status,
         assigned: s.assigned,
+        assigned_to: s.assigned_to,
+        assigned_to_name: s.assigned_to_name,
+        assigned_to_email: s.assigned_to_email,
+        assigned_to_phone: s.assigned_to_phone,
+        leadScore: s.leadScore,
+        dealValue: s.dealValue,
         created_at: s.created_at ?? "",
       }));
+
+    if (rows.length === 0) {
+      toast.info("No sellers selected to export.");
+      return;
+    }
 
     const headers = Object.keys(rows[0] ?? { id: "", name: "", phone: "" });
     const csv = [
@@ -322,28 +600,53 @@ const SellersPage: React.FC = () => {
     a.href = url;
     a.download = `sellers_selected_${selectedSellers.length}.csv`;
     a.click();
+    a.remove();
     URL.revokeObjectURL(url);
+    toast.success("Exported CSV successfully");
   };
 
-  const handleBulkDelete = async () => {
-    if (!selectedSellers.length) return;
-
-    if (window.confirm(`Delete ${selectedSellers.length} selected seller(s)?`)) {
-      try {
-        // Delete each seller individually
-        for (const id of selectedSellers) {
-          await sellerAPI.delete(String(id));
-        }
-
-        // Update local state
-        setSellers((prev) => prev.filter((s) => !selectedSellers.includes(s.id)));
-        clearSelection();
-      } catch (err: any) {
-        console.error("Error deleting sellers:", err);
-        alert("Failed to delete some sellers. Please try again.");
-      }
+  const handleExportAllFiltered = () => {
+    if (filteredSellers.length === 0) {
+      toast.info("No sellers to export based on current filters.");
+      return;
     }
+
+    const rows = filteredSellers.map(s => ({
+      id: s.id,
+      name: `${s.salutation} ${s.name}`.trim(),
+      phone: s.phone,
+      email: s.email,
+      location: s.location,
+      source: s.source,
+      priority: s.priority,
+      stage: s.stage,
+      status: s.status,
+      assigned: s.assigned,
+      assigned_to: s.assigned_to,
+      assigned_to_name: s.assigned_to_name,
+      assigned_to_email: s.assigned_to_email,
+      assigned_to_phone: s.assigned_to_phone,
+      created_at: s.created_at ?? "",
+    }));
+
+    const headers = Object.keys(rows[0]);
+    const csv = [
+      headers.join(","),
+      ...rows.map(r => headers.map(h => `"${String((r as any)[h] ?? "").replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `filtered_sellers.csv`;
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success("Exported CSV successfully");
   };
+
+  const clearSelection = () => setSelectedSellers([]);
 
   const tabs = useMemo(() => {
     const count = (pred: (s: UISeller) => boolean) =>
@@ -360,7 +663,7 @@ const SellersPage: React.FC = () => {
       {
         id: "active",
         label: "Active",
-        count: count((s) => s.isActive),   // ✅ ab yaha
+        count: count((s) => s.isActive),
         color: "green",
       },
       {
@@ -392,19 +695,7 @@ const SellersPage: React.FC = () => {
     return Array.from(set);
   }, [sellers]);
 
-  const stages = [
-    "all",
-    "initial_contact",
-    "property_collection",
-    "mandate_discussion",
-    "mandate_signed",
-    "selling_process",
-    "deal_negotiation",
-    "deal_closure",
-    "completed",
-  ];
-  const priorities = ["all", "high", "medium", "low"];
-  const statuses = ["all", "active", "inactive", "blocked"];
+  const statuses = ["all", "active", "inactive"];
   const assignedUsers = useMemo(() => {
     const set = new Set<string>(["all"]);
     sellers.forEach((s) => s.assigned && set.add(s.assigned));
@@ -421,19 +712,15 @@ const SellersPage: React.FC = () => {
         (seller.email || "").toLowerCase().includes(search) ||
         (seller.location || "").toLowerCase().includes(search);
 
-      const isActiveBool =
-        typeof seller.isActive === "number" ? seller.isActive === 1 : !!seller.isActive;
+      const isActiveBool = typeof seller.isActive === "number" ? seller.isActive === 1 : !!seller.isActive;
 
       const matchesTab =
         activeTab === "all" ||
         (activeTab === "leads" && seller.stage === "initial_contact") ||
-        (activeTab === "active" && (isActiveBool ||
-          (seller.status || "").toLowerCase() === "active")) || // optional fallback
+        (activeTab === "active" && (isActiveBool || (seller.status || "").toLowerCase() === "active")) ||
         (activeTab === "mandate" && seller.stage === "mandate_signed") ||
         (activeTab === "selling" && seller.stage === "selling_process") ||
-        (activeTab === "hot" &&
-          seller.priority === "high" &&
-          seller.stage === "deal_negotiation");
+        (activeTab === "hot" && seller.priority === "high" && seller.stage === "deal_negotiation");
 
       const matchesFilters =
         (filters.source === "all" || seller.source === filters.source) &&
@@ -443,13 +730,10 @@ const SellersPage: React.FC = () => {
         (filters.status === "all" ||
           (filters.status === "active" && seller.isActive) ||
           (filters.status === "inactive" && !seller.isActive));
+
       const createdAt = seller.created_at ? new Date(seller.created_at) : null;
-      const fromOk =
-        !filters.dateFrom ||
-        !createdAt ||
-        createdAt >= new Date(filters.dateFrom);
-      const toOk =
-        !filters.dateTo || !createdAt || createdAt <= new Date(filters.dateTo);
+      const fromOk = !filters.dateFrom || !createdAt || createdAt >= new Date(filters.dateFrom);
+      const toOk = !filters.dateTo || !createdAt || createdAt <= new Date(filters.dateTo);
       const matchesDate = filters.ignoreDate || (fromOk && toOk);
 
       return matchesSearch && matchesTab && matchesFilters && matchesDate;
@@ -459,10 +743,7 @@ const SellersPage: React.FC = () => {
   // Pagination
   const totalPages = Math.ceil(filteredSellers.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedSellers = filteredSellers.slice(
-    startIndex,
-    startIndex + itemsPerPage
-  );
+  const paginatedSellers = filteredSellers.slice(startIndex, startIndex + itemsPerPage);
 
   const handleAddSeller = () => {
     setEditingSeller(null);
@@ -480,12 +761,7 @@ const SellersPage: React.FC = () => {
     setCurrentSellerView(seller);
   };
 
-  // const handleSellerAccount = (seller: UISeller) => {
-  //   setCurrentSellerAccount(seller);
-  // };
-
   const handleSellerAccount = (sellerId: number) => {
-    // Navigate to the standalone seller account page
     navigate(`/dashboard/sellers-account/${sellerId}`);
   };
 
@@ -500,14 +776,12 @@ const SellersPage: React.FC = () => {
     if (window.confirm("Are you sure you want to delete this seller?")) {
       try {
         await sellerAPI.delete(String(sellerId));
-
         setSellers((prev) => prev.filter((s) => s.id !== sellerId));
 
         if (currentSellerView?.id === sellerId) {
           setCurrentSellerView(null);
         }
 
-        // ✅ Success toast
         toast.success("Seller deleted successfully!");
       } catch (err: any) {
         console.error("Error deleting seller:", err);
@@ -517,80 +791,50 @@ const SellersPage: React.FC = () => {
   };
 
   const handleSaveSeller = async (sellerData: any) => {
-    // helper to unwrap axios/fetch-style responses
-    const unwrap = (r: any) => (r && typeof r === "object" && "data" in r ? r.data : r);
-
     try {
-      let savedBody: any;
+      let savedSeller;
 
       if (editingSeller?.id) {
-        // --- UPDATE PATH ---
-        const id = Number(editingSeller.id);
-        if (!Number.isFinite(id) || id <= 0) {
-          throw new Error("Invalid seller ID");
-        }
-
-        // optional: check existence (if your API supports it)
-        const existsResp = sellerAPI.getById ? await sellerAPI.getById(String(id)).catch(() => null) : null;
-        const exists = !!unwrap(existsResp);
-
+        // UPDATE - with proper error handling
         try {
-          const resp = exists
-            ? await sellerAPI.update(String(id), sellerData)
-            : await sellerAPI.create(sellerData); // fallback create if not found
-          savedBody = unwrap(resp);
-
-          if (!exists) {
-            toast.warn("Original seller not found. Created a new record instead.");
-          }
-
-          toast.success("Seller updated successfully.");
-        } catch (err: any) {
-          // fallback: if update said not found, try create
-          const status = err?.response?.status;
-          const msg = err?.response?.data?.message || err?.message || "";
-          if (status === 404 || /not found/i.test(msg)) {
-            const resp = await sellerAPI.create(sellerData);
-            savedBody = unwrap(resp);
-            toast.warn("Original seller not found. Created a new record instead.");
+          savedSeller = await sellerAPI.update(String(editingSeller.id), sellerData);
+          toast.success("Seller updated successfully");
+        } catch (error: any) {
+          // If update fails with "not found", try create instead
+          if (error?.response?.status === 404 || error?.message?.includes('not found')) {
+            console.warn('Seller not found, creating new one...');
+            savedSeller = await sellerAPI.create(sellerData);
+            toast.success("Seller created successfully (original not found)");
           } else {
-            throw err;
+            throw error;
           }
         }
       } else {
-        // --- CREATE PATH ---
-        const resp = await sellerAPI.create(sellerData);
-        savedBody = unwrap(resp);
-        toast.success("Seller created successfully.");
+        // CREATE
+        savedSeller = await sellerAPI.create(sellerData);
+        toast.success("Seller created successfully");
       }
 
       // Map the saved entity into UI shape
-      const updated = mapApiSellerToUI(savedBody);
+      const updated = mapApiSellerToUI(savedSeller);
 
-      // Merge into local state
-      setSellers(prev =>
-        prev.some(s => s.id === updated.id)
-          ? prev.map(s => (s.id === updated.id ? updated : s))
-          : [...prev, updated]
-      );
+      // Update local state
+      setSellers(prev => {
+        const exists = prev.some(s => s.id === updated.id);
+        if (exists) {
+          return prev.map(s => s.id === updated.id ? updated : s);
+        } else {
+          return [updated, ...prev];
+        }
+      });
 
-      // Close modal only after a successful save
+      // Close modal
       setShowSellerForm(false);
       setEditingSeller(null);
 
-      // Final refresh to stay in sync with DB
-      try {
-        const allResp = await sellerAPI.getAll();
-        const all = unwrap(allResp);
-        const list = Array.isArray(all) ? all : (all?.data ?? []); // tolerate {data:[...]} too
-        setSellers(list.map(mapApiSellerToUI));
-      } catch {
-        // soft-fail refresh; keep optimistic state
-      }
     } catch (error) {
       console.error("❌ Error saving seller:", error);
-      toast.error("Failed to save seller.");
-      // keep the modal open so user can fix inputs
+      toast.error("Failed to save seller. Please try again.");
     }
   };
 
@@ -626,54 +870,58 @@ const SellersPage: React.FC = () => {
     }
   };
 
-  // ✅ if you are storing is_active as BOOLEAN (0/1) in MySQL:
   const getStatusBadge = (isActive: boolean | number) => {
     const active = typeof isActive === "number" ? isActive === 1 : isActive;
-
     const config = active
       ? { bg: "bg-emerald-100", text: "text-emerald-700", label: "Active", icon: "🟢" }
       : { bg: "bg-gray-100", text: "text-gray-600", label: "Inactive", icon: "⚫" };
 
     return (
-      <span
-        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
-      >
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
         {config.icon} {config.label}
       </span>
     );
   };
 
   const getStageBadge = (stage: string) => {
+    // Find stage label from master data
+    const stageMaster = stageOptions.find(s => s.value === stage);
+    const stageLabel = stageMaster?.label || stage.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    
     const stageConfig: any = {
-      initial_contact: { bg: "bg-blue-100", text: "text-blue-700", label: "Initial Contact", icon: "📞" },
-      property_collection: { bg: "bg-purple-100", text: "text-purple-700", label: "Property Collection", icon: "🏠" },
-      mandate_discussion: { bg: "bg-orange-100", text: "text-orange-700", label: "Mandate Discussion", icon: "💬" },
-      mandate_signed: { bg: "bg-green-100", text: "text-green-700", label: "Mandate Signed", icon: "✅" },
-      selling_process: { bg: "bg-indigo-100", text: "text-indigo-700", label: "Selling Process", icon: "🔄" },
-      deal_negotiation: { bg: "bg-yellow-100", text: "text-yellow-700", label: "Deal Negotiation", icon: "🤝" },
-      deal_closure: { bg: "bg-pink-100", text: "text-pink-700", label: "Deal Closure", icon: "📋" },
-      completed: { bg: "bg-emerald-100", text: "text-emerald-700", label: "Completed", icon: "🎉" },
+      initial_contact: { bg: "bg-blue-100", text: "text-blue-700", icon: "📞" },
+      property_collection: { bg: "bg-purple-100", text: "text-purple-700", icon: "🏠" },
+      mandate_discussion: { bg: "bg-orange-100", text: "text-orange-700", icon: "💬" },
+      mandate_signed: { bg: "bg-green-100", text: "text-green-700", icon: "✅" },
+      selling_process: { bg: "bg-indigo-100", text: "text-indigo-700", icon: "🔄" },
+      deal_negotiation: { bg: "bg-yellow-100", text: "text-yellow-700", icon: "🤝" },
+      deal_closure: { bg: "bg-pink-100", text: "text-pink-700", icon: "📋" },
+      completed: { bg: "bg-emerald-100", text: "text-emerald-700", icon: "🎉" },
     };
     const key = stage || "initial_contact";
-    const config = stageConfig[key] || { bg: "bg-gray-100", text: "text-gray-700", label: safe(key) };
+    const config = stageConfig[key] || { bg: "bg-gray-100", text: "text-gray-700" };
     return (
       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
-        {config.icon ? `${config.icon} ` : ""}{config.label}
+        {config.icon ? `${config.icon} ` : ""}{stageLabel}
       </span>
     );
   };
 
   const getPriorityBadge = (priority: string) => {
+    // Find priority label from master data
+    const priorityMaster = priorityOptions.find(p => p.value === priority);
+    const priorityLabel = priorityMaster?.label || priority.charAt(0).toUpperCase() + priority.slice(1);
+    
     const p = (priority || "").toLowerCase();
     const priorityConfig: any = {
-      high: { bg: "bg-red-100", text: "text-red-700", label: "High", icon: "🔥" },
-      medium: { bg: "bg-yellow-100", text: "text-yellow-700", label: "Medium", icon: "⚡" },
-      low: { bg: "bg-green-100", text: "text-green-700", label: "Low", icon: "🌱" },
+      high: { bg: "bg-red-100", text: "text-red-700", icon: "🔥" },
+      medium: { bg: "bg-yellow-100", text: "text-yellow-700", icon: "⚡" },
+      low: { bg: "bg-green-100", text: "text-green-700", icon: "🌱" },
     };
-    const config = priorityConfig[p] || { bg: "bg-gray-100", text: "text-gray-700", label: safe(priority) };
+    const config = priorityConfig[p] || { bg: "bg-gray-100", text: "text-gray-700" };
     return (
       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${config.bg} ${config.text}`}>
-        {config.icon ? `${config.icon} ` : ""}{config.label}
+        {config.icon ? `${config.icon} ` : ""}{priorityLabel}
       </span>
     );
   };
@@ -781,10 +1029,7 @@ const SellersPage: React.FC = () => {
                   }`}
               >
                 <span>{tab.label}</span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-xs ${activeTab === tab.id ? `bg-${tab.color}-200` : "bg-gray-200"
-                    }`}
-                >
+                <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === tab.id ? `bg-${tab.color}-200` : "bg-gray-200"}`}>
                   {tab.count}
                 </span>
               </button>
@@ -839,12 +1084,8 @@ const SellersPage: React.FC = () => {
         {/* Quick Filters */}
         <div className="flex flex-wrap items-center gap-2 mt-3">
           <span className="text-xs font-medium text-gray-500">Quick:</span>
-
-          {/* All button */}
           <button
-            onClick={() =>
-              setFilters((prev) => ({ ...prev, stage: "all", priority: "all" }))
-            }
+            onClick={() => setFilters((prev) => ({ ...prev, stage: "all", priority: "all" }))}
             className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${filters.stage === "all" && filters.priority === "all"
               ? "bg-blue-100 text-blue-700"
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -853,39 +1094,34 @@ const SellersPage: React.FC = () => {
             All
           </button>
 
-          {stages
-            .filter((s) => s !== "all")
-            .slice(0, 4)
-            .map((stage) => (
-              <button
-                key={stage}
-                onClick={() => setFilters((prev) => ({ ...prev, stage }))}
-                className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${filters.stage === stage
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-              >
-                {stage.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-              </button>
-            ))}
+          {availableStages.filter((s) => s !== "all").slice(0, 4).map((stage) => (
+            <button
+              key={stage}
+              onClick={() => setFilters((prev) => ({ ...prev, stage }))}
+              className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${filters.stage === stage
+                ? "bg-blue-100 text-blue-700"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+            >
+              {stageOptions.find(s => s.value === stage)?.label || stage.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+            </button>
+          ))}
 
-          {priorities
-            .filter((p) => p !== "all")
-            .map((priority) => (
-              <button
-                key={priority}
-                onClick={() => setFilters((prev) => ({ ...prev, priority }))}
-                className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${filters.priority === priority
-                  ? "bg-red-100 text-red-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-              >
-                {priority.charAt(0).toUpperCase() + priority.slice(1)}
-              </button>
-            ))}
+          {availablePriorities.filter((p) => p !== "all").map((priority) => (
+            <button
+              key={priority}
+              onClick={() => setFilters((prev) => ({ ...prev, priority }))}
+              className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${filters.priority === priority
+                ? "bg-red-100 text-red-700"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+            >
+              {priorityOptions.find(p => p.value === priority)?.label || priority.charAt(0).toUpperCase() + priority.slice(1)}
+            </button>
+          ))}
         </div>
 
-        {/* Bulk actions — just below Quick Filters */}
+        {/* Enhanced Bulk Actions */}
         {selectedSellers.length > 0 && (
           <div className="mt-2">
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5">
@@ -895,12 +1131,71 @@ const SellersPage: React.FC = () => {
 
               <span className="mx-1 h-4 w-px bg-blue-200" />
 
-              <button
-                onClick={handleBulkAssign}
-                className="rounded-md bg-blue-600 px-2.5 py-1 text-xs text-white hover:bg-blue-700"
+              {/* Bulk Assign Executive */}
+              <select
+                onChange={(e) => {
+                  const execId = Number(e.target.value);
+                  if (execId) handleBulkAssign(execId);
+                  e.target.value = "";
+                }}
+                className="px-2 py-1 border border-gray-300 rounded text-xs"
+                disabled={execsLoading}
               >
-                Assign
-              </button>
+                <option value="">Assign Executive</option>
+                {executives.map(exec => (
+                  <option key={exec.id} value={exec.id}>
+                    {exec.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Bulk Stage Update */}
+              <select
+                onChange={(e) => {
+                  const stage = e.target.value;
+                  if (stage) handleBulkStageUpdate(stage);
+                  e.target.value = "";
+                }}
+                className="px-2 py-1 border border-gray-300 rounded text-xs"
+              >
+                <option value="">Update Stage</option>
+                {availableStages.filter(s => s !== 'all').map(stage => (
+                  <option key={stage} value={stage}>
+                    {stageOptions.find(s => s.value === stage)?.label || stage.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </option>
+                ))}
+              </select>
+
+              {/* Bulk Priority Update */}
+              <select
+                onChange={(e) => {
+                  const priority = e.target.value;
+                  if (priority) handleBulkPriorityUpdate(priority);
+                  e.target.value = "";
+                }}
+                className="px-2 py-1 border border-gray-300 rounded text-xs"
+              >
+                <option value="">Update Priority</option>
+                {availablePriorities.filter(p => p !== 'all').map(priority => (
+                  <option key={priority} value={priority}>
+                    {priorityOptions.find(p => p.value === priority)?.label || priority.charAt(0).toUpperCase() + priority.slice(1)}
+                  </option>
+                ))}
+              </select>
+
+              {/* Bulk Status Update */}
+              <select
+                onChange={(e) => {
+                  const status = e.target.value;
+                  if (status) handleBulkStatusUpdate(status);
+                  e.target.value = "";
+                }}
+                className="px-2 py-1 border border-gray-300 rounded text-xs"
+              >
+                <option value="">Update Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
 
               <button
                 onClick={handleBulkExport}
@@ -911,12 +1206,12 @@ const SellersPage: React.FC = () => {
 
               <button
                 onClick={handleBulkDelete}
-                className="rounded-md bg-red-600 px-2.5 py-1 text-xs text-white hover:bg-red-700"
+                disabled={bulkDeleting}
+                className="rounded-md bg-red-600 px-2.5 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-50"
               >
-                Delete
+                {bulkDeleting ? 'Deleting...' : 'Delete'}
               </button>
 
-              {/* push clear icon to right, but keep same row height */}
               <div className="flex-1" />
               <button
                 onClick={clearSelection}
@@ -937,14 +1232,16 @@ const SellersPage: React.FC = () => {
           setFilters={setFilters}
           resetFilters={resetFilters}
           sources={sources}
-          stages={stages}
-          priorities={priorities}
+          stages={availableStages}
+          // stageOptions={stageOptions}
+          priorities={availablePriorities}
+          // priorityOptions={priorityOptions}
           assignedUsers={assignedUsers}
           statuses={statuses}
         />
       </div>
 
-      {/* Table: render ALWAYS so the TableLoader row can show */}
+      {/* Table */}
       <div className="flex-1 overflow-auto">
         <div className="bg-white">
           <table className="w-full text-sm">
@@ -961,6 +1258,7 @@ const SellersPage: React.FC = () => {
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Seller Details</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Contact & Location</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Business Info</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Progress & Activity</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -968,17 +1266,14 @@ const SellersPage: React.FC = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {loading ? (
-                // ✅ Only TableLoader
-                <TableLoader colSpan={7} message="Loading sellers..." size="lg" />
+                <TableLoader colSpan={8} message="Loading sellers..." size="lg" />
               ) : errMsg ? (
-                // ✅ Error row inside the table
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-sm text-red-600">
+                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-red-600">
                     {errMsg}
                   </td>
                 </tr>
               ) : paginatedSellers.length > 0 ? (
-                // ✅ Normal rows
                 paginatedSellers.map((seller) => (
                   <tr key={seller.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-3 py-3">
@@ -1032,12 +1327,40 @@ const SellersPage: React.FC = () => {
                         <div className="text-xs">
                           <span className="text-gray-500">Source:</span> {safe(seller.source)}
                         </div>
-                        <div className="text-xs">
-                          <span className="text-gray-500">Assigned:</span> {safe(seller.assigned)}
-                        </div>
                         <div className="flex items-center space-x-1">
                           {getPriorityBadge(safe(seller.priority) as string)}
                         </div>
+                      </div>
+                    </td>
+
+                    {/* Assigned To Column */}
+                    <td className="px-3 py-3">
+                      <div className="space-y-1">
+                        {seller.assigned_to_name && seller.assigned_to_name !== '-' ? (
+                          <>
+                            <div className="flex items-center space-x-1 text-xs">
+                              <UserCheck size={10} className="text-green-500" />
+                              <span className="font-medium text-green-700">{seller.assigned_to_name}</span>
+                            </div>
+                            {seller.assigned_to_email && (
+                              <div className="flex items-center space-x-1 text-xs">
+                                <Mail size={10} className="text-gray-400" />
+                                <span className="text-gray-600 truncate max-w-24">{seller.assigned_to_email}</span>
+                              </div>
+                            )}
+                            {seller.assigned_to_phone && (
+                              <div className="flex items-center space-x-1 text-xs">
+                                <Phone size={10} className="text-gray-400" />
+                                <span className="text-gray-600">{seller.assigned_to_phone}</span>
+                              </div>
+                            )}
+                            {/* <div className="text-[10px] text-gray-500">
+                              ID: {seller.assigned_to}
+                            </div> */}
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-500">Not assigned</span>
+                        )}
                       </div>
                     </td>
 
@@ -1137,9 +1460,8 @@ const SellersPage: React.FC = () => {
                   </tr>
                 ))
               ) : (
-                // ✅ Empty state
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">
                     No sellers found.
                   </td>
                 </tr>
@@ -1172,8 +1494,7 @@ const SellersPage: React.FC = () => {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`px-2 py-1 rounded text-xs ${currentPage === page ? "bg-blue-600 text-white" : "border border-gray-300 hover:bg-gray-50"
-                        }`}
+                      className={`px-2 py-1 rounded text-xs ${currentPage === page ? "bg-blue-600 text-white" : "border border-gray-300 hover:bg-gray-50"}`}
                     >
                       {page}
                     </button>
@@ -1184,8 +1505,7 @@ const SellersPage: React.FC = () => {
                     <span className="px-1 text-xs">...</span>
                     <button
                       onClick={() => setCurrentPage(totalPages)}
-                      className={`px-2 py-1 rounded text-xs ${currentPage === totalPages ? "bg-blue-600 text-white" : "border border-gray-300 hover:bg-gray-50"
-                        }`}
+                      className={`px-2 py-1 rounded text-xs ${currentPage === totalPages ? "bg-blue-600 text-white" : "border border-gray-300 hover:bg-gray-50"}`}
                     >
                       {totalPages}
                     </button>
@@ -1219,7 +1539,7 @@ const SellersPage: React.FC = () => {
       )}
 
       {showImportLeads && (
-        <ImportLeadsModal isOpen={showImportLeads} onClose={() => setShowImportLeads(false)} onImport={() => { }} />
+        <ImportSellersLeadsModal isOpen={showImportLeads} onClose={() => setShowImportLeads(false)} />
       )}
     </div>
   );

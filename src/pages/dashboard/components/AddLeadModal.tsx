@@ -7,7 +7,6 @@ import { FaWhatsapp } from 'react-icons/fa';
 import { masterDataAPI } from '@/lib/mastersAPI';
 import { usersAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-
 import { toast } from 'react-toastify';
 import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 
@@ -20,17 +19,19 @@ interface Lead {
   id?: string;
   salutation?: string;
   name?: string;
-  phone?: string; // will be normalized to +<country><digits>
+  phone?: string;
   email?: string;
   lead_type?: string;
   lead_source?: string;
-  whatsapp_number?: string; // will be stored as plain digits (no +91)
+  whatsapp_number?: string;
   state?: string;
   city?: string;
   location?: string;
   status?: string;
   assigned_executive?: string;
+  assigned_executive_name?: string;
   priority?: string;
+  created_by?: string;
 }
 
 interface AddLeadModalProps {
@@ -189,21 +190,17 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
   });
   const [presalesUsers, setPreSalesUsers] = useState<any[]>([]);
 
-  // helper: get digits-only from a string
+  // Helper functions
   const digitsOnly = (s?: string) => (s ? String(s).replace(/\D/g, '') : '');
-
-  // helper: convert a phone string (maybe 9198... or +9198...) -> +<digits>
   const toE164 = (s?: string) => {
     if (!s) return '';
     const d = digitsOnly(s);
     if (!d) return '';
     return d.startsWith('0') ? `+${d.replace(/^0+/, '')}` : `+${d}`;
   };
-
-  // helper: whatsapp store as digits only (10 or whatever)
   const normalizeWhatsapp = (s?: string) => digitsOnly(s);
 
-  // fetch executives
+  // Fetch executives
   useEffect(() => {
     if (!isOpen) return;
     let alive = true;
@@ -242,7 +239,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
     return () => { alive = false; };
   }, [isOpen]);
 
-  // fetch master data
+  // Fetch master data
   const fetchMasterData = async () => {
     try {
       setLoading(true);
@@ -285,7 +282,6 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
     if (isOpen) {
       fetchMasterData();
       if (isEdit && lead) {
-        // Load lead into local state.
         setNewLead({
           id: lead.id,
           salutation: lead.salutation || '',
@@ -303,12 +299,22 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
           priority: lead.priority || '',
         });
 
-        // determine sameAsPhone: compare phone digits w/out + and whatsapp digits
         const phoneDigits = digitsOnly(lead.phone);
         const waDigits = digitsOnly(lead.whatsapp_number);
         setSameAsPhone(!!waDigits && phoneDigits && waDigits === phoneDigits.replace(/^91/, '') || waDigits === phoneDigits);
       } else {
-        setNewLead({ ...emptyLead });
+        // For new leads, auto-assign to current user if they are an executive
+        const initialLead = { ...emptyLead };
+        
+        // Auto-assign logic: If user is executive, assign to themselves
+        if (user?.role?.toLowerCase() === 'executive' && user?.department?.toLowerCase() === 'presales') {
+          initialLead.assigned_executive = String(user.id);
+        initialLead.assigned_executive_name = 
+  `${user?.salutation ? user.salutation + ' ' : ''}${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Self';
+
+        }
+        
+        setNewLead(initialLead);
         setSameAsPhone(false);
       }
       setError(null);
@@ -318,8 +324,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
       setError(null);
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, isEdit, lead?.id]);
+  }, [isOpen, isEdit, lead?.id, user]);
 
   const handleDropdownChange = (name: keyof Lead, options: MasterOption[]) => (value: string) => {
     const selected = options.find(opt => opt.value === value);
@@ -327,13 +332,10 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
   };
 
   const handlePhoneChange = (value: string) => {
-    // react-phone-input-2 often returns '919876543210' (without +). Normalize to +<digits>.
     const withPlus = toE164(value);
     setNewLead(prev => {
       const updated = { ...prev, phone: withPlus };
-      // if sameAsPhone is active, update whatsapp to digits-only version of phone
       if (sameAsPhone) {
-        // derive whatsapp digits (remove country code like 91 if present)
         const phoneDigits = digitsOnly(withPlus);
         const waDigits = phoneDigits.startsWith('91') ? phoneDigits.replace(/^91/, '') : phoneDigits;
         updated.whatsapp_number = waDigits;
@@ -343,7 +345,6 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
   };
 
   const handleWhatsappChange = (value: string) => {
-    // Only keep digits, no +91
     const numbers = digitsOnly(value);
     setNewLead(prev => ({ ...prev, whatsapp_number: numbers }));
   };
@@ -351,7 +352,6 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
   const handleSameAsPhoneToggle = (checked: boolean) => {
     setSameAsPhone(checked);
     if (checked) {
-      // phone already in E.164 in state; extract local digits for whatsapp (strip country code like 91)
       const phoneDigits = digitsOnly(newLead.phone || '');
       const waDigits = phoneDigits.startsWith('91') ? phoneDigits.replace(/^91/, '') : phoneDigits;
       setNewLead(prev => ({ ...prev, whatsapp_number: waDigits }));
@@ -379,22 +379,23 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
       return;
     }
 
-    // prepare normalized payload:
+    // Prepare payload with creator information
     const normalizedLead: Lead = {
       ...newLead,
-      phone: normalizeNumber(newLead.phone),           // +<country><digits>
-      whatsapp_number: normalizeWhatsapp(newLead.whatsapp_number) // digits only
+      phone: normalizeNumber(newLead.phone),
+      whatsapp_number: normalizeWhatsapp(newLead.whatsapp_number),
+      created_by: String(user?.id),
     };
 
-    // debug: confirm payload in console / network tab before it's sent to API
-    // eslint-disable-next-line no-console
     console.log('Saving lead payload:', normalizedLead);
-
     onSave(normalizedLead);
   };
 
   const valFromLabel = (opts: MasterOption[], labelOrValue?: string) =>
     (labelOrValue ? opts.find(opt => opt.label === labelOrValue)?.value : undefined) || (labelOrValue ?? '');
+
+  // Get assignable executives
+  const assignableExecutives = getAssignableExecutives(user, presalesUsers);
 
   return (
     <Modal
@@ -404,7 +405,6 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
       width="max-w-[95vw] md:max-w-2xl lg:max-w-3xl"
     >
       <div className="space-y-4 relative" style={{ minHeight: '320px' }}>
-        {/* Loading + Error */}
         {loading && (
           <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center z-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -419,6 +419,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
             </button>
           </div>
         )}
+
         {/* First Row - Salutation, Name, Email */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
           <div className="md:col-span-2">
@@ -426,7 +427,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
             <Dropdown
               placeholder="Select Salutation"
               options={masterOptions.salutation}
-              value={valFromLabel(masterOptions.salutation, newLead.salutation) }
+              value={valFromLabel(masterOptions.salutation, newLead.salutation)}
               onChange={handleDropdownChange('salutation', masterOptions.salutation)}
               className="w-full"
             />
@@ -594,19 +595,18 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
           </div>
         </div>
 
+        {/* Assigned Executive Field */}
         <div className="md:col-span-2">
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Assigned Executive
           </label>
 
           {(() => {
-            const execs = getAssignableExecutives(user, presalesUsers);
-
-            if (execs.length === 1 && execs[0].selfOnly) {
-              const selfExec = execs[0];
+            if (assignableExecutives.length === 1 && assignableExecutives[0].selfOnly) {
+              const selfExec = assignableExecutives[0];
               return (
                 <div className="px-2 py-1.5 border rounded-lg text-xs bg-gray-100 inline-block">
-                  {selfExec.name}
+                  {selfExec.name} (Auto-assigned)
                 </div>
               );
             }
@@ -615,17 +615,20 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
               <select
                 className="px-2 py-1.5 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 inline-block"
                 value={String(newLead.assigned_executive || "")}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const selectedId = e.target.value;
+                  const selectedExec = presalesUsers.find(u => u.id === selectedId);
                   setNewLead((prev) => ({
                     ...prev,
-                    assigned_executive: String(e.target.value),
-                  }))
-                }
+                    assigned_executive: selectedId,
+                    assigned_executive_name: selectedExec?.name || selectedExec?.username || ''
+                  }));
+                }}
               >
                 <option value="">Unassigned</option>
-                {execs.map((exec: any) => (
+                {assignableExecutives.map((exec: any) => (
                   <option key={exec.id} value={String(exec.id)}>
-                    {exec.name}
+                    {exec.name} {exec.id === user?.id ? '(You)' : ''}
                   </option>
                 ))}
               </select>

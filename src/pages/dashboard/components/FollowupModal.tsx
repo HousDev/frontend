@@ -595,7 +595,7 @@ export type FollowupForm = {
 
 // Create/Edit payload coming back out of the modal.
 // If `id` exists => edit mode, otherwise create.
-export type FollowupFormWithLead = FollowupForm & { lead_id: string; id?: string };
+export type FollowupFormWithLead = FollowupForm & { lead_id: string; id?: string | number };
 
 type APIRemarkData = {
     id: string | number;
@@ -914,7 +914,7 @@ const FollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, leadId
         const payload: FollowupFormWithLead = {
             ...form,
             lead_id: leadId,
-            ...(initialForm?.id ? { id: initialForm.id } : {}),
+           ...(initialForm?.id != null ? { id: String(initialForm.id) } : {}),
         };
 
         setSubmitting(true);

@@ -30,9 +30,9 @@ export const propertyTagsAPI = {
   },
 
   /** GET /api/property-tags/known -> unique tags universe (for dropdowns) */
-  async getKnown(): Promise<string[]> {
-    return unwrap<string[]>(api.get("/property-tags/known"));
-  },
+  // async getKnown(): Promise<string[]> {
+  //   return unwrap<string[]>(api.get("/property-tags/known"));
+  // },
 
   /** GET /api/property-tags/:id -> one row (creates none if missing) */
   async getById(propertyId: number | string): Promise<PropertyTagsRow> {

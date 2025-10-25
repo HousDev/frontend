@@ -19,7 +19,7 @@ import {
 
 import propertiesAPI from "@/lib/propertiesAPI";
 import propertyTagsAPI from "@/lib/propertyTagsAPI";
-import { getTagStyle } from "@/lib/tagStyles";
+import getTagStyle from "@/lib/tagStyles";
 import ShareModal from "@/pages/public/ShareModal";
 
 /* ----------------------------------------------------------------------------
@@ -41,9 +41,7 @@ type BuyerNorm = {
 
 export type Property = {
   id: string | number;
-  /** composed display title */
   title?: string;
-  /** raw components used to compose the title */
   propertyType?: string;
   unitType?: string;
   propertySubtype?: string | string[];
@@ -62,7 +60,7 @@ export type Property = {
     email?: string | null;
     phone?: string | null;
   } | null;
-  is_public?: boolean;
+  is_public?: boolean | 0 | 1 | "0" | "1";
 };
 
 /* ----------------------------------------------------------------------------
@@ -100,10 +98,7 @@ const titleCase = (s?: string | null) =>
     .replace(/\b\w/g, (m) => m.toUpperCase());
 
 const joinNonEmpty = (parts: Array<string | undefined | null>) =>
-  parts
-    .map((x) => (x ?? "").toString().trim())
-    .filter(Boolean)
-    .join(" ");
+  parts.map((x) => (x ?? "").toString().trim()).filter(Boolean).join(" ");
 
 const formatCurrency = (amount: number) => {
   if (!Number.isFinite(amount)) return "₹0";
@@ -170,13 +165,18 @@ const normalizePhoneForWhatsApp = (phone?: string | null) => {
   return digits.length === 10 ? `91${digits}` : digits;
 };
 
+const inRange = (value: number, min: number, max: number) => value >= min && value <= max;
+
 /* ----------------------------------------------------------------------------
    Buyer normalization
 ---------------------------------------------------------------------------- */
 const normalizeBuyer = (raw: BuyerRaw | null | undefined): BuyerNorm | null => {
   if (!raw) return null;
 
-  const req = raw.requirements || {};
+  const req = typeof raw.requirements === "string" ? (() => {
+    try { return JSON.parse(raw.requirements); } catch { return {}; }
+  })() : (raw.requirements || {});
+
   const preferredLocations =
     toStrArr(req.preferredLocations).length
       ? toStrArr(req.preferredLocations)
@@ -202,58 +202,76 @@ const normalizeBuyer = (raw: BuyerRaw | null | undefined): BuyerNorm | null => {
 };
 
 /* ----------------------------------------------------------------------------
-   Heuristics
+   Matching Heuristics  (Budget strict; Score is weight-based)
 ---------------------------------------------------------------------------- */
+function normalizeUnitTypeToBHK(s: string) {
+  // "2 bhk", "2BHK", "2 Bedroom" -> "2"
+  const m = String(s || "")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .match(/(\d+)\s*(bhk|bed|bedroom)?/i);
+  return m ? m[1] : "";
+}
+
 function computeMatchScore(p: Property, buyer: BuyerNorm) {
-  let score = 50;
+  // Hard rule: if not in budget, return 0 (and UI anyway filters these out)
   const price = p.budget ?? 0;
+  const isBudgetOk = inRange(price, buyer.budget.min, buyer.budget.max);
+  if (!isBudgetOk) return 0;
 
-  // Budget match scoring - more precise calculation
-  const inBudget = price >= buyer.budget.min && price <= buyer.budget.max;
-  if (inBudget) {
-    score += 20; // Perfect budget match
-  } else {
-    // Calculate how far outside the budget and penalize accordingly
-    const budgetRange = buyer.budget.max - buyer.budget.min;
-    if (budgetRange > 0) {
-      if (price < buyer.budget.min) {
-        const diff = buyer.budget.min - price;
-        const penalty = Math.min(15, (diff / budgetRange) * 15);
-        score -= penalty;
-      } else {
-        const diff = price - buyer.budget.max;
-        const penalty = Math.min(15, (diff / budgetRange) * 15);
-        score -= penalty;
-      }
-    } else {
-      // If min and max are same (single budget point)
-      const diff = Math.abs(price - buyer.budget.min);
-      const penalty = Math.min(15, (diff / Math.max(1, buyer.budget.min)) * 15);
-      score -= penalty;
-    }
-  }
+  // Weights
+  const W_BUDGET = 55;
+  const W_LOCATION = 25;
+  const W_UNIT = 15;
+  const W_EXTRAS = 5;
 
-  const locs = (p.location || "").toLowerCase();
+  let score = 0;
+
+  // Budget sub-scoring: center of range is 100% of W_BUDGET; edges slightly less
+  const mid = (buyer.budget.min + buyer.budget.max) / 2;
+  const halfRange = Math.max(1, (buyer.budget.max - buyer.budget.min) / 2);
+  const dist = Math.abs(price - mid);
+  const budgetFrac = Math.max(0, 1 - dist / halfRange); // 1 at mid, 0 at edges+
+  score += Math.round(W_BUDGET * budgetFrac);
+
+  // Location match (token contains)
+  let locPts = 0;
   if (buyer.requirements.preferredLocations?.length) {
-    const hit = buyer.requirements.preferredLocations.some((loc) =>
-      locs.includes(String(loc || "").toLowerCase())
+    const locs = (p.location || "").toLowerCase();
+    const hit = buyer.requirements.preferredLocations.some((l) =>
+      locs.includes(String(l || "").toLowerCase())
     );
-    score += hit ? 15 : 0;
+    locPts = hit ? W_LOCATION : 0;
+  } else {
+    // If no preference, give neutral half credit
+    locPts = Math.round(W_LOCATION * 0.5);
   }
+  score += locPts;
 
-  const pref = buyer.requirements.unitType;
-  if (pref) {
-    if (Array.isArray(pref)) {
-      const hit = pref.some((u) => (p.unitType || "").toLowerCase().includes(String(u).toLowerCase()));
-      score += hit ? 10 : 0;
-    } else {
-      score += (p.unitType || "").toLowerCase().includes(String(pref).toLowerCase()) ? 10 : 0;
-    }
+  // Unit type match
+  let unitPts = 0;
+  if (buyer.requirements.unitType) {
+    const pu = Array.isArray(buyer.requirements.unitType)
+      ? buyer.requirements.unitType.map(normalizeUnitTypeToBHK)
+      : [normalizeUnitTypeToBHK(String(buyer.requirements.unitType))];
+
+    const propU = normalizeUnitTypeToBHK(String(p.unitType || ""));
+    const exact = pu.some((x) => x && x === propU);
+    const loose = !exact && pu.some((x) => x && (p.unitType || "").toLowerCase().includes(x));
+
+    unitPts = exact ? W_UNIT : loose ? Math.round(W_UNIT * 0.6) : 0;
+  } else {
+    unitPts = Math.round(W_UNIT * 0.5); // no preference => neutral
   }
+  score += unitPts;
 
-  if (p.photos && p.photos.length) score += 5;
+  // Extras (photos/amenities) small bump
+  const hasPhotos = (p.photos?.length || 0) > 0;
+  const hasAmenities = (p.amenities?.length || 0) > 0;
+  const extrasFrac = (Number(hasPhotos) + Number(hasAmenities)) / 2; // 0, 0.5, 1
+  score += Math.round(W_EXTRAS * extrasFrac);
 
-  return Math.max(0, Math.min(100, Math.round(score)));
+  return Math.max(0, Math.min(100, score));
 }
 
 function deriveInvestmentPotential(p: Property): "very_high" | "high" | "medium" | "low" {
@@ -287,7 +305,7 @@ const TagChip: React.FC<{ tag: string }> = ({ tag }) => {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ring-1 ${tone.bg} ${tone.text} ${tone.ring}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ring-1 ${(tone as any).bg} ${(tone as any).text} ${(tone as any).ring}`}
       title={tag}
     >
       {EmojiComp ? <EmojiComp size={10} /> : isStringEmoji ? <span>{(tone as any).emoji as string}</span> : null}
@@ -297,7 +315,7 @@ const TagChip: React.FC<{ tag: string }> = ({ tag }) => {
 };
 
 /* ----------------------------------------------------------------------------
-   Compose property title = propertyType + unitType + propertySubtype(s)
+   Compose property title
 ---------------------------------------------------------------------------- */
 const composePropertyTitle = (args: {
   propertyType?: string;
@@ -385,7 +403,7 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
     };
   }, [isOpen, buyerN]);
 
-  // Fetch properties + tags - ONLY is_public=0 properties
+  // Fetch properties + tags - ONLY non-public (is_public = 0 / false / "0")
   useEffect(() => {
     if (!isOpen || !buyerN) return;
     let mounted = true;
@@ -396,95 +414,94 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
       try {
         let list: any[] = [];
         try {
-          // Modified: Only fetch properties with is_public=0
           if (searchParams) {
             const resp = await propertiesAPI.searchProperties({
               ...searchParams,
-              // is_public: 0 // Only non-public properties - REMOVE THIS LINE
             });
-            list = Array.isArray((resp as any)?.data) ? (resp as any).data : Array.isArray(resp) ? (resp as any) : [];
+            list = Array.isArray((resp as any)?.data)
+              ? (resp as any).data
+              : Array.isArray(resp) ? (resp as any) : [];
           } else {
-            const resp = await (propertiesAPI as any).getProperties?.({ 
+            const resp = await (propertiesAPI as any).getProperties?.({
               limit: 200,
-              is_public: 0 // Only non-public properties
             });
-            console.log("properties (is_public=0)", resp);
-            list = Array.isArray((resp as any)?.data) ? (resp as any).data : Array.isArray(resp) ? (resp as any) : [];
+            list = Array.isArray((resp as any)?.data)
+              ? (resp as any).data
+              : Array.isArray(resp) ? (resp as any) : [];
           }
         } catch {
-          // Fallback also with is_public=0 filter
-          const resp = await (propertiesAPI as any).PublicgetProperties?.({ 
+          // Fallback (public variant)
+          const resp = await (propertiesAPI as any).PublicgetProperties?.({
             limit: 200,
-            is_public: 0 // Only non-public properties
           });
-          list = Array.isArray((resp as any)?.data) ? (resp as any).data : Array.isArray(resp) ? (resp as any) : [];
+          list = Array.isArray((resp as any)?.data)
+            ? (resp as any).data
+            : Array.isArray(resp) ? (resp as any) : [];
         }
 
-        // Filter to ensure only is_public=0 properties are shown
-        const filteredList = list.filter((item: any) => {
-          const isPublic = item.is_public === 0 || item.is_public === false || item.is_public === '0';
-          return isPublic;
+        // Ensure only non-public properties are shown (is_public == 0 / false / "0")
+        const nonPublic = (list || []).filter((row: any) => {
+          const v = row?.is_public;
+          return v === 0 || v === "0" || v === false;
         });
 
-     const normalized: Property[] = (filteredList || []).map((row: any) => {
-  const photos = (() => {
-    const arr = safeJsonArray(row?.photos ?? row?.images ?? row?.media);
-    if (arr.length && typeof arr[0] === "object") {
-      return arr.map((m: any) => m?.url ?? m?.src ?? "").filter(Boolean);
-    }
-    return arr as string[];
-  })();
+        const normalized: Property[] = (nonPublic || []).map((row: any) => {
+          const photos = (() => {
+            const arr = safeJsonArray(row?.photos ?? row?.images ?? row?.media);
+            if (arr.length && typeof arr[0] === "object") {
+              return arr.map((m: any) => m?.url ?? m?.src ?? "").filter(Boolean);
+            }
+            return arr as string[];
+          })();
 
-  // UPDATED: Use correct field names from API
-  const propertyType = row.property_type_name || "";
+          const propertyType = row.property_type_name || row.property_type || "";
+          const unitType = row.unit_type || row.bhk_label || row.configuration || "";
+          const subtypeRaw = row.property_subtype_name || row.property_subtype || "";
 
-  const unitType = row.unit_type || "";
+          const propertySubtypeArr = toStrArr(subtypeRaw);
+          const propertySubtype =
+            propertySubtypeArr.length > 0 ? propertySubtypeArr : (subtypeRaw ? [String(subtypeRaw)] : []);
 
-  const subtypeRaw = row.property_subtype_name || "";
+          const serverTitle = row.title || row.project_name || row.name || row.property_name || row.society_name;
 
-  const propertySubtypeArr = toStrArr(subtypeRaw);
-  const propertySubtype =
-    propertySubtypeArr.length > 0 ? propertySubtypeArr : (subtypeRaw ? [String(subtypeRaw)] : []);
+          const displayTitle = composePropertyTitle({
+            propertyType: propertyType ? String(propertyType) : undefined,
+            unitType: unitType ? String(unitType) : undefined,
+            propertySubtype,
+            fallback: serverTitle,
+          });
 
-  const serverTitle = row.title || row.project_name || row.name || row.property_name || row.society_name;
+          const assignedTo =
+            row.assignedTo ||
+            (row.executive_name || row.executive_email || row.executive_phone
+              ? {
+                  name: row.executive_name || null,
+                  email: row.executive_email || null,
+                  phone: row.executive_phone || null,
+                }
+              : null);
 
-  const displayTitle = composePropertyTitle({
-    propertyType: propertyType ? String(propertyType) : undefined,
-    unitType: unitType ? String(unitType) : undefined,
-    propertySubtype: propertySubtype,
-    fallback: serverTitle,
-  });
+          return {
+            id: resolveId(row),
+            title: displayTitle,
+            propertyType: propertyType ? String(propertyType) : undefined,
+            unitType: unitType ? String(unitType) : undefined,
+            propertySubtype,
+            slug: row.slug,
+            photos,
+            city: row.city_name || row.city || row.cityNormalized,
+            location: row.location_name || row.location || row.locationNormalized || row.locality,
+            address: row.address || row.full_address,
+            budget: toNum(row.budget ?? row.final_price ?? row.price ?? row.expected_price ?? 0),
+            carpet_area: toNum(row.carpet_area ?? row.carpetArea ?? row.area ?? 0),
+            amenities: Array.isArray(row.amenities) ? row.amenities : toStrArr(row.amenities),
+            website: row.website || row.url,
+            url: row.url,
+            assignedTo,
+            is_public: row.is_public,
+          };
+        });
 
-  const assignedTo =
-    row.assignedTo ||
-    (row.executive_name || row.executive_email || row.executive_phone
-      ? {
-          name: row.executive_name || null,
-          email: row.executive_email || null,
-          phone: row.executive_phone || null,
-        }
-      : null);
-
-  return {
-    id: resolveId(row),
-    title: displayTitle,
-    propertyType: propertyType ? String(propertyType) : undefined,
-    unitType: unitType ? String(unitType) : undefined,
-    propertySubtype: propertySubtype,
-    slug: row.slug,
-    photos,
-    city: row.city_name || row.city || row.cityNormalized,
-    location: row.location_name || row.location || row.locationNormalized || row.locality,
-    address: row.address || row.full_address,
-    budget: toNum(row.budget ?? row.final_price ?? row.price ?? row.expected_price ?? 0),
-    carpet_area: toNum(row.carpet_area ?? row.carpetArea ?? row.area ?? 0),
-    amenities: Array.isArray(row.amenities) ? row.amenities : (toStrArr(row.amenities)),
-    website: row.website || row.url,
-    url: row.url,
-    assignedTo,
-    is_public: row.is_public,
-  };
-});
         // Tags map
         let tagMap: Record<string, string[]> = {};
         try {
@@ -537,7 +554,7 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
     run();
   }, [isOpen, buyerN, JSON.stringify(searchParams ?? null)]);
 
-  // Suggestion models
+  // Build suggestion cards
   const suggestions = useMemo(() => {
     if (!buyerN) return [] as any[];
     return properties.map((p) => {
@@ -550,21 +567,20 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
           : 0;
 
       const nearbyPlaces = [
-        { name: `${p.location || p.city} Metro`, distance: "0.8 km", type: "transport" },
+        { name: `${p.location || p.city || "Local"} Metro`, distance: "0.8 km", type: "transport" },
         { name: "Mall / High Street", distance: "1.5 km", type: "shopping" },
         { name: "Hospital", distance: "2.0 km", type: "healthcare" },
       ];
 
       const aiReasons: string[] = [];
-      if (p.budget && p.budget >= buyerN.budget.min && p.budget <= buyerN.budget.max)
+      if (p.budget && buyerN && inRange(p.budget, buyerN.budget.min, buyerN.budget.max))
         aiReasons.push("Perfect budget match within your range");
       if (
         p.location &&
         buyerN.requirements.preferredLocations?.some((l) =>
           (p.location || "").toLowerCase().includes(String(l).toLowerCase())
         )
-      )
-        aiReasons.push("Located in your preferred area");
+      ) aiReasons.push("Located in your preferred area");
       if (p.unitType && buyerN.requirements.unitType) {
         const pref = buyerN.requirements.unitType;
         const ok = Array.isArray(pref)
@@ -581,18 +597,14 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
       const raw = (p as any).raw || (p as any);
       const publicUrl = buildPublicUrl(p, raw);
 
-      // Store individual components for proper display
-      const propertyType = p.propertyType || "";
-      const unitType = p.unitType || "";
-      const propertySubtype = Array.isArray(p.propertySubtype) 
-        ? p.propertySubtype.join(" / ") 
-        : (p.propertySubtype || "");
+      const propertySubtype =
+        Array.isArray(p.propertySubtype) ? p.propertySubtype.join(" / ") : (p.propertySubtype || "");
 
       return {
         id: String(p.id),
-        title: p.title, // <- already composed
-        propertyType,
-        unitType, 
+        title: p.title,
+        propertyType: p.propertyType || "",
+        unitType: p.unitType || "",
         propertySubtype,
         address: (p.address || `${p.location || ""}${p.city ? ", " + p.city : ""}` || "").trim(),
         price: p.budget || 0,
@@ -609,11 +621,8 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
         investmentPotential,
         rentalYield,
         appreciationRate:
-          investmentPotential === "very_high"
-            ? "10-15%"
-            : investmentPotential === "high"
-            ? "8-12%"
-            : "6-9%",
+          investmentPotential === "very_high" ? "10-15%" :
+          investmentPotential === "high"      ? "8-12%"  : "6-9%",
         raw: p,
         tags: tagsByProperty[String(p.id)] || [],
         assignedTo: p.assignedTo || null,
@@ -625,50 +634,37 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
     });
   }, [properties, buyerN, tagsByProperty]);
 
+  // 🔒 STRICT BUDGET FILTER (applies to ALL tabs)
   const filteredSuggestions = useMemo(() => {
     if (!buyerN) return [] as any[];
-    
-    return suggestions.filter((property) => {
-      const propertyPrice = property.price || 0;
-      const buyerMin = buyerN.budget.min;
-      const buyerMax = buyerN.budget.max;
-      
+
+    const withinBudget = (prop: any) =>
+      inRange(prop.price || 0, buyerN.budget.min, buyerN.budget.max);
+
+    const base = suggestions.filter(withinBudget);
+
+    const byTab = (() => {
       switch (filterType) {
-        case "all":
-          return true;
-          
         case "budget_match":
-          // Show properties within buyer's budget range (>= min AND <= max)
-          return propertyPrice >= buyerMin && propertyPrice <= buyerMax;
-          
+          return base; // already strict in-budget
         case "high_match":
-          return property.matchScore >= 85;
-          
+          return base.filter((p) => p.matchScore >= 85);
         case "investment":
-          return property.investmentPotential === "high" || property.investmentPotential === "very_high";
-          
+          return base.filter((p) => p.investmentPotential === "high" || p.investmentPotential === "very_high");
+        case "all":
         default:
-          return true;
+          return base;
       }
-    });
+    })();
+
+    // Sort: higher score first, then lower price
+    return byTab.sort((a, b) => (b.matchScore - a.matchScore) || ((a.price || 0) - (b.price || 0)));
   }, [suggestions, filterType, buyerN]);
 
   const handlePropertySelection = (propertyId: string) => {
     setSelectedProperties((prev) =>
       prev.includes(propertyId) ? prev.filter((id) => id !== propertyId) : [...prev, propertyId]
     );
-  };
-
-  const handleContactExecutive = (property: any) => {
-    const phone = property.assignedTo?.phone || "";
-    const wa = normalizePhoneForWhatsApp(phone);
-    if (!wa) return alert("Executive phone not available.");
-    const message = `Hi ${property.assignedTo?.name || "there"}, I'm interested in "${property.title}". My budget is ${formatCurrency(
-      buyerN?.budget.min ?? 0
-    )} - ${formatCurrency(buyerN?.budget.max ?? 0)}. Can we schedule a visit?`;
-    if (typeof window !== "undefined") {
-      window.open(`https://wa.me/${wa}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
-    }
   };
 
   const handleScheduleVisit = (property: any) => {
@@ -681,6 +677,18 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
 
   const handleRequestMoreInfo = (property: any) => {
     alert(`More information requested for ${property.title}. Executive will be notified.`);
+  };
+
+  const handleContactExecutive = (property: any) => {
+    const phone = property.assignedTo?.phone || "";
+    const wa = normalizePhoneForWhatsApp(phone);
+    if (!wa) return alert("Executive phone not available.");
+    const message = `Hi ${property.assignedTo?.name || "there"}, I'm interested in "${property.title}". My budget is ${formatCurrency(
+      buyerN?.budget.min ?? 0
+    )} - ${formatCurrency(buyerN?.budget.max ?? 0)}. Can we schedule a visit?`;
+    if (typeof window !== "undefined") {
+      window.open(`https://wa.me/${wa}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    }
   };
 
   const openShareFor = (property: any) => {
@@ -801,7 +809,10 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
           {!loading && !error && (
             <div className="space-y-4">
               {filteredSuggestions.map((property: any) => (
-                <div key={property.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-all">
+                <div
+                  key={property.id}
+                  className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-all"
+                >
                   <div className="p-4">
                     <div className="flex items-start space-x-3">
                       <input
@@ -812,18 +823,18 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
                         aria-label={`Select ${property.title}`}
                       />
 
-                      <img src={property.images[0]} alt={property.title} className="w-24 h-20 object-cover rounded-lg flex-shrink-0" />
+                      <img
+                        src={property.images[0]}
+                        alt={property.title}
+                        className="w-24 h-20 object-cover rounded-lg flex-shrink-0"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                      />
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between mb-2">
                           <div className="min-w-0">
-                            {/* FIXED: Properly display property type, unit type, and subtype */}
-                            <h4 className="font-bold text-gray-900 truncate">
-                              {property.title}
-                            </h4>
-                            
-                            {/* Property details breakdown */}
-                            
+                            <h4 className="font-bold text-gray-900 truncate">{property.title}</h4>
+
                             <div className="flex items-center space-x-1 text-gray-600 mt-0.5">
                               <MapPin size={12} />
                               <span className="truncate">{property.address || "—"}</span>
@@ -835,9 +846,16 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
                               </div>
                               {getInvestmentPotentialBadge(property.investmentPotential)}
                               <div className="flex items-center space-x-0.5">
-                                {Array.from({ length: 5 }, (_, i) => (
-                                  <Star key={i} size={10} className={i < Math.round(property.rating) ? "text-yellow-400 fill-current" : "text-gray-300"} />
-                                ))}
+                                {Array.from({ length: 5 }, (_, i) => {
+                                  const filled = i < Math.round(Math.min(5, Math.max(0, property.rating)));
+                                  return (
+                                    <Star
+                                      key={i}
+                                      size={10}
+                                      className={filled ? "text-yellow-400 fill-current" : "text-gray-300"}
+                                    />
+                                  );
+                                })}
                                 <span className="text-gray-600 ml-0.5">({property.rating})</span>
                               </div>
                             </div>
@@ -918,11 +936,9 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
                               <div className="text-gray-600 truncate">{property?.assignedTo?.email || "—"}</div>
                               <div className="text-gray-600">{property?.assignedTo?.phone || "—"}</div>
                             </div>
-                            <div className="flex items-center space-x-1">
-                              <div className="flex items-center space-x-0.5">
-                                <Star className="text-yellow-400 fill-current" size={10} />
-                                <span className="font-medium">{property.rating}</span>
-                              </div>
+                            <div className="flex items-center space-x-0.5">
+                              <Star className="text-yellow-400 fill-current" size={10} />
+                              <span className="font-medium">{property.rating}</span>
                             </div>
                           </div>
                         </div>
@@ -942,27 +958,54 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
                         </div>
 
                         <div className="flex items-center space-x-1 flex-wrap gap-1">
-                          <button onClick={() => handleScheduleVisit(property)} className="flex items-center space-x-1 px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                          <button
+                            onClick={() => handleScheduleVisit(property)}
+                            className="flex items-center space-x-1 px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                          >
                             <Calendar size={12} />
                             <span>Visit</span>
                           </button>
 
-                          <button onClick={() => handleSaveToShortlist(property)} className="flex items-center space-x-1 px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
+                          <button
+                            onClick={() => handleSaveToShortlist(property)}
+                            className="flex items-center space-x-1 px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                          >
                             <Heart size={12} />
                             <span>Shortlist</span>
                           </button>
 
-                          <button onClick={() => handleRequestMoreInfo(property)} className="flex items-center space-x-1 px-2 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors">
+                          <button
+                            onClick={() => handleRequestMoreInfo(property)}
+                            className="flex items-center space-x-1 px-2 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                          >
                             <ShareIcon size={12} />
                             <span>Info</span>
                           </button>
 
-                          <a href={property.publicUrl} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors">
+                          {property?.assignedTo?.phone && (
+                            <button
+                              onClick={() => handleContactExecutive(property)}
+                              className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                            >
+                              <MessageCircle size={12} />
+                              <span>WhatsApp</span>
+                            </button>
+                          )}
+
+                          <a
+                            href={property.publicUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center space-x-1 px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                          >
                             <ExternalLink size={12} />
                             <span>Visit Website</span>
                           </a>
 
-                          <button onClick={() => openShareFor(property)} className="flex items-center space-x-1 px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors">
+                          <button
+                            onClick={() => openShareFor(property)}
+                            className="flex items-center space-x-1 px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                          >
                             <ShareIcon size={12} />
                             <span>Share</span>
                           </button>
@@ -974,7 +1017,9 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
               ))}
 
               {!filteredSuggestions.length && (
-                <div className="text-center text-gray-500 py-8">No suggestions match the selected filter.</div>
+                <div className="text-center text-gray-500 py-8">
+                  No suggestions match your budget and filters.
+                </div>
               )}
             </div>
           )}
@@ -1007,7 +1052,10 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
               {filteredSuggestions.length} properties • {selectedProperties.length} selected
             </div>
             <div className="flex items-center space-x-2">
-              <button onClick={onClose} className="px-3 py-1 text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors">
+              <button
+                onClick={onClose}
+                className="px-3 py-1 text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+              >
                 Close
               </button>
               {selectedProperties.length > 0 && (
