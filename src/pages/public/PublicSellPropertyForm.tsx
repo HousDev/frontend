@@ -1456,25 +1456,32 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
 
       </div >
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => { try { onClose(); } catch { } }}>Cancel</Button>
-        <Button onClick={() => {
-          // validate step1 minimal fields: ownerName, ownerEmail, ownerPhone
-          const step1Errors: Record<string, string> = {};
-          if (!formData.ownerName) step1Errors.ownerName = 'Owner name is required';
-          if (!formData.ownerEmail) step1Errors.ownerEmail = 'Owner email is required';
-          if (!formData.ownerPhone) step1Errors.ownerPhone = 'Owner phone is required';
-          setErrors(step1Errors);
-          if (Object.keys(step1Errors).length === 0) {
-            // ensure phone normalized
-            handlePhoneBlur('ownerPhone');
-            if (formData.sameAsPhone) handlePhoneBlur('ownerWhatsapp');
-            setStep(2);
-          }
-        }}>
+        <Button variant="outline" onClick={() => { try { onClose(); } catch { } }}>
+          Cancel
+        </Button>
+
+        <Button
+          onClick={() => {
+            // validate step1 minimal fields: ownerName, ownerEmail, ownerPhone
+            const step1Errors: Record<string, string> = {};
+            if (!formData.ownerName) step1Errors.ownerName = "Owner name is required";
+            if (!formData.ownerEmail) step1Errors.ownerEmail = "Owner email is required";
+            if (!formData.ownerPhone) step1Errors.ownerPhone = "Owner phone is required";
+            setErrors(step1Errors);
+            if (Object.keys(step1Errors).length === 0) {
+              // ensure phone normalized
+              handlePhoneBlur("ownerPhone");
+              if (formData.sameAsPhone) handlePhoneBlur("ownerWhatsapp");
+              setStep(2);
+            }
+          }}
+          className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white font-semibold transition-all"
+        >
           Next
           <ArrowRight className="h-4 w-4 ml-2 inline" />
         </Button>
       </div>
+
     </div>
   );
 
@@ -2031,13 +2038,25 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
                   <Button variant="outline" onClick={() => { setStep(1); }}>Edit Owner</Button>
                 </div>
 
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
-                  <Button onClick={handleSubmit} disabled={loading}>
-                    {React.createElement(submitIcon, { className: "h-4 w-4 mr-2" })}
-                    {submitButtonText}
-                  </Button>
-                </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={onClose}
+                      disabled={loading}
+                    >
+                      Cancel
+                    </Button>
+
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={loading}
+                      className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white font-semibold transition-all"
+                    >
+                      {React.createElement(submitIcon, { className: "h-4 w-4 mr-2" })}
+                      {submitButtonText}
+                    </Button>
+                  </div>
+
               </div>
             </>
           )}

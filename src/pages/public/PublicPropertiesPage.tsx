@@ -1464,7 +1464,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           navigate(`/properties?${params.toString()}`, { replace: true });
                           setShowFilters(false);
                         }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs"
+                        className=" bg-[#E6761D] text-white px-4 py-2 rounded-lg text-xs"
                       >
                         Apply Filters
                       </button>
@@ -1765,7 +1765,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
                             <div className="flex items-center space-x-2">
                               {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
-                                <button onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">View Details</button>
+                                <button onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }} className=" bg-[#E6761D] text-white px-6 py-2 rounded-lg hover:bg-[#E6761D] transition-colors font-medium">View Details</button>
                               ) : (
                                 <button disabled aria-disabled="true" title="Details not available – missing backend slug" className="bg-gray-300 text-gray-600 px-6 py-2 rounded-lg cursor-not-allowed">View Details</button>
                               )}
