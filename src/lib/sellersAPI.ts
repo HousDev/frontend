@@ -1,5 +1,5 @@
 // src/lib/sellerAPI.ts
-import { api } from "./api"; // 🔥 Use same api instance as buyers for consistency
+import { api } from "./api"; // 🔥 Use shared instance for consistency
 
 export const sellerAPI = {
   // ✅ Get all sellers
@@ -11,16 +11,13 @@ export const sellerAPI = {
   // ✅ Get seller by ID
   getById: async (id: string) => {
     if (!id) throw new Error("Seller ID is required");
-   
     const response = await api.get(`/sellers/getSellerById/${id}`);
-    
     return response.data;
   },
 
   // ✅ Create seller
   create: async (data: any) => {
     if (!data?.name) throw new Error("Seller name is required");
-    
     const response = await api.post("/sellers/createSeller", data);
     return response.data;
   },
@@ -28,37 +25,70 @@ export const sellerAPI = {
   // ✅ Update seller
   update: async (id: string, data: any) => {
     if (!id) throw new Error("Seller ID is required");
-   
     const response = await api.put(`/sellers/updateSeller/${id}`, data);
-   
     return response.data;
   },
 
   // ✅ Delete seller
   delete: async (id: string) => {
     if (!id) throw new Error("Seller ID is required");
-   
     const response = await api.delete(`/sellers/deleteSeller/${id}`);
-
     return response.data;
   },
 
-  // ✅ Bulk delete sellers
-  bulkDelete: async (ids: string[], hard: boolean = false) => {
-    if (!ids || ids.length === 0) throw new Error("Seller IDs are required");
+bulkDelete: async (ids: (string | number)[]) => {
+  const { data } = await api.post("/sellers/hard-delete", { ids });
+  return data;
+},
 
 
-    const response = await api.post(`/sellers/bulk-delete`, { ids, hard });
-    return response.data;
-  },
-
-  // ✅ Import sellers (bulk insert from JSON array)
-  import: async (sellers: any[]) => {
-    if (!Array.isArray(sellers) || sellers.length === 0) {
-      throw new Error("Sellers array is required for import");
-    }
+  // ✅ Bulk import sellers
+  importSellers: async (sellers: any[]) => {
     const response = await api.post(`/sellers/bulk-import`, sellers);
+    return response.data;
+  },
 
+  // ✅ Bulk assign executive
+  bulkAssignExecutive: async (
+    sellerIds: (string | number)[],
+    executiveId: number | null,
+    onlyEmpty = false
+  ) => {
+    if (!Array.isArray(sellerIds) || !sellerIds.length)
+      throw new Error("Seller IDs are required");
+    const response = await api.post(`/sellers/bulk/assign-executive`, {
+      sellerIds,
+      executiveId,
+      onlyEmpty,
+    });
+    return response.data;
+  },
+
+  // ✅ Update single lead field (stage, status, priority, is_active, leadType)
+  updateLeadField: async (id: string | number, field: string, value: any) => {
+    if (!id) throw new Error("Seller ID is required");
+    if (!field) throw new Error("Field name is required");
+    const response = await api.post(`/sellers/${id}/lead-field`, { field, value });
+    return response.data;
+  },
+
+  // ✅ Bulk update lead field
+  bulkUpdateLeadField: async (
+    sellerIds: (string | number)[],
+    field: string,
+    value: any,
+    onlyEmpty = false
+  ) => {
+    if (!Array.isArray(sellerIds) || !sellerIds.length)
+      throw new Error("Seller IDs are required");
+    const response = await api.post(`/sellers/bulk/lead-field`, {
+      sellerIds,
+      field,
+      value,
+      onlyEmpty,
+    });
     return response.data;
   },
 };
+
+export default sellerAPI;

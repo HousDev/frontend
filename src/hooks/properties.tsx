@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 
 type UsePropertiesOptions = {
   autoLog?: boolean; // default true → properties/err/loading change par console logs
+  publicOnly?: boolean;
 };
 
 export function useProperties(options: UsePropertiesOptions = {}) {

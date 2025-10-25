@@ -56,7 +56,7 @@ export const buyerAPI = {
   },
 
 // ✅ Import buyers (bulk insert from JSON array)
-  import: async (buyers: any[]) => {
+  importBuyers: async (buyers: any[]) => {
     if (!Array.isArray(buyers) || buyers.length === 0) {
       throw new Error("Buyers array is required for import");
     }
@@ -66,8 +66,49 @@ export const buyerAPI = {
     return response.data;
   },
 
+   /* ============================
+     🔹 Assign Executive (Single)
+  ============================ */
+  assignExecutive: async (buyerId: string, executiveId: string | null) => {
+    if (!buyerId) throw new Error("Buyer ID is required");
+    const response = await api.post(`/buyers/assign-executive/${buyerId}`, {
+      executive_id: executiveId || null,
+    });
+    return response.data;
+  },
+
+  /* ============================
+     🔹 Bulk Assign Executive
+  ============================ */
+  bulkAssignExecutive: async (buyerIds: string[], executiveId: string | Number, onlyEmpty: boolean = false) => {
+    if (!Array.isArray(buyerIds) || buyerIds.length === 0)
+      throw new Error("Buyer IDs array is required");
+
+    const response = await api.post(`/buyers/bulk/assign-executive`, {
+      buyer_ids: buyerIds,
+      executive_id: executiveId || null,
+      only_empty: onlyEmpty,
+    });
+
+    return response.data;
+  },
+// Update single lead field
+updateLeadField: async (buyerId: string, field: string, value: any) => {
+  const response = await api.post(`/buyers/updateLeadField/${buyerId}`, { field, value });
+  return response.data;
+},
+
+// Bulk update lead field
+bulkUpdateLeadField: async (buyerIds: string[], field: string, value: any, onlyEmpty: boolean = false) => {
+  const response = await api.post(`/buyers/bulkUpdateLeadField`, { buyer_ids: buyerIds, field, value, only_empty: onlyEmpty });
+  return response.data;
+},
+
 
 };
+
+
+
 
 
 

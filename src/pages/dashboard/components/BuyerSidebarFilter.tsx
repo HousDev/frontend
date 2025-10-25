@@ -13,6 +13,7 @@ export type FiltersState = {
   status?: string;
   budgetRange: string;
   propertyType: string;
+  
 };
 
 type OptionList = string[];

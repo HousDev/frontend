@@ -1036,18 +1036,25 @@ export default function ImportLeadsModal({ isOpen, onClose }: ImportLeadsModalPr
                             <div className="p-3 text-sm text-gray-500">No executives found</div>
                           ) : (
                             filteredExecutives.map((e) => (
-                              <label key={e.id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-sm cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  className="accent-blue-600"
-                                  checked={selectedExecIds.has(e.id)}
-                                  onChange={() => toggleExec(e.id)}
-                                />
-                                <span className="truncate">
-                                  {e.name}
-                                  {e.email ? <span className="text-gray-500"> — {e.email}</span> : null}
-                                </span>
-                              </label>
+                             <label
+  key={e.id}
+  className="flex items-start gap-2 px-3 py-2 hover:bg-gray-50 text-sm cursor-pointer"
+>
+  <input
+    type="checkbox"
+    className="mt-1 accent-blue-600"
+    checked={selectedExecIds.has(e.id)}
+    onChange={() => toggleExec(e.id)}
+  />
+  
+  <div className="flex flex-col">
+    <span className="font-medium text-gray-900 truncate">{e.name}</span>
+    {e.email && (
+      <span className="text-xs text-gray-500 truncate">{e.email}</span>
+    )}
+  </div>
+</label>
+
                             ))
                           )}
                         </div>
