@@ -65,6 +65,11 @@ import { getTagStyle, DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 import propertyTagsAPI, { PropertyTagsRow } from '@/lib/propertyTagsAPI';
 import PropertyDescriptionSmart from './PropertyDescriptionSmart';
 import PublicSimilarProperties from './PublicSimilarProperties';
+// NEW
+import { useAuth } from '@/contexts/AuthContext';
+import { buyerSavedAPI } from '@/lib/buyerSavedPropertiesAPI';
+import { toast } from 'react-toastify'; // if not already imported
+
 type RawProperty = any;
 
 interface SimilarPropertiesProps {
@@ -101,6 +106,113 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const navigate = useNavigate();
   // local property state used across the component
   const [property, setProperty] = useState<any>(null);
+
+
+// NEW: auth
+const { currentUser, user } = useAuth() as any;
+
+// Helper: buyer id resolve (different shapes ke liye safe)
+const getBuyerIdFromAuth = (): number | null => {
+  // try common shapes
+  const u = currentUser ?? user ?? {};
+  // examples: { id, role }, or { buyer: { id } }, or direct buyer_id
+  if (typeof u?.buyer_id === 'number') return u.buyer_id;
+  if (typeof u?.buyerId === 'number') return u.buyerId;
+  if (typeof u?.buyer?.id === 'number') return u.buyer.id;
+  // if role based:
+  if ((u?.role === 'buyer' || u?.type === 'buyer') && typeof u?.id === 'number') return u.id;
+  return null;
+};
+
+// (optional) loading for save click
+const [saving, setSaving] = useState(false);
+
+
+// put near other helpers
+const checkSavedStatus = async () => {
+  try {
+    const buyerId = getBuyerIdFromAuth();
+    const pid = resolvePropertyIdNumber(property);
+    if (!buyerId || !pid) return;
+
+    const resp = await buyerSavedAPI.isSaved(buyerId, pid); // backend truth
+    if (resp?.success) setLiked(!!resp.saved);
+  } catch (err) {
+    console.warn("checkSavedStatus failed", err);
+  }
+};
+useEffect(() => {
+  if (!property) return;
+  checkSavedStatus();
+}, [property, currentUser]);
+useEffect(() => {
+  if (!property) return;
+  const refetch = () => checkSavedStatus();
+
+  window.addEventListener("focus", refetch);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") refetch();
+  });
+
+  return () => {
+    window.removeEventListener("focus", refetch);
+    document.removeEventListener("visibilitychange", refetch);
+  };
+}, [property]);
+
+const handleSaveClick = async (e?: React.MouseEvent) => {
+  if (e) e.stopPropagation();
+  if (!property) return;
+
+  const buyerId = getBuyerIdFromAuth();
+  if (!buyerId) {
+    setShowContactForm(true);
+    return;
+  }
+
+  const propertyId = resolvePropertyIdNumber(property);
+  if (!propertyId) {
+    toast.error("Property ID not found");
+    return;
+  }
+
+  try {
+    setSaving(true);
+    const resp = await buyerSavedAPI.toggle(buyerId, propertyId, "toggle");
+    if (resp?.success) {
+      const isSaved = !!resp.saved;
+      setLiked(isSaved);
+      if (isSaved) toast.success("Saved to your shortlist");
+      else toast.info("Removed from your shortlist");
+
+      // 🔔 broadcast to other screens if needed
+      window.dispatchEvent(
+        new CustomEvent("buyerSaved:changed", {
+          detail: { propertyId, saved: isSaved },
+        })
+      );
+    } else {
+      toast.error("Could not update save status");
+    }
+  } catch (err) {
+    console.error("toggle failed:", err);
+    toast.error("Failed to update shortlist");
+  } finally {
+    setSaving(false);
+  }
+};
+
+
+useEffect(() => {
+  const handler = (e: any) => {
+    const pid = resolvePropertyIdNumber(property);
+    if (pid && e?.detail?.propertyId === pid)
+      setLiked(!!e.detail.saved);
+  };
+  window.addEventListener("buyerSaved:changed", handler as EventListener);
+  return () => window.removeEventListener("buyerSaved:changed", handler as EventListener);
+}, [property]);
+
 
   useEffect(() => {
     const fetchSimilarProperties = async () => {
@@ -256,7 +368,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
             <span
               key={index}
               className={`
-              inline-flex items-center px-2 sm:px-2.5 py-1 rounded-full 
+              inline-flex items-center mt-0.5 px-2 sm:px-2.5 py-1 rounded-full 
               text-[8px] xs:text-[10px] sm:text-xs font-bold uppercase 
               transition-all duration-200 min-h-[24px] sm:min-h-[26px]
               ${style.bg} ${style.text} ring-1 ${style.ring}
@@ -836,13 +948,19 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   <Share className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
                 </button>
 
-                <button
-                  onClick={() => setShowContactForm(true)}
-                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
-                  aria-label="Bookmark property"
-                >
-                  <Bookmark className="w-4 h-4 sm:w-5 sm-h-5 text-gray-700" />
-                </button>
+                {/* Save / Bookmark */}
+<button
+  onClick={handleSaveClick} // CHANGED
+  disabled={saving}
+  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
+  aria-label="Save property"
+  title={liked ? "Unsave" : "Save"}
+>
+  <Bookmark
+    className={`w-4 h-4 sm:w-5 sm:h-5 ${liked ? 'text-[#E6761D] fill-[#E6761D]' : 'text-gray-700'}`}
+  />
+</button>
+
               </div>
               {/* Bottom-Left Price - Responsive */}
               <div className="absolute bottom-8 sm:bottom-10 md:bottom-12 left-2 sm:left-3 md:left-4 z-20 w-[90%]">
