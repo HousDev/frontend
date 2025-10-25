@@ -958,7 +958,7 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
                     {featuredPost.category}
                   </span>
                 </div>
-                <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 sm:mb-4 leading-tight hover:text-blue-600 transition-colors">
+                <h2 className="text-lg font-bold text-gray-900 mb-3 sm:mb-4 leading-tight hover:text-blue-600 transition-colors">
                   {featuredPost.title}
                 </h2>
                 <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 leading-relaxed line-clamp-3">
@@ -1139,8 +1139,8 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
 
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-3 sm:pt-4 border-t border-gray-100 gap-3 sm:gap-0">
                       <div className="flex items-center space-x-2 sm:space-x-3">
-                        <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
-                          <span className="text-white text-[10px] sm:text-xs font-bold">
+                        <div className="w-10 h-10 rounded-full from-grey-500 to-white-600 flex items-center justify-center ring-1 font-bold flex-shrink-0">
+                          <span className="text-black text-[10px] sm:text-xs font-bold">
                             {String(post.author || "A")
                               .split(" ")
                               .map((n) => n[0])
@@ -1180,7 +1180,8 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
         </div>
 
         {/* Newsletter - Fully Responsive */}
-        <div className="mt-8 sm:mt-12 mb-6 sm:mb-8 bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 rounded-xl sm:rounded-2xl p-6 sm:p-8 md:p-10 lg:p-12 text-center shadow-2xl">
+        <div className="mt-2 sm:mt-12 mb-1 rounded-xl sm:rounded-2xl p-6 sm:p-8 md:p-10 lg:p-12 text-center shadow-2xl" style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
+>
           <div className="max-w-2xl mx-auto">
             <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
               <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1199,7 +1200,7 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
                 placeholder="Enter your email"
                 className="flex-1 px-4 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg border-0 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600 shadow-lg"
               />
-              <button className="bg-white text-blue-600 px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg font-semibold hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95">
+              <button className="w-full sm:w-auto bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-3 rounded-xl font-semibold shadow-md transition-colors duration-300"> 
                 Subscribe
               </button>
             </div>

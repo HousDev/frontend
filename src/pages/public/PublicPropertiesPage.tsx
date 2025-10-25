@@ -22,6 +22,7 @@ import { getTagStyle } from "@/lib/tagStyles";
 ============================== */
 interface Property {
   id: number;
+  propertyId?: string;
   title: number | string;
   price: number;
   bedrooms: number;
@@ -595,6 +596,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           const propertyData: Property = {
             id: p.id,
             slug: p.slug || p.url_slug || p.generated_slug,
+            propertyId: (p.property_id && String(p.property_id).trim()) || `REP${String(p.id ?? '').padStart(4, '0')}`,
             title: p.title || `${p.unit_type || ''} ${p.property_type_name || ''}`.trim() || `Property ${p.id}`,
             price: Number(p.budget) || Number(p.price) || 0,
             bedrooms: Number(p.bedrooms) || 0,
@@ -1167,7 +1169,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
       {/* AI Recommendations bar */}
       {showAIRecommendations && !loading && allProperties.length > 0 && (
-        <div className="bg-gradient-to-r from-[#E6761D] via-[#CC6A1A] via-[#0b3856] to-[#0c3854] text-white py-2 transition-colors duration-200">
+        <div className="bg-gradient-to-r from-[#0b3856] via-[#6c6258] via-[#0b3856] to-[#0c3854] text-white py-2 transition-colors duration-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-start sm:items-center justify-between">
               <div className="flex items-start sm:items-center space-x-2 sm:space-x-3">
@@ -1524,17 +1526,26 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         {!loading && !error && (
           <>
             {viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
                 {paginatedProperties.map((property) => {
                   const composedTitle = composeHeaderTitle(property);
-                  const unitAreaLine = formatUnitAreaLine(property);
                   const { locationPart, cityPart } = splitLocationCity(property);
+
+                  const amenities = Array.isArray(property.amenities) ? property.amenities : [];
+                  const shownAmenities = amenities.slice(0, 2);
+                  const moreCount = Math.max(amenities.length - shownAmenities.length, 0);
+
                   return (
                     <div
                       key={property.id}
-                      className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group cursor-pointer"
-                      onClick={() => { if (property.slug) { handleNavigateToProperty(property); return; } setCurrentPropertyView(property); if (onPropertyView) onPropertyView(property); }}
+                      className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group cursor-pointer h-full flex flex-col"
+                      onClick={() => {
+                        if (property.slug) { handleNavigateToProperty(property); return; }
+                        setCurrentPropertyView(property);
+                        if (onPropertyView) onPropertyView(property);
+                      }}
                     >
+                      {/* Image */}
                       <div className="relative">
                         <img
                           src={property.images?.[0] || 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'}
@@ -1543,63 +1554,70 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         />
 
                         <div className="absolute top-3 left-3 flex items-center flex-wrap gap-2 z-20">
-                          {/* ✅ Property Tags */}
                           <PropertyTags tags={property.tags || []} />
-
                           {(property.aiScore ?? 0) >= 90 && (
                             <span className="flex items-center bg-purple-600 text-white px-2 py-[3px] rounded-full text-[8px] sm:text-xs font-bold whitespace-nowrap shadow-sm">
                               <Bot size={12} className="mr-1" />
                               AI {Math.round(property.aiScore ?? 0)}
                             </span>
                           )}
-                          {/* ✅ AI Score Badge */}
                         </div>
 
-
-                        {/* Watermark */}
+                        {/* Watermark & views */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <span className="text-white text-2xl font-bold opacity-40 select-none">ResaleExpert.in</span>
                         </div>
-
-                        {/* <button
-                          onClick={(e) => { e.stopPropagation(); setLikedProperties((prev) => prev.includes(property.id.toString()) ? prev.filter((id) => id !== property.id.toString()) : [...prev, property.id.toString()]); }}
-                          className="absolute top-3 right-3 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all"
-                        >
-                          <Heart size={16} className={likedProperties.includes(property.id.toString()) ? 'text-red-500 fill-current' : 'text-gray-600'} />
-                        </button> */}
-
-                        <div className="absolute bottom-3 right-3 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full text-xs flex items-center space-x-1">
+                        <div className="absolute bottom-3 right-3 bg-black/50 text-white px-2 py-1 rounded-full text-xs flex items-center space-x-1">
                           <Eye size={10} />
                           <span>{property.total_views || property.views || 0}</span>
                         </div>
                       </div>
 
-                      <div className="p-6">
-                        <div className="mb-3">
-                          <h3 className="text-xs font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">{composedTitle}</h3>
-                          <div className="flex items-center text-gray-600 text-sm mb-1">
-                            <MapPin size={14} className="mr-1" />
-                            <span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span>
+                      {/* Body (fills height) */}
+                      <div className="p-6 flex-1 flex flex-col">
+                        <div className="mb-3 flex items-start justify-between">
+                          <div>
+                            <h3 className="text-xs font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">
+                              {composedTitle}
+                            </h3>
+                            <div className="flex items-center text-gray-600 text-sm">
+                              <MapPin size={14} className="mr-1" />
+                              <span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span>
+                            </div>
+                          </div>
+                          {/* ✅ tiny ID at top-right */}
+                          <div className="ml-2 shrink-0 text-[10px] sm:text-xs text-gray-500 font-medium">
+                            {property.propertyId || `REP${String(property.id ?? '').padStart(4, '0')}`}
                           </div>
                         </div>
-
                         <div className="mb-4">
                           <div className="text-xl font-bold text-green-600">{formatCurrency(property.price)}</div>
-                          <div className="text-xs text-gray-500">{property.type || property.property_type} • {property.area || property.square_feet} sq ft</div>
+                          <div className="text-xs text-gray-500">
+                            {property.type || property.property_type} • {property.area || property.square_feet} sq ft
+                          </div>
                         </div>
-
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-1">
                             <Star className="text-yellow-400 fill-current" size={14} />
-                            <span className="text-sm font-medium text-gray-700">{(property.rating || 4.2).toFixed(1)}</span>
+                            <span className="text-sm font-medium text-gray-700">
+                              {(property.rating || 4.2).toFixed(1)}
+                            </span>
                             <span className="text-xs text-gray-500">({property.reviews || 0} reviews)</span>
                           </div>
                           <div className="text-xs text-gray-500">{property.postedDate}</div>
                         </div>
 
                         <div className="flex items-center justify-between mb-3 p-2 bg-blue-50 rounded-lg">
-                          <div className="flex items-center space-x-2"><TrendingUp size={12} /><span className="text-xs text-green-600 font-semibold">{property.priceGrowth || '+12%'}</span></div>
-                          <div className="flex items-center space-x-2"><BarChart3 size={12} /><span className="text-xs text-blue-600 font-semibold">Grade {property.investmentGrade || 'A'}</span></div>
+                          <div className="flex items-center space-x-2">
+                            <TrendingUp size={12} />
+                            <span className="text-xs text-green-600 font-semibold">{property.priceGrowth || '+12%'}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <BarChart3 size={12} />
+                            <span className="text-xs text-blue-600 font-semibold">
+                              Grade {property.investmentGrade || 'A'}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="flex items-center justify-between text-xs text-gray-600 mb-3">
@@ -1608,17 +1626,23 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           <div className="flex items-center space-x-1"><Car size={12} /><span>{property.parking || 1} Parking</span></div>
                         </div>
 
+                        {/* ✅ Amenities: only 2 + “+N” */}
                         <div className="flex flex-wrap gap-1 mb-3">
-                          {(property.amenities || []).slice(0, 3).map((amenity: string, i: number) => (
+                          {shownAmenities.map((amenity, i) => (
                             <div key={i} className="flex items-center space-x-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
                               {getAmenityIcon(amenity)}
                               <span>{amenity}</span>
                             </div>
                           ))}
-                          {(property.amenities || []).length > 3 && <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">+{(property.amenities || []).length - 3}</span>}
+                          {moreCount > 0 && (
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
+                              +{moreCount}
+                            </span>
+                          )}
                         </div>
 
-                        <div className="flex items-center space-x-2">
+                        {/* Actions pinned to bottom */}
+                        <div className="mt-auto flex items-center space-x-2">
                           {typeof property.slug === 'string' && property.slug.trim().length > 0 ? (
                             <div className="flex-1">
                               <button
@@ -1629,53 +1653,44 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                               </button>
                             </div>
                           ) : (
-                            <button disabled aria-disabled="true" title="Details not available – missing backend slug" className="w-full bg-gray-300 text-gray-600 py-2 px-3 rounded-lg cursor-not-allowed text-sm">
+                            <button
+                              disabled
+                              aria-disabled="true"
+                              title="Details not available – missing backend slug"
+                              className="w-full bg-gray-300 text-gray-600 py-2 px-3 rounded-lg cursor-not-allowed text-sm"
+                            >
                               View Details
                             </button>
                           )}
 
-                         {/* ✅ Updated Call Button */}
-<button
-  onClick={(e) => {
-    e.stopPropagation();
-    const phone = property.executiveTo?.phone || "919999999999"; // Use executiveTo, not executive
-    if (phone && phone !== "Not Available") {
-      window.open(`tel:${phone}`);
-    } else {
-      alert('Phone number not available');
-    }
-  }}
-  className="p-2 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
-  title="Call"
->
-  <Phone size={16} />
-</button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const phone = property.executiveTo?.phone || "919999999999";
+                              if (phone && phone !== "Not Available") window.open(`tel:${phone}`);
+                            }}
+                            className="p-2 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
+                            title="Call"
+                          >
+                            <Phone size={16} />
+                          </button>
 
-{/* ✅ Updated WhatsApp Button */}
-<button
-  onClick={(e) => {
-    e.stopPropagation();
-    const phone = property.executiveTo?.phone || "919999999999"; // Use executiveTo, not executive
-
-    if (phone && phone !== "Not Available") {
-      const title = String(property.title || '');
-      const location = property.location || '';
-      const priceText = formatCurrency(property.price);
-
-      const message = `Hi, I'm interested in ${title} at ${location}. Price: ${priceText}. Can you share more details?`;
-      window.open(
-        `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`,
-        '_blank'
-      );
-    } else {
-      alert('Phone number not available for WhatsApp');
-    }
-  }}
-  className="p-2 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
-  title="WhatsApp"
->
-  <FaWhatsapp size={16} />
-</button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const phone = property.executiveTo?.phone || "919999999999";
+                              if (!phone || phone === "Not Available") return;
+                              const title = String(property.title || '');
+                              const location = property.location || '';
+                              const priceText = formatCurrency(property.price);
+                              const message = `Hi, I'm interested in ${title} at ${location}. Price: ${priceText}. Can you share more details?`;
+                              window.open(`https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
+                            }}
+                            className="p-2 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
+                            title="WhatsApp"
+                          >
+                            <FaWhatsapp size={16} />
+                          </button>
                         </div>
                       </div>
                     </div>

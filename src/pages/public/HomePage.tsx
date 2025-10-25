@@ -38,6 +38,7 @@ import PublicSellPropertyForm from './PublicSellPropertyForm';
 import { FaWhatsapp } from 'react-icons/fa6';
 import WhySellModal from './WhySellModal';
 import { getTagStyle } from "@/lib/tagStyles";
+import { isFeatured } from '../../utils/propertyHelpers';
 
 // ✅ Import hero API & types
 import homeHeroAPI, { HeroBlock, PhotoPreview } from '@/lib/homeHeroAPI';
@@ -48,6 +49,7 @@ import ValuationModal from './ValuationModal';
 
 interface Property {
   id: number;
+  propertyId?: string;
   title?: string;
   price?: number;
   bedrooms?: number;
@@ -346,6 +348,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
             return {
               id: p.id,
+              propertyId: (p.property_id && String(p.property_id).trim()) || `REP${String(p.id ?? '').padStart(4, '0')}`,
               title: (p.title || `${unitType ? unitType + ' ' : ''}${p.property_type_name || p.property_type || ''}`).trim(),
               price: Number(p.budget || p.price || p.amount) || 0,
               bedrooms: Number(p.bedrooms) || undefined,
@@ -384,10 +387,88 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             } as Property;
           })
         );
-       
 
-        setFeaturedProperties(mapped);
-       
+
+        // setFeaturedProperties(mapped);
+        
+        // ✅ Step after mapping
+        const allMapped = await Promise.all(
+          rawList.slice(0, 12).map(async (p: any) => {
+            const images: string[] = Array.isArray(p.photos)
+              ? p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'))
+              : Array.isArray(p.photoUrls)
+                ? p.photoUrls
+                : [];
+
+            // ✅ Safe numeric fields
+            const priceValue = p.budget || p.price || p.amount;
+            const price = priceValue ? Number(priceValue) : undefined;
+
+            const carpet = Number(p.carpet_area) || 0;
+            const builtup = Number(p.builtup_area) || 0;
+            const superBuiltup = Number(p.super_builtup_area) || 0;
+            const totalArea = carpet || builtup || superBuiltup || Number(p.area) || undefined;
+
+            const city = p.city_name || p.city || p.town || '';
+            const locationRaw =
+              p.location_name ||
+              p.locality ||
+              p.area ||
+              p.neighbourhood ||
+              p.location ||
+              p.address ||
+              '';
+            const state = p.state || p.region || '';
+            const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
+
+            const tags = (await fetchPropertyTags(p.id)) || [];
+
+            const unitType =
+              (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim();
+            const subtype =
+              (p.property_subtype_name ||
+                p.property_subtype ||
+                p.unit_category_name ||
+                p.subtype ||
+                '').toString().trim();
+
+            return {
+              id: p.id,
+              propertyId:
+                (p.property_id && String(p.property_id).trim()) ||
+                `REP${String(p.id ?? '').padStart(4, '0')}`,
+              title: (p.title || `${unitType ? unitType + ' ' : ''}${p.property_type_name || p.property_type || ''}`).trim(),
+              price,
+              city,
+              location,
+              tags,
+              featured: p.featured || p.is_featured || false,
+              badge: p.badge || '',
+              images,
+              slug: p.slug,
+              type: p.property_type_name || p.property_type || '',
+              unitType,
+              subtype,
+              area: totalArea,
+              square_feet: totalArea,
+              amenities: Array.isArray(p.amenities)
+                ? p.amenities.map(String).filter(Boolean)
+                : typeof p.amenities === 'string'
+                  ? p.amenities.split(',').map((s: string) => s.trim())
+                  : [],
+              property_status: p.property_status ?? p.status ?? '',
+              created_at: p.created_at ?? null,
+              public_views: p.public_views ?? null,
+            } as Property;
+          })
+        );
+
+        // ✅ Filter: sirf “featured” tag/flag wali properties rakho
+        const featuredOnly = allMapped.filter(isFeatured);
+
+        // ✅ Agar featured na mile to fallback empty list (optional: ya top 6 normal)
+        setFeaturedProperties(featuredOnly.length ? featuredOnly : []);
+
       } catch (err) {
         console.error('Error fetching featured properties (public-only):', err);
         setFeaturedProperties([]);
@@ -980,188 +1061,164 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           {loading ? (
             <div className="flex justify-center"><LoadingSpinner size="lg" /></div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {featuredProperties.map((property) => (
-                <div key={property.id} className="bg-white rounded-2xl shadow-lg overflow-hidden group">
-                  <div className="relative">
-                    {property.images && property.images.length ? (
-                      <div
-                        onClick={() => handleNavigateToProperty(property)}
-                        className="cursor-pointer relative"
-                      >
-                        <img
-                          src={property.images[0]}
-                          alt={property.title || 'Property image'}
-                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
-                        />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
+              {featuredProperties.map((property) => {
+                const amenities = Array.isArray(property.amenities) ? property.amenities : [];
+                const shownAmenities = amenities.slice(0, 2);
+                const moreCount = Math.max(amenities.length - shownAmenities.length, 0);
 
-                        {/* ✅ Watermark Overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span className="text-white text-2xl font-bold opacity-40 select-none">
-                            ResaleExpert.in
+                return (
+                  <div key={property.id} className="bg-white rounded-2xl shadow-lg overflow-hidden group h-full flex flex-col">
+                    {/* Image */}
+                    <div className="relative">
+                      {property.images && property.images.length ? (
+                        <div onClick={() => handleNavigateToProperty(property)} className="cursor-pointer relative">
+                          <img
+                            src={property.images[0]}
+                            alt={property.title || 'Property image'}
+                            className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <span className="text-white text-2xl font-bold opacity-40 select-none">ResaleExpert.in</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="h-48 bg-gray-200 flex items-center justify-center"><Building className="text-gray-400" /></div>
+                      )}
+
+                      {/* top-left tags + AI */}
+                      <div className="absolute top-3 left-3 flex items-start flex-wrap gap-2 z-20">
+                        <div className="max-w-[72vw] sm:max-w-none overflow-hidden">
+                          <PropertyTags tags={property.tags || []} />
+                        </div>
+                        {(property.aiScore ?? 0) >= 90 && (
+                          <span className="flex-none whitespace-nowrap bg-purple-600 text-white px-2 py-1 rounded-full text-[8px] sm:text-xs font-bold leading-none flex items-center shadow-sm">
+                            <Bot size={12} className="mr-1" />
+                            AI {Math.round(property.aiScore ?? 0)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* rating/views */}
+                      <div className="absolute bottom-4 left-4 flex items-center gap-2">
+                        <div className="bg-white/90 rounded-full px-2 py-1 flex items-center gap-1">
+                          <Star className="text-yellow-500" size={12} />
+                          <span className="text-xs font-semibold text-gray-900">{(property.rating || 4.5).toFixed(1)}</span>
+                        </div>
+                        <div className="bg-white/90 rounded-full px-2 py-1">
+                          <span className="text-xs font-semibold text-gray-900">
+                            {property.total_views || property.views || 0} views
                           </span>
                         </div>
                       </div>
-                    ) : (
-                      <div className="h-48 bg-gray-200 flex items-center justify-center"><Building className="text-gray-400" /></div>
-                    )}
-
-                    <div className="absolute top-3 left-3 flex items-start flex-wrap gap-2 z-20">
-
-                      {/* keep tags but let them take remaining space without squashing the badge */}
-                      <div className="max-w-[72vw] sm:max-w-none overflow-hidden">
-                        <PropertyTags tags={property.tags || []} />
-                      </div>
-                      {(property.aiScore ?? 0) >= 90 && (
-                        <span className="flex-none whitespace-nowrap bg-purple-600 text-white px-2 py-1 rounded-full text-[8px] sm:text-xs font-bold leading-none flex items-center shadow-sm">
-                          <Bot size={12} className="mr-1" />
-                          AI {Math.round(property.aiScore ?? 0)}
-                        </span>
-                      )}
-
                     </div>
 
-                    <div className="absolute top-2 right-4 flex space-x-2">
-                      <div className="absolute top-2 right-4 flex space-x-2">
-                        {/* Like button placeholder */}
-                      </div>
-                    </div>
-
-                    <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                      <div className="bg-white/90 rounded-full px-2 py-1 flex items-center gap-1">
-                        <Star className="text-yellow-500" size={12} />
-                        <span className="text-xs font-semibold text-gray-900">{(property.rating || 4.5).toFixed(1)}</span>
-                      </div>
-                      <div className="bg-white/90 rounded-full px-2 py-1">
-                        <span className="text-xs font-semibold text-gray-900">
-                          {property.total_views || property.views || 0} views
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="pr-4">
-                        <div className="text-lg font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">
-                          {[property.type, property.unitType, property.subtype].filter(Boolean).join('  ') || ' - '}
+                    {/* Body */}
+                    <div className="p-6 flex-1 flex flex-col">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="pr-4">
+                          <div className="text-lg font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">
+                            {[property.type, property.unitType, property.subtype].filter(Boolean).join('  ') || ' - '}
+                          </div>
+                        </div>
+                        <div className="text-lg text-gray-500">
+                          {property.propertyId || `REP${String(property.id ?? '').padStart(4, '0')}`}
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <div className="text-xl font-bold text-green-600">{formatPrice(property.price)}</div>
-                        <div className="text-sm text-gray-500">{property.unitType || property.type} • {property.square_feet ?? property.area ?? ' - '} sq ft</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-gray-500">Price per sq ft</div>
-                        <div className="font-semibold text-gray-900">
-                          ₹{Math.round((property.price || 0) / (property.square_feet || property.area || 1)).toLocaleString()}
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <div className="text-xl font-bold text-green-600">{formatPrice(property.price)}</div>
+                          <div className="text-sm text-gray-500">
+                            {property.unitType || property.type} • {property.square_feet ?? property.area ?? ' - '} sq ft
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500">Price per sq ft</div>
+                          <div className="font-semibold text-gray-900">
+                            ₹{Math.round((property.price || 0) / (property.square_feet || property.area || 1)).toLocaleString()}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center text-gray-600 mb-3">
-                      <MapPin size={16} className="mr-2" />
-                      <span>{property.location || property.city || ' - '}</span>
-                    </div>
+                      <div className="flex items-center text-gray-600 mb-3">
+                        <MapPin size={16} className="mr-2" />
+                        <span>{property.location || property.city || ' - '}</span>
+                      </div>
 
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {(property.amenities || []).slice(0, 3).map((a, i) => (
-                        <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{a}</span>
-                      ))}
-                      {property.amenities && property.amenities.length > 3 && (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">+{property.amenities.length - 3} more</span>
-                      )}
-                    </div>
+                      {/* Amenities: show 2 + “+N more” */}
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {shownAmenities.map((a, i) => (
+                          <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{a}</span>
+                        ))}
+                        {moreCount > 0 && (
+                          <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">+{moreCount} more</span>
+                        )}
+                      </div>
 
-                    <div className="flex items-center gap-3">
-                      {property.slug ? (
-                        <div className="flex-1">
+                      {/* Actions pinned to bottom */}
+                      <div className="mt-auto flex items-center gap-3">
+                        {property.slug ? (
+                          <div className="flex-1">
+                            <button
+                              onClick={() => handleNavigateToProperty(property)}
+                              className="w-full bg-[#E6761D] text-white py-2 rounded-lg hover:bg-[#CC6A1A] transition-colors"
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            onClick={() => handleNavigateToProperty(property)}
-                            className="w-full bg-[#E6761D] text-white py-2 rounded-lg hover:bg-[#CC6A1A] transition-colors"
+                            disabled
+                            className="w-full bg-gray-300 text-gray-600 py-2 rounded-lg cursor-not-allowed"
+                            title="Details not available"
                           >
                             View Details
                           </button>
-                        </div>
-                      ) : (
+                        )}
+
+                        {/* Call */}
                         <button
-                          disabled
-                          className="w-full bg-gray-300 text-gray-600 py-2 rounded-lg cursor-not-allowed"
-                          title="Details not available"
+                          onClick={(e) => {
+                            e.stopPropagation(); e.preventDefault();
+                            const phone = property.executive?.phone || "919999999999";
+                            window.location.href = `tel:${phone}`;
+                          }}
+                          className="p-3 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
+                          title="Call"
+                          type="button"
                         >
-                          View Details
+                          <Phone size={18} />
                         </button>
-                      )}
 
-                      {/* Call Button (static number) */}
-                      {/* Call Button (executive number or default) */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          const phone = property.executive?.phone || "919999999999"; // ✅ Executive number or default
-                          const telLink = `tel:${phone}`;
-                          window.location.href = telLink;
-                        }}
-                        className="p-3 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white relative z-10"
-                        title="Call"
-                        type="button"
-                      >
-                        <Phone size={18} />
-                      </button>
-
-                      {/* WhatsApp Button (executive number or default) */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-
-                          const phone = property.executive?.phone || "919876543210"; // ✅ Executive number or default
-
-                          const title =
-                            property.title ||
-                            [property.unitType, property.type].filter(Boolean).join(" ") ||
-                            "a property";
-
-                          const loc =
-                            property.location ||
-                            property.city ||
-                            "your listed property location";
-
-                          const priceText =
-                            typeof formatCurrency === "function"
-                              ? formatCurrency(property.price)
-                              : `₹${Number(property.price || 0).toLocaleString("en-IN")}`;
-
-                          const link = property.slug
-                            ? `${window.location.origin}/properties/${encodeURIComponent(
-                              String(property.slug)
-                            )}`
-                            : `${window.location.origin}/properties`;
-
-                          const message =
-                            `Hi, I'm interested in ${title} at ${loc}. ` +
-                            `Price: ${priceText}. ` +
-                            `Can you share more details?\n${link}`;
-
-                          const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-                          window.open(url, "_blank", "noopener,noreferrer");
-                        }}
-                        className="p-3 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57] relative z-10"
-                        title="WhatsApp"
-                        type="button"
-                      >
-                        <FaWhatsapp size={18} />
-                      </button>
+                        {/* WhatsApp */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); e.preventDefault();
+                            const phone = property.executive?.phone || "919876543210";
+                            const title = property.title || [property.unitType, property.type].filter(Boolean).join(" ") || "a property";
+                            const loc = property.location || property.city || "your listed property location";
+                            const priceText = typeof formatCurrency === "function" ? formatCurrency(property.price) :
+                              `₹${Number(property.price || 0).toLocaleString("en-IN")}`;
+                            const link = property.slug
+                              ? `${window.location.origin}/properties/${encodeURIComponent(String(property.slug))}`
+                              : `${window.location.origin}/properties`;
+                            const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
+                            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+                          }}
+                          className="p-3 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
+                          title="WhatsApp"
+                          type="button"
+                        >
+                          <FaWhatsapp size={18} />
+                        </button>
+                      </div>
                     </div>
-
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+
           )}
           <div className="text-center mt-4">
             <Link to="/properties">
@@ -1250,26 +1307,31 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         </div>
       </section>
 
-      {/* Why Choose Us - Compact */}
-      <section className="py-3 bg-gray-50 border-t border-b border-gray-200">
+
+      {/* Why Choose Us cards */}
+      <section className="py-8 bg-gray-50 border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl font-bold text-gray-800 mb-3">
+          {/* Heading */}
+          <div className="text-center mb-12">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
               Why Choose&nbsp;{companyName}?
             </h2>
-            <h2>Trusted Resale Property Consultant in Pune & PCMC</h2>
-            <p className="text-gray-600">
+            <h3 className="text-base sm:text-lg text-gray-700 font-medium mb-3">
+              Trusted Resale Property Consultant in Pune & PCMC
+            </h3>
+            <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
               Buying or selling a resale property can be overwhelming. That's why thousands of homeowners and buyers choose Resale Expert for hassle-free transactions.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mt-10">
+          {/* Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 items-stretch">
             {/* Card 1 */}
-            <div className="text-center group">
-              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+            <div className="h-full bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all flex flex-col items-center">
+              <div className="w-14 h-14 rounded-2xl bg-[#E6761D] flex items-center justify-center mb-4">
                 <ShieldCheck className="text-white" size={26} />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                 Verified Listings Only
               </h3>
               <p className="text-gray-600 text-sm leading-relaxed">
@@ -1278,11 +1340,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </div>
 
             {/* Card 2 */}
-            <div className="text-center group">
-              <div className="bg-[#E6761D] w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+            <div className="h-full bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all flex flex-col items-center">
+              <div className="w-14 h-14 rounded-2xl bg-[#E6761D] flex items-center justify-center mb-4">
                 <Brain className="text-white" size={26} />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                 Fair Market Valuation
               </h3>
               <p className="text-gray-600 text-sm leading-relaxed">
@@ -1291,11 +1353,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </div>
 
             {/* Card 3 */}
-            <div className="text-center group">
-              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+            <div className="h-full bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all flex flex-col items-center">
+              <div className="w-14 h-14 rounded-2xl bg-[#E6761D] flex items-center justify-center mb-4">
                 <Users className="text-white" size={26} />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                 Local Market Expertise
               </h3>
               <p className="text-gray-600 text-sm leading-relaxed">
@@ -1304,11 +1366,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </div>
 
             {/* Card 4 */}
-            <div className="text-center group">
-              <div className="bg-[#E6761D] w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-[#CC6A1A] transition-all duration-300 shadow-md">
+            <div className="h-full bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all flex flex-col items-center">
+              <div className="w-14 h-14 rounded-2xl bg-[#E6761D] flex items-center justify-center mb-4">
                 <Handshake className="text-white" size={26} />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                 End-to-End Assistance
               </h3>
               <p className="text-gray-600 text-sm leading-relaxed">
@@ -1318,52 +1380,58 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           </div>
         </div>
       </section>
-
-      {/* Stats - Compact */}
-      <section className="py-3 bg-white">
+      {/* Stats cards */}
+      <section className="py-5 bg-white border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
-            <div className="group">
-              <div className="bg-blue-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch text-center">
+            {/* Stat 1 */}
+            <div className="h-full bg-white border border-gray-100 rounded-2xl px-6 py-8 flex flex-col items-center justify-center shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+              <div className="w-14 h-14 rounded-xl bg-blue-100 flex items-center justify-center mb-4">
                 <Home className="text-blue-600" size={20} />
               </div>
-              <div className="text-2xl font-bold text-gray-900">10K+</div>
-              <div className="text-gray-600 text-sm">Properties</div>
+              <h4 className="text-2xl font-bold text-gray-900">10K+</h4>
+              <p className="text-gray-600 text-sm mt-1">Properties</p>
             </div>
-            <div className="group">
-              <div className="bg-green-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+
+            {/* Stat 2 */}
+            <div className="h-full bg-white border border-gray-100 rounded-2xl px-6 py-8 flex flex-col items-center justify-center shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+              <div className="w-14 h-14 rounded-xl bg-green-100 flex items-center justify-center mb-4">
                 <Users className="text-green-600" size={20} />
               </div>
-              <div className="text-2xl font-bold text-gray-900">25K+</div>
-              <div className="text-gray-600 text-sm">Customers</div>
+              <h4 className="text-2xl font-bold text-gray-900">25K+</h4>
+              <p className="text-gray-600 text-sm mt-1">Customers</p>
             </div>
-            <div className="group">
-              <div className="bg-orange-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+
+            {/* Stat 3 */}
+            <div className="h-full bg-white border border-gray-100 rounded-2xl px-6 py-8 flex flex-col items-center justify-center shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+              <div className="w-14 h-14 rounded-xl bg-orange-100 flex items-center justify-center mb-4">
                 <Award className="text-orange-600" size={20} />
               </div>
-              <div className="text-2xl font-bold text-gray-900">15+</div>
-              <div className="text-gray-600 text-sm">Years</div>
+              <h4 className="text-2xl font-bold text-gray-900">15+</h4>
+              <p className="text-gray-600 text-sm mt-1">Years</p>
             </div>
-            <div className="group">
-              <div className="bg-purple-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+
+            {/* Stat 4 */}
+            <div className="h-full bg-white border border-gray-100 rounded-2xl px-6 py-8 flex flex-col items-center justify-center shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+              <div className="w-14 h-14 rounded-xl bg-purple-100 flex items-center justify-center mb-4">
                 <Star className="text-purple-600" size={20} />
               </div>
-              <div className="text-2xl font-bold text-gray-900">4.9★</div>
-              <div className="text-gray-600 text-sm">Rating</div>
+              <h4 className="text-2xl font-bold text-gray-900">4.9★</h4>
+              <p className="text-gray-600 text-sm mt-1">Rating</p>
             </div>
           </div>
         </div>
       </section>
 
+
       {/* Testimonials - Compact */}
       <section
-        className="py-10 text-white border-b border-white"
-        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
+        className="py-5 text-white border-b border-white"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-2xl font-bold mb-3">Customer Success Stories</h2>
-            <p className="text-sm text-gray-200">
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">Customer Success Stories</h2>
+            <p className="text-sm text-gray-800">
               See how our AI-powered solutions are helping people buy & sell properties smarter
             </p>
           </div>

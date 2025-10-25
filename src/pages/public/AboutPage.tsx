@@ -229,7 +229,7 @@ const AboutUsPage = () => {
             <p className="text-xl text-gray-600">The principles that guide everything we do</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {values.map((value, index) => {
               const Icon = value.icon;
               return (

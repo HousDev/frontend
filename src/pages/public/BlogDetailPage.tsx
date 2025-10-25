@@ -142,7 +142,7 @@ const CommentComposer: React.FC<{
             setText("");
           }}
           disabled={posting || !text.trim()}
-          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all text-sm sm:text-base font-medium"
+          className="px-4 py-2 bg-[#E6761D] hover:bg-[#CC6A1A] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all text-sm sm:text-base font-medium"
         >
           {posting ? "Posting..." : "Post Comment"}
         </button>
@@ -655,7 +655,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
 
               <div className="p-4 sm:p-6 md:p-8 lg:p-10">
                 {/* Title - Responsive Typography */}
-                <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4 text-gray-900 leading-tight">
+                <h1 className="text-xl font-bold mb-3 sm:mb-4 text-gray-900 leading-tight">
                   {post.title}
                 </h1>
 
@@ -686,7 +686,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                   </button>
 
                   <span className="flex items-center">
-                    <FaWhatsapp className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                          < MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                     <span className="hidden sm:inline">{comments.length} comments</span>
                     <span className="sm:hidden">{comments.length}</span>
                   </span>
@@ -836,7 +836,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
           {/* Author Card - Responsive */}
           <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-grey-500 to-white-600 flex items-center justify-center text-black  ring-1 font-bold text-sm sm:text-base flex-shrink-0">
                 {String(post?.author ?? "A")
                   .split(" ")
                   .map((n) => n[0])
@@ -853,7 +853,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                 : "This author shares insights, market analysis and real estate tips."}
             </p>
             <div className="mt-3 sm:mt-4 flex gap-2">
-              <button className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium hover:shadow-lg transition-all">
+              <button className="flex-1 bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium hover:shadow-lg transition-all">
                 Follow
               </button>
 
@@ -933,7 +933,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
           </div>
 
           {/* Newsletter / CTA - Responsive */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white rounded-xl p-4 sm:p-5 shadow-lg">
+          <div className=" text-white rounded-xl p-4 sm:p-5 shadow-lg" style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
             <h4 className="text-base sm:text-lg font-semibold mb-2">Join our newsletter</h4>
             <p className="text-xs sm:text-sm mb-3 sm:mb-4 opacity-95">
               Weekly insights, market updates and featured listings — delivered
@@ -945,7 +945,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                 placeholder="Your email"
                 className="flex-1 px-3 py-2 rounded-lg text-black text-sm focus:ring-2 focus:ring-white/50 focus:outline-none"
               />
-              <button className="px-4 py-2 bg-white text-blue-600 rounded-lg font-medium text-sm hover:bg-gray-100 transition-colors whitespace-nowrap">
+              <button className="px-4 py-2 bg-[#E6761D] hover:bg-[#CC6A1A]bg-white text-white-600 rounded-lg font-medium text-sm hover:bg-gray-100 transition-colors whitespace-nowrap">
                 Subscribe
               </button>
             </div>
