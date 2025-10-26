@@ -44,9 +44,7 @@ import {
   Gem,
   Crown,
   Flag,
-
   Tag,
-
   CheckCircle2,
   XCircle,
   Play,
@@ -199,7 +197,6 @@ const BuyerViewPage = ({
   };
 
   const handleSaveFollowup = (followupData: any) => {
-    // followupData is expected to be the payload returned from BuyerFollowupModal (has buyer_id)
     const updatedBuyer = {
       ...buyer,
       followups: editingFollowup
@@ -304,7 +301,6 @@ ResaleExpert Team`;
     );
   };
 
-
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
@@ -361,16 +357,12 @@ ResaleExpert Team`;
               <span>Buyer Account</span>
             </button>
             <button
-              onClick={() => {
-
-                onEdit(buyer);
-              }}
+              onClick={() => onEdit(buyer)}
               className="flex items-center space-x-1 md:space-x-2 px-3 md:px-4 py-1 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Edit size={16} />
               <span>Edit</span>
             </button>
-
           </div>
         </div>
 
@@ -431,7 +423,7 @@ ResaleExpert Team`;
         )}
       </div>
 
-      {/* Quick Actions Bar (omitted for brevity in explanation; remains same) */}
+      {/* Quick Actions Bar */}
       <div className="
   bg-white border-t border-gray-200 
   px-2 sm:px-3 md:px-3 lg:px-4 
@@ -526,9 +518,9 @@ ResaleExpert Team`;
             setEditingFollowup(null);
           }}
           onSave={handleSaveFollowup}
-          tabId="buyer" /* <-- pass the correct master tab id so modal filters buyer-specific connected remarks */
-          buyerId={buyer?.id ?? buyer?.buyerId ?? ""} /* <-- ensure buyerId is passed */
-          initialForm={editingFollowup ?? undefined} /* <-- when editing, prefill fields */
+          tabId="buyer"
+          buyerId={buyer?.id ?? buyer?.buyerId ?? ""}
+          initialForm={editingFollowup ?? undefined}
         />
       )}
 
@@ -581,7 +573,6 @@ const OverviewTab = ({ buyer, onUpdateBuyer }: any) => {
     return `₹${amount.toLocaleString('en-IN')}`;
   };
 
-
   function setActiveTab(arg0: string): void {
     throw new Error('Function not implemented.');
   }
@@ -629,7 +620,6 @@ const OverviewTab = ({ buyer, onUpdateBuyer }: any) => {
       </div>
 
       {/* Contact Information */}
-      {/* Contact Information & Budget Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Contact Information */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -718,7 +708,7 @@ const OverviewTab = ({ buyer, onUpdateBuyer }: any) => {
               </div>
             </div>
 
-            {/* LPreferred Units */}
+            {/* Preferred Units */}
             <div>
               <div className="text-gray-500">Preferred Units</div>
               <div className="font-medium mt-1">
@@ -748,11 +738,8 @@ const OverviewTab = ({ buyer, onUpdateBuyer }: any) => {
               </div>
             </div>
           </div>
-
         </div>
       </div>
-
-
 
       {/* Progress Tracking */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -803,7 +790,6 @@ const OverviewTab = ({ buyer, onUpdateBuyer }: any) => {
           </div>
         </div>
       </div>
-
 
       {/* Recent Activities */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -898,24 +884,19 @@ const OverviewTab = ({ buyer, onUpdateBuyer }: any) => {
           </div>
         )}
       </div>
-
     </div>
   );
 };
-
-
-
-
-
 
 type PropertiesTabProps = {
   buyer: any;
   onShowPropertyMatch: () => void;
   onShowPropertySuggestions: () => void;
-  onScheduleVisit?: () => void; // <-- added this line
-  onVisitClick?: (property: any) => void; // optional
-  onDetailsClick?: (property: any) => void; // optional
+  onScheduleVisit?: () => void;
+  onVisitClick?: (property: any) => void;
+  onDetailsClick?: (property: any) => void;
 };
+
 const PropertiesTab: React.FC<PropertiesTabProps> = ({
   buyer,
   onShowPropertyMatch,
@@ -924,16 +905,14 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
   onVisitClick,
   onDetailsClick,
 }) => {
-  // ---------------- state ----------------
   const [properties, setProperties] = useState<any[]>([]);
   const [loadingProps, setLoadingProps] = useState(false);
   const [propsError, setPropsError] = useState<string | null>(null);
   const [shortlisted, setShortlisted] = useState<Set<string>>(new Set());
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [openPropertyDetailsShareModal, setOpenPropertyDetailsShareModal] =
-    useState(false);
+  const [selected, setSelected] = useState<Set<string>>( new Set());
+  const [openPropertyDetailsShareModal, setOpenPropertyDetailsShareModal] = useState(false);
 
-  // ---------------- fetch ----------------
+  // Fetch only public properties
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -942,9 +921,18 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
       try {
         const res = await propertiesAPI.getProperties();
         const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-        if (isMounted) setProperties(list ?? []);
+        
+        // Filter only public properties
+        const publicProperties = list.filter((property: any) => 
+          property.is_public === true || 
+          property.is_public === 1 || 
+          property.isPublic === true ||
+          property.public === true
+        );
+        
+        if (isMounted) setProperties(publicProperties ?? []);
       } catch (err) {
-        toast.error("Error fetching property:", err);
+        toast.error("Error fetching properties:", err);
         if (isMounted) {
           setProperties([]);
           setPropsError("Could not load properties");
@@ -958,7 +946,6 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
     };
   }, []);
 
-  // ---------------- helpers ----------------
   const formatCurrency = (amount?: number) => {
     if (!amount || isNaN(Number(amount))) return "₹—";
     if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
@@ -970,7 +957,6 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
   const norm = (s: any) => String(s || "").toLowerCase().trim();
   const hasAny = (haystack: string[], needles: string[]) =>
     needles.some((n) => haystack.some((h) => h.includes(n)));
-
 
   const req = buyer?.requirements || {};
   const reqUnitTypes = toArr(req.unitTypes).map(norm);
@@ -985,7 +971,6 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
     .split(/\s+/)
     .filter(Boolean);
 
-  // ---- property pickers
   const unitTypeFrom = (p: any) => norm(p?.unit_type || p?.bhk || p?.configuration);
   const locTokensFrom = (p: any) =>
     [norm(p?.locality_name), norm(p?.location_name), norm(p?.address), norm(p?.city_name || p?.city)]
@@ -1027,18 +1012,19 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
   const addressFrom = (p: any) =>
     p?.address || [p?.location_name || p?.locality_name, p?.city_name || p?.city].filter(Boolean).join(", ");
 
-  // ---- budget helpers
   const getBuyerBudget = () => {
     const min = Number(buyer?.budget?.min ?? buyer?.budgetMin ?? buyer?.minBudget ?? 0);
     const max = Number(buyer?.budget?.max ?? buyer?.budgetMax ?? buyer?.maxBudget ?? 0);
     return { min, max };
   };
+
   const priceFrom = (p: any) => Number(p?.budget ?? p?.price ?? p?.expected_price ?? 0);
   const priceRangeFrom = (p: any) => {
     const min = Number(p?.min_price ?? p?.budget_min ?? p?.minBudget ?? 0);
     const max = Number(p?.max_price ?? p?.budget_max ?? p?.maxBudget ?? 0);
     return { min, max };
   };
+
   const isWithinBuyerBudget = (p: any) => {
     const { min: bMin, max: bMax } = getBuyerBudget();
     const hasBuyerMin = !!bMin;
@@ -1068,7 +1054,6 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
     const areaTxt = area ? `${Number(area).toLocaleString("en-IN")} sq ft` : "";
     return [unit, areaTxt].filter(Boolean).join(" • ");
   };
-
 
   const floorLine = (p: any) => {
     const f = p?.floor || "";
@@ -1105,7 +1090,6 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
     return p?.status === "Available" ? "Ready to Move" : p?.status || "—";
   };
 
-  // ---------------- reasons (chips) ----------------
   const computeReasons = (p: any) => {
     const reasons: string[] = [];
     const price = priceFrom(p);
@@ -1146,7 +1130,6 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
     return reasons;
   };
 
-  // ---------------- match score (weighted) ----------------
   const computeMatchScore = (p: any) => {
     let score = 0;
     const price = priceFrom(p);
@@ -1188,7 +1171,6 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
     return typeof first === "string" ? first : first?.url || "";
   };
 
-  // ---------------- items (with budget filter) ----------------
   const items = useMemo(() => {
     const filtered = properties.filter(isWithinBuyerBudget);
     return filtered.map((p: any) => {
@@ -1209,13 +1191,12 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
         statusText: p?.status || "Available",
         matchScore: computeMatchScore(p),
         photo: photoFrom(p),
-        _raw: p, // FULL RAW OBJECT
+        _raw: p,
         reasons,
       };
     });
   }, [properties, buyer]);
 
-  // ---------------- selected items + full raw ----------------
   const selectedItems = useMemo(
     () => items.filter((it) => selected.has(it.id)),
     [items, selected]
@@ -1225,7 +1206,6 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
     [selectedItems]
   );
 
-  // ---------------- actions ----------------
   const toggleShortlist = (id: string) => {
     setShortlisted((prev) => {
       const next = new Set(prev);
@@ -1233,6 +1213,7 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
       return next;
     });
   };
+
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -1240,14 +1221,14 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
       return next;
     });
   };
+
   const contactSeller = (name: string, phone: string, title: string) => {
     const clean = (phone || "").replace(/\D/g, "");
     if (!clean) return;
-    const msg = `Hi ${name || "there"}, I’d like to discuss your property: ${title}.`;
+    const msg = `Hi ${name || "there"}, I'd like to discuss your property: ${title}.`;
     window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
-  // ---------------- render ----------------
   return (
     <>
       <div className="space-y-4">
@@ -1280,6 +1261,20 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
         {propsError && !loadingProps && (
           <div className="bg-white rounded-xl shadow-sm border border-red-200 p-6 text-center text-sm text-red-600">
             {propsError}
+          </div>
+        )}
+
+        {/* Public Properties Count */}
+        {!loadingProps && !propsError && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-blue-700 font-medium">
+                Showing {items.length} public properties
+              </span>
+              <span className="text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                🔒 All properties are publicly listed
+              </span>
+            </div>
           </div>
         )}
 
@@ -1333,6 +1328,10 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
                               ⭐ Shortlisted
                             </span>
                           )}
+                          {/* Public Property Badge */}
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-100 text-green-700">
+                            🔒 Public
+                          </span>
                         </div>
                       </div>
 
@@ -1433,7 +1432,6 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
                         <span>Visit</span>
                       </button>
 
-
                       <button
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs"
                         onClick={() => toggleShortlist(property.id)}
@@ -1473,10 +1471,10 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
             <Building className="mx-auto text-gray-300 mb-3" size={48} />
             <h3 className="text-sm font-semibold text-gray-900 mb-1">
-              No Properties in Your Budget
+              No Public Properties Found
             </h3>
             <p className="text-gray-500 text-xs mb-4">
-              Try adjusting the buyer’s budget or broaden the filters.
+              No public properties match your budget criteria. Try adjusting the budget or check back later for new listings.
             </p>
             <div className="flex items-center justify-center space-x-2">
               <button
@@ -1496,20 +1494,13 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
         <PropertyDetailsShareModal
           isOpen={openPropertyDetailsShareModal}
           onClose={() => setOpenPropertyDetailsShareModal(false)}
-          selectedProperties={selectedRaw}  // <-- FULL RAW DATA HERE
+          selectedProperties={selectedRaw}
           buyer={buyer}
         />
       )}
     </>
   );
 };
-
-
-
-
-
-
-
 
 // Activities Tab Component
 const ActivitiesTab = ({ buyer, onAddActivity, onEditActivity }: any) => {
@@ -1662,10 +1653,8 @@ const ActivitiesTab = ({ buyer, onAddActivity, onEditActivity }: any) => {
         </div>
       )}
     </div>
-
   );
 };
-
 
 // --- keep your existing imports (React, useState, useEffect, icons like Layers, TrendingUp, Tag, Play, AlertCircle, Calendar, CheckCircle2, User, Clock, Plus, Edit, Bell, CalendarIcon etc.)
 // --- keep your existing imports (React, useState, useEffect, icons like Layers, TrendingUp, Tag, Play, AlertCircle, Calendar, CheckCircle2, User, Clock, Plus, Edit, Bell, CalendarIcon etc.)
