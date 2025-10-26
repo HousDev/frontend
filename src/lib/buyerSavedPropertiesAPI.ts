@@ -147,10 +147,15 @@ export const buyerSavedAPI = {
   countByProperty: async (propertyId: number) => {
     try {
       const { data } = await api.get<CountResponse>(`${base}/count/by-property/${propertyId}`);
+      console.log("count",data)
       return data;
     } catch (error) {
       console.error('Count by property failed:', error);
       throw error;
     }
+  },
+  countByBuyer: async (buyerId: number) => {
+    const { data } = await api.get<CountResponse>(`${base}/count/by-buyer/${buyerId}`);
+    return data;
   },
 };

@@ -13,7 +13,7 @@ import { toast } from 'react-toastify';
 import { buyerSavedAPI, BuyerSavedWithProperty } from '@/lib/buyerSavedPropertiesAPI';
 import propertyTagsAPI from '@/lib/propertyTagsAPI';
 import { FaWhatsapp } from 'react-icons/fa6';
-import { getTagStyle, type TagTone } from '@/lib/tagStyles'; // ✅ Import from external file
+import { getTagStyle, type TagTone } from '@/lib/tagStyles';
 import { usePropertyMatches } from '@/hooks/usePropertyMatches';
 
 const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
@@ -167,7 +167,6 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
           </header>
         </div>
 
-
         {/* Tabs Content */}
         <main className="flex-1 overflow-y-auto text-sm">
           {activeTab === 'dashboard' && <DashboardTab buyer={buyer} />}
@@ -240,7 +239,6 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
 };
 
 /* ================= Sidebar Content Component ================= */
-/* ================= Sidebar Content Component ================= */
 const SidebarContent = ({
   buyer,
   activeTab,
@@ -280,10 +278,8 @@ const SidebarContent = ({
     if (Array.isArray(v)) return v.filter(Boolean).map(String);
     if (typeof v === "number") return [String(v)];
     if (typeof v === "string") {
-      // try json-stringified array first
       const parsed = safeJson(v);
       if (Array.isArray(parsed)) return parsed.filter(Boolean).map(String);
-      // comma-separated fallback
       return v
         .split(",")
         .map((s) => s.trim())
@@ -305,7 +301,6 @@ const SidebarContent = ({
       ? safeJson(buyer.requirements)
       : buyer?.requirements || {};
 
-  // extract unit types from multiple possible shapes/keys
   const unitTypesRaw =
     reqRaw?.unitTypes ??
     reqRaw?.unit_types ??
@@ -319,27 +314,25 @@ const SidebarContent = ({
     null;
 
   let unitTypes = toArray(unitTypesRaw);
-  // if they look like numbers (e.g., ["2","3"]), show as "2 BHK"
   if (unitTypes.length && unitTypes.every((x) => /^\d+(\s*bhk)?$/i.test(x))) {
     unitTypes = unitTypes.map((x) =>
-      /\bbhk\b/i.test(x) ? x.replace(/\s+/g, " ").toUpperCase() : `${x} `
+      /\b\b/i.test(x) ? x.replace(/\s+/g, " ").toUpperCase() : `${x}`
     );
   }
 
-  
-    function BuyerMatchLogger({ buyer }: { buyer: any }) {
-      const { count, loading, error } = usePropertyMatches({ buyer, publicOnly: true });
-  
-      useEffect(() => {
-  
-      }, [buyer?.id, count, loading, error]);
-  
-      // ✅ show it in UI too
-      if (loading) return <span className="text-gray-400">…</span>;
-      if (error) return <span className="text-red-500">0</span>;
-      return <span>{count}</span>;
-    }
-  
+  function BuyerMatchLogger({ buyer }: { buyer: any }) {
+    const { count, loading, error } = usePropertyMatches({ buyer, publicOnly: true });
+
+    useEffect(() => {
+      // Logging for debugging
+      console.log('BuyerMatchLogger:', { buyerId: buyer?.id, count, loading, error });
+    }, [buyer?.id, count, loading, error]);
+
+    if (loading) return <span className="text-gray-400">…</span>;
+    if (error) return <span className="text-red-500">0</span>;
+    return <span>{count}</span>;
+  }
+
   // ---- normalize budget ----
   const budgetMin =
     buyer?.budget?.min ??
@@ -361,9 +354,10 @@ const SidebarContent = ({
       {/* Header */}
       <div className="p-6 border-b border-gray-200 shrink-0">
         <div className="flex items-center space-x-3 mb-4">
-          <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+          <div className="w-12 h-12 bg-gradient-to-r from-[#E6761D] to-[#CC6A1A] rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
             {(buyer?.name || "U")?.charAt(0)}
           </div>
+
           <div>
             <div className="font-semibold text-sm text-gray-900">
               {(buyer?.salutation ? buyer.salutation + " " : "") + (buyer?.name || "Unknown")}
@@ -393,9 +387,9 @@ const SidebarContent = ({
 
           <div className="flex justify-between">
             <span className="text-gray-500">Matched Properties:</span>
-              <span>
-                            <BuyerMatchLogger buyer={buyer} /> matches
-                          </span>
+            <span>
+              <BuyerMatchLogger buyer={buyer} /> matches
+            </span>
           </div>
 
           <div className="flex justify-between">
@@ -410,22 +404,21 @@ const SidebarContent = ({
       {/* Tabs */}
       <nav className="flex-1 overflow-y-auto px-4 py-3">
         {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors text-left mb-1 text-sm ${
-                  activeTab === tab.id
-                    ? "bg-purple-50 text-purple-700 border border-purple-200"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors text-left mb-1 text-sm ${activeTab === tab.id
+                  ? "bg-purple-50 text-purple-700 border border-purple-200"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 }`}
-              >
-                <Icon size={16} />
-                <span className="font-medium">{tab.label}</span>
-              </button>
-            );
-          })}
+            >
+              <Icon size={16} />
+              <span className="font-medium">{tab.label}</span>
+            </button>
+          );
+        })}
       </nav>
 
       {/* Bottom */}
@@ -463,25 +456,81 @@ const SidebarContent = ({
   );
 };
 
-
 // Dashboard Tab for Buyer Account
-const DashboardTab = ({ buyer }: any) => {
+const DashboardTab: React.FC<{ buyer: any }> = ({ buyer }) => {
+  const [shortlistedCount, setShortlistedCount] = useState<number>(0);
+  const [shortlistLoading, setShortlistLoading] = useState<boolean>(true);
+
+  const localShortlistCount = useMemo(() => {
+    return buyer?.matchedProperties?.filter((p: any) => p?.status === "shortlisted").length || 0;
+  }, [buyer?.matchedProperties]);
+
+  const buyerId = useMemo(() => Number(buyer?.id ?? buyer?.buyer_id ?? 0), [buyer?.id, buyer?.buyer_id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (!buyerId) {
+        setShortlistedCount(localShortlistCount);
+        setShortlistLoading(false);
+        return;
+      }
+      try {
+        setShortlistLoading(true);
+        const res = await buyerSavedAPI.countByBuyer(buyerId);
+        if (!cancelled) setShortlistedCount(res?.count ?? localShortlistCount);
+      } catch {
+        if (!cancelled) setShortlistedCount(localShortlistCount);
+      } finally {
+        if (!cancelled) setShortlistLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [buyerId, localShortlistCount]);
+
   const formatCurrency = (amount: number) => {
     if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
     if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-    return `₹${amount.toLocaleString('en-IN')}`;
+    return `₹${amount?.toLocaleString("en-IN")}`;
+  };
+
+  const colorBg: Record<string, string> = {
+    blue: "bg-blue-100",
+    red: "bg-red-100",
+    green: "bg-green-100",
+    purple: "bg-purple-100",
+  };
+  const colorText: Record<string, string> = {
+    blue: "text-blue-600",
+    red: "text-red-600",
+    green: "text-green-600",
+    purple: "text-purple-600",
   };
 
   const stats = [
-    { label: 'Properties Viewed', value: buyer.visits || 0, icon: Eye, color: 'blue' },
-    { label: 'Shortlisted', value: buyer.matchedProperties?.filter((p: any) => p.status === 'shortlisted').length || 0, icon: Bookmark, color: 'red' },
-    { label: 'Visits Scheduled', value: buyer.followups?.filter((f: any) => f.type === 'visit').length || 0, icon: Calendar, color: 'green' },
-    { label: 'Documents', value: buyer.documents?.length || 0, icon: FileText, color: 'purple' }
+    { label: "Properties Viewed", value: buyer?.visits || 0, icon: Eye, color: "blue" },
+    {
+      label: "Shortlisted",
+      value: shortlistLoading ? "—" : shortlistedCount,
+      icon: Bookmark,
+      color: "red",
+    },
+    {
+      label: "Visits Scheduled",
+      value: buyer?.followups?.filter((f: any) => f?.type === "visit").length || 0,
+      icon: Calendar,
+      color: "green",
+    },
+    { label: "Documents", value: buyer?.documents?.length || 0, icon: FileText, color: "purple" },
   ];
 
   return (
     <div className="">
-      <div className='px-4 md:px-6 py-4 z-30 top-0 sticky'>
+      <div className="px-4 md:px-6 py-4 z-30 top-0 sticky">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {stats.map((stat, index) => {
@@ -493,8 +542,8 @@ const DashboardTab = ({ buyer }: any) => {
                     <p className="text-xs font-medium text-gray-600">{stat.label}</p>
                     <p className="text-lg font-bold text-gray-900 mt-0.5">{stat.value}</p>
                   </div>
-                  <div className={`p-2 rounded-lg bg-${stat.color}-100`}>
-                    <Icon className={`text-${stat.color}-600`} size={18} />
+                  <div className={`p-2 rounded-lg ${colorBg[stat.color]}`}>
+                    <Icon className={`${colorText[stat.color]}`} size={18} />
                   </div>
                 </div>
               </div>
@@ -503,7 +552,7 @@ const DashboardTab = ({ buyer }: any) => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Property Search</h3>
             <div className="space-y-2">
@@ -551,9 +600,9 @@ const DashboardTab = ({ buyer }: any) => {
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mt-6">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">Recent Activity</h3>
-          {buyer.activities?.length > 0 ? (
+          {buyer?.activities?.length > 0 ? (
             <div className="space-y-2">
               {buyer.activities.slice(0, 5).map((activity: any) => (
                 <div key={activity.id} className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg">
@@ -562,7 +611,9 @@ const DashboardTab = ({ buyer }: any) => {
                   </div>
                   <div className="flex-1">
                     <div className="text-xs font-medium text-gray-900">{activity.description}</div>
-                    <div className="text-[10px] text-gray-600">{activity.date} • {activity.time}</div>
+                    <div className="text-[10px] text-gray-600">
+                      {activity.date} • {activity.time}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -576,17 +627,18 @@ const DashboardTab = ({ buyer }: any) => {
         </div>
 
         {/* Recommended Properties */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mt-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-900">Recommended for You</h3>
-            <button className="text-xs text-purple-600 hover:text-purple-800 font-medium">
-              View All
-            </button>
+            <button className="text-xs text-purple-600 hover:text-purple-800 font-medium">View All</button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {buyer.matchedProperties?.slice(0, 2).map((property: any) => (
-              <div key={property.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+            {buyer?.matchedProperties?.slice(0, 2).map((property: any) => (
+              <div
+                key={property.id}
+                className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow"
+              >
                 <div className="flex items-start justify-between mb-1.5">
                   <h4 className="text-xs font-semibold text-gray-900">{property.title}</h4>
                   <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-medium">
@@ -625,9 +677,90 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
   onShowPropertySuggestions,
   onShowPropertyMatch,
   onVisitClick,
-  onDetailsClick,
 }) => {
-  // ✅ hook (server fetch + server search)
+  // ✅ Enhanced property matching scoring
+  const computeEnhancedMatchScore = (property: any, buyer: any) => {
+    let score = 0;
+    const maxScore = 100;
+    
+    // Budget match (30 points)
+    const propertyPrice = Number(property?.price || property?.final_price || 0);
+    const buyerBudgetMin = Number(buyer?.budget?.min || buyer?.budget_min || 0);
+    const buyerBudgetMax = Number(buyer?.budget?.max || buyer?.budget_max || 0);
+    
+    if (propertyPrice >= buyerBudgetMin && propertyPrice <= buyerBudgetMax) {
+      score += 30;
+    } else if (propertyPrice <= buyerBudgetMax * 1.2) {
+      score += 70;
+    } else if (propertyPrice <= buyerBudgetMax * 1.5) {
+      score += 10;
+    }
+
+    // Location match (25 points)
+    const buyerLocations = buyer?.requirements?.preferredLocations || buyer?.preferred_locations || [];
+    const propertyLocation = property?.location_name || property?.location || property?.area || '';
+    
+    if (Array.isArray(buyerLocations) && buyerLocations.some((loc: string) => 
+      propertyLocation.toLowerCase().includes(loc.toLowerCase()))) {
+      score += 25;
+    } else if (buyer?.city && propertyLocation.toLowerCase().includes(buyer.city.toLowerCase())) {
+      score += 15;
+    }
+
+    // Unit type match (20 points)
+    const buyerUnitTypes = buyer?.requirements?.unitTypes || buyer?.preferred_units || [];
+    const propertyUnitType = property?.unit_type_name || property?.unit_type || '';
+    
+    if (Array.isArray(buyerUnitTypes) && buyerUnitTypes.some((unit: string) => 
+      propertyUnitType.toLowerCase().includes(unit.toLowerCase()))) {
+      score += 20;
+    }
+
+    // Property type match (15 points)
+    const buyerPropertyType = buyer?.requirements?.propertyType || buyer?.preferred_property_type || '';
+    const propertyType = property?.property_type_name || property?.property_type || '';
+    
+    if (buyerPropertyType && propertyType.toLowerCase().includes(buyerPropertyType.toLowerCase())) {
+      score += 15;
+    }
+
+    // Additional features (10 points)
+    if (property?.is_featured || property?.is_rera || property?.rera_number) {
+      score += 10;
+    }
+
+    return Math.min(score, maxScore);
+  };
+
+  // ✅ Enhanced title composition
+  const composePropertyTitle = (property: any) => {
+    const type = property?.property_type_name || property?.property_type || '';
+    const unitType = property?.unit_type_name || property?.unit_type || '';
+    const subtype = property?.property_subtype_name || property?.property_subtype || '';
+    
+    const parts = [type, unitType, subtype].filter(Boolean);
+    return parts.length > 0 ? parts.join(' ') : 'Property Listing';
+  };
+
+  // ✅ Enhanced possession display
+  const getPossessionDisplay = (property: any) => {
+    if (property?.possession_status) return property.possession_status;
+    if (property?.possession_date) return `Ready by ${property.possession_date}`;
+    if (property?.under_construction) return 'Under Construction';
+    if (property?.ready_to_move) return 'Ready to Move';
+    return 'Immediate';
+  };
+
+  // ✅ Enhanced floor display
+  const getFloorDisplay = (property: any) => {
+    if (property?.floor) return ` ${property.floor}`;
+    if (property?.floor_number) return ` ${property.floor_number}`;
+    if (property?.total_floors && property?.floor_range) {
+      return `${property.floor_range} of ${property.total_floors}`;
+    }
+    return 'Floor info not available';
+  };
+
   const {
     properties,
     loadingProps,
@@ -637,7 +770,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     utils,
   } = useProperties({ autoLog: true });
 
-  // helpers
   const {
     norm,
     toArr,
@@ -647,22 +779,133 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     unitTypeFrom,
     locTokensFrom,
     propTypeFrom,
-    titleFrom,
     addressFrom,
     priceFrom,
     priceRangeFrom,
     sizeFrom,
-    floorLine,
     facingFrom,
     parkingFrom,
-    possessionFrom,
     photoFrom,
     computeReasons,
-    computeMatchScore,
     isWithinBuyerBudget,
+    makeItem,
   } = utils;
 
-  // ---------------- state ----------------
+  /* ---------------- Local helpers for robust image handling ---------------- */
+  const ORIGIN =
+    typeof window !== "undefined" && window.location?.origin
+      ? window.location.origin
+      : "https://investordeal.in";
+
+  const NO_IMAGE_SVG =
+    'data:image/svg+xml;utf8,' +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200" role="img" aria-label="No image">
+         <rect width="320" height="200" fill="#f3f4f6"/>
+         <g fill="#9ca3af" font-family="Arial,Helvetica,sans-serif" font-size="14">
+           <text x="160" y="102" text-anchor="middle">No Image</text>
+         </g>
+       </svg>`
+    );
+
+  const absolutize = (url?: string | null): string | null => {
+    if (!url) return null;
+    const s = String(url).trim();
+    if (!s) return null;
+    if (/^https?:\/\//i.test(s)) return s;
+    if (s.startsWith("//")) return `https:${s}`;
+    if (s.startsWith("/")) return `${ORIGIN}${s}`;
+    return `${ORIGIN}/${s.replace(/^\/+/, "")}`;
+  };
+
+  const toArraySafe = (v: any): string[] => {
+    if (!v) return [];
+    if (Array.isArray(v)) return v.filter(Boolean).map(String);
+    if (typeof v === "string") {
+      try {
+        const j = JSON.parse(v);
+        if (Array.isArray(j)) return j.filter(Boolean).map(String);
+      } catch {}
+      return v
+        .split(/[,\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  const firstImageFromAny = (raw: any): string | null => {
+    const candidates: Array<string | string[] | undefined> = [
+      raw?.thumbnail_url,
+      raw?.thumbnailUrl,
+      raw?.coverImage,
+      raw?.image,
+      raw?.images,
+      raw?.photo,
+      raw?.photoUrl,
+      raw?.photoUrls,
+      raw?.photos,
+      raw?.primary_image,
+      raw?.media,
+    ];
+
+    for (const c of candidates) {
+      if (!c) continue;
+      if (typeof c === "string") {
+        const arr = toArraySafe(c);
+        if (arr.length) return absolutize(arr[0]);
+        return absolutize(c);
+      }
+      if (Array.isArray(c) && c.length) {
+        const first = String(c[0]);
+        if (first) return absolutize(first);
+      }
+    }
+    return null;
+  };
+
+  const resolvePhoto = (p: any): string | null => {
+    const utilPick = photoFrom(p);
+    if (utilPick) {
+      const s = absolutize(utilPick);
+      if (s) return s;
+    }
+    const raw = p?._raw ?? p;
+    const got = firstImageFromAny(raw);
+    if (got) return got;
+
+    const deep = (() => {
+      try {
+        if (raw?.media && typeof raw.media === "object") {
+          const arr = Array.isArray(raw.media) ? raw.media : Object.values(raw.media);
+          const first = arr?.[0];
+          if (typeof first === "string") return absolutize(first);
+          if (first?.url) return absolutize(first.url);
+          if (first?.src) return absolutize(first.src);
+        }
+      } catch {}
+      return null;
+    })();
+
+    return deep || null;
+  };
+
+  const PropertyImage: React.FC<{ src?: string | null; alt?: string }> = ({ src, alt }) => {
+    const [imgSrc, setImgSrc] = useState<string>(src || NO_IMAGE_SVG);
+    useEffect(() => setImgSrc(src || NO_IMAGE_SVG), [src]);
+    return (
+      <img
+        src={imgSrc}
+        alt={alt || "Property"}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        className="w-full h-full object-cover"
+        onError={() => setImgSrc(NO_IMAGE_SVG)}
+      />
+    );
+  };
+
+  /* ---------------- state ---------------- */
   type SortKey = "low_to_high" | "high_to_low" | "medium" | "newest";
 
   const defaultFilters = {
@@ -701,11 +944,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
   // Robust public property detection
   const isPublicProperty = (property: any) => {
     if (!property) return false;
-
-    // Check various possible public flags
     const raw = property._raw || property;
-
-    // Check multiple possible field names for public flag
     const publicFlags = [
       raw?.is_public,
       raw?.isPublic,
@@ -720,22 +959,16 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
       property?.is_public_listing,
       property?.public_listing,
       property?.visible_to_buyers,
-      property?.buyer_visible
+      property?.buyer_visible,
     ];
-
-    // Return true if any public flag is truthy
-    return publicFlags.some(flag =>
-      flag === true ||
-      flag === 1 ||
-      flag === '1' ||
-      flag === 'true' ||
-      flag === 'yes'
+    return publicFlags.some(
+      (flag) => flag === true || flag === 1 || flag === "1" || flag === "true" || flag === "yes"
     );
   };
 
   const normalized = useMemo(
-    () => (Array.isArray(properties) ? properties.map((p) => utils.makeItem(p, buyer)) : []),
-    [properties, buyer, utils]
+    () => (Array.isArray(properties) ? properties.map((p) => makeItem(p, buyer)) : []),
+    [properties, buyer, makeItem]
   );
 
   // Filter only public properties
@@ -748,16 +981,18 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
   const handleSearch = async () => {
     const params = {
       location: searchFilters.location || undefined,
-      minPrice: searchFilters.minPrice !== null && searchFilters.minPrice !== undefined
-        ? searchFilters.minPrice
-        : undefined,
-      maxPrice: searchFilters.maxPrice !== null && searchFilters.maxPrice !== undefined
-        ? searchFilters.maxPrice
-        : undefined,
+      minPrice:
+        searchFilters.minPrice !== null && searchFilters.minPrice !== undefined
+          ? searchFilters.minPrice
+          : undefined,
+      maxPrice:
+        searchFilters.maxPrice !== null && searchFilters.maxPrice !== undefined
+          ? searchFilters.maxPrice
+          : undefined,
       sort: searchFilters.sort,
       propertyType: (searchFilters as any).propertyType || undefined,
       unitTypes: searchFilters.unitTypes.length ? searchFilters.unitTypes : undefined,
-      is_public: 1, // Only search for public properties
+      is_public: 1,
     };
     await searchProperties(params);
     setAppliedFilters(searchFilters);
@@ -784,7 +1019,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     return `flt_${Math.random().toString(36).slice(2)}_${Date.now()}`;
   };
 
-  /** Save the current context (filters + buyer + selection) into localStorage and return {token, urlWithToken} */
   const withFilterContext = (rawUrl: string, property: any) => {
     try {
       const token = randomToken();
@@ -810,20 +1044,20 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
         appliedFilters,
         buyer: buyerSnap,
         from: {
-          path: typeof window !== "undefined" ? window.location.pathname : undefined,
-          query: typeof window !== "undefined" ? window.location.search : undefined,
+          path:
+            typeof window !== "undefined" ? window.location.pathname : undefined,
+          query:
+            typeof window !== "undefined" ? window.location.search : undefined,
         },
       };
 
-      // Store as a separate key per token
       if (typeof window !== "undefined") {
         const k = `${STORAGE_KEY_PREFIX}:${token}`;
         localStorage.setItem(k, JSON.stringify(payload));
         localStorage.setItem(STORAGE_KEY_LATEST, token);
       }
 
-      // Append ?fltcnt=token preserving existing params/hash
-      const u = new URL(rawUrl, typeof window !== "undefined" ? window.location.origin : "https://investordeal.in");
+      const u = new URL(rawUrl, ORIGIN);
       u.searchParams.set(TRACKING_PARAM_KEY, token);
       return { token, urlWithToken: u.toString() };
     } catch {
@@ -833,12 +1067,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
 
   // ---------- Robust public URL builder (plural `/properties`) ----------
   const buildPropertyUrl = (raw: any) => {
-    const origin =
-      typeof window !== "undefined" && window.location?.origin
-        ? window.location.origin
-        : "https://investordeal.in";
-
-    // Prefer explicit/public url first
     const given =
       raw?.external_url || raw?.public_url || raw?.website || raw?.url || null;
 
@@ -846,20 +1074,46 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
       const s = given.trim();
       if (/^https?:\/\//i.test(s)) return s;
       if (s.startsWith("//")) return `https:${s}`;
-      if (s.startsWith("/")) return `${origin}${s}`;
-      return `${origin}/${s.replace(/^\/+/, "")}`;
+      if (s.startsWith("/")) return `${ORIGIN}${s}`;
+      return `${ORIGIN}/${s.replace(/^\/+/, "")}`;
     }
 
-    // derive from slug/id (PUBLIC ROUTE = /properties/:slug)
     const slug =
       raw?.slug || raw?.property_slug || raw?.public_slug || raw?.seo_slug;
     const id = raw?.id || raw?.property_id || raw?._id;
 
-    if (slug) return `${origin}/properties/${encodeURIComponent(String(slug).replace(/^\/+/, ""))}`;
-    if (id) return `${origin}/properties/${encodeURIComponent(String(id))}`;
+    if (slug) return `${ORIGIN}/properties/${encodeURIComponent(String(slug).replace(/^\/+/, ""))}`;
+    if (id) return `${ORIGIN}/properties/${encodeURIComponent(String(id))}`;
+    return `${ORIGIN}/properties`;
+  };
 
-    // fallback public index
-    return `${origin}/properties`;
+  // ✅ Enhanced property tags extraction
+  const extractPropertyTags = (property: any): string[] => {
+    const raw = property._raw || property;
+    const tags: string[] = [];
+
+    // Extract from tags field
+    if (Array.isArray(raw?.tags)) {
+      tags.push(...raw.tags.filter(Boolean).map(String));
+    } else if (typeof raw?.tags === "string") {
+      const parsedTags = toArraySafe(raw.tags);
+      tags.push(...parsedTags);
+    }
+
+    // Extract from features/amenities
+    if (Array.isArray(raw?.amenities)) {
+      const importantAmenities = raw.amenities.slice(0, 3);
+      tags.push(...importantAmenities.filter(Boolean).map(String));
+    }
+
+    // Add property status tags
+    if (raw?.is_featured) tags.push("Featured");
+    if (raw?.is_rera || raw?.rera_number) tags.push("RERA Approved");
+    if (raw?.ready_to_move) tags.push("Ready to Move");
+    if (raw?.under_construction) tags.push("Under Construction");
+    if (raw?.is_resale) tags.push("Resale");
+
+    return Array.from(new Set(tags)).slice(0, 5); // Limit to 5 tags
   };
 
   // ---------------- mapping (presentation) ----------------
@@ -904,21 +1158,22 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
 
       return {
         id: String(raw?.id ?? raw?.property_id ?? raw?._id ?? Math.random()),
-        title: titleFrom(p),
+        title: composePropertyTitle(raw), // ✅ Enhanced title
         address: addressFrom(p),
         price: priceFrom(p),
         size: sizeFrom(p),
-        floorLine: p?.floor ? `Floor ${p.floor}` : floorLine(p),
+        floorLine: getFloorDisplay(raw), // ✅ Enhanced floor display
         facing: facingFrom(p),
         parking: parkingFrom(p),
-        possession: possessionFrom(p),
+        possession: getPossessionDisplay(raw), // ✅ Enhanced possession display
         amenities: p?.amenities || [],
         statusText: p?.status || "Available",
-        matchScore: computeMatchScore(p, buyer),
-        photo: photoFrom(p),
+        matchScore: computeEnhancedMatchScore(raw, buyer), // ✅ Enhanced matching score
+        photo: resolvePhoto(p),
         _raw: raw,
         reasons: computeReasons(p, buyer),
         publicUrl,
+        tags: extractPropertyTags(p), // ✅ Added tags
       };
     });
   }, [
@@ -935,15 +1190,10 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     propTypeFrom,
     unitTypeFrom,
     isWithinBuyerBudget,
-    titleFrom,
     addressFrom,
     sizeFrom,
-    floorLine,
     facingFrom,
     parkingFrom,
-    possessionFrom,
-    photoFrom,
-    computeMatchScore,
     computeReasons,
   ]);
 
@@ -963,13 +1213,55 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     );
   };
 
-  const toggleShortlist = (id: string) => {
-    setShortlisted((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  // ✅ Enhanced shortlist functionality
+  const toggleShortlist = async (property: any) => {
+    const propertyId = Number(property._raw?.id || property.id);
+    
+    if (!propertyId) {
+      toast.error("Invalid property ID");
+      return;
+    }
+
+    try {
+      if (shortlisted.has(property.id)) {
+        // Remove from shortlist
+        await buyerSavedAPI.toggle(buyer.id, propertyId, "unsave");
+        setShortlisted((prev) => {
+          const next = new Set(prev);
+          next.delete(property.id);
+          return next;
+        });
+        toast.success("Removed from shortlist");
+      } else {
+        // Add to shortlist
+        await buyerSavedAPI.toggle(buyer.id, propertyId, "save");
+        setShortlisted((prev) => new Set(prev.add(property.id)));
+        toast.success("Added to shortlist");
+      }
+    } catch (error) {
+      console.error("Shortlist toggle error:", error);
+      toast.error("Failed to update shortlist");
+    }
   };
+
+  // Load existing shortlisted properties
+  useEffect(() => {
+    const loadShortlisted = async () => {
+      if (!buyer?.id) return;
+      
+      try {
+        const saved = await buyerSavedAPI.listByBuyer(buyer.id, { includeProperty: true });
+        const savedIds = (Array.isArray(saved) ? saved : []).map((item: any) => 
+          String(item.property_id || item.property?.id)
+        );
+        setShortlisted(new Set(savedIds));
+      } catch (error) {
+        console.error("Failed to load shortlisted properties:", error);
+      }
+    };
+
+    loadShortlisted();
+  }, [buyer?.id]);
 
   // ---------- Actions that include filter context token ----------
   const openShare = (p: any) => {
@@ -991,18 +1283,57 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     if (urlWithToken) window.open(urlWithToken, "_blank", "noopener,noreferrer");
   };
 
-  // ✅ FIXED: View Details with filter context
   const handleViewDetails = (property: any) => {
     const baseUrl = property.publicUrl || buildPropertyUrl(property._raw);
     const { urlWithToken } = withFilterContext(baseUrl, property);
     if (urlWithToken) window.open(urlWithToken, "_blank", "noopener,noreferrer");
   };
 
+  // ✅ Property Tags Component
+  const PropertyTags = ({ tags }: { tags: string[] }) => {
+    if (!tags || tags.length === 0) return null;
+    const displayTags = tags.slice(0, 3);
+    
+    return (
+      <div className="flex flex-wrap gap-1 mt-2">
+        {displayTags.map((tag, index) => {
+          const style = getTagStyle(tag);
+          const EmojiComponent =
+            typeof style.emoji === "string"
+              ? () => <span className="text-xs mr-1" aria-hidden="true">{style.emoji as string}</span>
+              : (style.emoji as any);
+
+          return (
+            <span
+              key={index}
+              className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium uppercase ${style.bg} ${style.text} ${style.ring}`}
+            >
+              {style.emoji &&
+                (typeof style.emoji === "string" ? (
+                  <EmojiComponent />
+                ) : (
+                  <EmojiComponent size={8} className="mr-1" />
+                ))}
+              {tag}
+            </span>
+          );
+        })}
+        {tags.length > 3 && (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
+            +{tags.length - 3}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="p-6 pt-2 space-y-6">
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 pt-0 py-3">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 pt-1 pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h3 className="text-lg font-bold text-gray-900 flex-shrink-0">Property Search</h3>
+          <h3 className="text-lg font-bold text-gray-900">Property Search</h3>
+
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={onShowPropertyMatch}
@@ -1014,7 +1345,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
 
             <button
               onClick={onShowPropertySuggestions}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-600 text-white text-xs rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#E6761D] to-[#CC6A1A] text-white text-xs rounded-lg hover:from-[#CC6A1A] hover:to-[#B85E15] transition-all"
             >
               <Bot size={14} />
               <span>AI Suggestions</span>
@@ -1034,30 +1365,28 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                   });
                 }
               }}
-              className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700 transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#E6761D] to-[#CC6A1A] text-white rounded-lg text-xs hover:from-[#CC6A1A] hover:to-[#B85E15] transition-all"
             >
-              <SlidersHorizontal size={14} className="text-white" />
+              <SlidersHorizontal size={14} />
               <span>{showFilters ? "Hide Filters" : "Search Filters"}</span>
             </button>
 
-            <div className="flex items-center gap-2 ml-2">
+            <label className="flex items-center gap-2 ml-1 cursor-pointer">
               <input
                 type="checkbox"
                 id="respectBudget"
                 checked={respectBuyerBudget}
                 onChange={(e) => setRespectBuyerBudget(e.target.checked)}
-                className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                className="w-4 h-4 text-[#E6761D] bg-gray-100 border-gray-300 rounded focus:ring-[#E6761D] focus:ring-2"
               />
-              <label htmlFor="respectBudget" className="text-xs text-gray-700">
-                Respect Buyer Budget
-              </label>
-            </div>
+              <span className="text-xs text-gray-700">Respect Buyer Budget</span>
+            </label>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="">
+      <div>
         <div ref={filtersRef} className="scroll-mt-20">
           {showFilters && (
             <div className="mt-2">
@@ -1070,7 +1399,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                     onChange={(e) =>
                       setSearchFilters({ ...searchFilters, location: e.target.value })
                     }
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] text-xs"
                     placeholder="Enter location (e.g., hinjewadi)"
                   />
                 </div>
@@ -1087,7 +1416,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                         minPrice: e.target.value === "" ? null : Number(e.target.value),
                       })
                     }
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] text-xs"
                   />
                 </div>
 
@@ -1103,7 +1432,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                         maxPrice: e.target.value === "" ? null : Number(e.target.value),
                       })
                     }
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] text-xs"
                   />
                 </div>
 
@@ -1121,7 +1450,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                           .filter(Boolean),
                       })
                     }
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] text-xs"
                     placeholder="1BHK,2BHK,3BHK"
                   />
                 </div>
@@ -1136,7 +1465,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                         sort: e.target.value as SortKey,
                       })
                     }
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] text-xs"
                   >
                     <option value="newest">Newest</option>
                     <option value="low_to_high">Price: Low to High</option>
@@ -1155,7 +1484,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                 </button>
                 <button
                   onClick={handleSearch}
-                  className="px-4 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                  className="px-4 py-1.5 bg-emerald-600 text-white text-xs rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                   Search Properties
                 </button>
@@ -1206,7 +1535,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                 <div className="flex items-center justify-center gap-2">
                   <button
                     onClick={onShowPropertySuggestions}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white text-xs rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#E6761D] to-[#CC6A1A] text-white text-xs rounded-lg hover:from-[#CC6A1A] hover:to-[#B85E15] transition-all"
                   >
                     <Bot size={14} />
                     <span>AI Property Search</span>
@@ -1234,31 +1563,23 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                 <div className="flex items-start gap-3">
                   {/* Photo */}
                   <div className="w-28 h-20 rounded-lg overflow-hidden bg-gray-100 flex-none">
-                    {property.photo ? (
-                      <img
-                        src={property.photo}
-                        alt={property.title}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                        No Image
-                      </div>
-                    )}
+                    <PropertyImage src={property.photo} alt={property.title} />
                   </div>
 
                   {/* Main */}
                   <div className="flex-1">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h4 className="text-sm font-semibold text-gray-900">{property.title}</h4>
+                        <h4 className="text-sm font-semibold text-[#0b3856]">{property.title}</h4>
                         <div className="flex items-center gap-1 text-gray-600 mt-0.5 text-xs">
                           <MapPin size={12} />
-                          <span>{property.address || "—"}</span>
+                          <span className="truncate max-w-[60vw] sm:max-w-[40vw]">
+                            {property.address || "—"}
+                          </span>
                         </div>
+
+                        {/* ✅ Property Tags */}
+                        <PropertyTags tags={property.tags} />
 
                         <div className="flex items-center gap-2 mt-2">
                           <div
@@ -1277,7 +1598,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                         </div>
                       </div>
 
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <div className="text-base font-bold text-green-600">
                           {formatCurrency(property.price)}
                         </div>
@@ -1285,11 +1606,11 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                       </div>
                     </div>
 
-                    {/* Attributes */}
+                    {/* ✅ Enhanced Attributes - Fixed Floor and Possession Display */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 mt-3 text-xs">
                       <div>
                         <span className="text-gray-500">Floor:</span>{" "}
-                        <span className="font-semibold">{property.floorLine || "—"}</span>
+                        <span className="font-semibold">{property.floorLine}</span>
                       </div>
                       <div>
                         <span className="text-gray-500">Facing:</span>{" "}
@@ -1298,6 +1619,10 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                       <div>
                         <span className="text-gray-500">Possession:</span>{" "}
                         <span className="font-semibold">{property.possession}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Parking:</span>{" "}
+                        <span className="font-semibold">{property.parking}</span>
                       </div>
                     </div>
 
@@ -1331,14 +1656,17 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                       </button>
 
                       <button
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs"
-                        onClick={() => toggleShortlist(property.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors text-xs ${
+                          shortlisted.has(property.id)
+                            ? "bg-purple-600 text-white hover:bg-purple-700"
+                            : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                        }`}
+                        onClick={() => toggleShortlist(property)}
                       >
-                        <Bookmark size={12} />
+                        <Bookmark size={12} className={shortlisted.has(property.id) ? "fill-current" : ""} />
                         <span>{shortlisted.has(property.id) ? "Shortlisted" : "Shortlist"}</span>
                       </button>
 
-                      {/* ✅ FIXED: View Details with filter context */}
                       <button
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs hover:bg-gray-300 transition-colors"
                         onClick={() => handleViewDetails(property)}
@@ -1348,7 +1676,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                         <span>View Details</span>
                       </button>
 
-                      {/* Visit Website (now carries filter context) */}
                       <button
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-xs"
                         onClick={() => openWebsite(property)}
@@ -1358,7 +1685,6 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                         <span>Visit Website</span>
                       </button>
 
-                      {/* Share (now carries filter context) */}
                       <button
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors text-xs"
                         onClick={() => openShare(property)}
@@ -1495,13 +1821,13 @@ const pricePerSqft = (price?: number | null, sqft?: number) => {
 };
 
 /* ---------------- Tiny Tag Pills ---------------- */
-const PropertyTags = ({ tags }: { tags: string[] }) => {
+const PropertyTagsShortlist = ({ tags }: { tags: string[] }) => {
   if (!tags || tags.length === 0) return null;
   const displayTags = tags.slice(0, 2);
   return (
     <div className="flex flex-wrap gap-1.5 mb-3">
       {displayTags.map((tag, index) => {
-        const style = getTagStyle(tag); // ✅ External import use
+        const style = getTagStyle(tag);
         const EmojiComponent =
           typeof style.emoji === "string"
             ? () => <span className="text-xs mr-1 uppercase" aria-hidden="true">{style.emoji as string}</span>
@@ -1532,9 +1858,7 @@ const PropertyTags = ({ tags }: { tags: string[] }) => {
 };
 
 /* ------------------------------ Component ------------------------------ */
-type Props = { buyer: any };
-
-const ShortlistTab: React.FC<Props> = ({ buyer }) => {
+const ShortlistTab: React.FC<{ buyer: any }> = ({ buyer }) => {
   const [savedProps, setSavedProps] = useState<BuyerSavedWithProperty[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1702,13 +2026,6 @@ const ShortlistTab: React.FC<Props> = ({ buyer }) => {
       const u = new URL(baseUrl, typeof window !== "undefined" ? window.location.origin : "https://investordeal.in");
       u.searchParams.set(TRACKING_PARAM_KEY, token);
 
-      console.log('🔗 ShortlistTab - Opening property with filter context:', {
-        originalUrl: baseUrl,
-        urlWithToken: u.toString(),
-        token,
-        propertyId: p?.id
-      });
-
       window.open(u.toString(), '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('❌ ShortlistTab - Error creating filter context:', error);
@@ -1725,12 +2042,17 @@ const ShortlistTab: React.FC<Props> = ({ buyer }) => {
         <div className="flex items-center space-x-2">
           <span className="text-xs text-gray-600">{savedProps.length} properties</span>
           <button
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700 transition-colors"
             onClick={() => toast.info("Share feature coming soon")}
+            className="flex items-center space-x-1 px-3 py-1.5 
+             bg-gradient-to-r from-[#E6761D] to-[#CC6A1A] 
+             text-white text-xs rounded-lg 
+             hover:from-[#CC6A1A] hover:to-[#B85E15] 
+             transition-all duration-300 shadow-sm"
           >
             <Share size={14} />
             <span>Share Shortlist</span>
           </button>
+
         </div>
       </div>
 
@@ -1750,8 +2072,6 @@ const ShortlistTab: React.FC<Props> = ({ buyer }) => {
           ))}
         </div>
       )}
-
-
 
       {/* Cards */}
       {!loading && savedProps.length > 0 && (
@@ -1774,20 +2094,6 @@ const ShortlistTab: React.FC<Props> = ({ buyer }) => {
             const rating = typeof p?.rating === "number" ? p.rating : undefined;
             const views = Number(p?.total_views ?? p?.public_views ?? p?.views ?? 0) || undefined;
             const aiScore = Number(p?.aiScore) || undefined;
-
-            console.log('🏠 ShortlistTab - Property Details:', {
-              id: p?.id,
-              title,
-              assignedUser: assignedUser ? {
-                name: assignedUser.name,
-                phone: assignedUser.phone,
-                email: assignedUser.email
-              } : 'No assigned user',
-              contactInfo: {
-                phoneNumber,
-                sellerName
-              }
-            });
 
             return (
               <div key={sp.id} className="bg-white rounded-2xl shadow-lg overflow-hidden group h-full flex flex-col">
@@ -1816,7 +2122,7 @@ const ShortlistTab: React.FC<Props> = ({ buyer }) => {
                   {/* top-left: tags + AI */}
                   <div className="absolute top-3 left-3 flex items-start flex-wrap gap-2 z-20">
                     <div className="max-w-[72vw] sm:max-w-none overflow-hidden">
-                      <PropertyTags tags={tags} />
+                      <PropertyTagsShortlist tags={tags} />
                     </div>
                     {aiScore && aiScore >= 90 && (
                       <span className="flex-none whitespace-nowrap bg-purple-600 text-white px-2 py-1 rounded-full text-[10px] sm:text-xs font-bold leading-none flex items-center shadow-sm">
