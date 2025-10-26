@@ -449,15 +449,15 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+        <div className="p-4 border-b bg-[#E6761D]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-2 bg-purple-100 rounded-lg">
-                <Target className="text-purple-600" size={20} />
+                <Target className="text-[#0b3856]" size={20} />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Property Matching</h2>
-                <p className="text-gray-600 text-xs">Find perfect properties for {buyer?.name}</p>
+                <h2 className="text-xl font-bold text-white">Property Matching</h2>
+                <p className="text-white text-xs">Find perfect properties for {buyer?.name}</p>
               </div>
             </div>
             <button onClick={onClose} className="p-1.5 rounded-lg bg-white hover:bg-gray-50 shadow">
