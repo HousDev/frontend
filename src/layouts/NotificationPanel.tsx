@@ -1,23 +1,29 @@
-// src/components/NotificationPanel.tsx
+// src/components/notifications/NotificationPanel.tsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Bell, Users, Eye, TrendingUp, FileText, Check, Trash2, X } from "lucide-react";
-import { notificationAPI } from "@/lib/notificationAPI";
 import { useAuth } from "@/contexts/AuthContext";
+import { notificationAPI } from "@/lib/notificationAPI";
 
 type UILevel = "low" | "medium" | "high";
+type Kind =
+  | "property_inquiry"
+  | "visit_scheduled"
+  | "price_suggestion"
+  | "document_ready"
+  | "lead_assign"
+  | "general";
 
-// ⬇️ Raw item matches your DB columns (snake_case)
 type RawNotification = {
   id: number | string;
-  lead_id: string;                 // UUID
-  user_id: number | string;
-  message: string | null;
-  type: string | null;
-  link: string | null;
-  is_read: 0 | 1 | "0" | "1" | boolean | "true" | "false" | null;
-  priority: UILevel | null;
-  created_at: string | null;       // "YYYY-MM-DD HH:mm:ss"
-  updated_at: string | null;       // "YYYY-MM-DD HH:mm:ss"
+  lead_id?: string | number | null;
+  user_id?: string | number | null;
+  message?: string | null;
+  type?: Kind | string | null;
+  link?: string | null;
+  is_read?: 0 | 1 | "0" | "1" | boolean | "true" | "false" | null;
+  priority?: UILevel | null;
+  created_at?: string | null;
+  updated_at?: string | null;
   [k: string]: any;
 };
 
@@ -27,31 +33,25 @@ export type NotificationItem = {
   message: string;
   type: string;
   priority: UILevel;
-  timestamp: string;               // ALWAYS created_at
+  timestamp: string; // created_at preferred
   read: boolean;
   link?: string | null;
-  color?: string;
 };
 
-const toNumberId = (val: number | string) => {
+const toNumberId = (val: number | string): number => {
   const n = typeof val === "number" ? val : Number(val);
   return Number.isFinite(n) ? n : Math.floor(Math.random() * 1e9);
 };
 
 const normalizeRead = (v: RawNotification["is_read"]): boolean => {
   if (typeof v === "boolean") return v;
-  if (typeof v === "number") return v === 1;
-  if (typeof v === "string") {
-    const s = v.trim().toLowerCase();
-    return s === "1" || s === "true";
-  }
+  if (v === 1 || v === "1" || v === "true") return true;
   return false;
 };
 
-/** Parse "YYYY-MM-DD HH:mm:ss" (UTC) safely; accept ISO as well. */
 const parseDbTimestampToDate = (ts?: string | null): Date => {
   if (!ts) return new Date(NaN);
-  if (/[tT]|\+|Z$/.test(ts)) return new Date(ts); // ISO-ish
+  if (/[tT]|\+|Z$/.test(ts)) return new Date(ts);
   const m = ts.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
   if (m) {
     const [, y, mo, d, h, mi, s] = m;
@@ -63,7 +63,7 @@ const parseDbTimestampToDate = (ts?: string | null): Date => {
 const formatAbsoluteLocal = (date: Date) => {
   if (Number.isNaN(date.getTime())) return "Unknown time";
   return new Intl.DateTimeFormat(undefined, {
-    timeZone: "Asia/Kolkata", // force IST
+    timeZone: "Asia/Kolkata",
     year: "numeric",
     month: "short",
     day: "2-digit",
@@ -80,15 +80,14 @@ const formatRelative = (timestamp: string) => {
   if (diffMin < 60) return `${diffMin}m ago`;
   const diffH = Math.floor(diffMin / 60);
   if (diffH < 24) return `${diffH}h ago`;
-  const diffD = Math.floor(diffH / 24);
-  return `${diffD}d ago`;
+  return `${Math.floor(diffH / 24)}d ago`;
 };
 
 interface NotificationPanelProps {
-  notifications?: NotificationItem[];
+  notifications?: NotificationItem[]; // controlled mode if provided and forceFetch=false
   onClose?: () => void;
   userId?: number | string;
-  forceFetch?: boolean;
+  forceFetch?: boolean; // set true to force fetch even if notifications provided
 }
 
 const NotificationPanel: React.FC<NotificationPanelProps> = ({
@@ -108,8 +107,8 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
   const [loading, setLoading] = useState<boolean>(!isControlled);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
 
-  // sync for controlled mode
   useEffect(() => {
     if (controlledNotifications && !forceFetch) {
       setNotifications(controlledNotifications);
@@ -117,25 +116,24 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     }
   }, [controlledNotifications, forceFetch]);
 
-  // fetch for uncontrolled mode
+  // Fetch when uncontrolled
   useEffect(() => {
     if (isControlled) return;
 
     let mounted = true;
-
     const uid = Number(currentUserId);
+
     if (!currentUserId || Number.isNaN(uid)) {
       setNotifications([]);
       setLoading(false);
       return;
     }
 
-    const fetchNotifications = async () => {
+    (async () => {
       setLoading(true);
       setError(null);
       try {
         const res = await notificationAPI.getUserNotifications(uid);
-        // Accept array or single object
         const rows: RawNotification[] = Array.isArray(res?.notifications)
           ? res.notifications
           : res?.notifications
@@ -144,7 +142,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
 
         const formatted: NotificationItem[] = rows.map((n) => {
           const id = toNumberId(n.id);
-          const type = (n.type ?? "general").toString();
+          const type = String(n.type ?? "general");
 
           const title =
             type === "lead_assign"
@@ -159,10 +157,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
               ? "Document Ready"
               : type;
 
-          // ✅ Use DB message directly
           const message = n.message ?? "";
-
-          // ✅ ALWAYS created_at for display/sorting; fallback to updated_at if missing
           const timestamp = n.created_at ?? n.updated_at ?? "1970-01-01 00:00:00";
 
           return {
@@ -174,7 +169,6 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
             timestamp,
             read: normalizeRead(n.is_read),
             link: n.link ?? null,
-            color: "green",
           };
         });
 
@@ -185,30 +179,46 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
       } finally {
         if (mounted) setLoading(false);
       }
-    };
+    })();
 
-    fetchNotifications();
     return () => {
       mounted = false;
     };
   }, [currentUserId, isControlled]);
 
   const markAsRead = useCallback(async (id: number) => {
-    // optimistic
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     try {
       await notificationAPI.markAsRead(id);
-      // DO NOT modify timestamp; we keep created_at-based time intact
     } catch (err) {
       console.error("❌ Error marking as read:", err);
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: false } : n)));
     }
   }, []);
 
-  const deleteNotification = useCallback((id: number) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    // optionally: await notificationAPI.delete(id)
-  }, []);
+  /** 🔥 Delete integrated with API (optimistic + rollback) */
+  const deleteNotification = useCallback(async (id: number) => {
+    // optimistic remove
+    setDeletingIds((s) => new Set(s).add(id));
+    const prev = notifications;
+
+    setNotifications((prevList) => prevList.filter((n) => n.id !== id));
+
+    try {
+      await notificationAPI.delete(id); // <-- MUST exist in your API layer
+      // success: keep state
+    } catch (err) {
+      console.error("❌ Error deleting notification:", err);
+      // rollback on failure
+      setNotifications(prev);
+    } finally {
+      setDeletingIds((s) => {
+        const copy = new Set(s);
+        copy.delete(id);
+        return copy;
+      });
+    }
+  }, [notifications]);
 
   const markAllAsRead = useCallback(async (uid: number) => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -227,7 +237,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     [markAsRead]
   );
 
-  const getNotificationIcon = (type: string) => {
+  const getIcon = (type: string) => {
     switch (type) {
       case "property_inquiry":
         return <Users className="text-blue-600" size={16} />;
@@ -244,7 +254,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     }
   };
 
-  const getPriorityColor = (priority: UILevel) => {
+  const getPriorityRow = (priority: UILevel) => {
     switch (priority) {
       case "high":
         return "border-l-red-500 bg-red-50";
@@ -257,10 +267,9 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     }
   };
 
-  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
+  const unread = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
-  // ✅ Sort by created_at (stored in n.timestamp)
-  const displayedNotifications = useMemo(() => {
+  const displayed = useMemo(() => {
     const sorted = [...notifications].sort((a, b) => {
       const da = parseDbTimestampToDate(a.timestamp).getTime();
       const db = parseDbTimestampToDate(b.timestamp).getTime();
@@ -269,7 +278,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     return sorted.slice(0, showAll ? 10 : 5);
   }, [notifications, showAll]);
 
-  const canToggleViewAll = notifications.length > 5;
+  const canToggle = notifications.length > 5;
 
   return (
     <div className="relative z-50 bg-white shadow-md rounded-xl border border-gray-200 w-full max-w-2xl mx-auto">
@@ -279,7 +288,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
         </div>
 
         <div className="flex items-center space-x-3">
-          {canToggleViewAll && (
+          {canToggle && (
             <button
               onClick={() => setShowAll((v) => !v)}
               className="text-xs text-blue-600 hover:text-blue-800 font-medium"
@@ -295,7 +304,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
             </button>
           )}
 
-          {unreadCount > 0 && currentUserId && (
+          {unread > 0 && currentUserId && (
             <button
               onClick={() => {
                 const uid = Number(currentUserId);
@@ -307,46 +316,61 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
               Mark all as read
             </button>
           )}
-          <div className="text-sm text-gray-500">{unreadCount} unread</div>
+
+          <div className="text-sm text-gray-500">{unread} unread</div>
         </div>
       </div>
 
-      <ul className="divide-y divide-gray-100 max-h-[28rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+      <ul className="divide-y divide-gray-100 max-h-[28rem] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
         {loading ? (
           <li className="p-4 text-center text-gray-500 text-sm">Loading notifications...</li>
         ) : error ? (
           <li className="p-4 text-center text-red-500 text-sm">{error}</li>
-        ) : displayedNotifications.length === 0 ? (
-          <li className="p-4 text-center text-gray-500 text-sm">No notifications yet</li>
+        ) : displayed.length === 0 ? (
+          <li className="p-6 text-center text-gray-500 text-sm">No notifications yet</li>
         ) : (
-          displayedNotifications.map((n) => {
-            const parsedDate = parseDbTimestampToDate(n.timestamp);
-            const absoluteTooltip = formatAbsoluteLocal(parsedDate);
-            const relative = formatRelative(n.timestamp);
-
+          displayed.map((n) => {
+            const d = parseDbTimestampToDate(n.timestamp);
+            const isDeleting = deletingIds.has(n.id);
             return (
               <li
                 key={n.id}
                 onClick={() => viewNotification(n.id, n.link)}
-                className={`p-4 flex space-x-3 transition-colors border-l-4 ${getPriorityColor(
-                  n.priority
-                )} ${!n.read ? "bg-blue-50" : ""} hover:bg-gray-100 cursor-pointer`}
+                className={`p-4 flex items-start space-x-3 transition-colors border-l-4 min-w-0
+                  ${getPriorityRow(n.priority)} ${!n.read ? "bg-blue-50" : ""}
+                  hover:bg-gray-100 cursor-pointer`}
               >
-                <div className="p-2 rounded-lg shadow-sm flex items-center justify-center min-w-[36px]">
-                  {getNotificationIcon(n.type)}
+                <div className="p-2 rounded-lg shadow-sm flex items-center justify-center min-w-[36px] shrink-0 bg-white">
+                  {getIcon(n.type)}
                 </div>
 
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <div className="min-w-0">
-                      <h4 className={`text-sm font-medium ${!n.read ? "text-gray-900" : "text-gray-700"}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0 max-w-full">
+                      <h4 className={`text-sm font-medium ${!n.read ? "text-gray-900" : "text-gray-700"} truncate`}>
                         {n.title}
                       </h4>
-                      <p className="text-xs text-gray-600 truncate">{n.message}</p>
-                      <div className="flex items-center space-x-2 mt-2">
-                        <span className="text-xs text-gray-500" title={absoluteTooltip}>
-                          {relative}
+
+                      {n.message ? (
+                        <p
+                          className="text-xs text-gray-700 mt-1 break-words whitespace-normal leading-5"
+                          style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 4,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                          title={n.message}
+                        >
+                          {n.message}
+                        </p>
+                      ) : null}
+
+                      <div className="flex items-center flex-wrap gap-2 mt-2">
+                        <span className="text-xs text-gray-500" title={formatAbsoluteLocal(d)}>
+                          {formatRelative(n.timestamp)}
                         </span>
+
                         {n.priority && (
                           <span
                             className={`text-xs px-2 py-1 rounded-full ${
@@ -363,14 +387,15 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex space-x-1 ml-2">
+                    <div className="flex space-x-1 ml-2 shrink-0">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           viewNotification(n.id, n.link);
                         }}
-                        className="p-1 text-green-600 hover:bg-green-100 rounded"
+                        className="p-1 text-green-600 hover:bg-green-100 rounded disabled:opacity-50"
                         title="View"
+                        disabled={isDeleting}
                       >
                         <Eye size={14} />
                       </button>
@@ -381,8 +406,9 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                             e.stopPropagation();
                             markAsRead(n.id);
                           }}
-                          className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                          className="p-1 text-blue-600 hover:bg-blue-100 rounded disabled:opacity-50"
                           title="Mark as read"
+                          disabled={isDeleting}
                         >
                           <Check size={14} />
                         </button>
@@ -393,8 +419,9 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                           e.stopPropagation();
                           deleteNotification(n.id);
                         }}
-                        className="p-1 text-red-600 hover:bg-red-100 rounded"
+                        className="p-1 text-red-600 hover:bg-red-100 rounded disabled:opacity-50"
                         title="Delete"
+                        disabled={isDeleting}
                       >
                         <Trash2 size={14} />
                       </button>
