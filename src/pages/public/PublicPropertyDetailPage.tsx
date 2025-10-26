@@ -108,110 +108,110 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const [property, setProperty] = useState<any>(null);
 
 
-// NEW: auth
-const { currentUser, user } = useAuth() as any;
+  // NEW: auth
+  const { currentUser, user } = useAuth() as any;
 
-// Helper: buyer id resolve (different shapes ke liye safe)
-const getBuyerIdFromAuth = (): number | null => {
-  // try common shapes
-  const u = currentUser ?? user ?? {};
-  // examples: { id, role }, or { buyer: { id } }, or direct buyer_id
-  if (typeof u?.buyer_id === 'number') return u.buyer_id;
-  if (typeof u?.buyerId === 'number') return u.buyerId;
-  if (typeof u?.buyer?.id === 'number') return u.buyer.id;
-  // if role based:
-  if ((u?.role === 'buyer' || u?.type === 'buyer') && typeof u?.id === 'number') return u.id;
-  return null;
-};
-
-// (optional) loading for save click
-const [saving, setSaving] = useState(false);
-
-
-// put near other helpers
-const checkSavedStatus = async () => {
-  try {
-    const buyerId = getBuyerIdFromAuth();
-    const pid = resolvePropertyIdNumber(property);
-    if (!buyerId || !pid) return;
-
-    const resp = await buyerSavedAPI.isSaved(buyerId, pid); // backend truth
-    if (resp?.success) setLiked(!!resp.saved);
-  } catch (err) {
-    console.warn("checkSavedStatus failed", err);
-  }
-};
-useEffect(() => {
-  if (!property) return;
-  checkSavedStatus();
-}, [property, currentUser]);
-useEffect(() => {
-  if (!property) return;
-  const refetch = () => checkSavedStatus();
-
-  window.addEventListener("focus", refetch);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") refetch();
-  });
-
-  return () => {
-    window.removeEventListener("focus", refetch);
-    document.removeEventListener("visibilitychange", refetch);
+  // Helper: buyer id resolve (different shapes ke liye safe)
+  const getBuyerIdFromAuth = (): number | null => {
+    // try common shapes
+    const u = currentUser ?? user ?? {};
+    // examples: { id, role }, or { buyer: { id } }, or direct buyer_id
+    if (typeof u?.buyer_id === 'number') return u.buyer_id;
+    if (typeof u?.buyerId === 'number') return u.buyerId;
+    if (typeof u?.buyer?.id === 'number') return u.buyer.id;
+    // if role based:
+    if ((u?.role === 'buyer' || u?.type === 'buyer') && typeof u?.id === 'number') return u.id;
+    return null;
   };
-}, [property]);
 
-const handleSaveClick = async (e?: React.MouseEvent) => {
-  if (e) e.stopPropagation();
-  if (!property) return;
+  // (optional) loading for save click
+  const [saving, setSaving] = useState(false);
 
-  const buyerId = getBuyerIdFromAuth();
-  if (!buyerId) {
-    setShowContactForm(true);
-    return;
-  }
 
-  const propertyId = resolvePropertyIdNumber(property);
-  if (!propertyId) {
-    toast.error("Property ID not found");
-    return;
-  }
+  // put near other helpers
+  const checkSavedStatus = async () => {
+    try {
+      const buyerId = getBuyerIdFromAuth();
+      const pid = resolvePropertyIdNumber(property);
+      if (!buyerId || !pid) return;
 
-  try {
-    setSaving(true);
-    const resp = await buyerSavedAPI.toggle(buyerId, propertyId, "toggle");
-    if (resp?.success) {
-      const isSaved = !!resp.saved;
-      setLiked(isSaved);
-      if (isSaved) toast.success("Saved to your shortlist");
-      else toast.info("Removed from your shortlist");
-
-      // 🔔 broadcast to other screens if needed
-      window.dispatchEvent(
-        new CustomEvent("buyerSaved:changed", {
-          detail: { propertyId, saved: isSaved },
-        })
-      );
-    } else {
-      toast.error("Could not update save status");
+      const resp = await buyerSavedAPI.isSaved(buyerId, pid); // backend truth
+      if (resp?.success) setLiked(!!resp.saved);
+    } catch (err) {
+      console.warn("checkSavedStatus failed", err);
     }
-  } catch (err) {
-    console.error("toggle failed:", err);
-    toast.error("Failed to update shortlist");
-  } finally {
-    setSaving(false);
-  }
-};
-
-
-useEffect(() => {
-  const handler = (e: any) => {
-    const pid = resolvePropertyIdNumber(property);
-    if (pid && e?.detail?.propertyId === pid)
-      setLiked(!!e.detail.saved);
   };
-  window.addEventListener("buyerSaved:changed", handler as EventListener);
-  return () => window.removeEventListener("buyerSaved:changed", handler as EventListener);
-}, [property]);
+  useEffect(() => {
+    if (!property) return;
+    checkSavedStatus();
+  }, [property, currentUser]);
+  useEffect(() => {
+    if (!property) return;
+    const refetch = () => checkSavedStatus();
+
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") refetch();
+    });
+
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", refetch);
+    };
+  }, [property]);
+
+  const handleSaveClick = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!property) return;
+
+    const buyerId = getBuyerIdFromAuth();
+    if (!buyerId) {
+      setShowContactForm(true);
+      return;
+    }
+
+    const propertyId = resolvePropertyIdNumber(property);
+    if (!propertyId) {
+      toast.error("Property ID not found");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const resp = await buyerSavedAPI.toggle(buyerId, propertyId, "toggle");
+      if (resp?.success) {
+        const isSaved = !!resp.saved;
+        setLiked(isSaved);
+        if (isSaved) toast.success("Saved to your shortlist");
+        else toast.info("Removed from your shortlist");
+
+        // 🔔 broadcast to other screens if needed
+        window.dispatchEvent(
+          new CustomEvent("buyerSaved:changed", {
+            detail: { propertyId, saved: isSaved },
+          })
+        );
+      } else {
+        toast.error("Could not update save status");
+      }
+    } catch (err) {
+      console.error("toggle failed:", err);
+      toast.error("Failed to update shortlist");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      const pid = resolvePropertyIdNumber(property);
+      if (pid && e?.detail?.propertyId === pid)
+        setLiked(!!e.detail.saved);
+    };
+    window.addEventListener("buyerSaved:changed", handler as EventListener);
+    return () => window.removeEventListener("buyerSaved:changed", handler as EventListener);
+  }, [property]);
 
 
   useEffect(() => {
@@ -931,7 +931,7 @@ useEffect(() => {
                 </div>
               </div>
 
-             {/* Property Tags - Display fetched tags */}
+              {/* Property Tags - Display fetched tags */}
               <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 ">
                 <div className="absolute top-0 right-3 z-20 hidden sm:block ">
                   <PropertyTags tags={propertyTags} />
@@ -949,17 +949,17 @@ useEffect(() => {
                 </button>
 
                 {/* Save / Bookmark */}
-<button
-  onClick={handleSaveClick} // CHANGED
-  disabled={saving}
-  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
-  aria-label="Save property"
-  title={liked ? "Unsave" : "Save"}
->
-  <Bookmark
-    className={`w-4 h-4 sm:w-5 sm:h-5 ${liked ? 'text-[#E6761D] fill-[#E6761D]' : 'text-gray-700'}`}
-  />
-</button>
+                <button
+                  onClick={handleSaveClick} // CHANGED
+                  disabled={saving}
+                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
+                  aria-label="Save property"
+                  title={liked ? "Unsave" : "Save"}
+                >
+                  <Bookmark
+                    className={`w-4 h-4 sm:w-5 sm:h-5 ${liked ? 'text-[#E6761D] fill-[#E6761D]' : 'text-gray-700'}`}
+                  />
+                </button>
 
               </div>
               {/* Bottom-Left Price - Responsive */}
@@ -1596,29 +1596,7 @@ useEffect(() => {
                       <Phone size={16} />
                     </button>
 
-                    {/* Message */}
-                    <button
-                      onClick={() => setShowContactForm(true)}
-                      className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
-              bg-gradient-to-br from-purple-50 to-purple-100 
-              text-purple-700 hover:from-purple-100 hover:to-purple-200 
-              transition-all shadow-sm hover:shadow-md hover:scale-105"
-                    >
-                      <MessageCircle size={16} />
-                    </button>
-
-                    {/* Schedule */}
-                    <button
-                      onClick={() => setShowContactForm(true)}
-                      className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
-              bg-gradient-to-br from-emerald-50 to-emerald-100 
-              text-emerald-700 hover:from-emerald-100 hover:to-emerald-200 
-              transition-all shadow-sm hover:shadow-md hover:scale-105"
-                    >
-                      <Calendar size={16} />
-                    </button>
-
-                    {/* WhatsApp */}
+                     {/* WhatsApp */}
                     <button
                       onClick={() => {
                         const phone = getexecutiveToPhone();
@@ -1643,6 +1621,27 @@ useEffect(() => {
               transition-all shadow-sm hover:shadow-md hover:scale-105"
                     >
                       <FaWhatsapp size={16} className="text-[#25D366]" />
+                    </button>
+                    {/* Message */}
+                    <button
+                      onClick={() => setShowContactForm(true)}
+                      className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
+              bg-gradient-to-br from-purple-50 to-purple-100 
+              text-purple-700 hover:from-purple-100 hover:to-purple-200 
+              transition-all shadow-sm hover:shadow-md hover:scale-105"
+                    >
+                      <MessageCircle size={16} />
+                    </button>
+
+                    {/* Schedule */}
+                    <button
+                      onClick={() => setShowContactForm(true)}
+                      className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
+              bg-gradient-to-br from-emerald-50 to-emerald-100 
+              text-emerald-700 hover:from-emerald-100 hover:to-emerald-200 
+              transition-all shadow-sm hover:shadow-md hover:scale-105"
+                    >
+                      <Calendar size={16} />
                     </button>
                   </div>
                 </div>
@@ -1683,6 +1682,25 @@ useEffect(() => {
                         <Phone size={14} aria-hidden="true" />
                       </span>
                     </button>
+                    {/* WhatsApp */}
+                    <button
+                      onClick={() => {
+                        const phone = getexecutiveToPhone();
+                        const cc = phone.startsWith('91') || phone.length > 10 ? '' : '91';
+                        const message = `Hi! I'm interested in ${property?.title ?? ''} at ${property?.locationNormalized ?? ''}. Price: ${formatCurrency(property?.price ?? 0)}. Can you provide more details?`;
+                        if (typeof window !== 'undefined') {
+                          window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, '_blank');
+                        }
+                      }}
+                      aria-label="WhatsApp executiveTo"
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl
+          bg-[#25D366]/10 hover:bg-[#25D366]/15 text-[#128C7E]
+          border border-[#25D366]/30 transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
+                    >
+                      <span className="w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-[#25D366]/30">
+                        <FaWhatsapp size={14} aria-hidden="true" />
+                      </span>
+                    </button>
 
                     {/* Message */}
                     <button
@@ -1706,26 +1724,6 @@ useEffect(() => {
                     >
                       <span className="w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-emerald-200/60">
                         <Calendar size={14} aria-hidden="true" />
-                      </span>
-                    </button>
-
-                    {/* WhatsApp */}
-                    <button
-                      onClick={() => {
-                        const phone = getexecutiveToPhone();
-                        const cc = phone.startsWith('91') || phone.length > 10 ? '' : '91';
-                        const message = `Hi! I'm interested in ${property?.title ?? ''} at ${property?.locationNormalized ?? ''}. Price: ${formatCurrency(property?.price ?? 0)}. Can you provide more details?`;
-                        if (typeof window !== 'undefined') {
-                          window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, '_blank');
-                        }
-                      }}
-                      aria-label="WhatsApp executiveTo"
-                      className="flex flex-col items-center justify-center gap-1 rounded-xl
-          bg-[#25D366]/10 hover:bg-[#25D366]/15 text-[#128C7E]
-          border border-[#25D366]/30 transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
-                    >
-                      <span className="w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-[#25D366]/30">
-                        <FaWhatsapp size={14} aria-hidden="true" />
                       </span>
                     </button>
                   </div>
