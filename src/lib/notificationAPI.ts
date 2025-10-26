@@ -61,6 +61,17 @@ updateNotification: async (
     throw err;
   }
 },
-
+ delete: async (id: number) => {
+    const res = await api.delete(`client-lead-notifications/${id}`);
+    return res.data;
+  },
+  deleteAllForUser: async (userId: number) => {
+    const res = await api.delete(`/client-lead-notifications/user/${userId}/all`);
+    return res.data;
+  },
+  deleteReadForUser: async (userId: number) => {
+    const res = await api.delete(`/client-lead-notifications/user/${userId}/read`);
+    return res.data;
+  },
 
 };
