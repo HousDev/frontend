@@ -1596,30 +1596,66 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
                      {/* WhatsApp */}
                     <button
-                      onClick={() => {
-                        const phone = getexecutiveToPhone();
-                        const cc =
-                          phone.startsWith("91") || phone.length > 10 ? "" : "91";
-                        const message = `Hi! I'm interested in ${property?.title ?? ""
-                          } at ${property?.locationNormalized ?? ""}. Price: ${formatCurrency(
-                            property?.price ?? 0
-                          )}. Can you provide more details?`;
-                        if (typeof window !== "undefined") {
-                          window.open(
-                            `https://wa.me/${cc}${phone}?text=${encodeURIComponent(
-                              message
-                            )}`,
-                            "_blank"
-                          );
-                        }
-                      }}
-                      className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
-              bg-gradient-to-br from-green-50 to-green-100 
-              text-green-700 hover:from-green-100 hover:to-green-200 
-              transition-all shadow-sm hover:shadow-md hover:scale-105"
-                    >
-                      <FaWhatsapp size={16} className="text-[#25D366]" />
-                    </button>
+  onClick={(e) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    // ✅ Get executive phone
+    const phone = getexecutiveToPhone();
+    if (!phone) return;
+
+    // ✅ Add +91 if needed
+    const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+
+    // ✅ Property info
+    const title =
+      property?.title ||
+      [property?.unitType, property?.type].filter(Boolean).join(" ") ||
+      "a property";
+
+    const loc =
+      property?.locationNormalized ||
+      property?.location ||
+      property?.city ||
+      "your listed property location";
+
+    const priceValue = Number(property?.price || 0);
+    const priceText = !isNaN(priceValue)
+      ? `₹${priceValue.toLocaleString("en-IN")}`
+      : "Price on request";
+
+    // ✅ Build property link (slug-safe)
+    const slugValue =
+      property?.slug ||
+      property?.raw?.slug ||
+      (typeof window !== "undefined"
+        ? window.location.pathname.split("/").pop()
+        : "") ||
+      "";
+    const link = `${window.location.origin}/properties/${encodeURIComponent(
+      String(slugValue)
+    )}`;
+
+    // ✅ WhatsApp message with clickable URL
+    const message = `Hi! I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you provide more details?\n${link}`;
+
+    // ✅ Open WhatsApp chat
+    if (typeof window !== "undefined") {
+      window.open(
+        `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    }
+  }}
+  className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
+  bg-gradient-to-br from-green-50 to-green-100 
+  text-green-700 hover:from-green-100 hover:to-green-200 
+  transition-all shadow-sm hover:shadow-md hover:scale-105"
+>
+  <FaWhatsapp size={16} className="text-[#25D366]" />
+</button>
+
                     {/* Message */}
                     <button
                       onClick={() => setShowContactForm(true)}
@@ -1681,24 +1717,71 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       </span>
                     </button>
                     {/* WhatsApp */}
-                    <button
-                      onClick={() => {
-                        const phone = getexecutiveToPhone();
-                        const cc = phone.startsWith('91') || phone.length > 10 ? '' : '91';
-                        const message = `Hi! I'm interested in ${property?.title ?? ''} at ${property?.locationNormalized ?? ''}. Price: ${formatCurrency(property?.price ?? 0)}. Can you provide more details?`;
-                        if (typeof window !== 'undefined') {
-                          window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, '_blank');
-                        }
-                      }}
-                      aria-label="WhatsApp executiveTo"
-                      className="flex flex-col items-center justify-center gap-1 rounded-xl
-          bg-[#25D366]/10 hover:bg-[#25D366]/15 text-[#128C7E]
-          border border-[#25D366]/30 transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
-                    >
-                      <span className="w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-[#25D366]/30">
-                        <FaWhatsapp size={14} aria-hidden="true" />
-                      </span>
-                    </button>
+                   <button
+  onClick={(e) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    // ✅ Clean phone (executiveTo → executive → fallback)
+    const phone =
+      property?.executiveTo?.phone?.replace(/\D/g, "") ||
+      property?.executive?.phone?.replace(/\D/g, "") ||
+      "919637009639"; // fallback
+
+    if (!phone) return;
+
+    // ✅ Country code logic
+    const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+
+    // ✅ Property details
+    const title =
+      property?.title ||
+      [property?.unitType, property?.type].filter(Boolean).join(" ") ||
+      "a property";
+
+    const loc =
+      property?.locationNormalized ||
+      property?.location ||
+      property?.city ||
+      "your listed property location";
+
+    const priceValue = Number(property?.price || 0);
+    const priceText = !isNaN(priceValue)
+      ? `₹${priceValue.toLocaleString("en-IN")}`
+      : "Price on request";
+
+    // ✅ Build property link (slug-safe)
+    const slugValue =
+      property?.slug ||
+      property?.raw?.slug ||
+      (typeof window !== "undefined"
+        ? window.location.pathname.split("/").pop()
+        : "") ||
+      "";
+    const link = `${window.location.origin}/properties/${encodeURIComponent(
+      String(slugValue)
+    )}`;
+
+    // ✅ WhatsApp message (with clickable property URL)
+    const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
+
+    // ✅ Open WhatsApp
+    window.open(
+      `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }}
+  aria-label="WhatsApp executiveTo"
+  className="flex flex-col items-center justify-center gap-1 rounded-xl
+  bg-[#25D366]/10 hover:bg-[#25D366]/15 text-[#128C7E]
+  border border-[#25D366]/30 transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
+>
+  <span className="w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-[#25D366]/30">
+    <FaWhatsapp size={14} aria-hidden="true" />
+  </span>
+</button>
+
 
                     {/* Message */}
                     <button
