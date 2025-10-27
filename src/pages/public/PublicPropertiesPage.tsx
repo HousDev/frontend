@@ -1364,7 +1364,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                     </div>
 
                     {/* Parking */}
-                    <div>
+                    {/* <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Parking</label>
                       <select
                         value={parkingFilter}
@@ -1375,7 +1375,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         <option value="2w">2-Wheeler</option>
                         <option value="4w">4-Wheeler</option>
                       </select>
-                    </div>
+                    </div> */}
 
                     {/* Min Rating */}
                     <div>
@@ -1678,19 +1678,54 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              const phone = property.executiveTo?.phone || "919999999999";
-                              if (!phone || phone === "Not Available") return;
-                              const title = String(property.title || '');
-                              const location = property.location || '';
-                              const priceText = formatCurrency(property.price);
-                              const message = `Hi, I'm interested in ${title} at ${location}. Price: ${priceText}. Can you share more details?`;
-                              window.open(`https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
+                              e.preventDefault();
+
+                              // ✅ Ensure phone number is valid
+                              const phone =
+                                property?.executiveTo?.phone?.replace(/\D/g, "") || "9637009639";
+
+                              // ✅ Prepare property title
+                              const title =
+                                property?.title ||
+                                [ property?.type].filter(Boolean).join(" ") ||
+                                "a property";
+
+                              // ✅ Prepare location
+                              const loc =
+                                property?.location ||
+                                property?.city ||
+                                "your listed property location";
+
+                              // ✅ Format price safely
+                              const priceValue = Number(property?.price || 0);
+                              const priceText = !isNaN(priceValue)
+                                ? `₹${priceValue.toLocaleString("en-IN")}`
+                                : "Price on request";
+
+                              // ✅ Build link to property page (if slug exists)
+                              const link = property?.slug
+                                ? `${window.location.origin}/properties/${encodeURIComponent(
+                                  String(property.slug)
+                                )}`
+                                : `${window.location.origin}/properties`;
+
+                              // ✅ WhatsApp message
+                              const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
+
+                              // ✅ Open WhatsApp chat
+                              window.open(
+                                `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+                                "_blank",
+                                "noopener,noreferrer"
+                              );
                             }}
                             className="p-2 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
                             title="WhatsApp"
+                            type="button"
                           >
                             <FaWhatsapp size={16} />
                           </button>
+
                         </div>
                       </div>
                     </div>
