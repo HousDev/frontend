@@ -562,10 +562,10 @@ const ContactUsPage = () => {
 
             <div className="flex items-center justify-center space-x-6 mb-6">
               {[
-                { icon: Facebook, href: '#', label: 'Facebook' },
-                { icon: Twitter, href: '#', label: 'Twitter' },
-                { icon: Instagram, href: '#', label: 'Instagram' },
-                { icon: Linkedin, href: '#', label: 'LinkedIn' }
+                { icon: Facebook, href: 'https://www.facebook.com/resaleexpert.i', label: 'Facebook' },
+                { icon: Twitter, href: 'https://twitter.com/resaleexpertin', label: 'Twitter' },
+                { icon: Instagram, href: 'https://www.instagram.com/resaleexpert.in/', label: 'Instagram' },
+                { icon: Linkedin, href: 'https://www.linkedin.com/company/resaleexpertin/', label: 'LinkedIn' }
               ].map((social, index) => {
                 const Icon = social.icon;
                 return (
