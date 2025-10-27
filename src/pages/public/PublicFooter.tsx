@@ -42,10 +42,10 @@ const PublicFooter = ({ onPageChange }: any) => {
   ];
 
   const socialLinks = [
-    { icon: Facebook, href: 'https://www.instagram.com/resaleexpert.in/#', color: 'text-blue-600' },
-    { icon: Twitter, href: '#', color: 'text-blue-400' },
-    { icon: Instagram, href: 'https://www.facebook.com/resaleexpert.i', color: 'text-pink-600' },
-    { icon: Linkedin, href: '#', color: 'text-blue-700' },
+    { icon: Facebook, href: 'https://www.facebook.com/resaleexpert.i', color: 'text-blue-600' },
+    { icon: Twitter, href: 'https://twitter.com/resaleexpertin', color: 'text-blue-400' },
+    { icon: Instagram, href: 'https://www.instagram.com/resaleexpert.in', color: 'text-pink-600' },
+    { icon: Linkedin, href: 'https://www.linkedin.com/company/resaleexpertin/', color: 'text-blue-700' },
     { icon: Youtube, href: 'https://www.youtube.com/channel/UCYuJPmp-d7HIdfPgSejWzvg', color: 'text-red-600' }
   ];
 

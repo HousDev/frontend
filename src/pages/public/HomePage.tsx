@@ -1370,19 +1370,19 @@ useEffect(() => {
                 name: 'Rajesh Kumar',
                 text: 'Found my dream home in 2 weeks with AI matching!',
                 rating: 5,
-                property: '3BHK Andheri',
+                property: '3BHK Wakad',
               },
               {
                 name: 'Priya Sharma',
                 text: 'Sold my property 20% above market rate with their AI pricing.',
                 rating: 5,
-                property: 'Villa Koregaon',
+                property: '2BHK Baner',
               },
               {
                 name: 'Amit Patel',
                 text: 'Seamless process from search to registration.',
                 rating: 5,
-                property: '2BHK Gurgaon',
+                property: '2BHK Hinjewadi',
               },
             ].map((testimonial, index) => (
               <div
