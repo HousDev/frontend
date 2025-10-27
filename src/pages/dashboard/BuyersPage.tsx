@@ -1201,6 +1201,7 @@ const BuyersPage = () => {
           priorities={prioritiesFromMasters}
           budgetRanges={budgetRanges}
           propertyTypes={propertyTypes}
+            executives={executives.map(e => ({ id: e.id, name: e.name }))} 
         />
       </div>
 

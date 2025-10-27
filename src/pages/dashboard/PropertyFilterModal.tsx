@@ -20,6 +20,8 @@ interface PropertyFilters {
   sortOrder?: string;
   minBudget?: string; // optional numeric string
   maxBudget?: string;
+  /** ✅ NEW: filter by assigned executive id ("all" | "__unassigned__" | specific id as string) */
+  assignedExecutive?: string;
 }
 
 interface PropertyFilterModalProps {
@@ -28,6 +30,7 @@ interface PropertyFilterModalProps {
   filters: PropertyFilters;
   setFilters: React.Dispatch<React.SetStateAction<PropertyFilters>>;
   clearFilters: () => void;
+
   typeOptions: Array<{ label: string; value: string }>;
   statusOptions: Array<{ label: string; value: string }>;
   priceRangeOptions: Array<{ label: string; value: string }>;
@@ -35,6 +38,11 @@ interface PropertyFilterModalProps {
   sellerOptions: Array<{ label: string; value: string }>;
   stageOptions: Array<{ label: string; value: string }>;
   tagsOptions: Array<{ label: string; value: string }>;
+
+  /** ✅ NEW: pass executive options from parent */
+  executiveOptions?: Array<{ label: string; value: string }>;
+  /** ✅ Optional loading state for exec options (disables the dropdown) */
+  executivesLoading?: boolean;
 }
 
 const sortOrderOptions = [
@@ -57,9 +65,9 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
   sellerOptions,
   stageOptions,
   tagsOptions,
+  executiveOptions = [],
+  executivesLoading = false,
 }) => {
-
-  
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     if (isOpen) document.addEventListener("keydown", onKey);
@@ -71,11 +79,20 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
     if (filters?.ignoreDate && (filters.dateFrom || filters.dateTo)) {
       setFilters({ ...filters, dateFrom: "", dateTo: "" });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters?.ignoreDate]);
 
   if (typeof window === "undefined") return null;
 
-  const update = (patch: Partial<PropertyFilters>) => setFilters({ ...(filters || {}), ...patch });
+  const update = (patch: Partial<PropertyFilters>) =>
+    setFilters({ ...(filters || {}), ...patch });
+
+  // Build exec dropdown options (All, provided list, Unassigned)
+  const execOptions = [
+    { label: "All executives", value: "all" },
+    ...(executiveOptions || []),
+    { label: "Unassigned", value: "__unassigned__" },
+  ];
 
   return createPortal(
     <>
@@ -186,7 +203,13 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                   { label: "Public", value: "public" },
                   { label: "Private", value: "private" },
                 ]}
-                value={filters.isPublic === undefined ? "all" : filters.isPublic ? "public" : "private"}
+                value={
+                  filters.isPublic === undefined
+                    ? "all"
+                    : filters.isPublic
+                    ? "public"
+                    : "private"
+                }
                 onChange={(v) => {
                   if (v === "all") update({ isPublic: undefined });
                   else update({ isPublic: v === "public" });
@@ -213,6 +236,18 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 value={filters.maxBudget || ""}
                 onChange={(e) => update({ maxBudget: e.target.value })}
                 placeholder="e.g. 25000000"
+              />
+            </div>
+
+            {/* ✅ Executive filter */}
+            <div className="md:col-span-2">
+              <label className="block font-medium text-gray-700 mb-1">Executive</label>
+              <Dropdown
+                options={execOptions}
+                value={filters.assignedExecutive ?? "all"}
+                onChange={(v) => update({ assignedExecutive: v })}
+                triggerClassName="w-full text-xs"
+                disabled={executivesLoading}
               />
             </div>
 
@@ -284,6 +319,7 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                   sortOrder: "created_desc",
                   minBudget: "",
                   maxBudget: "",
+                  assignedExecutive: "all", // ✅ reset
                 });
               }}
               className="flex-1 text-xs border-red-400 text-red-500 hover:bg-red-50"
