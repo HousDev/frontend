@@ -234,8 +234,6 @@ const AnalyticsDashboard = ({ seller }: { seller?: unknown }) => {
       visitorDemographics,
       exportedAt: new Date().toISOString(),
     };
-
-    console.log('Exporting analytics:', analyticsData);
     alert('Analytics report exported successfully!');
   };
 

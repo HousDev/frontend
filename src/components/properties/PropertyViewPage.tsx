@@ -1560,7 +1560,7 @@ const OverviewTab = ({ property, onUpdate }: any) => {
                 </span></div>
 
                 {/* Row 6 */}
-                <div><span className="font-semibold">Purchase Date:</span><span className="ml-2">{getMonthName(property?.possessionMonth)} {property?.possessionYear || "-"}
+                <div><span className="font-semibold">Purchase Date:</span><span className="ml-2">{getMonthName(property?.purchaseMonth)} {property?.purchaseYear || "-"}
                 </span></div>
                 <div><span className="font-semibold">Selling Rights:</span><span className="ml-2">{property?.selling_rights || "-"}</span></div>
                 <div><span className="font-semibold">Lead Source:</span><span className="ml-2">{property?.leadSource || "-"}</span></div>

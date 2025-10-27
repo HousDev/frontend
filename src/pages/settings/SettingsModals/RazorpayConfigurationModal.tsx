@@ -115,7 +115,6 @@ const RazorpayConfigurationModal: React.FC<Props> = ({
     if (!validate()) return;
 
     const payload = buildPayload();
-    console.log("🔁 Razorpay -> Sending payload to onSave:", payload);
 
     setSaving(true);
     setErrors({});
@@ -127,8 +126,6 @@ const RazorpayConfigurationModal: React.FC<Props> = ({
         webhookSecret: payload.webhook_secret,
         webhookUrl: payload.webhook_url,
       });
-
-      console.log("✅ Save response (Razorpay modal):", resp);
       setSaved(true); // mark saved on success
     } catch (err: any) {
       console.error("❌ Error from onSave:", err);

@@ -220,7 +220,7 @@ const DealsManagement = ({ seller }: any) => {
         setSelectedDeal(deal);
         break;
       default:
-        console.log('Deal action:', action, deal);
+        
     }
   };
 
@@ -594,7 +594,6 @@ const DealsManagement = ({ seller }: any) => {
           deal={selectedDeal} 
           onClose={() => setSelectedDeal(null)}
           onUpdate={(updatedDeal) => {
-            console.log('Deal updated:', updatedDeal);
             setSelectedDeal(null);
           }}
         />

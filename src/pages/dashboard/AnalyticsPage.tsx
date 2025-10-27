@@ -97,7 +97,7 @@ const AnalyticsPage: React.FC = () => {
     setAnalytics(null);
 
     const params = { period: dateRange, sellerId: user?.id ?? undefined };
-    console.log('[Analytics] fetch params:', params);
+
 
     try {
       // primary attempt (analyticsAPI -> api.get('/analytics'))
@@ -105,7 +105,7 @@ const AnalyticsPage: React.FC = () => {
       // support both forms: { success: true, data: {...} } or direct data
       const data = res?.success ? res.data : res;
       setAnalytics(data);
-      console.log('[Analytics] primary response:', data);
+     
       setLoading(false);
       return;
     } catch (err: any) {
@@ -114,10 +114,10 @@ const AnalyticsPage: React.FC = () => {
       // fallback: try /dashboard/analytics directly via api instance
       if (err?.response?.status === 404) {
         try {
-          console.log('[Analytics] trying fallback /dashboard/analytics with params:', params);
+        
           const res2 = await api.get('/dashboard/analytics', { params });
           setAnalytics(res2.data);
-          console.log('[Analytics] fallback response:', res2.data);
+         
           setLoading(false);
           return;
         } catch (err2: any) {

@@ -1224,7 +1224,6 @@ const handleSaveDocument = async (data: Partial<FinancialDocument>) => {
           item={selectedItem}
           type={selectedItem?.type}
           onShare={(shareData: any) => {
-            console.log('Document shared:', shareData);
             setShowSharingModal(false);
             setSelectedItem(null);
           }}
@@ -1253,7 +1252,6 @@ const handleSaveDocument = async (data: Partial<FinancialDocument>) => {
           document={selectedItem}
           userRole={userRole}
           onSave={(updatedDoc: any) => {
-            console.log('Document updated:', updatedDoc);
             setShowEditModal(false);
             setSelectedItem(null);
           }}
@@ -1270,7 +1268,6 @@ const handleSaveDocument = async (data: Partial<FinancialDocument>) => {
           document={selectedItem}
           userRole={userRole}
           onSubmit={(deleteData: any) => {
-            console.log('Delete request submitted:', deleteData);
             setShowDeleteModal(false);
             setSelectedItem(null);
           }}

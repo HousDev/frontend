@@ -327,7 +327,7 @@ const VendorDirectoryPage: React.FC = () => {
 
     const selectedVendorData = vendors.filter((v) => selectedVendors.includes(v.id));
     // This would integrate with the seller account page
-    console.log('Sending vendors to seller account:', selectedVendorData);
+   
     alert(`${selectedVendors.length} vendors sent to seller account directory`);
     setSelectedVendors([]);
   };

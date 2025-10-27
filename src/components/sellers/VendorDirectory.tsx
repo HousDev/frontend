@@ -240,7 +240,7 @@ const VendorDirectory = ({ seller }: any) => {
     }
     
     const selectedVendorData = vendors.filter(v => selectedVendors.includes(v.id));
-    console.log('Contacting vendors:', selectedVendorData);
+  
     alert(`Inquiry sent to ${selectedVendors.length} vendors. They will contact you within 24 hours.`);
     setSelectedVendors([]);
   };

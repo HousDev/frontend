@@ -17,13 +17,6 @@ const ApprovalModal = ({ isOpen, onClose, document, onApprove, userRole }: any) 
     setIsProcessing(true);
     try {
       await onApprove(true);
-      // Log approval activity
-      console.log('Document approved:', {
-        document_id: document.id,
-        reason: approvalReason,
-        approved_by: 'Admin User',
-        approved_at: new Date().toISOString()
-      });
     } finally {
       setIsProcessing(false);
     }
@@ -38,13 +31,6 @@ const ApprovalModal = ({ isOpen, onClose, document, onApprove, userRole }: any) 
     setIsProcessing(true);
     try {
       await onApprove(false);
-      // Log rejection activity
-      console.log('Document rejected:', {
-        document_id: document.id,
-        reason: rejectionReason,
-        rejected_by: 'Admin User',
-        rejected_at: new Date().toISOString()
-      });
     } finally {
       setIsProcessing(false);
     }

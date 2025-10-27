@@ -6,7 +6,7 @@ export const smsIntegrationAPI = {
   // Fetch SMS integration details
   getIntegration: async () => {
         const response = await api.get("/sms-integration");
-        console.log("my sms:",response.data)
+        
     return response.data;
   },
 

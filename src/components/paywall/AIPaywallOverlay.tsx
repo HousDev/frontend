@@ -84,7 +84,7 @@ const AIPaywallOverlay: React.FC<AIPaywallOverlayProps> = ({
         name: 'ResaleExpert',
         description: `${selectedPlanData.name} - AI Property Analysis`,
         handler: function (response: any) {
-          console.log('Payment successful:', response);
+        
           onSubscribe(selectedPlan);
           onClose();
         },

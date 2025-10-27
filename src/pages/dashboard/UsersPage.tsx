@@ -82,7 +82,7 @@ const UsersPage: React.FC = () => {
 
   // Called by UsersManagement when "Create Account" button is clicked in buyers/sellers table
   const handleOpenCreateFromChild = async ({ role, prefill }: { role: 'buyer' | 'seller', prefill?: Partial<User> }) => {
-    console.log("🔄 Opening create form with prefill:", { role, prefill });
+  
     resetForm();
 
     // Set prefilled data but make it editable
@@ -213,10 +213,10 @@ const UsersPage: React.FC = () => {
       let response;
       if (isEdit) {
         response = await usersAPI.updateUser(editingUser!.id, userData);
-        console.log("✅ User updated:", editingUser!.id);
+      
       } else {
         response = await usersAPI.createUser({ ...userData, is_active: true });
-        console.log("✅ User created with data sync");
+     
       }
 
       if (response.success) {

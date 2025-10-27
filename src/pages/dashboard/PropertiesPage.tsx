@@ -592,7 +592,7 @@ const ImageWithDebug: React.FC<{
       style={{ objectFit: fitCover ? 'cover' : undefined }}
       onLoad={() => {
         if (import.meta.env?.MODE !== 'production') {
-          // console.log('[IMG OK]', { title: propertyCtx?.title, propertyId: propertyCtx?.propertyId, original: srcCandidate, resolved, fileBase: FILE_BASE });
+          
         }
       }}
       onError={() => {
@@ -951,13 +951,6 @@ useEffect(() => {
             user.username ||  // फिर username
             'Unnamed Executive';
             
-          console.log("👤 Executive data:", { 
-            id: user.id, 
-            fullName: user.fullName,
-           name: getDisplayName(user),     
-            username: user.username,
-            displayName 
-          });
 
           return {
             id: user.id || user.userId,
@@ -971,7 +964,7 @@ useEffect(() => {
         });
 
         setSalesExecutives(executives);
-        console.log("✅ Sales executives loaded with proper names:", executives);
+        
       } else {
         console.warn("Unexpected executives response format:", res);
         setSalesExecutives([]);
@@ -1043,17 +1036,11 @@ const fetchPropertiesOnce = async () => {
   const raw = await withTimeout(propertiesAPI.getProperties(), 12000);
   
   // ✅ BETTER DEBUG: API response check करें
-  console.log("🔍 Raw API response for properties:", raw);
+ 
   
   if (Array.isArray(raw)) {
     raw.forEach((property, index) => {
       if (property.assigned_to) {
-        console.log(`🔍 Property ${index} assigned_to data:`, {
-          propertyId: property.property_id,
-          assigned_to: property.assigned_to,
-          assigned_to_name: property.assigned_to_name,
-          fullObject: property
-        });
       }
     });
   }
@@ -1064,7 +1051,7 @@ const fetchPropertiesOnce = async () => {
   // ✅ Check normalized data
   mapped.forEach((property, index) => {
     if (property.assignedTo) {
-      console.log(`✅ Normalized Property ${index} assignedTo:`, property.assignedTo);
+     
     }
   });
   
@@ -1343,7 +1330,7 @@ const handleSingleAssign = async (executiveId: number | string, executiveName: s
       // ✅ Executive details को properly set करें - SAME NAME USE करें
       const updatedAssignedTo = executive ? {
         id: executive.id,
-        name: executive.name, // ✅ यही वही name है जो dropdown में दिख रहा है
+        name: executive.name, 
         email: executive.email,
         phone: executive.phone,
         department: executive.department,
@@ -1356,14 +1343,6 @@ const handleSingleAssign = async (executiveId: number | string, executiveName: s
         department: '',
         role: ''
       };
-
-      console.log("🔄 Assigning executive - Consistency Check:", {
-        executiveId,
-        executiveNameFromParam: executiveName,
-        executiveFound: executive,
-        executiveNameFromObject: executive?.name,
-        updatedAssignedToName: updatedAssignedTo.name
-      });
 
       // ✅ ALL state updates
       setProperties(prev => prev.map(p =>

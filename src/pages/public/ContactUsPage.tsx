@@ -55,7 +55,7 @@ const ContactUsPage = () => {
           'common', 'lead', 'property'
         ]);
         setMasters(data);
-        // console.log("Fetched master data:", data);
+        
       } catch (err) {
         console.error('Error fetching master options:', err);
         setFeedback({ type: 'error', message: 'Failed to load dropdown options' });
@@ -108,8 +108,6 @@ const ContactUsPage = () => {
         budget: ''
       });
 
-      // Optional: you can also re-fetch master data or analytics here
-      // console.log('submit response', resp);
     } catch (err) {
       console.error('Submit failed', err);
       // Try to surface backend error message if available

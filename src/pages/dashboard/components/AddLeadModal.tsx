@@ -387,7 +387,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
       created_by: String(user?.id),
     };
 
-    console.log('Saving lead payload:', normalizedLead);
+ 
     onSave(normalizedLead);
   };
 

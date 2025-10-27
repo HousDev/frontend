@@ -277,21 +277,21 @@ const VisitDetails = ({ seller }: any) => {
         window.open(`https://wa.me/${visit.visitor.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
         break;
       case 'reschedule':
-        console.log('Reschedule visit:', visit.id);
+        
         alert('Reschedule visit functionality');
         break;
       case 'cancel':
-        console.log('Cancel visit:', visit.id);
+       
         if (window.confirm('Are you sure you want to cancel this visit?')) {
           alert('Visit cancelled successfully');
         }
         break;
       case 'complete':
-        console.log('Mark visit as completed:', visit.id);
+        
         alert('Visit marked as completed');
         break;
       default:
-        console.log('Action:', action, visit);
+        break;
     }
   };
 

@@ -633,7 +633,7 @@ const SellerFollowupModal: React.FC<Props> = ({
     (payload as any).lead_id && delete (payload as any).lead_id;
 
     onSave(payload);
-    // console.log("✅ Saving seller follow-up:", payload);
+   
   };
 
   /* --------- UI helpers --------- */

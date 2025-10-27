@@ -234,7 +234,7 @@ const SellerActivityTimeline = ({ seller }: any) => {
   };
 
   const handleSaveActivity = (activityData: any) => {
-    console.log('Saving activity:', activityData);
+   
     setShowActivityModal(false);
     setEditingActivity(null);
     alert('Activity saved successfully!');
@@ -243,7 +243,7 @@ const SellerActivityTimeline = ({ seller }: any) => {
   const handleQuickAction = (action: string, activity: any) => {
     switch (action) {
       case 'schedule':
-        console.log('Schedule follow-up for:', activity.property);
+        
         alert('Follow-up scheduling functionality');
         break;
       case 'update':
@@ -252,12 +252,12 @@ const SellerActivityTimeline = ({ seller }: any) => {
       case 'notes':
         const notes = prompt('Add notes for this activity:');
         if (notes) {
-          console.log('Adding notes:', notes);
+          
           alert('Notes added successfully');
         }
         break;
       default:
-        console.log('Action:', action, activity);
+        break;
     }
   };
 

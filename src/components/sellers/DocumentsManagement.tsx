@@ -282,7 +282,7 @@ const DocumentsManagement = ({ seller }: any) => {
         alert('Document link copied to clipboard!');
         break;
       default:
-        console.log('Document action:', action, document);
+        break;
     }
   };
 

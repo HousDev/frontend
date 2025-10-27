@@ -53,10 +53,7 @@ const PropertyReportModal = ({ isOpen, onClose, property }: any) => {
       includeInspection,
       includeMaintenance,
       includeMarketAnalysis
-    };
-
-    console.log('Generating report:', reportData);
-    
+    }; 
     // Create a dummy PDF download
     const link = document.createElement('a');
     link.href = 'data:application/pdf;base64,JVBERi0xLjQKJdPr6eEKMSAwIG9iago8PAovVGl0bGUgKFByb3BlcnR5IFJlcG9ydCkKL0NyZWF0b3IgKFJlc2FsZUV4cGVydCkKL1Byb2R1Y2VyIChSZXNhbGVFeHBlcnQpCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9UeXBlIC9DYXRhbG9nCi9QYWdlcyAzIDAgUgo+PgplbmRvYmoKMyAwIG9iago8PAovVHlwZSAvUGFnZXMKL0tpZHMgWzQgMCBSXQovQ291bnQgMQo+PgplbmRvYmoKNCAwIG9iago8PAovVHlwZSAvUGFnZQovUGFyZW50IDMgMCBSCi9NZWRpYUJveCBbMCAwIDYxMiA3OTJdCj4+CmVuZG9iagp4cmVmCjAgNQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA3NCAwMDAwMCBuIAowMDAwMDAwMTIxIDAwMDAwIG4gCjAwMDAwMDAxNzggMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA1Ci9Sb290IDIgMCBSCj4+CnN0YXJ0eHJlZgoyNzMKJSVFT0YK';

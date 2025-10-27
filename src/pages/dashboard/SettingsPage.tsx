@@ -179,7 +179,6 @@ const SettingsPage: React.FC = () => {
     try {
       const response: any = await usersAPI.getProfile();
      
-      console.log("dob",  normalizeDOB(response.data.dob))
       if (response?.success) {
         // normalize missing fields with safe defaults
         const p: UserProfile = {

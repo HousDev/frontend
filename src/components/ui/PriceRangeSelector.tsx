@@ -308,6 +308,7 @@ interface PriceRangeSelectorProps {
 
 const CRORE_TO_RUPEE = 10_000_000;
 const LAKH_TO_RUPEE = 100_000;
+const STEP = LAKH_TO_RUPEE; // snap to 1L
 
 const numberFormatter = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
@@ -323,8 +324,8 @@ const toReadable = (rupees: number) => {
   return `${Number(cr.toFixed(2))}Cr`;
 };
 
-const clamp = (v: number, min = 0, max = Infinity) =>
-  Math.max(min, Math.min(max, v));
+const clamp = (v: number, min = 0, max = Infinity) => Math.max(min, Math.min(max, v));
+const snapToStep = (v: number) => Math.round(v / STEP) * STEP;
 
 const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
   // Default range: 30L → 5Cr
@@ -341,15 +342,21 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
 
   // starting value (in rupees) from initialMax in Crores
   const requestedStart = Math.round(initialMax * CRORE_TO_RUPEE);
-  const startRupees = clamp(requestedStart, minRupees, maxRupees);
+  const startRupees = clamp(snapToStep(requestedStart), minRupees, maxRupees);
 
   const [valueRupees, setValueRupees] = useState<number>(startRupees);
   const [isDragging, setIsDragging] = useState(false);
   const sliderRef = useRef<HTMLDivElement | null>(null);
 
+  // helper to set with clamp+snap once
+  const setValueSnapped = (next: number) => {
+    const snapped = clamp(snapToStep(next), minRupees, maxRupees);
+    setValueRupees((prev) => (prev === snapped ? prev : snapped));
+  };
+
   // keep internal value in sync with prop changes (prefill on edit / toggle)
   useEffect(() => {
-    const next = clamp(Math.round(initialMax * CRORE_TO_RUPEE), minRupees, maxRupees);
+    const next = clamp(snapToStep(Math.round(initialMax * CRORE_TO_RUPEE)), minRupees, maxRupees);
     setValueRupees((prev) => (prev === next ? prev : next));
   }, [initialMax, minRupees, maxRupees]);
 
@@ -384,16 +391,13 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
     const rect = el.getBoundingClientRect();
     const x = clientX - rect.left;
     const pct = clamp(x / rect.width, 0, 1);
-    return Math.round(pct * (maxRupees - minRupees)) + minRupees;
+    const raw = Math.round(pct * (maxRupees - minRupees)) + minRupees;
+    return snapToStep(raw);
   };
 
   const handlePointerMove = (clientX: number | null) => {
     if (!isDragging || !sliderRef.current || clientX === null) return;
-    const rupees = pointerToRupees(clientX);
-    setValueRupees((prev) => {
-      const next = clamp(rupees, minRupees, maxRupees);
-      return prev === next ? prev : next;
-    });
+    setValueSnapped(pointerToRupees(clientX));
   };
 
   const handlePointerUp = () => setIsDragging(false);
@@ -412,9 +416,7 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
     if (isDragging) {
       window.addEventListener("mousemove", onMouseMove);
       window.addEventListener("mouseup", onMouseUp);
-      window.addEventListener("touchmove", onTouchMove as EventListener, {
-        passive: false,
-      });
+      window.addEventListener("touchmove", onTouchMove as EventListener, { passive: false });
       window.addEventListener("touchend", onTouchEnd);
     }
     return () => {
@@ -426,9 +428,7 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
   }, [isDragging, maxRupees, minRupees]);
 
   // right-side input
-  const [rightInput, setRightInput] = useState<string>(
-    numberFormatter.format(startRupees)
-  );
+  const [rightInput, setRightInput] = useState<string>(numberFormatter.format(startRupees));
 
   useEffect(() => {
     const next = numberFormatter.format(valueRupees);
@@ -444,26 +444,16 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
 
     if (/^\d+$/.test(cleaned)) {
       const n = parseInt(cleaned, 10);
-      if (!Number.isNaN(n)) {
-        const sanitized = clamp(n, minRupees, maxRupees);
-        setValueRupees((prev) =>
-          prev === sanitized ? prev : Math.round(sanitized)
-        );
-      }
+      if (!Number.isNaN(n)) setValueSnapped(n);
       return;
     }
 
-    // allow "80L", "1.2Cr" etc.
+    // allow "80L", "1.2Cr", "0.99Cr" etc.
     const lowered = cleaned.toLowerCase();
     let n = NaN;
-    if (/l$/.test(lowered)) n = parseFloat(lowered.replace('l', '')) * LAKH_TO_RUPEE;
-    if (/cr$|c$/.test(lowered)) n = parseFloat(lowered.replace(/cr|c/, '').trim()) * CRORE_TO_RUPEE;
-    if (!Number.isNaN(n)) {
-      const sanitized = clamp(Math.round(n), minRupees, maxRupees);
-      setValueRupees((prev) =>
-        prev === sanitized ? prev : Math.round(sanitized)
-      );
-    }
+    if (/l$/.test(lowered)) n = parseFloat(lowered.replace("l", "")) * LAKH_TO_RUPEE;
+    if (/cr$|c$/.test(lowered)) n = parseFloat(lowered.replace(/cr|c/, "").trim()) * CRORE_TO_RUPEE;
+    if (!Number.isNaN(n)) setValueSnapped(n);
   };
 
   const handleRightInputBlur = () => {
@@ -504,24 +494,19 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
               ref={sliderRef}
               className="relative h-2 bg-gray-200 rounded-full cursor-pointer"
               onMouseDown={(e) => {
-                const rupees = pointerToRupees(e.clientX);
-                setValueRupees(clamp(rupees, minRupees, maxRupees));
+                setValueSnapped(pointerToRupees(e.clientX));
                 setIsDragging(true);
               }}
               onTouchStart={(e) => {
                 if (e.touches.length) {
-                  const rupees = pointerToRupees(e.touches[0].clientX);
-                  setValueRupees(clamp(rupees, minRupees, maxRupees));
+                  setValueSnapped(pointerToRupees(e.touches[0].clientX));
                   setIsDragging(true);
                   e.preventDefault();
                 }
               }}
             >
               {/* Active track */}
-              <div
-                className="absolute h-full rounded-full bg-orange-500"
-                style={{ width: `${position}%` }}
-              />
+              <div className="absolute h-full rounded-full bg-orange-500" style={{ width: `${position}%` }} />
 
               {/* Handle */}
               <div
@@ -546,13 +531,13 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
                 }}
                 onKeyDown={(e: React.KeyboardEvent) => {
                   if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
-                    setValueRupees((v) => clamp(v - 1, minRupees, maxRupees));
+                    setValueSnapped(valueRupees - STEP);
                   }
                   if (e.key === "ArrowRight" || e.key === "ArrowUp") {
-                    setValueRupees((v) => clamp(v + 1, minRupees, maxRupees));
+                    setValueSnapped(valueRupees + STEP);
                   }
-                  if (e.key === "Home") setValueRupees(minRupees);
-                  if (e.key === "End") setValueRupees(maxRupees);
+                  if (e.key === "Home") setValueSnapped(minRupees);
+                  if (e.key === "End") setValueSnapped(maxRupees);
                 }}
               />
             </div>

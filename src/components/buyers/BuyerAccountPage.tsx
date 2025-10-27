@@ -229,7 +229,7 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
           onClose={() => setShowVisitModal(false)}
           buyer={buyer}
           onSave={(visitData: any) => {
-            console.log('Visit scheduled:', visitData);
+      
             setShowVisitModal(false);
           }}
         />
@@ -324,8 +324,7 @@ const SidebarContent = ({
     const { count, loading, error } = usePropertyMatches({ buyer, publicOnly: true });
 
     useEffect(() => {
-      // Logging for debugging
-      // console.log('BuyerMatchLogger:', { buyerId: buyer?.id, count, loading, error });
+    
     }, [buyer?.id, count, loading, error]);
 
     if (loading) return <span className="text-gray-400">…</span>;
@@ -1944,21 +1943,6 @@ const ShortlistTab: React.FC<{ buyer: any }> = ({ buyer }) => {
           : Array.isArray((res as any)?.data)
             ? ((res as any).data as any)
             : [];
-
-        console.log('📊 ShortlistTab - Raw API Response:', {
-          buyerId: buyer.id,
-          response: res,
-          rowsCount: rows.length,
-          rows: rows.map(r => ({
-            id: r.id,
-            property_id: r.property_id,
-            property: r.property ? {
-              id: r.property.id,
-              title: pickComposedTitle(r.property),
-              assigned_to: r.property.assigned_to,
-            } : 'No property data'
-          }))
-        });
 
         // 2) enrich each row with tags (pull from API if not present)
         const enriched = await Promise.all(

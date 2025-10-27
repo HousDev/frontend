@@ -503,7 +503,7 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
       if (initialForm?.id) payload.id = initialForm.id;
 
       // LOG payload for debugging BEFORE API call
-      console.log("Buyer follow-up payload (sending):", payload);
+ 
 
       // Call API: create or update
       let resp: any = null;

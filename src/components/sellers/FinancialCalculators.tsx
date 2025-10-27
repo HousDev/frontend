@@ -171,8 +171,6 @@ const FinancialCalculators = ({ seller }: any) => {
       results: results,
       exportedAt: new Date().toISOString()
     };
-    
-    console.log('Exporting calculation:', calculationData);
     alert('Calculation exported successfully!');
   };
 

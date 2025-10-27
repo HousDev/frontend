@@ -1076,7 +1076,6 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
     for (const id of possibleIds) {
       if (id !== null && id !== undefined) {
         const idStr = String(id);
-        console.log('Found ID:', idStr);
         return idStr;
       }
     }
@@ -1104,16 +1103,14 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
 
     // FIXED: Add society_name with proper fallback logic
     const societyOptions = masterOptions['society'] || [];
-    console.log('Society options available:', societyOptions);
-    console.log('Selected society value:', formData.society);
+  
 
     const societyLabel = getLabelFromValue(societyOptions, formData.society);
-    console.log('Society label found:', societyLabel);
+
 
     // Use the label if found, otherwise use the raw value, otherwise use empty string
     const finalSocietyName = societyLabel || formData.society || '';
-    console.log('Final society_name being sent:', finalSocietyName);
-
+   
     fd.append('society_name', finalSocietyName);
 
     // Add boolean field
@@ -1145,16 +1142,14 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       }
     });
 
-    // Debug: Log all FormData entries
-    console.log('=== FormData Debug ===');
     for (let [key, value] of fd.entries()) {
       if (value instanceof File) {
-        console.log(`${key}:`, `[File: ${value.name}]`);
+        
       } else {
-        console.log(`${key}:`, value);
+        
       }
     }
-    console.log('=== End FormData Debug ===');
+
 
     return fd;
   };
@@ -1214,9 +1209,9 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
               whatsapp: formData.ownerWhatsapp
             };
 
-            console.log('Creating seller with payload:', sellerPayload);
+           
             const sellerRes = await createSellerSafe(sellerPayload);
-            console.log('Seller creation response:', sellerRes);
+        
 
             sellerId = extractIdFromResponse(sellerRes);
             sellerName = `${formData.salutation ? formData.salutation + ' ' : ''}${formData.ownerName}`.trim();
@@ -1232,7 +1227,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
         if (sellerId) {
           payload.append('seller_id', String(sellerId));
           payload.append('seller_name', sellerName);
-          console.log('Adding seller info to property:', { seller_id: sellerId, seller_name: sellerName });
+          
         }
         try {
           result = await propertiesAPI.createProperty(payload);

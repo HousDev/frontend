@@ -158,7 +158,7 @@ export const blogsAPI = {
   // NOTE: For public UI, prefer getPublicPosts()
   getAllPosts: async (params?: Record<string, any>) => {
     const res = await api.get("/blog-posts/get-all", { params });
-    console.log("my all data list:",res.data)
+
     return unwrap<any>(res.data);
   },
 

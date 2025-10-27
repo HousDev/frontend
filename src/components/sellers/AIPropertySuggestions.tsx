@@ -269,7 +269,6 @@ const AIPropertySuggestions = ({ seller }: any) => {
   };
 
   const implementSuggestion = (suggestion: any) => {
-    console.log('Implementing suggestion:', suggestion);
     // Replace with real implementation hook/analytics call
     alert(`Implementing: ${suggestion.title}\n\nThis will start the process for: ${suggestion.actionItems?.[0] || '—'}`);
   };

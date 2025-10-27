@@ -106,7 +106,6 @@ const BuyerDashboard: React.FC = () => {
           console.warn("dashboardAPI.getBuyerStats error:", e);
           return null;
         });
-        console.log("dashboardAPI.getBuyerStats raw response:", resp);
         buyerPayload = parseResp(resp);
         // if explicit success:false treat as missing
         if (buyerPayload?.success === false) {
@@ -129,10 +128,6 @@ const BuyerDashboard: React.FC = () => {
           propertiesAPI.getRecommendedProperties?.().catch((e: any) => { console.warn("propertiesAPI.getRecommendedProperties error", e); return null; }),
           leadsAPI.getScheduledViewings?.().catch((e: any) => { console.warn("leadsAPI.getScheduledViewings error", e); return null; }),
         ]);
-
-        console.log("savedProps raw response:", sResp);
-        console.log("recommendedProps raw response:", rResp);
-        console.log("viewings raw response:", vResp);
 
         savedResp = parseResp(sResp);
         recommendedResp = parseResp(rResp);
