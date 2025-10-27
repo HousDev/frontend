@@ -445,9 +445,6 @@ const TransactionHistory: FC<TransactionHistoryProps> = ({ seller, initialTransa
       },
       exportedAt: new Date().toISOString()
     };
-
-    // You can replace this with actual export logic (CSV, XLSX, PDF)
-    console.log("Exporting transactions:", exportData);
     alert("Transaction report exported successfully!");
   };
 

@@ -96,7 +96,6 @@ const SellerDashboard: React.FC = () => {
           console.warn("dashboardAPI.getSellerStats error:", e);
           return null;
         });
-        console.log("dashboardAPI.getSellerStats raw response:", resp);
         sellerPayload = parseResp(resp);
 
         if (sellerPayload?.success === false) {
@@ -138,10 +137,6 @@ const SellerDashboard: React.FC = () => {
             propertiesAPI.getProperties({ seller_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("propertiesAPI.getProperties error", e); return null; }),
             leadsAPI.getLeads({ interested_in: 'property', seller_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("leadsAPI.getLeads error", e); return null; }),
           ]);
-
-          console.log("properties list raw response:", propsResp);
-          console.log("buyers list raw response:", buyersResp);
-
           const propsData = parseResp(propsResp);
           const propsArray = Array.isArray(propsData) ? propsData : Array.isArray(propsData?.rows) ? propsData.rows : null;
 

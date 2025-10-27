@@ -329,7 +329,6 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
       const res = await propertiesAPI.getProperties();
       const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       setProperties(list);
-      // console.log("✅ Fetched properties:", list);
       return list;
     } catch (err) {
       console.error("❌ Could not load properties:", err);
@@ -364,7 +363,6 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
           ? res
           : [];
         setProperties(list);
-        console.log("🔎 Search properties:", { params, list });
         return list;
       } catch (err) {
         console.error("❌ Search failed:", err);
@@ -386,12 +384,12 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
   // auto logs on state changes (toggle via options.autoLog)
   useEffect(() => {
     if (!autoLog) return;
-    // console.log("📦 properties updated:", properties);
+    
   }, [properties, autoLog]);
 
   useEffect(() => {
     if (!autoLog) return;
-    // console.log("⏳ loadingProps:", loadingProps);
+   
   }, [loadingProps, autoLog]);
 
   useEffect(() => {
@@ -399,7 +397,7 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
     if (propsError) console.warn("⚠️ propsError:", propsError);
   }, [propsError, autoLog]);
 
-  const logProperties = () => console.log("🧾 Current properties:", properties);
+  const logProperties = () => {};
 
   // utils bundle to use in components
   const utils = {

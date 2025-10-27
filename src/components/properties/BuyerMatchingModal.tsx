@@ -115,7 +115,7 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
     }
     
     const selectedBuyerData = buyers.filter(b => selectedBuyers.includes(b.id));
-    console.log('Sending property to buyers:', selectedBuyerData);
+   
     alert(`Property details sent to ${selectedBuyers.length} buyers via WhatsApp and Email`);
     setSelectedBuyers([]);
   };

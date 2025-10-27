@@ -351,11 +351,6 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
       );
       passing.forEach((it: any) => {
         const title = buildDisplayTitle(it) || it.title || `#${it.id}`;
-        console.groupCollapsed(`%c✔ ${title} [ID: ${it.id}]`, "color:#16a34a;font-weight:600");
-        console.log("Reasons:", it._match.reasons);
-        console.log("Matched:", it._match.matched);
-        console.log("Price:", it.price, "Address:", it.address, "UnitType:", getUnitType(it));
-        console.groupEnd();
       });
       console.groupEnd();
     } else {
@@ -394,7 +389,6 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
       return;
     }
     const selected = filtered.filter((p) => selectedProperties.includes(String(p.id)));
-    console.log("Sending to buyer:", selected);
     alert(`${selectedProperties.length} properties sent to ${buyer?.name || "buyer"}.`);
     setSelectedProperties([]);
   };

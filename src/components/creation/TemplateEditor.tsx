@@ -423,7 +423,7 @@ useEffect(() => {
     };
 
     onSave(templateToSave);
-    console.log("template data ", templateToSave);
+   
     
   };
 

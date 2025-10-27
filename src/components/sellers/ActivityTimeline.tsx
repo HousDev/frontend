@@ -246,22 +246,22 @@ const ActivityTimeline = ({ seller }: any) => {
   const handleQuickAction = (action: string, activity: any) => {
     switch (action) {
       case 'schedule':
-        console.log('Schedule follow-up for:', activity.visitor);
+       
         alert('Follow-up scheduling functionality');
         break;
       case 'update':
-        console.log('Update activity:', activity.id);
+       
         alert('Activity update functionality');
         break;
       case 'notes':
         const notes = prompt('Add notes for this activity:');
         if (notes) {
-          console.log('Adding notes:', notes);
+         
           alert('Notes added successfully');
         }
         break;
       default:
-        console.log('Action:', action, activity);
+        
     }
   };
 

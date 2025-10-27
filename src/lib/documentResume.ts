@@ -18,9 +18,7 @@ export function saveResumeLocal(payload: {
     source: payload.source ?? "server-draft",
     savedAt: new Date().toISOString(),
   };
-  console.groupCollapsed("%c[RESUME] saveResumeLocal()", "color:#8b5cf6;font-weight:600");
-  console.log("payload ->", data);
-  console.groupEnd();
+
   sessionStorage.setItem(RESUME_KEY, JSON.stringify(data));
 }
 
@@ -32,8 +30,6 @@ export function readResumeLocal() {
   }
   try {
     const parsed = JSON.parse(raw);
-    console.groupCollapsed("%c[RESUME] readResumeLocal()", "color:#8b5cf6;font-weight:600");
-    console.log("parsed ->", parsed);
     console.groupEnd();
     return parsed;
   } catch (e) {

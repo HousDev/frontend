@@ -169,7 +169,7 @@ useEffect(() => {
   // Enhanced login function
   const login = async (credentials: { username: string; password: string }): Promise<User> => {
     try {
-      console.log('Attempting login for:', credentials.username);
+      
       const response = await authAPI.login(credentials);
       
       if (!response.success || !response.data) {
@@ -177,7 +177,7 @@ useEffect(() => {
       }
 
       const { user: userData, accessToken } = response.data;
-      console.log('Login response user data:', userData);
+      
 
       const validatedUser = validateAndNormalizeUser(userData);
       if (!validatedUser) {
@@ -188,12 +188,7 @@ useEffect(() => {
       localStorage.setItem("user", JSON.stringify(validatedUser));
       setUser(validatedUser);
 
-      console.log('Login successful for user:', {
-        id: validatedUser.id,
-        role: validatedUser.role,
-        buyer_id: validatedUser.buyer_id,
-        seller_id: validatedUser.seller_id
-      });
+     
 
       return validatedUser;
     } catch (error: any) {
@@ -213,7 +208,7 @@ useEffect(() => {
     role?: string;
   }): Promise<User> => {
     try {
-      console.log('Attempting registration for:', userData.username);
+     
       const response = await authAPI.register(userData);
       
       if (!response.success || !response.data) {
@@ -230,14 +225,6 @@ useEffect(() => {
       localStorage.setItem("token", accessToken);
       localStorage.setItem("user", JSON.stringify(validatedUser));
       setUser(validatedUser);
-
-      console.log('Registration successful for user:', {
-        id: validatedUser.id,
-        role: validatedUser.role,
-        buyer_id: validatedUser.buyer_id,
-        seller_id: validatedUser.seller_id
-      });
-
       return validatedUser;
     } catch (error: any) {
       console.error("❌ [REGISTER] Error:", error);
@@ -255,7 +242,7 @@ useEffect(() => {
       clearLocalStorage();   // ✅ sab keys ek jagah se clear
       clearSettings();       // ✅ SystemSettings context bhi reset
       setUser(null);
-      console.log('User logged out');
+     
     }
   };
 
@@ -297,12 +284,6 @@ useEffect(() => {
       
       if (validatedUser) {
         localStorage.setItem("user", JSON.stringify(validatedUser));
-        console.log('User updated:', {
-          id: validatedUser.id,
-          role: validatedUser.role,
-          buyer_id: validatedUser.buyer_id,
-          seller_id: validatedUser.seller_id
-        });
         return validatedUser;
       }
       

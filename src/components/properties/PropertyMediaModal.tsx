@@ -182,7 +182,7 @@ const PropertyMediaModal: React.FC<Props> = ({ isOpen, onClose, property, onUpda
       cost: 15000
     };
 
-    console.log('Scheduling photoshoot:', photoshootData);
+ 
     window.alert('Professional photoshoot scheduled! Photographer will contact you within 24 hours.');
   };
 

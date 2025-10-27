@@ -791,10 +791,6 @@ export default function ImportSellersModal({ isOpen, onClose }: ImportSellersMod
     // avoid sending empty objects
     const filtered = payloadRows.filter((o) => o && Object.keys(o).length > 0 && o.name && o.phone);
     if (filtered.length === 0) throw new Error("Nothing to import after filtering");
-    // helpful one-time peek
-    // eslint-disable-next-line no-console
-    console.log("Import payload sample:", filtered[0]);
-
     try {
       return await (sellerAPI as any).importSellers(filtered);
     } catch {

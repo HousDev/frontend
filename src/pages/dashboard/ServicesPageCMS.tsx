@@ -303,8 +303,6 @@ const ServicesPageCMS = () => {
             cta: ctaData
         };
 
-        console.log('Saving services data:', allData);
-
         const successAlert = document.createElement('div');
         successAlert.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
         successAlert.textContent = 'Services page data saved successfully!';

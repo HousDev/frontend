@@ -838,7 +838,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Contact form submitted:', contactForm);
     setShowContactForm(false);
     setContactForm({ name: '', phone: '', email: '', message: '' });
   };
@@ -855,7 +854,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
   const handleSubscribe = (plan: string) => {
     setHasSubscription(true);
-    console.log('Subscribed to plan:', plan);
     setShowPaywall(false);
   };
 

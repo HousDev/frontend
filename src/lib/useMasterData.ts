@@ -42,27 +42,3 @@ export const getMasterDropdownOptions = async (tabIds: string[] = []) => {
 };
 
 
-// call anywhere in your components like this:
-// import { getMasterDropdownOptions ,MasterOption} from 'path/to/useMasterData';
-
-// const [masterLoading, setMasterLoading] = useState(true);
-  // const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
-//   useEffect(() => {
-//     const fetchMasters = async () => {
-//       try {
-//         setMasterLoading(true);
-//         const data = await getMasterDropdownOptions([
-//           'common',
-//         ]);
-//         setMasters(data);
-//         console.log("Fetched master data:", data);
-//       } catch (err) {
-//         console.error('Error fetching master options:', err);
-//         toast.error('Failed to load dropdown options');
-//       } finally {
-//         setMasterLoading(false);
-//       }
-//     };
-
-//     fetchMasters();
-//   }, []);

@@ -76,7 +76,7 @@ const AdminDashboard: React.FC = () => {
           return null;
         });
 
-        console.log("dashboardAPI.getAdminStats raw response:", resp);
+        
         adminPayload = parseMaybeResp(resp);
 
         // If endpoint explicitly returns success:false, treat as failure
@@ -130,9 +130,7 @@ const AdminDashboard: React.FC = () => {
             propertiesAPI.getProperties({ limit: 1 }).catch((e: any) => { console.warn("propertiesAPI.getProperties error", e); return null; }),
           ]);
 
-          console.log("usersResp:", usersResp);
-          console.log("leadsResp:", leadsResp);
-          console.log("propsResp:", propsResp);
+        
 
           // Try to grab counts from responses if provided
           const tryCountFrom = (r: any) => {
@@ -172,7 +170,7 @@ const AdminDashboard: React.FC = () => {
           console.warn("dashboardAPI.getSystemAlerts error:", e);
           return null;
         });
-        console.log("dashboardAPI.getSystemAlerts raw response:", alertsResp);
+       
         const alertsPayload = parseMaybeResp(alertsResp);
 
         if (alertsPayload && Array.isArray(alertsPayload)) {

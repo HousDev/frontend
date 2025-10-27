@@ -128,7 +128,7 @@ const StripeConfigurationModal: React.FC<Props> = ({ isOpen, onClose, onSave, in
         if (!validate()) return;
 
         const payload = buildPayload();
-        console.log("🔁 Stripe -> Sending payload to onSave:", payload);
+       
 
         setSaving(true);
         setErrors({});
@@ -141,7 +141,7 @@ const StripeConfigurationModal: React.FC<Props> = ({ isOpen, onClose, onSave, in
                 webhookUrl: payload.webhook_url,
             });
 
-            console.log("✅ Save response (Stripe modal):", resp);
+          
             setSaved(true);
         } catch (err: any) {
             console.error("❌ Error from onSave (Stripe):", err);

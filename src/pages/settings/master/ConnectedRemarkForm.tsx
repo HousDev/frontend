@@ -127,7 +127,6 @@ export const ConnectedRemarkForm: React.FC<ConnectedRemarkFormProps> = ({
         type2Options: typeOptions,
       }));
 
-      // console.log('Loaded master types for tab:', tabId, typeOptions);
     } catch (err) {
       console.error("Failed to load master types:", err);
       setError(
@@ -161,7 +160,7 @@ export const ConnectedRemarkForm: React.FC<ConnectedRemarkFormProps> = ({
         isType2 ? { ...prev, value2Options: valueOptions } : { ...prev, valueOptions: valueOptions }
       );
 
-      // console.log(`Loaded values for ${isType2 ? 'type2' : 'type1'}:`, typeId, valueOptions);
+   
     } catch (err) {
       console.error("Failed to load master values:", err);
       setError(
@@ -332,7 +331,6 @@ export const ConnectedRemarkForm: React.FC<ConnectedRemarkFormProps> = ({
     try {
       setApiLoading(true);
       setError(null);
-      // console.log('Submitting data:', submitData);
       onSubmit(submitData);
     } catch (err) {
       console.error("Submit Error:", err);

@@ -391,7 +391,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({
               type: "seller_assign",
               link: "/dashboard/leads",
             });
-            console.log("✅ Assignment notification updated/created:", execName);
+       
           } catch (e) {
             console.error("Notification update failed:", e);
             toast.warn("Executive assigned but notification update failed");
@@ -467,9 +467,9 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({
         status: f?.status,
         createdAt: f?.createdAt ?? f?.created_at,
       }));
-      console.table ? console.table(light) : console.log(light);
+ 
     } catch {
-      console.log(followups);
+  
     }
   }, [followups]);
 
@@ -725,11 +725,11 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({
         __debug_source: { formData },
       };
 
-      console.log("🟪 transfer-to-seller payload:", payload);
+     
       setSubmittedPayload(payload);
 
       const apiResp = await sellerTransferAPI.transferToSeller(payload);
-      console.log("✅ transfer-to-seller response:", apiResp);
+      
 
       if (formData.assigned_executive && String(formData.assigned_executive).trim() !== "") {
         try {

@@ -472,7 +472,7 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
   const [activeTab, setActiveTab] = React.useState<'sales' | 'presales'>('sales');
 
   React.useEffect(() => {
-    console.log('📥 SellerFollowupsTab: raw API followups', followups);
+    
   }, [followups]);
 
   const normalizedFollowups = React.useMemo(
@@ -481,7 +481,7 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
   );
 
   React.useEffect(() => {
-    console.log('🧽 SellerFollowupsTab: normalized followups', normalizedFollowups);
+   
   }, [normalizedFollowups]);
 
   const sortedFollowups = React.useMemo(
@@ -495,7 +495,7 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
   const filteredFollowups = sortedFollowups.filter((f) => f.category === activeTab);
 
   React.useEffect(() => {
-    console.log(`🗂️ SellerFollowupsTab: filtered (${activeTab})`, filteredFollowups);
+   
   }, [activeTab, filteredFollowups]);
 
   const cardBorder = (p?: string | null) => {
@@ -786,7 +786,7 @@ const transferredByName =
         limit: 200
       });
       const rows = (res && typeof res === 'object' && 'data' in res) ? res.data : res;
-      console.log("seller followupapi",rows)
+    
       pushFollowupsIntoSeller(Array.isArray(rows) ? rows : []);
     } catch (e: any) {
       console.error("Failed to load seller followups:", e);

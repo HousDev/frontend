@@ -205,7 +205,7 @@ const PropertyDocumentModal: React.FC<Props> = ({ isOpen, onClose, property }) =
 
       // In a real app you'd call your API here. For now we console + notify.
       // eslint-disable-next-line no-console
-      console.log('Document created (simulated):', newDocument);
+     
       window.alert('Document created successfully in Document Center!');
 
       // Start document process (sharing etc.)

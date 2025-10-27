@@ -282,9 +282,9 @@ const BuyerFormModal = ({
       }
 
       if (buyer && buyer.id) {
-        console.log('BuyerFormModal: EDIT MODE', buyer, 'DOB:', buyer.dob);
+     
       } else {
-        console.log('BuyerFormModal: CREATE MODE');
+        
       }
     }
   }, [isOpen, buyer]); // Added isOpen dependency

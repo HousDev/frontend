@@ -258,7 +258,7 @@ const SellersPage: React.FC = () => {
         setMasterLoading(true);
         const data = await getMasterDropdownOptions(['seller', 'lead']);
         setMasters(data);
-        console.log("Fetched master data:", data);
+      
       } catch (err) {
         console.error('Error fetching master options:', err);
         toast.error('Failed to load dropdown options');
@@ -276,7 +276,7 @@ const SellersPage: React.FC = () => {
       try {
         setLoading(true);
         const apiSellers = await sellerAPI.getAll();
-        console.log("get all", apiSellers);
+       
         const normalized = Array.isArray(apiSellers)
           ? apiSellers.map(mapApiSellerToUI)
           : [];

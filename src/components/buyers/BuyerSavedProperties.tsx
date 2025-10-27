@@ -123,9 +123,6 @@ const BuyerSavedProperties: React.FC<Props> = ({ buyerId }) => {
       setLoading(true);
       const res = await buyerSavedAPI.listByBuyer(buyerId, { includeProperty: true });
 
-      // console.debug logs can stay during dev; remove in prod if you like
-      // console.log("Saved API response:", res);
-
       const rows: BuyerSavedWithProperty[] = Array.isArray(res)
         ? (res as any)
         : Array.isArray((res as any)?.data)

@@ -576,7 +576,6 @@ useEffect(() => {
 
   const handleSellerSave = async (formData: any) => {
     try {
-      console.log('Selling form submitted (stub):', formData);
       setIsSellerModalOpen(false);
     } catch (err) {
       console.error('Error saving seller/property:', err);

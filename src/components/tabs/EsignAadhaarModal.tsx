@@ -342,7 +342,7 @@ export default function EsignAadhaarModal({
     }
 
     const payload = buildPayload(idsToSend);
-    console.log("digio for payload",payload)
+   
     onProgress?.({ docId: documentId, payload });
 
     try {

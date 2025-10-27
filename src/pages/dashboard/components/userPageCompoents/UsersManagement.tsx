@@ -82,7 +82,6 @@ const LocalCreateModal: React.FC<{
   // Update form data when prefill changes
   useEffect(() => {
     if (createPrefill) {
-      console.log("🔄 LocalCreateModal prefill updated:", createPrefill);
       setFormData({
         salutation: createPrefill.salutation || '',
         first_name: createPrefill.first_name || '',
@@ -475,7 +474,6 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
   };
 
   const startCreateAccount = async (type: 'buyer' | 'seller', prefill?: Partial<User>) => {
-    console.log("🎯 Starting create account:", { type, prefill });
 
     const enrichedPrefill: Partial<User> = {
       ...prefill,
@@ -529,7 +527,6 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       if (!resp?.success) throw new Error(resp?.message || 'Failed to create user');
       const createdUser: User = resp.data;
 
-      console.log("✅ Account created successfully:", createdUser.id);
 
       // Create corresponding buyer/seller record if needed
       if (createAccountTypeLocal === 'buyer' && !payload.buyer_id) {
@@ -757,9 +754,6 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         }
       }
 
-      toast.success(`Bulk ${action} completed successfully`);
-      console.log(`✅ Bulk ${action} completed for ${selectedUsers.length} users`);
-
       setSelectedUsers([]);
       setShowBulkActions(false);
       fetchUsers();
@@ -791,8 +785,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     try {
       await usersAPI.updateUser(String(userId), { is_active: newStatus });
       toast.success(`User ${newStatus ? 'activated' : 'deactivated'} successfully`);
-      console.log(`✅ User ${userId} ${newStatus ? 'activated' : 'deactivated'}`);
-
+     
       // Refresh all data to maintain sync
       fetchUsers();
 
@@ -820,7 +813,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     try {
       await usersAPI.deleteUser(String(userId));
       toast.success('User deleted successfully');
-      console.log(`✅ User ${userId} deleted`);
+     
 
       // Refresh all data
       fetchUsers();

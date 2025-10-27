@@ -6,7 +6,6 @@ export const stripeIntegrationAPI = {
   getIntegration: async () => {
     try {
       const res = await api.get("/stripe-integration/get");
-      console.log("🔍 [Stripe] Get Integration Response:", res.data);
       return res;
     } catch (err) {
       console.error("❌ [Stripe] Get Integration Error:", err);
@@ -25,7 +24,6 @@ export const stripeIntegrationAPI = {
   }) => {
     try {
       const res = await api.post("/stripe-integration/save", data);
-      console.log("✅ [Stripe] Save Integration Response:", res.data);
       return res;
     } catch (err) {
       console.error("❌ [Stripe] Save Integration Error:", err);
@@ -37,7 +35,6 @@ export const stripeIntegrationAPI = {
   toggleIntegration: async (data: { active: boolean }) => {
     try {
       const res = await api.post("/stripe-integration/toggle", data);
-      console.log("🔄 [Stripe] Toggle Integration Response:", res.data);
       return res;
     } catch (err) {
       console.error("❌ [Stripe] Toggle Integration Error:", err);
@@ -55,7 +52,6 @@ export const stripeIntegrationAPI = {
   }) => {
     try {
       const res = await api.post("/stripe-integration/create-payment-intent", data);
-      console.log("💳 [Stripe] Create PaymentIntent Response:", res.data);
       return res;
     } catch (err) {
       console.error("❌ [Stripe] Create PaymentIntent Error:", err);
@@ -68,7 +64,6 @@ export const stripeIntegrationAPI = {
   createCheckoutSession: async (data: Record<string, any>) => {
     try {
       const res = await api.post("/stripe-integration/create-checkout-session", data);
-      console.log("🧾 [Stripe] Create Checkout Session Response:", res.data);
       return res;
     } catch (err) {
       console.error("❌ [Stripe] Create Checkout Session Error:", err);
@@ -81,7 +76,6 @@ export const stripeIntegrationAPI = {
   createRefund: async (data: { chargeId: string; amount?: number; reason?: string }) => {
     try {
       const res = await api.post("/stripe-integration/refund", data);
-      console.log("↩️ [Stripe] Create Refund Response:", res.data);
       return res;
     } catch (err) {
       console.error("❌ [Stripe] Create Refund Error:", err);
@@ -93,7 +87,6 @@ export const stripeIntegrationAPI = {
   verifyWebhookTest: async (data: { payload?: any }) => {
     try {
       const res = await api.post("/stripe-integration/verify-webhook-test", data);
-      console.log("🔐 [Stripe] Verify Webhook Test Response:", res.data);
       return res;
     } catch (err) {
       console.error("❌ [Stripe] Verify Webhook Test Error:", err);

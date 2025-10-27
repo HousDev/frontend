@@ -60,9 +60,9 @@ export const buyerAPI = {
     if (!Array.isArray(buyers) || buyers.length === 0) {
       throw new Error("Buyers array is required for import");
     }
-    console.log(`➡️ Importing ${buyers.length} buyers...`);
+    
     const response = await api.post(`/buyers/bulk-import`, buyers);
-    console.log("✅ Buyers import result:", response.data);
+  
     return response.data;
   },
 
@@ -112,18 +112,3 @@ bulkUpdateLeadField: async (buyerIds: string[], field: string, value: any, onlyE
 
 
 
-
-// without hit of api we can test the buyerAPI like this:
-
-// useEffect(() => {
-//   const fetchBuyers = async () => {
-//     try {
-//       const buyers = await buyerAPI.getAll(); // calling the API
-//       console.log("Buyers in component:", buyers);
-//     } catch (err) {
-//       console.error("Error fetching buyers:", err);
-//     }
-//   };
-
-//   fetchBuyers();
-// }, []);

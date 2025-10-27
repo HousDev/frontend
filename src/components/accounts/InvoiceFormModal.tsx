@@ -533,9 +533,9 @@ const InvoiceFormModal = ({
       };
 
       await onSave(invoiceData);
-      console.log('save form data :', invoiceData);
+     
     } catch (error) {
-      console.error('Error saving invoice:', error);
+    
     } finally {
       setIsSubmitting(false);
       submitGuardRef.current = false;

@@ -394,7 +394,6 @@ const IntegrationsPage: React.FC = () => {
         toast.info('Toggle saved locally. Wire up a backend API for this provider.');
       }
 
-      console.log('Toggle response:', resp);
       toast.success(`Integration ${enabled ? 'enabled' : 'disabled'} successfully`);
     } catch (error: any) {
       setIntegrations((prev) =>
@@ -457,7 +456,7 @@ const IntegrationsPage: React.FC = () => {
         createdBy: user?.id || 1,
       };
       const resp = await smsIntegrationAPI.saveIntegration(payload);
-      console.log('SMS save:', resp);
+    
       await fetchIntegrations();
       toast.success('SMS configuration saved successfully');
       setSmsModalOpen(false);
@@ -486,7 +485,7 @@ const IntegrationsPage: React.FC = () => {
         updatedBy: user?.id || 1,
       };
       const resp = await razorpayIntegrationAPI.saveIntegration(payload as any);
-      console.log('Razorpay save:', resp);
+    
       await fetchIntegrations();
       toast.success('Razorpay configuration saved successfully');
       setRazorpayModalOpen(false);
@@ -515,7 +514,7 @@ const IntegrationsPage: React.FC = () => {
         updatedBy: user?.id || 1,
       };
       const resp = await stripeIntegrationAPI.saveIntegration(payload as any);
-      console.log('Stripe save:', resp);
+      
       await fetchIntegrations();
       toast.success('Stripe configuration saved successfully');
       setStripeModalOpen(false);
@@ -529,7 +528,7 @@ const IntegrationsPage: React.FC = () => {
   const handleSaveEmailConfiguration = async (payload: any) => {
     try {
       const resp = await emailIntegrationAPI.saveIntegration(payload);
-      console.log('Email save:', resp);
+     
       await fetchIntegrations();
       toast.success('Email configuration saved successfully');
       setEmailModalOpen(false);
@@ -564,7 +563,7 @@ const IntegrationsPage: React.FC = () => {
   }) => {
     try {
       // Wire your backend here in future (e.g., whatsappIntegrationAPI.saveIntegration(data))
-      console.log('WhatsApp config save payload:', data);
+      
       toast.success('WhatsApp Business configuration saved successfully');
       await fetchIntegrations();
       setWhatsappModalOpen(false);

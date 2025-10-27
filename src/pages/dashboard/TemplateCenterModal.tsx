@@ -187,7 +187,7 @@ export default function CreateUpdateModal({
         setMasterLoading(true);
         const data = await getMasterDropdownOptions(["common"]);
         setMasters(data);
-        // if you want to see debug: console.log("Fetched master data:", data);
+        
       } catch (err) {
         console.error("Error fetching master options:", err);
       } finally {

@@ -119,7 +119,6 @@ const AgentDashboard: React.FC = () => {
             console.warn("dashboardAPI.getAgentStats error:", e);
             return null;
           });
-          console.log("dashboardAPI.getAgentStats raw response:", resp);
           agentPayload = parseResp(resp);
 
           if (agentPayload?.success === false) {

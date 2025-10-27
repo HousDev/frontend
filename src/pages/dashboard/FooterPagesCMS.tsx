@@ -170,9 +170,6 @@ const FooterPagesCMS = () => {
             footerBottom: footerBottom,
             whatsapp: whatsappConfig
         };
-
-        console.log('Saving footer data:', allData);
-
         // Show success message
         const successAlert = document.createElement('div');
         successAlert.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';

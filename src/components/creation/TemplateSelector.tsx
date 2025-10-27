@@ -275,8 +275,7 @@ const TemplateSelector: React.FC<Props> = ({
     try {
       // 1) Call API to bump usage count
       const bump = await documentsTemplateAPI.useTemplate(id);
-      console.log("useTemplate API response:", bump); // Debug log
-
+     
       const apiTemplate = bump?.data || bump?.template || bump || null;
 
       // Merge API response with template

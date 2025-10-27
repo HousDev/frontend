@@ -188,10 +188,10 @@ const handleError = (error: any): never => {
 
 /* Pretty log helper */
 const logReq = (label: string, url: string, payload?: any, params?: any) => {
-  console.log(`➡️  ${label}`, { url, params, payload });
+ 
 };
 const logRes = (label: string, url: string, data: any) => {
-  console.log(`⬅️  ${label}`, { url, data });
+
 };
 
 /* ------------------------------------------------------------------ */
@@ -231,7 +231,7 @@ export const sellerFollowupAPI = {
     const cacheKey = requestCache.generateKey("GET", url, qp);
     const cached = requestCache.get<SellerFollowup[]>(cacheKey);
     if (cached) {
-      console.log("[API] Returning cached request for getAll", qp);
+     
       return cached;
     }
 
@@ -262,7 +262,6 @@ export const sellerFollowupAPI = {
     const cacheKey = requestCache.generateKey("GET", url);
     const cached = requestCache.get<SellerFollowup>(cacheKey);
     if (cached) {
-      console.log(`[API] Returning cached request for getById(${id})`);
       return cached;
     }
 

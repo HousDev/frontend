@@ -98,8 +98,6 @@ const PropertyNegotiationModal = ({ isOpen, onClose, property }: any) => {
         history: negotiationHistory,
         created_at: new Date().toISOString()
       };
-
-      console.log('Saving negotiation:', negotiationData);
       alert('Negotiation details saved successfully!');
       onClose();
     } catch (error) {

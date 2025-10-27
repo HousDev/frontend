@@ -436,7 +436,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     priceType: 'Fixed',   // default: Fixed (no extra field)
     finalPrice: '',
   }));
-  console.log("my pro:",formData)
+
 
   const [ownershipDocPreview, setOwnershipDocPreview] = useState<FilePreview | null>(null);
   const [photoPreviews, setPhotoPreviews] = useState<FilePreview[]>([]);
@@ -641,18 +641,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    console.log(
-      "init bedrooms:",
-      initialData?.bedrooms,
-      "options:",
-      getOptions("bedrooms")
-    );
-    console.log(
-      "init bathrooms:",
-      initialData?.bathrooms,
-      "options:",
-      getOptions("bathrooms")
-    );
+ 
   }, [isOpen, initialData, masterOptions]);
 
   /* ---------- handlers ---------- */
@@ -775,15 +764,14 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
     // FIXED: Add society_name with proper fallback logic
     const societyOptions = masterOptions['society'] || [];
-    console.log('Society options available:', societyOptions);
-    console.log('Selected society value:', formData.society);
+  ;
 
     const societyLabel = getLabelFromValue(societyOptions, formData.society);
-    console.log('Society label found:', societyLabel);
+
 
     // Use the label if found, otherwise use the raw value, otherwise use empty string
     const finalSocietyName = societyLabel || formData.society || '';
-    console.log('Final society_name being sent:', finalSocietyName);
+    
 
     fd.append('society_name', finalSocietyName);
 
@@ -805,15 +793,15 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     (formData.photos || []).forEach((file) => file && fd.append("photos", file, file.name));
 
     // Debug: Log all FormData entries
-    console.log('=== FormData Debug ===');
+   
     for (let [key, value] of fd.entries()) {
       if (value instanceof File) {
-        console.log(`${key}:`, `[File: ${value.name}]`);
+        
       } else {
-        console.log(`${key}:`, value);
+       
       }
     }
-    console.log('=== End FormData Debug ===');
+   
 
     return fd;
   };
@@ -868,52 +856,6 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
   };
 }
 
-// const handleSubmit = async () => {
-//   if (!validateForm()) return;
-//   try {
-//     setLoading(true);
-//     setErrorBanner(null);
-
-//     const payload = buildPayload();
-//     let result;
-
-//     if (mode === 'edit' && propertyId) {
-//       result = await propertiesAPI.updateProperty(String(propertyId), payload);
-//       await Promise.all([
-//         propertiesAPI.getProperties(),
-//         propertiesAPI.getProperty(String(propertyId)),
-//       ]);
-//     } else {
-//       result = await propertiesAPI.createProperty(payload);
-//       const created = result?.data?.data ?? result?.data ?? result;
-//       const newId = created?.id ?? created?._id ?? null;
-//       await Promise.all([
-//         propertiesAPI.getProperties(),
-//         newId ? propertiesAPI.getProperty(String(newId)) : Promise.resolve(),
-//       ]);
-//     }
-
-//     // ⬇️ YAHAN: API response ke bajay UI-patch bhejo
-//     const uiPatch = buildUiPatchFromForm(formData, {
-//       ownership: ownershipDocPreview,
-//       photos: photoPreviews,
-//     });
-
-//     onSubmit(uiPatch); // 🔥 parent ko clean patch mila -> turant merge hoga
-//     // optional: parent listener ko ping
-//     window.dispatchEvent(new CustomEvent('overview:refresh', { detail: { id: propertyId } }));
-
-//     onClose?.();
-//   } catch (e: any) {
-//     console.error(e);
-//     const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
-//     setErrorBanner(msg);
-//     toast.error(msg);
-//   } finally {
-//     setLoading(false);
-//   }
-// };
-
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
@@ -922,8 +864,8 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
       setErrorBanner(null);
 
       // 👇 Yahan pe directly form ka data print kar do
-      console.group("📝 Form Submit");
-      console.log("📌 formData:", formData);
+      
+     
       console.groupEnd();
 
       const payload = buildPayload();
@@ -949,11 +891,6 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
         ownership: ownershipDocPreview,
         photos: photoPreviews,
       });
-
-      console.group("🎨 Mapped Patch");
-      console.log("uiPatch:", uiPatch);
-      console.groupEnd();
-
       onSubmit(uiPatch);
       window.dispatchEvent(
         new CustomEvent("overview:refresh", { detail: { id: propertyId } })

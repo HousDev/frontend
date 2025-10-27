@@ -163,7 +163,7 @@ const BuyerListModal: React.FC<BuyerListModalProps> = ({ isOpen, onClose, proper
 
   const handleScheduleVisit = (buyer: Buyer) => {
     // Hook into your scheduling/visits flow here
-    console.log("Scheduling visit for buyer:", buyer.name);
+ 
     window.alert(`Visit scheduled for ${buyer.name}. They will be notified.`);
   };
 
