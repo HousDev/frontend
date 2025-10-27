@@ -302,7 +302,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
 
 
   const UserAvatar = (
-    <div className="w-8 h-8 rounded-full  bg-[#E6761D] text-white flex items-center justify-center">
+    <div className="w-8 h-8 rounded-full  bg-blue-500 text-white flex items-center justify-center">
       <User size={16} />
     </div>
   );
