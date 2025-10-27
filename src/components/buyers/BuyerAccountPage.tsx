@@ -325,7 +325,7 @@ const SidebarContent = ({
 
     useEffect(() => {
       // Logging for debugging
-      console.log('BuyerMatchLogger:', { buyerId: buyer?.id, count, loading, error });
+      // console.log('BuyerMatchLogger:', { buyerId: buyer?.id, count, loading, error });
     }, [buyer?.id, count, loading, error]);
 
     if (loading) return <span className="text-gray-400">…</span>;
@@ -410,8 +410,8 @@ const SidebarContent = ({
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors text-left mb-1 text-sm ${activeTab === tab.id
-                  ? "bg-purple-50 text-purple-700 border border-purple-200"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                ? "bg-purple-50 text-purple-700 border border-purple-200"
+                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 }`}
             >
               <Icon size={16} />
@@ -682,12 +682,12 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
   const computeEnhancedMatchScore = (property: any, buyer: any) => {
     let score = 0;
     const maxScore = 100;
-    
+
     // Budget match (30 points)
     const propertyPrice = Number(property?.price || property?.final_price || 0);
     const buyerBudgetMin = Number(buyer?.budget?.min || buyer?.budget_min || 0);
     const buyerBudgetMax = Number(buyer?.budget?.max || buyer?.budget_max || 0);
-    
+
     if (propertyPrice >= buyerBudgetMin && propertyPrice <= buyerBudgetMax) {
       score += 30;
     } else if (propertyPrice <= buyerBudgetMax * 1.2) {
@@ -699,8 +699,8 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     // Location match (25 points)
     const buyerLocations = buyer?.requirements?.preferredLocations || buyer?.preferred_locations || [];
     const propertyLocation = property?.location_name || property?.location || property?.area || '';
-    
-    if (Array.isArray(buyerLocations) && buyerLocations.some((loc: string) => 
+
+    if (Array.isArray(buyerLocations) && buyerLocations.some((loc: string) =>
       propertyLocation.toLowerCase().includes(loc.toLowerCase()))) {
       score += 25;
     } else if (buyer?.city && propertyLocation.toLowerCase().includes(buyer.city.toLowerCase())) {
@@ -710,8 +710,8 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     // Unit type match (20 points)
     const buyerUnitTypes = buyer?.requirements?.unitTypes || buyer?.preferred_units || [];
     const propertyUnitType = property?.unit_type_name || property?.unit_type || '';
-    
-    if (Array.isArray(buyerUnitTypes) && buyerUnitTypes.some((unit: string) => 
+
+    if (Array.isArray(buyerUnitTypes) && buyerUnitTypes.some((unit: string) =>
       propertyUnitType.toLowerCase().includes(unit.toLowerCase()))) {
       score += 20;
     }
@@ -719,7 +719,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     // Property type match (15 points)
     const buyerPropertyType = buyer?.requirements?.propertyType || buyer?.preferred_property_type || '';
     const propertyType = property?.property_type_name || property?.property_type || '';
-    
+
     if (buyerPropertyType && propertyType.toLowerCase().includes(buyerPropertyType.toLowerCase())) {
       score += 15;
     }
@@ -737,7 +737,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
     const type = property?.property_type_name || property?.property_type || '';
     const unitType = property?.unit_type_name || property?.unit_type || '';
     const subtype = property?.property_subtype_name || property?.property_subtype || '';
-    
+
     const parts = [type, unitType, subtype].filter(Boolean);
     return parts.length > 0 ? parts.join(' ') : 'Property Listing';
   };
@@ -825,7 +825,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
       try {
         const j = JSON.parse(v);
         if (Array.isArray(j)) return j.filter(Boolean).map(String);
-      } catch {}
+      } catch { }
       return v
         .split(/[,\s]+/)
         .map((s) => s.trim())
@@ -883,7 +883,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
           if (first?.url) return absolutize(first.url);
           if (first?.src) return absolutize(first.src);
         }
-      } catch {}
+      } catch { }
       return null;
     })();
 
@@ -1216,7 +1216,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
   // ✅ Enhanced shortlist functionality
   const toggleShortlist = async (property: any) => {
     const propertyId = Number(property._raw?.id || property.id);
-    
+
     if (!propertyId) {
       toast.error("Invalid property ID");
       return;
@@ -1248,10 +1248,10 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
   useEffect(() => {
     const loadShortlisted = async () => {
       if (!buyer?.id) return;
-      
+
       try {
         const saved = await buyerSavedAPI.listByBuyer(buyer.id, { includeProperty: true });
-        const savedIds = (Array.isArray(saved) ? saved : []).map((item: any) => 
+        const savedIds = (Array.isArray(saved) ? saved : []).map((item: any) =>
           String(item.property_id || item.property?.id)
         );
         setShortlisted(new Set(savedIds));
@@ -1290,42 +1290,107 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
   };
 
   // ✅ Property Tags Component
-  const PropertyTags = ({ tags }: { tags: string[] }) => {
-    if (!tags || tags.length === 0) return null;
-    const displayTags = tags.slice(0, 3);
-    
+  // ✅ Corrected Property Tags Component
+// ✅ Corrected Property Tags Component with proper TypeScript
+const PropertyTags = ({ propertyId, tags }: { propertyId?: number; tags?: string[] }) => {
+  const [propertyTags, setPropertyTags] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch tags from API when propertyId is provided
+  useEffect(() => {
+    const fetchTags = async () => {
+      if (!propertyId) {
+        // If no propertyId, use provided tags or empty array
+        setPropertyTags(tags || []);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const tagRes = await propertyTagsAPI.getById(propertyId);
+        
+        // Handle API response with proper type checking
+        let apiTags: string[] = [];
+        
+        if (tagRes && typeof tagRes === 'object') {
+          // Case 1: tags is an array
+          if (Array.isArray((tagRes as any).tags)) {
+            apiTags = (tagRes as any).tags.filter((tag: any) => tag != null).map(String);
+          }
+          // Case 2: tags is a string
+          else if (typeof (tagRes as any).tags === 'string') {
+            apiTags = (tagRes as any).tags.split(',').map((tag: string) => tag.trim()).filter(Boolean);
+          }
+          // Case 3: tags is directly in response
+          else if (Array.isArray(tagRes)) {
+            apiTags = tagRes.filter((tag: any) => tag != null).map(String);
+          }
+        }
+        
+        // If no tags from API, use provided tags as fallback
+        setPropertyTags(apiTags.length > 0 ? apiTags : (tags || []));
+      } catch (error) {
+        console.warn(`Could not fetch tags for property ${propertyId}`, error);
+        // Fallback to provided tags if API fails
+        setPropertyTags(tags || []);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTags();
+  }, [propertyId, tags]);
+
+  if (loading) {
     return (
       <div className="flex flex-wrap gap-1 mt-2">
-        {displayTags.map((tag, index) => {
-          const style = getTagStyle(tag);
-          const EmojiComponent =
-            typeof style.emoji === "string"
-              ? () => <span className="text-xs mr-1" aria-hidden="true">{style.emoji as string}</span>
-              : (style.emoji as any);
-
-          return (
-            <span
-              key={index}
-              className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium uppercase ${style.bg} ${style.text} ${style.ring}`}
-            >
-              {style.emoji &&
-                (typeof style.emoji === "string" ? (
-                  <EmojiComponent />
-                ) : (
-                  <EmojiComponent size={8} className="mr-1" />
-                ))}
-              {tag}
-            </span>
-          );
-        })}
-        {tags.length > 3 && (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
-            +{tags.length - 3}
+        {Array.from({ length: 2 }).map((_, index) => (
+          <span
+            key={index}
+            className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-gray-200 text-gray-200 animate-pulse"
+          >
+            Loading...
           </span>
-        )}
+        ))}
       </div>
     );
-  };
+  }
+
+  if (!propertyTags || propertyTags.length === 0) return null;
+  
+  const displayTags = propertyTags.slice(0, 3);
+  return (
+    <div className="flex flex-wrap gap-1 mt-2">
+      {displayTags.map((tag, index) => {
+        const style = getTagStyle(tag);
+        const EmojiComponent =
+          typeof style.emoji === "string"
+            ? () => <span className="text-xs mr-1" aria-hidden="true">{style.emoji as string}</span>
+            : (style.emoji as any);
+
+        return (
+          <span
+            key={index}
+            className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium uppercase ${style.bg} ${style.text} ${style.ring}`}
+          >
+            {style.emoji &&
+              (typeof style.emoji === "string" ? (
+                <EmojiComponent />
+              ) : (
+                <EmojiComponent size={8} className="mr-1" />
+              ))}
+            {tag}
+          </span>
+        );
+      })}
+      {propertyTags.length > 3 && (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
+          +{propertyTags.length - 3}
+        </span>
+      )}
+    </div>
+  );
+};
 
   return (
     <div className="p-6 pt-2 space-y-6">
@@ -1579,7 +1644,11 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                         </div>
 
                         {/* ✅ Property Tags */}
-                        <PropertyTags tags={property.tags} />
+
+                        <PropertyTags
+                          propertyId={property._raw?.id || property.id}
+                          tags={property.tags}
+                        />
 
                         <div className="flex items-center gap-2 mt-2">
                           <div
@@ -1656,11 +1725,10 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
                       </button>
 
                       <button
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors text-xs ${
-                          shortlisted.has(property.id)
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors text-xs ${shortlisted.has(property.id)
                             ? "bg-purple-600 text-white hover:bg-purple-700"
                             : "bg-purple-100 text-purple-700 hover:bg-purple-200"
-                        }`}
+                          }`}
                         onClick={() => toggleShortlist(property)}
                       >
                         <Bookmark size={12} className={shortlisted.has(property.id) ? "fill-current" : ""} />

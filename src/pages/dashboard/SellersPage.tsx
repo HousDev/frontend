@@ -193,7 +193,7 @@ const getMasterArray = (masters: Record<string, MasterOption[]>, keys: string[])
   }
   return [];
 };
-
+const UNASSIGNED_EXEC: Executive = { id: 0, name: "Not assigned" };
 // Helper to get assignable executives based on user permissions
 const getAssignableExecutives = (currentUser: any, executives: any[]): any[] => {
   // Basic implementation - adjust based on your permission logic
@@ -335,7 +335,7 @@ const SellersPage: React.FC = () => {
           phone: u.phone,
           username: u.raw?.username || u.username,
         }));
-
+setExecutives([UNASSIGNED_EXEC, ...mapped]);
         setExecutives(mapped);
       } catch (e) {
         console.error('Error loading executives:', e);
@@ -391,39 +391,72 @@ const SellersPage: React.FC = () => {
 
   // ==================== BULK OPERATIONS ====================
 
-  const handleBulkAssign = async (assignedTo: number) => {
-    if (selectedSellers.length === 0) {
-      toast.info("Please select sellers to assign");
-      return;
-    }
+const handleBulkAssign = async (assignedTo: number) => {
+  if (selectedSellers.length === 0) {
+    toast.info("Please select sellers to assign");
+    return;
+  }
 
-    try {
-      const sellerIds = selectedSellers.map(id => String(id));
-      await sellerAPI.bulkAssignExecutive(sellerIds, assignedTo);
+  try {
+    const sellerIds = selectedSellers.map(id => String(id));
 
-      // Find executive details
-      const executive = executives.find(exec => exec.id === assignedTo);
-      
-      // Update local state
+    if (assignedTo === 0) {
+      // ✅ Unassign path
+      // Prefer a dedicated API if you have it:
+      // await sellerAPI.bulkUnassignExecutive(sellerIds);
+
+      // Fallback 1: generic field update to NULL
+      try {
+        await sellerAPI.bulkUpdateLeadField(sellerIds, "assigned_to", null);
+      } catch {
+        // Fallback 2: your bulkAssign may accept null/0 as unassign
+        await sellerAPI.bulkAssignExecutive(sellerIds as any, null as any);
+      }
+
+      // Local state update
       setSellers(prev => prev.map(seller =>
         selectedSellers.includes(seller.id)
-          ? { 
-              ...seller, 
-              assigned_to: assignedTo,
-              assigned_to_name: executive?.name || 'Executive',
-              assigned_to_email: executive?.email,
-              assigned_to_phone: executive?.phone
+          ? {
+              ...seller,
+              assigned_to: 0,
+              assigned_to_name: "Unassigned",
+              assigned_to_email: undefined,
+              assigned_to_phone: undefined,
+              assigned: "Unassigned",
             }
           : seller
       ));
-
       setSelectedSellers([]);
-      toast.success(`Assigned ${selectedSellers.length} seller(s) successfully`);
-    } catch (err) {
-      console.error("Error bulk assigning:", err);
-      toast.error("Failed to assign sellers");
+      toast.success(`Unassigned ${sellerIds.length} seller(s) successfully`);
+      return;
     }
-  };
+
+    // ✅ Normal assign
+    await sellerAPI.bulkAssignExecutive(sellerIds, assignedTo);
+
+    const executive = executives.find(exec => exec.id === assignedTo);
+
+    setSellers(prev => prev.map(seller =>
+      selectedSellers.includes(seller.id)
+        ? {
+            ...seller,
+            assigned_to: assignedTo,
+            assigned_to_name: executive?.name || 'Executive',
+            assigned_to_email: executive?.email,
+            assigned_to_phone: executive?.phone,
+            assigned: executive?.name || 'Executive',
+          }
+        : seller
+    ));
+
+    setSelectedSellers([]);
+    toast.success(`Assigned ${sellerIds.length} seller(s) successfully`);
+  } catch (err) {
+    console.error("Error bulk assigning:", err);
+    toast.error("Failed to assign sellers");
+  }
+};
+
 
   const handleBulkStatusUpdate = async (status: string) => {
     if (selectedSellers.length === 0) {
@@ -1133,21 +1166,21 @@ const SellersPage: React.FC = () => {
 
               {/* Bulk Assign Executive */}
               <select
-                onChange={(e) => {
-                  const execId = Number(e.target.value);
-                  if (execId) handleBulkAssign(execId);
-                  e.target.value = "";
-                }}
-                className="px-2 py-1 border border-gray-300 rounded text-xs"
-                disabled={execsLoading}
-              >
-                <option value="">Assign Executive</option>
-                {executives.map(exec => (
-                  <option key={exec.id} value={exec.id}>
-                    {exec.name}
-                  </option>
-                ))}
-              </select>
+  onChange={(e) => {
+    const execId = Number(e.target.value);
+    if (!Number.isNaN(execId)) handleBulkAssign(execId);
+    e.target.value = "";
+  }}
+  className="px-2 py-1 border border-gray-300 rounded text-xs"
+  disabled={execsLoading}
+>
+  <option value="">Assign Executive</option>
+  <option value={0}>— Unassigned —</option>
+  {executives.map(exec => (
+    <option key={exec.id} value={exec.id}>{exec.name}</option>
+  ))}
+</select>
+
 
               {/* Bulk Stage Update */}
               <select

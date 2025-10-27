@@ -1159,7 +1159,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                   </div>
                 ))}
                 {localities.length < 5 && (
-                  <div className="text-xs text-white px-2 py-1">Add up to 5 localities.</div>
+                  <div className="text-xs text-white px-2 py-1">Add up to 1 localities.</div>
                 )}
               </div>
             </form>
