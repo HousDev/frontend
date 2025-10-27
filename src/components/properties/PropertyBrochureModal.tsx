@@ -1,3 +1,4 @@
+// src/components/marketing/PropertyBrochureModal.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   X,
@@ -8,17 +9,19 @@ import {
   Bath,
   Car,
   Ruler,
-  Calendar,
   CheckCircle,
   Sparkles,
-  Eye,
   Phone,
   User,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import propertiesAPI from '@/lib/propertiesAPI';
+import propertyTagsAPI from '@/lib/propertyTagsAPI';
+import getTagStyle, { DEFAULT_TAG_STYLE, TagTone } from '@/lib/tagStyles';
 
 /* -------------------- Types -------------------- */
+type AssignedTo = { name?: string; email?: string; phone?: string } | null;
+
 type Property = {
   id?: string | number;
   title?: string;
@@ -53,9 +56,13 @@ type Property = {
   aiScore?: number;
   priceGrowth?: string;
   investmentGrade?: string;
-  agent?: { name?: string; phone?: string };
+  assigned_to?: AssignedTo;
   raw?: any;
-  seller?: { phone?: string } | null;
+  executive?: { name?: string; email?: string; phone?: string } | null;
+  assignedTo?: { name?: string; email?: string; phone?: string } | null;
+  executive_name?: string;
+  executive_email?: string;
+  executive_phone?: string;
 };
 
 type ContentOption = {
@@ -82,14 +89,11 @@ type Props = {
 
 /* -------------------- Content Options -------------------- */
 const CONTENT_OPTIONS: ContentOption[] = [
-  // Basic
   { key: 'propertyType', label: 'Property Type', description: 'Property type, unit type, subtype', category: 'basic' },
   { key: 'location', label: 'Location', description: 'Full address and locality', category: 'basic' },
   { key: 'price', label: 'Price', description: 'Property price and price per sq ft', category: 'basic' },
   { key: 'carpetArea', label: 'Carpet Area', description: 'Total carpet area in sq ft', category: 'basic' },
   { key: 'mainImage', label: 'Main Property Image', description: 'Primary property photo', category: 'basic' },
-
-  // Details
   { key: 'bedrooms', label: 'Bedrooms', description: 'Number of bedrooms', category: 'details' },
   { key: 'bathrooms', label: 'Bathrooms', description: 'Number of bathrooms', category: 'details' },
   { key: 'parking', label: 'Parking', description: 'Parking spaces available', category: 'details' },
@@ -100,29 +104,20 @@ const CONTENT_OPTIONS: ContentOption[] = [
   { key: 'floor', label: 'Floor Details', description: 'Floor number and total floors', category: 'details' },
   { key: 'wing', label: 'Wing/Tower', description: 'Wing or tower name', category: 'details' },
   { key: 'unitNo', label: 'Unit Number', description: 'Specific unit number', category: 'details' },
-
-  // Features
   { key: 'description', label: 'Property Description', description: 'Detailed description', category: 'features' },
   { key: 'amenities', label: 'Amenities', description: 'All property amenities', category: 'features' },
   { key: 'furnishingItems', label: 'Furnishing Items', description: 'List of furnishing items', category: 'features' },
   { key: 'verified', label: 'Verification Badge', description: 'Verified property badge', category: 'features' },
   { key: 'featured', label: 'Featured Badge', description: 'Premium/Featured badge', category: 'features' },
-
-  // Location
   { key: 'nearbyPlaces', label: 'Nearby Places', description: 'Schools, hospitals, transport', category: 'location' },
   { key: 'locationMap', label: 'Location Map', description: 'Area map visualization', category: 'location' },
-
-  // Investment
   { key: 'aiScore', label: 'AI Property Score', description: 'AI-based property rating', category: 'investment' },
   { key: 'priceGrowth', label: 'Price Growth', description: 'Expected price appreciation', category: 'investment' },
   { key: 'investmentGrade', label: 'Investment Grade', description: 'Investment rating', category: 'investment' },
   { key: 'roiPotential', label: 'ROI Potential', description: 'Return on investment', category: 'investment' },
   { key: 'marketPosition', label: 'Market Position', description: 'Position in locality', category: 'investment' },
-  // { key: 'listedDays', label: 'Listed Days', description: 'Days since listing', category: 'investment' },
-
-  // Contact
-  { key: 'agentInfo', label: 'Agent Information', description: 'Agent name and contact', category: 'contact' },
-  { key: 'contactDetails', label: 'Contact Phone', description: 'Contact phone number', category: 'contact' },
+  { key: 'assignedToInfo', label: 'Assigned Executive', description: 'Assigned person name & contact', category: 'contact' },
+  { key: 'contactDetails', label: 'Contact Phone', description: 'Primary contact phone', category: 'contact' },
 ];
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -175,8 +170,20 @@ const safeNumber = (v?: number | string | null): number => {
 
 const formatCurrency = (amount?: number | string | null) => {
   const n = safeNumber(amount);
-  if (n >= 10_000_000) return `₹${(n / 10_000_000).toFixed(1)}Cr`;
-  if (n >= 100_000) return `₹${(n / 100_000).toFixed(1)}L`;
+  
+  // Fixed lakhs formatting - properly handle 60.5L, 75L, etc.
+  if (n >= 10_000_000) {
+    return `₹${(n / 10_000_000).toFixed(1)}Cr`;
+  }
+  if (n >= 100_000) {
+    const lakhs = n / 100_000;
+    // Check if it's a whole number or has decimal
+    if (lakhs % 1 === 0) {
+      return `₹${lakhs.toFixed(0)}L`;
+    } else {
+      return `₹${lakhs.toFixed(1)}L`;
+    }
+  }
   return `₹${n.toLocaleString('en-IN')}`;
 };
 
@@ -204,6 +211,68 @@ function useOutsideClick<T extends HTMLElement>(onClose: () => void) {
   }, [onClose]);
   return ref;
 }
+
+/* -------------------- Small helpers -------------------- */
+const isDataUrl = (s: string) => /^data:/.test(s);
+
+async function fetchAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    const blob = await res.blob();
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(String(reader.result || ''));
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Normalize assigned executive */
+function normalizeAssignedTo(p?: Property | null): AssignedTo {
+  if (!p) return null;
+
+  const candidates: AssignedTo[] = [
+    p.assigned_to ?? null,
+    p.assignedTo ?? null,
+    p.executive ?? null,
+  ].filter(Boolean) as AssignedTo[];
+
+  const flat: AssignedTo = {
+    name: p.executive_name || p.raw?.assigned_to_name || p.raw?.executive_name,
+    email: p.executive_email || p.raw?.assigned_to_email || p.raw?.executive_email,
+    phone: p.executive_phone || p.raw?.assigned_to_phone || p.raw?.executive_phone,
+  };
+
+  const base = { ...(candidates[0] || {}) };
+  const name = base.name || flat.name;
+  const email = base.email || flat.email;
+  const phone = base.phone || flat.phone;
+
+  if (!name && !email && !phone) return null;
+
+  return { name, email, phone };
+}
+
+/* ==================== Tag Badge ==================== */
+const TagBadge: React.FC<{ label: string }> = ({ label }) => {
+  const tone: TagTone = getTagStyle(label, DEFAULT_TAG_STYLE);
+  const maybeIconOrEmoji = tone.emoji;
+  const IconComp = typeof maybeIconOrEmoji === 'function' ? (maybeIconOrEmoji as any) : null;
+  const emoji = typeof maybeIconOrEmoji === 'string' ? maybeIconOrEmoji : null;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] leading-tight ring-1 ${tone.bg} ${tone.text} ${tone.ring}`}
+      style={{ backdropFilter: 'saturate(1.2) blur(2px)' }}
+      title={label}
+    >
+      {IconComp ? <IconComp size={12} /> : emoji ? <span>{emoji}</span> : null}
+      <span className="font-semibold">{label}</span>
+    </span>
+  );
+};
 
 /* ==================== Content Options Dropdown ==================== */
 type ContentDropdownProps = {
@@ -343,7 +412,11 @@ const ContentOptionsDropdown: React.FC<ContentDropdownProps> = ({ customizations
 };
 
 /* ==================== Preview Component ==================== */
-const BrochurePreview: React.FC<{ property: Property | null; customizations: Customizations }> = ({ property, customizations }) => {
+const BrochurePreview: React.FC<{
+  property: Property | null;
+  customizations: Customizations;
+  tags: string[];
+}> = ({ property, customizations, tags }) => {
   const selected = customizations.selectedContent instanceof Set ? customizations.selectedContent : new Set(customizations.selectedContent);
   const images = property?.images || property?.photos || [];
   const mainImage =
@@ -387,10 +460,27 @@ const BrochurePreview: React.FC<{ property: Property | null; customizations: Cus
           </div>
         )}
 
-        {/* Main Image */}
-        {selected.has('mainImage') && <img src={mainImage} alt="Property" className="w-full h-48 object-cover" />}
+        {/* Main Image + OVERLAID TAGS */}
+        {selected.has('mainImage') && (
+          <div className="relative w-full h-48">
+            <img
+              src={mainImage}
+              alt="Property"
+              className="w-full h-48 object-cover"
+              crossOrigin="anonymous"
+              referrerPolicy="no-referrer"
+            />
+            {tags.length > 0 && (
+              <div className="absolute top-2 left-2 flex flex-wrap gap-1.5 max-w-[92%]">
+                {tags.slice(0, 5).map((t, i) => (
+                  <TagBadge key={`${t}-${i}`} label={t} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Price */}
+        {/* Price - FIXED LAKHS FORMATTING */}
         {selected.has('price') && (
           <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -611,28 +701,32 @@ const BrochurePreview: React.FC<{ property: Property | null; customizations: Cus
           </div>
         )}
 
-     
-       
-
         {/* Contact Info */}
-        {(selected.has('agentInfo') || selected.has('contactDetails')) && (
+        {(selected.has('assignedToInfo') || selected.has('contactDetails')) && (
           <div className="p-4 bg-gray-50">
             <h3 className="font-semibold text-gray-900 mb-3 text-sm">Contact Information</h3>
-            {selected.has('agentInfo') && property?.agent?.name && (
+
+            {selected.has('assignedToInfo') && (
               <div className="flex items-center gap-2 mb-2">
                 <User size={16} className="text-blue-600" />
                 <div>
-                  <div className="text-xs text-gray-600">Agent Name</div>
-                  <div className="font-medium text-sm">{property.agent.name}</div>
+                  <div className="text-xs text-gray-600">Assigned Executive</div>
+                  <div className="font-medium text-sm">{displayOrDash(property?.assigned_to?.name)}</div>
+                  {property?.assigned_to?.email ? (
+                    <div className="text-xs text-gray-600">{property.assigned_to.email}</div>
+                  ) : null}
                 </div>
               </div>
             )}
-            {selected.has('contactDetails') && property?.agent?.phone && (
+
+            {selected.has('contactDetails') && property?.assigned_to?.phone && (
               <div className="flex items-center gap-2">
                 <Phone size={16} className="text-green-600" />
                 <div>
                   <div className="text-xs text-gray-600">Contact Number</div>
-                  <div className="font-medium text-sm">{property.agent.phone}</div>
+                  <div className="font-medium text-sm">
+                    {property.assigned_to.phone}
+                  </div>
                 </div>
               </div>
             )}
@@ -655,17 +749,75 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
   const [brochureTemplate, setBrochureTemplate] = useState<string>('premium');
   const [customizations, setCustomizations] = useState<Customizations>(defaultCustomizations());
   const [isGenerating, setIsGenerating] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
+  const [mainImageDataUrl, setMainImageDataUrl] = useState<string | null>(null);
+
+  /** Normalize property with assigned_to */
+  const normalizedProperty: Property | null = useMemo(() => {
+    if (!property) return null;
+    const assigned = normalizeAssignedTo(property);
+    return {
+      ...property,
+      assigned_to: assigned,
+    };
+  }, [property]);
+
+  // Load tags
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTags() {
+      try {
+        if (!normalizedProperty?.id && !normalizedProperty?.propertyId) {
+          setTags([]);
+          return;
+        }
+        const pid = (normalizedProperty?.id ?? normalizedProperty?.propertyId) as number | string;
+        const row = await propertyTagsAPI.getById(pid);
+        if (!cancelled) setTags(row?.tags || []);
+      } catch {
+        if (!cancelled) setTags([]);
+      }
+    }
+    if (isOpen) loadTags();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, normalizedProperty?.id, normalizedProperty?.propertyId]);
+
+  // Prepare inline image
+  useEffect(() => {
+    let cancelled = false;
+    async function makeInline() {
+      const images = normalizedProperty?.images || normalizedProperty?.photos || [];
+      const src =
+        images[0] || 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=1200';
+      if (!src) {
+        setMainImageDataUrl(null);
+        return;
+      }
+      if (isDataUrl(src)) {
+        setMainImageDataUrl(src);
+        return;
+      }
+      const data = await fetchAsDataUrl(src);
+      if (!cancelled) setMainImageDataUrl(data);
+    }
+    if (isOpen) makeInline();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, normalizedProperty?.images, normalizedProperty?.photos]);
 
   useEffect(() => {
     if (isOpen) {
       setBrochureTemplate('premium');
       setCustomizations(defaultCustomizations());
     }
-  }, [isOpen, property]);
+  }, [isOpen, normalizedProperty]);
 
   if (!isOpen) return null;
 
-  /* -------------------- Brochure Generate (robust) -------------------- */
+  /* Generate Brochure */
   const generateBrochure = async () => {
     setIsGenerating(true);
 
@@ -697,7 +849,6 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
     };
 
     try {
-      // Normalize selections (Set | string[] -> string[])
       const selectedContent =
         customizations.selectedContent instanceof Set
           ? Array.from(customizations.selectedContent as Set<string>)
@@ -708,14 +859,20 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
       const brochureData = {
         template: brochureTemplate,
         customizations: { ...customizations, selectedContent },
-        property, // optional: backend will re-fetch by id, but we send for convenience
+        property: normalizedProperty,
+        tags,
+        assets: {
+          mainImageDataUrl: mainImageDataUrl || null,
+        },
         generatedAt: new Date().toISOString(),
       };
 
-      // ⬇ your propertiesAPI should set { responseType: 'blob' } internally
-      const res: any = await propertiesAPI.downloadBrochure(property?.id, brochureData);
+      const res: any = await propertiesAPI.downloadBrochure(
+        normalizedProperty?.id ?? normalizedProperty?.propertyId,
+        brochureData
+      );
 
-      const filename = `${safeFilename(property?.title ?? 'property')}_brochure`;
+      const filename = `${safeFilename(normalizedProperty?.title ?? 'property')}_brochure`;
 
       if (res instanceof Blob) {
         downloadBlob(res, filename);
@@ -751,9 +908,9 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
         return;
       }
 
-      // Fallback sample
+      // Fallback
       const SAMPLE_B64 =
-        'JVBERi0xLjQKJdPr6eEKMSAwIG9iago8PAovVGl0bGUgKFByb3BlcnR5IEJyb2NodXJlKQo+PgplbmRvYmoKMiAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMyAwIFIKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFs0IDAgUl0KL0NvdW50IDEKL01lZGlhQm94IFswIDAgNjEyIDc5Ml0KPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAzIDAgUgovQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCjUgMCBvYmoKPDwKL0xlbmd0aCA0NAo+PgpzdHJlYW0KQlQKL0YxIDI0IFRmCjEwMCA3MDAgVGQKKFByb3BlcnR5IEJyb2NodXJlKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMDc0IDAwMDAwIG4gCjAwMDAwMDAxMjEgMDAwMDAgbiAKMDAwMDAwMDIwMCAwMDAwMCBuIAowMDAwMDAwMjY5IDAwMDAwIG4gCnRyYWlsZXIKPDwKL1NpemUgNgovUm9vdCAyIDAgUgovSW5mbyAxIDAgUgo+PgpzdGFydHhyZWYKMzYyCiUlRU9G';
+        'JVBERi0xLjQKJdPr6eEKMSAwIG9iago8PAovVGl0bGUgKFByb3BlcnR5IEJyb2NodXJlKQo+PgplbmRvYmoKMiAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMyAwIFIKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFs0IDAgUl0KL0NvdW50IDEKL01lZGlhQm94IFswIDAgNjEyIDc5Ml0KPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAzIDAgUgovQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCjUgMCBvYmoKPDwKL0xlZmd0aCA0NAo+PgpzdHJlYW0KQlQKL0YxIDI0IFRmCjEwMCA3MDAgVGQKKFByb3BlcnR5IEJyb2NodXJlKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMDc0IDAwMDAwIG4gCjAwMDAwMDAxMjEgMDAwMDAgbiAKMDAwMDAwMDIwMCAwMDAwMCBuIAowMDAwMDAwMjY5IDAwMDAwIG4gCnRyYWlsZXIKPDwKL1NpemUgNgovUm9vdCAyIDAgUgovSW5mbyAxIDAgUgo+PgpzdGFydHhyZWYKMzYyCiUlRU9G';
       downloadBlob(b64ToBlob(SAMPLE_B64), filename);
       toast.success('✅ Brochure generated (fallback).');
     } catch (err: any) {
@@ -764,14 +921,14 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
     }
   };
 
-  /* -------------------- Share -------------------- */
+  /* Share Brochure */
   const shareBrochure = (channel: 'whatsapp' | 'email' | 'sms' | 'copy' = 'copy') => {
-    const brochureUrl = `https://resaleexpert.in/brochure/${property?.propertyId ?? property?.id ?? ''}`;
-    const price = formatCurrency(property?.price || property?.budget);
-    const message = `🏠 ${property?.title || [property?.type, property?.unitType].filter(Boolean).join(' ')}
-📍 ${property?.locationNormalized || property?.location || ''}${property?.city ? `, ${property.city}` : ''}
+    const brochureUrl = `https://resaleexpert.in/brochure/${normalizedProperty?.propertyId ?? normalizedProperty?.id ?? ''}`;
+    const price = formatCurrency(normalizedProperty?.price || normalizedProperty?.budget);
+    const message = `🏠 ${normalizedProperty?.title || [normalizedProperty?.type, normalizedProperty?.unitType].filter(Boolean).join(' ')}
+📍 ${normalizedProperty?.locationNormalized || normalizedProperty?.location || ''}${normalizedProperty?.city ? `, ${normalizedProperty.city}` : ''}
 💰 ${price}
-🏢 ${property?.unitType ?? ''} ${property?.carpetArea || property?.square_feet ? `• ${property?.carpetArea || property?.square_feet} sq ft` : ''}
+🏢 ${normalizedProperty?.unitType ?? ''} ${normalizedProperty?.carpetArea || normalizedProperty?.square_feet ? `• ${normalizedProperty?.carpetArea || normalizedProperty?.square_feet} sq ft` : ''}
 
 📄 View detailed brochure: ${brochureUrl}`;
 
@@ -780,7 +937,7 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
         break;
       case 'email': {
-        const subject = `Property Brochure - ${property?.title || 'Property Listing'}`;
+        const subject = `Property Brochure - ${normalizedProperty?.title || 'Property Listing'}`;
         window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
         break;
       }
@@ -795,7 +952,6 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
     }
   };
 
-  /* -------------------- Render -------------------- */
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -805,8 +961,8 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Create Property Brochure</h2>
               <p className="text-gray-600 mt-1">
-                {property?.title ||
-                  [property?.type, property?.unitType, property?.subtype].filter(Boolean).join(' ') ||
+                {normalizedProperty?.title ||
+                  [normalizedProperty?.type, normalizedProperty?.unitType, normalizedProperty?.subtype].filter(Boolean).join(' ') ||
                   'Property'}{' '}
                 - Professional Marketing Material
               </p>
@@ -925,7 +1081,7 @@ const PropertyBrochureModal: React.FC<Props> = ({ isOpen, onClose, property }) =
 
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Live Preview</h3>
-                <BrochurePreview property={property} customizations={customizations} />
+                <BrochurePreview property={normalizedProperty} customizations={customizations} tags={tags} />
               </div>
             </div>
           </div>

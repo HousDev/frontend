@@ -13,11 +13,13 @@ export type FiltersState = {
   status?: string;
   budgetRange: string;
   propertyType: string;
+  assigned_executive: string; 
+
   
 };
 
 type OptionList = string[];
-
+type ExecOption = { id: string | number; name: string };
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -30,6 +32,7 @@ interface Props {
   priorities: OptionList;
   budgetRanges: OptionList;
   propertyTypes: OptionList;
+   executives: ExecOption[];
 }
 
 /**
@@ -50,6 +53,7 @@ const BuyerSidebarFilter: React.FC<Props> = ({
   priorities,
   budgetRanges,
   propertyTypes,
+   executives
 }) => {
   // SSR guard
   if (typeof window === "undefined") return null;
@@ -201,6 +205,22 @@ const BuyerSidebarFilter: React.FC<Props> = ({
                 ))}
               </select>
             </div>
+
+            <div>
+  <label className="block text-xs font-medium text-gray-700 mb-1">Executive</label>
+  <select
+    value={filters.assigned_executive}
+    onChange={(e) => onChange("assigned_executive", e.target.value)}
+    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
+  >
+    <option value="all">All</option>
+    {executives.map((ex) => (
+      <option key={ex.id} value={String(ex.id)}>
+        {ex.name} 
+      </option>
+    ))}
+  </select>
+</div>
              {/* From Date */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">From Date</label>

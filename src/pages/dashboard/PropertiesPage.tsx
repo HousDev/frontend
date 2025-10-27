@@ -129,8 +129,8 @@ const getDisplayName = (u: any): string => {
     u?.full_name,
     u?.fullName,
     (u?.first_name && u?.last_name)
-  ? `${u.salutation ? u.salutation + ' ' : ''}${u.first_name} ${u.last_name}`
-  : '',
+      ? `${u.salutation ? u.salutation + ' ' : ''}${u.first_name} ${u.last_name}`
+      : '',
     u?.name,
     u?.username,
     u?.email,
@@ -252,8 +252,8 @@ const TagPickerRow: React.FC<{
                   <li
                     key={t}
                     className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${active
-                        ? "border-blue-400 bg-blue-50/40 shadow-sm"
-                        : "border-gray-200 hover:border-gray-300"
+                      ? "border-blue-400 bg-blue-50/40 shadow-sm"
+                      : "border-gray-200 hover:border-gray-300"
                       } ${label === "Remove" && isCurrentlyApplied ? "ring-1 ring-green-200 bg-green-50/30" : ""}`}
                     onClick={() => toggle(t)}
                   >
@@ -381,24 +381,24 @@ const AssignExecutiveModal: React.FC<{
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Select Executive
           </label>
-        
 
-<select
-  value={selectedExecutive}
-  onChange={(e) => setSelectedExecutive(e.target.value)}
-  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-  disabled={assigning || executives.length === 0}
->
-  <option value="">Choose an executive...</option>
-  {executives.map((executive) => (
-    <option key={executive.id} value={executive.id}>
-      {/* ✅ सिर्फ executive.name use करें - वही proper formatted name है */}
-      {executive.name}
-      {executive.department && ` - ${executive.department}`}
-      {executive.role && ` (${executive.role})`}
-    </option>
-  ))}
-</select>
+
+          <select
+            value={selectedExecutive}
+            onChange={(e) => setSelectedExecutive(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            disabled={assigning || executives.length === 0}
+          >
+            <option value="">Choose an executive...</option>
+            {executives.map((executive) => (
+              <option key={executive.id} value={executive.id}>
+                {/* ✅ सिर्फ executive.name use करें - वही proper formatted name है */}
+                {executive.name}
+                {executive.department && ` - ${executive.department}`}
+                {executive.role && ` (${executive.role})`}
+              </option>
+            ))}
+          </select>
           {executives.length === 0 && (
             <p className="text-xs text-red-500 mt-1">
               No sales executives available. Please check if executives are properly configured.
@@ -438,48 +438,75 @@ const AssignExecutiveModal: React.FC<{
 };
 
 /* ---------------------- Price Range Helper ---------------------- */
+/* ---------------------- Price Range Helper ---------------------- */
 function checkPriceRange(price: number, selectedRange: string) {
-  if (selectedRange === "all") return true;
+  if (selectedRange === "all" || !selectedRange) return true;
 
+  // Handle empty or invalid price
+  if (!price || price <= 0) return false;
+
+  // Handle specific price ranges like "50L-80L", "1Cr-2Cr", "80L-1Cr", "2Cr+"
   if (selectedRange.includes("-")) {
     const [minRaw, maxRaw] = selectedRange.split("-").map(r => r.trim());
 
-    const parseVal = (raw: string) => {
+    const parsePriceValue = (raw: string): number => {
+      if (!raw) return 0;
+
+      // Extract numbers and multipliers
+      const numMatch = raw.match(/(\d+(?:\.\d+)?)/);
+      if (!numMatch) return 0;
+
+      const num = parseFloat(numMatch[1]);
+
       if (raw.toLowerCase().includes("cr")) {
-        return parseInt(raw.replace(/\D/g, "")) * 10000000;
+        return num * 10000000; // 1 crore = 10 million
       }
       if (raw.toLowerCase().includes("l")) {
-        return parseInt(raw.replace(/\D/g, "")) * 100000;
+        return num * 100000; // 1 lakh = 100,000
       }
-      return parseInt(raw.replace(/\D/g, ""));
+      return num;
     };
 
-    const min = parseVal(minRaw);
-    const max = parseVal(maxRaw);
+    const min = parsePriceValue(minRaw);
+    const max = parsePriceValue(maxRaw);
 
     return price >= min && price <= max;
   }
 
+  // Handle "min+" ranges like "2Cr+", "80L+"
   if (selectedRange.endsWith("+")) {
     const raw = selectedRange.replace("+", "").trim();
 
-    const parseVal = (raw: string) => {
+    const parsePriceValue = (raw: string): number => {
+      if (!raw) return 0;
+
+      const numMatch = raw.match(/(\d+(?:\.\d+)?)/);
+      if (!numMatch) return 0;
+
+      const num = parseFloat(numMatch[1]);
+
       if (raw.toLowerCase().includes("cr")) {
-        return parseInt(raw.replace(/\D/g, "")) * 10000000;
+        return num * 10000000;
       }
       if (raw.toLowerCase().includes("l")) {
-        return parseInt(raw.replace(/\D/g, "")) * 100000;
+        return num * 100000;
       }
-      return parseInt(raw.replace(/\D/g, ""));
+      return num;
     };
 
-    const min = parseVal(raw);
+    const min = parsePriceValue(raw);
     return price >= min;
+  }
+
+  // Handle simple numeric ranges (fallback)
+  const numMatch = selectedRange.match(/(\d+(?:\.\d+)?)/);
+  if (numMatch) {
+    const num = parseFloat(numMatch[1]);
+    return price === num;
   }
 
   return true;
 }
-
 function Emoji({
   emoji,
   size = 12,
@@ -592,7 +619,7 @@ const ImageWithDebug: React.FC<{
       style={{ objectFit: fitCover ? 'cover' : undefined }}
       onLoad={() => {
         if (import.meta.env?.MODE !== 'production') {
-          
+
         }
       }}
       onError={() => {
@@ -710,28 +737,28 @@ function normalizeProperty(r: any, idx: number): UIProperty {
   })();
 
   // Normalize assigned executive data
-// Normalize assigned executive data — only if it has a valid id
-// Normalize assigned executive data - BETTER PRIORITY
-const normalizedAssignedTo = (() => {
-  const raw = r?.assignedTo ?? (r?.assigned_to != null ? { 
-    id: r.assigned_to,
-    name: r.assigned_to_name,
-    full_name: r.assigned_to_full_name
-  } : undefined);
+  // Normalize assigned executive data — only if it has a valid id
+  // Normalize assigned executive data - BETTER PRIORITY
+  const normalizedAssignedTo = (() => {
+    const raw = r?.assignedTo ?? (r?.assigned_to != null ? {
+      id: r.assigned_to,
+      name: r.assigned_to_name,
+      full_name: r.assigned_to_full_name
+    } : undefined);
 
-  if (!raw) return undefined;
-  const id = raw.id ?? raw.userId ?? raw.user_id ?? r?.assigned_to;
-  if (id === null || id === undefined || String(id).trim() === '') return undefined;
+    if (!raw) return undefined;
+    const id = raw.id ?? raw.userId ?? raw.user_id ?? r?.assigned_to;
+    if (id === null || id === undefined || String(id).trim() === '') return undefined;
 
-  return {
-    id,
-    name: getDisplayName(raw),   // ✅ unified
-    email: raw.email,
-    phone: raw.phone,
-    department: raw.department,
-    role: raw.role,
-  };
-})();
+    return {
+      id,
+      name: getDisplayName(raw),   // ✅ unified
+      email: raw.email,
+      phone: raw.phone,
+      department: raw.department,
+      role: raw.role,
+    };
+  })();
 
 
 
@@ -888,9 +915,11 @@ function tabCountClass(active: boolean, color: string) {
 /* ---------------------- Component ---------------------- */
 const PropertiesPage = () => {
   const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "all";
     const sp = new URLSearchParams(window.location.search);
-    return sp.get('listTab') || localStorage.getItem('prop_list_tab') || 'all';
+    return sp.get("listTab") || localStorage.getItem("prop_list_tab") || "all";
   });
+
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProperties, setSelectedProperties] = useState<(number | string)[]>([]);
@@ -926,59 +955,59 @@ const PropertiesPage = () => {
   const [knownTags, setKnownTags] = useState<string[]>([]);
 
   // Fetch sales executives
-// Fetch sales executives - API response को better handle करें
+  // Fetch sales executives - API response को better handle करें
 
-useEffect(() => {
-  const fetchExecutives = async () => {
-    try {
-      setExecutivesLoading(true);
-      const res = await usersAPI.getByDeptRole({
-        department: "sales",
-        role: "executive", 
-        is_active: 1,
-        limit: 50,
-      });
-
-      // Handle different response formats
-      const items = res?.items ?? res?.data ?? res ?? [];
-
-      if (Array.isArray(items)) {
-        const executives: SalesExecutive[] = items.map((user: any) => {
-          // ✅ PRIORITY: fullName -> name -> username -> fallback
-          const displayName = 
-            user.fullName ||  // पहले fullName check करें
-            user.name ||      // फिर name
-            user.username ||  // फिर username
-            'Unnamed Executive';
-            
-
-          return {
-            id: user.id || user.userId,
-            name: getDisplayName(user),     
-            email: user.email,
-            phone: user.phone || user.mobile,
-            department: user.department,
-            role: user.role,
-            is_active: user.is_active ?? user.active ?? true,
-          };
+  useEffect(() => {
+    const fetchExecutives = async () => {
+      try {
+        setExecutivesLoading(true);
+        const res = await usersAPI.getByDeptRole({
+          department: "sales",
+          role: "executive",
+          is_active: 1,
+          limit: 50,
         });
 
-        setSalesExecutives(executives);
-        
-      } else {
-        console.warn("Unexpected executives response format:", res);
-        setSalesExecutives([]);
-      }
-    } catch (err) {
-      console.error("Error fetching executives:", err);
-      setSalesExecutives([]);
-    } finally {
-      setExecutivesLoading(false);
-    }
-  };
+        // Handle different response formats
+        const items = res?.items ?? res?.data ?? res ?? [];
 
-  fetchExecutives();
-}, []);
+        if (Array.isArray(items)) {
+          const executives: SalesExecutive[] = items.map((user: any) => {
+            // ✅ PRIORITY: fullName -> name -> username -> fallback
+            const displayName =
+              user.fullName ||  // पहले fullName check करें
+              user.name ||      // फिर name
+              user.username ||  // फिर username
+              'Unnamed Executive';
+
+
+            return {
+              id: user.id || user.userId,
+              name: getDisplayName(user),
+              email: user.email,
+              phone: user.phone || user.mobile,
+              department: user.department,
+              role: user.role,
+              is_active: user.is_active ?? user.active ?? true,
+            };
+          });
+
+          setSalesExecutives(executives);
+
+        } else {
+          console.warn("Unexpected executives response format:", res);
+          setSalesExecutives([]);
+        }
+      } catch (err) {
+        console.error("Error fetching executives:", err);
+        setSalesExecutives([]);
+      } finally {
+        setExecutivesLoading(false);
+      }
+    };
+
+    fetchExecutives();
+  }, []);
 
   // Persist active tab
   useEffect(() => {
@@ -1020,6 +1049,8 @@ useEffect(() => {
     minBudget: '',
     maxBudget: '',
     sortOrder: 'created_desc',
+    assignedExecutive: 'all',
+    isPublic: undefined,
   };
   const [filters, setFilters] = useState(initialFilters);
   const clearFilters = () => {
@@ -1027,36 +1058,36 @@ useEffect(() => {
   };
   const [properties, setProperties] = useState<UIProperty[]>([]);
 
-// API call के बाद response को log करें
-// API call के बाद response को debug करें
-const fetchPropertiesOnce = async () => {
-  if (typeof (propertiesAPI as any)?.getProperties !== 'function') {
-    throw new Error('propertiesAPI.getProperties is not a function (check import/path).');
-  }
-  const raw = await withTimeout(propertiesAPI.getProperties(), 12000);
-  
-  // ✅ BETTER DEBUG: API response check करें
- 
-  
-  if (Array.isArray(raw)) {
-    raw.forEach((property, index) => {
-      if (property.assigned_to) {
+  // API call के बाद response को log करें
+  // API call के बाद response को debug करें
+  const fetchPropertiesOnce = async () => {
+    if (typeof (propertiesAPI as any)?.getProperties !== 'function') {
+      throw new Error('propertiesAPI.getProperties is not a function (check import/path).');
+    }
+    const raw = await withTimeout(propertiesAPI.getProperties(), 12000);
+
+    // ✅ BETTER DEBUG: API response check करें
+
+
+    if (Array.isArray(raw)) {
+      raw.forEach((property, index) => {
+        if (property.assigned_to) {
+        }
+      });
+    }
+
+    const list = Array.isArray(raw) ? raw : raw?.data || [];
+    const mapped = list.map((r: any, idx: number) => normalizeProperty(r, idx));
+
+    // ✅ Check normalized data
+    mapped.forEach((property, index) => {
+      if (property.assignedTo) {
+
       }
     });
-  }
-  
-  const list = Array.isArray(raw) ? raw : raw?.data || [];
-  const mapped = list.map((r: any, idx: number) => normalizeProperty(r, idx));
-  
-  // ✅ Check normalized data
-  mapped.forEach((property, index) => {
-    if (property.assignedTo) {
-     
-    }
-  });
-  
-  return mapped;
-};
+
+    return mapped;
+  };
   const presetTags = useMemo(() => Object.keys(DEFAULT_TAG_STYLE), []);
   const dynamicTagUniverse = useMemo(
     () => getUniquePropertyTagsFromCache(propTags),
@@ -1207,40 +1238,120 @@ const fetchPropertiesOnce = async () => {
     ],
     [properties]
   );
+const filteredProperties = useMemo(() => {
+  const out = properties.filter((p) => {
+    const matchesSearch =
+      (p.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.propertyId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.society || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.seller?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-  const filteredProperties = useMemo(() => {
-    const out = properties.filter((p) => {
-      const matchesSearch =
-        (p.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.propertyId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.society || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.seller?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTab =
+      activeTab === 'all' ||
+      (activeTab === 'available' && p.status === 'Available') ||
+      (activeTab === 'sold' && p.status === 'Sold') ||
+      (activeTab === 'negotiation' && p.status === 'Under Negotiation') ||
+      (activeTab === 'public' && p.isPublic) ||
+      (activeTab === 'hot' && (Number(p.hotLeads) || 0) > 2);
 
-      const matchesTab =
-        activeTab === 'all' ||
-        (activeTab === 'available' && p.status === 'Available') ||
-        (activeTab === 'sold' && p.status === 'Sold') ||
-        (activeTab === 'negotiation' && p.status === 'Under Negotiation') ||
-        (activeTab === 'public' && p.isPublic) ||
-        (activeTab === 'hot' && (Number(p.hotLeads) || 0) > 2);
+    // Executive filter
+    const matchesExecutive = 
+      filters.assignedExecutive === 'all' ||
+      (filters.assignedExecutive === '__unassigned__' && !p.assignedTo?.id) ||
+      (p.assignedTo?.id != null && String(p.assignedTo.id) === String(filters.assignedExecutive));
 
-      const matchesFilters =
-        (filters.type === 'all' || p.type === filters.type) &&
-        (filters.status === 'all' || p.status === filters.status) &&
-        (filters.location === 'all' || p.location === filters.location || p.city === filters.location) &&
-        (filters.stage === 'all' || p.stage === filters.stage.toLowerCase().replace(/\s+/g, "_")) &&
-        (filters.priceRange === 'all' || checkPriceRange(Number(p.budget), filters.priceRange)) &&
-        (
-          filters.tags === 'all' ||
-          (propTags[String(p.id)] || []).some(t => t === filters.tags)
-        );
+    // Public/Private filter
+    const matchesPublicFilter = 
+      filters.isPublic === undefined ||
+      filters.isPublic === Boolean(p.isPublic);
 
-      return matchesSearch && matchesTab && matchesFilters;
-    });
-    return out;
-  }, [properties, searchTerm, activeTab, filters, propTags]);
+    // Price range filter
+    const matchesPriceRange = (() => {
+      if (filters.priceRange === 'all' || !filters.priceRange) return true;
+      
+      const price = Number(p.budget);
+      if (!price || price <= 0) return false;
+      
+      return checkPriceRange(price, filters.priceRange);
+    })();
 
+    // Min/Max budget filter
+    const matchesBudgetRange = (() => {
+      const price = Number(p.budget);
+      if (!price || price <= 0) return false;
+      
+      const minBudget = filters.minBudget ? Number(filters.minBudget) : 0;
+      const maxBudget = filters.maxBudget ? Number(filters.maxBudget) : Infinity;
+      
+      return price >= minBudget && price <= maxBudget;
+    })();
+
+    // ✅ DATE FILTER - FIXED
+    const matchesDateRange = (() => {
+      if (filters.ignoreDate) return true;
+      
+      const dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : null;
+      const dateTo = filters.dateTo ? new Date(filters.dateTo) : null;
+      
+      if (!dateFrom && !dateTo) return true;
+      
+      // Use created_at date for filtering
+      const propertyDate = new Date(p.created_at || p.updated_at || 0);
+      propertyDate.setHours(0, 0, 0, 0); // Normalize time
+      
+      if (dateFrom && dateTo) {
+        dateFrom.setHours(0, 0, 0, 0);
+        dateTo.setHours(23, 59, 59, 999);
+        return propertyDate >= dateFrom && propertyDate <= dateTo;
+      } else if (dateFrom) {
+        dateFrom.setHours(0, 0, 0, 0);
+        return propertyDate >= dateFrom;
+      } else if (dateTo) {
+        dateTo.setHours(23, 59, 59, 999);
+        return propertyDate <= dateTo;
+      }
+      
+      return true;
+    })();
+
+    const matchesFilters =
+      (filters.type === 'all' || p.type === filters.type) &&
+      (filters.status === 'all' || p.status === filters.status) &&
+      (filters.location === 'all' || p.location === filters.location || p.city === filters.location) &&
+      (filters.stage === 'all' || p.stage === filters.stage.toLowerCase().replace(/\s+/g, "_")) &&
+      matchesPriceRange &&
+      matchesBudgetRange &&
+      (filters.tags === 'all' || (propTags[String(p.id)] || []).some(t => t === filters.tags)) &&
+      matchesExecutive &&
+      matchesPublicFilter &&
+      matchesDateRange; // ✅ DATE FILTER INCLUDED
+
+    return matchesSearch && matchesTab && matchesFilters;
+  });
+
+  // ✅ SORT LOGIC - FIXED
+  const sorted = [...out].sort((a, b) => {
+    switch (filters.sortOrder) {
+      case 'created_asc':
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      
+      case 'created_desc':
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      
+      case 'price_asc':
+        return (Number(a.budget) || 0) - (Number(b.budget) || 0);
+      
+      case 'price_desc':
+        return (Number(b.budget) || 0) - (Number(a.budget) || 0);
+      
+      default:
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    }
+  });
+
+  return sorted;
+}, [properties, searchTerm, activeTab, filters, propTags]);
   const totalPages = Math.max(1, Math.ceil(filteredProperties.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedProperties = filteredProperties.slice(startIndex, startIndex + itemsPerPage);
@@ -1304,7 +1415,7 @@ const fetchPropertiesOnce = async () => {
   const handleAssignExecutive = (property: UIProperty) => {
     setAssigningProperty(property);
     setShowAssignModal(true);
-    
+
   };
 
   const handleBulkAssignExecutive = () => {
@@ -1315,22 +1426,69 @@ const fetchPropertiesOnce = async () => {
     setShowAssignModal(true);
   };
 
-const handleSingleAssign = async (executiveId: number | string, executiveName: string) => {
-  if (!assigningProperty) return;
+  const handleSingleAssign = async (executiveId: number | string, executiveName: string) => {
+    if (!assigningProperty) return;
 
-  try {
-    const assignedToId = Number(executiveId);
-    const payload = { assigned_to: assignedToId };
+    try {
+      const assignedToId = Number(executiveId);
+      const payload = { assigned_to: assignedToId };
 
-    const response = await propertiesAPI.updateAssignedTo(assigningProperty.id, payload);
+      const response = await propertiesAPI.updateAssignedTo(assigningProperty.id, payload);
 
-    if (response.success) {
+      if (response.success) {
+        const executive = salesExecutives.find(e => e.id === executiveId);
+
+        // ✅ Executive details को properly set करें - SAME NAME USE करें
+        const updatedAssignedTo = executive ? {
+          id: executive.id,
+          name: executive.name,
+          email: executive.email,
+          phone: executive.phone,
+          department: executive.department,
+          role: executive.role
+        } : {
+          id: executiveId,
+          name: executiveName,
+          email: '',
+          phone: '',
+          department: '',
+          role: ''
+        };
+
+        // ✅ ALL state updates
+        setProperties(prev => prev.map(p =>
+          p.id === assigningProperty.id
+            ? { ...p, assignedTo: updatedAssignedTo }
+            : p
+        ));
+
+        setCurrentPropertyView(prev =>
+          prev && String(prev.id) === String(assigningProperty.id)
+            ? { ...prev, assignedTo: updatedAssignedTo }
+            : prev
+        );
+
+        toast.success(`Property assigned to ${executiveName}`);
+
+      } else {
+        toast.error("Failed to assign executive");
+      }
+    } catch (error: any) {
+      console.error("Assign executive failed:", error);
+      toast.error(error?.response?.data?.message || "Error assigning executive");
+    }
+  };
+  const handleBulkAssign = async (executiveId: number | string, executiveName: string) => {
+    if (selectedProperties.length === 0) return;
+
+    setBulkLoading(true);
+    try {
+      const assignedToId = Number(executiveId);
       const executive = salesExecutives.find(e => e.id === executiveId);
-      
-      // ✅ Executive details को properly set करें - SAME NAME USE करें
+
       const updatedAssignedTo = executive ? {
         id: executive.id,
-        name: executive.name, 
+        name: executive.name,
         email: executive.email,
         phone: executive.phone,
         department: executive.department,
@@ -1344,84 +1502,37 @@ const handleSingleAssign = async (executiveId: number | string, executiveName: s
         role: ''
       };
 
-      // ✅ ALL state updates
-      setProperties(prev => prev.map(p =>
-        p.id === assigningProperty.id
-          ? { ...p, assignedTo: updatedAssignedTo }
-          : p
-      ));
-      
-      setCurrentPropertyView(prev =>
-        prev && String(prev.id) === String(assigningProperty.id)
-          ? { ...prev, assignedTo: updatedAssignedTo }
-          : prev
-      );
-      
-      toast.success(`Property assigned to ${executiveName}`);
-      
-    } else {
-      toast.error("Failed to assign executive");
-    }
-  } catch (error: any) {
-    console.error("Assign executive failed:", error);
-    toast.error(error?.response?.data?.message || "Error assigning executive");
-  }
-};
-const handleBulkAssign = async (executiveId: number | string, executiveName: string) => {
-  if (selectedProperties.length === 0) return;
+      let successCount = 0;
 
-  setBulkLoading(true);
-  try {
-    const assignedToId = Number(executiveId);
-    const executive = salesExecutives.find(e => e.id === executiveId);
+      for (const propertyId of selectedProperties) {
+        try {
+          const payload = { assigned_to: assignedToId };
+          const response = await propertiesAPI.updateAssignedTo(propertyId, payload);
 
-    const updatedAssignedTo = executive ? {
-      id: executive.id,
-      name: executive.name,
-      email: executive.email,
-      phone: executive.phone,
-      department: executive.department,
-      role: executive.role
-    } : {
-      id: executiveId,
-      name: executiveName,
-      email: '',
-      phone: '',
-      department: '',
-      role: ''
-    };
-
-    let successCount = 0;
-    
-    for (const propertyId of selectedProperties) {
-      try {
-        const payload = { assigned_to: assignedToId };
-        const response = await propertiesAPI.updateAssignedTo(propertyId, payload);
-
-        if (response.success) {
-          // ✅ Immediate UI update
-          setProperties(prev => prev.map(p =>
-            p.id === propertyId
-              ? { ...p, assignedTo: updatedAssignedTo }
-              : p
-          ));
-          successCount++;
+          if (response.success) {
+            // ✅ Immediate UI update
+            setProperties(prev => prev.map(p =>
+              p.id === propertyId
+                ? { ...p, assignedTo: updatedAssignedTo }
+                : p
+            ));
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to assign property ${propertyId}:`, error);
         }
-      } catch (error) {
-        console.error(`Failed to assign property ${propertyId}:`, error);
       }
-    }
 
-    toast.success(`${successCount} properties assigned to ${executiveName}`);
-    setSelectedProperties([]);
-    
-  } catch (error: any) {
-    console.error("Bulk assign failed:", error);
-    toast.error("Error during bulk assignment");
-  } finally {
-    setBulkLoading(false);
-  }
-};
+      toast.success(`${successCount} properties assigned to ${executiveName}`);
+      setSelectedProperties([]);
+
+    } catch (error: any) {
+      console.error("Bulk assign failed:", error);
+      toast.error("Error during bulk assignment");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   const handleAssignSubmit = async (executiveId: number | string, executiveName: string) => {
     if (assigningProperty) {
@@ -1780,20 +1891,20 @@ const handleBulkAssign = async (executiveId: number | string, executiveName: str
   };
 
   // Executive badge component
-const ExecutiveBadge = ({ assignedTo }: { assignedTo?: UIProperty['assignedTo'] }) => {
-  if (!assignedTo || !assignedTo.name || assignedTo.name.trim() === "") {
-    return null;
-  }
-  return (
-    <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs">
-      <UserCheck size={10} />
-      <span className="font-medium">{assignedTo.name}</span>
-      {assignedTo.department && (
-        <span className="text-[10px] text-blue-500">({assignedTo.department})</span>
-      )}
-    </div>
-  );
-};
+  const ExecutiveBadge = ({ assignedTo }: { assignedTo?: UIProperty['assignedTo'] }) => {
+    if (!assignedTo || !assignedTo.name || assignedTo.name.trim() === "") {
+      return null;
+    }
+    return (
+      <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs">
+        <UserCheck size={10} />
+        <span className="font-medium">{assignedTo.name}</span>
+        {assignedTo.department && (
+          <span className="text-[10px] text-blue-500">({assignedTo.department})</span>
+        )}
+      </div>
+    );
+  };
 
   if (currentPropertyView) {
     return (
@@ -2096,6 +2207,12 @@ const ExecutiveBadge = ({ assignedTo }: { assignedTo?: UIProperty['assignedTo'] 
           sellerOptions={(masters?.["sellers"] || masters?.["agents"] || []).map(m => ({ label: m.label, value: m.value }))}
           stageOptions={(masters?.["property stages"] || []).map(m => ({ label: m.label, value: m.value }))}
           tagsOptions={knownTags.map(t => ({ label: t, value: t }))}
+          // ✅ Executive options add करें
+          executiveOptions={salesExecutives.map(ex => ({
+            label: ex.name,
+            value: String(ex.id)
+          }))}
+          executivesLoading={executivesLoading}
         />
       </div>
 

@@ -479,7 +479,7 @@ const PropertyBulkBrochureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [includeTOC, setIncludeTOC] = useState(false);
 
   // Public base URL
-  const [publicBaseUrl, setPublicBaseUrl] = useState("https://investordeal.in");
+  const [publicBaseUrl, setPublicBaseUrl] = useState("http://localhost:5173/");
 
   // Include content checkboxes
   const [contentPickerOpen, setContentPickerOpen] = useState(false);
@@ -704,8 +704,8 @@ const PropertyBulkBrochureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     { key: "aiScore", label: "AI Score" },
     { key: "priceGrowth", label: "Price Growth" },
     { key: "investmentGrade", label: "Investment Grade" },
-    { key: "agentInfo", label: "Agent Name" },
-    { key: "contactDetails", label: "Agent Phone" },
+    { key: "agentInfo", label: "Executive Name" },
+    { key: "contactDetails", label: "Executive Phone" },
     { key: "propertyUrl", label: "Property URL (deep link)" },
 
     // NEW: Property Details fields
@@ -911,7 +911,7 @@ const PropertyBulkBrochureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               <input
                 value={publicBaseUrl}
                 onChange={(e) => setPublicBaseUrl(e.target.value)}
-                placeholder="https://investordeal.in"
+                placeholder="http://localhost:5173/"
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
               />
               <p className="text-[11px] text-gray-500 mt-1">

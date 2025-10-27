@@ -272,141 +272,141 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   };
 
   // ---------- Featured Properties (public-only) ----------
-// ---------- Featured Properties (public-only) ----------
-useEffect(() => {
-  const fetchFeaturedProperties = async () => {
-    try {
-      setLoading(true);
+  // ---------- Featured Properties (public-only) ----------
+  useEffect(() => {
+    const fetchFeaturedProperties = async () => {
+      try {
+        setLoading(true);
 
-      // ✅ server से public-only
-      const response = await propertiesAPI.PublicgetProperties({
-        status: 'Available',
-        limit: 12,            // 12 तक लें, बाद में filter कर लेंगे
-        isPublic: true,
-        is_public: 1,
-        visibility: 'public',
-        publicOnly: 1,
-      });
-
-      const listRaw = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
-      let rawList = listRaw.filter(isPublicProp);
-
-      if (!rawList.length) {
-        const fbRes = await propertiesAPI.PublicgetProperties({
+        // ✅ server से public-only
+        const response = await propertiesAPI.PublicgetProperties({
           status: 'Available',
-          limit: 12,
+          limit: 12,            // 12 तक लें, बाद में filter कर लेंगे
           isPublic: true,
           is_public: 1,
           visibility: 'public',
           publicOnly: 1,
         });
-        const fb = Array.isArray(fbRes?.data) ? fbRes.data : (Array.isArray(fbRes) ? fbRes : []);
-        rawList = fb.filter(isPublicProp);
-      }
 
-      // optional: latest first
-      rawList.sort((a: any, b: any) => {
-        const ad = a?.publication_date ? new Date(a.publication_date).getTime() : 0;
-        const bd = b?.publication_date ? new Date(b.publication_date).getTime() : 0;
-        return bd - ad;
-      });
+        const listRaw = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
+        let rawList = listRaw.filter(isPublicProp);
 
-      // ⬇️ एक बार में map + views + tags
-      const mapped: Property[] = await Promise.all(
-        rawList.slice(0, 12).map(async (p: any) => {
-          const images: string[] =
-            Array.isArray(p.photos)
-              ? p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'))
-              : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
+        if (!rawList.length) {
+          const fbRes = await propertiesAPI.PublicgetProperties({
+            status: 'Available',
+            limit: 12,
+            isPublic: true,
+            is_public: 1,
+            visibility: 'public',
+            publicOnly: 1,
+          });
+          const fb = Array.isArray(fbRes?.data) ? fbRes.data : (Array.isArray(fbRes) ? fbRes : []);
+          rawList = fb.filter(isPublicProp);
+        }
 
-          const city = p.city_name || p.city || p.town || p.cityName || '';
-          const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
-          const state = p.state || p.region || '';
-          const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
+        // optional: latest first
+        rawList.sort((a: any, b: any) => {
+          const ad = a?.publication_date ? new Date(a.publication_date).getTime() : 0;
+          const bd = b?.publication_date ? new Date(b.publication_date).getTime() : 0;
+          return bd - ad;
+        });
 
-          // ✅ tags + views दोनों यहीं load करें
-          const [tags, viewData] = await Promise.all([
-            fetchPropertyTags(p.id),
-            fetchPropertyViews(p.id),
-          ]);
+        // ⬇️ एक बार में map + views + tags
+        const mapped: Property[] = await Promise.all(
+          rawList.slice(0, 12).map(async (p: any) => {
+            const images: string[] =
+              Array.isArray(p.photos)
+                ? p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'))
+                : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
 
-          const unitType = (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim();
-          const subtype = (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim();
+            const city = p.city_name || p.city || p.town || p.cityName || '';
+            const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
+            const state = p.state || p.region || '';
+            const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
 
-          const rawSlug = p?.slug ?? p?.url_slug ?? p?.generated_slug;
-          const slug = typeof rawSlug === 'string' && rawSlug.trim().length > 0 ? rawSlug.trim() : undefined;
+            // ✅ tags + views दोनों यहीं load करें
+            const [tags, viewData] = await Promise.all([
+              fetchPropertyTags(p.id),
+              fetchPropertyViews(p.id),
+            ]);
 
-          const carpet = Number(p.carpet_area) || 0;
-          const builtup = Number(p.builtup_area) || 0;
-          const superBuiltup = Number(p.super_builtup_area) || 0;
-          const totalArea = carpet || builtup || superBuiltup || Number(p.area) || undefined;
+            const unitType = (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim();
+            const subtype = (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim();
 
-          const priceVal = p.budget || p.price || p.amount;
-          const price = priceVal ? Number(priceVal) : undefined;
+            const rawSlug = p?.slug ?? p?.url_slug ?? p?.generated_slug;
+            const slug = typeof rawSlug === 'string' && rawSlug.trim().length > 0 ? rawSlug.trim() : undefined;
 
-          return {
-            id: p.id,
-            propertyId: (p.property_id && String(p.property_id).trim()) || `REP${String(p.id ?? '').padStart(4, '0')}`,
-            title: (p.title || `${unitType ? unitType + ' ' : ''}${p.property_type_name || p.property_type || ''}`).trim(),
-            price,
-            bedrooms: Number(p.bedrooms) || undefined,
-            bathrooms: Number(p.bathrooms) || undefined,
-            square_feet: totalArea,
-            city,
-            property_type: p.property_type_name || p.property_type || '',
-            status: p.status || '',
-            images,
-            location,
-            area: totalArea,
-            type: p.property_type_name || p.property_type || '',
-            unitType,
-            subtype,
-            amenities: Array.isArray(p.amenities)
-              ? p.amenities.map(String).map(s => s.trim()).filter(Boolean)
-              : (typeof p.amenities === 'string'
+            const carpet = Number(p.carpet_area) || 0;
+            const builtup = Number(p.builtup_area) || 0;
+            const superBuiltup = Number(p.super_builtup_area) || 0;
+            const totalArea = carpet || builtup || superBuiltup || Number(p.area) || undefined;
+
+            const priceVal = p.budget || p.price || p.amount;
+            const price = priceVal ? Number(priceVal) : undefined;
+
+            return {
+              id: p.id,
+              propertyId: (p.property_id && String(p.property_id).trim()) || `REP${String(p.id ?? '').padStart(4, '0')}`,
+              title: (p.title || `${unitType ? unitType + ' ' : ''}${p.property_type_name || p.property_type || ''}`).trim(),
+              price,
+              bedrooms: Number(p.bedrooms) || undefined,
+              bathrooms: Number(p.bathrooms) || undefined,
+              square_feet: totalArea,
+              city,
+              property_type: p.property_type_name || p.property_type || '',
+              status: p.status || '',
+              images,
+              location,
+              area: totalArea,
+              type: p.property_type_name || p.property_type || '',
+              unitType,
+              subtype,
+              amenities: Array.isArray(p.amenities)
+                ? p.amenities.map(String).map(s => s.trim()).filter(Boolean)
+                : (typeof p.amenities === 'string'
                   ? p.amenities.split(',').map((s: string) => s.trim()).filter(Boolean)
                   : (Array.isArray(p.features)
-                      ? p.features.map(String).map(s => s.trim()).filter(Boolean)
-                      : (typeof p.features === 'string'
-                          ? p.features.split(',').map((s: string) => s.trim()).filter(Boolean)
-                          : []))),
-            badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
-            rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
-            views: viewData.total_views || 0,
-            total_views: viewData.total_views || 0, // 👈 यही key आप card में पढ़ रहे हैं
-            aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
-            sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
-            slug,
-            possessionMonth: p.possession_month ?? p.possessionMonth ?? null,
-            possessionYear: p.possession_year ?? p.possessionYear ?? null,
-            property_status: p.property_status ?? p.status ?? '',
-            created_at: p.created_at ?? null,
-            public_views: p.public_views ?? null,
-            executive: {
-              phone: p.executive_phone || p.executive?.phone || '',
-              name: p.executive_name || p.executive?.name || '',
-              email: p.executive_email || p.executive?.email || ''
-            },
-            tags,
-            featured: p.featured || p.is_featured || false,
-          } as Property;
-        })
-      );
+                    ? p.features.map(String).map(s => s.trim()).filter(Boolean)
+                    : (typeof p.features === 'string'
+                      ? p.features.split(',').map((s: string) => s.trim()).filter(Boolean)
+                      : []))),
+              badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
+              rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
+              views: viewData.total_views || 0,
+              total_views: viewData.total_views || 0, // 👈 यही key आप card में पढ़ रहे हैं
+              aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
+              sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
+              slug,
+              possessionMonth: p.possession_month ?? p.possessionMonth ?? null,
+              possessionYear: p.possession_year ?? p.possessionYear ?? null,
+              property_status: p.property_status ?? p.status ?? '',
+              created_at: p.created_at ?? null,
+              public_views: p.public_views ?? null,
+              executive: {
+                phone: p.executive_phone || p.executive?.phone || '',
+                name: p.executive_name || p.executive?.name || '',
+                email: p.executive_email || p.executive?.email || ''
+              },
+              tags,
+              featured: p.featured || p.is_featured || false,
+            } as Property;
+          })
+        );
 
-      // ✅ सिर्फ featured pick करें, नहीं मिले तो empty रहने दें (या चाहें तो top 6 दिखा दें)
-      const featuredOnly = mapped.filter(isFeatured);
-      setFeaturedProperties(featuredOnly.length ? featuredOnly : []);
+        // ✅ सिर्फ featured pick करें, नहीं मिले तो empty रहने दें (या चाहें तो top 6 दिखा दें)
+        const featuredOnly = mapped.filter(isFeatured);
+        setFeaturedProperties(featuredOnly.length ? featuredOnly : []);
 
-    } catch (err) {
-      console.error('Error fetching featured properties (public-only):', err);
-      setFeaturedProperties([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+      } catch (err) {
+        console.error('Error fetching featured properties (public-only):', err);
+        setFeaturedProperties([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  fetchFeaturedProperties();
-}, []);
+    fetchFeaturedProperties();
+  }, []);
 
 
   // ---------- ✅ HERO: fetch & build slides ----------
@@ -1122,24 +1122,55 @@ useEffect(() => {
                         {/* WhatsApp */}
                         <button
                           onClick={(e) => {
-                            e.stopPropagation(); e.preventDefault();
-                            const phone = property.executive?.phone || "919876543210";
-                            const title = property.title || [property.unitType, property.type].filter(Boolean).join(" ") || "a property";
-                            const loc = property.location || property.city || "your listed property location";
-                            const priceText = typeof formatCurrency === "function" ? formatCurrency(property.price) :
-                              `₹${Number(property.price || 0).toLocaleString("en-IN")}`;
-                            const link = property.slug
-                              ? `${window.location.origin}/properties/${encodeURIComponent(String(property.slug))}`
+                            e.stopPropagation();
+                            e.preventDefault();
+
+                            // Ensure phone number is valid
+                            const phone =
+                              property?.executive?.phone?.replace(/\D/g, "") || "9637009639";
+
+                            // Prepare property title
+                            const title =
+                              property?.title ||
+                              [property?.unitType, property?.type].filter(Boolean).join(" ") ||
+                              "a property";
+
+                            // Prepare location
+                            const loc =
+                              property?.location ||
+                              property?.city ||
+                              "your listed property location";
+
+                            // Format price safely
+                            const priceValue = Number(property?.price || 0);
+                            const priceText = !isNaN(priceValue)
+                              ? `₹${priceValue.toLocaleString("en-IN")}`
+                              : "Price on request";
+
+                            // Build link to property page
+                            const link = property?.slug
+                              ? `${window.location.origin}/properties/${encodeURIComponent(
+                                String(property.slug)
+                              )}`
                               : `${window.location.origin}/properties`;
+
+                            // Message for WhatsApp
                             const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
-                            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+
+                            // Open WhatsApp chat
+                            window.open(
+                              `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+                              "_blank",
+                              "noopener,noreferrer"
+                            );
                           }}
                           className="p-3 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
-                          title="WhatsApp"
+                          title="Chat on WhatsApp"
                           type="button"
                         >
                           <FaWhatsapp size={18} />
                         </button>
+
                       </div>
                     </div>
                   </div>
