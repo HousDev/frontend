@@ -19,7 +19,7 @@ function normalizeStatus(s?: string | null): UiStatus {
 }
 
 const DigioSuccess: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams] = useSearchParams(); 
   const navigate = useNavigate();
   const [status, setStatus] = useState<UiStatus>("loading");
   const [message, setMessage] = useState<string>("Verifying your document status...");

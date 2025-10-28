@@ -404,13 +404,13 @@ export interface SimilarPropertiesResponse {
 
   // POST-based search (body)
   search: async (data: any) => {
-    const res = await api.post("/properties/search", data);
+   const res = await api.get("/properties/search", { params: data });
     return res.data;
   },
 
   // Legacy alias (some callers use getSearch)
   getSearch: async (data: any) => {
-    const res = await api.post("/properties/search", data);
+    const res = await api.get("/properties/search", { params: data });
     return res.data;
   },
 
@@ -577,26 +577,60 @@ export interface SimilarPropertiesResponse {
   },
 
 
+// searchByCityLocation: async (params: {
+//   city: string;
+//   locations?: string | string[];
+//   limit?: number;
+//   offset?: number;
+// }) => {
+//   const queryParams: any = {
+//     city: params.city,
+//     limit: params.limit,
+//     offset: params.offset,
+//     status: 'Available' // Add this if you want to filter by available properties
+//   };
+
+//   // Convert locations to comma-separated string and use "location" (singular)
+//   if (params.locations) {
+//     if (Array.isArray(params.locations)) {
+//       queryParams.location = params.locations.join(',');
+//     } else {
+//       queryParams.location = params.locations;
+//     }
+//   }
+
+//   const res = await api.get("/properties/city-locations", { 
+//     params: queryParams 
+//   });
+//   return res.data;
+// },
+ 
 searchByCityLocation: async (params: {
   city: string;
   locations?: string | string[];
   limit?: number;
   offset?: number;
+  propertyType?: string; // ✅ Add this
 }) => {
   const queryParams: any = {
     city: params.city,
     limit: params.limit,
     offset: params.offset,
-    status: 'Available' // Add this if you want to filter by available properties
+    status: 'Available' // ✅ Default status filter
   };
 
-  // Convert locations to comma-separated string and use "location" (singular)
+  // ✅ FIX: Use "locations" instead of "location" to match backend
   if (params.locations) {
     if (Array.isArray(params.locations)) {
-      queryParams.location = params.locations.join(',');
+      queryParams.locations = params.locations.join(','); // ✅ Change to plural
     } else {
-      queryParams.location = params.locations;
+      queryParams.locations = params.locations; // ✅ Change to plural
     }
+  }
+
+  // ✅ Add propertyType if provided
+  if (params.propertyType) {
+    queryParams.propertyType = params.propertyType;
   }
 
   const res = await api.get("/properties/city-locations", { 
@@ -604,7 +638,8 @@ searchByCityLocation: async (params: {
   });
   return res.data;
 },
- generateBrochuresBulkSinglePDF: async (
+
+generateBrochuresBulkSinglePDF: async (
     contextId: string, // e.g. "bulk"
     payload: {
       ids: (string | number)[];           // required

@@ -1,6 +1,6 @@
 
 // HomePage.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Home,
   Search,
@@ -472,10 +472,20 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     return [];
   };
 
-  const masterCity: MasterOption[] = findMasterOptions(['city']);
-  const propertyTypeOptions: MasterOption[] = findMasterOptions(['property type', 'property_type', 'propertytype', 'type', 'property']);
-  const masterLocation: MasterOption[] = findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']);
+const masterCity: MasterOption[] = useMemo(
+  () => findMasterOptions(['city']),
+  [masters]
+);
 
+const propertyTypeOptions: MasterOption[] = useMemo(
+  () => findMasterOptions(['property type', 'property_type', 'propertytype', 'type', 'property']),
+  [masters]
+);
+
+const masterLocation: MasterOption[] = useMemo(
+  () => findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']),
+  [masters]
+);
   const formatPrice = (price: any) => {
     const num = Number(price);
     if (!Number.isFinite(num) || num <= 0) return ' - ';
@@ -513,23 +523,35 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const removeLocality = (idx: number) => setLocalities(prev => prev.filter((_, i) => i !== idx));
 
   const inputRef = useRef<HTMLInputElement | null>(null);
-  useEffect(() => {
-    const q = (localityInput || '').trim().toLowerCase();
-    if (!q || !Array.isArray(masterLocation) || masterLocation.length === 0) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-    const matched = masterLocation
-      .filter(opt => {
-        const label = (opt.label || '').toString().toLowerCase();
-        const value = (opt.value || '').toString().toLowerCase();
-        return label.includes(q) || value.includes(q);
-      })
-      .slice(0, 10);
-    setSuggestions(matched);
-    setShowSuggestions(matched.length > 0);
-  }, [localityInput, masterLocation]);
+ useEffect(() => {
+  const q = (localityInput || '').trim().toLowerCase();
+
+  // nothing to search -> only update if needed
+  if (!q || !Array.isArray(masterLocation) || masterLocation.length === 0) {
+    setSuggestions(prev => (prev.length ? [] : prev));
+    setShowSuggestions(prev => (prev ? false : prev));
+    return;
+  }
+
+  const matched = masterLocation
+    .filter(opt => {
+      const label = (opt.label || '').toString().toLowerCase();
+      const value = (opt.value || '').toString().toLowerCase();
+      return label.includes(q) || value.includes(q);
+    })
+    .slice(0, 10);
+
+  // shallow guard to avoid redundant state updates (and re-renders)
+  const sameLen = matched.length === suggestions.length;
+  const sameItems = sameLen && matched.every((m, i) =>
+    m.value === suggestions[i]?.value && m.label === suggestions[i]?.label
+  );
+
+  if (!sameItems) setSuggestions(matched);
+  setShowSuggestions(matched.length > 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [localityInput, masterLocation]);
+
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
