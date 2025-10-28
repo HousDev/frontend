@@ -376,9 +376,14 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
       if (!post) return;
       setCommentsLoading(true);
       try {
-        const res: unknown = await (blogsAPI.getCommentsByPostSlug
-          ? blogsAPI.getCommentsByPostSlug(post.slug ?? String(post.id))
-          : blogsAPI.getComments?.(post.slug ?? String(post.id)));
+        let res: unknown;
+        if ((blogsAPI as any).getCommentsByPostSlug) {
+          res = await (blogsAPI as any).getCommentsByPostSlug(post.slug ?? String(post.id));
+        } else if (blogsAPI.getComments) {
+          res = await blogsAPI.getComments(post.slug ?? String(post.id));
+        } else {
+          res = [];
+        }
         const data = unwrapArray(res);
         const list: BlogComment[] = Array.isArray(data)
           ? data.map((c: any) => ({
@@ -671,7 +676,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                     </button>
 
                     {/* Bookmark */}
-                    <button
+                    {/* <button
                       onClick={handleBookmark}
                       disabled={bookmarkProcessing}
                       aria-pressed={isBookmarked}
@@ -680,7 +685,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                         }`}
                     >
                       <Bookmark className={`w-4 h-4 sm:w-5 sm:h-5 ${isBookmarked ? "fill-current" : ""}`} />
-                    </button>
+                    </button> */}
                   </div>
                 </div>
               )}
@@ -697,12 +702,12 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                     <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                     <span className="truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">{post.author}</span>
                   </span>
-                  <span className="hidden sm:inline">•</span>
+                  {/* <span className="hidden sm:inline">•</span>
                   <span className="flex items-center">
                     <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                     <span className="hidden sm:inline">{post.views ?? 0} views</span>
                     <span className="sm:hidden">{post.views ?? 0}</span>
-                  </span>
+                  </span> */}
 
                   <button
                     onClick={handleLike}
