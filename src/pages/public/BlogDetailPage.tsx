@@ -612,7 +612,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
         />
       )}
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-8 mt-2 sm:mt-3 md:mt-4 pb-6 sm:pb-8 lg:pb-12">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-8 mt-1.5  pb-6 sm:pb-8 lg:pb-12">
         {/* Main Content */}
         <div className="lg:col-span-2">
           {loadingInternal ? (
