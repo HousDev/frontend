@@ -577,14 +577,28 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     }
   };
 
+  // const fmtDate = (iso?: string) => {
+  //   try {
+  //     if (!iso) return "";
+  //     return new Date(iso).toLocaleString();
+  //   } catch {
+  //     return iso ?? "";
+  //   }
+  // };
   const fmtDate = (iso?: string) => {
-    try {
-      if (!iso) return "";
-      return new Date(iso).toLocaleString();
-    } catch {
-      return iso ?? "";
-    }
-  };
+  if (!iso) return "";
+  try {
+    // Date only (no time). Format: 29 Oct 2025
+    return new Date(iso).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return iso ?? "";
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30">
@@ -692,7 +706,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
 
               <div className="p-4 sm:p-6 md:p-8 lg:p-10">
                 {/* Title */}
-                <h1 className="text-xl font-bold mb-3 sm:mb-4 text-gray-900 leading-tight">
+                      <h1 className="text-xl font-bold mb-3 sm:mb-4 text-gray-900 leading-tight  hover:text-orange-500">
                   {post.title}
                 </h1>
 
@@ -717,8 +731,8 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                       }`}
                     aria-pressed={isLiked}
                   >
-                    <Heart className={`w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${isLiked ? "fill-current" : ""}`} />
-                    <span className="text-xs sm:text-sm">{post.likes ?? 0}</span>
+                    {/* <Heart className={`w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${isLiked ? "fill-current" : ""}`} />
+                    <span className="text-xs sm:text-sm">{post.likes ?? 0}</span> */}
                   </button>
 
                   <span className="flex items-center">
@@ -766,7 +780,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                       {commentError}
                     </div>
                   )}
-
+{/* 
                   <div className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
                     {commentsLoading ? (
                       <div className="text-sm text-gray-500 text-center py-4">Loading comments...</div>
@@ -781,7 +795,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                           className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
                         >
                           <div className="flex items-start gap-2 sm:gap-3">
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-medium text-white text-xs sm:text-sm flex-shrink-0">
+                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center font-medium text-white text-xs flex-shrink-0">
                               {String(c.author ?? "A")
                                 .split(" ")
                                 .map((n) => n[0])
@@ -790,14 +804,14 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-2 mb-1 sm:mb-2">
-                                <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+                                <div className="text-xs font-medium text-gray-900 truncate">
                                   {c.author}
                                 </div>
                                 <div className="text-xs text-gray-400 flex-shrink-0">
                                   {fmtDate(c.date)}
                                 </div>
                               </div>
-                              <div className="text-xs sm:text-sm md:text-base text-gray-700 whitespace-pre-wrap break-words">
+                              <div className="text-xs text-gray-700 whitespace-pre-wrap break-words">
                                 {c.content}
                               </div>
                             </div>
@@ -805,7 +819,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                         </div>
                       ))
                     )}
-                  </div>
+                  </div> */}
                 </section>
               </div>
             </article>
@@ -835,7 +849,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <a
                             href={`/blogs/${r.slug || r.id}`}
-                            className="font-medium text-sm sm:text-base text-gray-800 hover:text-blue-600 hover:underline underline-offset-2 transition-colors line-clamp-2"
+                            className="font-medium text-sm sm:text-base text-gray-800 hover:text-orange-500 hover:underline underline-offset-2 transition-colors line-clamp-2"
                           >
                             {r.title}
                           </a>
@@ -865,7 +879,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
           {/* Author Card */}
           <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-grey-500 to-white-600 flex items-center justify-center text-black ring-1 font-bold text-sm sm:text-base flex-shrink-0">
+              <div className="w-10 h-10 rounded-full ring-1 ring-gray-200  text-black flex items-center justify-center  font-bold text-sm sm:text-base flex-shrink-0">
                 {String(post?.author ?? "A")
                   .split(" ")
                   .map((n) => n[0])
@@ -918,7 +932,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                       onClick={() => {
                         navigate(`/blogs/${encodeURIComponent(String(r.slug ?? r.id))}`);
                       }}
-                      className="text-xs sm:text-sm text-left font-medium hover:text-blue-600 hover:underline line-clamp-2 transition-colors"
+                      className="text-xs sm:text-sm text-left font-medium hover:text-orange-500 hover:underline line-clamp-2 transition-colors"
                     >
                       {r.title}
                     </button>
@@ -933,6 +947,57 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
               )}
             </div>
           </div>
+
+          {/* Recent Comments */}
+          {/* <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
+            <h4 className="font-medium text-sm sm:text-base mb-3 sm:mb-4">Recent comments</h4>
+            <div className="space-y-3">
+              {comments.slice(0, 5).map((c) => (
+                <div key={c.id} className="text-xs sm:text-sm text-left font-medium">
+                  <button
+                    onClick={() => {
+                      navigate(`/blogs/${encodeURIComponent(String(c.postId ?? ""))}`);
+                    }}
+                    className="text-left text-black-500 cursor-default"
+
+                  >
+                    {c.content.length > 140
+                      ? c.content.slice(0, 140) + "..."
+                      : c.content}
+                  </button>
+                </div>
+              ))}
+
+              {comments.length === 0 && (
+                <div className="text-xs sm:text-sm text-gray-500 text-center py-3">
+                  No recent comments
+                </div>
+              )}
+            </div>
+          </div> */}
+          {/* Recent Comments */}
+          <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
+            <h4 className="font-medium text-sm sm:text-base mb-3 sm:mb-4">Recent comments</h4>
+            <div className="space-y-3">
+              {comments.slice(0, 5).map((c) => (
+                <div key={c.id} className="text-xs sm:text-sm text-left font-medium text-gray-700 hover:text-orange-500">
+                  <p className="text-left cursor-default">
+                    {c.content.length > 140
+                      ? c.content.slice(0, 140) + "..."
+                      : c.content}
+                  </p>
+                </div>
+              ))}
+
+              {comments.length === 0 && (
+                <div className="text-xs sm:text-sm text-gray-500 text-center py-3">
+                  No recent comments
+                </div>
+              )}
+            </div>
+          </div>
+
+
 
           {/* Categories */}
           <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
