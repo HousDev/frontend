@@ -198,17 +198,17 @@ const UNASSIGNED_EXEC: Executive = { id: 0, name: "Not assigned" };
 const getAssignableExecutives = (currentUser: any, executives: any[]): any[] => {
   // Basic implementation - adjust based on your permission logic
   if (!currentUser) return executives;
-  
+
   // If user is admin/superadmin, return all executives
   if (currentUser.role === 'admin' || currentUser.role === 'superadmin') {
     return executives;
   }
-  
+
   // If user is a manager, return executives from their department
   if (currentUser.role === 'manager') {
     return executives.filter(exec => exec.department === currentUser.department);
   }
-  
+
   // For regular users, return empty or only themselves
   return executives.filter(exec => exec.id === currentUser.id);
 };
@@ -217,7 +217,7 @@ const getAssignableExecutives = (currentUser: any, executives: any[]): any[] => 
 const SellersPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth(); // Get current user from auth context
-  
+
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSellers, setSelectedSellers] = useState<number[]>([]);
@@ -258,7 +258,7 @@ const SellersPage: React.FC = () => {
         setMasterLoading(true);
         const data = await getMasterDropdownOptions(['seller', 'lead']);
         setMasters(data);
-      
+
       } catch (err) {
         console.error('Error fetching master options:', err);
         toast.error('Failed to load dropdown options');
@@ -276,7 +276,7 @@ const SellersPage: React.FC = () => {
       try {
         setLoading(true);
         const apiSellers = await sellerAPI.getAll();
-       
+
         const normalized = Array.isArray(apiSellers)
           ? apiSellers.map(mapApiSellerToUI)
           : [];
@@ -313,10 +313,10 @@ const SellersPage: React.FC = () => {
           usersAPI.getByDeptRole?.({ department, role: 'executive', is_active: 1, limit: 100 });
 
         let res: any;
-        try { 
-          res = await get('sales'); 
-        } catch { 
-          res = await get('sales'); 
+        try {
+          res = await get('sales');
+        } catch {
+          res = await get('sales');
         }
 
         const salesUsers = (res?.items ?? res?.data ?? res ?? []).map((u: any) => ({
@@ -335,7 +335,7 @@ const SellersPage: React.FC = () => {
           phone: u.phone,
           username: u.raw?.username || u.username,
         }));
-setExecutives([UNASSIGNED_EXEC, ...mapped]);
+        setExecutives([UNASSIGNED_EXEC, ...mapped]);
         setExecutives(mapped);
       } catch (e) {
         console.error('Error loading executives:', e);
@@ -358,11 +358,11 @@ setExecutives([UNASSIGNED_EXEC, ...mapped]);
     (o?.value ?? o?.key ?? o?.code ?? o?.name ?? '').toString();
 
   // Get stages and priorities from master data
- const stageRaw = getMasterArray(masters, [
+  const stageRaw = getMasterArray(masters, [
     'seller lead stage',
   ]);
 
-   const priorityRaw = getMasterArray(masters, [
+  const priorityRaw = getMasterArray(masters, [
     'lead_priority',
     'lead priority',
   ]);
@@ -391,32 +391,32 @@ setExecutives([UNASSIGNED_EXEC, ...mapped]);
 
   // ==================== BULK OPERATIONS ====================
 
-const handleBulkAssign = async (assignedTo: number) => {
-  if (selectedSellers.length === 0) {
-    toast.info("Please select sellers to assign");
-    return;
-  }
+  const handleBulkAssign = async (assignedTo: number) => {
+    if (selectedSellers.length === 0) {
+      toast.info("Please select sellers to assign");
+      return;
+    }
 
-  try {
-    const sellerIds = selectedSellers.map(id => String(id));
+    try {
+      const sellerIds = selectedSellers.map(id => String(id));
 
-    if (assignedTo === 0) {
-      // ✅ Unassign path
-      // Prefer a dedicated API if you have it:
-      // await sellerAPI.bulkUnassignExecutive(sellerIds);
+      if (assignedTo === 0) {
+        // ✅ Unassign path
+        // Prefer a dedicated API if you have it:
+        // await sellerAPI.bulkUnassignExecutive(sellerIds);
 
-      // Fallback 1: generic field update to NULL
-      try {
-        await sellerAPI.bulkUpdateLeadField(sellerIds, "assigned_to", null);
-      } catch {
-        // Fallback 2: your bulkAssign may accept null/0 as unassign
-        await sellerAPI.bulkAssignExecutive(sellerIds as any, null as any);
-      }
+        // Fallback 1: generic field update to NULL
+        try {
+          await sellerAPI.bulkUpdateLeadField(sellerIds, "assigned_to", null);
+        } catch {
+          // Fallback 2: your bulkAssign may accept null/0 as unassign
+          await sellerAPI.bulkAssignExecutive(sellerIds as any, null as any);
+        }
 
-      // Local state update
-      setSellers(prev => prev.map(seller =>
-        selectedSellers.includes(seller.id)
-          ? {
+        // Local state update
+        setSellers(prev => prev.map(seller =>
+          selectedSellers.includes(seller.id)
+            ? {
               ...seller,
               assigned_to: 0,
               assigned_to_name: "Unassigned",
@@ -424,21 +424,21 @@ const handleBulkAssign = async (assignedTo: number) => {
               assigned_to_phone: undefined,
               assigned: "Unassigned",
             }
-          : seller
-      ));
-      setSelectedSellers([]);
-      toast.success(`Unassigned ${sellerIds.length} seller(s) successfully`);
-      return;
-    }
+            : seller
+        ));
+        setSelectedSellers([]);
+        toast.success(`Unassigned ${sellerIds.length} seller(s) successfully`);
+        return;
+      }
 
-    // ✅ Normal assign
-    await sellerAPI.bulkAssignExecutive(sellerIds, assignedTo);
+      // ✅ Normal assign
+      await sellerAPI.bulkAssignExecutive(sellerIds, assignedTo);
 
-    const executive = executives.find(exec => exec.id === assignedTo);
+      const executive = executives.find(exec => exec.id === assignedTo);
 
-    setSellers(prev => prev.map(seller =>
-      selectedSellers.includes(seller.id)
-        ? {
+      setSellers(prev => prev.map(seller =>
+        selectedSellers.includes(seller.id)
+          ? {
             ...seller,
             assigned_to: assignedTo,
             assigned_to_name: executive?.name || 'Executive',
@@ -446,16 +446,16 @@ const handleBulkAssign = async (assignedTo: number) => {
             assigned_to_phone: executive?.phone,
             assigned: executive?.name || 'Executive',
           }
-        : seller
-    ));
+          : seller
+      ));
 
-    setSelectedSellers([]);
-    toast.success(`Assigned ${sellerIds.length} seller(s) successfully`);
-  } catch (err) {
-    console.error("Error bulk assigning:", err);
-    toast.error("Failed to assign sellers");
-  }
-};
+      setSelectedSellers([]);
+      toast.success(`Assigned ${sellerIds.length} seller(s) successfully`);
+    } catch (err) {
+      console.error("Error bulk assigning:", err);
+      toast.error("Failed to assign sellers");
+    }
+  };
 
 
   const handleBulkStatusUpdate = async (status: string) => {
@@ -920,7 +920,7 @@ const handleBulkAssign = async (assignedTo: number) => {
     // Find stage label from master data
     const stageMaster = stageOptions.find(s => s.value === stage);
     const stageLabel = stageMaster?.label || stage.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    
+
     const stageConfig: any = {
       initial_contact: { bg: "bg-blue-100", text: "text-blue-700", icon: "📞" },
       property_collection: { bg: "bg-purple-100", text: "text-purple-700", icon: "🏠" },
@@ -944,7 +944,7 @@ const handleBulkAssign = async (assignedTo: number) => {
     // Find priority label from master data
     const priorityMaster = priorityOptions.find(p => p.value === priority);
     const priorityLabel = priorityMaster?.label || priority.charAt(0).toUpperCase() + priority.slice(1);
-    
+
     const p = (priority || "").toLowerCase();
     const priorityConfig: any = {
       high: { bg: "bg-red-100", text: "text-red-700", icon: "🔥" },
@@ -1166,20 +1166,20 @@ const handleBulkAssign = async (assignedTo: number) => {
 
               {/* Bulk Assign Executive */}
               <select
-  onChange={(e) => {
-    const execId = Number(e.target.value);
-    if (!Number.isNaN(execId)) handleBulkAssign(execId);
-    e.target.value = "";
-  }}
-  className="px-2 py-1 border border-gray-300 rounded text-xs"
-  disabled={execsLoading}
->
-  <option value="">Assign Executive</option>
-  <option value={0}>— Unassigned —</option>
-  {executives.map(exec => (
-    <option key={exec.id} value={exec.id}>{exec.name}</option>
-  ))}
-</select>
+                onChange={(e) => {
+                  const execId = Number(e.target.value);
+                  if (!Number.isNaN(execId)) handleBulkAssign(execId);
+                  e.target.value = "";
+                }}
+                className="px-2 py-1 border border-gray-300 rounded text-xs"
+                disabled={execsLoading}
+              >
+                <option value="">Assign Executive</option>
+                <option value={0}>— Unassigned —</option>
+                {executives.map(exec => (
+                  <option key={exec.id} value={exec.id}>{exec.name}</option>
+                ))}
+              </select>
 
 
               {/* Bulk Stage Update */}
@@ -1334,6 +1334,7 @@ const handleBulkAssign = async (assignedTo: number) => {
                             {getStatusBadge(seller.isActive)}
                             {getLeadScore(seller.leadScore)}
                           </div>
+                            <div className='text-xs text-[#E6761D] font-bold'>Seller Id : {seller.id}</div>
                         </div>
                       </div>
                     </td>
@@ -1403,7 +1404,8 @@ const handleBulkAssign = async (assignedTo: number) => {
                         <div className="w-full bg-gray-200 rounded-full h-1.5">
                           <div
                             className="bg-gradient-to-r from-blue-500 to-green-500 h-1.5 rounded-full transition-all"
-                            style={{ width: `${Number(seller.stageProgress || 0)}%` }}
+                            style={{ width: `${seller.stageProgress || 0}%` } as React.CSSProperties}
+
                           />
                         </div>
                         <div className="text-xs text-gray-500">Last: {toDate(seller.lastActivity)}</div>

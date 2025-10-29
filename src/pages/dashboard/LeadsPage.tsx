@@ -1050,7 +1050,9 @@ const exportLeads = async () => {
                                   <p className="font-medium">
                                     {lead.salutation && `${lead.salutation}. `}{lead.name}
                                   </p>
+
                                   <p className="text-gray-500">{lead.lead_type?.toUpperCase()}</p>
+                                 <p className='text-xs text-[#E6761D] font-bold'>Lead Id : {String(lead.id).slice(0, 4)}</p>
                                 </div>
                               </Link>
                             </td>

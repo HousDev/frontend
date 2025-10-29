@@ -522,11 +522,21 @@ const BuyersPage = () => {
         setLoading(true);
         const apiBuyers = await buyerAPI.getAll();
         const normalized = Array.isArray(apiBuyers) ? apiBuyers.map(normalizeBuyerForUI) : [];
+
+        // Proper sorting - नए records पहले दिखें
         const sorted = [...normalized].sort((a, b) => {
-          const ad = new Date(a.created_at || a.lastActivity || 0).getTime();
-          const bd = new Date(b.created_at || b.lastActivity || 0).getTime();
-          return bd - ad; // desc
+          // पहले created_at से sort
+          const aCreated = new Date(a.created_at || 0).getTime();
+          const bCreated = new Date(b.created_at || 0).getTime();
+
+          if (aCreated !== bCreated) {
+            return bCreated - aCreated; // DESC - newest first
+          }
+
+          // फिर ID से sort (backup)
+          return Number(b.id) - Number(a.id);
         });
+
         setBuyers(sorted);
       } catch (err) {
         console.error('Error fetching buyers:', err);
@@ -618,9 +628,18 @@ const BuyersPage = () => {
   });
 
   const filteredSortedBuyers = [...filteredBuyers].sort((a, b) => {
-    const ad = new Date(a.created_at || a.lastActivity || 0).getTime();
-    const bd = new Date(b.created_at || b.lastActivity || 0).getTime();
-    return bd - ad;
+    // सबसे पहले created_at से sort करें
+    const aCreated = new Date(a.created_at || 0).getTime();
+    const bCreated = new Date(b.created_at || 0).getTime();
+
+    // अगर created_at same है तो lastActivity से sort करें
+    if (aCreated !== bCreated) {
+      return bCreated - aCreated; // नए से पुराने
+    }
+
+    const aLastActivity = new Date(a.lastActivity || 0).getTime();
+    const bLastActivity = new Date(b.lastActivity || 0).getTime();
+    return bLastActivity - aLastActivity;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredSortedBuyers.length / itemsPerPage));
@@ -673,26 +692,17 @@ const BuyersPage = () => {
     try {
       let savedBuyer;
       if (editingBuyer) {
-        // UPDATE
+        // UPDATE - सिर्फ update करें, sorting नहीं
         savedBuyer = await buyerAPI.update(String(editingBuyer.id), apiData);
         const normalized = normalizeBuyerForUI(savedBuyer);
-        setBuyers(prev => {
-          const updated = prev.map(b => (b.id === editingBuyer.id ? { ...normalized, id: editingBuyer.id } : b));
-          return updated.sort((a, b) => {
-            const ad = new Date(a.created_at || a.lastActivity || 0).getTime();
-            const bd = new Date(b.created_at || b.lastActivity || 0).getTime();
-            return bd - ad;
-          });
-        });
+        setBuyers(prev =>
+          prev.map(b => b.id === editingBuyer.id ? { ...normalized, id: editingBuyer.id } : b)
+        );
       } else {
-        // CREATE
+        // CREATE - नया record सबसे ऊपर जोड़ें
         savedBuyer = await buyerAPI.create(apiData);
         const normalized = normalizeBuyerForUI(savedBuyer);
-        setBuyers(prev => [{ ...normalized }, ...prev].sort((a, b) => {
-          const ad = new Date(a.created_at || a.lastActivity || 0).getTime();
-          const bd = new Date(b.created_at || b.lastActivity || 0).getTime();
-          return bd - ad;
-        }));
+        setBuyers(prev => [{ ...normalized }, ...prev]);
       }
 
       setShowBuyerForm(false);
@@ -1201,7 +1211,7 @@ const BuyersPage = () => {
           priorities={prioritiesFromMasters}
           budgetRanges={budgetRanges}
           propertyTypes={propertyTypes}
-            executives={executives.map(e => ({ id: e.id, name: e.name }))} 
+          executives={executives.map(e => ({ id: e.id, name: e.name }))}
         />
       </div>
 
@@ -1397,7 +1407,9 @@ const BuyersPage = () => {
                           <div className="flex items-center space-x-1 mt-1">
                             {getStatusBadge(buyer.is_active)}
                             {getLeadScore(buyer.leadScore)}
+
                           </div>
+                            <div className='text-xs text-[#E6761D] font-bold '>Buyer Id : {buyer.id}</div>
                         </div>
                       </div>
                     </td>
@@ -1477,8 +1489,9 @@ const BuyersPage = () => {
                         <div className="w-full bg-gray-200 rounded-full h-1.5">
                           <div
                             className="bg-gradient-to-r from-purple-500 to-pink-500 h-1.5 rounded-full transition-all"
-                            style={{ width: `${buyer.stageProgress || 0}%` }}
+                            style={{ width: `${buyer.stageProgress || 0}%` } as React.CSSProperties}
                           />
+
                         </div>
                         <div className="text-xs text-gray-500">
                           Last: {formatDate(buyer.lastActivity)}
