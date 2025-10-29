@@ -56,15 +56,26 @@ export const buyerAPI = {
   },
 
 // ✅ Import buyers (bulk insert from JSON array)
-  importBuyers: async (buyers: any[]) => {
-    if (!Array.isArray(buyers) || buyers.length === 0) {
-      throw new Error("Buyers array is required for import");
-    }
-    
-    const response = await api.post(`/buyers/bulk-import`, buyers);
+importBuyers: async (buyers: any[]) => {
   
+
+  // Backend expects: { buyers: [...] }
+  const payload = { buyers };
+
+  try {
+    const response = await api.post(`/buyers/bulk-import`, payload, {
+      timeout: 300000, // 5 minutes for large imports
+      headers: { "Content-Type": "application/json" },
+    });
     return response.data;
-  },
+  } catch (err: any) {
+    // Make timeout errors obvious in UI/logs
+    if (err?.code === "ECONNABORTED") {
+      throw new Error("Import timed out. Try again or reduce the batch size.");
+    }
+    throw err;
+  }
+},
 
    /* ============================
      🔹 Assign Executive (Single)
