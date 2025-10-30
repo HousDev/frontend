@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, CSSProperties } from 'react';
 import {
   Search,
   Filter,
@@ -750,7 +750,7 @@ const TrackingTab = () => {
     const color = stageColors[key] || 'bg-gray-400';
     return (
       <div className="w-full bg-gray-200 rounded-full h-2">
-        <div className={`${color} h-2 rounded-full transition-all duration-500`} style={{ width: `${progress}%` }} />
+        <div className={`${color} h-2 rounded-full transition-all duration-500`} style={{ width: `${progress}%` } as CSSProperties} />
       </div>
 
     );
@@ -2075,11 +2075,6 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
             email: esignDoc.data?.seller_email || '',
             phone: esignDoc.data?.seller_phone || '',
           }}
-          defaultExecutive={{
-            name: esignDoc.data?.sales_executive || '',
-            email: esignDoc.data?.executive_email || '',
-            phone: esignDoc.data?.executive_phone || '',
-          }}
           onProgress={async (args: { docId: string | number; payload?: Record<string, any> }) => {
             const { docId, payload } = args;
             // session IDs may be provided under different keys depending on the caller
@@ -2123,7 +2118,7 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
       )}
 
 
-{showVerifyModal && verifyDoc && (
+{/* {showVerifyModal && verifyDoc && (
   <>
     {console.log("🧩 verifyDoc executive check:", {
       sales_executive: verifyDoc.data?.sales_executive,
@@ -2144,11 +2139,6 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
         email: verifyDoc.data?.seller_email || '',
         phone: verifyDoc.data?.seller_phone || '',
       }}
-      defaultExecutive={{
-        name: verifyDoc.data?.sales_executive || '',
-        email: verifyDoc.data?.executive_email || '',
-        phone: verifyDoc.data?.executive_phone || '',
-      }}
       onClose={() => {
         setShowVerifyModal(false);
         setVerifyDoc(null);
@@ -2168,6 +2158,54 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
       }}
     />
   </>
+)} */}
+
+{showVerifyModal && verifyDoc && (
+  <PartyVerificationModal
+    isOpen={showVerifyModal}
+    documentId={verifyDoc.id}
+    defaultBuyer={{
+      name: verifyDoc.data?.buyer_name || '',
+      email: verifyDoc.data?.buyer_email || '',
+      phone: verifyDoc.data?.buyer_phone || '',
+    }}
+    defaultSeller={{
+      name: verifyDoc.data?.seller_name || '',
+      email: verifyDoc.data?.seller_email || '',
+      phone: verifyDoc.data?.seller_phone || '',
+    }}
+    onClose={() => {
+      setShowVerifyModal(false);
+      setVerifyDoc(null);
+      setPendingStepDoc(null);
+    }}
+    onVerified={async (payload) => {
+      const { note, buyer, seller } = payload;
+      if (!pendingStepDoc) return;
+      
+      // Determine verification type for the reason
+      let verificationType = '';
+      if (buyer?.verified && seller?.verified) {
+        verificationType = 'Both parties verified';
+      } else if (buyer?.verified) {
+        verificationType = 'Buyer verified only';
+      } else if (seller?.verified) {
+        verificationType = 'Seller verified only';
+      }
+      
+      const reason = note ? `${verificationType}: ${note}` : verificationType;
+      
+      await setStatusAndSync(
+        pendingStepDoc.id,
+        'otp_verified',
+        reason
+      );
+      
+      setShowVerifyModal(false);
+      setVerifyDoc(null);
+      setPendingStepDoc(null);
+    }}
+  />
 )}
 
       {showShareModal && selectedDocument && (

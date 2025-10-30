@@ -7,6 +7,8 @@ import { Document as PdfDocument, Page as PdfPage, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
+
+
 /* ---------- PDF.js worker (Vite + ESM) ---------- */
 /* HMR-safe guard without mutating pdfjs object */
 const __g: any = globalThis as any;
@@ -19,13 +21,20 @@ if (!__g.__pdfjsWorkerSet__) {
 }
 
 /* ----------------------------- Types ----------------------------- */
-type PartyRole = "Buyer" | "Seller" | "Custom";
+type PartyRole = "Buyer" | "Seller" | "Executive" | "Witness" | "Notary" | "Custom";
 type SignBox = { llx: number; lly: number; urx: number; ury: number };
 type CoordinateMarker = { id: string; page: number; x: number; y: number; width: number; height: number };
 
 type Signer = {
-  id: string; role: PartyRole | string; name: string; email: string; phone: string;
-  reason?: string; index?: number; identifierType?: "email" | "phone";
+  id: string; 
+  role: PartyRole | string; 
+  name: string; 
+  email: string; 
+  phone: string;
+  reason?: string; 
+  index?: number; 
+  identifierType?: "email" | "phone";
+  customRole?: string; // For custom role input
 };
 
 type Props = {
@@ -34,6 +43,9 @@ type Props = {
   documentId: number | string;
   defaultBuyer?: { name?: string; email?: string; phone?: string };
   defaultSeller?: { name?: string; email?: string; phone?: string };
+  // YEH DO LINES PEHLE WALE Props TYPE ME HI ADD KARO:
+  onProgress?: (args: { docId: string | number; payload?: Record<string, any> }) => Promise<void>;
+  onBothSigned?: ({ docId }: { docId: string | number }) => Promise<void>;
 };
 
 /* --------------------------- Utils --------------------------- */
@@ -160,9 +172,10 @@ function CoordsModal({
     </div>
   );
 }
+  
 
 export default function EsignAadhaarModal({
-  isOpen, onClose, documentId, defaultBuyer, defaultSeller,
+  isOpen, onClose, documentId, defaultBuyer, defaultSeller,onProgress, onBothSigned
 }: Props) {
   /* ---------- PDF state ---------- */
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
@@ -200,15 +213,23 @@ export default function EsignAadhaarModal({
   /* ---------- Signers ---------- */
   const [signers, setSigners] = useState<Signer[]>([
     {
-      id: uid("buyer-"), role: "Buyer",
-      name: defaultBuyer?.name || "", email: defaultBuyer?.email || "", phone: defaultBuyer?.phone || "",
-      reason: "Reason for Verification", index: 0,
+      id: uid("buyer-"), 
+      role: "Buyer",
+      name: defaultBuyer?.name || "", 
+      email: defaultBuyer?.email || "", 
+      phone: defaultBuyer?.phone || "",
+      reason: "Reason for Verification", 
+      index: 0,
       identifierType: defaultBuyer?.email ? "email" : defaultBuyer?.phone ? "phone" : undefined
     },
     {
-      id: uid("seller-"), role: "Seller",
-      name: defaultSeller?.name || "", email: defaultSeller?.email || "", phone: defaultSeller?.phone || "",
-      reason: "Reason for Verification", index: 1,
+      id: uid("seller-"), 
+      role: "Seller",
+      name: defaultSeller?.name || "", 
+      email: defaultSeller?.email || "", 
+      phone: defaultSeller?.phone || "",
+      reason: "Reason for Verification", 
+      index: 1,
       identifierType: defaultSeller?.email ? "email" : defaultSeller?.phone ? "phone" : undefined
     },
   ]);
@@ -306,7 +327,7 @@ export default function EsignAadhaarModal({
 
   /* ---------- Helpers ---------- */
   const getColor = (sid: string) =>
-    ["#3b82f6", "#22c55e", "#a855f7", "#f59e0b", "#ec4899"][signers.findIndex(s => s.id === sid) % 5];
+    ["#3b82f6", "#22c55e", "#a855f7", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6", "#f97316"][signers.findIndex(s => s.id === sid) % 8];
 
   const toggleSelected = (id: string) =>
     setSelectedIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
@@ -495,6 +516,49 @@ export default function EsignAadhaarModal({
     setDragStart(null); setDragRect(null); setMovingCoordinate(null); setResizingCoordinate(null);
   };
 
+  /* ---------- Add Custom Signer ---------- */
+  const addCustomSigner = () => {
+    const newSigner: Signer = { 
+      id: uid("custom-"), 
+      role: "Custom", 
+      name: "", 
+      email: "", 
+      phone: "", 
+      reason: "Reason for signing", 
+      index: signers.length,
+      customRole: "" // Initialize custom role field
+    };
+    setSigners((p) => [...p, newSigner]);
+    setSelectedIds((p) => [...p, newSigner.id]);
+  };
+
+  /* ---------- Handle Role Change ---------- */
+  const handleRoleChange = (signerId: string, newRole: PartyRole | string) => {
+    setSigners((prev) => 
+      prev.map((s) => 
+        s.id === signerId 
+          ? { 
+              ...s, 
+              role: newRole,
+              // Reset customRole if not selecting "Custom"
+              customRole: newRole === "Custom" ? s.customRole : ""
+            } 
+          : s
+      )
+    );
+  };
+
+  /* ---------- Handle Custom Role Input ---------- */
+  const handleCustomRoleChange = (signerId: string, customRole: string) => {
+    setSigners((prev) => 
+      prev.map((s) => 
+        s.id === signerId 
+          ? { ...s, customRole, role: "Custom" } 
+          : s
+      )
+    );
+  };
+
   /* ---------- DEBUG PANEL ---------- */
   const Debug = () => (
     <div className="text-[11px] p-2 bg-gray-50 border rounded mt-2">
@@ -519,9 +583,13 @@ export default function EsignAadhaarModal({
         if (!identifier) {
           throw new Error(`Missing identifier for signer "${s.name || s.role}". Choose Email/Phone in "Select identifier".`);
         }
+        
+        // Use customRole if available, otherwise use role
+        const displayRole = s.customRole || s.role;
+        
         return {
           identifier,
-          name: s.name || String(s.role || "Signer"),
+          name: s.name || String(displayRole || "Signer"),
           sign_type: "aadhaar",
           reason: s.reason || "Reason for signing",
         };
@@ -574,7 +642,7 @@ export default function EsignAadhaarModal({
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 E-sign (Aadhaar) <span className="text-xs text-gray-600">Doc ID: {String(documentId)}</span>
               </h3>
-              <p className="text-xs text-gray-600">Click “Add Box” or “Mark (Drag)” — coordinates are generated automatically.</p>
+              <p className="text-xs text-gray-600">Click "Add Box" or "Mark (Drag)" — coordinates are generated automatically.</p>
               <Debug />
             </div>
             <div className="flex items-center gap-2">
@@ -605,11 +673,7 @@ export default function EsignAadhaarModal({
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-semibold">Signers</h4>
               <button
-                onClick={() => {
-                  const s: Signer = { id: uid("custom-"), role: "Custom", name: "", email: "", phone: "", reason: "Reason for signing", index: signers.length };
-                  setSigners((p) => [...p, s]);
-                  setSelectedIds((p) => [...p, s.id]);
-                }}
+                onClick={addCustomSigner}
                 className="px-2 py-1 text-xs border rounded-lg flex items-center gap-1 hover:bg-gray-50"
               >
                 <Plus size={12} />Add
@@ -620,6 +684,8 @@ export default function EsignAadhaarModal({
               const marks = signerCoordinates[s.id] || [];
               const isMarking = currentMarkingSigner === s.id;
               const c = getColor(s.id);
+              const displayRole = s.customRole || s.role;
+              
               return (
                 <div key={s.id} className={`border rounded p-3 ${isMarking ? "ring-2 ring-blue-500 bg-blue-50" : ""}`}>
                   <div className="flex items-start gap-2">
@@ -632,8 +698,33 @@ export default function EsignAadhaarModal({
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2">
                         <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: c } as CSSProperties} />
-                        <span className="text-sm font-medium">{s.role}</span>
+                        <span className="text-sm font-medium">{displayRole}</span>
                       </div>
+                      
+                      {/* Role Selection */}
+                      <select 
+                        className="w-full px-2 py-1 border rounded text-xs" 
+                        value={s.role}
+                        onChange={(e) => handleRoleChange(s.id, e.target.value)}
+                      >
+                        <option value="Buyer">Buyer</option>
+                        <option value="Seller">Seller</option>
+                        <option value="Executive">Executive</option>
+                        <option value="Witness">Witness</option>
+                        <option value="Notary">Notary</option>
+                        <option value="Custom">Custom</option>
+                      </select>
+
+                      {/* Custom Role Input (only show when role is Custom) */}
+                      {s.role === "Custom" && (
+                        <input 
+                          className="w-full px-2 py-1 border rounded text-xs" 
+                          value={s.customRole || ""}
+                          onChange={(e) => handleCustomRoleChange(s.id, e.target.value)}
+                          placeholder="Enter custom role (e.g., Manager, Director, etc.)"
+                        />
+                      )}
+
                       <input className="w-full px-2 py-1 border rounded text-xs" value={s.name} onChange={e => setSigners(p => p.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} placeholder="Name" />
                       <input className="w-full px-2 py-1 border rounded text-xs" value={s.email} onChange={e => { setSigners(p => p.map(x => x.id === s.id ? { ...x, email: e.target.value } : x)); setTimeout(() => recomputeDigio(), 0); }} placeholder="Email" />
                       <input className="w-full px-2 py-1 border rounded text-xs" value={s.phone} onChange={e => { setSigners(p => p.map(x => x.id === s.id ? { ...x, phone: e.target.value } : x)); setTimeout(() => recomputeDigio(), 0); }} placeholder="Phone" />
@@ -681,6 +772,22 @@ export default function EsignAadhaarModal({
                           ))}
                         </div>
                       )}
+
+                      {/* Remove Signer Button */}
+                      <button
+                        onClick={() => {
+                          setSigners(p => p.filter(x => x.id !== s.id));
+                          setSelectedIds(p => p.filter(id => id !== s.id));
+                          setSignerCoordinates(prev => {
+                            const next = { ...prev };
+                            delete next[s.id];
+                            return next;
+                          });
+                        }}
+                        className="w-full px-2 py-1.5 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50 flex items-center justify-center gap-1 mt-2"
+                      >
+                        <Trash2 size={12} /> Remove Signer
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -888,20 +995,23 @@ function Overlay({
       {Object.entries(signerCoordinates).flatMap(([sid, marks]) =>
         (marks || []).filter(m => m.page === page).map((m) => {
           const c = getColor(sid);
-          const label = signers.find(s => s.id === sid);
-         const boxStyle: CSSProperties = {
-  left: m.x,
-  top: m.y,
-  width: m.width,
-  height: m.height,
-  borderColor: c,
-  backgroundColor: `${c}20`,
-  cursor: isMarkingMode ? "crosshair" : "move",
-  pointerEvents: "auto",
-  position: "absolute",
-  borderStyle: "solid",
-  borderWidth: 2,
-} as CSSProperties; // ✅ Type assertion here
+          const signer = signers.find(s => s.id === sid);
+          const displayRole = signer?.customRole || signer?.role || "Signer";
+          
+          const boxStyle: CSSProperties = {
+            left: m.x,
+            top: m.y,
+            width: m.width,
+            height: m.height,
+            borderColor: c,
+            backgroundColor: `${c}20`,
+            cursor: isMarkingMode ? "crosshair" : "move",
+            pointerEvents: "auto",
+            position: "absolute",
+            borderStyle: "solid",
+            borderWidth: 2,
+          } as CSSProperties;
+
           return (
             <div
               key={`${sid}-${m.id}`}
@@ -910,7 +1020,7 @@ function Overlay({
             >
               {/* label */}
               <div className="text-xs font-bold px-1 absolute -top-5 left-0 whitespace-nowrap" style={{ color: c } as CSSProperties}>
-                {label?.role}
+                {displayRole}
               </div>
 
               {/* delete button — right center */}
@@ -942,7 +1052,7 @@ function Overlay({
 
               {/* center text */}
               <div className="w-full h-full flex items-center justify-center text-[12px] font-medium" style={{ color: "#1f2937" } as CSSProperties}>
-                {label?.name || label?.role || "Signer"}
+                {signer?.name || displayRole}
               </div>
             </div>
           );
