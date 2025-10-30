@@ -325,37 +325,102 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     return [];
   };
 
-  const extractLocalityCity = (addr: any): string => {
-    if (!addr && addr !== '') return ' - ';
-    if (typeof addr === 'object') {
-      const locality = (addr?.locality ?? addr?.neighborhood ?? addr?.subLocality ?? addr?.area ?? '').toString().trim();
-      const city = (addr?.city ?? addr?.town ?? addr?.district ?? addr?.region ?? addr?.state ?? '').toString().trim();
-      if (locality && city) return `${locality}, ${city}`;
-      if (city) return city;
-      if (locality) return locality;
-    }
-    if (typeof addr === 'string') {
-      const cleaned = addr.replace(/\r?\n/g, ',').replace(/[-|\/]+/g, ',').replace(/\s+/g, ' ').trim();
-      const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean);
-      if (parts.length === 0) return ' - ';
-      if (parts.length === 1) return parts[0];
-      const last = parts[parts.length - 1];
-      const secondLast = parts[parts.length - 2];
-      const isPincode = (s: string) => /^\d{5,6}$/.test(s.replace(/\s+/g, ''));
-      if (isPincode(last)) {
-        const withoutPin = parts.slice(0, -1);
-        if (withoutPin.length >= 2) {
-          return `${withoutPin[withoutPin.length - 2]}, ${withoutPin[withoutPin.length - 1]}`;
-        }
-        return withoutPin[withoutPin.length - 1] ?? withoutPin[0] ?? ' - ';
-      }
-      return `${secondLast}, ${last}`;
-    }
-    return ' - ';
-  };
+  // const extractLocalityCity = (addr: any): string => {
+  //   if (!addr && addr !== '') return ' - ';
+  //   if (typeof addr === 'object') {
+  //     const locality = (addr?.locality ?? addr?.neighborhood ?? addr?.subLocality ?? addr?.area ?? '').toString().trim();
+  //     const city = (addr?.city ?? addr?.town ?? addr?.district ?? addr?.region ?? addr?.state ?? '').toString().trim();
+  //     if (locality && city) return `${locality}, ${city}`;
+  //     if (city) return city;
+  //     if (locality) return locality;
+  //   }
+  //   if (typeof addr === 'string') {
+  //     const cleaned = addr.replace(/\r?\n/g, ',').replace(/[-|\/]+/g, ',').replace(/\s+/g, ' ').trim();
+  //     const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean);
+  //     if (parts.length === 0) return ' - ';
+  //     if (parts.length === 1) return parts[0];
+  //     const last = parts[parts.length - 1];
+  //     const secondLast = parts[parts.length - 2];
+  //     const isPincode = (s: string) => /^\d{5,6}$/.test(s.replace(/\s+/g, ''));
+  //     if (isPincode(last)) {
+  //       const withoutPin = parts.slice(0, -1);
+  //       if (withoutPin.length >= 2) {
+  //         return `${withoutPin[withoutPin.length - 2]}, ${withoutPin[withoutPin.length - 1]}`;
+  //       }
+  //       return withoutPin[withoutPin.length - 1] ?? withoutPin[0] ?? ' - ';
+  //     }
+  //     return `${secondLast}, ${last}`;
+  //   }
+  //   return ' - ';
+  // };
 
 
   // CSS-based responsive tag count (no window dependency) - Show ALL tags
+  // put above PropertyTags (same place where old extractLocalityCity lived)
+  const isPin = (s: string) => /^\d{5,6}$/.test((s || "").replace(/\s+/g, ""));
+
+  const extractLocalityAndCity = (
+    addr: any
+  ): { locality?: string; city?: string; label?: string } => {
+    if (!addr && addr !== "") return {};
+
+    // If an object was passed (address object or even full property)
+    if (typeof addr === "object") {
+      const locality = (
+        addr.locality ??
+        addr.location_name ??   // ✅ NEW
+        addr.neighborhood ??
+        addr.subLocality ??
+        addr.area ??
+        ""
+      )
+        .toString()
+        .trim();
+
+      const city = (
+        addr.city ??
+        addr.city_name ??       // ✅ NEW
+        addr.town ??
+        addr.district ??
+        addr.region ??
+        addr.state ??
+        ""
+      )
+        .toString()
+        .trim();
+
+      const label = locality && city ? `${locality}, ${city}` : locality || city || undefined;
+      return { locality: locality || undefined, city: city || undefined, label };
+    }
+
+    // If a string was passed (freeform address)
+    if (typeof addr === "string") {
+      const cleaned = addr
+        .replace(/\r?\n/g, ",")
+        .replace(/[-|\/]+/g, ",")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!cleaned) return {};
+      const parts = cleaned.split(",").map((p) => p.trim()).filter(Boolean);
+
+      const last = parts[parts.length - 1];
+      const list = isPin(last) ? parts.slice(0, -1) : parts;
+
+      if (list.length === 1) return { city: list[0], label: list[0] };
+      const city = list[list.length - 1];
+      const locality = list[list.length - 2];
+      return { locality, city, label: locality && city ? `${locality}, ${city}` : city || locality };
+    }
+
+    return {};
+  };
+
+  // Backward-compatible wrapper (so existing calls keep working)
+  const extractLocalityCity = (addr: any): string => {
+    const { label } = extractLocalityAndCity(addr);
+    return label ?? " - ";
+  };
+
   const PropertyTags = ({ tags }: { tags: string[] }) => {
     if (!tags || tags.length === 0) return null;
 
@@ -445,7 +510,16 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
         : Array.isArray(p?.photoUrls) ? p.photoUrls
           : Array.isArray(p?.media) ? p.media.map((m: any) => m?.url ?? m) : [];
 
-    const rawLocation = p?.location ?? p?.address ?? p?.place ?? p?.locality ?? p;
+    // const rawLocation = p?.location ?? p?.address ?? p?.place ?? p?.locality ?? p;
+    const rawLocation =
+      p?.location ??
+      p?.address ??
+      p?.place ??
+      p?.locality ??
+      p?.address_line ??   // ✅ NEW
+      p?.addr ??           // ✅ NEW
+      p;                   // (falls back to full object)
+
 
     const createdAtRaw = p?.created_at ?? p?.publication_date ?? p?.createdAt ?? p?.created_at_at ?? p?.created_at_date ?? p?.created_at_timestamp ?? p?.published_at ?? null;
 
@@ -481,6 +555,20 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     };
 
     const listedDaysFromCreated = computeDaysAgo(createdAtDate);
+    // Derive locality/city from either the address object or root fields
+    const locProbe =
+      typeof rawLocation === "object"
+        ? rawLocation
+        : {
+          locality: p?.locality,
+          location_name: p?.location_name, // ✅
+          city: p?.city,
+          city_name: p?.city_name,         // ✅
+          address: p?.address,
+        };
+
+    const { locality, city, label } = extractLocalityAndCity(locProbe);
+
 
     const normalized: any = {
       raw: p,
@@ -489,8 +577,13 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       type: p?.type ?? p?.property_type ?? p?.property_type_name ?? '',
       unitType: p?.unitType ?? p?.unit_type ?? p?.unit ?? '',
       subtype: p?.subtype ?? p?.property_subtype_name ?? p?.property_subtype ?? '',
+      // location: rawLocation,
+      // locationNormalized: extractLocalityCity(rawLocation),
       location: rawLocation,
-      locationNormalized: extractLocalityCity(rawLocation),
+      locationNormalized: label,                  // ✅ use parsed label
+      city: p?.city_name ?? p?.city ?? city,      // ✅ make city available to filters
+      locality: p?.locality ?? p?.location_name ?? locality, // ✅ for display/search
+
       price: Number.isFinite(price) ? price : undefined,
       square_feet: sqft,
       area: sqft, // alias
