@@ -7,6 +7,7 @@ import { documentStatusAPI } from '@/lib/documentStatusAPI';
 export interface PartyVerificationPayload {
   buyer: { name: string; email: string; phone: string; channel: 'sms' | 'email' };
   seller: { name: string; email: string; phone: string; channel: 'sms' | 'email' };
+  defaultExecutive?: { name?: string; email?: string; phone?: string };
   note?: string;
 }
 
@@ -15,6 +16,7 @@ interface PartyVerificationModalProps {
   documentId: number;
   defaultBuyer?: { name?: string; email?: string; phone?: string };
   defaultSeller?: { name?: string; email?: string; phone?: string };
+  defaultExecutive?: { name?: string; email?: string; phone?: string };
   onClose: () => void;
   onBothVerified: (payload: PartyVerificationPayload) => void;
 }
