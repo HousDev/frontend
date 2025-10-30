@@ -137,20 +137,34 @@ const BuyerViewPage = ({
     );
   };
 
-  const getPriorityBadge = (priority: string) => {
-    const priorityConfig = {
-      'high': { bg: 'bg-red-100', text: 'text-red-700', label: 'High Priority', icon: '🔥' },
-      'medium': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Medium Priority', icon: '⚡' },
-      'low': { bg: 'bg-green-100', text: 'text-green-700', label: 'Low Priority', icon: '🌱' }
-    };
+const getPriorityBadge = (priority?: string) => {
+  const priorityConfig = {
+    high: { bg: 'bg-red-100', text: 'text-red-700', label: 'High Priority', icon: '🔥' },
+    medium: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Medium Priority', icon: '⚡' },
+    low: { bg: 'bg-green-100', text: 'text-green-700', label: 'Low Priority', icon: '🌱' },
+  };
 
-    const config = priorityConfig[priority as keyof typeof priorityConfig];
+  const normalized = (priority || '').toLowerCase().trim();
+  const config = priorityConfig[normalized as keyof typeof priorityConfig];
+
+  if (!config) {
+    // default badge for undefined or unknown priority
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
-        {config.icon} {config.label}
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+        ⚪ No Priority
       </span>
     );
-  };
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
+    >
+      {config.icon} {config.label}
+    </span>
+  );
+};
+
 
   const getLeadScore = (score: number) => {
     const color = score >= 80 ? 'text-green-600' : score >= 60 ? 'text-yellow-600' : 'text-red-600';
@@ -757,7 +771,7 @@ const OverviewTab = ({ buyer, onUpdateBuyer }: any) => {
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${buyer.stageProgress}%` }}
+             style={{ width: `${buyer.stageProgress || 0}%` } as React.CSSProperties}
             ></div>
           </div>
 

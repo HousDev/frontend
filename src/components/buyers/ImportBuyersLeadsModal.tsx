@@ -159,7 +159,16 @@ const ensureString = (v: any): string | undefined => {
   if (v === undefined || v === null || v === "") return undefined;
   return String(v).trim();
 };
-
+const renderCell = (v: any) => {
+  if (v === null || v === undefined || v === "") return "";
+  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.length ? v.join(", ") : "";
+  if (typeof v === "object") {
+    // stringify compactly; adjust if you prefer pretty-print
+    try { return JSON.stringify(v); } catch { return "[object]"; }
+  }
+  try { return String(v); } catch { return ""; }
+};
 /* ========================== Summary Modal ========================== */
 
 function SummaryModal({
@@ -229,8 +238,8 @@ function SummaryModal({
                       <td className="border px-2 py-1 text-center">{row.existingId ?? "-"}</td>
                       <td className="border px-2 py-1 text-purple-700">{row.reason}</td>
                       {allKeys.map((key) => (
-                        <td key={key} className="border px-2 py-1">
-                          {row.data?.[key] && String(row.data[key]).trim() !== "" ? row.data[key] : ""}
+                       <td key={key} className="border px-2 py-1">
+                           {renderCell(row.data?.[key])}
                         </td>
                       ))}
                     </tr>
@@ -266,7 +275,7 @@ function SummaryModal({
                       </td>
                       {allKeys.map((key) => (
                         <td key={key} className="border px-2 py-1">
-                          {row.data[key] && String(row.data[key]).trim() !== "" ? row.data[key] : ""}
+                          {renderCell(row.data?.[key])}
                         </td>
                       ))}
                     </tr>
@@ -302,7 +311,7 @@ function SummaryModal({
                       <td className="border px-2 py-1 text-green-700">{row.note || "Updated"}</td>
                       {allKeys.map((key) => (
                         <td key={key} className="border px-2 py-1">
-                          {row.data?.[key] && String(row.data[key]).trim() !== "" ? row.data[key] : ""}
+                          {renderCell(row.data?.[key])}
                         </td>
                       ))}
                     </tr>
@@ -465,6 +474,8 @@ const downloadBuyerTemplate = () => {
   XLSX.utils.book_append_sheet(wb, ws, "Buyers Template");
   XLSX.writeFile(wb, "Buyers_Import_Template.xlsx");
 };
+
+
 
 /* ============================== Component ============================== */
 
@@ -928,22 +939,39 @@ const getCreatorId = () =>
 
 
   // ===== ONLY buyerAPI is used here =====
-  const callImportAPI = async (payloadRows: any[]) => {
+const DEBUG_IMPORT = true;
+
+// 2) Replace your callImportAPI with this version:
+const callImportAPI = async (payloadRows: any[]) => {
+  if (DEBUG_IMPORT) {
+    console.log("[Import Buyers] Payload rows:", payloadRows);
+  }
+  try {
+    if (DEBUG_IMPORT) console.log("[Import Buyers] Trying shape: raw array");
+    const res = await (buyerAPI as any).importBuyers(payloadRows);
+    (res as any).__payload_shape = "array";
+    return res;
+  } catch (err1) {
+    if (DEBUG_IMPORT) console.warn("[Import Buyers] Failed shape 'array':", err1);
     try {
-      return await (buyerAPI as any).importBuyers(payloadRows);
-    } catch (err1) {
+      if (DEBUG_IMPORT) console.log("[Import Buyers] Trying shape: { buyers: [] }");
+      const res = await (buyerAPI as any).importBuyers({ buyers: payloadRows });
+      (res as any).__payload_shape = "buyers";
+      return res;
+    } catch (err2) {
+      if (DEBUG_IMPORT) console.warn("[Import Buyers] Failed shape '{ buyers: [] }':", err2);
       try {
-        return await (buyerAPI as any).importBuyers({ buyers: payloadRows });
-      } catch (err2) {
-        try {
-          return await (buyerAPI as any).importBuyers({ data: payloadRows });
-        } catch (err3) {
-          console.error("buyerAPI.importBuyers failed with all payload shapes", { err1, err2, err3 });
-          throw err3;
-        }
+        if (DEBUG_IMPORT) console.log("[Import Buyers] Trying shape: { data: [] }");
+        const res = await (buyerAPI as any).importBuyers({ data: payloadRows });
+        (res as any).__payload_shape = "data";
+        return res;
+      } catch (err3) {
+        console.error("[Import Buyers] All payload shapes failed", { err1, err2, err3 });
+        throw err3;
       }
     }
-  };
+  }
+};
 
   /* ========================== Core Import Flow ========================== */
 
