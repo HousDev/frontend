@@ -135,28 +135,26 @@ const PartyVerificationModal: React.FC<PartyVerificationModalProps> = ({
   }, []);
 
   // Fetch current verification status from database
-  const fetchVerificationStatus = async () => {
-    try {
-      const sessions = await documentStatusAPI.getOtpSessionsByDocument(documentId, {
-        verified: true,
-      });
+const fetchVerificationStatus = async () => {
+  try {
+    const sessions = await documentStatusAPI.getOtpSessionsByDocument(documentId, {
+      verified: true,
+    });
 
-      // Respect which sections are shown. Only toast for sections that are visible.
-      const buyerSession = sessions?.find((s: any) => s.role === 'buyer' && s.verified_at);
-      const sellerSession = sessions?.find((s: any) => s.role === 'seller' && s.verified_at);
+    const buyerSession = sessions?.find((s: any) => s.role === 'buyer' && s.verified_at);
+    const sellerSession = sessions?.find((s: any) => s.role === 'seller' && s.verified_at);
 
-      if (buyerSession && showBuyerSection) {
-        setBuyerVerified(true);
-        toast.info('Buyer was already verified');
-      }
-      if (sellerSession && showSellerSection) {
-        setSellerVerified(true);
-        toast.info('Seller was already verified');
-      }
-    } catch (error) {
-      console.error('Error fetching verification status:', error);
+    // Just set the state, don't show toast
+    if (buyerSession && showBuyerSection) {
+      setBuyerVerified(true);
     }
-  };
+    if (sellerSession && showSellerSection) {
+      setSellerVerified(true);
+    }
+  } catch (error) {
+    console.error('Error fetching verification status:', error);
+  }
+};
 
   // Cooldown timers
   useEffect(() => {

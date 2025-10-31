@@ -1,43 +1,68 @@
 // src/lib/digioAPI.ts
-// Uses your existing axios instance: import { api } from "@/lib/api"
-// If your instance default export hai, adjust the import accordingly.
-
 import api from "@/lib/api";
 
 // ---------- Types ----------
 export type SignType = "aadhaar" | "esign" | string;
 
 export interface Signer {
-  identifier: string;  // email ya mobile
+  identifier: string;
   name: string;
-  sign_type: SignType; // "aadhaar"
+  sign_type: SignType;
   reason?: string;
 }
 
-export type PageNumber = string; // Digio expects page as string keys e.g. "1"
+export type PageNumber = string;
 export interface SignBox {
-  llx: number; // lower-left x
-  lly: number; // lower-left y
-  urx: number; // upper-right x
-  ury: number; // upper-right y
+  llx: number;
+  lly: number;
+  urx: number;
+  ury: number;
+}
+// ---------- Extra Types ----------
+export interface DigioDocumentRow {
+  id: number;
+  local_document_id: number | string | null;
+  digio_id: string;
+  file_name: string | null;
+  status: string | null;
+  signers?: any;                // JSON from DB
+  access_token_id?: string | null;
+  authentication_urls?: any;    // JSON map from DB
+  created_at: string;
+  updated_at: string;
 }
 
-export type SignCoordinates = Record<
-  string, // signer identifier
-  Record<PageNumber, SignBox[]>
->;
+export interface GetAllDocumentsResult {
+  success: boolean;
+  data?: DigioDocumentRow[];
+  error?: any;
+}
+
+/** If your /status/:local_document_id returns similar to DetailsResult */
+export interface StatusByLocalIdResult {
+  success: boolean;
+  digio_id?: string;
+  status?: string;
+  local_document_id?: number | string;
+  data?: DigioUploadResponse;  // if backend forwards Digio details
+  db?: any;                    // DB row if you include it
+  error?: any;
+}
+
+export type SignCoordinates = Record<string, Record<PageNumber, SignBox[]>>;
 
 export interface UploadPdfPayload {
+  local_document_id?: number | string;
   signers: Signer[];
-  expire_in_days?: number;              // default 10
-  display_on_page?: "custom" | "all";   // "custom" for coordinates
+  expire_in_days?: number;
+  display_on_page?: "custom" | "all";
   notify_signers?: boolean;
   send_sign_link?: boolean;
-  file_name: string;                    // e.g. "Test.pdf"
+  file_name: string;
   generate_access_token?: boolean;
   include_authentication_url?: boolean;
-  file_data: string;                    // pure base64 (no data: prefix)
-  sign_coordinates?: SignCoordinates;   // required if display_on_page="custom"
+  file_data: string;
+  sign_coordinates?: SignCoordinates;
 }
 
 export interface DigioAccessToken {
@@ -59,10 +84,10 @@ export interface DigioSigningParty {
 }
 
 export interface DigioUploadResponse {
-  id: string; // digio_id
+  id: string;
   is_agreement?: boolean;
   agreement_type?: string;
-  agreement_status?: string; // requested/signed/rejected/expired/cancelled
+  agreement_status?: string;
   file_name?: string;
   created_at?: string;
   self_signed?: boolean;
@@ -70,39 +95,35 @@ export interface DigioUploadResponse {
   no_of_pages?: number;
   signing_parties?: DigioSigningParty[];
   access_token?: DigioAccessToken;
-  [k: string]: any; // keep open for extras
+  [k: string]: any;
 }
 
 export interface UploadResult {
   success: boolean;
   digio_id?: string;
   status?: string;
+  local_document_id?: number | string;
   data?: DigioUploadResponse;
   error?: any;
 }
 
+/** 🔥 UPDATED: backend top-level fields भी भेजता है */
 export interface DetailsResult {
   success: boolean;
-  data?: DigioUploadResponse;
-  error?: any;
-}
-
-export interface CancelResult {
-  success: boolean;
+  digio_id?: string;
   status?: string;
-  data?: any;
+  local_document_id?: number | string;
+  data?: DigioUploadResponse;
+  db?: any;
   error?: any;
 }
 
 // ---------- Helpers ----------
-
-// Convert a File (from <input type="file" />) to base64 string (no data: prefix)
 export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
     fr.onload = () => {
       const result = String(fr.result || "");
-      // Remove any data URL prefix if present
       const base64 = result.includes(",") ? result.split(",")[1] : result;
       resolve(base64);
     };
@@ -112,8 +133,6 @@ export function fileToBase64(file: File): Promise<string> {
 }
 
 // ---------- API Calls ----------
-
-// 1) Create/Upload request (POST /api/digio/uploadpdf)
 export async function uploadPdf(payload: UploadPdfPayload): Promise<UploadResult> {
   try {
     const { data } = await api.post<UploadResult>("/digio/uploadpdf", payload);
@@ -123,32 +142,38 @@ export async function uploadPdf(payload: UploadPdfPayload): Promise<UploadResult
   }
 }
 
-// 2) Get details (GET /api/digio/document/:documentId)
-export async function getDocumentDetails(documentId: string): Promise<DetailsResult> {
+/** 🔥 UPDATED: top-level fields को भी surface करें */
+export async function getDocumentDetails(
+  documentId: string,
+  localDocumentId?: number | string
+): Promise<DetailsResult> {
   try {
-    const { data } = await api.get<DetailsResult>(`/digio/document/${encodeURIComponent(documentId)}`);
+    const url =
+      typeof localDocumentId !== "undefined" && localDocumentId !== null
+        ? `/digio/document/${encodeURIComponent(documentId)}?local_document_id=${encodeURIComponent(
+            String(localDocumentId)
+          )}`
+        : `/digio/document/${encodeURIComponent(documentId)}`;
+
+    const { data } = await api.get<DetailsResult>(url);
+    // Debug:
+    // console.log("[getDocumentDetails]", data);
     return data;
   } catch (error: any) {
     return { success: false, error: error?.response?.data || error?.message };
   }
 }
 
-// 3) Cancel (POST /api/digio/document/:documentId/cancel)
-export async function cancelDocument(documentId: string, reason?: string): Promise<CancelResult> {
+export async function cancelDocument(documentId: string, reason?: string) {
   try {
     const body = reason ? { reason } : {};
-    const { data } = await api.post<CancelResult>(
-      `/digio/document/${encodeURIComponent(documentId)}/cancel`,
-      body
-    );
+    const { data } = await api.post(`/digio/document/${encodeURIComponent(documentId)}/cancel`, body);
     return data;
   } catch (error: any) {
     return { success: false, error: error?.response?.data || error?.message };
   }
 }
 
-// 4A) Download (open in new tab / browser default viewer)
-// Uses backend route: GET /api/digio/document/:documentId/download
 export function openDownload(documentId: string, opts?: { inline?: boolean; saveServerCopy?: boolean }) {
   const inline = opts?.inline ? "1" : "0";
   const save = opts?.saveServerCopy ? "1" : "0";
@@ -156,7 +181,6 @@ export function openDownload(documentId: string, opts?: { inline?: boolean; save
   window.open(url, "_blank");
 }
 
-// 4B) Download via XHR and force save as file (if you need programmatic download)
 export async function downloadDocument(documentId: string, fileName?: string, inline = false) {
   const url = `/digio/document/${encodeURIComponent(documentId)}/download?inline=${inline ? "1" : "0"}`;
   const res = await api.get(url, { responseType: "blob" });
@@ -171,3 +195,29 @@ export async function downloadDocument(documentId: string, fileName?: string, in
   link.remove();
   URL.revokeObjectURL(link.href);
 }
+
+/** 🔹 Get ALL Digio documents (simple) */
+export async function getAllDigioDocuments(): Promise<GetAllDocumentsResult> {
+  try {
+    const { data } = await api.get<GetAllDocumentsResult>("/digio/documents");
+    return data;
+  } catch (error: any) {
+    return { success: false, error: error?.response?.data || error?.message };
+  }
+}
+
+/** 🔹 Get status/details by local_document_id */
+export async function getDigioStatusByLocalId(
+  localDocumentId: number | string
+): Promise<StatusByLocalIdResult> {
+  try {
+    const { data } = await api.get<StatusByLocalIdResult>(
+      `/digio/status/${encodeURIComponent(String(localDocumentId))}`
+    );
+    return data;
+  } catch (error: any) {
+    return { success: false, error: error?.response?.data || error?.message };
+  }
+}
+
+

@@ -6,11 +6,9 @@ import { documentsGeneratedAPI } from "@/lib/documentsGeneratedAPI";
 import { Document as PdfDocument, Page as PdfPage, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
-
-
+import { uploadPdf, type UploadPdfPayload, type DigioUploadResponse } from "@/lib/digioAPI";
 
 /* ---------- PDF.js worker (Vite + ESM) ---------- */
-/* HMR-safe guard without mutating pdfjs object */
 const __g: any = globalThis as any;
 if (!__g.__pdfjsWorkerSet__) {
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -26,16 +24,18 @@ type SignBox = { llx: number; lly: number; urx: number; ury: number };
 type CoordinateMarker = { id: string; page: number; x: number; y: number; width: number; height: number };
 
 type Signer = {
-  id: string; 
-  role: PartyRole | string; 
-  name: string; 
-  email: string; 
+  id: string;
+  role: PartyRole | string;
+  name: string;
+  email: string;
   phone: string;
-  reason?: string; 
-  index?: number; 
+  reason?: string;
+  index?: number;
   identifierType?: "email" | "phone";
-  customRole?: string; // For custom role input
+  customRole?: string;
 };
+
+type RequestStatus = "idle" | "creating" | "created" | "error";
 
 type Props = {
   isOpen: boolean;
@@ -43,7 +43,6 @@ type Props = {
   documentId: number | string;
   defaultBuyer?: { name?: string; email?: string; phone?: string };
   defaultSeller?: { name?: string; email?: string; phone?: string };
-  // YEH DO LINES PEHLE WALE Props TYPE ME HI ADD KARO:
   onProgress?: (args: { docId: string | number; payload?: Record<string, any> }) => Promise<void>;
   onBothSigned?: ({ docId }: { docId: string | number }) => Promise<void>;
 };
@@ -151,7 +150,7 @@ function CoordsModal({
         </div>
         <div className="flex items-center justify-between p-4 border-t bg-gray-50">
           <div className="text-xs text-gray-600">
-            Tip: Boxes are in screen px; JSON is normalized using current PDF scale.
+            Tip: Boxes are drawn in screen px; JSON is normalized to PDF points with origin bottom-left.
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -172,10 +171,95 @@ function CoordsModal({
     </div>
   );
 }
-  
+
+/* --------------------------- Request Status Component --------------------------- */
+function RequestStatusComponent({
+  status,
+  digioResponse,
+  onCreateNewRequest,
+  onClose,
+}: {
+  status: RequestStatus;
+  digioResponse: DigioUploadResponse | null;
+  onCreateNewRequest: () => void;
+  onClose: () => void;
+}) {
+  if (status === "idle" || status === "creating") return null;
+
+  return (
+    <div className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center px-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6">
+        <div className="text-center">
+          {status === "created" && digioResponse ? (
+            <>
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ShieldCheck className="text-green-600" size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Request Created Successfully!</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Your e-sign request has been submitted to Digio.
+              </p>
+
+              <div className="bg-gray-50 rounded-lg p-4 text-left mb-4">
+                <div className="text-xs font-medium text-gray-700 mb-2">Request Details:</div>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div><span className="font-medium">Digio ID:</span> {digioResponse.id}</div>
+                  <div><span className="font-medium">Status:</span> {digioResponse.agreement_status || "requested"}</div>
+                  <div><span className="font-medium">File:</span> {digioResponse.file_name}</div>
+                  {digioResponse.signing_parties && (
+                    <div><span className="font-medium">Signers:</span> {digioResponse.signing_parties.length}</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                >
+                  Close & Monitor Status
+                </button>
+                <button
+                  onClick={onCreateNewRequest}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                >
+                  Create New Request
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <X className="text-red-600" size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Request Failed</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                There was an error creating your e-sign request.
+              </p>
+              <div className="flex gap-2 justify-center">
+                <button
+                  onClick={onCreateNewRequest}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                >
+                  Try Again
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function EsignAadhaarModal({
-  isOpen, onClose, documentId, defaultBuyer, defaultSeller,onProgress, onBothSigned
+  isOpen, onClose, documentId, defaultBuyer, defaultSeller, onProgress, onBothSigned
 }: Props) {
   /* ---------- PDF state ---------- */
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
@@ -186,8 +270,11 @@ export default function EsignAadhaarModal({
   const [progress, setProgress] = useState<{ loaded: number; total?: number } | null>(null);
 
   const [numPages, setNumPages] = useState(1);
-  const [pageBaseWidth, setPageBaseWidth] = useState<number | null>(null); // viewport width at scale=1
+  const [pageBaseWidth, setPageBaseWidth] = useState<number | null>(null);
   const [pdfScale, setPdfScale] = useState(1);
+
+  // store page width/height in PDF points at scale=1 — used to flip Y correctly
+  const pagePtsMetaRef = useRef<Record<number, { width: number; height: number }>>({});
 
   const memoPdfFile = useMemo(() => (pdfBytes ? { data: new Uint8Array(pdfBytes) } : null), [pdfBytes]);
   const docKey = useMemo(() => (pdfBytes ? `pdf-${pdfBytes.length}-${pdfBytes[0] ?? 0}` : "none"), [pdfBytes]);
@@ -205,6 +292,10 @@ export default function EsignAadhaarModal({
   const [movingCoordinate, setMovingCoordinate] = useState<{ signerId: string; index: number } | null>(null);
   const [resizingCoordinate, setResizingCoordinate] = useState<{ signerId: string; index: number; corner: string } | null>(null);
 
+  /* ---------- Request state ---------- */
+  const [requestStatus, setRequestStatus] = useState<RequestStatus>("idle");
+  const [digioResponse, setDigioResponse] = useState<DigioUploadResponse | null>(null);
+
   // per-page overlay sizes & refs to detect visible page
   const pageContainerRef = useRef<HTMLDivElement>(null);
   const pageWrapRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -213,22 +304,22 @@ export default function EsignAadhaarModal({
   /* ---------- Signers ---------- */
   const [signers, setSigners] = useState<Signer[]>([
     {
-      id: uid("buyer-"), 
+      id: uid("buyer-"),
       role: "Buyer",
-      name: defaultBuyer?.name || "", 
-      email: defaultBuyer?.email || "", 
+      name: defaultBuyer?.name || "",
+      email: defaultBuyer?.email || "",
       phone: defaultBuyer?.phone || "",
-      reason: "Reason for Verification", 
+      reason: "Reason for Verification",
       index: 0,
       identifierType: defaultBuyer?.email ? "email" : defaultBuyer?.phone ? "phone" : undefined
     },
     {
-      id: uid("seller-"), 
+      id: uid("seller-"),
       role: "Seller",
-      name: defaultSeller?.name || "", 
-      email: defaultSeller?.email || "", 
+      name: defaultSeller?.name || "",
+      email: defaultSeller?.email || "",
       phone: defaultSeller?.phone || "",
-      reason: "Reason for Verification", 
+      reason: "Reason for Verification",
       index: 1,
       identifierType: defaultSeller?.email ? "email" : defaultSeller?.phone ? "phone" : undefined
     },
@@ -239,6 +330,14 @@ export default function EsignAadhaarModal({
     if (!isOpen) return;
     setSelectedIds((prev) => (prev.length ? prev : signers.map((s) => s.id)));
   }, [isOpen, signers]);
+
+  /* ---------- Reset state when modal opens ---------- */
+  useEffect(() => {
+    if (isOpen) {
+      setRequestStatus("idle");
+      setDigioResponse(null);
+    }
+  }, [isOpen]);
 
   /* ---------- Load PDF (from API base64 only) ---------- */
   useEffect(() => {
@@ -253,6 +352,9 @@ export default function EsignAadhaarModal({
       setPdfBytes(null);
       setNumPages(1);
       setPageBaseWidth(null);
+      pagePtsMetaRef.current = {};
+      _setSignerCoordinates({});
+      setCoordsJson("{}");
 
       try {
         const details = await documentsGeneratedAPI.getById(documentId);
@@ -298,14 +400,19 @@ export default function EsignAadhaarModal({
     setLoadError("");
     setNumPages(1);
     setPageBaseWidth(null);
+    pagePtsMetaRef.current = {};
+    _setSignerCoordinates({});
+    setCoordsJson("{}");
   };
 
-  /* ---------- Fit-to-width scaling ---------- */
+  /* ---------- Fit-to-width scaling + capture page size in points ---------- */
   const onAnyPageLoad = (page: any) => {
     try {
+      const vp1 = page.getViewport({ scale: 1 });
+      // Save PDF points meta per page (scale=1 => points)
+      pagePtsMetaRef.current[page.pageNumber] = { width: vp1.width, height: vp1.height };
       if (!pageBaseWidth) {
-        const vw = page.getViewport({ scale: 1 }).width;
-        setPageBaseWidth(vw);
+        setPageBaseWidth(vp1.width);
       }
     } catch (e) {
       console.warn("viewport read failed", e);
@@ -345,30 +452,45 @@ export default function EsignAadhaarModal({
     });
   };
 
+  /** ---------- CORE FIX: correct conversion to PDF points (origin bottom-left) ---------- */
   const recomputeDigio = (map: Record<string, CoordinateMarker[]> = signerCoordinates) => {
+    // sign_coordinates: { "<identifier>": { "1": [{llx,lly,urx,ury}], "2": [...] } }
     const out: Record<string, Record<string, SignBox[]>> = {};
+
+    const scale = pdfScale || 1;
+
     signers.forEach((s) => {
       if (!selectedIds.includes(s.id)) return;
       const id = getSignerIdentifier(s); if (!id) return;
       const marks = map[s.id] || []; if (!marks.length) return;
-      out[id] = {};
+
       marks.forEach((m) => {
-        const k = String(m.page);
-        (out[id][k] ||= []).push({
-          llx: Math.round(m.x / pdfScale),
-          lly: Math.round((m.y + m.height) / pdfScale),
-          urx: Math.round((m.x + m.width) / pdfScale),
-          ury: Math.round(m.y / pdfScale),
-        });
+        const meta = pagePtsMetaRef.current[m.page];
+        if (!meta) return; // page not measured yet
+
+        // Screen (overlay) -> PDF points:
+        // x_pts = x / scale
+        // y: flip because overlay origin is top-left, PDF origin is bottom-left:
+        // lly = pageHeight - (y + height)/scale
+        // ury = pageHeight - y/scale
+        const llx = Math.round(m.x / scale);
+        const lly = Math.round(meta.height - (m.y + m.height) / scale);
+        const urx = Math.round((m.x + m.width) / scale);
+        const ury = Math.round(meta.height - m.y / scale);
+
+        (out[id] ||= {});
+        (out[id][String(m.page)] ||= []).push({ llx, lly, urx, ury });
       });
     });
+
     const json = JSON.stringify(out, null, 2);
     setCoordsJson(json);
   };
 
   useEffect(() => {
+    // Recompute whenever display scale / coordinates / selection changes
     recomputeDigio();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdfScale, signerCoordinates, signers, selectedIds]);
 
   const getCurrentVisiblePage = (): number => {
@@ -518,15 +640,15 @@ export default function EsignAadhaarModal({
 
   /* ---------- Add Custom Signer ---------- */
   const addCustomSigner = () => {
-    const newSigner: Signer = { 
-      id: uid("custom-"), 
-      role: "Custom", 
-      name: "", 
-      email: "", 
-      phone: "", 
-      reason: "Reason for signing", 
+    const newSigner: Signer = {
+      id: uid("custom-"),
+      role: "Custom",
+      name: "",
+      email: "",
+      phone: "",
+      reason: "Reason for signing",
       index: signers.length,
-      customRole: "" // Initialize custom role field
+      customRole: ""
     };
     setSigners((p) => [...p, newSigner]);
     setSelectedIds((p) => [...p, newSigner.id]);
@@ -534,15 +656,14 @@ export default function EsignAadhaarModal({
 
   /* ---------- Handle Role Change ---------- */
   const handleRoleChange = (signerId: string, newRole: PartyRole | string) => {
-    setSigners((prev) => 
-      prev.map((s) => 
-        s.id === signerId 
-          ? { 
-              ...s, 
+    setSigners((prev) =>
+      prev.map((s) =>
+        s.id === signerId
+          ? {
+              ...s,
               role: newRole,
-              // Reset customRole if not selecting "Custom"
               customRole: newRole === "Custom" ? s.customRole : ""
-            } 
+            }
           : s
       )
     );
@@ -550,32 +671,26 @@ export default function EsignAadhaarModal({
 
   /* ---------- Handle Custom Role Input ---------- */
   const handleCustomRoleChange = (signerId: string, customRole: string) => {
-    setSigners((prev) => 
-      prev.map((s) => 
-        s.id === signerId 
-          ? { ...s, customRole, role: "Custom" } 
+    setSigners((prev) =>
+      prev.map((s) =>
+        s.id === signerId
+          ? { ...s, customRole, role: "Custom" }
           : s
       )
     );
   };
 
-  /* ---------- DEBUG PANEL ---------- */
-  const Debug = () => (
-    <div className="text-[11px] p-2 bg-gray-50 border rounded mt-2">
-      <div>
-        bytes: {pdfBytes?.length ?? 0} | pages: {numPages} | scale: {pdfScale.toFixed(2)}
-        {progress && (
-          <> | progress: {progress.loaded}{progress.total ? ` / ${progress.total}` : ""}</>
-        )}
-      </div>
-      {loadError && <div className="text-red-600">loadError: {loadError}</div>}
-      {reactPdfError && <div className="text-orange-600">reactPdfError: {reactPdfError}</div>}
-    </div>
-  );
+  /* ---------- Create New Request ---------- */
+  const handleCreateNewRequest = () => {
+    setRequestStatus("idle");
+    setDigioResponse(null);
+  };
 
-  /* ---------- SUBMIT: build EXACT requested payload ---------- */
-  const handleSubmit = () => {
+  /* ---------- SUBMIT: Send to Digio API ---------- */
+  const handleSubmit = async () => {
     try {
+      setRequestStatus("creating");
+
       const selectedSigners = signers.filter(s => selectedIds.includes(s.id));
       // Build signers array (identifier, name, sign_type, reason)
       const signersPayload = selectedSigners.map((s) => {
@@ -583,10 +698,9 @@ export default function EsignAadhaarModal({
         if (!identifier) {
           throw new Error(`Missing identifier for signer "${s.name || s.role}". Choose Email/Phone in "Select identifier".`);
         }
-        
-        // Use customRole if available, otherwise use role
+
         const displayRole = s.customRole || s.role;
-        
+
         return {
           identifier,
           name: s.name || String(displayRole || "Signer"),
@@ -606,10 +720,14 @@ export default function EsignAadhaarModal({
         toast.info(`Note: No coordinates for ${notPlaced.length} signer(s). They won't have a signature box.`);
       }
 
-      const file_data =
-        pdfBytes && pdfBytes.length ? uint8ToBase64(pdfBytes) : "";
+      const file_data = pdfBytes && pdfBytes.length ? uint8ToBase64(pdfBytes) : "";
 
-      const payload = {
+      if (!file_data) {
+        throw new Error("No PDF data available");
+      }
+
+      const payload: UploadPdfPayload = {
+        local_document_id: documentId,
         signers: signersPayload,
         expire_in_days: 10,
         display_on_page: "custom",
@@ -617,317 +735,353 @@ export default function EsignAadhaarModal({
         send_sign_link: true,
         file_name: fileName || "Test.pdf",
         generate_access_token: true,
-        include_authentication_url: "true",
-        file_data: file_data || "base64",
+        include_authentication_url: true,
+        file_data: file_data,
         sign_coordinates: signCoordinates,
       };
 
-      // eslint-disable-next-line no-console
       console.log("[E-SIGN FINAL PAYLOAD]", payload);
-      toast.success("Final payload printed in console.");
+
+      // Call Digio API
+      const result = await uploadPdf(payload);
+
+      if (result.success && result.data) {
+        setDigioResponse(result.data);
+        setRequestStatus("created");
+        toast.success("E-sign request created successfully!");
+
+        // Call progress callback if provided
+        if (onProgress) {
+          await onProgress({ docId: documentId, payload });
+        }
+      } else {
+        throw new Error(result.error?.message || "Failed to create e-sign request");
+      }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to build payload.");
+      console.error("Submit error:", err);
+      setRequestStatus("error");
+      toast.error(err?.message || "Failed to create e-sign request");
     }
   };
+
+
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white w-full max-w-7xl rounded-2xl shadow-2xl max-h-[95vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                E-sign (Aadhaar) <span className="text-xs text-gray-600">Doc ID: {String(documentId)}</span>
-              </h3>
-              <p className="text-xs text-gray-600">Click "Add Box" or "Mark (Drag)" — coordinates are generated automatically.</p>
-              <Debug />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs border rounded-lg cursor-pointer hover:bg-gray-50">
-                <Upload size={14} /><span>Upload PDF</span>
-                <input type="file" accept="application/pdf" className="hidden" onChange={onUpload} />
-              </label>
-              <button
-                onClick={() => {
-                  recomputeDigio();
-                  setShowCoordsModal(true);
-                  setTimeout(() => coordsTextAreaRef.current?.focus(), 0);
-                }}
-                className="px-3 py-1.5 text-xs border rounded hover:bg-gray-50 inline-flex items-center gap-2"
-              >
-                <FileText size={14} />
-                View Coordinates
-              </button>
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100" aria-label="Close modal"><X size={18} /></button>
-            </div>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-hidden flex">
-          {/* Left: Signers */}
-          <div className="w-80 border-r border-gray-200 overflow-y-auto p-4 space-y-3">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-semibold">Signers</h4>
-              <button
-                onClick={addCustomSigner}
-                className="px-2 py-1 text-xs border rounded-lg flex items-center gap-1 hover:bg-gray-50"
-              >
-                <Plus size={12} />Add
-              </button>
-            </div>
-
-            {signers.map((s) => {
-              const marks = signerCoordinates[s.id] || [];
-              const isMarking = currentMarkingSigner === s.id;
-              const c = getColor(s.id);
-              const displayRole = s.customRole || s.role;
-              
-              return (
-                <div key={s.id} className={`border rounded p-3 ${isMarking ? "ring-2 ring-blue-500 bg-blue-50" : ""}`}>
-                  <div className="flex items-start gap-2">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={selectedIds.includes(s.id)}
-                      onChange={() => { toggleSelected(s.id); setTimeout(() => recomputeDigio(), 0); }}
-                    />
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: c } as CSSProperties} />
-                        <span className="text-sm font-medium">{displayRole}</span>
-                      </div>
-                      
-                      {/* Role Selection */}
-                      <select 
-                        className="w-full px-2 py-1 border rounded text-xs" 
-                        value={s.role}
-                        onChange={(e) => handleRoleChange(s.id, e.target.value)}
-                      >
-                        <option value="Buyer">Buyer</option>
-                        <option value="Seller">Seller</option>
-                        <option value="Executive">Executive</option>
-                        <option value="Witness">Witness</option>
-                        <option value="Notary">Notary</option>
-                        <option value="Custom">Custom</option>
-                      </select>
-
-                      {/* Custom Role Input (only show when role is Custom) */}
-                      {s.role === "Custom" && (
-                        <input 
-                          className="w-full px-2 py-1 border rounded text-xs" 
-                          value={s.customRole || ""}
-                          onChange={(e) => handleCustomRoleChange(s.id, e.target.value)}
-                          placeholder="Enter custom role (e.g., Manager, Director, etc.)"
-                        />
-                      )}
-
-                      <input className="w-full px-2 py-1 border rounded text-xs" value={s.name} onChange={e => setSigners(p => p.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} placeholder="Name" />
-                      <input className="w-full px-2 py-1 border rounded text-xs" value={s.email} onChange={e => { setSigners(p => p.map(x => x.id === s.id ? { ...x, email: e.target.value } : x)); setTimeout(() => recomputeDigio(), 0); }} placeholder="Email" />
-                      <input className="w-full px-2 py-1 border rounded text-xs" value={s.phone} onChange={e => { setSigners(p => p.map(x => x.id === s.id ? { ...x, phone: e.target.value } : x)); setTimeout(() => recomputeDigio(), 0); }} placeholder="Phone" />
-                      <select className="w-full px-2 py-1 border rounded text-xs" value={s.identifierType || ""} onChange={e => { setSigners(p => p.map(x => x.id === s.id ? { ...x, identifierType: e.target.value as any } : x)); setTimeout(() => recomputeDigio(), 0); }}>
-                        <option value="">Select identifier</option>
-                        {isEmail(s.email) && <option value="email">Use Email</option>}
-                        {isPhone(s.phone) && <option value="phone">Use Phone</option>}
-                      </select>
-
-                      <div className="grid grid-cols-2 gap-2 pt-2">
-                        <button
-                          onClick={() => addBoxForSigner(s.id)}
-                          className="px-2 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-1"
-                        >
-                          <Plus size={12} /> Add Box
-                        </button>
-                        {isMarking ? (
-                          <button onClick={() => { setIsMarkingMode(false); setCurrentMarkingSigner(null); }} className="px-2 py-1.5 text-xs bg-red-500 text-white rounded hover:bg-red-600">Stop Marking</button>
-                        ) : (
-                          <button onClick={() => { setIsMarkingMode(true); setCurrentMarkingSigner(s.id); }} className="px-2 py-1.5 text-xs border rounded hover:bg-gray-50 flex items-center justify-center gap-1">
-                            <MapPin size={12} /> Mark (Drag)
-                          </button>
-                        )}
-                      </div>
-
-                      {!!marks.length && (
-                        <div className="mt-2 space-y-1">
-                          <div className="text-xs text-gray-600">Signature Areas ({marks.length})</div>
-                          {marks.map((m, i) => (
-                            <div key={m.id} className="flex items-center justify-between text-xs bg-gray-50 px-2 py-1 rounded">
-                              <span>Page {m.page}</span>
-                              <button
-                                onClick={() =>
-                                  setSignerCoordinates(prev => {
-                                    const a = [...(prev[s.id] || [])];
-                                    a.splice(i, 1);
-                                    return { ...prev, [s.id]: a };
-                                  })
-                                }
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Remove Signer Button */}
-                      <button
-                        onClick={() => {
-                          setSigners(p => p.filter(x => x.id !== s.id));
-                          setSelectedIds(p => p.filter(id => id !== s.id));
-                          setSignerCoordinates(prev => {
-                            const next = { ...prev };
-                            delete next[s.id];
-                            return next;
-                          });
-                        }}
-                        className="w-full px-2 py-1.5 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50 flex items-center justify-center gap-1 mt-2"
-                      >
-                        <Trash2 size={12} /> Remove Signer
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Center: PDF (all pages) + Overlays */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="p-3 border-b bg-gray-50 flex items-center gap-2">
-              <span className="text-xs">
-                {isMarkingMode ? "📍 Marking mode ON" : "✨ Move/resize enabled"}
-                {progress && (
-                  <span className="ml-2 text-gray-500">
-                    {progress.total ? Math.round((progress.loaded / progress.total) * 100) : 0}% loaded
-                  </span>
-                )}
-              </span>
-            </div>
-
-            <div ref={pageContainerRef} className="flex-1 bg-gray-100 p-4 overflow-auto" onMouseUp={handleMouseUp}>
-              {loading ? (
-                <div className="h-96 flex items-center justify-center text-gray-600">
-                  <RefreshCw size={24} className="animate-spin mr-2" /> Loading PDF…
-                </div>
-              ) : memoPdfFile ? (
-                <PdfDocument
-                  key={docKey}
-                  file={memoPdfFile}
-                  onLoadSuccess={({ numPages }) => { setNumPages(numPages); setReactPdfError(""); }}
-                  onLoadError={(e: any) => { console.error("react-pdf error:", e); setReactPdfError(String(e?.message || e)); }}
-                  onLoadProgress={({ loaded, total }) => setProgress({ loaded, total })}
-                  renderMode="canvas"
-                  loading={<div className="h-96 flex items-center justify-center text-gray-600">
-                    <RefreshCw size={24} className="animate-spin mr-2" /> Rendering…
-                  </div>}
-                  error={
-                    <div className="h-96 flex flex-col items-center justify-center text-red-600 text-sm p-6">
-                      <p className="font-medium mb-2">Failed to render PDF.</p>
-                      <button
-                        className="px-3 py-1.5 text-xs border rounded hover:bg-gray-50"
-                        onClick={() => setPdfBytes(pdfBytes ? new Uint8Array(pdfBytes) : null)}
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  }
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-white w-full max-w-7xl rounded-2xl shadow-2xl max-h-[95vh] flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  E-sign (Aadhaar) <span className="text-xs text-gray-600">Doc ID: {String(documentId)}</span>
+                </h3>
+                <p className="text-xs text-gray-600">Click "Add Box" or "Mark (Drag)" — coordinates are generated automatically.</p>
+             
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs border rounded-lg cursor-pointer hover:bg-gray-50">
+                  <Upload size={14} /><span>Upload PDF</span>
+                  <input type="file" accept="application/pdf" className="hidden" onChange={onUpload} />
+                </label>
+                <button
+                  onClick={() => {
+                    recomputeDigio();
+                    setShowCoordsModal(true);
+                    setTimeout(() => coordsTextAreaRef.current?.focus(), 0);
+                  }}
+                  className="px-3 py-1.5 text-xs border rounded hover:bg-gray-50 inline-flex items-center gap-2"
                 >
-                  <div className="mx-auto max-w-[1000px]">
-                    {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
-                      <div
-                        key={pageNum}
-                        ref={(el) => (pageWrapRefs.current[pageNum] = el)}
-                        className="relative inline-block bg-white shadow mb-6"
-                      >
-                        <PdfPage
-                          pageNumber={pageNum}
-                          scale={pdfScale}
-                          renderTextLayer={false}
-                          renderAnnotationLayer={false}
-                          onLoadSuccess={onAnyPageLoad}
-                        />
-                        {/* Overlay for this page */}
-                        <Overlay
-                          page={pageNum}
-                          signerCoordinates={signerCoordinates}
-                          signers={signers}
-                          isMarkingMode={isMarkingMode}
-                          currentMarkingSigner={currentMarkingSigner}
-                          getColor={getColor}
-                          dragRect={dragRect}
-                          onMouseDown={handleMouseDown}
-                          onMouseMove={handleMouseMove}
-                          onOverlaySize={(p, w, h) => (overlaySizes.current[p] = { width: w, height: h })}
-                          onRemoveBox={(sid, markId) =>
-                            setSignerCoordinates((prev) => {
-                              const arr = (prev[sid] || []).filter((m) => m.id !== markId);
-                              return { ...prev, [sid]: arr };
-                            })
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </PdfDocument>
-              ) : loadError ? (
-                <div className="h-96 flex flex-col items-center justify-center text-red-600 text-sm p-6">
-                  <p className="font-medium mb-2">{loadError}</p>
-                  <button
-                    className="px-3 py-1.5 text-xs border rounded hover:bg-gray-50"
-                    onClick={() => {
-                      setPdfBytes((prev) => (prev ? new Uint8Array(prev) : prev));
-                    }}
-                  >
-                    Retry
-                  </button>
-                </div>
-              ) : (
-                <div className="h-96 flex flex-col items-center justify-center text-gray-600 p-8 text-center">
-                  <FileText size={48} className="mb-4 text-gray-400" />
-                  <p className="font-medium">No PDF loaded</p>
-                  <p className="text-xs mt-2">
-                    API should return <code>pdf_base64</code> or upload a PDF.
-                  </p>
-                </div>
-              )}
+                  <FileText size={14} />
+                  View Coordinates
+                </button>
+                <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100" aria-label="Close modal"><X size={18} /></button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
-            <div className="text-xs text-gray-600 flex items-center gap-2 shrink-0">
-              <ShieldCheck size={14} /> {selectedIds.length} signer(s) | {Object.values(signerCoordinates).flat().length} area(s)
+          {/* Body */}
+          <div className="flex-1 overflow-hidden flex">
+            {/* Left: Signers */}
+            <div className="w-80 border-r border-gray-200 overflow-y-auto p-4 space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-semibold">Signers</h4>
+                <button
+                  onClick={addCustomSigner}
+                  className="px-2 py-1 text-xs border rounded-lg flex items-center gap-1 hover:bg-gray-50"
+                >
+                  <Plus size={12} />Add
+                </button>
+              </div>
+
+              {signers.map((s) => {
+                const marks = signerCoordinates[s.id] || [];
+                const isMarking = currentMarkingSigner === s.id;
+                const c = getColor(s.id);
+                const displayRole = s.customRole || s.role;
+
+                return (
+                  <div key={s.id} className={`border rounded p-3 ${isMarking ? "ring-2 ring-blue-500 bg-blue-50" : ""}`}>
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={selectedIds.includes(s.id)}
+                        onChange={() => { toggleSelected(s.id); setTimeout(() => recomputeDigio(), 0); }}
+                      />
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: c } as CSSProperties} />
+                          <span className="text-sm font-medium">{displayRole}</span>
+                        </div>
+
+                        {/* Role Selection */}
+                        <select
+                          className="w-full px-2 py-1 border rounded text-xs"
+                          value={s.role}
+                          onChange={(e) => handleRoleChange(s.id, e.target.value)}
+                        >
+                          <option value="Buyer">Buyer</option>
+                          <option value="Seller">Seller</option>
+                          <option value="Executive">Executive</option>
+                          <option value="Witness">Witness</option>
+                          <option value="Notary">Notary</option>
+                          <option value="Custom">Custom</option>
+                        </select>
+
+                        {/* Custom Role Input */}
+                        {s.role === "Custom" && (
+                          <input
+                            className="w-full px-2 py-1 border rounded text-xs"
+                            value={s.customRole || ""}
+                            onChange={(e) => handleCustomRoleChange(s.id, e.target.value)}
+                            placeholder="Enter custom role (e.g., Manager, Director, etc.)"
+                          />
+                        )}
+
+                        <input className="w-full px-2 py-1 border rounded text-xs" value={s.name} onChange={e => setSigners(p => p.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} placeholder="Name" />
+                        <input className="w-full px-2 py-1 border rounded text-xs" value={s.email} onChange={e => { setSigners(p => p.map(x => x.id === s.id ? { ...x, email: e.target.value } : x)); setTimeout(() => recomputeDigio(), 0); }} placeholder="Email" />
+                        <input className="w-full px-2 py-1 border rounded text-xs" value={s.phone} onChange={e => { setSigners(p => p.map(x => x.id === s.id ? { ...x, phone: e.target.value } : x)); setTimeout(() => recomputeDigio(), 0); }} placeholder="Phone" />
+                        <select className="w-full px-2 py-1 border rounded text-xs" value={s.identifierType || ""} onChange={e => { setSigners(p => p.map(x => x.id === s.id ? { ...x, identifierType: e.target.value as any } : x)); setTimeout(() => recomputeDigio(), 0); }}>
+                          <option value="">Select identifier</option>
+                          {isEmail(s.email) && <option value="email">Use Email</option>}
+                          {isPhone(s.phone) && <option value="phone">Use Phone</option>}
+                        </select>
+
+                        <div className="grid grid-cols-2 gap-2 pt-2">
+                          <button
+                            onClick={() => addBoxForSigner(s.id)}
+                            className="px-2 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-1"
+                          >
+                            <Plus size={12} /> Add Box
+                          </button>
+                          {isMarking ? (
+                            <button onClick={() => { setIsMarkingMode(false); setCurrentMarkingSigner(null); }} className="px-2 py-1.5 text-xs bg-red-500 text-white rounded hover:bg-red-600">Stop Marking</button>
+                          ) : (
+                            <button onClick={() => { setIsMarkingMode(true); setCurrentMarkingSigner(s.id); }} className="px-2 py-1.5 text-xs border rounded hover:bg-gray-50 flex items-center justify-center gap-1">
+                              <MapPin size={12} /> Mark (Drag)
+                            </button>
+                          )}
+                        </div>
+
+                        {!!marks.length && (
+                          <div className="mt-2 space-y-1">
+                            <div className="text-xs text-gray-600">Signature Areas ({marks.length})</div>
+                            {marks.map((m, i) => (
+                              <div key={m.id} className="flex items-center justify-between text-xs bg-gray-50 px-2 py-1 rounded">
+                                <span>Page {m.page}</span>
+                                <button
+                                  onClick={() =>
+                                    setSignerCoordinates(prev => {
+                                      const a = [...(prev[s.id] || [])];
+                                      a.splice(i, 1);
+                                      return { ...prev, [s.id]: a };
+                                    })
+                                  }
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Remove Signer */}
+                        <button
+                          onClick={() => {
+                            setSigners(p => p.filter(x => x.id !== s.id));
+                            setSelectedIds(p => p.filter(id => id !== s.id));
+                            setSignerCoordinates(prev => {
+                              const next = { ...prev };
+                              delete next[s.id];
+                              return next;
+                            });
+                          }}
+                          className="w-full px-2 py-1.5 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50 flex items-center justify-center gap-1 mt-2"
+                        >
+                          <Trash2 size={12} /> Remove Signer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              <button
-                onClick={() => { setIsMarkingMode(false); setCurrentMarkingSigner(null); }}
-                className="px-3 py-1.5 text-xs border rounded hover:bg-gray-100 shrink-0"
-              >
-                Stop Marking
-              </button>
-              <button
-                onClick={handleSubmit}
-                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 shrink-0"
-              >
-                Submit (console)
-              </button>
-              <button
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200 shrink-0"
-              >
-                Close
-              </button>
+            {/* Center: PDF (all pages) + Overlays */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-3 border-b bg-gray-50 flex items-center gap-2">
+                <span className="text-xs">
+                  {isMarkingMode ? "📍 Marking mode ON" : "✨ Move/resize enabled"}
+                  {progress && (
+                    <span className="ml-2 text-gray-500">
+                      {progress.total ? Math.round((progress.loaded / progress.total) * 100) : 0}% loaded
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              <div ref={pageContainerRef} className="flex-1 bg-gray-100 p-4 overflow-auto" onMouseUp={handleMouseUp}>
+                {loading ? (
+                  <div className="h-96 flex items-center justify-center text-gray-600">
+                    <RefreshCw size={24} className="animate-spin mr-2" /> Loading PDF…
+                  </div>
+                ) : memoPdfFile ? (
+                  <PdfDocument
+                    key={docKey}
+                    file={memoPdfFile}
+                    onLoadSuccess={({ numPages }) => { setNumPages(numPages); setReactPdfError(""); }}
+                    onLoadError={(e: any) => { console.error("react-pdf error:", e); setReactPdfError(String(e?.message || e)); }}
+                    onLoadProgress={({ loaded, total }) => setProgress({ loaded, total })}
+                    renderMode="canvas"
+                    loading={<div className="h-96 flex items-center justify-center text-gray-600">
+                      <RefreshCw size={24} className="animate-spin mr-2" /> Rendering…
+                    </div>}
+                    error={
+                      <div className="h-96 flex flex-col items-center justify-center text-red-600 text-sm p-6">
+                        <p className="font-medium mb-2">Failed to render PDF.</p>
+                        <button
+                          className="px-3 py-1.5 text-xs border rounded hover:bg-gray-50"
+                          onClick={() => setPdfBytes(pdfBytes ? new Uint8Array(pdfBytes) : null)}
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    }
+                  >
+                    <div className="mx-auto max-w-[1000px]">
+                      {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
+                        <div
+                          key={pageNum}
+                          ref={(el) => (pageWrapRefs.current[pageNum] = el)}
+                          className="relative inline-block bg-white shadow mb-6"
+                        >
+                          <PdfPage
+                            pageNumber={pageNum}
+                            scale={pdfScale}
+                            renderTextLayer={false}
+                            renderAnnotationLayer={false}
+                            onLoadSuccess={onAnyPageLoad}
+                          />
+                          {/* Overlay for this page */}
+                          <Overlay
+                            page={pageNum}
+                            signerCoordinates={signerCoordinates}
+                            signers={signers}
+                            isMarkingMode={isMarkingMode}
+                            currentMarkingSigner={currentMarkingSigner}
+                            getColor={getColor}
+                            dragRect={dragRect}
+                            onMouseDown={handleMouseDown}
+                            onMouseMove={handleMouseMove}
+                            onOverlaySize={(p, w, h) => (overlaySizes.current[p] = { width: w, height: h })}
+                            onRemoveBox={(sid, markId) =>
+                              setSignerCoordinates((prev) => {
+                                const arr = (prev[sid] || []).filter((m) => m.id !== markId);
+                                return { ...prev, [sid]: arr };
+                              })
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </PdfDocument>
+                ) : loadError ? (
+                  <div className="h-96 flex flex-col items-center justify-center text-red-600 text-sm p-6">
+                    <p className="font-medium mb-2">{loadError}</p>
+                    <button
+                      className="px-3 py-1.5 text-xs border rounded hover:bg-gray-50"
+                      onClick={() => {
+                        setPdfBytes((prev) => (prev ? new Uint8Array(prev) : prev));
+                      }}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <div className="h-96 flex flex-col items-center justify-center text-gray-600 p-8 text-center">
+                    <FileText size={48} className="mb-4 text-gray-400" />
+                    <p className="font-medium">No PDF loaded</p>
+                    <p className="text-xs mt-2">
+                      API should return <code>pdf_base64</code> or upload a PDF.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-4 border-t bg-gray-50">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+              <div className="text-xs text-gray-600 flex items-center gap-2 shrink-0">
+                <ShieldCheck size={14} /> {selectedIds.length} signer(s) | {Object.values(signerCoordinates).flat().length} area(s)
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <button
+                  onClick={() => { setIsMarkingMode(false); setCurrentMarkingSigner(null); }}
+                  className="px-3 py-1.5 text-xs border rounded hover:bg-gray-100 shrink-0"
+                >
+                  Stop Marking
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={requestStatus === "creating"}
+                  className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed shrink-0 flex items-center gap-2"
+                >
+                  {requestStatus === "creating" ? (
+                    <>
+                      <RefreshCw size={12} className="animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Submit to Digio"
+                  )}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200 shrink-0"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Request Status Modal */}
+      <RequestStatusComponent
+        status={requestStatus}
+        digioResponse={digioResponse}
+        onCreateNewRequest={handleCreateNewRequest}
+        onClose={onClose}
+      />
 
       {showCoordsModal && (
         <CoordsModal
@@ -936,7 +1090,7 @@ export default function EsignAadhaarModal({
           textareaRef={coordsTextAreaRef}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -997,7 +1151,7 @@ function Overlay({
           const c = getColor(sid);
           const signer = signers.find(s => s.id === sid);
           const displayRole = signer?.customRole || signer?.role || "Signer";
-          
+
           const boxStyle: CSSProperties = {
             left: m.x,
             top: m.y,
