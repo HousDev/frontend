@@ -134,6 +134,9 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 🔢 dynamic comment counts pulled from public comments API
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+
   const categories = useMemo(() => defaultCategories, []);
 
   // Sync route param to selectedPostSlug (so /blogs/:slug opens detail)
@@ -207,6 +210,77 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
       cancelled = true;
     };
   }, []);
+
+  // ✨ After posts load, fetch per-post comment counts (public API) if missing/stale
+  useEffect(() => {
+    if (!posts || posts.length === 0) return;
+
+    let cancelled = false;
+
+    // limit concurrency so network stays happy
+    const pMapLimited = async <T, R>(
+      list: T[],
+      limit: number,
+      mapper: (item: T, index: number) => Promise<R>
+    ): Promise<R[]> => {
+      const results: R[] = new Array(list.length) as any;
+      let i = 0;
+      const workers = new Array(Math.min(limit, list.length)).fill(0).map(async () => {
+        while (i < list.length) {
+          const cur = i++;
+          results[cur] = await mapper(list[cur], cur);
+        }
+      });
+      await Promise.all(workers);
+      return results;
+    };
+
+    const needCounts = posts.filter((p) => {
+      const slug = p.slug ?? String(p.id);
+      // only fetch if backend didn't give a count or it's zero
+      const already = commentCounts[slug];
+      const given = typeof p.comments === "number" ? p.comments : undefined;
+      return (already == null && (!given || given < 1)) || already === 0;
+    });
+
+    if (needCounts.length === 0) return;
+
+    (async () => {
+      try {
+        await pMapLimited(needCounts, 4, async (p) => {
+          if (cancelled) return 0 as any;
+          const slug = p.slug ?? String(p.id);
+          let res: unknown;
+          try {
+            if ((blogsAPI as any).getCommentsByPostSlug) {
+              res = await (blogsAPI as any).getCommentsByPostSlug(slug);
+            } else if (blogsAPI.getComments) {
+              res = await blogsAPI.getComments(slug);
+            } else {
+              return 0 as any;
+            }
+            const arr = unwrapArray(res);
+            const cnt = Array.isArray(arr) ? arr.length : 0;
+            if (!cancelled) {
+              setCommentCounts((prev) => ({ ...prev, [slug]: cnt }));
+            }
+            return cnt as any;
+          } catch {
+            if (!cancelled) {
+              setCommentCounts((prev) => ({ ...prev, [slug]: prev[slug] ?? (p.comments ?? 0) }));
+            }
+            return 0 as any;
+          }
+        });
+      } catch {
+        /* ignore batch errors */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [posts]);
 
   // When a slug is selected (via state), fetch post by slug and pass it down
   useEffect(() => {
@@ -381,7 +455,7 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
                     {featuredPost.category}
                   </span>
                 </div>
-                <h2 className="text-lg font-bold text-gray-900 mb-3 sm:mb-4 leading-tight hover:text-blue-600 transition-colors">
+                <h2 className="text-lg font-bold text-gray-900 mb-3 sm:mb-4 leading-tight hover:text-orange-500 transition-colors">
                   {featuredPost.title}
                 </h2>
                 <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 leading-relaxed line-clamp-3">
@@ -403,13 +477,21 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
                       {featuredPost.readTime}
                     </div>
                   </div>
-                  <button
+                  {/* <button
                     onClick={() => handlePostClick(featuredPost)}
                     className="flex items-center justify-center sm:justify-start text-blue-600 hover:text-blue-700 font-semibold transition-all hover:gap-2 gap-1 text-sm sm:text-base group"
                   >
                     Read More
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </button>
+                  </button> */}
+                      <button
+                        onClick={() => handlePostClick(featuredPost)}
+                        className="flex items-center justify-center gap-2 bg-[#E6761D] hover:bg-[#CC6A1A] text-white font-semibold px-4 py-2 rounded-md shadow-sm transition-all"
+                      >
+                        Read More
+                        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                      </button>
+
                 </div>
               </div>
             </div>
@@ -452,7 +534,7 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
                     className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all text-xs sm:text-sm whitespace-nowrap ${selectedCategory === cat
-                      ? "bg-[#E6761D]  hover:bg-[#E6761D] text-white shadow-lg scale-105"
+                        ? "bg-[#E6761D]  hover:bg-[#E6761D] text-white shadow-lg scale-105"
                         : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                       }`}
                   >
@@ -497,111 +579,123 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-              {sortedPosts.map((post) => (
-                <article
-                  key={post.id}
-                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 cursor-pointer group transform hover:-translate-y-1"
-                  onClick={() => handlePostClick(post)}
-                >
-                  <div className="relative overflow-hidden">
-                    <img
-                      src={post.image}
-                      alt={post.title}
-                      className="w-full h-44 sm:h-48 object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  </div>
+              {sortedPosts.map((post) => {
+                const slug = post.slug ?? String(post.id);
+                const liveComments = commentCounts[slug];
+                const showComments = typeof liveComments === "number" ? liveComments : (post.comments ?? 0);
 
-                  <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-wrap gap-1.5 sm:gap-2 max-w-[calc(100%-1rem)]">
-                    <span className="bg-blue-600 text-white px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-lg">
-                      {post.category}
-                    </span>
-                    {post.featured && (
-                      <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-lg">
-                        Featured
+                return (
+                  <article
+                    key={post.id}
+                    className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 cursor-pointer group transform hover:-translate-y-1"
+                    onClick={() => handlePostClick(post)}
+                  >
+                    <div className="relative overflow-hidden">
+                      <img
+                        src={post.image}
+                        alt={post.title}
+                        className="w-full h-44 sm:h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    </div>
+
+                    <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-wrap gap-1.5 sm:gap-2 max-w-[calc(100%-1rem)]">
+                      <span className="bg-blue-600 text-white px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-lg">
+                        {post.category}
                       </span>
-                    )}
-                  </div>
-                  <div className="p-4 sm:p-5 lg:p-6">
-                    <div className="flex items-center justify-between mb-2 sm:mb-3">
-                      <div className="flex items-center text-gray-500 text-xs sm:text-sm">
-                        <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                        {post.readTime}
-                      </div>
-                      <div className="flex items-center space-x-2 sm:space-x-3 text-xs sm:text-sm text-gray-500">
-                        <span className="flex items-center space-x-1">
-                          <Eye size={12} className="sm:w-3.5 sm:h-3.5" />
-                          <span>{post.views ?? 0}</span>
+                      {post.featured && (
+                        <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-lg">
+                          Featured
                         </span>
-                        <span className="flex items-center space-x-1">
-                          <Heart size={12} className="sm:w-3.5 sm:h-3.5" />
-                          <span>{post.likes ?? 0}</span>
-                        </span>
-                      </div>
+                      )}
                     </div>
-                    <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mb-2 sm:mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors leading-tight">
-                      {post.title}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 line-clamp-2 sm:line-clamp-3 leading-relaxed">
-                      {post.excerpt}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
-                      {(post.tags || []).slice(0, 3).map((tag) => (
-                        <span
-                          key={tag}
-                          className="flex items-center text-[10px] sm:text-xs text-gray-500 bg-gray-100 px-2 py-0.5 sm:py-1 rounded hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                        >
-                          <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
-                          <span className="truncate max-w-[80px] sm:max-w-none">{tag}</span>
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-3 sm:pt-4 border-t border-gray-100 gap-3 sm:gap-0">
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <div className="w-10 h-10 rounded-full from-grey-500 to-white-600 flex items-center justify-center ring-1 font-bold flex-shrink-0">
-                          <span className="text-black text-[10px] sm:text-xs font-bold">
-                            {String(post.author || "A")
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .slice(0, 2)}
+                    <div className="p-4 sm:p-5 lg:p-6">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <div className="flex items-center text-gray-500 text-xs sm:text-sm">
+                          <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                          {post.readTime}
+                        </div>
+                        <div className="flex items-center space-x-2 sm:space-x-3 text-xs sm:text-sm text-gray-500">
+                          <span className="flex items-center space-x-1">
+                            {/* <Eye size={12} className="sm:w-3.5 sm:h-3.5" />
+                            <span>{post.views ?? 0}</span> */}
+                          </span>
+                          <span className="flex items-center space-x-1">
+                            {/* <Heart size={12} className="sm:w-3.5 sm:h-3.5" />
+                            <span>{post.likes ?? 0}</span> */}
                           </span>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{post.author}</p>
-                          <p className="text-[10px] sm:text-xs text-gray-500">
-                            {new Date(post.date ?? "").toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: window.innerWidth > 640 ? 'numeric' : undefined
-                            })}
-                          </p>
-                        </div>
+                      </div>
+                      <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-800 mb-2 sm:mb-3 line-clamp-2 group-hover:text-orange-500 transition-colors leading-tight">
+                        {post.title}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 line-clamp-2 sm:line-clamp-3 leading-relaxed">
+                        {post.excerpt}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+                        {(post.tags || []).slice(0, 3).map((tag) => (
+                          <span
+                            key={tag}
+                            className="flex items-center text-[10px] sm:text-xs text-gray-500 bg-gray-100 px-2 py-0.5 sm:py-1 rounded hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                          >
+                            <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
+                            <span className="truncate max-w-[80px] sm:max-w-none">{tag}</span>
+                          </span>
+                        ))}
                       </div>
 
-                      <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
-                        <div className="flex items-center text-[10px] sm:text-xs text-gray-500">
-                          <MessageSquare size={12} className="mr-1" />
-                          <span className="hidden sm:inline">{post.comments ?? 0} comments</span>
-                          <span className="sm:hidden">{post.comments ?? 0}</span>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-3 sm:pt-4 border-t border-gray-100 gap-3 sm:gap-0">
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center ring-1 ring-gray-200  flex-shrink-0">
+                            <span className="text-black text-[10px] sm:text-xs font-bold">
+                              {String(post.author || "A")
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .slice(0, 2)}
+                            </span>
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{post.author}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-500">
+                              {new Date(post.date ?? "").toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: window.innerWidth > 640 ? "numeric" : undefined,
+                              })}
+                            </p>
+                          </div>
                         </div>
-                        <button className="flex items-center text-blue-600 hover:text-blue-700 font-semibold text-xs sm:text-sm transition-all group-hover:gap-1.5 gap-1">
-                          Read
-                          <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-0.5 transition-transform" />
-                        </button>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
+                          <div className="flex items-center text-[10px] sm:text-xs text-gray-500">
+                            <MessageSquare size={12} className="mr-1" />
+                            <span className="hidden sm:inline">{showComments} comments</span>
+                            <span className="sm:hidden">{showComments}</span>
+                          </div>
+                          <button
+                            className="group flex items-center justify-center gap-2 bg-[#E6761D] hover:bg-[#CC6A1A] text-white font-semibold text-xs sm:text-sm px-2 py-1 rounded-md shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+                          >
+                            Read
+                            <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 transition-transform group-hover:translate-x-0.5" />
+                          </button>
+
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Newsletter - Fully Responsive */}
-        <div className="mt-2 sm:mt-12 mb-1 rounded-xl sm:rounded-2xl p-6 sm:p-8 md:p-10 lg:p-12 text-center shadow-2xl" style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
->
+        <div
+          className="mt-2 sm:mt-12 mb-1 rounded-xl sm:rounded-2xl p-6 sm:p-8 md:p-10 lg:p-12 text-center shadow-2xl"
+          style={{ background: "linear-gradient(to right, #0b3856, #0c3854)" }}
+        >
           <div className="max-w-2xl mx-auto">
             <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
               <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -620,7 +714,7 @@ const BlogsPage: React.FC<{ onPageChange?: (n: number) => void }> = ({ onPageCha
                 placeholder="Enter your email"
                 className="flex-1 px-4 py-2.5 sm:py-3 text-sm sm:text-base rounded-lg border-0 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600 shadow-lg"
               />
-              <button className="w-full sm:w-auto bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-3 rounded-xl font-semibold shadow-md transition-colors duration-300"> 
+              <button className="w-full sm:w-auto bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-3 rounded-xl font-semibold shadow-md transition-colors duration-300">
                 Subscribe
               </button>
             </div>

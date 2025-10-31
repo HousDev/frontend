@@ -12,8 +12,9 @@ import {
   X,
 } from "lucide-react";
 import blogsAPI, { getPublicPosts } from "@/lib/blogsAPI"; // ⬅️ use public API for lists
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import ShareModalBlog from "./ShareModalBlog";
+
 
 export interface BlogPost {
   id: number | string;
@@ -376,9 +377,14 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
       if (!post) return;
       setCommentsLoading(true);
       try {
-        const res: unknown = await (blogsAPI.getCommentsByPostSlug
-          ? blogsAPI.getCommentsByPostSlug(post.slug ?? String(post.id))
-          : blogsAPI.getComments?.(post.slug ?? String(post.id)));
+        let res: unknown;
+        if ((blogsAPI as any).getCommentsByPostSlug) {
+          res = await (blogsAPI as any).getCommentsByPostSlug(post.slug ?? String(post.id));
+        } else if (blogsAPI.getComments) {
+          res = await blogsAPI.getComments(post.slug ?? String(post.id));
+        } else {
+          res = [];
+        }
         const data = unwrapArray(res);
         const list: BlogComment[] = Array.isArray(data)
           ? data.map((c: any) => ({
@@ -572,14 +578,28 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
     }
   };
 
+  // const fmtDate = (iso?: string) => {
+  //   try {
+  //     if (!iso) return "";
+  //     return new Date(iso).toLocaleString();
+  //   } catch {
+  //     return iso ?? "";
+  //   }
+  // };
   const fmtDate = (iso?: string) => {
+    if (!iso) return "";
     try {
-      if (!iso) return "";
-      return new Date(iso).toLocaleString();
+      // Date only (no time). Format: 29 Oct 2025
+      return new Date(iso).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
     } catch {
       return iso ?? "";
     }
   };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30">
@@ -612,7 +632,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
         />
       )}
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-8 mt-2 sm:mt-3 md:mt-4 pb-6 sm:pb-8 lg:pb-12">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-8 mt-1.5  pb-6 sm:pb-8 lg:pb-12">
         {/* Main Content */}
         <div className="lg:col-span-2">
           {loadingInternal ? (
@@ -671,7 +691,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                     </button>
 
                     {/* Bookmark */}
-                    <button
+                    {/* <button
                       onClick={handleBookmark}
                       disabled={bookmarkProcessing}
                       aria-pressed={isBookmarked}
@@ -680,14 +700,14 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                         }`}
                     >
                       <Bookmark className={`w-4 h-4 sm:w-5 sm:h-5 ${isBookmarked ? "fill-current" : ""}`} />
-                    </button>
+                    </button> */}
                   </div>
                 </div>
               )}
 
               <div className="p-4 sm:p-6 md:p-8 lg:p-10">
                 {/* Title */}
-                <h1 className="text-xl font-bold mb-3 sm:mb-4 text-gray-900 leading-tight">
+                <h1 className="text-xl font-bold mb-3 sm:mb-4 text-gray-900 leading-tight  hover:text-orange-500">
                   {post.title}
                 </h1>
 
@@ -697,12 +717,12 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                     <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                     <span className="truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">{post.author}</span>
                   </span>
-                  <span className="hidden sm:inline">•</span>
+                  {/* <span className="hidden sm:inline">•</span>
                   <span className="flex items-center">
                     <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                     <span className="hidden sm:inline">{post.views ?? 0} views</span>
                     <span className="sm:hidden">{post.views ?? 0}</span>
-                  </span>
+                  </span> */}
 
                   <button
                     onClick={handleLike}
@@ -712,8 +732,8 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                       }`}
                     aria-pressed={isLiked}
                   >
-                    <Heart className={`w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${isLiked ? "fill-current" : ""}`} />
-                    <span className="text-xs sm:text-sm">{post.likes ?? 0}</span>
+                    {/* <Heart className={`w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${isLiked ? "fill-current" : ""}`} />
+                    <span className="text-xs sm:text-sm">{post.likes ?? 0}</span> */}
                   </button>
 
                   <span className="flex items-center">
@@ -761,7 +781,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                       {commentError}
                     </div>
                   )}
-
+                  {/* 
                   <div className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
                     {commentsLoading ? (
                       <div className="text-sm text-gray-500 text-center py-4">Loading comments...</div>
@@ -776,7 +796,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                           className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
                         >
                           <div className="flex items-start gap-2 sm:gap-3">
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-medium text-white text-xs sm:text-sm flex-shrink-0">
+                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center font-medium text-white text-xs flex-shrink-0">
                               {String(c.author ?? "A")
                                 .split(" ")
                                 .map((n) => n[0])
@@ -785,14 +805,14 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-2 mb-1 sm:mb-2">
-                                <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+                                <div className="text-xs font-medium text-gray-900 truncate">
                                   {c.author}
                                 </div>
                                 <div className="text-xs text-gray-400 flex-shrink-0">
                                   {fmtDate(c.date)}
                                 </div>
                               </div>
-                              <div className="text-xs sm:text-sm md:text-base text-gray-700 whitespace-pre-wrap break-words">
+                              <div className="text-xs text-gray-700 whitespace-pre-wrap break-words">
                                 {c.content}
                               </div>
                             </div>
@@ -800,7 +820,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                         </div>
                       ))
                     )}
-                  </div>
+                  </div> */}
                 </section>
               </div>
             </article>
@@ -812,47 +832,56 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
               <h3 className="text-lg sm:text-xl md:text-2xl font-semibold mb-3 sm:mb-4">Related articles</h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {relatedPosts.map((r) => (
-                  <div
-                    key={r.id}
-                    className="bg-white rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all border border-gray-100"
-                  >
-                    <div className="flex items-start gap-3 sm:gap-4">
-                      {r.image ? (
-                        <img
-                          src={r.image}
-                          alt={r.title}
-                          className="w-20 h-16 sm:w-24 sm:h-20 object-cover rounded flex-shrink-0"
-                        />
-                      ) : null}
+                {relatedPosts.map((r) => {
+                  const to = `/blogs/${encodeURIComponent(String(r.slug ?? r.id))}`;
+                  return (
+                    <div
+                      key={r.id}
+                      className="bg-white rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all border border-gray-100"
+                    >
+                      <div className="flex items-start gap-3 sm:gap-4">
+                        {r.image ? (
+                          <Link
+                            to={to}
+                            className="w-20 h-16 sm:w-24 sm:h-20 rounded overflow-hidden flex-shrink-0 group/image"
+                            aria-label={`Open ${r.title}`}
+                          >
+                            <img
+                              src={r.image}
+                              alt={r.title}
+                              className="w-full h-full object-cover group-hover/image:opacity-90 transition"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          </Link>
+                        ) : null}
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <a
-                            href={`/blogs/${r.slug || r.id}`}
-                            className="font-medium text-sm sm:text-base text-gray-800 hover:text-blue-600 hover:underline underline-offset-2 transition-colors line-clamp-2"
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            to={to}
+                            className="font-medium text-sm sm:text-base text-gray-800 hover:text-orange-500 hover:underline underline-offset-2 transition-colors line-clamp-2"
                           >
                             {r.title}
-                          </a>
+                          </Link>
                           <span className="text-xs text-gray-500 flex-shrink-0 hidden sm:block">{r.readTime}</span>
-                        </div>
 
-                        <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 mb-2">{r.excerpt}</p>
+                          <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 mb-2">{r.excerpt}</p>
 
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <span className="truncate">{r.author}</span>
-                          <span>·</span>
-                          <span className="flex-shrink-0">
-                            {new Date(r.date ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                          </span>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span className="truncate">{r.author}</span>
+                            <span>·</span>
+                            <span className="flex-shrink-0">
+                              {new Date(r.date ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
+
         </div>
 
         {/* Right Sidebar */}
@@ -860,7 +889,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
           {/* Author Card */}
           <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-grey-500 to-white-600 flex items-center justify-center text-black ring-1 font-bold text-sm sm:text-base flex-shrink-0">
+              <div className="w-10 h-10 rounded-full ring-1 ring-gray-200  text-black flex items-center justify-center  font-bold text-sm sm:text-base flex-shrink-0">
                 {String(post?.author ?? "A")
                   .split(" ")
                   .map((n) => n[0])
@@ -897,37 +926,98 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
           <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
             <h4 className="font-medium text-sm sm:text-base mb-3 sm:mb-4">Recent posts</h4>
             <div className="space-y-3">
-              {recentPosts.map((r) => (
-                <div key={r.id} className="flex items-start gap-2 sm:gap-3 group">
-                  {r.image ? (
-                    <img
-                      src={r.image}
-                      alt={r.title}
-                      className="w-14 h-12 sm:w-16 sm:h-12 object-cover rounded flex-shrink-0 group-hover:opacity-80 transition-opacity"
-                    />
-                  ) : (
-                    <div className="w-14 h-12 sm:w-16 sm:h-12 bg-gray-100 rounded flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <button
-                      onClick={() => {
-                        navigate(`/blogs/${encodeURIComponent(String(r.slug ?? r.id))}`);
-                      }}
-                      className="text-xs sm:text-sm text-left font-medium hover:text-blue-600 hover:underline line-clamp-2 transition-colors"
-                    >
-                      {r.title}
-                    </button>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {new Date(r.date ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {recentPosts.map((r) => {
+                const to = `/blogs/${encodeURIComponent(String(r.slug ?? r.id))}`;
+                return (
+                  <div key={r.id} className="flex items-start gap-2 sm:gap-3 group">
+                    {r.image ? (
+                      <Link
+                        to={to}
+                        className="w-14 h-12 sm:w-16 sm:h-12 rounded overflow-hidden flex-shrink-0 group/image"
+                        aria-label={`Open ${r.title}`}
+                      >
+                        <img
+                          src={r.image}
+                          alt={r.title}
+                          className="w-full h-full object-cover group-hover/image:opacity-80 transition-opacity"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </Link>
+                    ) : (
+                      <div className="w-14 h-12 sm:w-16 sm:h-12 bg-gray-100 rounded flex-shrink-0" />
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        to={to}
+                        className="text-xs sm:text-sm text-left font-medium hover:text-orange-500 hover:underline line-clamp-2 transition-colors"
+                      >
+                        {r.title}
+                      </Link>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {new Date(r.date ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {recentPosts.length === 0 && (
                 <div className="text-xs sm:text-sm text-gray-500 text-center py-3">No recent posts</div>
               )}
             </div>
           </div>
+
+
+          {/* Recent Comments */}
+          {/* <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
+            <h4 className="font-medium text-sm sm:text-base mb-3 sm:mb-4">Recent comments</h4>
+            <div className="space-y-3">
+              {comments.slice(0, 5).map((c) => (
+                <div key={c.id} className="text-xs sm:text-sm text-left font-medium">
+                  <button
+                    onClick={() => {
+                      navigate(`/blogs/${encodeURIComponent(String(c.postId ?? ""))}`);
+                    }}
+                    className="text-left text-black-500 cursor-default"
+
+                  >
+                    {c.content.length > 140
+                      ? c.content.slice(0, 140) + "..."
+                      : c.content}
+                  </button>
+                </div>
+              ))}
+
+              {comments.length === 0 && (
+                <div className="text-xs sm:text-sm text-gray-500 text-center py-3">
+                  No recent comments
+                </div>
+              )}
+            </div>
+          </div> */}
+          {/* Recent Comments */}
+          <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
+            <h4 className="font-medium text-sm sm:text-base mb-3 sm:mb-4">Recent comments</h4>
+            <div className="space-y-3">
+              {comments.slice(0, 5).map((c) => (
+                <div key={c.id} className="text-xs sm:text-sm text-left font-medium text-gray-700 hover:text-orange-500">
+                  <p className="text-left cursor-default">
+                    {c.content.length > 140
+                      ? c.content.slice(0, 140) + "..."
+                      : c.content}
+                  </p>
+                </div>
+              ))}
+
+              {comments.length === 0 && (
+                <div className="text-xs sm:text-sm text-gray-500 text-center py-3">
+                  No recent comments
+                </div>
+              )}
+            </div>
+          </div>
+
+
 
           {/* Categories */}
           <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
