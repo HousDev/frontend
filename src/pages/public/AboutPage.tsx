@@ -209,7 +209,7 @@ const AboutUsPage = () => {
               const Icon = stat.icon;
               return (
                 <div key={index} className="text-center group">
-                  <div className="bg-gradient-to-r from-blue-500 to-purple-600 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                  <div className="bg-[#E6761D] w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                     <Icon className="text-white" size={20} />
                   </div>
                   <div className="text-2xl font-bold text-gray-900 mb-2">{stat.value}</div>
@@ -235,7 +235,7 @@ const AboutUsPage = () => {
               return (
                 <div key={index} className="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow">
                   <div className="flex items-start space-x-4">
-                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-xl">
+                    <div className="bg-[#E6761D] p-3 rounded-xl">
                       <Icon className="text-white" size={20} />
                     </div>
                     <div>
@@ -290,19 +290,19 @@ const AboutUsPage = () => {
           </div>
 
           <div className="relative">
-            <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-blue-200"></div>
+            <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-[#0c3854]"></div>
             <div className="space-y-12">
               {achievements.map((achievement, index) => (
                 <div key={index} className={`flex items-center ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
                   <div className={`w-1/2 ${index % 2 === 0 ? 'pr-8 text-right' : 'pl-8 text-left'}`}>
                     <div className="bg-white rounded-xl p-6 shadow-lg">
-                      <div className="text-2xl font-bold text-blue-600 mb-2">{achievement.year}</div>
+                      <div className="text-2xl font-bold text-gray-900 mb-2">{achievement.year}</div>
                       <h3 className="text-xl font-bold text-gray-900 mb-3">{achievement.title}</h3>
                       <p className="text-gray-700">{achievement.description}</p>
                     </div>
                   </div>
                   <div className="relative z-10">
-                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                    <div className="w-12 h-12 bg-[#E6761D] rounded-full flex items-center justify-center">
                       <Star className="text-white" size={20} />
                     </div>
                   </div>

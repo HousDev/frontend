@@ -440,7 +440,7 @@ const ServicesPage = () => {
             {serviceProcess.map((step, index) => (
               <div key={index} className="text-center group">
                 <div className="relative mb-2">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto text-white font-bold text-xl group-hover:shadow-lg transition-all">
+                  <div className="w-10 h-10 bg-[#E6761D] rounded-full flex items-center justify-center mx-auto text-white font-bold text-xl group-hover:shadow-lg transition-all">
                     {step.step}
                   </div>
                   {index < serviceProcess.length - 1 && (

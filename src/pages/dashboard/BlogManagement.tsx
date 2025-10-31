@@ -1,3 +1,4 @@
+
 // // src/components/blogManager/BlogManagement.tsx
 // import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // import {
@@ -39,16 +40,30 @@
 // import { toast } from 'react-toastify';
 
 // type CommentItem = {
-//   id: string;
+//   id: string | number;
 //   author: string;
 //   email?: string;
 //   content: string;
-//   createdAt: string;
-//   likes?: number;
+//   status?: string;
+//   createdAt?: string;
+//   created_at?: string;
+//   post_id?: string | number;
+//   postId?: string | number;
+//   post_slug?: string;
+//   postSlug?: string;
 //   replies?: CommentItem[];
 // };
 
-// // Support both default- and named-export styles of blogsAPI
+// type CommentRow = {
+//   id: string;
+//   postTitle: string;
+//   author: string;
+//   email: string;
+//   content: string;
+//   status: string;
+//   createdAt: string;
+// };
+
 // const blogsAPI: any = (blogsAPIDefault as any)?.default ?? blogsAPIDefault;
 
 // const BlogManagement: React.FC = () => {
@@ -93,22 +108,21 @@
 //   const [loadingPosts, setLoadingPosts] = useState(false);
 //   const [postsError, setPostsError] = useState<string | null>(null);
 
-//   // sub-tabs (default: draft)
 //   const [postStateTab, setPostStateTab] = useState<'draft' | 'published'>('draft');
 
-//   // Pagination
 //   const [page, setPage] = useState<number>(1);
 //   const [pageSize, setPageSize] = useState<number>(10);
 
-//   // preview modal
 //   const [previewPost, setPreviewPost] = useState<BlogPost | null>(null);
 //   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
-//   // comments state
-//   const [activeCommentsPost, setActiveCommentsPost] = useState<BlogPost | null>(null);
-//   const [commentsForPost, setCommentsForPost] = useState<CommentItem[]>([]);
-//   const [loadingComments, setLoadingComments] = useState(false);
-//   const [replyState, setReplyState] = useState<Record<string, { open: boolean; text: string }>>({});
+//   // -------- Comments Tab State --------
+//   const [commentsRows, setCommentsRows] = useState<CommentRow[]>([]);
+//   const [loadingAllComments, setLoadingAllComments] = useState(false);
+//   const [commentsSearch, setCommentsSearch] = useState('');
+
+//   // per-row action loading for comments
+//   const [commentActionLoading, setCommentActionLoading] = useState<string | null>(null);
 
 //   // auto publish after AI rewrite
 //   const [autoPublishAfterAI, setAutoPublishAfterAI] =
@@ -117,7 +131,6 @@
 //   // Bulk selection
 //   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-//   /** Map: sourceId -> sourceName (used where only sourceId is present) */
 //   const sourceNameById = useMemo<Record<string, string>>(
 //     () =>
 //       (rssources || []).reduce((acc: Record<string, string>, s: any) => {
@@ -155,8 +168,8 @@
 //     { id: 'analytics', label: 'Analytics', icon: TrendingUp, description: 'Performance insights' },
 //   ];
 
-//   /** Normalize various backend shapes -> BlogPost with sourceId/sourceName included */
-//   const normalizePost = (p: any): BlogPost & { sourceId?: string | number; sourceName?: string } => {
+//   // ---------- Normalize Posts ----------
+//   const normalizePost = (p: any): BlogPost & { sourceId?: string | number; sourceName?: string; slug?: string } => {
 //     const sourceId =
 //       p.sourceId ?? p.source_id ?? p.rssSourceId ?? p.rss_source_id ?? p.rssId ?? p.source?.id;
 
@@ -171,6 +184,7 @@
 
 //     return {
 //       id: p.id ?? p._id ?? p.slug ?? `LOCAL_${Date.now()}`,
+//       slug: p.slug ?? p.permalink ?? p.seoSlug ?? p.meta?.slug ?? "", // ✅ keep slug for comment fetching
 //       title: p.title ?? 'Untitled',
 //       content: p.content ?? '',
 //       excerpt: p.excerpt ?? '',
@@ -216,7 +230,7 @@
 
 //       const normalized = (list || []).map(normalizePost) as BlogPost[];
 //       setPosts(normalized);
-//       setSelectedIds(new Set()); // reset bulk selection on refresh
+//       setSelectedIds(new Set());
 //     } catch (err: any) {
 //       console.error('Failed to load posts', err);
 //       if (err?.response) {
@@ -236,13 +250,12 @@
 //     }
 //   }, []);
 
-//   // ⬇️ Load posts based on sub-tab (server-side filter)
+//   // Load posts for the sub-tab (server-side status filter)
 //   useEffect(() => {
-//     // request only the status we want
 //     loadPosts({ status: postStateTab });
 //   }, [loadPosts, postStateTab]);
 
-//   // Load RSS sources
+//   // Load RSS sources (optional)
 //   useEffect(() => {
 //     (async () => {
 //       try {
@@ -263,7 +276,7 @@
 //     } catch { }
 //   };
 
-//   /** Ensure saved/updated posts also keep sourceId/sourceName if provided */
+//   /** Save / update post into list */
 //   const handleSavePost = (postData: Partial<BlogPost>) => {
 //     if (!postData) return;
 //     const raw: any = (postData as any)?.data ?? (postData as any)?.post ?? postData;
@@ -318,7 +331,7 @@
 //     }
 //   };
 
-//   // ---------- Bulk actions ----------
+//   // ---------- Bulk selection ----------
 //   const toggleSelectOne = (id: string | number) => {
 //     setSelectedIds((prev) => {
 //       const next = new Set(prev);
@@ -345,14 +358,13 @@
 //     });
 //   };
 
-//   const bulkDeleteSelected = async (pageItems?: BlogPost[]) => {
+//   const bulkDeleteSelected = async () => {
 //     const ids = Array.from(selectedIds);
 //     if (ids.length === 0) return toast.info('No posts selected');
 
 //     if (!window.confirm(`Delete ${ids.length} selected post(s)? This cannot be undone.`)) return;
 
 //     try {
-//       // Optimistic UI
 //       setPosts((prev) => (prev ?? []).filter((p) => !selectedIds.has(String(p.id))));
 //       setSelectedIds(new Set());
 
@@ -361,13 +373,8 @@
 //       } else if (typeof blogsAPI.bulkDelete === 'function') {
 //         await blogsAPI.bulkDelete({ ids });
 //       } else if (typeof blogsAPI.deletePost === 'function') {
-//         // fallback: delete sequentially (ignore per-item failures)
 //         await Promise.all(
-//           ids.map((id) =>
-//             blogsAPI.deletePost(id).catch(() => {
-//               // swallow; we already removed in UI
-//             })
-//           )
+//           ids.map((id) => blogsAPI.deletePost(id).catch(() => { }))
 //         );
 //       }
 
@@ -385,7 +392,6 @@
 
 //     try {
 //       const nowISO = new Date().toISOString();
-//       // Optimistic UI
 //       setPosts((prev) =>
 //         (prev ?? []).map((p) =>
 //           ids.includes(String(p.id)) ? { ...p, status: 'published', publishedAt: nowISO } : p
@@ -484,213 +490,140 @@
 //     setTimeout(() => URL.revokeObjectURL(url), 10000);
 //   };
 
-//   // comments
-//   const loadCommentsForPost = async (postId?: string | number) => {
-//     if (!postId) {
-//       setCommentsForPost([]);
-//       return;
-//     }
-//     setLoadingComments(true);
+//   // ---------- COMMENTS: fetch all (post-wise aggregate) ----------
+//   const normalizeCreatedAt = (c: CommentItem) =>
+//     (c.created_at as any) || (c.createdAt as any) || '';
+
+//   const buildPostsMap = (all: BlogPost[]) => {
+//     const map = new Map<string, string>(); // key: id/slug -> title
+//     all.forEach((p: any) => {
+//       const idKey = p?.id != null ? String(p.id) : '';
+//       const slugKey = p?.slug ? String(p.slug) : '';
+//       if (idKey) map.set(idKey, p.title || 'Untitled');
+//       if (slugKey) map.set(slugKey, p.title || 'Untitled'); // ✅ map by slug too
+//     });
+//     return map;
+//   };
+
+//   const fetchAllPostsForComments = async (): Promise<BlogPost[]> => {
+//     // Try to fetch "all" (no status filter) so comments tab covers every post
 //     try {
-//       if (typeof blogsAPI.getComments === 'function') {
-//         const res = await blogsAPI.getComments(postId);
-//         const list = res && (res.data ?? res.comments ?? res) ? (res.data ?? res.comments ?? res) : [];
-//         setCommentsForPost(Array.isArray(list) ? list : []);
-//       } else {
-//         const p = posts.find((pt) => String(pt.id) === String(postId));
-//         if (p && (p as any).commentsList && Array.isArray((p as any).commentsList))
-//           setCommentsForPost((p as any).commentsList);
-//         else setCommentsForPost([]);
-//       }
+//       const data = await blogsAPI.getAllPosts({});
+//       let list: any[] = [];
+//       if (Array.isArray(data)) list = data;
+//       else if (Array.isArray(data?.items)) list = data.items;
+//       else if (Array.isArray(data?.data)) list = data.data;
+//       else if (Array.isArray(data?.results)) list = data.results;
+//       else if (Array.isArray(data?.posts)) list = data.posts;
+//       else if (data && (data.id || data.title)) list = [data];
+//       return (list || []).map(normalizePost);
 //     } catch {
-//       setCommentsForPost([]);
-//     } finally {
-//       setLoadingComments(false);
+//       // fallback to what we already have in state
+//       return Array.isArray(posts) ? posts : [];
 //     }
 //   };
 
-//   const openCommentsForPost = (post: BlogPost) => {
-//     setActiveTab('comments');
-//     setActiveCommentsPost(post);
-//     loadCommentsForPost(post.id);
-//   };
-
-//   const toggleReplyBox = (commentId: string) =>
-//     setReplyState((prev) => ({
-//       ...prev,
-//       [commentId]: { open: !prev[commentId]?.open, text: prev[commentId]?.text || '' },
-//     }));
-
-//   const setReplyText = (commentId: string, text: string) =>
-//     setReplyState((prev) => ({ ...prev, [commentId]: { open: true, text } }));
-
-//   const submitReply = async (parentCommentId: string) => {
-//     const state = replyState[parentCommentId];
-//     const text = state?.text?.trim();
-//     if (!text) return toast.error('Reply cannot be empty');
-//     if (!activeCommentsPost) return toast.error('No post selected for comments');
-
-//     const replyObj: CommentItem = {
-//       id: `LOCAL_REPLY_${Date.now()}`,
-//       author: getUserDisplayName(user) || 'Admin',
-//       content: text,
-//       createdAt: new Date().toISOString(),
-//       likes: 0,
-//       replies: [],
-//     };
-
-//     setCommentsForPost((prev) =>
-//       prev.map((c) =>
-//         String(c.id) === String(parentCommentId)
-//           ? { ...c, replies: Array.isArray(c.replies) ? [replyObj, ...c.replies] : [replyObj] }
-//           : c
-//       )
-//     );
-//     setReplyState((prev) => ({ ...prev, [parentCommentId]: { open: false, text: '' } }));
-
+//   const loadAllComments = useCallback(async () => {
+//     setLoadingAllComments(true);
 //     try {
-//       if (typeof blogsAPI.replyComment === 'function') {
-//         await blogsAPI.replyComment(activeCommentsPost.id, parentCommentId, {
-//           author: replyObj.author,
-//           content: replyObj.content,
-//         });
-//       } else if (typeof blogsAPI.createComment === 'function') {
-//         await blogsAPI.createComment(activeCommentsPost.id, {
-//           author: replyObj.author,
-//           content: replyObj.content,
-//           parentId: parentCommentId,
-//         });
-//       }
-//       toast.success('Reply posted');
-//     } catch {
-//       toast.error('Failed to save reply to server (kept locally).');
-//     }
-//   };
+//       // 1) get all posts (best effort)
+//       const allPosts = await fetchAllPostsForComments();
+//       const pMap = buildPostsMap(allPosts);
 
-//   const postNewCommentOnActivePost = async (text: string, author?: string, email?: string) => {
-//     if (!activeCommentsPost) return;
-//     const trimmed = text.trim();
-//     if (!trimmed) return toast.error('Comment cannot be empty');
-
-//     const newComment: CommentItem = {
-//       id: `LOCAL_COMMENT_${Date.now()}`,
-//       author: author || getUserDisplayName(user) || 'Guest',
-//       email,
-//       content: trimmed,
-//       createdAt: new Date().toISOString(),
-//       likes: 0,
-//       replies: [],
-//     };
-
-//     setCommentsForPost((prev) => [newComment, ...prev]);
-
-//     try {
-//       if (typeof blogsAPI.createComment === 'function') {
-//         await blogsAPI.createComment(activeCommentsPost.id, {
-//           author: newComment.author,
-//           email: newComment.email,
-//           content: newComment.content,
-//         });
-//       }
-//       toast.success('Comment posted');
-//     } catch {
-//       toast.error('Failed to save comment to server (kept locally).');
-//     }
-//   };
-
-//   // AI & workflow
-//   const generateAIContent = async (prompt: string, keywords: string[]) => {
-//     setIsGenerating(true);
-//     try {
-//       const shouldAutoPublish = !!autoPublishAfterAI;
-
-//       const aiContent = `# ${prompt}\n\nAuto-generated content for: ${prompt}\n\n*Keywords: ${keywords.join(
-//         ', '
-//       )}*`;
-//       const payload: Record<string, any> = {
-//         title: prompt,
-//         content: aiContent,
-//         excerpt: `AI-generated: ${prompt}`,
-//         author: 'AI Assistant',
-//         category: 'Real Estate',
-//         tags: [...keywords, 'ai-generated'],
-//         status: shouldAutoPublish ? 'published' : 'draft',
-//         featured: false,
-//         featuredImage: 'https://images.pexels.com/photos/280229/pexels-photo-280229.jpeg',
-//         seoTitle: `${prompt} | Complete Guide | ResaleExpert`,
-//         seoDescription: `Learn about ${prompt.toLowerCase()}. Expert insights and strategies for real estate success.`,
-//       };
-
-//       const created = await blogsAPI.createPost(payload).catch(() => null);
-//       const createdObjRaw = (created && (created.post ?? created.data ?? created)) || null;
-//       const normalizedAIObj = normalizePost(createdObjRaw ?? payload);
-
-//       (normalizedAIObj as any).status =
-//         createdObjRaw?.status ?? (shouldAutoPublish ? 'published' : 'draft');
-//       if (shouldAutoPublish && !(normalizedAIObj as any).publishedAt) {
-//         (normalizedAIObj as any).publishedAt = new Date().toISOString();
+//       // 2) Try a direct "get all comments" endpoint if available on blogsAPI
+//       if (typeof blogsAPI.getAllComments === 'function') {
+//         try {
+//           const got = await blogsAPI.getAllComments(); // should return array
+//           const arr: CommentItem[] = Array.isArray(got?.data) ? got.data : Array.isArray(got) ? got : [];
+//           const rows: CommentRow[] = (arr || []).map((c) => {
+//             const postKey =
+//               (c.post_id != null ? String(c.post_id) : '') ||
+//               (c.postId != null ? String(c.postId) : '') ||
+//               (c.post_slug ? String(c.post_slug) : '') ||
+//               (c.postSlug ? String(c.postSlug) : '');
+//             return {
+//               id: String(c.id ?? ''),
+//               postTitle: pMap.get(postKey) || postKey || '—',
+//               author: String(c.author || '—'),
+//               email: String(c.email || '—'),
+//               content: String(c.content || '').slice(0, 200),
+//               status: String(c.status || 'pending'),
+//               createdAt: String(normalizeCreatedAt(c) || ''),
+//             };
+//           });
+//           rows.sort((a, b) => (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+//           setCommentsRows(rows);
+//           setLoadingAllComments(false);
+//           return;
+//         } catch {
+//           // fall through to per-post aggregation
+//         }
 //       }
 
-//       setPosts((prev) => [normalizedAIObj as BlogPost, ...(Array.isArray(prev) ? prev : [])]);
-
-//       if (shouldAutoPublish) {
-//         setAutoPublishAfterAI(null);
-//         toast.success('AI rewrite created and published!');
-//         setPostStateTab('published');
-//         setActiveTab('content');
-//       } else {
-//         setSelectedPost(normalizedAIObj as BlogPost);
-//         setShowPostEditor(true);
-//         setShowAIWriter(false);
-//         toast.success('AI content generated and opened in editor!');
-//       }
-//     } catch (err: any) {
-//       console.error('AI generation/save failed', err);
-//       toast.error('AI generation failed or could not save to backend.');
-//     } finally {
-//       setIsGenerating(false);
-//     }
-//   };
-
-//   const rewriteWithAI = (postId: string | number) => {
-//     const post = (Array.isArray(posts) ? posts : []).find((p) => String(p.id) === String(postId));
-//     if (!post) return;
-//     setSelectedPost(post);
-//     setShowAIWriter(true);
-//   };
-
-//   const publishPost = async (postId: string | number) => {
-//     try {
-//       setPosts((prev) =>
-//         (prev ?? []).map((p) =>
-//           String(p.id) === String(postId)
-//             ? { ...p, status: 'published', publishedAt: new Date().toISOString() }
-//             : p
-//         )
+//       // 3) Aggregate per-post (guaranteed path with your existing blogsAPI.getComments)
+//       const perPostArrays = await Promise.all(
+//         allPosts.map(async (p: any) => {
+//           try {
+//             const keyForFetch = p?.slug || String(p?.id || ''); // ✅ prefer slug for /public/blogs/:slug/comments
+//             if (!keyForFetch) return [] as CommentItem[];
+//             const res = await blogsAPI.getComments(keyForFetch);
+//             const list: CommentItem[] = Array.isArray(res?.data)
+//               ? res.data
+//               : Array.isArray(res?.comments)
+//                 ? res.comments
+//                 : Array.isArray(res)
+//                   ? res
+//                   : [];
+//             return list.map((c) => ({
+//               ...c,
+//               post_id: c.post_id ?? c.postId ?? p.id,
+//               post_slug: c.post_slug ?? c.postSlug ?? p.slug,
+//             })) as CommentItem[];
+//           } catch {
+//             return [] as CommentItem[];
+//           }
+//         })
 //       );
-//       if (typeof blogsAPI.updatePost === 'function') {
-//         await blogsAPI.updatePost(postId, {
-//           status: 'published',
-//           publishedAt: new Date().toISOString(),
-//         });
-//       }
-//       toast.success('Post published');
-//       setPostStateTab('published');
-//     } catch {
-//       toast.error('Failed to publish. Restoring state.');
-//       handleRefresh();
+
+//       const flat: CommentItem[] = perPostArrays.flat();
+//       const rows: CommentRow[] = flat.map((c) => {
+//         const postKey =
+//           (c.post_id != null ? String(c.post_id) : '') ||
+//           (c.postId != null ? String(c.postId) : '') ||
+//           (c.post_slug ? String(c.post_slug) : '') ||
+//           (c.postSlug ? String(c.postSlug) : '');
+//         return {
+//           id: String(c.id ?? ''),
+//           postTitle: pMap.get(postKey) || postKey || '—',
+//           author: String(c.author || '—'),
+//           email: String(c.email || '—'),
+//           content: String(c.content || '').slice(0, 200),
+//           status: String(c.status || 'pending'),
+//           createdAt: String(normalizeCreatedAt(c) || ''),
+//         };
+//       });
+
+//       rows.sort((a, b) => (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+//       setCommentsRows(rows);
+//     } catch (e) {
+//       console.error(e);
+//       toast.error('Failed to load comments.');
+//       setCommentsRows([]);
+//     } finally {
+//       setLoadingAllComments(false);
 //     }
-//   };
+//   }, [posts]);
 
-//   const rewriteThenPublish = (postId: string | number) => {
-//     setAutoPublishAfterAI({ originalId: postId });
-//     rewriteWithAI(postId);
-//     toast.info('Rewrite with AI opened. The new version will auto-publish.');
-//   };
+//   // Auto-load when user opens the Comments tab
+//   useEffect(() => {
+//     if (activeTab === 'comments') {
+//       loadAllComments();
+//     }
+//   }, [activeTab, loadAllComments]);
 
+//   // --------- Filters & pagination for posts list ---------
 //   const postsArray = Array.isArray(posts) ? posts : [];
 
-//   // filters + sub-tab (client-side fallback filter too)
 //   const baseFiltered = postsArray.filter((post) => {
 //     const matchesSearch =
 //       !searchTerm ||
@@ -703,7 +636,6 @@
 //     return matchesSearch && matchesCategory && matchesStatusLegacy && matchesSubTab;
 //   });
 
-//   // pagination
 //   const totalItems = baseFiltered.length;
 //   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 //   const currentPage = Math.min(page, totalPages);
@@ -835,7 +767,7 @@
 //         </div>
 //       </div>
 
-//       {/* Recent posts (with source) */}
+//       {/* Recent posts */}
 //       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 //         <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Posts</h3>
 //         <div className="space-y-3">
@@ -855,13 +787,7 @@
 //                     />
 //                   ) : (
 //                     <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
-//                       <svg
-//                         xmlns="http://www.w3.org/2000/svg"
-//                         className="w-6 h-6"
-//                         viewBox="0 0 24 24"
-//                         fill="none"
-//                         stroke="currentColor"
-//                       >
+//                       <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
 //                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 3v18h18" />
 //                       </svg>
 //                     </div>
@@ -983,7 +909,6 @@
 //                 </option>
 //               ))}
 //             </select>
-//            {/* Page size */}
 //             <div className="flex items-center gap-2">
 //               <span className="text-sm text-gray-600">Page size</span>
 //               <select
@@ -1017,7 +942,7 @@
 //               Publish Selected
 //             </button>
 //             <button
-//               onClick={() => bulkDeleteSelected(paginatedPosts)}
+//               onClick={bulkDeleteSelected}
 //               disabled={selectedIds.size === 0}
 //               className={`px-3 py-2 rounded-md border text-red-600 ${selectedIds.size === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50 border-red-300'
 //                 }`}
@@ -1036,6 +961,7 @@
 //           </div>
 //         </div>
 
+//         {/* Posts table */}
 //         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 //           <div className="flex items-center justify-between gap-3 mb-6">
 //             <h3 className="text-lg font-bold text-gray-900">
@@ -1075,7 +1001,7 @@
 //                   <th className="py-3 px-4">
 //                     <input
 //                       type="checkbox"
-//                       checked={allSelectedOnPage}
+//                       checked={paginatedPosts.length > 0 && paginatedPosts.every((p) => selectedIds.has(String(p.id)))}
 //                       onChange={() => toggleSelectAllOnPage(paginatedPosts)}
 //                     />
 //                   </th>
@@ -1228,7 +1154,10 @@
 //                           </button>
 
 //                           <button
-//                             onClick={() => openCommentsForPost(post)}
+//                             onClick={() => {
+//                               setActiveTab('comments');
+//                               // comments auto-load via effect
+//                             }}
 //                             className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition"
 //                             title="Comments"
 //                           >
@@ -1236,7 +1165,7 @@
 //                           </button>
 
 //                           <button
-//                             onClick={() => rewriteWithAI(post.id!)}
+//                             onClick={() => setShowAIWriter(true)}
 //                             className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 transition"
 //                             title="AI Rewrite"
 //                           >
@@ -1320,207 +1249,193 @@
 //     );
 //   };
 
-//   const renderCommentsTab = () => (
-//     <div className="space-y-6">
-//       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-//         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-//           <h3 className="text-base sm:text-lg font-bold text-gray-900">Comments</h3>
-//           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-//             <select
-//               value={activeCommentsPost?.id ?? ''}
-//               onChange={(e) => {
-//                 const pid = e.target.value;
-//                 const p = posts.find((x) => String(x.id) === String(pid));
-//                 setActiveCommentsPost(p || null);
-//                 loadCommentsForPost(pid || undefined);
-//               }}
-//               className="px-3 py-2 border rounded-md w-full sm:w-64"
-//             >
-//               <option value="">-- Select Post --</option>
-//               {postsArray.map((p) => (
-//                 <option key={p.id} value={p.id}>
-//                   {p.title}
-//                 </option>
-//               ))}
-//             </select>
+//   /* ------------------------- COMMENTS ACTION HANDLERS ------------------------- */
+ 
+//   const deleteComment = async (id: string) => {
+//     if (!window.confirm('Delete this comment?')) return;
+//     try {
+//       setCommentActionLoading(id);
+//       await blogsAPI.deleteComment(id);
+//       setCommentsRows((rows) => rows.filter((r) => r.id !== id));
+//       toast.success('Comment deleted');
+//     } catch (e) {
+//       console.error(e);
+//       toast.error('Failed to delete');
+//     } finally {
+//       setCommentActionLoading(null);
+//     }
+//   };
 
+//   const editComment = async (row: CommentRow) => {
+//     try {
+//       const newAuthor = window.prompt('Edit author', row.author ?? '') ?? row.author;
+//       const newEmail = window.prompt('Edit email', row.email ?? '') ?? row.email;
+//       const newContent = window.prompt('Edit content', row.content ?? '') ?? row.content;
+
+//       if (
+//         newAuthor === row.author &&
+//         newEmail === row.email &&
+//         newContent === row.content
+//       ) {
+//         return; // nothing changed
+//       }
+
+//       setCommentActionLoading(row.id);
+//       await blogsAPI.updateComment(row.id, {
+//         author: newAuthor,
+//         email: newEmail,
+//         content: newContent,
+//       });
+
+//       setCommentsRows((rows) =>
+//         rows.map((r) =>
+//           r.id === row.id ? { ...r, author: newAuthor, email: newEmail, content: newContent } : r
+//         )
+//       );
+//       toast.success('Comment updated');
+//     } catch (e) {
+//       console.error(e);
+//       toast.error('Failed to update comment');
+//     } finally {
+//       setCommentActionLoading(null);
+//     }
+//   };
+
+//   // -------- COMMENTS TAB UI --------
+//   const renderCommentsTab = () => {
+//     const filtered = commentsRows.filter((r) => {
+//       if (!commentsSearch) return true;
+//       const q = commentsSearch.toLowerCase();
+//       return (
+//         r.postTitle.toLowerCase().includes(q) ||
+//         r.author.toLowerCase().includes(q) ||
+//         r.email.toLowerCase().includes(q) ||
+//         r.content.toLowerCase().includes(q) ||
+//         r.status.toLowerCase().includes(q)
+//       );
+//     });
+
+//     return (
+//       <div className="space-y-6">
+//         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+//           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+//             <h3 className="text-base sm:text-lg font-bold text-gray-900">Comments</h3>
 //             <div className="flex gap-2">
+//               <div className="relative">
+//                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+//                 <input
+//                   value={commentsSearch}
+//                   onChange={(e) => setCommentsSearch(e.target.value)}
+//                   placeholder="Search comments..."
+//                   className="pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+//                 />
+//               </div>
 //               <button
-//                 onClick={() => {
-//                   if (activeCommentsPost) loadCommentsForPost(activeCommentsPost.id);
-//                 }}
-//                 className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w/full sm:w-auto"
+//                 onClick={loadAllComments}
+//                 disabled={loadingAllComments}
+//                 className={`px-3 py-2 border rounded-lg flex items-center gap-2 ${loadingAllComments ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+//                 title="Refresh comments"
 //               >
-//                 Refresh
-//               </button>
-//               <button
-//                 onClick={() => setActiveCommentsPost(null)}
-//                 className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors w/full sm:w-auto"
-//               >
-//                 Clear
+//                 <RefreshCw size={16} className={loadingAllComments ? 'animate-spin' : ''} />
+//                 <span>{loadingAllComments ? 'Loading...' : 'Refresh'}</span>
 //               </button>
 //             </div>
+//           </div>
+
+//           <div className="overflow-x-auto">
+//             <table className="w-full">
+//               <thead>
+//                 <tr className="border-b border-gray-200 text-left">
+//                   <th className="py-3 px-4 text-gray-700 font-medium">Post</th>
+//                   <th className="py-3 px-4 text-gray-700 font-medium">Author</th>
+//                   <th className="py-3 px-4 text-gray-700 font-medium">Email</th>
+//                   <th className="py-3 px-4 text-gray-700 font-medium">Content</th>
+//                   <th className="py-3 px-4 text-gray-700 font-medium">Status</th>
+//                   <th className="py-3 px-4 text-gray-700 font-medium">Created At</th>
+//                   <th className="py-3 px-4 text-gray-700 font-medium">Actions</th>
+//                 </tr>
+//               </thead>
+//               <tbody>
+//                 {filtered.map((r) => {
+//                   const isRowLoading = commentActionLoading === r.id;
+//                   const isApproved = r.status === 'approved';
+
+//                   return (
+//                     <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+//                       <td className="py-3 px-4">{r.postTitle}</td>
+//                       <td className="py-3 px-4">{r.author}</td>
+//                       <td className="py-3 px-4">{r.email || '—'}</td>
+//                       <td className="py-3 px-4">
+//                         <span title={r.content}>{r.content}</span>
+//                       </td>
+//                       <td className="py-3 px-4">
+//                         <span
+//                           className={`px-2 py-1 rounded-full text-xs ${r.status === 'approved'
+//                               ? 'bg-green-100 text-green-800'
+//                               : r.status === 'rejected'
+//                                 ? 'bg-red-100 text-red-700'
+//                                 : 'bg-yellow-100 text-yellow-800'
+//                             }`}
+//                         >
+//                           {r.status}
+//                         </span>
+//                       </td>
+//                       <td className="py-3 px-4">{r.createdAt ? formatDate(r.createdAt) : '—'}</td>
+//                       <td className="py-3 px-4">
+//                         <div className="flex items-center gap-2">
+//                           {/* Edit */}
+//                           <button
+//                             disabled={isRowLoading}
+//                             onClick={() => editComment(r)}
+//                             title="Edit"
+//                             className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition ${isRowLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+//                           >
+//                             <Edit size={18} />
+//                           </button>
+
+//                           {/* Delete */}
+//                           <button
+//                             disabled={isRowLoading}
+//                             onClick={() => deleteComment(r.id)}
+//                             title="Delete"
+//                             className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition ${isRowLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+//                           >
+//                             <Trash2 size={18} />
+//                           </button>
+//                         </div>
+//                       </td>
+//                     </tr>
+//                   );
+//                 })}
+
+//                 {!loadingAllComments && filtered.length === 0 && (
+//                   <tr>
+//                     <td colSpan={7} className="py-10 text-center text-gray-500">
+//                       No comments found.
+//                     </td>
+//                   </tr>
+//                 )}
+
+//                 {loadingAllComments && (
+//                   <tr>
+//                     <td colSpan={7} className="py-10 text-center text-gray-500">
+//                       Loading comments…
+//                     </td>
+//                   </tr>
+//                 )}
+//               </tbody>
+//             </table>
+//           </div>
+
+//           <div className="mt-3 text-sm text-gray-600">
+//             Showing <span className="font-semibold">{filtered.length}</span> comment(s)
 //           </div>
 //         </div>
-
-//         {!activeCommentsPost && (
-//           <div className="text-center py-8 px-4">
-//             <MessageSquare size={48} className="mx-auto text-gray-300 mb-4" />
-//             <h4 className="font-semibold text-gray-900 mb-2">No post selected</h4>
-//             <p className="text-gray-600 mb-5">Select a post above to view and reply to comments.</p>
-
-//             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
-//               {(postsArray ?? []).slice(0, 6).map((p) => (
-//                 <button
-//                   key={p.id}
-//                   onClick={() => openCommentsForPost(p)}
-//                   className="px-4 py-3 border rounded-lg text-left hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-//                 >
-//                   <div className="font-medium text-gray-900 truncate">{p.title ?? 'Untitled'}</div>
-//                   <div className="text-xs text-gray-500 mt-1 truncate">
-//                     {p.author ?? 'Unknown'} • {new Date(p.createdAt || Date.now()).toLocaleDateString()}
-//                   </div>
-//                 </button>
-//               ))}
-//             </div>
-//           </div>
-//         )}
-
-//         {activeCommentsPost && (
-//           <div>
-//             <div className="mb-4">
-//               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-//                 <div className="min-w-0">
-//                   <h4 className="text-base sm:text-lg font-semibold truncate">
-//                     {activeCommentsPost.title}
-//                   </h4>
-//                   <div className="text-xs text-gray-500">
-//                     {activeCommentsPost.author} •{' '}
-//                     {new Date(activeCommentsPost.createdAt || Date.now()).toLocaleDateString()}
-//                   </div>
-//                 </div>
-
-//                 <div className="flex gap-2 shrink-0">
-//                   <button
-//                     onClick={() => {
-//                       setShowPostEditor(true);
-//                       setSelectedPost(activeCommentsPost);
-//                     }}
-//                     className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors"
-//                   >
-//                     Edit Post
-//                   </button>
-//                   <button
-//                     onClick={() => openPreviewInNewWindow(activeCommentsPost)}
-//                     className="px-3 py-2 border rounded-md hover:bg-gray-50 transition-colors"
-//                   >
-//                     Open Post
-//                   </button>
-//                 </div>
-//               </div>
-//             </div>
-
-//             <div className="mb-4">
-//               <CommentComposer
-//                 onPost={(text, author, email) => postNewCommentOnActivePost(text, author, email)}
-//                 posting={false}
-//               />
-//             </div>
-
-//             <div className="space-y-4">
-//               {loadingComments && <div className="text-gray-600">Loading comments...</div>}
-//               {!loadingComments && commentsForPost.length === 0 && (
-//                 <div className="text-gray-600">No comments yet.</div>
-//               )}
-//               {!loadingComments &&
-//                 commentsForPost.map((comment) => (
-//                   <div key={comment.id} className="border rounded-lg p-4">
-//                     <div className="flex items-start justify-between">
-//                       <div className="w-full">
-//                         <div className="flex items-start sm:items-center gap-3 mb-2">
-//                           <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-700 shrink-0">
-//                             {String(comment.author || 'U')
-//                               .split(' ')
-//                               .map((n) => n[0])
-//                               .join('')}
-//                           </div>
-//                           <div className="min-w-0">
-//                             <div className="font-medium text-gray-900 truncate">{comment.author}</div>
-//                             <div className="text-xs text-gray-500">
-//                               {new Date(comment.createdAt).toLocaleString()}
-//                             </div>
-//                           </div>
-//                         </div>
-//                         <div className="text-gray-700 mb-3 break-words">{comment.content}</div>
-//                         <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-//                           <button
-//                             onClick={() => toggleReplyBox(comment.id)}
-//                             className="flex items-center gap-1 hover:text-blue-600"
-//                           >
-//                             <CornerUpLeft size={14} /> Reply
-//                           </button>
-//                           <button onClick={() => { }} className="hover:text-green-600">
-//                             Like ({comment.likes || 0})
-//                           </button>
-//                         </div>
-//                         {Array.isArray(comment.replies) && comment.replies.length > 0 && (
-//                           <div className="mt-4 sm:ml-10 space-y-3">
-//                             {comment.replies.map((reply) => (
-//                               <div key={reply.id} className="bg-gray-50 p-3 rounded-lg">
-//                                 <div className="flex items-start gap-2 mb-1">
-//                                   <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-xs shrink-0">
-//                                     {String(reply.author || 'U')[0]}
-//                                   </div>
-//                                   <div className="min-w-0">
-//                                     <div className="text-sm font-medium text-gray-900 truncate">
-//                                       {reply.author}
-//                                     </div>
-//                                     <div className="text-xs text-gray-500">
-//                                       {new Date(reply.createdAt).toLocaleString()}
-//                                     </div>
-//                                   </div>
-//                                 </div>
-//                                 <div className="text-gray-700 text-sm break-words">{reply.content}</div>
-//                               </div>
-//                             ))}
-//                           </div>
-//                         )}
-//                         {replyState[comment.id]?.open && (
-//                           <div className="mt-3 sm:ml-10">
-//                             <textarea
-//                               value={replyState[comment.id]?.text || ''}
-//                               onChange={(e) => setReplyText(comment.id, e.target.value)}
-//                               rows={3}
-//                               className="w-full px-3 py-2 border rounded-md"
-//                               placeholder="Write a reply..."
-//                             />
-//                             <div className="flex flex-wrap gap-2 mt-2">
-//                               <button
-//                                 onClick={() => submitReply(comment.id)}
-//                                 className="px-3 py-1.5 bg-blue-600 text-white rounded-md"
-//                               >
-//                                 Reply
-//                               </button>
-//                               <button
-//                                 onClick={() => toggleReplyBox(comment.id)}
-//                                 className="px-3 py-1.5 border rounded-md"
-//                               >
-//                                 Cancel
-//                               </button>
-//                             </div>
-//                           </div>
-//                         )}
-//                       </div>
-//                     </div>
-//                   </div>
-//                 ))}
-//             </div>
-//           </div>
-//         )}
 //       </div>
-//     </div>
-//   );
+//     );
+//   };
 
+//   // ---------- AI tools + SEO unchanged ----------
 //   const renderAITools = () => (
 //     <div className="space-y-6">
 //       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -1665,6 +1580,7 @@
 //     </div>
 //   );
 
+//   // ---------- Main render ----------
 //   return (
 //     <div className="min-h-screen bg-gray-50">
 //       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1701,7 +1617,7 @@
 //           {activeTab === 'ai-writer' && (
 //             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
 //               <h3 className="text-lg font-bold text-gray-900 mb-2">AI Content Studio</h3>
-//               <p className="text-gray-600 mb-4">Generate long-form, SEO-optimized posts with images & ToC.</p>
+//               <p className="text-gray-600 mb-4">Generate long-form, SEO-optimized posts with images &amp; ToC.</p>
 //               <button
 //                 onClick={() => { setSelectedPost(null); setShowAIWriter(true); }}
 //                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
@@ -1750,7 +1666,6 @@
 //             currentUserName={getUserDisplayName(user)}
 //           />
 //         )}
-
 
 //         {showRSSManager && <RSSSourceManager isOpen={true} onClose={() => setShowRSSManager(false)} />}
 
@@ -1811,11 +1726,11 @@
 //                 dangerouslySetInnerHTML={{ __html: renderPreviewHtml(previewPost.content) }}
 //               />
 
-//               {previewPost.tags && previewPost.tags.length > 0 && (
+//               {previewPost.tags && (previewPost as any).tags?.length > 0 && (
 //                 <div className="mt-6">
 //                   <div className="text-sm font-medium mb-2">Tags</div>
 //                   <div className="flex flex-wrap gap-2">
-//                     {previewPost.tags.map((t, i) => (
+//                     {(previewPost as any).tags.map((t: string, i: number) => (
 //                       <span key={i} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm">
 //                         {t}
 //                       </span>
@@ -1832,66 +1747,6 @@
 // };
 
 // export default BlogManagement;
-
-// /* -------------------- Helper subcomponent -------------------- */
-// const CommentComposer: React.FC<{
-//   onPost: (text: string, author?: string, email?: string) => void;
-//   posting?: boolean;
-// }> = ({ onPost, posting }) => {
-//   const [text, setText] = useState('');
-//   const [name, setName] = useState('');
-//   const [email, setEmail] = useState('');
-
-//   return (
-//     <div className="border rounded-lg p-4 bg-gray-50">
-//       <textarea
-//         value={text}
-//         onChange={(e) => setText(e.target.value)}
-//         rows={3}
-//         placeholder="Write your comment..."
-//         className="w-full px-3 py-2 border rounded-md mb-3"
-//       />
-//       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-//         <input
-//           className="px-3 py-2 border rounded-md"
-//           placeholder="Name (optional)"
-//           value={name}
-//           onChange={(e) => setName(e.target.value)}
-//         />
-//         <input
-//           className="px-3 py-2 border rounded-md"
-//           placeholder="Email (optional)"
-//           value={email}
-//           onChange={(e) => setEmail(e.target.value)}
-//         />
-//         <div />
-//       </div>
-//       <div className="flex gap-2 justify-end">
-//         <button
-//           onClick={() => {
-//             setText('');
-//             setName('');
-//             setEmail('');
-//           }}
-//           className="px-3 py-1.5 border rounded-md"
-//         >
-//           Clear
-//         </button>
-//         <button
-//           onClick={() => {
-//             onPost(text, name, email);
-//             setText('');
-//           }}
-//           disabled={posting || !text.trim()}
-//           className="px-3 py-1.5 bg-blue-600 text-white rounded-md"
-//         >
-//           {posting ? 'Posting...' : 'Post Comment'}
-//         </button>
-//       </div>
-//     </div>
-//   );
-// };
-
 
 // src/components/blogManager/BlogManagement.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -2035,6 +1890,7 @@ const BlogManagement: React.FC = () => {
     [rssources]
   );
 
+  // Updated function to get post source name with "Manual" as default
   const getPostSourceName = useCallback(
     (p: any) => {
       const explicit = p?.sourceName ?? p?.source_name ?? p?.source?.name;
@@ -2045,7 +1901,9 @@ const BlogManagement: React.FC = () => {
         p?.rss_source_id ??
         (p?.source?.id ?? undefined);
       const mapped = sid != null ? sourceNameById[String(sid)] : undefined;
-      return (explicit || mapped || '') as string;
+
+      // Return "Manual" if no source information is found
+      return (explicit || mapped || 'Manual') as string;
     },
     [sourceNameById]
   );
@@ -2099,7 +1957,8 @@ const BlogManagement: React.FC = () => {
       readTime:
         typeof p.readTime === 'number' ? p.readTime : Math.ceil(((p.content || '').length || 0) / 200),
       ...(sourceId !== undefined ? { sourceId } : {}),
-      ...(sourceName ? { sourceName } : {}),
+      // Set sourceName to "Manual" if no source information is available
+      sourceName: sourceName || 'Manual',
     } as any;
   };
 
@@ -2360,10 +2219,7 @@ const BlogManagement: React.FC = () => {
     if (!p) return;
     if (typeof window === 'undefined') return;
     const safeTitle = (p.title || 'Preview').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const src =
-      (p as any)?.sourceName
-      || ((p as any)?.sourceId && sourceNameById[String((p as any).sourceId)])
-      || '';
+    const src = getPostSourceName(p);
     const srcDot = src ? ` • ${src}` : '';
     const bodyHtml = `<article style="max-width:900px;margin:20px auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#111827;line-height:1.7;">
       <header style="margin-bottom:16px;">
@@ -2971,12 +2827,17 @@ const BlogManagement: React.FC = () => {
                       {/* SOURCE */}
                       <td className="py-3 px-4">
                         {srcName ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-xs">
-                            <GlobeIcon size={12} />
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${srcName === 'Manual'
+                              ? 'bg-gray-100 text-gray-700'
+                              : 'bg-indigo-50 text-indigo-700'
+                            }`}>
+                            {srcName !== 'Manual' && <GlobeIcon size={12} />}
                             {srcName}
                           </span>
                         ) : (
-                          <span className="text-gray-400 text-xs">—</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 text-gray-700 px-2 py-0.5 text-xs">
+                            Manual
+                          </span>
                         )}
                       </td>
 
@@ -3144,7 +3005,7 @@ const BlogManagement: React.FC = () => {
   };
 
   /* ------------------------- COMMENTS ACTION HANDLERS ------------------------- */
- 
+
   const deleteComment = async (id: string) => {
     if (!window.confirm('Delete this comment?')) return;
     try {
@@ -3265,10 +3126,10 @@ const BlogManagement: React.FC = () => {
                       <td className="py-3 px-4">
                         <span
                           className={`px-2 py-1 rounded-full text-xs ${r.status === 'approved'
-                              ? 'bg-green-100 text-green-800'
-                              : r.status === 'rejected'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-yellow-100 text-yellow-800'
+                            ? 'bg-green-100 text-green-800'
+                            : r.status === 'rejected'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-yellow-100 text-yellow-800'
                             }`}
                         >
                           {r.status}
@@ -3589,10 +3450,7 @@ const BlogManagement: React.FC = () => {
                   <div className="text-xs text-gray-500">
                     {previewPost.author} • {formatDate(previewPost.publishedAt || previewPost.createdAt)}
                     {(() => {
-                      const src =
-                        (previewPost as any).sourceName ||
-                        ((previewPost as any).sourceId &&
-                          sourceNameById[String((previewPost as any).sourceId)]);
+                      const src = getPostSourceName(previewPost);
                       return src ? ` • ${src}` : '';
                     })()}
                   </div>

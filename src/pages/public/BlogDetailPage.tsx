@@ -12,8 +12,9 @@ import {
   X,
 } from "lucide-react";
 import blogsAPI, { getPublicPosts } from "@/lib/blogsAPI"; // ⬅️ use public API for lists
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import ShareModalBlog from "./ShareModalBlog";
+
 
 export interface BlogPost {
   id: number | string;
@@ -586,18 +587,18 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
   //   }
   // };
   const fmtDate = (iso?: string) => {
-  if (!iso) return "";
-  try {
-    // Date only (no time). Format: 29 Oct 2025
-    return new Date(iso).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso ?? "";
-  }
-};
+    if (!iso) return "";
+    try {
+      // Date only (no time). Format: 29 Oct 2025
+      return new Date(iso).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return iso ?? "";
+    }
+  };
 
 
   return (
@@ -706,7 +707,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
 
               <div className="p-4 sm:p-6 md:p-8 lg:p-10">
                 {/* Title */}
-                      <h1 className="text-xl font-bold mb-3 sm:mb-4 text-gray-900 leading-tight  hover:text-orange-500">
+                <h1 className="text-xl font-bold mb-3 sm:mb-4 text-gray-900 leading-tight  hover:text-orange-500">
                   {post.title}
                 </h1>
 
@@ -780,7 +781,7 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
                       {commentError}
                     </div>
                   )}
-{/* 
+                  {/* 
                   <div className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
                     {commentsLoading ? (
                       <div className="text-sm text-gray-500 text-center py-4">Loading comments...</div>
@@ -831,47 +832,56 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
               <h3 className="text-lg sm:text-xl md:text-2xl font-semibold mb-3 sm:mb-4">Related articles</h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {relatedPosts.map((r) => (
-                  <div
-                    key={r.id}
-                    className="bg-white rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all border border-gray-100"
-                  >
-                    <div className="flex items-start gap-3 sm:gap-4">
-                      {r.image ? (
-                        <img
-                          src={r.image}
-                          alt={r.title}
-                          className="w-20 h-16 sm:w-24 sm:h-20 object-cover rounded flex-shrink-0"
-                        />
-                      ) : null}
+                {relatedPosts.map((r) => {
+                  const to = `/blogs/${encodeURIComponent(String(r.slug ?? r.id))}`;
+                  return (
+                    <div
+                      key={r.id}
+                      className="bg-white rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all border border-gray-100"
+                    >
+                      <div className="flex items-start gap-3 sm:gap-4">
+                        {r.image ? (
+                          <Link
+                            to={to}
+                            className="w-20 h-16 sm:w-24 sm:h-20 rounded overflow-hidden flex-shrink-0 group/image"
+                            aria-label={`Open ${r.title}`}
+                          >
+                            <img
+                              src={r.image}
+                              alt={r.title}
+                              className="w-full h-full object-cover group-hover/image:opacity-90 transition"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          </Link>
+                        ) : null}
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <a
-                            href={`/blogs/${r.slug || r.id}`}
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            to={to}
                             className="font-medium text-sm sm:text-base text-gray-800 hover:text-orange-500 hover:underline underline-offset-2 transition-colors line-clamp-2"
                           >
                             {r.title}
-                          </a>
+                          </Link>
                           <span className="text-xs text-gray-500 flex-shrink-0 hidden sm:block">{r.readTime}</span>
-                        </div>
 
-                        <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 mb-2">{r.excerpt}</p>
+                          <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 mb-2">{r.excerpt}</p>
 
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <span className="truncate">{r.author}</span>
-                          <span>·</span>
-                          <span className="flex-shrink-0">
-                            {new Date(r.date ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                          </span>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span className="truncate">{r.author}</span>
+                            <span>·</span>
+                            <span className="flex-shrink-0">
+                              {new Date(r.date ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
+
         </div>
 
         {/* Right Sidebar */}
@@ -916,37 +926,47 @@ const BlogDetailPage: React.FC<BlogDetailPageProps> = ({
           <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
             <h4 className="font-medium text-sm sm:text-base mb-3 sm:mb-4">Recent posts</h4>
             <div className="space-y-3">
-              {recentPosts.map((r) => (
-                <div key={r.id} className="flex items-start gap-2 sm:gap-3 group">
-                  {r.image ? (
-                    <img
-                      src={r.image}
-                      alt={r.title}
-                      className="w-14 h-12 sm:w-16 sm:h-12 object-cover rounded flex-shrink-0 group-hover:opacity-80 transition-opacity"
-                    />
-                  ) : (
-                    <div className="w-14 h-12 sm:w-16 sm:h-12 bg-gray-100 rounded flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <button
-                      onClick={() => {
-                        navigate(`/blogs/${encodeURIComponent(String(r.slug ?? r.id))}`);
-                      }}
-                      className="text-xs sm:text-sm text-left font-medium hover:text-orange-500 hover:underline line-clamp-2 transition-colors"
-                    >
-                      {r.title}
-                    </button>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {new Date(r.date ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {recentPosts.map((r) => {
+                const to = `/blogs/${encodeURIComponent(String(r.slug ?? r.id))}`;
+                return (
+                  <div key={r.id} className="flex items-start gap-2 sm:gap-3 group">
+                    {r.image ? (
+                      <Link
+                        to={to}
+                        className="w-14 h-12 sm:w-16 sm:h-12 rounded overflow-hidden flex-shrink-0 group/image"
+                        aria-label={`Open ${r.title}`}
+                      >
+                        <img
+                          src={r.image}
+                          alt={r.title}
+                          className="w-full h-full object-cover group-hover/image:opacity-80 transition-opacity"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </Link>
+                    ) : (
+                      <div className="w-14 h-12 sm:w-16 sm:h-12 bg-gray-100 rounded flex-shrink-0" />
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        to={to}
+                        className="text-xs sm:text-sm text-left font-medium hover:text-orange-500 hover:underline line-clamp-2 transition-colors"
+                      >
+                        {r.title}
+                      </Link>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {new Date(r.date ?? "").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {recentPosts.length === 0 && (
                 <div className="text-xs sm:text-sm text-gray-500 text-center py-3">No recent posts</div>
               )}
             </div>
           </div>
+
 
           {/* Recent Comments */}
           {/* <div className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100">
