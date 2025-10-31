@@ -406,7 +406,7 @@ const ContactUsPage = () => {
                   return (
                     <div key={index} className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
                       <div className="flex items-start space-x-4">
-                        <div className={`p-3 rounded-xl ${info.color === 'green' ? 'bg-gradient-to-r from-green-500 to-emerald-600' : info.color === 'blue' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : info.color === 'purple' ? 'bg-gradient-to-r from-purple-500 to-pink-600' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}`}>
+                        <div className={`p-3 rounded-xl ${info.color === 'green' ? 'bg-[#E6761D]' : info.color === 'blue' ? 'bg-[#E6761D]' : info.color === 'purple' ? 'bg-[#E6761D]' : 'bg-[#E6761D]'}`}>
                           <Icon className="text-white" size={20} />
                         </div>
                         <div>
