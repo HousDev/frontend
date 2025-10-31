@@ -148,7 +148,6 @@ const normalizeString = (str: any): string => {
 };
 
 // Role-based executive assignment helper - FIXED VERSION
-// Role-based executive assignment helper - PRESALES ONLY VERSION
 const getAssignableExecutives = (user: any, presalesUsers: any[]) => {
   const norm = (s: any) =>
     (s ?? "")
@@ -198,6 +197,7 @@ const getAssignableExecutives = (user: any, presalesUsers: any[]) => {
   };
   return [selfExecutive];
 };
+
 // Get filtered leads based on user role and assignment
 const getFilteredLeads = (allLeads: Lead[], user: AuthUser | null): Lead[] => {
   if (!user) return allLeads;
@@ -219,6 +219,30 @@ const getFilteredLeads = (allLeads: Lead[], user: AuthUser | null): Lead[] => {
 
   // Default: return all leads for other roles
   return allLeads;
+};
+
+// Safe user fetch function with role-based permissions
+const fetchUsersSafely = async (user: AuthUser | null): Promise<any[]> => {
+  const userRole = normalizeString(user?.role);
+  const userDept = normalizeString(user?.department);
+  
+  // Only admin, manager, and presales managers can fetch all users
+  if (userRole === "admin" || 
+      userRole === "manager" || 
+      (userRole === "manager" && (userDept === "presales" || userDept === "presale"))) {
+    try {
+      const resp = await usersAPI.getAllUsers?.();
+      const raw = resp?.data ?? resp?.items ?? resp ?? [];
+      return Array.isArray(raw) ? raw : [];
+    } catch (error: any) {
+      console.warn("User fetch failed (may be permission issue):", error);
+      // Don't throw error, just return empty array
+      return [];
+    }
+  }
+  
+  // For executives and other roles, return empty array
+  return [];
 };
 
 const LeadDetailPage: React.FC = () => {
@@ -263,21 +287,19 @@ const LeadDetailPage: React.FC = () => {
   const [showSellerComponent, setShowSellerComponent] = useState(false);
   const [editingFollowup, setEditingFollowup] = useState<Followup | null>(null);
 
-  /* ===================== Fetch Presales Executives ===================== */
-  /* ===================== Fetch Presales Executives Only ===================== */
+  /* ===================== Fetch Presales Executives Safely ===================== */
   useEffect(() => {
     let mounted = true;
     const fetchExecs = async () => {
       try {
         setExecsLoading(true);
 
-        // Fetch all users
-        const resp = await usersAPI.getAllUsers?.();
-        const raw = resp?.data ?? resp?.items ?? resp ?? [];
+        // Use safe user fetch function
+        const allUsers = await fetchUsersSafely(user);
         if (!mounted) return;
 
         // Get only PRESALES executives
-        const presalesExecs: PresalesUser[] = (Array.isArray(raw) ? raw : [])
+        const presalesExecs: PresalesUser[] = allUsers
           .filter((u: any) => {
             const role = normalizeString(u?.role);
             const dept = normalizeString(u?.department);
@@ -306,7 +328,7 @@ const LeadDetailPage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user]); // Add user as dependency
 
   /* ===================== Filter leads based on user role ===================== */
   useEffect(() => {
@@ -384,7 +406,7 @@ const LeadDetailPage: React.FC = () => {
       let followupsData: Followup[] = [];
       if (Array.isArray(response?.data)) followupsData = response.data;
       else if (Array.isArray(response)) followupsData = response;
-      else if (Array.isArray(response?.payload)) followupsData = response.payload;
+      else if (Array.isArray(response?.Payload)) followupsData = response.Payload;
       else if (Array.isArray(response?.result)) followupsData = response.result;
 
       followupsData = (followupsData || []).map((f: any) => ({

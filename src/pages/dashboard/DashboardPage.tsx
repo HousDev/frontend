@@ -11,7 +11,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { dashboardAPI, activitiesAPI } from '@/lib/api';
+// ❌ removed dashboardAPI & activitiesAPI
 import { leadsAPI } from '@/lib/leadAPI';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import Button from '@/components/ui/Button';
@@ -55,6 +55,8 @@ interface RecentItem {
   description?: string;
   created_at?: string | null;
   createdAt?: string | null;
+  updated_at?: string | null;
+  updatedAt?: string | null;
   status?: string;
   type?: string;
   city?: string;
@@ -62,6 +64,8 @@ interface RecentItem {
   unit_type?: string;
   bhk?: string | number;
   price?: string | number;
+  start_at?: string | null;
+  due_at?: string | null;
   [k: string]: any;
 }
 
@@ -71,7 +75,7 @@ const emptyStats: DashboardStats = {
   activities: { total_activities: 0, pending_activities: 0, today_activities: 0, upcoming_week_activities: 0 },
 };
 
-// --- helpers (added) ---
+// ---------- helpers ----------
 const getTime = (o: any, keys: string[]) => {
   for (const k of keys) {
     const v = o?.[k];
@@ -82,29 +86,40 @@ const getTime = (o: any, keys: string[]) => {
   }
   return -Infinity;
 };
+
 const sortDescBy = (list: any[], keys: string[]) =>
   [...list].sort((a, b) => getTime(b, keys) - getTime(a, keys));
-const sortAscBy = (list: any[], keys: string[]) =>
-  [...list].sort((a, b) => getTime(a, keys) - getTime(b, keys));
-// --- end helpers ---
+
+const normalizeValue = (v: unknown) => {
+  if (v === null || v === undefined) return '';
+  const s = String(v).trim();
+  if (s === 'null' || s === 'undefined') return '';
+  return s;
+};
+
+const isSameDayLocal = (d: Date, ref = new Date()) => {
+  return (
+    d.getFullYear() === ref.getFullYear() &&
+    d.getMonth() === ref.getMonth() &&
+    d.getDate() === ref.getDate()
+  );
+};
+
+const safeParseDate = (v?: string | null) => {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+// ---------- end helpers ----------
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>(emptyStats);
   const [recentLeads, setRecentLeads] = useState<RecentItem[]>([]);
   const [recentProperties, setRecentProperties] = useState<RecentItem[]>([]);
-  const [upcomingActivities, setUpcomingActivities] = useState<RecentItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Helper: normalize small values
-  const normalizeValue = (v: unknown) => {
-    if (v === null || v === undefined) return '';
-    const s = String(v).trim();
-    if (s === 'null' || s === 'undefined') return '';
-    return s;
-  };
-
-  // Helper: robustly derive a human-friendly property title from multiple possible fields
+  // Derive display name for property
   const getPropertyTitle = (p: RecentItem | any): string => {
     const candidates = [
       normalizeValue(p.title),
@@ -117,7 +132,6 @@ const DashboardPage: React.FC = () => {
       normalizeValue(p.label),
     ];
 
-    // candidate for combined unit type / bhk fields
     const unitTypeBhk = (() => {
       const ut = normalizeValue(p.unit_type);
       const bhk = normalizeValue(p.bhk);
@@ -129,11 +143,8 @@ const DashboardPage: React.FC = () => {
 
     if (unitTypeBhk) candidates.push(unitTypeBhk);
 
-    for (const c of candidates) {
-      if (c && c.length > 0) return c;
-    }
+    for (const c of candidates) if (c) return c;
 
-    // fallback to a composed short description if available
     const parts: string[] = [];
     const city = normalizeValue(p.city);
     const location = normalizeValue(p.location);
@@ -144,222 +155,127 @@ const DashboardPage: React.FC = () => {
     if (location) parts.push(location);
     if (city) parts.push(city);
 
-    if (parts.length > 0) return parts.join(' • ');
-
-    // final fallback
-    return 'Untitled';
+    return parts.length ? parts.join(' • ') : 'Untitled';
   };
 
-  // Helper: robustly derive lead name from multiple fields
+  // Derive display name for lead
   const getLeadName = (l: RecentItem | any): string => {
-    // try explicit name fields first
     const nameCandidates = [
-      // common patterns
       `${normalizeValue(l.first_name)} ${normalizeValue(l.last_name)}`.trim(),
       normalizeValue(l.full_name),
       normalizeValue(l.name),
       normalizeValue(l.display_name),
       normalizeValue(l.contact_name),
-      // two-field combinations
       normalizeValue(l.first_name),
       normalizeValue(l.last_name),
-      // fallbacks
       normalizeValue(l.email),
       normalizeValue(l.phone),
       normalizeValue(l.mobile),
       normalizeValue(l.username),
       normalizeValue(l.user_name),
     ];
-
-    for (const n of nameCandidates) {
-      if (n && n.length > 0) return n;
-    }
-
-    // final fallback show generic label with id
+    for (const n of nameCandidates) if (n) return n;
     return `Lead ${normalizeValue(l.id) || ''}`.trim();
   };
 
   useEffect(() => {
     let isMounted = true;
 
-    const fetchDashboardData = async () => {
+    const fetchData = async () => {
       if (isMounted) setLoading(true);
 
-      const showToastOnce = (msg: string) => {
-        toast.error(msg);
-      };
-
-      let statsLoaded = false;
-
-      // 1) Try main dashboard stats endpoint
-      try {
-        const resp = await dashboardAPI.getStats().catch(e => {
-          return null;
-        });
-
-        if (resp) {
-          const payload = resp?.data ?? resp;
-          const overview =
-            payload?.data?.overview ??
-            payload?.data ??
-            payload?.overview ??
-            payload;
-
-          if (overview && (overview.leads || overview.properties || overview.activities)) {
-            const normalized: DashboardStats = {
-              leads: overview.leads ?? emptyStats.leads,
-              properties: overview.properties ?? emptyStats.properties,
-              activities: overview.activities ?? emptyStats.activities,
-            };
-            if (isMounted) setStats(prev => ({ ...prev, ...normalized }));
-            statsLoaded = true;
-          } else {
-            if (payload?.success === false && typeof payload.message === 'string') {
-              console.warn('dashboardAPI.getStats returned non-success:', payload.message);
-            } else {
-              console.warn('dashboardAPI.getStats returned an unexpected shape, fallback to list-based totals.');
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Error calling dashboardAPI.getStats', err);
-      }
-
-      // 2) Fetch lists in parallel (we'll use their lengths as fallbacks for totals)
       let leadsList: any[] | null = null;
       let propsList: any[] | null = null;
-      let activitiesList: any[] | null = null;
 
       try {
-        const [leadsResp, propsResp, activitiesResp] = await Promise.all([
-          leadsAPI.getLeads({ limit: 50 }).catch(e => { console.warn('leads list error', e); return null; }),
-          propertiesAPI.getProperties({ limit: 50 }).catch(e => { console.warn('properties list error', e); return null; }),
-          activitiesAPI.getUpcoming({ limit: 20 }).catch(e => { console.warn('activities list error', e); return null; }),
+        const [leadsResp, propsResp] = await Promise.all([
+          leadsAPI.getLeads({ limit: 50 }).catch(() => null),
+          propertiesAPI.getProperties({ limit: 50 }).catch(() => null),
         ]);
-        // Normalize leads list
+
+        // Leads list normalize
         if (leadsResp) {
-          const data = leadsResp.data ?? leadsResp;
-          if (Array.isArray(data)) leadsList = data;
-          else if (Array.isArray(data?.rows)) leadsList = data.rows;
-          else if (Array.isArray(data?.data)) leadsList = data.data;
-          else leadsList = null;
+          const d = leadsResp.data ?? leadsResp;
+          if (Array.isArray(d)) leadsList = d;
+          else if (Array.isArray(d?.rows)) leadsList = d.rows;
+          else if (Array.isArray(d?.data)) leadsList = d.data;
         }
 
-        // Normalize properties list
+        // Properties list normalize
         if (propsResp) {
-          const data = propsResp.data ?? propsResp;
-          if (Array.isArray(data)) propsList = data;
-          else if (Array.isArray(data?.rows)) propsList = data.rows;
-          else if (Array.isArray(data?.data)) propsList = data.data; // sometimes wrapped
-          else propsList = null;
+          const d = propsResp.data ?? propsResp;
+          if (Array.isArray(d)) propsList = d;
+          else if (Array.isArray(d?.rows)) propsList = d.rows;
+          else if (Array.isArray(d?.data)) propsList = d.data;
         }
-
-        // Normalize activities list
-        if (activitiesResp) {
-          const data = activitiesResp.data ?? activitiesResp;
-          if (Array.isArray(data)) activitiesList = data;
-          else if (Array.isArray(data?.rows)) activitiesList = data.rows;
-          else activitiesList = null;
-        }
-
-        // Set recent items (ONLY 5) if available
-        if (isMounted) {
-          if (Array.isArray(leadsList)) {
-            const latestLeads = sortDescBy(leadsList, ['updated_at', 'created_at']).slice(0, 5);
-            setRecentLeads(latestLeads);
-          }
-          if (Array.isArray(propsList)) {
-            const latestProps = sortDescBy(propsList, ['updated_at', 'created_at']).slice(0, 5);
-            setRecentProperties(latestProps);
-          }
-          if (Array.isArray(activitiesList)) {
-            // upcoming soonest 5 by start/due date; fallback to updated/created
-            const soonest = sortAscBy(activitiesList, ['start_at', 'due_at', 'updated_at', 'created_at']).slice(0, 5);
-            setUpcomingActivities(soonest);
-          }
-        }
-      } catch (err) {
-        console.warn('Error fetching lists', err);
+      } catch {
+        // swallow
       }
 
-      // 3) If dashboard stats not loaded, compute totals from available lists and/or stats endpoints if available
-      if (!statsLoaded) {
-        let anyTotalSet = false;
-
-        // Try leadsAPI.getStats as a fallback for total leads (if present)
-        try {
-          const leadsStatsResp = await leadsAPI.getStats().catch(e => { console.warn('leadsAPI.getStats error', e); return null; });
-          const lp = leadsStatsResp?.data ?? leadsStatsResp;
-          const totalLeads =
-            lp?.overview?.total_leads ??
-            lp?.total_leads ??
-            lp?.total ??
-            lp?.count ??
-            (Array.isArray(lp) ? lp.length : undefined);
-
-          if (typeof totalLeads === 'number') {
-            anyTotalSet = true;
-            if (isMounted) setStats(prev => ({ ...prev, leads: { ...prev.leads, total_leads: totalLeads } }));
-          }
-        } catch (e) {
-          console.warn('leadsAPI.getStats failed', e);
+      // Recent cards
+      if (isMounted) {
+        if (Array.isArray(leadsList)) {
+          const latestLeads = sortDescBy(leadsList, ['updated_at', 'created_at', 'updatedAt', 'createdAt']).slice(0, 5);
+          setRecentLeads(latestLeads);
         }
-
-        // If leadsStats wasn't available, compute from leads list length
-        if (!anyTotalSet && Array.isArray(leadsList)) {
-          anyTotalSet = true;
-          if (isMounted) setStats(prev => ({ ...prev, leads: { ...prev.leads, total_leads: leadsList.length } }));
-        }
-
-        // ---- derive properties totals including available/sold from propsList ----
-        try {
-          if (Array.isArray(propsList)) {
-            const toLower = (v: unknown) => String(v ?? '').trim().toLowerCase();
-
-            const total = propsList.length;
-            const available = propsList.filter(p => toLower(p.status) === 'available').length;
-            const sold = propsList.filter(p => toLower(p.status) === 'sold').length;
-
-            anyTotalSet = true;
-            if (isMounted) {
-              setStats(prev => ({
-                ...prev,
-                properties: {
-                  ...prev.properties,
-                  total_properties: total,
-                  available_properties: available,
-                  sold_properties: sold,
-                },
-              }));
-            }
-          }
-        } catch (e) {
-          console.warn('computing properties total from list failed', e);
-        }
-
-        // Activities totals: try derive from activities list
-        try {
-          if (Array.isArray(activitiesList)) {
-            if (isMounted) setStats(prev => ({ ...prev, activities: { ...prev.activities, total_activities: activitiesList.length } }));
-            anyTotalSet = true;
-          }
-        } catch (e) {
-          console.warn('computing activities total from list failed', e);
-        }
-
-        if (!anyTotalSet) {
-          showToastOnce('Failed to load stats');
+        if (Array.isArray(propsList)) {
+          const latestProps = sortDescBy(propsList, ['updated_at', 'created_at', 'updatedAt', 'createdAt']).slice(0, 5);
+          setRecentProperties(latestProps);
         }
       }
 
-      if (isMounted) setLoading(false);
+      // Compute stats locally (no dashboardAPI, no activitiesAPI)
+      const nextStats: DashboardStats = JSON.parse(JSON.stringify(emptyStats));
+
+      // Leads stats
+      if (Array.isArray(leadsList)) {
+        nextStats.leads.total_leads = leadsList.length;
+
+        // today_leads: created today
+        nextStats.leads.today_leads = leadsList.reduce((acc, l) => {
+          const d = safeParseDate((l.created_at ?? l.createdAt) as string | undefined);
+          return acc + (d && isSameDayLocal(d) ? 1 : 0);
+        }, 0);
+
+        // new_leads: status === 'new'
+        nextStats.leads.new_leads = leadsList.reduce((acc, l) => {
+          return acc + (String(l.status ?? '').trim().toLowerCase() === 'new' ? 1 : 0);
+        }, 0);
+
+        // converted_leads: status === 'converted'
+        nextStats.leads.converted_leads = leadsList.reduce((acc, l) => {
+          return acc + (String(l.status ?? '').trim().toLowerCase() === 'converted' ? 1 : 0);
+        }, 0);
+      }
+
+      // Properties stats
+      if (Array.isArray(propsList)) {
+        const toLower = (v: unknown) => String(v ?? '').trim().toLowerCase();
+
+        nextStats.properties.total_properties = propsList.length;
+        nextStats.properties.available_properties = propsList.filter(p => toLower(p.status) === 'available').length;
+        nextStats.properties.sold_properties = propsList.filter(p => toLower(p.status) === 'sold').length;
+
+        // today_listings: created today
+        nextStats.properties.today_listings = propsList.reduce((acc, p) => {
+          const d = safeParseDate((p.created_at ?? p.createdAt) as string | undefined);
+          return acc + (d && isSameDayLocal(d) ? 1 : 0);
+        }, 0);
+      }
+
+      // Activities stay zeros (no API calls)
+
+      if (isMounted) {
+        setStats(nextStats);
+        if (!Array.isArray(leadsList) && !Array.isArray(propsList)) {
+          toast.error('Failed to load dashboard data');
+        }
+        setLoading(false);
+      }
     };
 
-    if (user) {
-      fetchDashboardData();
-    } else {
-      setLoading(false);
-    }
+    if (user) fetchData();
+    else setLoading(false);
 
     return () => {
       isMounted = false;
@@ -368,7 +284,6 @@ const DashboardPage: React.FC = () => {
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return '-';
-    // some responses use createdAt
     const d = new Date(dateString);
     if (isNaN(d.getTime())) return '-';
     return d.toLocaleDateString('en-US', {
@@ -401,7 +316,7 @@ const DashboardPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">
             {getGreeting()}, {user?.first_name ?? 'User'}!
           </h1>
-        <p className="text-gray-600">Here's what's happening with your business today.</p>
+          <p className="text-gray-600">Here's what's happening with your business today.</p>
         </div>
         <div className="flex items-center space-x-3">
           <Link to="/dashboard/leads">
@@ -547,7 +462,9 @@ const DashboardPage: React.FC = () => {
                         </p>
                         <p className="text-sm text-gray-600">Status: {lead.status ?? '-'}</p>
                       </div>
-                      <span className="text-xs text-gray-500">{formatDate(lead.created_at ?? lead.createdAt)}</span>
+                      <span className="text-xs text-gray-500">
+                        {formatDate(lead.created_at ?? lead.createdAt)}
+                      </span>
                     </div>
                   </Link>
                 ))}
@@ -583,7 +500,9 @@ const DashboardPage: React.FC = () => {
                         <p className="font-medium text-gray-900">{getPropertyTitle(property)}</p>
                         <p className="text-sm text-gray-600">Status: {property.status ?? '-'}</p>
                       </div>
-                      <span className="text-xs text-gray-500">{formatDate(property.created_at ?? property.createdAt)}</span>
+                      <span className="text-xs text-gray-500">
+                        {formatDate(property.created_at ?? property.createdAt)}
+                      </span>
                     </div>
                   </Link>
                 ))}
@@ -594,7 +513,7 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Upcoming Activities */}
+        {/* Upcoming Activities (no API, so empty) */}
         <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -606,24 +525,7 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
           <div className="p-6">
-            {upcomingActivities.length > 0 ? (
-              <div className="space-y-4">
-                {upcomingActivities.map((activity) => (
-                  <div
-                    key={String(activity.id)}
-                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    <div>
-                      <p className="font-medium text-gray-900">{activity.description ?? 'No description'}</p>
-                      <p className="text-sm text-gray-600 capitalize">{activity.type ?? '-'}</p>
-                    </div>
-                    <span className="text-xs text-gray-500">{formatDate(activity.created_at ?? activity.createdAt)}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">No upcoming activities</p>
-            )}
+            <p className="text-gray-500 text-center py-4">No upcoming activities</p>
           </div>
         </div>
       </div>

@@ -33,7 +33,7 @@ export type NotificationItem = {
   message: string;
   type: string;
   priority: UILevel;
-  timestamp: string; // created_at preferred
+  timestamp: string;
   read: boolean;
   link?: string | null;
 };
@@ -51,43 +51,83 @@ const normalizeRead = (v: RawNotification["is_read"]): boolean => {
 
 const parseDbTimestampToDate = (ts?: string | null): Date => {
   if (!ts) return new Date(NaN);
-  if (/[tT]|\+|Z$/.test(ts)) return new Date(ts);
+  
+
+  // IMPORTANT: Backend is sending IST time but with Z suffix
+  // Z means UTC, so we need to add IST offset (+5:30) to get correct IST time
+  
+  if (ts.endsWith('Z')) {
+    // Parse as UTC first
+    const utcDate = new Date(ts);
+    
+    // Add IST offset: +5 hours 30 minutes
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(utcDate.getTime() + IST_OFFSET);
+
+    return istDate;
+  }
+  
+  // Check for ISO format (has T, +)
+  if (/[tT]|\+/.test(ts)) {
+    const parsed = new Date(ts);
+    return parsed;
+  }
+  
+  // Parse simple format as UTC: "2025-10-30 06:50:00"
   const m = ts.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
   if (m) {
     const [, y, mo, d, h, mi, s] = m;
-    return new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +s));
+    const parsed = new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +s));
+    return parsed;
   }
-  return new Date(ts);
+  
+  // Fallback: direct parse
+  const parsed = new Date(ts);
+  return parsed;
 };
 
 const formatAbsoluteLocal = (date: Date) => {
   if (Number.isNaN(date.getTime())) return "Unknown time";
-  return new Intl.DateTimeFormat(undefined, {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  
+  // Use LOCAL methods to get IST time (browser automatically handles timezone)
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[date.getMonth()];
+  const day = date.getDate();
+  const year = date.getFullYear();
+  
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  
+  const minStr = minutes < 10 ? `0${minutes}` : minutes;
+  
+  const finalString = `${month} ${day}, ${year}, ${hours}:${minStr} ${ampm}`;
+  return finalString;
 };
 
 const formatRelative = (timestamp: string) => {
   const when = parseDbTimestampToDate(timestamp);
   if (Number.isNaN(when.getTime())) return "Unknown time";
+  
+  // Calculate difference from current time
   const diffMin = Math.floor((Date.now() - when.getTime()) / 60000);
+  
   if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffH = Math.floor(diffMin / 60);
+  if (diffMin < 60) return `${diffMin} min ago`;
+  
+  const diffH = Math.round(diffMin / 60);
   if (diffH < 24) return `${diffH}h ago`;
-  return `${Math.floor(diffH / 24)}d ago`;
+  
+  const diffD = Math.round(diffH / 24);
+  return `${diffD}d ago`;
 };
 
 interface NotificationPanelProps {
-  notifications?: NotificationItem[]; // controlled mode if provided and forceFetch=false
+  notifications?: NotificationItem[];
   onClose?: () => void;
   userId?: number | string;
-  forceFetch?: boolean; // set true to force fetch even if notifications provided
+  forceFetch?: boolean;
 }
 
 const NotificationPanel: React.FC<NotificationPanelProps> = ({
@@ -116,7 +156,6 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     }
   }, [controlledNotifications, forceFetch]);
 
-  // Fetch when uncontrolled
   useEffect(() => {
     if (isControlled) return;
 
@@ -196,20 +235,16 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     }
   }, []);
 
-  /** 🔥 Delete integrated with API (optimistic + rollback) */
   const deleteNotification = useCallback(async (id: number) => {
-    // optimistic remove
     setDeletingIds((s) => new Set(s).add(id));
     const prev = notifications;
 
     setNotifications((prevList) => prevList.filter((n) => n.id !== id));
 
     try {
-      await notificationAPI.delete(id); // <-- MUST exist in your API layer
-      // success: keep state
+      await notificationAPI.delete(id);
     } catch (err) {
       console.error("❌ Error deleting notification:", err);
-      // rollback on failure
       setNotifications(prev);
     } finally {
       setDeletingIds((s) => {
@@ -367,8 +402,8 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                       ) : null}
 
                       <div className="flex items-center flex-wrap gap-2 mt-2">
-                        <span className="text-xs text-gray-500" title={formatAbsoluteLocal(d)}>
-                          {formatRelative(n.timestamp)}
+                        <span className="text-xs text-gray-500">
+                          {formatAbsoluteLocal(d)} · {formatRelative(n.timestamp)}
                         </span>
 
                         {n.priority && (

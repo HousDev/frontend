@@ -23,6 +23,7 @@ export default defineConfig({
       open: false,
     }) as any,
   ],
+  optimizeDeps: { exclude: ["pdfjs-dist"] },
 
   resolve: {
     alias: {

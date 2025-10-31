@@ -1657,7 +1657,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
           {/* Sidebar (hidden on mobile/tablet; shows on lg+) */}
           <div className="space-y-2">
             {/* Desktop View - Sticky Card */}
-            <div className="hidden md:block lg:self-start lg:overflow-visible sticky top-24">
+            <div className="hidden md:block lg:self-start lg:overflow-visible sticky top-24 z-40">
               <div className="sticky top-20">
                 <div className="bg-white rounded-xl shadow-sm p-2 ring-1 ring-gray-100">
                   {/* Agent Info */}

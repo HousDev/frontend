@@ -800,23 +800,23 @@ const exportLeads = async () => {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {canExportLeads(user) && (
+             
                 <Button variant="outline" onClick={exportLeads} className="px-3 py-1 rounded-lg text-xs whitespace-nowrap">
                   <Download className="h-3 w-3" />
                   <span>Export</span>
                 </Button>
-              )}
+             
 
-              {canImportLeads(user) && (
+            
                 <Button onClick={() => setShowImportModal(true)}>Import Leads</Button>
-              )}
+             
 
-              {canAddLead(user) && (
+             
                 <Button className="px-3 py-1 rounded-lg text-xs whitespace-nowrap" onClick={() => setShowAddLeadModal(true)}>
                   <Plus className="h-3 w-3" />
                   <span>Add Lead</span>
                 </Button>
-              )}
+           
             </div>
           </div>
 

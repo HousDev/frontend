@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, CSSProperties } from 'react';
 import {
   Search,
   Filter,
@@ -750,7 +750,7 @@ const TrackingTab = () => {
     const color = stageColors[key] || 'bg-gray-400';
     return (
       <div className="w-full bg-gray-200 rounded-full h-2">
-        <div className={`${color} h-2 rounded-full transition-all duration-500`} style={{ width: `${progress}%` }} />
+        <div className={`${color} h-2 rounded-full transition-all duration-500`} style={{ width: `${progress}%` } as CSSProperties} />
       </div>
 
     );
@@ -792,25 +792,25 @@ const TrackingTab = () => {
     setShowShareModal(true);
   };
 
- const handleDownloadDocument = async (doc: any) => {
-  try {
-    setDownloadingId(doc.id);
+  const handleDownloadDocument = async (doc: any) => {
+    try {
+      setDownloadingId(doc.id);
 
-    // ✅ call the new Final PDF API (includes audit page)
-    await documentsGeneratedAPI.downloadFinalPdf(doc.id, {
-      filenameFallback: `${(doc.title || doc.name || "document")
-        .toString()
-        .trim()
-        .replace(/[^\w\s.-]+/g, "_")}.pdf`,
-    });
+      // ✅ call the new Final PDF API (includes audit page)
+      await documentsGeneratedAPI.downloadFinalPdf(doc.id, {
+        filenameFallback: `${(doc.title || doc.name || "document")
+          .toString()
+          .trim()
+          .replace(/[^\w\s.-]+/g, "_")}.pdf`,
+      });
 
-  } catch (err: any) {
-    console.error("Final PDF download failed:", err);
-    alert(err?.message || "Final PDF download failed");
-  } finally {
-    setDownloadingId(null);
-  }
-};
+    } catch (err: any) {
+      console.error("Final PDF download failed:", err);
+      alert(err?.message || "Final PDF download failed");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const handleSaveDocument = (updatedDoc: any) => {
     setDocuments(prev => prev.map(doc =>
@@ -2059,7 +2059,7 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
         <EsignAadhaarModal
           isOpen={showEsignModal}
           onClose={() => {
-          
+
             setShowEsignModal(false);
             setEsignDoc(null);
             setPendingStepDoc(null);
@@ -2108,7 +2108,7 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
             }
           }}
           onBothSigned={async ({ docId }) => {
-           
+
             await setStatusAndSync(Number(docId), 'completed', 'Both parties signed via Aadhaar eSign');
             setShowEsignModal(false);
             setEsignDoc(null);
@@ -2118,39 +2118,95 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
       )}
 
 
-      {showVerifyModal && verifyDoc && (
-        <PartyVerificationModal
-          isOpen={showVerifyModal}
-          documentId={verifyDoc.id}
-          defaultBuyer={{
-            name: verifyDoc.data?.buyer_name || '',
-            email: verifyDoc.data?.buyer_email || '',
-            phone: verifyDoc.data?.buyer_phone || '',
-          }}
-          defaultSeller={{
-            name: verifyDoc.data?.seller_name || '',
-            email: verifyDoc.data?.seller_email || '',
-            phone: verifyDoc.data?.seller_phone || '',
-          }}
-          onClose={() => {
-            setShowVerifyModal(false);
-            setVerifyDoc(null);
-            setPendingStepDoc(null);
-          }}
-          onBothVerified={async (payload) => {
-            const { note } = payload;
-            if (!pendingStepDoc) return;
-            await setStatusAndSync(
-              pendingStepDoc.id,
-              'otp_verified',
-              note || 'Buyer & Seller verified'
-            );
-            setShowVerifyModal(false);
-            setVerifyDoc(null);
-            setPendingStepDoc(null);
-          }}
-        />
-      )}
+{/* {showVerifyModal && verifyDoc && (
+  <>
+    {console.log("🧩 verifyDoc executive check:", {
+      sales_executive: verifyDoc.data?.sales_executive,
+      executive_email: verifyDoc.data?.executive_email,
+      executive_phone: verifyDoc.data?.executive_phone,
+    })}
+
+    <PartyVerificationModal
+      isOpen={showVerifyModal}
+      documentId={verifyDoc.id}
+      defaultBuyer={{
+        name: verifyDoc.data?.buyer_name || '',
+        email: verifyDoc.data?.buyer_email || '',
+        phone: verifyDoc.data?.buyer_phone || '',
+      }}
+      defaultSeller={{
+        name: verifyDoc.data?.seller_name || '',
+        email: verifyDoc.data?.seller_email || '',
+        phone: verifyDoc.data?.seller_phone || '',
+      }}
+      onClose={() => {
+        setShowVerifyModal(false);
+        setVerifyDoc(null);
+        setPendingStepDoc(null);
+      }}
+      onBothVerified={async (payload) => {
+        const { note } = payload;
+        if (!pendingStepDoc) return;
+        await setStatusAndSync(
+          pendingStepDoc.id,
+          'otp_verified',
+          note || 'Buyer & Seller verified'
+        );
+        setShowVerifyModal(false);
+        setVerifyDoc(null);
+        setPendingStepDoc(null);
+      }}
+    />
+  </>
+)} */}
+
+{showVerifyModal && verifyDoc && (
+  <PartyVerificationModal
+    isOpen={showVerifyModal}
+    documentId={verifyDoc.id}
+    defaultBuyer={{
+      name: verifyDoc.data?.buyer_name || '',
+      email: verifyDoc.data?.buyer_email || '',
+      phone: verifyDoc.data?.buyer_phone || '',
+    }}
+    defaultSeller={{
+      name: verifyDoc.data?.seller_name || '',
+      email: verifyDoc.data?.seller_email || '',
+      phone: verifyDoc.data?.seller_phone || '',
+    }}
+    onClose={() => {
+      setShowVerifyModal(false);
+      setVerifyDoc(null);
+      setPendingStepDoc(null);
+    }}
+    onVerified={async (payload) => {
+      const { note, buyer, seller } = payload;
+      if (!pendingStepDoc) return;
+      
+      // Determine verification type for the reason
+      let verificationType = '';
+      if (buyer?.verified && seller?.verified) {
+        verificationType = 'Both parties verified';
+      } else if (buyer?.verified) {
+        verificationType = 'Buyer verified only';
+      } else if (seller?.verified) {
+        verificationType = 'Seller verified only';
+      }
+      
+      const reason = note ? `${verificationType}: ${note}` : verificationType;
+      
+      await setStatusAndSync(
+        pendingStepDoc.id,
+        'otp_verified',
+        reason
+      );
+      
+      setShowVerifyModal(false);
+      setVerifyDoc(null);
+      setPendingStepDoc(null);
+    }}
+  />
+)}
 
       {showShareModal && selectedDocument && (
         <DocumentShareModal
