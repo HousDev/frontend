@@ -1,5 +1,5 @@
 // src/pages/dashboard/AgentDashboard.tsx
-import React, { useEffect, useState } from "react";
+import React, { CSSProperties, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Users,
@@ -14,10 +14,8 @@ import {
   Clock,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { dashboardAPI, activitiesAPI } from "@/lib/api";
+// ❌ Removed all API imports (dashboardAPI, activitiesAPI, leadsAPI, propertiesAPI)
 import Button from "@/components/ui/Button";
-import { propertiesAPI } from "@/lib/propertiesAPI";
-import { leadsAPI } from "@/lib/leadAPI";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { toast } from "@/hooks/useToast";
 
@@ -67,6 +65,86 @@ const emptyAgentStats: AgentStats = {
   today_followups: 0,
 };
 
+/* ---------------- Mock data (no APIs) ---------------- */
+type MockLead = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  status?: "Hot" | "Warm" | "Cold" | "Qualified" | "Converted" | "New";
+  created_at: string;
+};
+
+type MockActivity = {
+  id: number;
+  title?: string;
+  description?: string;
+  type?: "Call" | "Meeting" | "Visit" | "Task";
+  scheduled_at?: string;
+  created_at?: string;
+};
+
+const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+const randomFrom = <T,>(arr: T[]): T => arr[rand(0, arr.length - 1)];
+
+const names = ["Aarav", "Vihaan", "Aditya", "Ishaan", "Kabir", "Riya", "Anaya", "Diya", "Aanya", "Sara"];
+const surnames = ["Sharma", "Verma", "Patel", "Agarwal", "Gupta", "Kulkarni", "Iyer", "Reddy", "Singh", "Khan"];
+const statuses: MockLead["status"][] = ["New", "Hot", "Warm", "Cold", "Qualified", "Converted"];
+const activityTypes: Required<MockActivity>["type"][] = ["Call", "Meeting", "Visit", "Task"];
+
+function daysFromNow(offset: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toISOString();
+}
+
+function generateMockData() {
+  // Leads: between 12 and 40 items with dates over the last 45 days
+  const leadCount = rand(12, 40);
+  const leads: MockLead[] = Array.from({ length: leadCount }).map((_, i) => {
+    const first = randomFrom(names);
+    const last = randomFrom(surnames);
+    const createdOffset = -rand(0, 45); // past days
+    const status = randomFrom(statuses);
+    return {
+      id: i + 1,
+      first_name: first,
+      last_name: last,
+      email: `${first.toLowerCase()}.${last.toLowerCase()}@example.com`,
+      phone: `9${rand(100000000, 999999999)}`,
+      status,
+      created_at: daysFromNow(createdOffset),
+    };
+  });
+
+  // Activities: between 3 and 12 items (some future, some recent)
+  const actCount = rand(3, 12);
+  const activities: MockActivity[] = Array.from({ length: actCount }).map((_, i) => {
+    const isFuture = Math.random() > 0.4;
+    const offset = isFuture ? rand(0, 10) : -rand(0, 10);
+    const when = daysFromNow(offset);
+    const t = randomFrom(activityTypes);
+    return {
+      id: i + 1,
+      title: `${t} with client`,
+      description: `${t} regarding property options`,
+      type: t,
+      scheduled_at: when,
+      created_at: daysFromNow(-rand(0, 15)),
+    };
+  });
+
+  // Properties (simple mock)
+  const totalListings = rand(0, 12);
+  const activeListings = Math.min(totalListings, rand(0, totalListings));
+  const soldThisMonth = rand(0, Math.max(0, totalListings - activeListings));
+
+  return { leads, activities, properties: { totalListings, activeListings, soldThisMonth } };
+}
+/* ---------------------------------------------------- */
+
 const AgentDashboard: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<AgentStats>(emptyAgentStats);
@@ -76,184 +154,101 @@ const AgentDashboard: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true;
-    let shownToast = false;
 
-    const showErrorOnce = (msg: string) => {
-      if (!shownToast) {
-        toast.error(msg);
-        shownToast = true;
-      }
-    };
+    const computeStatsFromMock = () => {
+      const { leads, activities, properties } = generateMockData();
 
-    const parseResp = (r: any) => {
-      if (!r) return null;
-      if (typeof r !== "object") return null;
-      // If axios-like response: { data: ... }
-      if (r.data !== undefined) return r.data;
-      return r;
-    };
+      // Sort leads: latest first; keep top 5 for the widget
+      const recentLeads = [...leads].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
 
-    const fetchAgentData = async () => {
-      if (isMounted) setLoading(true);
+      // Upcoming activities = future scheduled; keep top 5 soonest
+      const futureActs = activities
+        .filter(a => a.scheduled_at && new Date(a.scheduled_at).getTime() >= Date.now())
+        .sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime());
 
-      // ---- helpers ----
-      const toTS = (d?: string | number | Date) => (d ? new Date(d).getTime() : 0);
-      const pickRecent5 = <T extends Record<string, any>>(
-        arr: T[] | null | undefined,
-        keyA: keyof T, // primary date key
-        keyB?: keyof T // fallback date key
-      ) => {
-        if (!Array.isArray(arr)) return [];
-        return [...arr]
-          .sort((x, y) => (toTS(y?.[keyA] ?? (keyB ? y?.[keyB] : undefined)) - toTS(x?.[keyA] ?? (keyB ? x?.[keyB] : undefined))))
-          .slice(0, 5);
+      // Derivations
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - 7);
+
+      const createdThisWeek = leads.filter(
+        l => new Date(l.created_at).getTime() >= startOfWeek.getTime()
+      ).length;
+
+      const hotLeads = leads.filter(l => (l.status || "").toLowerCase() === "hot").length;
+
+      const convertedLeads = leads.filter(l => {
+        const s = (l.status || "").toLowerCase();
+        return s === "converted" || s === "qualified";
+      }).length;
+
+      const conversionRate = leads.length
+        ? Math.round((convertedLeads / leads.length) * 100)
+        : 0;
+
+      // Monthly leads achieved
+      const leadsThisMonth = leads.filter(l => {
+        const d = new Date(l.created_at);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }).length;
+
+      // Today followups (activities scheduled today)
+      const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+        now.getDate()
+      ).padStart(2, "0")}`;
+      const todayFollowups = activities.filter(a => {
+        if (!a.scheduled_at) return false;
+        const d = new Date(a.scheduled_at);
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+          d.getDate()
+        ).padStart(2, "0")}`;
+        return k === todayKey;
+      }).length;
+
+      const computed: AgentStats = {
+        my_leads: {
+          total_leads: leads.length,
+          new_leads: createdThisWeek,
+          hot_leads: hotLeads,
+          converted_leads: convertedLeads,
+          conversion_rate: conversionRate,
+        },
+        my_properties: {
+          total_listings: properties.totalListings,
+          active_listings: properties.activeListings,
+          sold_this_month: properties.soldThisMonth,
+        },
+        monthly_targets: {
+          leads_target: 100,
+          leads_achieved: leadsThisMonth,
+          sales_target: 5,
+          sales_achieved: Math.min(5, Math.floor(convertedLeads / 4)),
+        },
+        upcoming_activities: futureActs.length,
+        today_followups: todayFollowups,
       };
-      const getArray = (raw: any): any[] | null =>
-        Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : null;
 
+      if (!isMounted) return;
+
+      setStats(computed);
+      setMyLeads(recentLeads.slice(0, 5));
+      setUpcomingActivities(futureActs.slice(0, 5));
+    };
+
+    // Only compute/render once auth is ready (for greeting)
+    if (user) {
+      setLoading(true);
       try {
-        // 1) Try the agent stats endpoint
-        let agentPayload: any = null;
-        try {
-          const resp = await dashboardAPI.getAgentStats().catch((e: any) => {
-            console.warn("dashboardAPI.getAgentStats error:", e);
-            return null;
-          });
-          agentPayload = parseResp(resp);
-
-          if (agentPayload?.success === false) {
-            console.warn("getAgentStats returned success:false:", agentPayload.message ?? agentPayload);
-            agentPayload = null;
-          }
-        } catch (err) {
-          console.warn("Error calling getAgentStats:", err);
-          agentPayload = null;
-        }
-
-        // 2) If agentPayload valid, normalize & use
-        if (agentPayload && (agentPayload.my_leads || agentPayload.my_properties || agentPayload.monthly_targets)) {
-          const normalized: AgentStats = {
-            my_leads: {
-              total_leads:
-                agentPayload.my_leads?.total_leads ??
-                agentPayload.myLeads?.total_leads ??
-                agentPayload.my_leads?.total ??
-                agentPayload.total_leads ??
-                emptyAgentStats.my_leads!.total_leads,
-              new_leads:
-                agentPayload.my_leads?.new_leads ??
-                agentPayload.new_leads ??
-                0,
-              hot_leads:
-                agentPayload.my_leads?.hot_leads ?? agentPayload.hot_leads ?? 0,
-              converted_leads:
-                agentPayload.my_leads?.converted_leads ?? agentPayload.converted_leads ?? 0,
-              conversion_rate:
-                agentPayload.my_leads?.conversion_rate ?? agentPayload.conversion_rate ?? 0,
-            },
-            my_properties: {
-              total_listings:
-                agentPayload.my_properties?.total_listings ??
-                agentPayload.properties?.total_listings ??
-                agentPayload.total_listings ??
-                0,
-              active_listings:
-                agentPayload.my_properties?.active_listings ?? 0,
-              sold_this_month:
-                agentPayload.my_properties?.sold_this_month ?? 0,
-            },
-            monthly_targets: {
-              leads_target: agentPayload.monthly_targets?.leads_target ?? 0,
-              leads_achieved: agentPayload.monthly_targets?.leads_achieved ?? 0,
-              sales_target: agentPayload.monthly_targets?.sales_target ?? 0,
-              sales_achieved: agentPayload.monthly_targets?.sales_achieved ?? 0,
-            },
-            upcoming_activities: agentPayload.upcoming_activities ?? 0,
-            today_followups: agentPayload.today_followups ?? 0,
-          };
-          if (isMounted) setStats(prev => ({ ...prev, ...normalized }));
-        } else {
-          // 3) Fallback: fetch lists and derive counts
-          console.warn("Agent stats endpoint missing or unexpected — using list-based fallbacks");
-          try {
-            const [leadsResp, activitiesResp, propsResp] = await Promise.all([
-              leadsAPI.getLeads({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("leadsAPI.getLeads error", e); return null; }),
-              activitiesAPI.getUpcoming({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("activitiesAPI.getUpcoming error", e); return null; }),
-              propertiesAPI.getProperties({ agent_id: user?.id, limit: 1 }).catch((e: any) => { console.warn("propertiesAPI.getProperties error", e); return null; }),
-            ]);
-
-            const leadsArray = getArray(parseResp(leadsResp));
-            const activitiesArray = getArray(parseResp(activitiesResp));
-            const propsArray = getArray(parseResp(propsResp));
-
-            if (isMounted) {
-              if (Array.isArray(leadsArray)) {
-                const latest5 = pickRecent5(leadsArray, "created_at");
-                setMyLeads(latest5); // enforce top 5
-                setStats(prev => ({
-                  ...prev,
-                  my_leads: {
-                    ...prev.my_leads,
-                    total_leads: leadsArray.length,
-                    new_leads: prev.my_leads?.new_leads ?? 0,
-                  },
-                }));
-              }
-              if (Array.isArray(activitiesArray)) {
-                const latest5 = pickRecent5(activitiesArray, "scheduled_at", "created_at");
-                setUpcomingActivities(latest5); // enforce top 5
-                setStats(prev => ({ ...prev, upcoming_activities: activitiesArray.length }));
-              }
-              if (Array.isArray(propsArray)) {
-                setStats(prev => ({
-                  ...prev,
-                  my_properties: {
-                    ...prev.my_properties,
-                    total_listings: propsArray.length,
-                  },
-                }));
-              }
-            }
-          } catch (err) {
-            console.warn("Fallback list-based agent totals failed:", err);
-            showErrorOnce("Failed to load agent dashboard data");
-          }
-        }
-
-        // 4) Always refresh recent lists (server might have newer)
-        try {
-          const [leadsRespFull, activitiesRespFull] = await Promise.all([
-            leadsAPI.getLeads({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("leadsAPI.getLeads error", e); return null; }),
-            activitiesAPI.getUpcoming({ agent_id: user?.id, limit: 5 }).catch((e: any) => { console.warn("activitiesAPI.getUpcoming error", e); return null; }),
-          ]);
-
-          const leadsArr = getArray(parseResp(leadsRespFull));
-          if (Array.isArray(leadsArr) && isMounted) {
-            setMyLeads(pickRecent5(leadsArr, "created_at")); // enforce top 5 consistently
-          }
-
-          const actsArr = getArray(parseResp(activitiesRespFull));
-          if (Array.isArray(actsArr) && isMounted) {
-            setUpcomingActivities(pickRecent5(actsArr, "scheduled_at", "created_at")); // enforce top 5 consistently
-          }
-        } catch (err) {
-          console.warn("Error fetching recent lists:", err);
-        }
+        computeStatsFromMock();
+      } catch (e) {
+        console.error("Mock compute failed:", e);
+        toast.error("Failed to load agent dashboard");
       } finally {
         if (isMounted) setLoading(false);
       }
-    };
-
-
-    // Only fetch when user exists (auth ready)
-    if (user) {
-      fetchAgentData().catch((e) => {
-        console.error("fetchAgentData top-level error:", e);
-        showErrorOnce("Failed to load agent dashboard data");
-        if (isMounted) setLoading(false);
-      });
     } else {
-      // no user -> stop spinner
       setLoading(false);
     }
 
@@ -334,11 +329,9 @@ const AgentDashboard: React.FC = () => {
             </Button>
           </Link>
         </div>
-
       </div>
 
-
-      {/* Priority Alerts
+      {/* (Optional) Priority Alerts (kept commented; enable when needed)
       {stats?.today_followups && stats.today_followups > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
           <div className="flex items-center space-x-2">
@@ -367,7 +360,9 @@ const AgentDashboard: React.FC = () => {
               <Users className="h-4 w-4 text-white" />
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-1">{stats?.my_leads?.new_leads ?? 0} new this week</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {stats?.my_leads?.new_leads ?? 0} new this week
+          </p>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
@@ -382,7 +377,9 @@ const AgentDashboard: React.FC = () => {
               <Target className="h-4 w-4 text-white" />
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-1">{stats?.my_leads?.converted_leads ?? 0} converted</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {stats?.my_leads?.converted_leads ?? 0} converted
+          </p>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
@@ -402,13 +399,17 @@ const AgentDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Properties</p>
-              <p className="text-2xl font-bold text-gray-900">{stats?.my_properties?.active_listings ?? 0}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {stats?.my_properties?.active_listings ?? 0}
+              </p>
             </div>
             <div className="h-8 w-8 bg-purple-500 rounded-full flex items-center justify-center">
               <Building className="h-4 w-4 text-white" />
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-1">{stats?.my_properties?.sold_this_month ?? 0} sold this month</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {stats?.my_properties?.sold_this_month ?? 0} sold this month
+          </p>
         </div>
       </div>
 
@@ -420,16 +421,20 @@ const AgentDashboard: React.FC = () => {
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium text-gray-600">Leads Target</span>
               <span className="text-sm text-gray-900">
-                {stats?.monthly_targets?.leads_achieved ?? 0} / {stats?.monthly_targets?.leads_target ?? 0}
+                {stats?.monthly_targets?.leads_achieved ?? 0} /{" "}
+                {stats?.monthly_targets?.leads_target ?? 0}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div
                 className="bg-blue-600 h-3 rounded-full"
                 style={{
-                  width: `${getTargetProgress(stats?.monthly_targets?.leads_achieved ?? 0, stats?.monthly_targets?.leads_target ?? 1)}%`,
-                }}
-              ></div>
+                  width: `${getTargetProgress(
+                    stats?.monthly_targets?.leads_achieved ?? 0,
+                    stats?.monthly_targets?.leads_target ?? 1
+                  )}%`,
+                } as CSSProperties}
+              />
             </div>
           </div>
 
@@ -437,20 +442,25 @@ const AgentDashboard: React.FC = () => {
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium text-gray-600">Sales Target</span>
               <span className="text-sm text-gray-900">
-                ${stats?.monthly_targets?.sales_achieved ?? 0} / ${stats?.monthly_targets?.sales_target ?? 0}
+                ₹{stats?.monthly_targets?.sales_achieved ?? 0} / ₹
+                {stats?.monthly_targets?.sales_target ?? 0}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div
                 className="bg-green-600 h-3 rounded-full"
                 style={{
-                  width: `${getTargetProgress(stats?.monthly_targets?.sales_achieved ?? 0, stats?.monthly_targets?.sales_target ?? 1)}%`,
-                }}
+                  width: `${getTargetProgress(
+                    stats?.monthly_targets?.sales_achieved ?? 0,
+                    stats?.monthly_targets?.sales_target ?? 1
+                  )}%`,
+                } as CSSProperties}
               />
             </div>
           </div>
         </div>
       </div>
+
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
@@ -484,6 +494,7 @@ const AgentDashboard: React.FC = () => {
           </Link>
         </div>
       </div>
+
       {/* Content Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         {/* My Recent Leads */}
@@ -503,25 +514,25 @@ const AgentDashboard: React.FC = () => {
             {myLeads.length > 0 ? (
               myLeads.map((lead) => (
                 <div
-                  key={lead.id ?? `${lead.first_name}-${lead.last_name}-${lead.created_at ?? ''}`}
+                  key={lead.id ?? `${lead.first_name}-${lead.last_name}-${lead.created_at ?? ""}`}
                   className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-start sm:items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start sm:items-center gap-3">
                         <div className="h-10 w-10 sm:h-11 sm:w-11 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0">
-                          {((lead.first_name?.[0] || '') + (lead.last_name?.[0] || '')).toUpperCase()}
+                          {((lead.first_name?.[0] || "") + (lead.last_name?.[0] || "")).toUpperCase()}
                         </div>
 
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900 truncate">
-                            {(lead.first_name ?? '') + ' ' + (lead.last_name ?? '')}
+                            {(lead.first_name ?? "") + " " + (lead.last_name ?? "")}
                           </p>
 
                           <div className="mt-0.5 space-y-0.5">
                             <p className="text-sm text-gray-600 flex items-center min-w-0">
                               <Mail className="h-3 w-3 mr-1 shrink-0" />
-                              <span className="truncate">{lead.email ?? '-'}</span>
+                              <span className="truncate">{lead.email ?? "-"}</span>
                             </p>
 
                             {lead.phone && (
@@ -541,9 +552,11 @@ const AgentDashboard: React.FC = () => {
                           lead.status
                         )}`}
                       >
-                        {lead.status ?? 'New'}
+                        {lead.status ?? "New"}
                       </span>
-                      <p className="text-[10px] sm:text-xs text-gray-500 mt-1">{safeDate(lead.created_at)}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
+                        {safeDate(lead.created_at)}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -587,7 +600,7 @@ const AgentDashboard: React.FC = () => {
                     <span className="h-2 w-2 bg-blue-500 rounded-full shrink-0" />
                     <div className="min-w-0">
                       <p className="font-medium text-gray-900 truncate">
-                        {activity.title ?? activity.description ?? 'Untitled'}
+                        {activity.title ?? activity.description ?? "Untitled"}
                       </p>
                       <p className="text-sm text-gray-600">
                         {new Date(activity.scheduled_at ?? activity.created_at ?? Date.now()).toLocaleString()}
@@ -597,7 +610,7 @@ const AgentDashboard: React.FC = () => {
 
                   <div className="sm:ml-auto">
                     <span className="inline-block px-2 py-1 text-[10px] sm:text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                      {activity.type ?? 'Task'}
+                      {activity.type ?? "Task"}
                     </span>
                   </div>
                 </div>
@@ -617,9 +630,6 @@ const AgentDashboard: React.FC = () => {
           </div>
         </section>
       </div>
-
-
-
     </div>
   );
 };
