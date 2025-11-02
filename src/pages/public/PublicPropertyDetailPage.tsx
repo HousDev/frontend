@@ -69,6 +69,8 @@ import PublicSimilarProperties from './PublicSimilarProperties';
 import { useAuth } from '@/contexts/AuthContext';
 import { buyerSavedAPI } from '@/lib/buyerSavedPropertiesAPI';
 import { toast } from 'react-toastify'; // if not already imported
+import { getMasterDropdownOptions } from '@/lib/useMasterData';
+import { buyerAPI } from '@/lib/buyerAPI';
 
 type RawProperty = any;
 
@@ -90,12 +92,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const [similarProperties, setSimilarProperties] = useState<any[]>([]);
   const [similarPropertiesLoading, setSimilarPropertiesLoading] = useState(false);
   // add near other hooks / state
+  const [masterData, setMasterData] = useState<any>({});
+const [loadingMasters, setLoadingMasters] = useState(false);
   const hasRecordedViewRef = React.useRef<{ [key: string]: boolean }>({});
   const [contactForm, setContactForm] = useState({
+    salutation: '',
     name: '',
     phone: '',
     email: '',
-    message: ''
   });
 
   // Add this state near your other useState declarations (around line 60)
@@ -110,7 +114,29 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
   // NEW: auth
   const { currentUser, user } = useAuth() as any;
+// useEffect में master data fetch करें
+useEffect(() => {
+  const fetchMasterData = async () => {
+    try {
+      setLoadingMasters(true);
+      const data = await getMasterDropdownOptions(['common']);
+      setMasterData(data || {});
+    } catch (error) {
+      console.error('Error fetching master data:', error);
+    } finally {
+      setLoadingMasters(false);
+    }
+  };
 
+  fetchMasterData();
+}, []);
+// Master data से salutation options निकालें
+const salutationOptions = masterData['salutation'] || [
+  { value: 'Mr', label: 'Mr' },
+  { value: 'Ms', label: 'Ms' },
+  { value: 'Mrs', label: 'Mrs' },
+  { value: 'Dr', label: 'Dr' },
+];
   // Helper: buyer id resolve (different shapes ke liye safe)
   const getBuyerIdFromAuth = (): number | null => {
     // try common shapes
@@ -929,11 +955,52 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const unitType = property?.unitType ?? '';
   const subtype = property?.subtype ?? '';
 
-  const handleContactSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowContactForm(false);
-    setContactForm({ name: '', phone: '', email: '', message: '' });
-  };
+const handleContactSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  try {
+    const buyerData = {
+      // ⚠️ If backend really needs the typo, bhej do — warna chhod do.
+      // salution: contactForm.salutation, 
+      salutation: contactForm.salutation,     // screenshot me DB field 'salutation' dikh raha hai
+      name: contactForm.name.trim(),          // only name
+      phone: contactForm.phone.replace(/\D/g, ''),
+      email: contactForm.email?.trim() || undefined,
+      source: 'website_contact_form',
+      property_interested: property?.id ? String(property.id) : undefined,
+      property_slug: property?.slug || property?.raw?.slug,
+      status: 'new_lead',
+      lead_type: 'property_inquiry',
+    };
+
+    // Call
+    const res = await buyerAPI.create(buyerData);
+
+    // ---- Normalize possible shapes ----
+    // res could be axios response, or already unwrapped
+    const body = res?.data ?? res;                 // axios => res.data, custom => res
+    const buyer = body?.data ?? body;              // sometimes wrapped in {data: {...}}
+    const ok = !!(buyer?.id);                      // consider success if id present
+
+    if (ok) {
+      console.log("✅ Buyer created:", buyer);
+      toast.success("We'll contact you shortly!");
+      // reset & close on success only
+      setShowContactForm(false);
+      setContactForm({ salutation: 'Mr', name: '', phone: '', email: '' });
+    } else {
+      console.error("❌ Unexpected create response:", body);
+      toast.error("Failed to submit request. Please try again.");
+      // keep form open so user can retry/correct
+    }
+  } catch (error: any) {
+    console.error("🔥 Error creating buyer:", error);
+    // Server may return 4xx/5xx but record already created in some edge cases — log carefully
+    toast.error(error?.response?.data?.message || error?.message || "Something went wrong. Please try again.");
+    // keep form open on error
+  }
+};
+
 
   const handlePaywallOpen = (feature: 'ai-recommendations' | 'ai-investment' | 'premium-details') => {
     if (!isLoggedIn) {
@@ -1687,67 +1754,67 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       <Phone size={16} />
                     </button>
 
-                     {/* WhatsApp */}
+                    {/* WhatsApp */}
                     <button
-  onClick={(e) => {
-    e.stopPropagation();
-    e.preventDefault();
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
 
-    // ✅ Get executive phone
-    const phone = getexecutiveToPhone();
-    if (!phone) return;
+                        // ✅ Get executive phone
+                        const phone = getexecutiveToPhone();
+                        if (!phone) return;
 
-    // ✅ Add +91 if needed
-    const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+                        // ✅ Add +91 if needed
+                        const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
 
-    // ✅ Property info
-    const title =
-      property?.title ||
-      [property?.unitType, property?.type].filter(Boolean).join(" ") ||
-      "a property";
+                        // ✅ Property info
+                        const title =
+                          property?.title ||
+                          [property?.unitType, property?.type].filter(Boolean).join(" ") ||
+                          "a property";
 
-    const loc =
-      property?.locationNormalized ||
-      property?.location ||
-      property?.city ||
-      "your listed property location";
+                        const loc =
+                          property?.locationNormalized ||
+                          property?.location ||
+                          property?.city ||
+                          "your listed property location";
 
-    const priceValue = Number(property?.price || 0);
-    const priceText = !isNaN(priceValue)
-      ? `₹${priceValue.toLocaleString("en-IN")}`
-      : "Price on request";
+                        const priceValue = Number(property?.price || 0);
+                        const priceText = !isNaN(priceValue)
+                          ? `₹${priceValue.toLocaleString("en-IN")}`
+                          : "Price on request";
 
-    // ✅ Build property link (slug-safe)
-    const slugValue =
-      property?.slug ||
-      property?.raw?.slug ||
-      (typeof window !== "undefined"
-        ? window.location.pathname.split("/").pop()
-        : "") ||
-      "";
-    const link = `${window.location.origin}/properties/${encodeURIComponent(
-      String(slugValue)
-    )}`;
+                        // ✅ Build property link (slug-safe)
+                        const slugValue =
+                          property?.slug ||
+                          property?.raw?.slug ||
+                          (typeof window !== "undefined"
+                            ? window.location.pathname.split("/").pop()
+                            : "") ||
+                          "";
+                        const link = `${window.location.origin}/properties/${encodeURIComponent(
+                          String(slugValue)
+                        )}`;
 
-    // ✅ WhatsApp message with clickable URL
-    const message = `Hi! I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you provide more details?\n${link}`;
+                        // ✅ WhatsApp message with clickable URL
+                        const message = `Hi! I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you provide more details?\n${link}`;
 
-    // ✅ Open WhatsApp chat
-    if (typeof window !== "undefined") {
-      window.open(
-        `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
-        "_blank",
-        "noopener,noreferrer"
-      );
-    }
-  }}
-  className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
+                        // ✅ Open WhatsApp chat
+                        if (typeof window !== "undefined") {
+                          window.open(
+                            `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
+                            "_blank",
+                            "noopener,noreferrer"
+                          );
+                        }
+                      }}
+                      className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
   bg-gradient-to-br from-green-50 to-green-100 
   text-green-700 hover:from-green-100 hover:to-green-200 
   transition-all shadow-sm hover:shadow-md hover:scale-105"
->
-  <FaWhatsapp size={16} className="text-[#25D366]" />
-</button>
+                    >
+                      <FaWhatsapp size={16} className="text-[#25D366]" />
+                    </button>
 
                     {/* Message */}
                     <button
@@ -1810,70 +1877,70 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       </span>
                     </button>
                     {/* WhatsApp */}
-                   <button
-  onClick={(e) => {
-    e.stopPropagation();
-    e.preventDefault();
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
 
-    // ✅ Clean phone (executiveTo → executive → fallback)
-    const phone =
-      property?.executiveTo?.phone?.replace(/\D/g, "") ||
-      property?.executive?.phone?.replace(/\D/g, "") ||
-      "919637009639"; // fallback
+                        // ✅ Clean phone (executiveTo → executive → fallback)
+                        const phone =
+                          property?.executiveTo?.phone?.replace(/\D/g, "") ||
+                          property?.executive?.phone?.replace(/\D/g, "") ||
+                          "919637009639"; // fallback
 
-    if (!phone) return;
+                        if (!phone) return;
 
-    // ✅ Country code logic
-    const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+                        // ✅ Country code logic
+                        const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
 
-    // ✅ Property details
-    const title =
-      property?.title ||
-      [property?.unitType, property?.type].filter(Boolean).join(" ") ||
-      "a property";
+                        // ✅ Property details
+                        const title =
+                          property?.title ||
+                          [property?.unitType, property?.type].filter(Boolean).join(" ") ||
+                          "a property";
 
-    const loc =
-      property?.locationNormalized ||
-      property?.location ||
-      property?.city ||
-      "your listed property location";
+                        const loc =
+                          property?.locationNormalized ||
+                          property?.location ||
+                          property?.city ||
+                          "your listed property location";
 
-    const priceValue = Number(property?.price || 0);
-    const priceText = !isNaN(priceValue)
-      ? `₹${priceValue.toLocaleString("en-IN")}`
-      : "Price on request";
+                        const priceValue = Number(property?.price || 0);
+                        const priceText = !isNaN(priceValue)
+                          ? `₹${priceValue.toLocaleString("en-IN")}`
+                          : "Price on request";
 
-    // ✅ Build property link (slug-safe)
-    const slugValue =
-      property?.slug ||
-      property?.raw?.slug ||
-      (typeof window !== "undefined"
-        ? window.location.pathname.split("/").pop()
-        : "") ||
-      "";
-    const link = `${window.location.origin}/properties/${encodeURIComponent(
-      String(slugValue)
-    )}`;
+                        // ✅ Build property link (slug-safe)
+                        const slugValue =
+                          property?.slug ||
+                          property?.raw?.slug ||
+                          (typeof window !== "undefined"
+                            ? window.location.pathname.split("/").pop()
+                            : "") ||
+                          "";
+                        const link = `${window.location.origin}/properties/${encodeURIComponent(
+                          String(slugValue)
+                        )}`;
 
-    // ✅ WhatsApp message (with clickable property URL)
-    const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
+                        // ✅ WhatsApp message (with clickable property URL)
+                        const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
 
-    // ✅ Open WhatsApp
-    window.open(
-      `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
-      "_blank",
-      "noopener,noreferrer"
-    );
-  }}
-  aria-label="WhatsApp executiveTo"
-  className="flex flex-col items-center justify-center gap-1 rounded-xl
+                        // ✅ Open WhatsApp
+                        window.open(
+                          `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
+                          "_blank",
+                          "noopener,noreferrer"
+                        );
+                      }}
+                      aria-label="WhatsApp executiveTo"
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl
   bg-[#25D366]/10 hover:bg-[#25D366]/15 text-[#128C7E]
   border border-[#25D366]/30 transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
->
-  <span className="w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-[#25D366]/30">
-    <FaWhatsapp size={14} aria-hidden="true" />
-  </span>
-</button>
+                    >
+                      <span className="w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-[#25D366]/30">
+                        <FaWhatsapp size={14} aria-hidden="true" />
+                      </span>
+                    </button>
 
 
                     {/* Message */}
@@ -2206,82 +2273,111 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       </div>
 
       {/* Contact Form Modal */}
-      {showContactForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-[#0b3856]">Contact Executive</h3>
-              <button
-                onClick={() => setShowContactForm(false)}
-                className="text-gray-400 hover:text-[#0b3856]"
-              >
-                <X size={20} />
-              </button>
-            </div>
+   {showContactForm && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-bold text-[#0b3856]">Call Back Request</h3>
+        <button
+          onClick={() => setShowContactForm(false)}
+          className="text-gray-400 hover:text-[#0b3856]"
+        >
+          <X size={20} />
+        </button>
+      </div>
 
-            <form onSubmit={handleContactSubmit} className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-[#0b3856] mb-1">Name</label>
-                <input
-                  type="text"
-                  value={contactForm.name}
-                  onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0b3856] mb-1">Phone</label>
-                <input
-                  type="tel"
-                  value={contactForm.phone}
-                  onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0b3856] mb-1">Email</label>
-                <input
-                  type="email"
-                  value={contactForm.email}
-                  onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0b3856] mb-1">Message</label>
-                <textarea
-                  value={contactForm.message}
-                  onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
-                  placeholder="I'm interested in this property..."
-                  required
-                />
-              </div>
+      <form onSubmit={handleContactSubmit} className="space-y-3">
+        {/* Salutation + Name Row */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* Salutation from Master Data */}
+          <div>
+            <label className="block text-sm font-medium text-[#0b3856] mb-1">
+              Salutation *
+            </label>
+            <select
+              value={contactForm.salutation}
+              onChange={(e) => 
+                setContactForm({ ...contactForm, salutation: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
+              required
+            >
+              <option value="">Select</option>
+              {salutationOptions.map((option: any) => (
+                <option 
+                  key={option.value || option.label} 
+                  value={option.value || option.label}
+                >
+                  {option.label || option.value}
+                </option>
+              ))}
+            </select>
+          </div>
 
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowContactForm(false)}
-                  className="flex-1 px-4 py-2 border border-[#0b3856] text-[#0b3856] rounded-lg hover:bg-[#0b3856] hover:text-white transition-colors text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-[#E6761D] text-white rounded-lg hover:bg-[#CC6A1A] transition-colors text-sm"
-                >
-                  Send Message
-                </button>
-              </div>
-            </form>
+          {/* Name */}
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-[#0b3856] mb-1">
+              Name *
+            </label>
+            <input
+              type="text"
+              value={contactForm.name}
+              onChange={(e) => 
+                setContactForm({ ...contactForm, name: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
+              required
+            />
           </div>
         </div>
-      )}
 
+        {/* Phone */}
+        <div>
+          <label className="block text-sm font-medium text-[#0b3856] mb-1">
+            Phone *
+          </label>
+          <input
+            type="tel"
+            value={contactForm.phone}
+            onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
+            required
+          />
+        </div>
+
+        {/* Email */}
+        <div>
+          <label className="block text-sm font-medium text-[#0b3856] mb-1">
+            Email
+          </label>
+          <input
+            type="email"
+            value={contactForm.email}
+            onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
+          />
+        </div>
+
+        {/* Buttons */}
+        <div className="flex space-x-3">
+          <button
+            type="button"
+            onClick={() => setShowContactForm(false)}
+            className="flex-1 px-4 py-2 border border-[#0b3856] text-[#0b3856] rounded-lg hover:bg-[#0b3856] hover:text-white transition-colors text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-4 py-2 bg-[#E6761D] text-white rounded-lg hover:bg-[#CC6A1A] transition-colors text-sm"
+          >
+            Submit
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
 
       {/* Paywall Modal */}
       <AIPaywallOverlay

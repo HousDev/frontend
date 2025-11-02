@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, CSSProperties } from 'react';
 import {
   Home, Plus, Search, Filter, Eye, Edit, Trash2, Download, Upload,
   Grid, List, MapPin, Building, Users, MoreHorizontal, X,
@@ -16,7 +16,7 @@ import { toast } from 'react-toastify';
 import PropertyFormModal from './components/PropertyFormModal';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 
-import { getImageUrl, FILE_BASE, API_GLOBAL_BASE } from "@/lib/helpers";
+import { getImageUrl } from "@/lib/helpers";
 
 import PropertyFilterModal from './PropertyFilterModal';
 import PropertyBulkBrochureModal from '@/components/properties/PropertyBulkBrochureModal';
@@ -35,14 +35,11 @@ interface UIProperty {
   wing: string;
   unitNo: string;
   furnishing: string;
-
-  // add new
-  facing: string,
-  bedrooms: string,
-  bathrooms: string,
+  facing: string;
+  bedrooms: string;
+  bathrooms: string;
   priceType?: 'Fixed' | 'Negotiable' | string;
   finalPrice?: number | string;
-
   furnishingItems?: string[];
   parkingType: string;
   parkingQty: number | string;
@@ -122,10 +119,14 @@ interface SalesExecutive {
   role?: string;
   is_active?: boolean;
 }
-// 🔧 put near utils
+
+/* ---------------------- Utils ---------------------- */
+const dash = (v: any) => (v === null || v === undefined || v === '' ? ' - ' : v);
+const toNum = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
 const getDisplayName = (u: any): string => {
   const pick = [
-    u?.assigned_to_full_name,   // if backend sends this
+    u?.assigned_to_full_name,
     u?.full_name,
     u?.fullName,
     (u?.first_name && u?.last_name)
@@ -138,11 +139,6 @@ const getDisplayName = (u: any): string => {
   return (pick || 'Unnamed Executive').trim();
 };
 
-
-/* ---------------------- Utils ---------------------- */
-const dash = (v: any) => (v === null || v === undefined || v === '' ? ' - ' : v);
-const toNum = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
-
 /* ---------------------- Multi-select Tag Picker ---------------------- */
 const TagPickerRow: React.FC<{
   label: "Add" | "Remove";
@@ -154,7 +150,6 @@ const TagPickerRow: React.FC<{
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
 
-  // Get currently selected tags from all selected properties
   const currentTags = useMemo(() => {
     const allTags = new Set<string>();
     selectedPropertyIds.forEach(id => {
@@ -172,13 +167,10 @@ const TagPickerRow: React.FC<{
     return uniq.sort((a, b) => a.localeCompare(b));
   }, [knownTags]);
 
-  // Initialize selected state based on current tags for "Remove" mode
   useEffect(() => {
     if (label === "Remove" && open) {
-      // For remove mode, pre-select the tags that are currently applied to selected properties
       setSelected(currentTags.filter(tag => options.includes(tag)));
     } else if (label === "Add" && open) {
-      // For add mode, start with empty selection
       setSelected([]);
     }
   }, [open, label, currentTags, options]);
@@ -307,6 +299,7 @@ const TagPickerRow: React.FC<{
     </div>
   );
 };
+
 /* ---------------------- Executive Assignment Modal ---------------------- */
 const AssignExecutiveModal: React.FC<{
   isOpen: boolean;
@@ -325,7 +318,6 @@ const AssignExecutiveModal: React.FC<{
       return;
     }
 
-    // Convert to string for comparison to handle both number and string IDs
     const executive = executives.find(e => String(e.id) === String(selectedExecutive));
     if (!executive) {
       toast.error('Selected executive not found');
@@ -345,7 +337,6 @@ const AssignExecutiveModal: React.FC<{
     }
   };
 
-  // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setSelectedExecutive('');
@@ -382,7 +373,6 @@ const AssignExecutiveModal: React.FC<{
             Select Executive
           </label>
 
-
           <select
             value={selectedExecutive}
             onChange={(e) => setSelectedExecutive(e.target.value)}
@@ -392,7 +382,6 @@ const AssignExecutiveModal: React.FC<{
             <option value="">Choose an executive...</option>
             {executives.map((executive) => (
               <option key={executive.id} value={executive.id}>
-                {/* ✅ सिर्फ executive.name use करें - वही proper formatted name है */}
                 {executive.name}
                 {executive.department && ` - ${executive.department}`}
                 {executive.role && ` (${executive.role})`}
@@ -438,59 +427,39 @@ const AssignExecutiveModal: React.FC<{
 };
 
 /* ---------------------- Price Range Helper ---------------------- */
-/* ---------------------- Price Range Helper ---------------------- */
 function checkPriceRange(price: number, selectedRange: string) {
   if (selectedRange === "all" || !selectedRange) return true;
-
-  // Handle empty or invalid price
   if (!price || price <= 0) return false;
 
-  // Handle specific price ranges like "50L-80L", "1Cr-2Cr", "80L-1Cr", "2Cr+"
   if (selectedRange.includes("-")) {
     const [minRaw, maxRaw] = selectedRange.split("-").map(r => r.trim());
 
     const parsePriceValue = (raw: string): number => {
       if (!raw) return 0;
-
-      // Extract numbers and multipliers
       const numMatch = raw.match(/(\d+(?:\.\d+)?)/);
       if (!numMatch) return 0;
 
       const num = parseFloat(numMatch[1]);
-
-      if (raw.toLowerCase().includes("cr")) {
-        return num * 10000000; // 1 crore = 10 million
-      }
-      if (raw.toLowerCase().includes("l")) {
-        return num * 100000; // 1 lakh = 100,000
-      }
+      if (raw.toLowerCase().includes("cr")) return num * 10000000;
+      if (raw.toLowerCase().includes("l")) return num * 100000;
       return num;
     };
 
     const min = parsePriceValue(minRaw);
     const max = parsePriceValue(maxRaw);
-
     return price >= min && price <= max;
   }
 
-  // Handle "min+" ranges like "2Cr+", "80L+"
   if (selectedRange.endsWith("+")) {
     const raw = selectedRange.replace("+", "").trim();
-
     const parsePriceValue = (raw: string): number => {
       if (!raw) return 0;
-
       const numMatch = raw.match(/(\d+(?:\.\d+)?)/);
       if (!numMatch) return 0;
 
       const num = parseFloat(numMatch[1]);
-
-      if (raw.toLowerCase().includes("cr")) {
-        return num * 10000000;
-      }
-      if (raw.toLowerCase().includes("l")) {
-        return num * 100000;
-      }
+      if (raw.toLowerCase().includes("cr")) return num * 10000000;
+      if (raw.toLowerCase().includes("l")) return num * 100000;
       return num;
     };
 
@@ -498,7 +467,6 @@ function checkPriceRange(price: number, selectedRange: string) {
     return price >= min;
   }
 
-  // Handle simple numeric ranges (fallback)
   const numMatch = selectedRange.match(/(\d+(?:\.\d+)?)/);
   if (numMatch) {
     const num = parseFloat(numMatch[1]);
@@ -507,6 +475,7 @@ function checkPriceRange(price: number, selectedRange: string) {
 
   return true;
 }
+
 function Emoji({
   emoji,
   size = 12,
@@ -518,7 +487,6 @@ function Emoji({
 }) {
   if (!emoji) return null;
 
-  // 🧩 For string emojis — force uppercase and slightly bolder
   if (typeof emoji === "string") {
     return (
       <span
@@ -530,7 +498,6 @@ function Emoji({
     );
   }
 
-  // 🧩 For icon components — render normally
   const Icon = emoji;
   return <Icon size={size} className={className} aria-hidden="true" />;
 }
@@ -617,34 +584,13 @@ const ImageWithDebug: React.FC<{
       alt={alt}
       className={className}
       style={{ objectFit: fitCover ? 'cover' : undefined }}
-      onLoad={() => {
-        if (import.meta.env?.MODE !== 'production') {
-
-        }
-      }}
-      onError={() => {
-        setFailed(true);
-        console.error('[IMG ERROR]', {
-          title: propertyCtx?.title,
-          propertyId: propertyCtx?.propertyId,
-          original: srcCandidate,
-          resolved,
-          reason: 'Failed to load image. Open the resolved URL directly; ensure server mounts /uploads.',
-        });
-      }}
+      onError={() => setFailed(true)}
     />
   );
 };
 
 /* ---------------------- API helpers ---------------------- */
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-async function withTimeout<T>(p: Promise<T>, ms = 12000): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error('Request timed out')), ms);
-    p.then(v => { clearTimeout(t); resolve(v); })
-      .catch(e => { clearTimeout(t); reject(e); });
-  });
-}
 
 function coerceStringArray(raw: any): string[] {
   if (!raw) return [];
@@ -736,9 +682,6 @@ function normalizeProperty(r: any, idx: number): UIProperty {
     return Number.isFinite(n) ? n : ' - ';
   })();
 
-  // Normalize assigned executive data
-  // Normalize assigned executive data — only if it has a valid id
-  // Normalize assigned executive data - BETTER PRIORITY
   const normalizedAssignedTo = (() => {
     const raw = r?.assignedTo ?? (r?.assigned_to != null ? {
       id: r.assigned_to,
@@ -752,15 +695,13 @@ function normalizeProperty(r: any, idx: number): UIProperty {
 
     return {
       id,
-      name: getDisplayName(raw),   // ✅ unified
+      name: getDisplayName(raw),
       email: raw.email,
       phone: raw.phone,
       department: raw.department,
       role: raw.role,
     };
   })();
-
-
 
   return {
     id: r.id ?? idx + 1,
@@ -847,14 +788,11 @@ const buildInitialData = (p: UIProperty) => {
     wing: clean(p.wing),
     unitNo: clean(p.unitNo),
     furnishing: clean(p.furnishing),
-
     facing: clean(p.facing),
     bedrooms: clean(p.bedrooms),
     bathrooms: clean(p.bathrooms),
-
     priceType: (p.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
     finalPrice: clean(p.finalPrice),
-
     parkingType: clean(p.parkingType),
     parkingQty: clean(p.parkingQty),
     city: clean(p.city),
@@ -873,17 +811,13 @@ const buildInitialData = (p: UIProperty) => {
     purchaseMonth: clean(p.purchaseMonth),
     purchaseYear: clean(p.purchaseYear),
     sellingRights: clean(p.selling_rights) || 'Standard',
-
     amenities: Array.isArray(p.amenities) ? p.amenities : [],
     furnishingItems: Array.isArray(p.furnishingItems) ? p.furnishingItems : [],
     description: clean(p.description),
-
     nearby_places: Array.isArray(p.nearby_places) ? p.nearby_places : [],
-
     existingOwnershipDocUrl: clean(p.ownershipDocUrl),
     existingOwnershipDocName: clean(p.ownershipDocName),
     existingOwnershipDocId: clean(p.ownershipDocId),
-
     existingPhotos: (p.photos || []).map((url, idx) => ({
       id: String(idx + 1),
       url,
@@ -911,7 +845,6 @@ function tabCountClass(active: boolean, color: string) {
   return `px-2 py-0.5 rounded-full text-[10px] ${active ? s.countActive : 'bg-gray-200 text-gray-700'}`;
 }
 
-
 /* ---------------------- Component ---------------------- */
 const PropertiesPage = () => {
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -919,7 +852,6 @@ const PropertiesPage = () => {
     const sp = new URLSearchParams(window.location.search);
     return sp.get("listTab") || localStorage.getItem("prop_list_tab") || "all";
   });
-
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProperties, setSelectedProperties] = useState<(number | string)[]>([]);
@@ -953,10 +885,10 @@ const PropertiesPage = () => {
   // Dynamic tags cache: { [propertyId]: string[] }
   const [propTags, setPropTags] = useState<Record<string, string[]>>({});
   const [knownTags, setKnownTags] = useState<string[]>([]);
+  const [loadedPropertyIds, setLoadedPropertyIds] = useState<Set<string>>(new Set());
+  const [hasAutoTagged, setHasAutoTagged] = useState(false);
 
   // Fetch sales executives
-  // Fetch sales executives - API response को better handle करें
-
   useEffect(() => {
     const fetchExecutives = async () => {
       try {
@@ -968,32 +900,20 @@ const PropertiesPage = () => {
           limit: 50,
         });
 
-        // Handle different response formats
         const items = res?.items ?? res?.data ?? res ?? [];
 
         if (Array.isArray(items)) {
-          const executives: SalesExecutive[] = items.map((user: any) => {
-            // ✅ PRIORITY: fullName -> name -> username -> fallback
-            const displayName =
-              user.fullName ||  // पहले fullName check करें
-              user.name ||      // फिर name
-              user.username ||  // फिर username
-              'Unnamed Executive';
-
-
-            return {
-              id: user.id || user.userId,
-              name: getDisplayName(user),
-              email: user.email,
-              phone: user.phone || user.mobile,
-              department: user.department,
-              role: user.role,
-              is_active: user.is_active ?? user.active ?? true,
-            };
-          });
+          const executives: SalesExecutive[] = items.map((user: any) => ({
+            id: user.id || user.userId,
+            name: getDisplayName(user),
+            email: user.email,
+            phone: user.phone || user.mobile,
+            department: user.department,
+            role: user.role,
+            is_active: user.is_active ?? user.active ?? true,
+          }));
 
           setSalesExecutives(executives);
-
         } else {
           console.warn("Unexpected executives response format:", res);
           setSalesExecutives([]);
@@ -1009,13 +929,22 @@ const PropertiesPage = () => {
     fetchExecutives();
   }, []);
 
-  // Persist active tab
+  // Persist active tab - OPTIMIZED
   useEffect(() => {
     if (!activeTab) return;
+    
+    const previousTab = localStorage.getItem('prop_list_tab');
+    if (previousTab === activeTab) return;
+    
     localStorage.setItem('prop_list_tab', activeTab);
-    const url = new URL(window.location.href);
-    url.searchParams.set('listTab', activeTab);
-    window.history.replaceState({}, '', url.toString());
+    
+    const timeoutId = setTimeout(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('listTab', activeTab);
+      window.history.replaceState({}, '', url.toString());
+    }, 300);
+    
+    return () => clearTimeout(timeoutId);
   }, [activeTab]);
 
   // Fetch master data
@@ -1058,36 +987,19 @@ const PropertiesPage = () => {
   };
   const [properties, setProperties] = useState<UIProperty[]>([]);
 
-  // API call के बाद response को log करें
-  // API call के बाद response को debug करें
+  // OPTIMIZED: Single API call without retry loop
   const fetchPropertiesOnce = async () => {
-    if (typeof (propertiesAPI as any)?.getProperties !== 'function') {
-      throw new Error('propertiesAPI.getProperties is not a function (check import/path).');
-    }
-    const raw = await withTimeout(propertiesAPI.getProperties(), 12000);
-
-    // ✅ BETTER DEBUG: API response check करें
-
-
-    if (Array.isArray(raw)) {
-      raw.forEach((property, index) => {
-        if (property.assigned_to) {
-        }
-      });
-    }
-
+  try {
+    // Directly call the API without type checking
+    const raw = await propertiesAPI.getProperties();
     const list = Array.isArray(raw) ? raw : raw?.data || [];
-    const mapped = list.map((r: any, idx: number) => normalizeProperty(r, idx));
+    return list.map((r: any, idx: number) => normalizeProperty(r, idx));
+  } catch (error) {
+    console.error('API call failed:', error);
+    throw error;
+  }
+};
 
-    // ✅ Check normalized data
-    mapped.forEach((property, index) => {
-      if (property.assignedTo) {
-
-      }
-    });
-
-    return mapped;
-  };
   const presetTags = useMemo(() => Object.keys(DEFAULT_TAG_STYLE), []);
   const dynamicTagUniverse = useMemo(
     () => getUniquePropertyTagsFromCache(propTags),
@@ -1113,36 +1025,55 @@ const PropertiesPage = () => {
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
   }, [presetTags, knownTags, dynamicTagUniverse]);
 
-  const loadProperties = async () => {
-    setLoading(true);
-    setError(null);
-    setIsOffline(false);
-    try {
-      let data: UIProperty[] | null = null;
-      let lastErr: any = null;
-      for (let attempt = 0; attempt < 3 && !data; attempt++) {
-        try {
-          data = await fetchPropertiesOnce();
-        }
-        catch (e: any) {
-          lastErr = e;
-          if (attempt < 2) await sleep(600 * (attempt + 1));
-        }
-      }
-      if (!data) throw lastErr ?? new Error('Unknown fetch error');
-      setProperties(data);
-    } catch (e: any) {
-      console.error('Error fetching properties:', e);
-      const msg = e?.message || 'Failed to load properties.';
-      setError(msg);
-      setProperties([]);
-      if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('timeout')) {
-        setIsOffline(true);
-      }
-    } finally {
-      setLoading(false);
+// REPLACE YOUR CURRENT loadProperties FUNCTION WITH THIS:
+
+const loadProperties = async () => {
+  console.log('🔄 Loading properties started...');
+  
+  setLoading(true);
+  setError(null);
+  setIsOffline(false);
+  
+  try {
+    console.log('📞 Calling propertiesAPI.getProperties()...');
+    
+    // Remove the problematic type check
+    const raw = await propertiesAPI.getProperties();
+    console.log('✅ API Response:', raw);
+    
+    const list = Array.isArray(raw) ? raw : raw?.data || [];
+    console.log(`📊 Found ${list.length} properties`);
+    
+    const normalized = list.map((r: any, idx: number) => normalizeProperty(r, idx));
+    setProperties(normalized);
+    
+    console.log('✅ Properties loaded successfully');
+    
+  } catch (e: any) {
+    console.error('❌ Error fetching properties:', e);
+    
+    // More detailed error handling
+    let errorMsg = 'Failed to load properties.';
+    
+    if (e?.message) {
+      errorMsg = e.message;
+    } else if (e?.response?.data?.message) {
+      errorMsg = e.response.data.message;
+    } else if (e?.code === 'NETWORK_ERROR') {
+      errorMsg = 'Network error - please check your connection';
+      setIsOffline(true);
     }
-  };
+    
+    setError(errorMsg);
+    setProperties([]);
+    
+    // Show error in UI
+    toast.error(`Loading failed: ${errorMsg}`);
+  } finally {
+    setLoading(false);
+    console.log('🏁 Loading finished');
+  }
+};
 
   // Load properties on mount
   useEffect(() => {
@@ -1152,80 +1083,111 @@ const PropertiesPage = () => {
     return () => window.removeEventListener('online', backOnline);
   }, []);
 
-  // Update current property view when properties change
+  // OPTIMIZED: Update current property view only when specific property changes
   useEffect(() => {
     if (!currentPropertyView) return;
-    const fresh = properties.find(pp =>
-      String(pp.id) === String(currentPropertyView.id)
-    );
-    if (fresh && fresh.updated_at !== currentPropertyView.updated_at) {
-      setCurrentPropertyView(fresh);
+    
+    const currentPropertyId = String(currentPropertyView.id);
+    const freshProperty = properties.find(p => String(p.id) === currentPropertyId);
+    
+    if (freshProperty && freshProperty.updated_at !== currentPropertyView.updated_at) {
+      setCurrentPropertyView(freshProperty);
     }
-  }, [properties]);
+  }, [properties, currentPropertyView?.id]);
 
-  // Load tags for properties
+  // OPTIMIZED: Load tags only for new properties
   useEffect(() => {
     if (!properties.length) return;
 
-    const slice = properties.slice(0, Math.min(80, properties.length));
-    (async () => {
+    const newProperties = properties.filter(p => 
+      !loadedPropertyIds.has(String(p.id)) && 
+      !propTags[String(p.id)]
+    );
+
+    if (newProperties.length === 0) return;
+
+    const loadTagsForNewProperties = async () => {
       try {
         const updates: Record<string, string[]> = {};
         const tagSet = new Set(knownTags);
 
-        for (const p of slice) {
-          const key = String(p.id);
-          if (propTags[key]) {
-            propTags[key].forEach(t => tagSet.add(t));
-            continue;
-          }
+        for (const p of newProperties) {
           try {
             const row = await propertyTagsAPI.getById(p.id);
             const tags: string[] = Array.isArray(row?.tags) ? row.tags : [];
-            updates[key] = tags;
+            updates[String(p.id)] = tags;
             tags.forEach(t => tagSet.add(t));
-          } catch {/* ignore */ }
+          } catch (error) {
+            console.warn(`Failed to load tags for property ${p.id}:`, error);
+          }
         }
 
-        if (Object.keys(updates).length) {
+        if (Object.keys(updates).length > 0) {
           setPropTags(prev => ({ ...prev, ...updates }));
+          setKnownTags(prev => Array.from(new Set([...prev, ...Object.values(updates).flat()])).sort());
+          
+          // Mark properties as loaded
+          setLoadedPropertyIds(prev => {
+            const newSet = new Set(prev);
+            newProperties.forEach(p => newSet.add(String(p.id)));
+            return newSet;
+          });
         }
-        setKnownTags(Array.from(tagSet).sort());
-      } catch {/* noop */ }
-    })();
-  }, [properties]);
+      } catch (error) {
+        console.error('Error loading tags:', error);
+      }
+    };
 
+    loadTagsForNewProperties();
+  }, [properties.length]); // Only runs when properties array length changes
 
-
-  // Auto-add "New Listing" tag for recent properties
+  // OPTIMIZED: Auto-tagging runs only once after initial load
   useEffect(() => {
-    if (!properties.length) return;
+    if (!properties.length || hasAutoTagged) return;
 
     const now = Date.now();
-    const needsNewListing: UIProperty[] = properties.filter(p => {
-      const created = p.created_at ? new Date(p.created_at).getTime() : 0;
-      const isNew = created && (now - created) / (1000 * 60 * 60 * 24) <= 7;
-      const key = String(p.id);
-      const hasTag = (propTags[key] || []).some(t => t.toLowerCase() === "new listing" || t.toLowerCase() === "new_listing");
-      return isNew && !hasTag;
+    const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
+    
+    const needsNewListing = properties.filter(p => {
+      if (!p.created_at) return false;
+      const created = new Date(p.created_at).getTime();
+      return created >= oneWeekAgo;
     });
 
-    if (!needsNewListing.length) return;
+    if (needsNewListing.length === 0) {
+      setHasAutoTagged(true);
+      return;
+    }
 
-    (async () => {
-      for (const p of needsNewListing) {
-        const key = String(p.id);
-        setPropTags(prev => ({
-          ...prev,
-          [key]: Array.from(new Set([...(prev[key] || []), "New Listing"]))
-        }));
-        try {
-          await propertyTagsAPI.add(p.id, ["New Listing"]);
-        } catch {/* ignore network errors */ }
+    const autoTagNewProperties = async () => {
+      try {
+        for (const p of needsNewListing) {
+          const key = String(p.id);
+          const currentTags = propTags[key] || [];
+          
+          if (!currentTags.some(t => t.toLowerCase() === "new listing")) {
+            // Update local state immediately
+            setPropTags(prev => ({
+              ...prev,
+              [key]: [...currentTags, "New Listing"]
+            }));
+            
+            // API call in background (don't await)
+            propertyTagsAPI.add(p.id, ["New Listing"]).catch(console.error);
+          }
+        }
+        
+        setKnownTags(prev => 
+          prev.includes("New Listing") ? prev : ["New Listing", ...prev].sort()
+        );
+        setHasAutoTagged(true);
+      } catch (error) {
+        console.error('Auto-tagging failed:', error);
       }
-      setKnownTags(prev => (prev.includes("New Listing") ? prev : ["New Listing", ...prev]));
-    })();
-  }, [properties, propTags]);
+    };
+
+    autoTagNewProperties();
+  }, [properties.length, hasAutoTagged]);
 
   const tabs = useMemo(
     () => [
@@ -1238,120 +1200,115 @@ const PropertiesPage = () => {
     ],
     [properties]
   );
-const filteredProperties = useMemo(() => {
-  const out = properties.filter((p) => {
-    const matchesSearch =
-      (p.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.propertyId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.society || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.seller?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesTab =
-      activeTab === 'all' ||
-      (activeTab === 'available' && p.status === 'Available') ||
-      (activeTab === 'sold' && p.status === 'Sold') ||
-      (activeTab === 'negotiation' && p.status === 'Under Negotiation') ||
-      (activeTab === 'public' && p.isPublic) ||
-      (activeTab === 'hot' && (Number(p.hotLeads) || 0) > 2);
+  const filteredProperties = useMemo(() => {
+    const out = properties.filter((p) => {
+      const matchesSearch =
+        (p.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.propertyId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.society || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.seller?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Executive filter
-    const matchesExecutive = 
-      filters.assignedExecutive === 'all' ||
-      (filters.assignedExecutive === '__unassigned__' && !p.assignedTo?.id) ||
-      (p.assignedTo?.id != null && String(p.assignedTo.id) === String(filters.assignedExecutive));
+      const matchesTab =
+        activeTab === 'all' ||
+        (activeTab === 'available' && p.status === 'Available') ||
+        (activeTab === 'sold' && p.status === 'Sold') ||
+        (activeTab === 'negotiation' && p.status === 'Under Negotiation') ||
+        (activeTab === 'public' && p.isPublic) ||
+        (activeTab === 'hot' && (Number(p.hotLeads) || 0) > 2);
 
-    // Public/Private filter
-    const matchesPublicFilter = 
-      filters.isPublic === undefined ||
-      filters.isPublic === Boolean(p.isPublic);
+      const matchesExecutive = 
+        filters.assignedExecutive === 'all' ||
+        (filters.assignedExecutive === '__unassigned__' && !p.assignedTo?.id) ||
+        (p.assignedTo?.id != null && String(p.assignedTo.id) === String(filters.assignedExecutive));
 
-    // Price range filter
-    const matchesPriceRange = (() => {
-      if (filters.priceRange === 'all' || !filters.priceRange) return true;
-      
-      const price = Number(p.budget);
-      if (!price || price <= 0) return false;
-      
-      return checkPriceRange(price, filters.priceRange);
-    })();
+      const matchesPublicFilter = 
+        filters.isPublic === undefined ||
+        filters.isPublic === Boolean(p.isPublic);
 
-    // Min/Max budget filter
-    const matchesBudgetRange = (() => {
-      const price = Number(p.budget);
-      if (!price || price <= 0) return false;
-      
-      const minBudget = filters.minBudget ? Number(filters.minBudget) : 0;
-      const maxBudget = filters.maxBudget ? Number(filters.maxBudget) : Infinity;
-      
-      return price >= minBudget && price <= maxBudget;
-    })();
+      const matchesPriceRange = (() => {
+        if (filters.priceRange === 'all' || !filters.priceRange) return true;
+        
+        const price = Number(p.budget);
+        if (!price || price <= 0) return false;
+        
+        return checkPriceRange(price, filters.priceRange);
+      })();
 
-    // ✅ DATE FILTER - FIXED
-    const matchesDateRange = (() => {
-      if (filters.ignoreDate) return true;
-      
-      const dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : null;
-      const dateTo = filters.dateTo ? new Date(filters.dateTo) : null;
-      
-      if (!dateFrom && !dateTo) return true;
-      
-      // Use created_at date for filtering
-      const propertyDate = new Date(p.created_at || p.updated_at || 0);
-      propertyDate.setHours(0, 0, 0, 0); // Normalize time
-      
-      if (dateFrom && dateTo) {
-        dateFrom.setHours(0, 0, 0, 0);
-        dateTo.setHours(23, 59, 59, 999);
-        return propertyDate >= dateFrom && propertyDate <= dateTo;
-      } else if (dateFrom) {
-        dateFrom.setHours(0, 0, 0, 0);
-        return propertyDate >= dateFrom;
-      } else if (dateTo) {
-        dateTo.setHours(23, 59, 59, 999);
-        return propertyDate <= dateTo;
+      const matchesBudgetRange = (() => {
+        const price = Number(p.budget);
+        if (!price || price <= 0) return false;
+        
+        const minBudget = filters.minBudget ? Number(filters.minBudget) : 0;
+        const maxBudget = filters.maxBudget ? Number(filters.maxBudget) : Infinity;
+        
+        return price >= minBudget && price <= maxBudget;
+      })();
+
+      const matchesDateRange = (() => {
+        if (filters.ignoreDate) return true;
+        
+        const dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : null;
+        const dateTo = filters.dateTo ? new Date(filters.dateTo) : null;
+        
+        if (!dateFrom && !dateTo) return true;
+        
+        const propertyDate = new Date(p.created_at || p.updated_at || 0);
+        propertyDate.setHours(0, 0, 0, 0);
+        
+        if (dateFrom && dateTo) {
+          dateFrom.setHours(0, 0, 0, 0);
+          dateTo.setHours(23, 59, 59, 999);
+          return propertyDate >= dateFrom && propertyDate <= dateTo;
+        } else if (dateFrom) {
+          dateFrom.setHours(0, 0, 0, 0);
+          return propertyDate >= dateFrom;
+        } else if (dateTo) {
+          dateTo.setHours(23, 59, 59, 999);
+          return propertyDate <= dateTo;
+        }
+        
+        return true;
+      })();
+
+      const matchesFilters =
+        (filters.type === 'all' || p.type === filters.type) &&
+        (filters.status === 'all' || p.status === filters.status) &&
+        (filters.location === 'all' || p.location === filters.location || p.city === filters.location) &&
+        (filters.stage === 'all' || p.stage === filters.stage.toLowerCase().replace(/\s+/g, "_")) &&
+        matchesPriceRange &&
+        matchesBudgetRange &&
+        (filters.tags === 'all' || (propTags[String(p.id)] || []).some(t => t === filters.tags)) &&
+        matchesExecutive &&
+        matchesPublicFilter &&
+        matchesDateRange;
+
+      return matchesSearch && matchesTab && matchesFilters;
+    });
+
+    const sorted = [...out].sort((a, b) => {
+      switch (filters.sortOrder) {
+        case 'created_asc':
+          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+        
+        case 'created_desc':
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        
+        case 'price_asc':
+          return (Number(a.budget) || 0) - (Number(b.budget) || 0);
+        
+        case 'price_desc':
+          return (Number(b.budget) || 0) - (Number(a.budget) || 0);
+        
+        default:
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       }
-      
-      return true;
-    })();
+    });
 
-    const matchesFilters =
-      (filters.type === 'all' || p.type === filters.type) &&
-      (filters.status === 'all' || p.status === filters.status) &&
-      (filters.location === 'all' || p.location === filters.location || p.city === filters.location) &&
-      (filters.stage === 'all' || p.stage === filters.stage.toLowerCase().replace(/\s+/g, "_")) &&
-      matchesPriceRange &&
-      matchesBudgetRange &&
-      (filters.tags === 'all' || (propTags[String(p.id)] || []).some(t => t === filters.tags)) &&
-      matchesExecutive &&
-      matchesPublicFilter &&
-      matchesDateRange; // ✅ DATE FILTER INCLUDED
+    return sorted;
+  }, [properties, searchTerm, activeTab, filters, propTags]);
 
-    return matchesSearch && matchesTab && matchesFilters;
-  });
-
-  // ✅ SORT LOGIC - FIXED
-  const sorted = [...out].sort((a, b) => {
-    switch (filters.sortOrder) {
-      case 'created_asc':
-        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-      
-      case 'created_desc':
-        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-      
-      case 'price_asc':
-        return (Number(a.budget) || 0) - (Number(b.budget) || 0);
-      
-      case 'price_desc':
-        return (Number(b.budget) || 0) - (Number(a.budget) || 0);
-      
-      default:
-        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-    }
-  });
-
-  return sorted;
-}, [properties, searchTerm, activeTab, filters, propTags]);
   const totalPages = Math.max(1, Math.ceil(filteredProperties.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedProperties = filteredProperties.slice(startIndex, startIndex + itemsPerPage);
@@ -1394,10 +1351,17 @@ const filteredProperties = useMemo(() => {
       try {
         await propertiesAPI.deleteProperty(propertyId.toString());
         setProperties((prev) => prev.filter((p) => p.id !== propertyId));
-        toast.success("Property deleted successfully!", { position: "top-right", autoClose: 3000 });
+        toast.success("Property deleted successfully!");
+        
+        // Remove from loaded property IDs
+        setLoadedPropertyIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(String(propertyId));
+          return newSet;
+        });
       } catch (error) {
         console.error("Failed to delete property:", error);
-        toast.error("Error deleting property. Please try again.", { position: "top-right", autoClose: 4000 });
+        toast.error("Error deleting property. Please try again.");
       }
     }
   };
@@ -1415,7 +1379,6 @@ const filteredProperties = useMemo(() => {
   const handleAssignExecutive = (property: UIProperty) => {
     setAssigningProperty(property);
     setShowAssignModal(true);
-
   };
 
   const handleBulkAssignExecutive = () => {
@@ -1438,7 +1401,6 @@ const filteredProperties = useMemo(() => {
       if (response.success) {
         const executive = salesExecutives.find(e => e.id === executiveId);
 
-        // ✅ Executive details को properly set करें - SAME NAME USE करें
         const updatedAssignedTo = executive ? {
           id: executive.id,
           name: executive.name,
@@ -1455,7 +1417,6 @@ const filteredProperties = useMemo(() => {
           role: ''
         };
 
-        // ✅ ALL state updates
         setProperties(prev => prev.map(p =>
           p.id === assigningProperty.id
             ? { ...p, assignedTo: updatedAssignedTo }
@@ -1469,7 +1430,6 @@ const filteredProperties = useMemo(() => {
         );
 
         toast.success(`Property assigned to ${executiveName}`);
-
       } else {
         toast.error("Failed to assign executive");
       }
@@ -1478,6 +1438,7 @@ const filteredProperties = useMemo(() => {
       toast.error(error?.response?.data?.message || "Error assigning executive");
     }
   };
+
   const handleBulkAssign = async (executiveId: number | string, executiveName: string) => {
     if (selectedProperties.length === 0) return;
 
@@ -1510,7 +1471,6 @@ const filteredProperties = useMemo(() => {
           const response = await propertiesAPI.updateAssignedTo(propertyId, payload);
 
           if (response.success) {
-            // ✅ Immediate UI update
             setProperties(prev => prev.map(p =>
               p.id === propertyId
                 ? { ...p, assignedTo: updatedAssignedTo }
@@ -1525,7 +1485,6 @@ const filteredProperties = useMemo(() => {
 
       toast.success(`${successCount} properties assigned to ${executiveName}`);
       setSelectedProperties([]);
-
     } catch (error: any) {
       console.error("Bulk assign failed:", error);
       toast.error("Error during bulk assignment");
@@ -1544,11 +1503,7 @@ const filteredProperties = useMemo(() => {
 
   const handleUnassignExecutive = async (propertyId: number | string) => {
     try {
-      // Use null to unassign
-      const payload = {
-        assigned_to: null
-      };
-
+      const payload = { assigned_to: null };
       const response = await propertiesAPI.updateAssignedTo(propertyId, payload);
 
       if (response.success) {
@@ -1580,10 +1535,7 @@ const filteredProperties = useMemo(() => {
 
       for (const propertyId of selectedProperties) {
         try {
-          const payload = {
-            assigned_to: null
-          };
-
+          const payload = { assigned_to: null };
           const response = await propertiesAPI.updateAssignedTo(propertyId, payload);
 
           if (response.success) {
@@ -1791,6 +1743,7 @@ const filteredProperties = useMemo(() => {
       }
     } catch (error: any) {
       console.error("Bulk export failed:", error);
+      // Fallback to client-side export
       const selected = properties.filter(p => selectedProperties.includes(p.id));
       const headers = ["ID", "PropertyID", "Title", "Type", "Subtype", "UnitType", "City", "Location", "Society", "Status", "Stage", "Budget", "IsPublic", "AssignedTo"];
       const rows = selected.map(p => ([
@@ -1828,6 +1781,14 @@ const filteredProperties = useMemo(() => {
 
       if (response.success) {
         setProperties(prev => prev.filter(p => !selectedProperties.includes(p.id)));
+        
+        // Remove from loaded property IDs
+        setLoadedPropertyIds(prev => {
+          const newSet = new Set(prev);
+          selectedProperties.forEach(id => newSet.delete(String(id)));
+          return newSet;
+        });
+        
         setSelectedProperties([]);
         toast.success(`${response.data.summary.successful} properties deleted`);
 
@@ -2207,7 +2168,6 @@ const filteredProperties = useMemo(() => {
           sellerOptions={(masters?.["sellers"] || masters?.["agents"] || []).map(m => ({ label: m.label, value: m.value }))}
           stageOptions={(masters?.["property stages"] || []).map(m => ({ label: m.label, value: m.value }))}
           tagsOptions={knownTags.map(t => ({ label: t, value: t }))}
-          // ✅ Executive options add करें
           executiveOptions={salesExecutives.map(ex => ({
             label: ex.name,
             value: String(ex.id)
@@ -2348,9 +2308,7 @@ const filteredProperties = useMemo(() => {
                         <div className="flex items-center space-x-2 text-sm text-gray-600">
                           <User size={12} />
                           <span>{dash(property.seller?.name)}</span>
-
                         </div>
-
                       </div>
 
                       <div className="flex items-center justify-between mb-3">
@@ -2514,7 +2472,7 @@ const filteredProperties = useMemo(() => {
                           <div className="w-full bg-gray-200 rounded-full h-1">
                             <div
                               className="bg-gradient-to-r from-blue-500 to-green-500 h-1 rounded-full"
-                              style={{ width: `${Number(p.stageProgress) || 0}%` }}
+                              style={{ width: `${Number(p.stageProgress) || 0}%` } as CSSProperties}
                             ></div>
                           </div>
                         </div>
