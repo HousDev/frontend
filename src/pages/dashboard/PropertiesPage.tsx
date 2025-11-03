@@ -886,7 +886,7 @@ const PropertiesPage = () => {
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
-
+  const [openDropdownId, setOpenDropdownId] = useState<number | string | null>(null);
   // Dynamic tags cache: { [propertyId]: string[] }
   const [propTags, setPropTags] = useState<Record<string, string[]>>({});
   const [knownTags, setKnownTags] = useState<string[]>([]);
@@ -2364,68 +2364,100 @@ const loadProperties = async () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleViewProperty(property)}
-                          className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                        >
-                          View Details
-                        </button>
-                        <button
-                          onClick={() => handleBuyerMatching(property)}
-                          className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
-                          title="Match Buyers"
-                        >
-                          <Users size={16} />
-                        </button>
-                        <div className="relative group">
-                          <button className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
-                            <MoreHorizontal size={16} />
-                          </button>
-                          <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                            <div className="p-1">
-                              {property.assignedTo ? (
-                                <button
-                                  onClick={() => handleUnassignExecutive(property.id)}
-                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-                                >
-                                  <UserX size={12} />
-                                  <span>Unassign Executive</span>
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleAssignExecutive(property)}
-                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-100 rounded w-full text-left"
-                                >
-                                  <UserPlus size={12} />
-                                  <span>Assign Executive</span>
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleEditProperty(property)}
-                                className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-                              >
-                                <Edit size={12} />
-                                <span>Edit</span>
-                              </button>
-                              <button
-                                onClick={() => handleTogglePublic(property.id)}
-                                className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-                              >
-                                <Globe size={12} />
-                                <span>{property.isPublic ? 'Make Private' : 'Make Public'}</span>
-                              </button>
-                              <button
-                                onClick={() => handleDeleteProperty(property.id)}
-                                className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-                              >
-                                <Trash2 size={12} />
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                    {/* Grid View में Actions Section - FIXED */}
+<div className="flex items-center space-x-2">
+  <button
+    onClick={() => handleViewProperty(property)}
+    className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+  >
+    View Details
+  </button>
+  <button
+    onClick={() => handleBuyerMatching(property)}
+    className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+    title="Match Buyers"
+  >
+    <Users size={16} />
+  </button>
+  
+  {/* FIXED: MoreHorizontal Dropdown */}
+  <div className="relative">
+    <button 
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpenDropdownId(openDropdownId === property.id ? null : property.id);
+      }}
+      className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+    >
+      <MoreHorizontal size={16} />
+    </button>
+    
+    {openDropdownId === property.id && (
+      <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+        <div className="p-1">
+          {property.assignedTo ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUnassignExecutive(property.id);
+                setOpenDropdownId(null);
+              }}
+              className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
+            >
+              <UserX size={12} />
+              <span>Unassign Executive</span>
+            </button>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAssignExecutive(property);
+                setOpenDropdownId(null);
+              }}
+              className="flex items-center space-x-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-100 rounded w-full text-left"
+            >
+              <UserPlus size={12} />
+              <span>Assign Executive</span>
+            </button>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditProperty(property);
+              setOpenDropdownId(null);
+            }}
+            className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
+          >
+            <Edit size={12} />
+            <span>Edit</span>
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleTogglePublic(property.id);
+              setOpenDropdownId(null);
+            }}
+            className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
+          >
+            <Globe size={12} />
+            <span>{property.isPublic ? 'Make Private' : 'Make Public'}</span>
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteProperty(property.id);
+              setOpenDropdownId(null);
+            }}
+            className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
+          >
+            <Trash2 size={12} />
+            <span>Delete</span>
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
                     </div>
                   </div>
                 ))}
@@ -2526,13 +2558,7 @@ const loadProperties = async () => {
                         {p.assignedTo ? (
                           <div className="flex items-center gap-2">
                             <ExecutiveBadge assignedTo={p.assignedTo} />
-                            <button
-                              onClick={() => handleUnassignExecutive(p.id)}
-                              className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
-                              title="Unassign Executive"
-                            >
-                              <UserX size={12} />
-                            </button>
+                            
                           </div>
                         ) : (
                           <button
@@ -2562,71 +2588,91 @@ const loadProperties = async () => {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => handleViewProperty(p)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
-                            title="View Property"
-                          >
-                            <Eye size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleBuyerMatching(p)}
-                            className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors"
-                            title="Match Buyers"
-                          >
-                            <Users size={14} />
-                          </button>
-                          {p.assignedTo ? (
-                            <button
-                              onClick={() => handleUnassignExecutive(p.id)}
-                              className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
-                              title="Unassign Executive"
-                            >
-                              <UserX size={14} />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleAssignExecutive(p)}
-                              className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded transition-colors"
-                              title="Assign Executive"
-                            >
-                              <UserPlus size={14} />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleEditProperty(p)}
-                            className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
-                            title="Edit"
-                          >
-                            <Edit size={14} />
-                          </button>
-                          <div className="relative group">
-                            <button className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors">
-                              <MoreHorizontal size={14} />
-                            </button>
-                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                              <div className="p-1">
-                                <button
-                                  onClick={() => handleTogglePublic(p.id)}
-                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-                                >
-                                  <Globe size={12} />
-                                  <span>{p.isPublic ? 'Make Private' : 'Make Public'}</span>
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteProperty(p.id)}
-                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-                                >
-                                  <Trash2 size={12} />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
+                      {/* List View में Actions Section - FIXED */}
+<td className="px-4 py-3">
+  <div className="flex items-center space-x-1">
+    <button
+      onClick={() => handleViewProperty(p)}
+      className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+      title="View Property"
+    >
+      <Eye size={14} />
+    </button>
+    <button
+      onClick={() => handleBuyerMatching(p)}
+      className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors"
+      title="Match Buyers"
+    >
+      <Users size={14} />
+    </button>
+    {p.assignedTo ? (
+      <button
+        onClick={() => handleUnassignExecutive(p.id)}
+        className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
+        title="Unassign Executive"
+      >
+        <UserX size={14} />
+      </button>
+    ) : (
+      <button
+        onClick={() => handleAssignExecutive(p)}
+        className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded transition-colors"
+        title="Assign Executive"
+      >
+        <UserPlus size={14} />
+      </button>
+    )}
+    <button
+      onClick={() => handleEditProperty(p)}
+      className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
+      title="Edit"
+    >
+      <Edit size={14} />
+    </button>
+    
+    {/* FIXED: List View MoreHorizontal Dropdown */}
+    <div className="relative">
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpenDropdownId(openDropdownId === p.id ? null : p.id);
+        }}
+        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+      >
+        <MoreHorizontal size={14} />
+      </button>
+      
+      {openDropdownId === p.id && (
+        <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+          <div className="p-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTogglePublic(p.id);
+                setOpenDropdownId(null);
+              }}
+              className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
+            >
+              <Globe size={12} />
+              <span>{p.isPublic ? 'Make Private' : 'Make Public'}</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteProperty(p.id);
+                setOpenDropdownId(null);
+              }}
+              className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
+            >
+              <Trash2 size={12} />
+              <span>Delete</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+</td>
                     </tr>
                   ))}
                 </tbody>
