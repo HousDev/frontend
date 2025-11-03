@@ -306,8 +306,8 @@ const salutationOptions = masterData['salutation'] || [
   // put near other helpers (below resolvePropertyIdNumber is perfect)
   const formatPropertyId = (normalized: any): string => {
     const n = resolvePropertyIdNumber(normalized);
-    if (!n) return 'REP—';
-    return `REP${String(n).padStart(4, '0')}`;
+    if (!n) return 'REX—';
+    return `REX${String(n).padStart(4, '0')}`;
   };
 
 
@@ -1068,7 +1068,7 @@ const handleContactSubmit = async (e: React.FormEvent) => {
               {/* Top-Left Info - Responsive */}
               <div className="absolute top-2 sm:top-3 md:top-6 left-2 sm:left-3 md:left-4 z-20 text-white max-w-[75%] sm:max-w-[85%] flex flex-col gap-1">
 
-                {/* 🔹 Title + REP ID in one row */}
+                {/* 🔹 Title + REX ID in one row */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="font-bold text-base sm:text-lg md:text-xl truncate drop-shadow">
                     {property?.type && <span className="mr-1 sm:mr-2">{property.type}</span>}
@@ -1076,7 +1076,7 @@ const handleContactSubmit = async (e: React.FormEvent) => {
                     {subtype && <span className="mr-1 sm:mr-2">{subtype}</span>}
                   </div>
 
-                  {/* 🔹 REP ID Badge (right side of title) */}
+                  {/* 🔹 REX ID Badge (right side of title) */}
                   <span
                     className="text-white "
                   >

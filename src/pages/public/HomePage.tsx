@@ -346,7 +346,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
             return {
               id: p.id,
-              propertyId: (p.property_id && String(p.property_id).trim()) || `REP${String(p.id ?? '').padStart(4, '0')}`,
+              propertyId: (p.property_id && String(p.property_id).trim()) || `REX${String(p.id ?? '').padStart(4, '0')}`,
               title: (p.title || `${unitType ? unitType + ' ' : ''}${p.property_type_name || p.property_type || ''}`).trim(),
               price,
               bedrooms: Number(p.bedrooms) || undefined,
@@ -1072,7 +1072,7 @@ const masterLocation: MasterOption[] = useMemo(
                           </div>
                         </div>
                         <div className="text-lg text-gray-500">
-                          {property.propertyId || `REP${String(property.id ?? '').padStart(4, '0')}`}
+                          {property.propertyId || `REX${String(property.id ?? '').padStart(4, '0')}`}
                         </div>
                       </div>
 

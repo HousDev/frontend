@@ -95,7 +95,7 @@ const composePropertyTitle = (p: any) => {
 
 const formatRxpId = (p: any) => {
   const id = getPropertyId(p);
-  return id ? `REP ${id}` : '';
+  return id ? `REX ${id}` : '';
 };
 
 // Make a MiniProperty[] out of any property-ish array — composite title, explicit PID & RXP badge

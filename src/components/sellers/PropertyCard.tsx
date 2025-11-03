@@ -77,11 +77,11 @@ const resolveSlugForProperty = (p: any): string | undefined => {
   return bits.length ? bits.join("-") : String(id);
 };
 
-/** Format REP id exactly as requested: REP00{propertyId} */
+/** Format REX id exactly as requested: REX00{propertyId} */
 const formatRepId = (id: any) => {
   const n = Number(id);
   if (!Number.isFinite(n)) return "";
-  return `REP00${n}`;
+  return `REX00${n}`;
 };
 
 const buildPropertyUrl = ({
@@ -360,7 +360,7 @@ const PropertyCard: React.FC<{ property: any }> = ({ property }) => {
     []
   );
 
-  // Numeric ID + REP id + slug (resolved)
+  // Numeric ID + REX id + slug (resolved)
   const numericId = useMemo(
     () => toNumericId(property?.id ?? property?.property_id ?? property?._id),
     [property?.id, property?.property_id, property?._id]

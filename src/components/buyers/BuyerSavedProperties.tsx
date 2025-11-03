@@ -233,7 +233,7 @@ const BuyerSavedProperties: React.FC<Props> = ({ buyerId }) => {
           const slug = (p?.slug ?? p?.url_slug ?? p?.generated_slug)?.toString().trim();
           const code = p?.property_id
             ? String(p.property_id).trim()
-            : `REP${String(p?.id ?? row.property_id ?? "").padStart(4, "0")}`;
+            : `REX${String(p?.id ?? row.property_id ?? "").padStart(4, "0")}`;
 
           return (
             <div

@@ -70,8 +70,8 @@ interface UIProperty {
     leadSource?: string;
   };
   assignedTo?: {
-    id: number | string;
-    name: string;
+    id?: number | string;
+    name?: string;
     email?: string;
     phone?: string;
     department?: string;
@@ -683,30 +683,34 @@ function normalizeProperty(r: any, idx: number): UIProperty {
     return Number.isFinite(n) ? n : ' - ';
   })();
 
-  const normalizedAssignedTo = (() => {
-    const raw = r?.assignedTo ?? (r?.assigned_to != null ? {
-      id: r.assigned_to,
-      name: r.assigned_to_name,
-      full_name: r.assigned_to_full_name
-    } : undefined);
+// Normalizer function ko update karein
+const normalizedAssignedTo = (() => {
+  const raw = r?.assignedTo ?? (r?.assigned_to != null ? {
+    id: r.assigned_to,
+    name: r.assigned_to_name,
+    full_name: r.assigned_to_full_name,
+    email: r.assigned_to_email, // ✅ Add this
+    phone: r.assigned_to_phone, // ✅ Add this
+    department: r.assigned_to_department,
+    role: r.assigned_to_role
+  } : undefined);
 
-    if (!raw) return undefined;
-    const id = raw.id ?? raw.userId ?? raw.user_id ?? r?.assigned_to;
-    if (id === null || id === undefined || String(id).trim() === '') return undefined;
-
-    return {
-      id,
-      name: getDisplayName(raw),
-      email: raw.email,
-      phone: raw.phone,
-      department: raw.department,
-      role: raw.role,
-    };
-  })();
+  if (!raw) return undefined;
+  const id = raw.id ?? raw.userId ?? raw.user_id ?? r?.assigned_to;
+  if (id === null || id === undefined || String(id).trim() === '') return undefined;
 
   return {
+    id,
+    name: getDisplayName(raw),
+    email: raw.email || r?.assigned_to_email || '', // ✅ Ensure email
+    phone: raw.phone || r?.assigned_to_phone || '', // ✅ Ensure phone
+    department: raw.department || r?.assigned_to_department,
+    role: raw.role || r?.assigned_to_role,
+  };
+})();
+  return {
     id: r.id ?? idx + 1,
-    propertyId: r.property_id || `REP${String(r.id ?? idx + 1).padStart(4, '0')}`,
+    propertyId: r.property_id || `REX${String(r.id ?? idx + 1).padStart(4, '0')}`,
     title: r.title || `${dash(r.unit_type)} ${dash(r.property_type_name || r.property_type || r.property_subtype_name)}`,
     type: r.property_type_name || r.property_type || ' - ',
     subtype: r.property_subtype_name || r.property_subtype || ' - ',
@@ -1445,7 +1449,13 @@ const loadProperties = async () => {
             : prev
         );
 
-        toast.success(`Property assigned to ${executiveName}`);
+       if (response.success) {
+      // ✅ Properties list refresh kar dein
+      await loadProperties(); // Ye wahi function hai jo initial load ke liye use karte hain
+      
+      toast.success(`Property assigned to ${executiveName}`);
+    }
+
       } else {
         toast.error("Failed to assign executive");
       }
@@ -1498,8 +1508,11 @@ const loadProperties = async () => {
           console.error(`Failed to assign property ${propertyId}:`, error);
         }
       }
-
+ if (successCount > 0) {
+      await loadProperties(); // Complete refresh for consistency
       toast.success(`${successCount} properties assigned to ${executiveName}`);
+    }
+      
       setSelectedProperties([]);
     } catch (error: any) {
       console.error("Bulk assign failed:", error);
