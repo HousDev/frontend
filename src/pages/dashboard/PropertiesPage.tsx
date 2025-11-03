@@ -23,6 +23,7 @@ import PropertyBulkBrochureModal from '@/components/properties/PropertyBulkBroch
 import propertyTagsAPI from '@/lib/propertyTagsAPI';
 import getTagStyle, { DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 import { usersAPI } from '@/lib/api';
+import viewsAPI from '@/lib/viewAPI';
 
 /* ---------------------- Types ---------------------- */
 interface UIProperty {
@@ -887,6 +888,21 @@ const PropertiesPage = () => {
   const [knownTags, setKnownTags] = useState<string[]>([]);
   const [loadedPropertyIds, setLoadedPropertyIds] = useState<Set<string>>(new Set());
   const [hasAutoTagged, setHasAutoTagged] = useState(false);
+const [totalViews, setTotalViews] = useState(0);
+const [totalUniqueViews, setTotalUniqueViews] = useState(0);
+
+
+  useEffect(() => {
+  async function fetchViewStats() {
+    const res = await viewsAPI.getAll(false); // false → total views
+    const resUnique = await viewsAPI.getAll(true); // true → unique views
+
+    setTotalViews(res?.rows?.reduce((sum: number, row: any) => sum + (row?.total_views || 0), 0));
+    setTotalUniqueViews(resUnique?.rows?.reduce((sum: number, row: any) => sum + (row?.unique_views || 0), 0));
+  }
+
+  fetchViewStats();
+}, []);
 
   // Fetch sales executives
   useEffect(() => {
@@ -1930,50 +1946,66 @@ const loadProperties = async () => {
           onClose={() => setBulkModalOpen(false)}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-3 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-xs">Total Properties</p>
-                <p className="text-lg font-bold">{properties.length}</p>
-              </div>
-              <Home size={18} className="text-blue-200" />
-            </div>
-          </div>
-          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-3 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-xs">Available</p>
-                <p className="text-lg font-bold">
-                  {properties.filter((p) => p.status === "Available").length}
-                </p>
-              </div>
-              <CheckCircle size={18} className="text-green-200" />
-            </div>
-          </div>
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-3 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-xs">Sold</p>
-                <p className="text-lg font-bold">
-                  {properties.filter((p) => p.status === "Sold").length}
-                </p>
-              </div>
-              <Award size={18} className="text-purple-200" />
-            </div>
-          </div>
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-3 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-orange-100 text-xs">Assigned</p>
-                <p className="text-lg font-bold">
-                  {properties.filter((p) => p.assignedTo).length}
-                </p>
-              </div>
-              <UserCheck size={18} className="text-orange-200" />
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
+  <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-3 text-white">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-blue-100 text-xs">Total Properties</p>
+        <p className="text-lg font-bold">{properties.length}</p>
+      </div>
+      <Home size={18} className="text-blue-200" />
+    </div>
+  </div>
+
+  {/* ✅ NEW CARD: All Views Count */}
+  <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg p-3 text-white">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-indigo-100 text-xs">Total Views</p>
+        <p className="text-lg font-bold">{totalViews}</p>
+        <p className="text-xs text-indigo-200">Unique: {totalUniqueViews}</p>
+      </div>
+      <Eye size={18} className="text-indigo-300" />
+    </div>
+  </div>
+
+  <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-3 text-white">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-green-100 text-xs">Available</p>
+        <p className="text-lg font-bold">
+          {properties.filter((p) => p.status === "Available").length}
+        </p>
+      </div>
+      <CheckCircle size={18} className="text-green-200" />
+    </div>
+  </div>
+
+  <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-3 text-white">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-purple-100 text-xs">Sold</p>
+        <p className="text-lg font-bold">
+          {properties.filter((p) => p.status === "Sold").length}
+        </p>
+      </div>
+      <Award size={18} className="text-purple-200" />
+    </div>
+  </div>
+
+  <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-3 text-white">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-orange-100 text-xs">Assigned</p>
+        <p className="text-lg font-bold">
+          {properties.filter((p) => p.assignedTo).length}
+        </p>
+      </div>
+      <UserCheck size={18} className="text-orange-200" />
+    </div>
+  </div>
+</div>
+
 
         <div className="mt-4">
           <div className="flex space-x-1 overflow-x-auto pb-1">

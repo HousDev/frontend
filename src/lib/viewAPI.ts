@@ -84,6 +84,19 @@ export const viewsAPI = {
       return { success: false, rows: [] };
     }
   },
+  // Get all properties with view stats (total & unique)
+getAll: async (unique: boolean = false) => {
+  try {
+    const response = await api.get(`${BASE_URL}/all`, {
+      params: { unique },
+    });
+    return response.data;
+  } catch (err) {
+    console.error("viewsAPI.getAll failed:", err);
+    return { success: false, rows: [] };
+  }
+},
+
 };
 
 export default viewsAPI;

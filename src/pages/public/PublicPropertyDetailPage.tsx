@@ -100,6 +100,7 @@ const [loadingMasters, setLoadingMasters] = useState(false);
     name: '',
     phone: '',
     email: '',
+    source:'website',
   });
 
   // Add this state near your other useState declarations (around line 60)
@@ -966,7 +967,7 @@ const handleContactSubmit = async (e: React.FormEvent) => {
       name: contactForm.name.trim(),          // only name
       phone: contactForm.phone.replace(/\D/g, ''),
       email: contactForm.email?.trim() || undefined,
-      source: 'website_contact_form',
+      source: 'Website',
       property_interested: property?.id ? String(property.id) : undefined,
       property_slug: property?.slug || property?.raw?.slug,
       status: 'new_lead',
@@ -987,7 +988,7 @@ const handleContactSubmit = async (e: React.FormEvent) => {
       toast.success("We'll contact you shortly!");
       // reset & close on success only
       setShowContactForm(false);
-      setContactForm({ salutation: 'Mr', name: '', phone: '', email: '' });
+      setContactForm({ salutation: 'Mr', name: '', phone: '', email: '',source:'website' });
     } else {
       console.error("❌ Unexpected create response:", body);
       toast.error("Failed to submit request. Please try again.");
