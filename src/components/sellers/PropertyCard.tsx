@@ -81,13 +81,8 @@ const formatRepId = (id: any) => {
   const n = Number(id);
   if (!Number.isFinite(n)) return "";
   return `REX00${n}`;
-=======
-/** Format REP id exactly as requested: REP00{propertyId} */
-const formatRepId = (id: any) => {
-  const n = Number(id);
-  if (!Number.isFinite(n)) return "";
-  return `REP00${n}`;
-};
+}
+
 
 const buildPropertyUrl = ({
   url,
