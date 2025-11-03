@@ -1,6 +1,7 @@
+// src/pages/dashboard/SellerAccountPage.tsx
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-  ArrowLeft, Users, Eye, Target, Bot, Brain, FileText, Plus, Upload, Settings, Menu, X,
+  ArrowLeft, Users, Eye, Target, Bot, Brain, FileText, Plus, Settings, Menu, X,
 } from 'lucide-react';
 
 import SellerAccountSidebar from './SellerAccountSidebar';
@@ -18,6 +19,10 @@ import DocumentsManagement from './DocumentsManagement';
 
 import PropertyFormModal from '@/pages/dashboard/components/PropertyFormModal';
 import { normalizeStage, safe } from '@/utils/uiSafe';
+
+// ✅ NEW: tags api + style resolver
+import { propertyTagsAPI } from '@/lib/propertyTagsAPI';
+import getTagStyle from '@/lib/tagStyles';
 
 /* ======================== MAIN PAGE ======================== */
 
@@ -144,7 +149,6 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
 
   // Safe initials & labels
   const sellerName: string = seller?.name || '';
-  const firstLetter = sellerName?.[0]?.toUpperCase?.() || '?';
   const salutation = seller?.salutation ? `${seller.salutation} ` : '';
   const locationStr = [seller?.location, seller?.city].filter(Boolean).join(', ');
 
@@ -175,7 +179,7 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
         <div
           ref={sidebarRef}
           className={`absolute left-0 top-0 h-full w-72 max-w-[85vw] bg-white border-r shadow-xl transform transition-transform duration-300 ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-            } relative`}   // 👈 make it relative so the X can be absolutely positioned
+            } relative`}
           role="dialog"
           aria-modal="true"
           aria-label="Seller menu"
@@ -197,7 +201,6 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
           />
         </div>
       </div>
-
 
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -234,35 +237,26 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
                     Your personalized property selling dashboard
                   </p>
 
-                  {/* meta row: becomes 2-line on tiny screens, inline on sm+ */}
+                  {/* meta row */}
                   <div className="flex  gap-x-2 md:gap-x-3 gap-y-0.5 text-[11px] sm:text-xs md:text-sm text-white/95 mt-1">
                     <span className="shrink-0">Seller Account</span>
 
                     {locationStr && (
                       <>
-                        {/* show bullet only when space allows */}
                         <span className="hidden sm:inline">•</span>
-                        <span
-                          className="truncate max-w-[65vw] sm:max-w-[32ch]"
-                          title={locationStr}
-                        >
+                        <span className="truncate max-w-[65vw] sm:max-w-[32ch]" title={locationStr}>
                           {locationStr}
                         </span>
                       </>
                     )}
 
-                    {/* status */}
                     <span className="hidden sm:inline">•</span>
-                    <span
-                      className={`font-medium ${seller?.is_active ? 'text-green-300' : 'text-red-200'
-                        }`}
-                    >
+                    <span className={`font-medium ${seller?.is_active ? 'text-green-300' : 'text-red-200'}`}>
                       {seller?.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                 </div>
               </div>
-
             </div>
 
             {/* Right */}
@@ -280,10 +274,7 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
                 onDeleteNotification={deleteNotification}
               />
 
-              <button
-                className="p-2 rounded-lg bg-white/90 text-gray-700 hover:bg-white transition-colors"
-                aria-label="Settings"
-              >
+              <button className="p-2 rounded-lg bg-white/90 text-gray-700 hover:bg-white transition-colors" aria-label="Settings">
                 <Settings size={20} />
               </button>
             </div>
@@ -477,28 +468,73 @@ const mapApiPropertyToUI = (api: any) => ({
   isPublic: !!api.is_public,
   publicViews: Number(api.public_views ?? 0),
   lastActivity: api.last_activity ?? api.updated_at ?? api.created_at ?? null,
+
+  // ✅ NEW: tags field for UI (defaults empty, filled after API fetch)
+  tags: Array.isArray(api.tags) ? api.tags : [],
 });
 
 const PropertiesTab = ({ seller, onUpdateSeller }: any) => {
-  const [list, setList] = useState(
-    (Array.isArray(seller?.properties) ? seller.properties : []).map(mapApiPropertyToUI)
-  );
-
+  const initialList = (Array.isArray(seller?.properties) ? seller.properties : []).map(mapApiPropertyToUI);
+  const [list, setList] = useState(initialList);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // ✅ Fetch & merge tags once for all properties
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTags() {
+      try {
+        const all = await propertyTagsAPI.getAll(); // [{ property_id, tags }, ...]
+        const tagsById = new Map<string, string[]>();
+        all.forEach(row => tagsById.set(String(row.property_id), Array.isArray(row.tags) ? row.tags : []));
+
+        if (!isMounted) return;
+        setList(prev =>
+          prev.map(p => ({
+            ...p,
+            tags: tagsById.get(p.id) ?? p.tags ?? [],
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to load property tags:", err);
+      }
+    }
+
+    // Only attempt if we have properties
+    if (initialList.length > 0) loadTags();
+
+    return () => { isMounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seller?.properties?.length]);
+
   const handleOpenModal = () => setIsModalOpen(true);
   const handleCloseModal = () => setIsModalOpen(false);
 
-  const handlePropertySubmit = (createdOrUpdated: any) => {
+  // ✅ When a property is created/updated, also refresh its tags
+  const handlePropertySubmit = async (createdOrUpdated: any) => {
     const ui = mapApiPropertyToUI(createdOrUpdated);
+
+    // merge or prepend property
     setList(prev => {
       const idx = prev.findIndex(p => p.id === ui.id);
       if (idx >= 0) {
         const copy = [...prev];
-        copy[idx] = ui;
+        copy[idx] = { ...copy[idx], ...ui };
         return copy;
       }
       return [ui, ...prev];
     });
+
+    // pull tags for this property specifically
+    try {
+      const row = await propertyTagsAPI.getById(ui.id);
+      setList(prev =>
+        prev.map(p => (p.id === ui.id ? { ...p, tags: Array.isArray(row.tags) ? row.tags : [] } : p))
+      );
+    } catch (e) {
+      console.warn("Tags not found for property", ui.id, e);
+    }
+
     onUpdateSeller?.(ui);
     handleCloseModal();
   };
@@ -515,12 +551,6 @@ const PropertiesTab = ({ seller, onUpdateSeller }: any) => {
             >
               <Plus size={16} />
               <span>Add Property</span>
-            </button>
-            <button
-              className="flex items-center space-x-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-            >
-              <Upload size={16} />
-              <span>Bulk Upload</span>
             </button>
           </div>
         </div>

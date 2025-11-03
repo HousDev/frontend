@@ -1428,6 +1428,9 @@ const BuyersPage = () => {
                           <MapPin size={10} className="text-gray-400" />
                           <span>{safeStr(buyer.location)}{buyer.city ? `, ${buyer.city}` : ''}</span>
                         </div>
+                        <div className='flex items-center space-x-1 text-xs' >
+                          Source : {buyer.source}
+                        </div>
                       </div>
                     </td>
 
