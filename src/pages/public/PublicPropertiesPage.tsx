@@ -670,7 +670,7 @@ const loadPropertiesFromSearch = useCallback(async () => {
         const propertyData: Property = {
           id: p.id,
           slug: p.slug || p.url_slug || p.generated_slug,
-          propertyId: (p.property_id && String(p.property_id).trim()) || `REP${String(p.id ?? '').padStart(4, '0')}`,
+          propertyId: (p.property_id && String(p.property_id).trim()) || `REX${String(p.id ?? '').padStart(4, '0')}`,
           title: p.title || `${p.unit_type || ''} ${p.property_type_name || ''}`.trim() || `Property ${p.id}`,
           price: Number(p.budget) || Number(p.price) || 0,
           bedrooms: Number(p.bedrooms) || 0,
@@ -1658,7 +1658,7 @@ const loadPropertiesFromSearch = useCallback(async () => {
                           </div>
                           {/* ✅ tiny ID at top-right */}
                           <div className="ml-2 shrink-0 text-[10px] sm:text-xs text-gray-500 font-medium">
-                            {property.propertyId || `REP${String(property.id ?? '').padStart(4, '0')}`}
+                            {property.propertyId || `REX${String(property.id ?? '').padStart(4, '0')}`}
                           </div>
                         </div>
                         <div className="mb-4">

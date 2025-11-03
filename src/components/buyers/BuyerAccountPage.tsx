@@ -2225,7 +2225,7 @@ const ShortlistTab: React.FC<{ buyer: any }> = ({ buyer }) => {
                     </div>
                     {p?.id && (
                       <div className="text-lg text-gray-500">
-                        {p.property_id?.toString().trim() || `REP${String(p.id).padStart(4, "0")}`}
+                        {p.property_id?.toString().trim() || `REX${String(p.id).padStart(4, "0")}`}
                       </div>
                     )}
                   </div>

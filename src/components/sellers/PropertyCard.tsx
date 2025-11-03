@@ -76,7 +76,12 @@ const resolveSlugForProperty = (p: any): string | undefined => {
   // e.g., "57-3bhk-apartment-andheri"
   return bits.length ? bits.join("-") : String(id);
 };
-
+/** Format REX id exactly as requested: REX00{propertyId} */
+const formatRepId = (id: any) => {
+  const n = Number(id);
+  if (!Number.isFinite(n)) return "";
+  return `REX00${n}`;
+=======
 /** Format REP id exactly as requested: REP00{propertyId} */
 const formatRepId = (id: any) => {
   const n = Number(id);
@@ -360,7 +365,6 @@ const PropertyCard: React.FC<{ property: any }> = ({ property }) => {
     []
   );
 
-  // Numeric ID + REP id + slug (resolved)
   const numericId = useMemo(
     () => toNumericId(property?.id ?? property?.property_id ?? property?._id),
     [property?.id, property?.property_id, property?._id]
