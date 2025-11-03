@@ -1,24 +1,32 @@
-
 import { propertiesAPI } from "@/lib/propertiesAPI";
 import { useState, useEffect, useCallback } from "react";
 
 type UsePropertiesOptions = {
-  autoLog?: boolean; // default true → properties/err/loading change par console logs
-  publicOnly?: boolean;
+  /** console logs on properties / error / loading changes */
+  autoLog?: boolean; // default: true
+  /** return only public properties (client-side filter) */
+  publicOnly?: boolean; // default: false
 };
 
 export function useProperties(options: UsePropertiesOptions = {}) {
-  const { autoLog = true } = options;
+  const { autoLog = true, publicOnly = false } = options;
 
   const [properties, setProperties] = useState<any[]>([]);
   const [loadingProps, setLoadingProps] = useState(false);
   const [propsError, setPropsError] = useState<string | null>(null);
 
-  // ---------------- helpers (utils) ----------------
+  /* ---------------- helpers (utils) ---------------- */
   const toArr = (v: any) => (Array.isArray(v) ? v.filter(Boolean) : v ? [v] : []);
   const norm = (s: any) => String(s ?? "").toLowerCase().trim();
   const hasAny = (haystack: string[], needles: string[]) =>
     needles.some((n) => haystack.some((h) => h.includes(n)));
+
+  const toBool = (v: any) => {
+    if (typeof v === "boolean") return v;
+    if (v == null) return false;
+    const s = norm(v);
+    return s === "1" || s === "true" || s === "yes" || s === "y";
+  };
 
   const formatCurrency = (amount?: number) => {
     const n = Number(amount);
@@ -37,26 +45,67 @@ export function useProperties(options: UsePropertiesOptions = {}) {
     return map[status] || "bg-gray-100 text-gray-700";
   };
 
-  const unitTypeFrom = (p: any) => norm(p?.unit_type || p?.bhk || p?.configuration ||  p?.bhk_label  ||p?.unit_types );
+  const unitTypeFrom = (p: any) =>
+    norm(p?.unit_type || p?.bhk || p?.configuration || p?.bhk_label || p?.unit_types);
+
   const locTokensFrom = (p: any) =>
     [norm(p?.locality_name), norm(p?.location_name), norm(p?.address), norm(p?.city_name || p?.city)].filter(Boolean);
+
   const amenitiesFrom = (p: any) => (Array.isArray(p?.amenities) ? p.amenities : []).map(norm);
   const furnishingFrom = (p: any) => norm(p?.furnishing || p?.furnished_status);
-  const propTypeFrom = (p: any) => norm(p?.property_subtype_name || p?.property_type_name || "");
+
+  // broader catch for type/subtype
+  const propTypeFrom = (p: any) =>
+    norm(
+      p?.property_subtype_name ||
+        p?.property_sub_type ||
+        p?.property_subtype ||
+        p?.subtype ||
+        p?.property_type_name ||
+        p?.property_type ||
+        p?.type ||
+        ""
+    );
+
   const descriptionFrom = (p: any) => norm(p?.description || p?.title || "");
 
+  /** Title: PropertyType + UnitType + PropertySubType — SocietyName */
   const titleFrom = (p: any) => {
-    const unit = p?.unit_type ? String(p.unit_type).toUpperCase() : "";
-    const society = p?.society_name || p?.location_name || "";
-    const type = p?.property_subtype_name || p?.property_type_name || "";
-    const left = [unit, type].filter(Boolean).join(" ");
-    return [left || p?.title || "Property", society].filter(Boolean).join(" - ");
+    const propertyType =
+      String(
+        p?.property_type_name ||
+          p?.property_type ||
+          p?.type ||
+          p?.category ||
+          p?.type_name ||
+          ""
+      ).trim();
+
+    const unit =
+      String(p?.unit_type || p?.bhk || p?.configuration || p?.bhk_label || p?.unit_types || "").trim();
+
+    const subType =
+      String(
+        p?.property_subtype_name ||
+          p?.property_sub_type ||
+          p?.property_subtype ||
+          p?.subtype ||
+          ""
+      ).trim();
+
+    const society =
+      String(p?.society_name || p?.project_name || p?.society || p?.societyName || p?.location_name || "").trim();
+
+    const leftParts = [propertyType, unit, subType].filter(Boolean);
+    const left = leftParts.length ? leftParts.join(" + ") : (p?.title || "Property");
+    return [left, society].filter(Boolean).join(" — ");
   };
 
   const addressFrom = (p: any) =>
     p?.address || [p?.location_name || p?.locality_name, p?.city_name || p?.city].filter(Boolean).join(", ");
 
   const priceFrom = (p: any) => Number(p?.budget ?? p?.price ?? p?.expected_price ?? 0);
+
   const priceRangeFrom = (p: any) => {
     const min = Number(p?.min_price ?? p?.budget_min ?? p?.minBudget ?? 0);
     const max = Number(p?.max_price ?? p?.budget_max ?? p?.maxBudget ?? 0);
@@ -64,16 +113,21 @@ export function useProperties(options: UsePropertiesOptions = {}) {
   };
 
   const sizeFrom = (p: any) => {
-    const unit = p?.unit_type ||  p?.bhk_label ||p?.unit_types ||  "";
+    const unit = p?.unit_type || p?.bhk_label || p?.unit_types || "";
     const area = Number(p?.carpet_area ?? p?.area ?? p?.super_builtup_area ?? 0);
     const areaTxt = area ? `${Number(area).toLocaleString("en-IN")} sq ft` : "";
     return [unit, areaTxt].filter(Boolean).join(" • ");
   };
 
   const floorLine = (p: any) => {
-    const f = p?.floor || "";
-       const total = p?.total_floors ? `of ${p.total_floors}` : "";
-    return [f && ` ${f}`, total].filter(Boolean).join(" ");
+    const f = p?.floor ?? p?.floor_no ?? p?.floor_number;
+    const total = p?.total_floors ?? p?.totalFloors;
+    // normalize nicely like "Floor 7 of 12" or "Floor Ground"
+    const fText =
+      f === 0 || String(f).toLowerCase().includes("ground")
+        ? "Ground"
+        : (f ?? "").toString();
+    return [fText && `Floor ${fText}`, total ? `of ${total}` : ""].filter(Boolean).join(" ");
   };
 
   const facingFrom = (p: any) =>
@@ -87,12 +141,11 @@ export function useProperties(options: UsePropertiesOptions = {}) {
     p?.property_facing_name ||
     "—";
 
-const parkingFrom = (p: any) => {
-  const qty = p?.parking_qty ? String(p.parking_qty) : "";
-  const type = p?.parking_type || "";
-  return [qty, type].filter(Boolean).join(" ");
-};
-
+  const parkingFrom = (p: any) => {
+    const qty = p?.parking_qty ? String(p.parking_qty) : "";
+    const type = p?.parking_type || "";
+    return [qty, type].filter(Boolean).join(" ");
+  };
 
   const possessionFrom = (p: any) => {
     const y = Number(p?.possession_year);
@@ -108,11 +161,12 @@ const parkingFrom = (p: any) => {
 
   const sellerFrom = (p: any) => p?.seller_name || p?.owner_name || p?.contact_name || "—";
   const sellerPhoneFrom = (p: any) =>
-    p?.seller_phone || p?.owner_phone || p?.phone_phone || p?.contact_phone || p?.phone || "";
+    p?.seller_phone || p?.owner_phone || p?.contact_phone || p?.phone || "";
 
   const photoFrom = (p: any) => {
     const first = Array.isArray(p?.photos) && p.photos.length ? p.photos[0] : "";
-    return typeof first === "string" ? first : first?.url || "";
+    const byArray = typeof first === "string" ? first : first?.url || "";
+    return p?.image || p?.photo || byArray || "";
   };
 
   // ---- scoring + reasons (needs buyer) ----
@@ -211,7 +265,7 @@ const parkingFrom = (p: any) => {
 
   const makeItem = (p: any, buyer: any) => ({
     id: String(p?.id ?? p?.property_id ?? Math.random()),
-    title: titleFrom(p),
+    title: titleFrom(p), // 👈 updated builder
     address: addressFrom(p),
     price: priceFrom(p),
     size: sizeFrom(p),
@@ -227,38 +281,36 @@ const parkingFrom = (p: any) => {
     photo: photoFrom(p),
     _raw: p,
     reasons: computeReasons(p, buyer),
-    unitType: unitTypeFrom(p)?.toUpperCase(),   // 👈 add
+    unitType: unitTypeFrom(p)?.toUpperCase(),
   });
 
-const isWithinBuyerBudget = (p: any, buyer: any) => {
-  const bMin = Number(buyer?.budget?.min ?? buyer?.budgetMin ?? 0);
-  const bMax = Number(buyer?.budget?.max ?? buyer?.budgetMax ?? 0);
+  const isWithinBuyerBudget = (p: any, buyer: any) => {
+    const bMin = Number(buyer?.budget?.min ?? buyer?.budgetMin ?? 0);
+    const bMax = Number(buyer?.budget?.max ?? buyer?.budgetMax ?? 0);
 
-  const hasBuyerMin = !!bMin;
-  const hasBuyerMax = !!bMax;
+    const hasBuyerMin = !!bMin;
+    const hasBuyerMax = !!bMax;
 
-  if (!hasBuyerMin && !hasBuyerMax) return true;
+    if (!hasBuyerMin && !hasBuyerMax) return true;
 
-  const { min: pMin, max: pMax } = priceRangeFrom(p);
-  const hasRange = !!pMin && !!pMax && pMax >= pMin;
+    const { min: pMin, max: pMax } = priceRangeFrom(p);
+    const hasRange = !!pMin && !!pMax && pMax >= pMin;
 
-  if (hasRange) {
-    const left = hasBuyerMin ? bMin : Number.NEGATIVE_INFINITY;
-    const right = hasBuyerMax ? bMax : Number.POSITIVE_INFINITY;
-    // ✅ Inclusive overlap check
-    return Math.max(pMin, left) <= Math.min(pMax, right);
-  }
+    if (hasRange) {
+      const left = hasBuyerMin ? bMin : Number.NEGATIVE_INFINITY;
+      const right = hasBuyerMax ? bMax : Number.POSITIVE_INFINITY;
+      // inclusive overlap
+      return Math.max(pMin, left) <= Math.min(pMax, right);
+    }
 
-  const price = priceFrom(p);
-  if (!price) return false;
+    const price = priceFrom(p);
+    if (!price) return false;
 
-  // ✅ Inclusive conditions (equal allowed)
-  if (hasBuyerMin && price < bMin) return false;
-  if (hasBuyerMax && price > bMax) return false;
+    if (hasBuyerMin && price < bMin) return false;
+    if (hasBuyerMax && price > bMax) return false;
 
-  return true;
-};
-
+    return true;
+  };
 
   const filterProperties = (
     all: any[],
@@ -282,6 +334,8 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
     const fPoss = norm(filters.possession || "");
 
     return all.filter((p) => {
+      if (publicOnly && !toBool(p?.is_public ?? p?.isPublic ?? p?.public)) return false;
+
       if (!isWithinBuyerBudget(p, buyer)) return false;
 
       if (locQuery) {
@@ -298,8 +352,8 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
           const right = maxP || Number.POSITIVE_INFINITY;
           if (Math.max(pMin, left) > Math.min(pMax, right)) return false;
         } else if (pPrice) {
-          if (minP && pPrice <= minP) return false;
-          if (maxP && pPrice >= maxP) return false;
+          if (minP && pPrice < minP) return false;
+          if (maxP && pPrice > maxP) return false;
         }
       }
 
@@ -321,15 +375,25 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
     });
   };
 
-  // ---------------- fetch: ALL ----------------
+  /* ---------------- fetch: ALL ---------------- */
+  const applyClientFilters = useCallback(
+    (list: any[]) => {
+      if (!publicOnly) return list;
+      return list.filter((p) => toBool(p?.is_public ?? p?.isPublic ?? p?.public));
+    },
+    [publicOnly]
+  );
+
   const fetchProperties = useCallback(async () => {
     setLoadingProps(true);
     setPropsError(null);
     try {
       const res = await propertiesAPI.getProperties();
+      console.log("res",res)
       const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      setProperties(list);
-      return list;
+      const finalList = applyClientFilters(list);
+      setProperties(finalList);
+      return finalList;
     } catch (err) {
       console.error("❌ Could not load properties:", err);
       setPropsError("Could not load properties");
@@ -338,9 +402,9 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
     } finally {
       setLoadingProps(false);
     }
-  }, []);
+  }, [applyClientFilters]);
 
-  // ---------------- fetch: SEARCH (GET /properties/search) ----------------
+  /* ---------------- fetch: SEARCH (GET /properties/search) ---------------- */
   const searchProperties = useCallback(
     async (params: {
       city?: string;
@@ -349,7 +413,7 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
       maxPrice?: number;
       sort?: "low_to_high" | "high_to_low" | "medium" | "newest";
       propertyType?: string;
-      unitTypes?: string[]; // array, API will join with comma
+      unitTypes?: string[]; // API will join with comma
     }) => {
       setLoadingProps(true);
       setPropsError(null);
@@ -362,8 +426,9 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
           : Array.isArray(res)
           ? res
           : [];
-        setProperties(list);
-        return list;
+        const finalList = applyClientFilters(list);
+        setProperties(finalList);
+        return finalList;
       } catch (err) {
         console.error("❌ Search failed:", err);
         setPropsError("Search failed");
@@ -373,23 +438,33 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
         setLoadingProps(false);
       }
     },
-    []
+    [applyClientFilters]
   );
 
-  // auto fetch on mount (ALL)
+  /* ---------------- lifecycle ---------------- */
   useEffect(() => {
     fetchProperties();
   }, [fetchProperties]);
 
-  // auto logs on state changes (toggle via options.autoLog)
+  /* ---------------- auto logs ---------------- */
   useEffect(() => {
     if (!autoLog) return;
-    
-  }, [properties, autoLog]);
+    const count = properties.length;
+    console.log(`🏡 properties updated: ${count}`);
+    if (count) {
+      const sample = properties.slice(0, 3).map((p) => ({
+        id: p?.id ?? p?.property_id,
+        title: p?.title || titleFrom(p),
+        public: toBool(p?.is_public ?? p?.isPublic ?? p?.public),
+      }));
+      console.table(sample);
+    }
+  }, [properties, autoLog]); // eslint-disable-line
 
   useEffect(() => {
     if (!autoLog) return;
-   
+    if (loadingProps) console.log("⏳ loading properties…");
+    else console.log("✅ properties loading complete");
   }, [loadingProps, autoLog]);
 
   useEffect(() => {
@@ -397,9 +472,20 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
     if (propsError) console.warn("⚠️ propsError:", propsError);
   }, [propsError, autoLog]);
 
-  const logProperties = () => {};
+  /* ---------------- manual logger ---------------- */
+  const logProperties = () => {
+    const rows = properties.map((p) => ({
+      id: p?.id ?? p?.property_id,
+      title: p?.title || titleFrom(p),
+      budget: formatCurrency(priceFrom(p)),
+      public: toBool(p?.is_public ?? p?.isPublic ?? p?.public),
+      seller_id: p?.seller_id ?? p?.sellerId ?? p?.owner_seller_id ?? "",
+      city: p?.city_name || p?.city || "",
+    }));
+    console.table(rows);
+  };
 
-  // utils bundle to use in components
+  /* ---------------- utils bundle ---------------- */
   const utils = {
     toArr,
     norm,
@@ -412,7 +498,7 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
     furnishingFrom,
     propTypeFrom,
     descriptionFrom,
-    titleFrom,
+    titleFrom, // 👈 upgraded
     addressFrom,
     priceFrom,
     priceRangeFrom,
@@ -435,9 +521,9 @@ const isWithinBuyerBudget = (p: any, buyer: any) => {
     properties,
     loadingProps,
     propsError,
-    fetchProperties,     // all
-    searchProperties,    // 🔎 server search
-    logProperties,
+    fetchProperties,   // all
+    searchProperties,  // 🔎 server search
+    logProperties,     // 🧰 console.table overview
     utils,
   };
 }

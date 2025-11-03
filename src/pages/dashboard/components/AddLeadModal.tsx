@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { CSSProperties, useEffect, useState } from 'react';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import PhoneInput from 'react-phone-input-2';
@@ -112,7 +112,7 @@ const Dropdown: React.FC<DropdownProps> = ({
               top: buttonRef.current ? buttonRef.current.getBoundingClientRect().bottom + window.scrollY + 4 : 0,
               left: buttonRef.current ? buttonRef.current.getBoundingClientRect().left + window.scrollX : 0,
               zIndex: 9999
-            }}
+            } as CSSProperties}
             onClick={(e) => e.stopPropagation()}
           >
             {searchable && (

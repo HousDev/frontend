@@ -823,53 +823,65 @@ const SellersPage: React.FC = () => {
     }
   };
 
-  const handleSaveSeller = async (sellerData: any) => {
-    try {
-      let savedSeller;
+const handleSaveSeller = async (sellerData: any) => {
+  try {
+    let savedSeller;
 
-      if (editingSeller?.id) {
-        // UPDATE - with proper error handling
-        try {
-          savedSeller = await sellerAPI.update(String(editingSeller.id), sellerData);
-          toast.success("Seller updated successfully");
-        } catch (error: any) {
-          // If update fails with "not found", try create instead
-          if (error?.response?.status === 404 || error?.message?.includes('not found')) {
-            console.warn('Seller not found, creating new one...');
-            savedSeller = await sellerAPI.create(sellerData);
-            toast.success("Seller created successfully (original not found)");
-          } else {
-            throw error;
-          }
-        }
-      } else {
-        // CREATE
-        savedSeller = await sellerAPI.create(sellerData);
-        toast.success("Seller created successfully");
-      }
-
-      // Map the saved entity into UI shape
-      const updated = mapApiSellerToUI(savedSeller);
-
-      // Update local state
-      setSellers(prev => {
-        const exists = prev.some(s => s.id === updated.id);
-        if (exists) {
-          return prev.map(s => s.id === updated.id ? updated : s);
+    if (editingSeller?.id) {
+      // UPDATE
+      try {
+        savedSeller = await sellerAPI.update(String(editingSeller.id), sellerData);
+        toast.success("Seller updated successfully");
+      } catch (error: any) {
+        // If update fails with "not found", try create instead
+        if (error?.response?.status === 404 || error?.message?.includes('not found')) {
+          console.warn('Seller not found, creating new one...');
+          savedSeller = await sellerAPI.create(sellerData);
+          toast.success("Seller created successfully (original not found)");
         } else {
-          return [updated, ...prev];
+          throw error;
         }
-      });
-
-      // Close modal
-      setShowSellerForm(false);
-      setEditingSeller(null);
-
-    } catch (error) {
-      console.error("❌ Error saving seller:", error);
-      toast.error("Failed to save seller. Please try again.");
+      }
+    } else {
+      // CREATE
+      savedSeller = await sellerAPI.create(sellerData);
+      toast.success("Seller created successfully");
     }
-  };
+
+    // Map the saved entity into UI shape
+    const updated = mapApiSellerToUI(savedSeller);
+
+    // ✅ IMPORTANT: Refresh the sellers list by re-fetching
+    await refreshSellersList();
+
+    // Close modal
+    setShowSellerForm(false);
+    setEditingSeller(null);
+
+  } catch (error) {
+    console.error("❌ Error saving seller:", error);
+    toast.error("Failed to save seller. Please try again.");
+  }
+};
+
+// ✅ नया function add करें sellers list refresh करने के लिए
+const refreshSellersList = async () => {
+  try {
+    setLoading(true);
+    const apiSellers = await sellerAPI.getAll();
+    
+    const normalized = Array.isArray(apiSellers)
+      ? apiSellers.map(mapApiSellerToUI)
+      : [];
+    setSellers(normalized);
+    
+  } catch (err) {
+    console.error("Error refreshing sellers:", err);
+    toast.error("Failed to refresh sellers list");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSellerSelection = (sellerId: number) => {
     setSelectedSellers((prev) =>

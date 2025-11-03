@@ -25,6 +25,7 @@ import { readResumeLocal, saveResumeLocal } from '@/lib/documentResume';
 import { HiCurrencyRupee } from 'react-icons/hi2';
 import { propertyPaymentReceiptAPI } from '@/lib/propertyPaymentReceiptAPI';
 import { toast } from 'react-toastify';
+import PropertyReceiptFormModalDoc from '../accounts/PropertyReceiptFormModalDoc';
 /* =================== Helpers =================== */
 
 function normalizeList<T = any>(res: any): T[] {
@@ -1747,70 +1748,138 @@ const DocumentStep: React.FC<DocumentStepProps> = ({
 }) => {
 
   // In your DocumentStep component
+  // --- Receipt integrate: local states ---
+  const [autoUseReceipt, setAutoUseReceipt] = React.useState(true);
+  const [receiptLoading, setReceiptLoading] = React.useState(false);
+  const [appliedReceipt, setAppliedReceipt] = React.useState<any | null>(null);
+  const [availableReceipts, setAvailableReceipts] = React.useState<any[]>([]);
+  const [showReceiptModal, setShowReceiptModal] = React.useState(false);
 
-useEffect(() => {
-  const norm = (v:any)=> (v==null? '' : String(v).trim());
+  // --- Helpers (IDs + patch) ---
+  const normStr = (v:any)=> (v==null ? "" : String(v).trim());
+  const currentSellerId   = () => normStr(formData?.seller?.id ?? formData?.seller_id);
+  const currentBuyerId    = () => normStr(formData?.buyer?.id  ?? formData?.buyer_id);
+  const currentPropertyId = () => normStr(formData?.property?.id ?? formData?.property_id ?? formData?.id);
 
-  const sellerId   = formData?.seller?.id ?? formData?.seller_id;
-  const buyerId    = formData?.buyer?.id  ?? formData?.buyer_id;
-  const propertyId = formData?.property?.id ?? formData?.property_id ?? formData?.id;
+  const patchFinancialFromReceipt = (raw:any) => {
+    const td = typeof raw?.transaction_details === "string"
+      ? (()=>{ try{return JSON.parse(raw.transaction_details)}catch{return {}} })()
+      : (raw?.transaction_details || {});
+    const amountNum = Number(raw?.amount || 0);
 
-  if (!norm(sellerId) || !norm(buyerId) || !norm(propertyId)) return;
+    // all financial fields including new ones
+    onInputChange("payment_type",         raw?.payment_type ?? "");
+    onInputChange("amount",               amountNum || 0);
+    onInputChange("receipt_id",           raw?.receipt_id ?? "");
+    onInputChange("payment_reference",    raw?.payment_reference ?? "");
+    onInputChange("payment_method",       td?.payment_method ?? "");
+    onInputChange("buyer_bank_name",      td?.buyer_bank_name ?? "");
+    onInputChange("seller_bank_name",     td?.seller_bank_name ?? "");
+    onInputChange("receipt_date",         raw?.receipt_date ? onlyDate(raw.receipt_date) : "");
+    onInputChange("payment_date",         raw?.payment_date ? onlyDate(raw.payment_date) : "");
+    onInputChange("related_party",        raw?.related_party ?? "");
+    onInputChange("payment_status",       raw?.payment_status ?? "");
+    onInputChange("type",                 raw?.type ?? "");
+    onInputChange("status",               raw?.status ?? "");
+    onInputChange("notes",                raw?.notes ?? "");
+    onInputChange("deal_value",           raw?.deal_value ?? "");
+    onInputChange("amount_in_words",      raw?.amount_in_words ?? "");
 
-  let alive = true;
-  (async () => {
+    // optional sync for templates that use token_amount
+    if (template?.variables?.includes?.("token_amount")) {
+      onInputChange("token_amount", amountNum || 0);
+    }
+  };
+
+  const fetchAvailableReceipts = async () => {
+    const sId = currentSellerId();
+    const bId = currentBuyerId();
+    const pId = currentPropertyId();
+
+    if (!sId || !bId || !pId) {
+      toast.warn("Select Seller, Buyer and Property first.");
+      return;
+    }
+    setReceiptLoading(true);
     try {
       const res = await propertyPaymentReceiptAPI.getAll();
-      let rows = normalizeList<PropertyPaymentReceiptRow>(res) || [];
+      let rows = normalizeList<any>(res) || [];
 
-      // strict 3-way match (ignore rows without property_id)
-      const rowPropId = (r:any)=> r.property_id ?? r.propertyId ?? r.property?.id ?? r.property?.property_id ?? '';
+      const rowPropId = (r:any)=> r.property_id ?? r.propertyId ?? r?.property?.id ?? r?.property?.property_id ?? "";
+
       rows = rows.filter(r =>
-        norm(r.seller_id) === norm(sellerId) &&
-        norm(r.buyer_id) === norm(buyerId) &&
-        norm(rowPropId(r)) === norm(propertyId)
+        normStr(r.seller_id) === sId &&
+        normStr(r.buyer_id)  === bId &&
+        normStr(rowPropId(r)) === pId
       );
 
-      if (!alive || rows.length === 0) return;
+      if (!rows.length) {
+        toast.info("No receipts found for this Seller–Buyer–Property.");
+        setAvailableReceipts([]);
+        setAppliedReceipt(null);
+        return;
+      }
 
-      const latest = rows
-        .slice()
-        .sort((a,b)=>{
-          const A = norm(a.created_at) || norm(a.receipt_date);
-          const B = norm(b.created_at) || norm(b.receipt_date);
-          return B.localeCompare(A);
-        })[0];
-
-      if (!latest) return;
-
-      const patch = buildFormPatchFromReceipt(latest);
-
-      // 🔒 ID guardrails: never let patch change current selection
-      if (patch?.property?.id !== undefined) delete patch.property.id;
-      if (patch?.seller) patch.seller.id = sellerId;   // keep consistent
-      if (patch?.buyer)  patch.buyer.id  = buyerId;    // keep consistent
-      // Just in case:
-      if ('id' in patch) delete (patch as any).id;
-
-      applyPatchViaOnChange(patch, onInputChange, {
-        skipIfAlreadySet: false,
-        current: formData,
+      rows.sort((a,b)=>{
+        const A = normStr(a.created_at || a.receipt_date);
+        const B = normStr(b.created_at || b.receipt_date);
+        return B.localeCompare(A); // latest first
       });
-    } catch (e:any) {
-      toast.error(`Error fetching receipts: ${e?.message || e}`);
-    }
-  })();
 
-  return ()=> { alive = false; };
-}, [
-  formData?.seller?.id,
-  formData?.seller_id,
-  formData?.buyer?.id,
-  formData?.buyer_id,
-  formData?.property?.id,
-  formData?.property_id,
-  formData?.id,
-]);
+      setAvailableReceipts(rows);
+
+      if (autoUseReceipt && rows.length > 0) {
+        const latest = rows[0];
+        setAppliedReceipt(latest);
+        patchFinancialFromReceipt(latest);
+        toast.success(`Applied receipt #${latest?.receipt_id || latest?.id || ""}`);
+      }
+    } catch (e:any) {
+      toast.error(`Receipt fetch failed: ${e?.message || e}`);
+    } finally {
+      setReceiptLoading(false);
+    }
+  };
+
+  const handleReceiptSelect = (receiptId: string) => {
+    if (!receiptId) {
+      setAppliedReceipt(null);
+      // Clear receipt fields
+      const receiptFields = [
+        "payment_type", "amount", "receipt_id", "payment_reference", "payment_method",
+        "buyer_bank_name", "seller_bank_name", "receipt_date", "payment_date", 
+        "related_party", "payment_status", "type", "status", "notes", "deal_value", "amount_in_words"
+      ];
+      receiptFields.forEach(field => onInputChange(field, ""));
+      return;
+    }
+
+    const selectedReceipt = availableReceipts.find(r => String(r.id) === receiptId);
+    if (selectedReceipt) {
+      setAppliedReceipt(selectedReceipt);
+      patchFinancialFromReceipt(selectedReceipt);
+      toast.success(`Applied receipt #${selectedReceipt?.receipt_id || selectedReceipt?.id || ""}`);
+    }
+  };
+
+  React.useEffect(() => {
+    if (!autoUseReceipt) return;
+    if (appliedReceipt || receiptLoading) return;
+    const sId = currentSellerId();
+    const bId = currentBuyerId();
+    const pId = currentPropertyId();
+    if (sId && bId && pId) {
+      fetchAvailableReceipts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    formData?.seller?.id, formData?.seller_id,
+    formData?.buyer?.id,  formData?.buyer_id,
+    formData?.property?.id, formData?.property_id, formData?.id,
+    autoUseReceipt
+  ]);
+
+
 
 
   return (
@@ -1875,39 +1944,155 @@ useEffect(() => {
     <HiCurrencyRupee className="mr-2" size={16} />
     Financial Information
   </h3>
+  
+  {/* --- Receipt Toolbar (fetch / dropdown / add) --- */}
+  <div className="flex flex-wrap items-center gap-2 mb-3">
+    <button
+      type="button"
+      onClick={fetchAvailableReceipts}
+      disabled={receiptLoading}
+      className="px-2.5 py-1 bg-gray-800 text-white rounded-md text-[11px] hover:bg-gray-900 disabled:opacity-50"
+    >
+      {receiptLoading ? "Fetching…" : "Fetch Receipts"}
+    </button>
+
+    <label className="inline-flex items-center gap-2 text-[11px] px-2 py-1 border rounded-md bg-white">
+      <input
+        type="checkbox"
+        checked={autoUseReceipt}
+        onChange={(e)=> setAutoUseReceipt(e.target.checked)}
+      />
+      Auto-apply latest
+    </label>
+
+    {/* Receipt Selection Dropdown */}
+    {availableReceipts.length > 0 && (
+      <div className="flex items-center gap-2">
+        <label className="text-[11px] text-gray-700">Select Receipt:</label>
+        <select
+          value={appliedReceipt?.id || ""}
+          onChange={(e) => handleReceiptSelect(e.target.value)}
+          className="px-2 py-1 border rounded-md text-[11px] bg-white"
+        >
+          <option value="">-- Select Receipt --</option>
+          {availableReceipts.map((receipt) => (
+            <option key={receipt.id} value={receipt.id}>
+              #{receipt.receipt_id || receipt.id} - {receipt.payment_type} - ₹{receipt.amount} - {receipt.receipt_date?.slice(0,10)}
+            </option>
+          ))}
+        </select>
+      </div>
+    )}
+
+    <button
+      type="button"
+      onClick={()=>{
+        const sId = currentSellerId();
+        const bId = currentBuyerId();
+        const pId = currentPropertyId();
+        
+        if (!sId || !bId || !pId) {
+          toast.warn("Select Seller, Buyer and Property first.");
+          return;
+        }
+        setShowReceiptModal(true);
+      }}
+      className="px-2.5 py-1 bg-orange-600 text-white rounded-md text-[11px] hover:bg-orange-700"
+    >
+      + Add New Receipt
+    </button>
+
+    {appliedReceipt ? (
+      <span className="ml-auto text-[11px] px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200">
+        Applied: <b>{appliedReceipt?.receipt_id || appliedReceipt?.id}</b>
+      </span>
+    ) : null}
+  </div>
 
   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-
+    {/* Payment Type */}
     <div className="md:col-span-1">
       <label className="block text-xs font-medium text-gray-700 mb-0.5">
         Payment Type
       </label>
-      <select
+      <input
+        type="text"
         value={formData.payment_type || ""}
         onChange={(e) => onInputChange("payment_type", e.target.value)}
-        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="" disabled>Select type</option>
-        <option value="token">Token</option>
-        <option value="booking">Booking</option>
-        <option value="part-payment">Part Payment</option>
-        <option value="full-and-final">Full & Final</option>
-        <option value="refund">Refund</option>
-        <option value="other">Other</option>
-      </select>
+        placeholder="e.g., Token, Booking, Part Payment"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
     </div>
+
+    {/* Payment Method */}
     <div className="md:col-span-1">
       <label className="block text-xs font-medium text-gray-700 mb-0.5">
-        Receipt ID (auto)
+        Payment Method
+      </label>
+      <input
+        type="text"
+        value={formData.payment_method || ""}
+        onChange={(e) => onInputChange("payment_method", e.target.value)}
+        placeholder="e.g., Cash, UPI, Bank Transfer"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    {/* Payment Status */}
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Payment Status
+      </label>
+      <input
+        type="text"
+        value={formData.payment_status || ""}
+        onChange={(e) => onInputChange("payment_status", e.target.value)}
+        placeholder="e.g., Paid, Pending"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    {/* Receipt ID */}
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Receipt ID
       </label>
       <input
         type="text"
         value={formData.receipt_id || ""}
-        readOnly
-        placeholder="Will be generated"
-        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-gray-50"
+        onChange={(e) => onInputChange("receipt_id", e.target.value)}
+        placeholder="Receipt ID"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
       />
     </div>
+
+    {/* Receipt Date */}
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Receipt Date
+      </label>
+      <input
+        type="date"
+        value={formData.receipt_date || ""}
+        onChange={(e) => onInputChange("receipt_date", e.target.value)}
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    {/* Payment Date */}
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Payment Date
+      </label>
+      <input
+        type="date"
+        value={formData.payment_date || ""}
+        onChange={(e) => onInputChange("payment_date", e.target.value)}
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    {/* Amount */}
     <div className="md:col-span-1">
       <label className="block text-xs font-medium text-gray-700 mb-0.5">
         Amount (₹)
@@ -1926,27 +2111,78 @@ useEffect(() => {
         className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
       />
     </div>
+
+    {/* Amount in Words */}
+    <div className="md:col-span-2">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Amount in Words
+      </label>
+      <input
+        type="text"
+        value={formData.amount_in_words || ""}
+        onChange={(e) => onInputChange("amount_in_words", e.target.value)}
+        placeholder="Five Lakh Only"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    {/* Deal Value */}
     <div className="md:col-span-1">
       <label className="block text-xs font-medium text-gray-700 mb-0.5">
-        Payment Method
+        Deal Value (₹)
       </label>
-      <select
-        value={formData.payment_method || ""}
-        onChange={(e) => onInputChange("payment_method", e.target.value)}
-        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="" disabled>Select method</option>
-        <option value="cash">Cash</option>
-        <option value="upi">UPI</option>
-        <option value="neft">NEFT</option>
-        <option value="rtgs">RTGS</option>
-        <option value="imps">IMPS</option>
-        <option value="cheque">Cheque</option>
-        <option value="dd">Demand Draft</option>
-        <option value="online">Online</option>
-        <option value="other">Other</option>
-      </select>
+      <input
+        type="number"
+        value={formData.deal_value ?? ""}
+        onChange={(e) => onInputChange("deal_value", Number(e.target.value || 0))}
+        placeholder="Total deal value"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
     </div>
+
+    {/* Related Party */}
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Related Party
+      </label>
+      <input
+        type="text"
+        value={formData.related_party || ""}
+        onChange={(e) => onInputChange("related_party", e.target.value)}
+        placeholder="Party involved"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    {/* Type */}
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Type
+      </label>
+      <input
+        type="text"
+        value={formData.type || ""}
+        onChange={(e) => onInputChange("type", e.target.value)}
+        placeholder="Receipt type"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    {/* Status */}
+    <div className="md:col-span-1">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Status
+      </label>
+      <input
+        type="text"
+        value={formData.status || ""}
+        onChange={(e) => onInputChange("status", e.target.value)}
+        placeholder="Receipt status"
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    {/* Payment Reference */}
     <div className="md:col-span-2">
       <label className="block text-xs font-medium text-gray-700 mb-0.5">
         Payment Reference 
@@ -1959,6 +2195,8 @@ useEffect(() => {
         className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
       />
     </div>
+
+    {/* Buyer Bank Name */}
     <div className="md:col-span-1">
       <label className="block text-xs font-medium text-gray-700 mb-0.5">
         Buyer Bank Name
@@ -1985,8 +2223,24 @@ useEffect(() => {
         className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
       />
     </div>
+
+    {/* Notes */}
+    <div className="md:col-span-3">
+      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+        Notes
+      </label>
+      <textarea
+        value={formData.notes || ""}
+        onChange={(e) => onInputChange("notes", e.target.value)}
+        placeholder="Additional notes..."
+        rows={2}
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
   </div>
 </div>
+
+
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <h3 className="text-base font-semibold text-gray-900 mb-3">Additional Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2082,6 +2336,46 @@ useEffect(() => {
           </div>
         </div>
       </div>
+      {/* --- PropertyReceiptFormModal (prefilled & locked) --- */}
+{showReceiptModal && (
+  <PropertyReceiptFormModalDoc
+    isOpen={showReceiptModal}
+    onClose={() => setShowReceiptModal(false)}
+    userRole="manager"
+    // prefill IDs from current selection
+   prefill={{
+  sellerId:   formData?.seller?.id ?? formData?.seller_id,
+  buyerId:    formData?.buyer?.id  ?? formData?.buyer_id,
+  propertyId: formData?.property?.id ?? formData?.property_id ?? formData?.id,
+}}
+    // lock dropdowns so user can't change the parties/property in receipt modal
+    lockSelections={{ seller: true, buyer: true, property: true }}
+    // create new → no receipt passed
+    receipt={undefined}
+    // when saved, create on server and patch financials back here
+    onSave={async (payload:any) => {
+      try {
+        const created = await propertyPaymentReceiptAPI.create(payload);
+        const saved = created?.data ?? created;
+
+        // Refresh available receipts
+        await fetchAvailableReceipts();
+        
+        // Auto-apply the newly created receipt
+        if (autoUseReceipt && saved) {
+          setAppliedReceipt(saved);
+          patchFinancialFromReceipt(saved);
+        }
+
+        toast.success("Receipt created & applied to document.");
+        setShowReceiptModal(false);
+      } catch (e:any) {
+        toast.error(`Failed to create receipt: ${e?.message || e}`);
+      }
+    }}
+  />
+)}
+
     </div>
   );
 };

@@ -1,5 +1,5 @@
 // src/pages/dashboard/components/BuyerFormModal.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { CSSProperties, useEffect, useRef, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
 import { usersAPI } from "@/lib/api";
@@ -835,7 +835,7 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
                             window.scrollX,
                           width:
                             unitTypeButtonRef.current.getBoundingClientRect().width,
-                        }}
+                        } as CSSProperties}
                       >
                         {(unitTypeOptions.length > 0
                           ? unitTypeOptions
@@ -915,7 +915,7 @@ const BuyerFormModal: React.FC<BuyerFormModalProps> = ({
                             window.scrollX,
                           width:
                             locationButtonRef.current.getBoundingClientRect().width,
-                        }}
+                         } as CSSProperties}
                       >
                         {(locationOptions.length > 0
                           ? locationOptions

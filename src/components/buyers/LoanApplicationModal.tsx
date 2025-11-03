@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { CSSProperties, useState } from 'react';
 import { X, Save, CreditCard, User, Building, DollarSign, FileText, CheckCircle, AlertCircle, Calculator, Percent, TrendingUp, Award, Shield, Clock, Phone, Mail, MapPin } from 'lucide-react';
 
 const LoanApplicationModal = ({ isOpen, onClose, buyer, onUpdateBuyer }: any) => {
@@ -596,7 +596,7 @@ const LoanApplicationModal = ({ isOpen, onClose, buyer, onUpdateBuyer }: any) =>
                         className={`h-1.5 rounded-full ${
                           eligibility.eligibilityRatio <= 100 ? 'bg-green-500' : 'bg-red-500'
                         }`}
-                        style={{ width: `${Math.min(eligibility.eligibilityRatio, 100)}%` }}
+                        style={{ width: `${Math.min(eligibility.eligibilityRatio, 100)}%` } as CSSProperties}
                       ></div>
                     </div>
                     <div className="text-xs text-blue-700">
