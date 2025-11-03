@@ -51,6 +51,7 @@ import {
   BedDouble, Bath, Ruler, IndianRupee, Grid,
   Bed,
   ArrowRight,
+  Building2
 } from 'lucide-react';
 import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -93,14 +94,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const [similarPropertiesLoading, setSimilarPropertiesLoading] = useState(false);
   // add near other hooks / state
   const [masterData, setMasterData] = useState<any>({});
-const [loadingMasters, setLoadingMasters] = useState(false);
+  const [loadingMasters, setLoadingMasters] = useState(false);
   const hasRecordedViewRef = React.useRef<{ [key: string]: boolean }>({});
   const [contactForm, setContactForm] = useState({
     salutation: '',
     name: '',
     phone: '',
     email: '',
-    source:'website',
+    source: 'website',
   });
 
   // Add this state near your other useState declarations (around line 60)
@@ -115,29 +116,29 @@ const [loadingMasters, setLoadingMasters] = useState(false);
 
   // NEW: auth
   const { currentUser, user } = useAuth() as any;
-// useEffect में master data fetch करें
-useEffect(() => {
-  const fetchMasterData = async () => {
-    try {
-      setLoadingMasters(true);
-      const data = await getMasterDropdownOptions(['common']);
-      setMasterData(data || {});
-    } catch (error) {
-      console.error('Error fetching master data:', error);
-    } finally {
-      setLoadingMasters(false);
-    }
-  };
+  // useEffect में master data fetch करें
+  useEffect(() => {
+    const fetchMasterData = async () => {
+      try {
+        setLoadingMasters(true);
+        const data = await getMasterDropdownOptions(['common']);
+        setMasterData(data || {});
+      } catch (error) {
+        console.error('Error fetching master data:', error);
+      } finally {
+        setLoadingMasters(false);
+      }
+    };
 
-  fetchMasterData();
-}, []);
-// Master data से salutation options निकालें
-const salutationOptions = masterData['salutation'] || [
-  { value: 'Mr', label: 'Mr' },
-  { value: 'Ms', label: 'Ms' },
-  { value: 'Mrs', label: 'Mrs' },
-  { value: 'Dr', label: 'Dr' },
-];
+    fetchMasterData();
+  }, []);
+  // Master data से salutation options निकालें
+  const salutationOptions = masterData['salutation'] || [
+    { value: 'Mr', label: 'Mr' },
+    { value: 'Ms', label: 'Ms' },
+    { value: 'Mrs', label: 'Mrs' },
+    { value: 'Dr', label: 'Dr' },
+  ];
   // Helper: buyer id resolve (different shapes ke liye safe)
   const getBuyerIdFromAuth = (): number | null => {
     // try common shapes
@@ -351,38 +352,6 @@ const salutationOptions = masterData['salutation'] || [
     if (Array.isArray(p?.amenityList) && p.amenityList.length) return p.amenityList.map(String);
     return [];
   };
-
-  // const extractLocalityCity = (addr: any): string => {
-  //   if (!addr && addr !== '') return ' - ';
-  //   if (typeof addr === 'object') {
-  //     const locality = (addr?.locality ?? addr?.neighborhood ?? addr?.subLocality ?? addr?.area ?? '').toString().trim();
-  //     const city = (addr?.city ?? addr?.town ?? addr?.district ?? addr?.region ?? addr?.state ?? '').toString().trim();
-  //     if (locality && city) return `${locality}, ${city}`;
-  //     if (city) return city;
-  //     if (locality) return locality;
-  //   }
-  //   if (typeof addr === 'string') {
-  //     const cleaned = addr.replace(/\r?\n/g, ',').replace(/[-|\/]+/g, ',').replace(/\s+/g, ' ').trim();
-  //     const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean);
-  //     if (parts.length === 0) return ' - ';
-  //     if (parts.length === 1) return parts[0];
-  //     const last = parts[parts.length - 1];
-  //     const secondLast = parts[parts.length - 2];
-  //     const isPincode = (s: string) => /^\d{5,6}$/.test(s.replace(/\s+/g, ''));
-  //     if (isPincode(last)) {
-  //       const withoutPin = parts.slice(0, -1);
-  //       if (withoutPin.length >= 2) {
-  //         return `${withoutPin[withoutPin.length - 2]}, ${withoutPin[withoutPin.length - 1]}`;
-  //       }
-  //       return withoutPin[withoutPin.length - 1] ?? withoutPin[0] ?? ' - ';
-  //     }
-  //     return `${secondLast}, ${last}`;
-  //   }
-  //   return ' - ';
-  // };
-
-
-  // CSS-based responsive tag count (no window dependency) - Show ALL tags
   // put above PropertyTags (same place where old extractLocalityCity lived)
   const isPin = (s: string) => /^\d{5,6}$/.test((s || "").replace(/\s+/g, ""));
 
@@ -647,6 +616,29 @@ const salutationOptions = masterData['salutation'] || [
       possessionMonth: p?.possession_month ?? p?.possessionMonth ?? null,
       possessionYear: p?.possession_year ?? p?.possessionYear ?? null,
       created_at: createdAtRaw ?? null,
+
+      // ✅ ADD THESE FIELDS TO PROPERLY EXTRACT FROM BACKEND DATA
+      parkingType: p?.parkingType ?? p?.parking_type ?? '',
+      parkingQty: p?.parkingQty ?? p?.parking_qty ?? p?.parking_spots ?? '',
+      floor: p?.floor ?? '',
+      totalFloors: p?.totalFloors ?? p?.total_floors ?? '',
+      status: p?.status ?? p?.property_status ?? '',
+      finalPrice: p?.finalPrice ?? p?.final_price ?? null,
+      priceType: p?.priceType ?? p?.price_type ?? 'Fixed',
+      wing: p?.wing ?? '',
+      unitNo: p?.unitNo ?? p?.unit_no ?? '',
+      society: p?.society ?? '',
+      address: p?.address ?? '',
+      selling_rights: p?.selling_rights ?? p?.sellingRights ?? '',
+      leadSource: p?.leadSource ?? p?.lead_source ?? '',
+      purchaseMonth: p?.purchaseMonth ?? p?.purchase_month ?? null,
+      purchaseYear: p?.purchaseYear ?? p?.purchase_year ?? null,
+      furnishingItems: Array.isArray(p?.furnishingItems) ? p.furnishingItems
+        : Array.isArray(p?.furnishing_items) ? p.furnishing_items
+          : [],
+      nearby_places: Array.isArray(p?.nearby_places) ? p.nearby_places
+        : Array.isArray(p?.nearbyPlaces) ? p.nearbyPlaces
+          : [],
     };
 
     return normalized;
@@ -956,51 +948,51 @@ const salutationOptions = masterData['salutation'] || [
   const unitType = property?.unitType ?? '';
   const subtype = property?.subtype ?? '';
 
-const handleContactSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  try {
-    const buyerData = {
-      // ⚠️ If backend really needs the typo, bhej do — warna chhod do.
-      // salution: contactForm.salutation, 
-      salutation: contactForm.salutation,     // screenshot me DB field 'salutation' dikh raha hai
-      name: contactForm.name.trim(),          // only name
-      phone: contactForm.phone.replace(/\D/g, ''),
-      email: contactForm.email?.trim() || undefined,
-      source: 'Website',
-      property_interested: property?.id ? String(property.id) : undefined,
-      property_slug: property?.slug || property?.raw?.slug,
-      status: 'new_lead',
-      lead_type: 'property_inquiry',
-    };
+    try {
+      const buyerData = {
+        // ⚠️ If backend really needs the typo, bhej do — warna chhod do.
+        // salution: contactForm.salutation, 
+        salutation: contactForm.salutation,     // screenshot me DB field 'salutation' dikh raha hai
+        name: contactForm.name.trim(),          // only name
+        phone: contactForm.phone.replace(/\D/g, ''),
+        email: contactForm.email?.trim() || undefined,
+        source: 'Website',
+        property_interested: property?.id ? String(property.id) : undefined,
+        property_slug: property?.slug || property?.raw?.slug,
+        status: 'new_lead',
+        lead_type: 'property_inquiry',
+      };
 
-    // Call
-    const res = await buyerAPI.create(buyerData);
+      // Call
+      const res = await buyerAPI.create(buyerData);
 
-    // ---- Normalize possible shapes ----
-    // res could be axios response, or already unwrapped
-    const body = res?.data ?? res;                 // axios => res.data, custom => res
-    const buyer = body?.data ?? body;              // sometimes wrapped in {data: {...}}
-    const ok = !!(buyer?.id);                      // consider success if id present
+      // ---- Normalize possible shapes ----
+      // res could be axios response, or already unwrapped
+      const body = res?.data ?? res;                 // axios => res.data, custom => res
+      const buyer = body?.data ?? body;              // sometimes wrapped in {data: {...}}
+      const ok = !!(buyer?.id);                      // consider success if id present
 
-    if (ok) {
-      console.log("✅ Buyer created:", buyer);
-      toast.success("We'll contact you shortly!");
-      // reset & close on success only
-      setShowContactForm(false);
-      setContactForm({ salutation: 'Mr', name: '', phone: '', email: '',source:'website' });
-    } else {
-      console.error("❌ Unexpected create response:", body);
-      toast.error("Failed to submit request. Please try again.");
-      // keep form open so user can retry/correct
+      if (ok) {
+        console.log("✅ Buyer created:", buyer);
+        toast.success("We'll contact you shortly!");
+        // reset & close on success only
+        setShowContactForm(false);
+        setContactForm({ salutation: 'Mr', name: '', phone: '', email: '', source: 'website' });
+      } else {
+        console.error("❌ Unexpected create response:", body);
+        toast.error("Failed to submit request. Please try again.");
+        // keep form open so user can retry/correct
+      }
+    } catch (error: any) {
+      console.error("🔥 Error creating buyer:", error);
+      // Server may return 4xx/5xx but record already created in some edge cases — log carefully
+      toast.error(error?.response?.data?.message || error?.message || "Something went wrong. Please try again.");
+      // keep form open on error
     }
-  } catch (error: any) {
-    console.error("🔥 Error creating buyer:", error);
-    // Server may return 4xx/5xx but record already created in some edge cases — log carefully
-    toast.error(error?.response?.data?.message || error?.message || "Something went wrong. Please try again.");
-    // keep form open on error
-  }
-};
+  };
 
 
   const handlePaywallOpen = (feature: 'ai-recommendations' | 'ai-investment' | 'premium-details') => {
@@ -1222,13 +1214,6 @@ const handleContactSubmit = async (e: React.FormEvent) => {
                 <PropertyTags tags={propertyTags} />
               </div>
               <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
-                {/* <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
-
-                <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Property Description</h2>
-                <p className="text-xs sm:text-sm md:text-base text-gray-700 leading-relaxed">
-                  {displayOrDash(property?.description) === ' - ' ? ' - ' : property?.description}
-                </p>
-              </div> */}
                 <PropertyDescriptionSmart
                   description={property?.description}
                   property={property}
@@ -1260,30 +1245,32 @@ const handleContactSubmit = async (e: React.FormEvent) => {
                       <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.subtype)}</span>
                     </div>
 
-                    {property?.raw?.wing && (
-                      <div>
-                        <span className="font-semibold text-gray-800">Wing:</span>
-                        <span className="text-gray-600 ml-1 break-words">{displayOrDash(property.raw.wing)}</span>
-                      </div>
-                    )}
+                    {/* ✅ FIXED: Parking Type */}
+                    <div>
+                      <span className="font-semibold text-gray-800">Parking Type:</span>
+                      <span className="text-gray-600 ml-1 break-words">
+                        {displayOrDash(property?.parkingType)}
+                      </span>
+                    </div>
 
-                    {property?.raw?.unitNo && (
-                      <div>
-                        <span className="font-semibold text-gray-800">Unit No:</span>
-                        <span className="text-gray-600 ml-1 break-words">{displayOrDash(property.raw.unitNo)}</span>
-                      </div>
-                    )}
+                    {/* ✅ CHANGED: Unit No ke place par Balcony */}
+                    {/* <div>
+                      <span className="font-semibold text-gray-800">Balcony:</span>
+                      <span className="text-gray-600 ml-1 break-words">
+                        {displayOrDash(property?.balcony ?? property?.raw?.balcony ?? '2')}
+                      </span>
+                    </div> */}
 
-                    {(property?.raw?.floor || property?.raw?.totalFloors) && (
-                      <div>
-                        <span className="font-semibold text-gray-800">Floor:</span>
-                        <span className="text-gray-600 ml-1">
-                          {property?.raw?.floor && property?.raw?.totalFloors
-                            ? `${property.raw.floor} / ${property.raw.totalFloors}`
-                            : displayOrDash(property?.raw?.floor)}
-                        </span>
-                      </div>
-                    )}
+                    {/* ✅ FIXED: Floor */}
+                    <div>
+                      <span className="font-semibold text-gray-800">Floor:</span>
+                      <span className="text-gray-600 ml-1 break-words">
+                        {property?.floor && property?.totalFloors
+                          ? `${property.floor} / ${property.totalFloors}`
+                          : displayOrDash(property?.floor)
+                        }
+                      </span>
+                    </div>
 
                     {property?.square_feet && (
                       <div>
@@ -1294,10 +1281,24 @@ const handleContactSubmit = async (e: React.FormEvent) => {
                       </div>
                     )}
 
+                    {/* ✅ FIXED: Status */}
+                    <div>
+                      <span className="font-semibold text-gray-800">Status:</span>
+                      <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.status)}</span>
+                    </div>
+
                     <div>
                       <span className="font-semibold text-gray-800">Sell Price:</span>
                       <span className="text-gray-600 ml-1">
                         {formatCurrency(property?.price)}
+                      </span>
+                    </div>
+
+                    {/* ✅  Price Type */}
+                    <div>
+                      <span className="font-semibold text-gray-800">Price Type:</span>
+                      <span className="text-gray-600 ml-1 break-words">
+                        {displayOrDash(property?.priceType)}
                       </span>
                     </div>
 
@@ -1308,7 +1309,7 @@ const handleContactSubmit = async (e: React.FormEvent) => {
 
                     {(property?.possessionMonth || property?.possessionYear) && (
                       <div>
-                        <span className="font-semibold text-gray-800">Possession:</span>
+                        <span className="font-semibold text-gray-800">Property Age:</span>
                         <span className="text-gray-600 ml-1">
                           {[
                             getMonthName(property?.possessionMonth),
@@ -1317,19 +1318,12 @@ const handleContactSubmit = async (e: React.FormEvent) => {
                         </span>
                       </div>
                     )}
-
-                    {property?.raw?.selling_rights && (
-                      <div>
-                        <span className="font-semibold text-gray-800">Selling Rights:</span>
-                        <span className="text-gray-600 ml-1 break-words">{displayOrDash(property.raw.selling_rights)}</span>
-                      </div>
-                    )}
-
-                    {property?.raw?.nearby_places?.length > 0 && (
+                    
+                    {property?.nearby_places?.length > 0 && (
                       <div className="sm:col-span-2 lg:col-span-3">
                         <span className="font-semibold text-gray-800">Nearby:</span>
                         <div className="mt-1 flex flex-wrap gap-1">
-                          {property.raw.nearby_places.map((p: any, i: number) => (
+                          {property.nearby_places.map((p: any, i: number) => (
                             <span
                               key={i}
                               className="inline-block bg-gray-100 px-2 py-0.5 rounded-full text-[10px] sm:text-xs text-gray-700"
@@ -1343,11 +1337,11 @@ const handleContactSubmit = async (e: React.FormEvent) => {
                       </div>
                     )}
 
-                    {property?.raw?.address && (
+                    {property?.address && (
                       <div className="sm:col-span-2 lg:col-span-3">
                         <div className="font-semibold text-gray-800 mb-1">Address:</div>
                         <div className="ml-1 text-gray-700 whitespace-pre-line break-words text-xs sm:text-sm">
-                          {property.raw.address}
+                          {property.address}
                         </div>
                       </div>
                     )}
@@ -1558,40 +1552,8 @@ const handleContactSubmit = async (e: React.FormEvent) => {
                 </div>
               )}
             </div>
-            {/* this is inisital start  */}
+
             {/* Location & Nearby - Responsive */}
-            {/* <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 ring-gray-100">
-              <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Location & Connectivity</h2>
-
-              <div className="h-36 sm:h-40 md:h-44 lg:h-48 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg sm:rounded-xl mb-2 sm:mb-3 flex items-center justify-center ring-1 ring-slate-300/40">
-                <div className="text-center text-gray-500 leading-tight">
-                  <MapPin size={24} className="sm:w-7 sm:h-7 md:w-8 md:h-8 mx-auto mb-1" />
-                  <p className="text-xs sm:text-sm">Interactive Map Coming Soon</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-1.5 sm:mb-2 text-xs sm:text-sm">Transportation</h3>
-                  <ul className="space-y-0.5 sm:space-y-1 text-xs sm:text-sm text-gray-600 leading-tight">
-                    <li>• Bandra Station - 0.5 km</li>
-                    <li>• Airport - 8 km</li>
-                    <li>• Highway Access - 1 km</li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-1.5 sm:mb-2 text-xs sm:text-sm">Essential Services</h3>
-                  <ul className="space-y-0.5 sm:space-y-1 text-xs sm:text-sm text-gray-600 leading-tight">
-                    <li>• Shopping Mall - 0.3 km</li>
-                    <li>• Hospital - 1.2 km</li>
-                    <li>• School - 0.8 km</li>
-                  </ul>
-                </div>
-              </div>
-            </div> */}
-            {/* this is inisitial code  */}
-
-            {/* we can comment if not need below code */}
             <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 md:p-6 ring-1 ring-gray-100">
               {/* Header */}
               <h2 className="font-bold text-[#0b3856] text-base sm:text-lg mb-3 flex items-center gap-2">
@@ -1670,9 +1632,6 @@ const handleContactSubmit = async (e: React.FormEvent) => {
                 </a>
               </div>
             </div>
-
-            {/* this last line of this code  */}
-
 
             {/* Reviews - Responsive */}
             <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 ring-gray-100">
@@ -2005,116 +1964,40 @@ const handleContactSubmit = async (e: React.FormEvent) => {
 
             {/* Property Highlights */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden ring-1 ring-gray-100">
-              {/* Header */}
               <div className="px-2 py-1 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <h3 className="font-bold text-gray-900 text-sm">Property Highlights</h3>
               </div>
 
-              {/* Top stats */}
-              <div className="p-2 md:p-3">
-                <div className="grid grid-cols-3 gap-3 md:gap-3">
-                  <div className="rounded-lg p-2.5 md:p-3 border border-gray-200/70 bg-white ring-1 ring-gray-50 hover:shadow-md hover:-translate-y-0.5 transition-all">
-                    <div className="flex items-center gap-1 mb-1">
-                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-lg bg-blue-50 ring-1 ring-blue-100">
-                        <Bed className="text-blue-600" size={16} />
+              {/* COMPACT 2-col grid (stays short) */}
+              <div className="p-2 md:p-3 grid grid-cols-2 gap-2">
+                {[
+                  { label: "Bedrooms", icon: <Bed size={14} className="text-blue-600" />, value: property?.bedrooms ?? "-" },
+                  { label: "Bathrooms", icon: <Bath size={14} className="text-green-600" />, value: property?.bathrooms ?? "-" },
+                  { label: "Parking", icon: <Car size={14} className="text-orange-600" />, value: property?.parkingQty ?? "-" },
+                  { label: "Balcony", icon: <Building2 size={14} className="text-cyan-600" />, value: property?.balcony ?? "2" },
+                  { label: "Property Type", icon: <Building size={14} className="text-blue-600" />, value: property?.type ?? "Residential" },
+                  { label: "Built Year", icon: <Calendar size={14} className="text-green-600" />, value: property?.possessionYear ?? "-" },
+                  { label: "Furnishing", icon: <Home size={14} className="text-purple-600" />, value: property?.furnishing ?? "Semi-Furnished" },
+                  { label: "Facing", icon: <Target size={14} className="text-orange-600" />, value: property?.facing ?? "-" },
+                ].map((it, i) => (
+                  <div
+                    key={i}
+                    className="h-11 px-2 rounded-lg bg-white border border-gray-200/70 ring-1 ring-gray-50
+                   flex items-center justify-between gap-2 hover:shadow-sm transition-all"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-lg
+                           bg-gray-50 ring-1 ring-gray-100">
+                        {it.icon}
                       </span>
-                      <span className="text-[12px] font-semibold text-gray-500 tracking-wider">Bedrooms</span>
+                      <span className="text-[12px] font-medium text-gray-600">{it.label}</span>
                     </div>
-                    <div className="text-[15px] md:text-[16px] font-semibold text-gray-900 text-center leading-none">
-                      {displayOrDash(property?.bedrooms)}
-                    </div>
+                    <span className="text-[13px] font-semibold text-gray-900 leading-none">{it.value}</span>
                   </div>
-
-                  <div className="rounded-lg p-2.5 md:p-3 border border-gray-200/70 bg-white ring-1 ring-gray-50 hover:shadow-md hover:-translate-y-0.5 transition-all">
-                    <div className="flex items-center gap-1 mb-1">
-                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-lg bg-green-50 ring-1 ring-green-100">
-                        <Bath className="text-green-600" size={16} />
-                      </span>
-                      <span className="text-[12px] font-semibold text-gray-500 tracking-wider">Bathrooms</span>
-                    </div>
-                    <div className="text-[15px] md:text-[16px] font-semibold text-gray-900 text-center leading-none">
-                      {displayOrDash(property?.bathrooms ?? 3)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg p-2.5 md:p-3 border border-gray-200/70 bg-white ring-1 ring-gray-50 hover:shadow-md hover:-translate-y-0.5 transition-all">
-                    <div className="flex items-center gap-1 mb-1">
-                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-lg bg-orange-50 ring-1 ring-orange-100">
-                        <Car className="text-orange-600" size={16} />
-                      </span>
-                      <span className="text-[12px] font-semibold text-gray-500 tracking-wider">Parking</span>
-                    </div>
-                    <div className="text-[15px] md:text-[16px] font-semibold text-gray-900 text-center leading-none">
-                      {displayOrDash(property?.parking ?? 2)}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Detail stats */}
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {/* Property Type */}
-                  <div className="rounded-lg p-2 border border-gray-200/70 bg-white ring-1 ring-gray-100 hover:shadow-md transition-all">
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-blue-50 ring-1 ring-blue-100">
-                        <Building className="text-blue-600" size={16} />
-                      </span>
-                      <span className="text-[12px] font-medium text-gray-500 tracking-wide">Property Type</span>
-                    </div>
-                    <div className="text-[13px] font-semibold text-gray-900 text-center">
-                      {(() => {
-                        const val = displayOrDash(property?.type);
-                        return val === ' - ' ? ' - ' : property?.type || 'Villa';
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Built Year */}
-                  <div className="rounded-lg p-2 border border-gray-200/70 bg-white ring-1 ring-gray-100 hover:shadow-md transition-all">
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-green-50 ring-1 ring-green-100">
-                        <Calendar className="text-green-600" size={16} />
-                      </span>
-                      <span className="text-[12px] font-medium text-gray-500 tracking-wide">Built Year</span>
-                    </div>
-                    <div className="text-[13px] font-semibold text-gray-900 text-center">
-                      {displayOrDash(property?.possessionYear)}
-                    </div>
-                  </div>
-
-                  {/* Furnishing */}
-                  <div className="rounded-lg p-2 border border-gray-200/70 bg-white ring-1 ring-gray-100 hover:shadow-md transition-all">
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-purple-50 ring-1 ring-purple-100">
-                        <Home className="text-purple-600" size={16} />
-                      </span>
-                      <span className="text-[12px] font-medium text-gray-500 tracking-wide">Furnishing</span>
-                    </div>
-                    <div className="text-[13px] font-semibold text-gray-900 text-center">
-                      {(() => {
-                        const val = displayOrDash(property?.furnishing);
-                        return val === ' - ' ? ' - ' : property?.furnishing || 'Semi-Furnished';
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Facing */}
-                  <div className="rounded-lg p-2 border border-gray-200/70 bg-white ring-1 ring-gray-100 hover:shadow-md transition-all">
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-orange-50 ring-1 ring-orange-100">
-                        <Target className="text-orange-600" size={16} />
-                      </span>
-                      <span className="text-[12px] font-medium text-gray-500 tracking-wide ">Facing</span>
-                    </div>
-                    <div className="text-[13px] font-semibold text-gray-900 text-center">
-                      {(() => {
-                        const val = displayOrDash(property?.facing);
-                        return val === ' - ' ? ' - ' : property?.facing || 'North-East';
-                      })()}
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
+
 
             {/* Price Breakdown */}
             <div className="bg-white rounded-xl shadow-sm p-2 ring-1 ring-gray-100">
@@ -2274,111 +2157,111 @@ const handleContactSubmit = async (e: React.FormEvent) => {
       </div>
 
       {/* Contact Form Modal */}
-   {showContactForm && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-bold text-[#0b3856]">Call Back Request</h3>
-        <button
-          onClick={() => setShowContactForm(false)}
-          className="text-gray-400 hover:text-[#0b3856]"
-        >
-          <X size={20} />
-        </button>
-      </div>
+      {showContactForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-[#0b3856]">Call Back Request</h3>
+              <button
+                onClick={() => setShowContactForm(false)}
+                className="text-gray-400 hover:text-[#0b3856]"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-      <form onSubmit={handleContactSubmit} className="space-y-3">
-        {/* Salutation + Name Row */}
-        <div className="grid grid-cols-3 gap-3">
-          {/* Salutation from Master Data */}
-          <div>
-            <label className="block text-sm font-medium text-[#0b3856] mb-1">
-              Salutation *
-            </label>
-            <select
-              value={contactForm.salutation}
-              onChange={(e) => 
-                setContactForm({ ...contactForm, salutation: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
-              required
-            >
-              <option value="">Select</option>
-              {salutationOptions.map((option: any) => (
-                <option 
-                  key={option.value || option.label} 
-                  value={option.value || option.label}
+            <form onSubmit={handleContactSubmit} className="space-y-3">
+              {/* Salutation + Name Row */}
+              <div className="grid grid-cols-3 gap-3">
+                {/* Salutation from Master Data */}
+                <div>
+                  <label className="block text-sm font-medium text-[#0b3856] mb-1">
+                    Salutation *
+                  </label>
+                  <select
+                    value={contactForm.salutation}
+                    onChange={(e) =>
+                      setContactForm({ ...contactForm, salutation: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
+                    required
+                  >
+                    <option value="">Select</option>
+                    {salutationOptions.map((option: any) => (
+                      <option
+                        key={option.value || option.label}
+                        value={option.value || option.label}
+                      >
+                        {option.label || option.value}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Name */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-[#0b3856] mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={contactForm.name}
+                    onChange={(e) =>
+                      setContactForm({ ...contactForm, name: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-medium text-[#0b3856] mb-1">
+                  Phone *
+                </label>
+                <input
+                  type="tel"
+                  value={contactForm.phone}
+                  onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
+                  required
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-[#0b3856] mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
+                />
+              </div>
+
+              {/* Buttons */}
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowContactForm(false)}
+                  className="flex-1 px-4 py-2 border border-[#0b3856] text-[#0b3856] rounded-lg hover:bg-[#0b3856] hover:text-white transition-colors text-sm"
                 >
-                  {option.label || option.value}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Name */}
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-[#0b3856] mb-1">
-              Name *
-            </label>
-            <input
-              type="text"
-              value={contactForm.name}
-              onChange={(e) => 
-                setContactForm({ ...contactForm, name: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
-              required
-            />
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-[#E6761D] text-white rounded-lg hover:bg-[#CC6A1A] transition-colors text-sm"
+                >
+                  Submit
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-
-        {/* Phone */}
-        <div>
-          <label className="block text-sm font-medium text-[#0b3856] mb-1">
-            Phone *
-          </label>
-          <input
-            type="tel"
-            value={contactForm.phone}
-            onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
-            required
-          />
-        </div>
-
-        {/* Email */}
-        <div>
-          <label className="block text-sm font-medium text-[#0b3856] mb-1">
-            Email
-          </label>
-          <input
-            type="email"
-            value={contactForm.email}
-            onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
-          />
-        </div>
-
-        {/* Buttons */}
-        <div className="flex space-x-3">
-          <button
-            type="button"
-            onClick={() => setShowContactForm(false)}
-            className="flex-1 px-4 py-2 border border-[#0b3856] text-[#0b3856] rounded-lg hover:bg-[#0b3856] hover:text-white transition-colors text-sm"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="flex-1 px-4 py-2 bg-[#E6761D] text-white rounded-lg hover:bg-[#CC6A1A] transition-colors text-sm"
-          >
-            Submit
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
+      )}
 
       {/* Paywall Modal */}
       <AIPaywallOverlay
