@@ -706,7 +706,7 @@ const BuyerFormModal = ({
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                   <IndianRupee className="mr-2" size={20} />
-                  Budget Information
+                  Budget Information (Min-Max)
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <BudgetInput

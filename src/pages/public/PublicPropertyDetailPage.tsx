@@ -1288,19 +1288,19 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     </div>
 
                     <div>
-                      <span className="font-semibold text-gray-800">Sell Price:</span>
+                      <span className="font-semibold text-gray-800">Price:</span>
                       <span className="text-gray-600 ml-1">
-                        {formatCurrency(property?.price)}
+                        {formatCurrency(property?.price)}({displayOrDash(property?.priceType)})
                       </span>
                     </div>
 
                     {/* ✅  Price Type */}
-                    <div>
+                    {/* <div>
                       <span className="font-semibold text-gray-800">Price Type:</span>
                       <span className="text-gray-600 ml-1 break-words">
                         {displayOrDash(property?.priceType)}
                       </span>
-                    </div>
+                    </div> */}
 
                     <div>
                       <span className="font-semibold text-gray-800">Furnishing:</span>

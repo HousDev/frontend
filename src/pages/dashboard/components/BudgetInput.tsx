@@ -110,7 +110,7 @@ const BudgetInput: React.FC<BudgetInputProps> = ({
   return (
     <div className="flex-1">
       <label className="block text-xs font-medium text-gray-700 mb-1">
-       Sell Price
+       Budget (INR)
       </label>
       <input
         type="text"

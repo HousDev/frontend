@@ -1172,7 +1172,7 @@ const SellerFormModal: React.FC<SellerFormModalProps> = ({
           {/* Row X: Asking Price (uses PriceRangeSelector) */}
           <div className="grid grid-cols-1 sm:grid-cols-4 md:grid-cols-4 gap-2">
             <div className="sm:col-span-2 md:col-span-2">
-              <label className="block text-xs font-medium">Asking Price (Max)</label>
+              <label className="block text-xs font-medium">Sell Price (Max)</label>
               <PriceRangeSelector
                 initialMax={Number(formData.price_max_cr) || 0.01}
                 max={10} // 10 Cr cap
