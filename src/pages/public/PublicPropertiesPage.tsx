@@ -205,6 +205,44 @@ const extractBathrooms = (p: any) => {
   return null;
 };
 
+// ✅ IMPROVED: Dynamic parking extraction
+const extractParkingCount = (p: any): number => {
+  if (!p) return 0;
+
+  // Try multiple possible parking fields
+  const possibleFields = [
+    p.parking,
+    p.parkingQty,
+    p.parking_qty,
+    p.parking_spots,
+    p.car_parking,
+    p._raw?.parking,
+    p._raw?.parkingQty,
+    p._raw?.parking_qty,
+    p._raw?.parking_spots,
+    p._raw?.car_parking,
+    p._raw?.parking_count
+  ];
+
+  for (const field of possibleFields) {
+    if (field !== undefined && field !== null && field !== '') {
+      const num = Number(field);
+      if (Number.isFinite(num) && num >= 0) {
+        return num;
+      }
+    }
+  }
+
+  // Fallback: Check amenities for parking
+  const amenities = Array.isArray(p.amenities) ? p.amenities : [];
+  const hasParking = amenities.some((a: string) =>
+    a.toLowerCase().includes('parking') ||
+    a.toLowerCase().includes('car parking')
+  );
+
+  return hasParking ? 1 : 0;
+};
+
 const extractParkingTypes = (p: any) => {
   const raw = p._raw || {};
   let parkingTypes: string[] = [];
@@ -216,9 +254,13 @@ const extractParkingTypes = (p: any) => {
     if (typeof raw.parking_details === 'string') parkingTypes = parkingTypes.concat(raw.parking_details.split(',').map((s: string) => s.trim().toLowerCase()));
     else if (Array.isArray(raw.parking_details)) parkingTypes = parkingTypes.concat(raw.parking_details.map((s: string) => s.toString().toLowerCase()));
   }
-  if (typeof p.parking === 'number' && p.parking > 0) {
+
+  // Use dynamic parking count
+  const parkingCount = extractParkingCount(p);
+  if (parkingCount > 0) {
     parkingTypes.push('4w', '2w');
   }
+
   if (Array.isArray(p.amenities)) {
     p.amenities.forEach((a: string) => {
       const low = a.toLowerCase();
@@ -478,266 +520,269 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   }, [location.search]);
 
   // main loader (ONLY PUBLIC)
-const loadPropertiesFromSearch = useCallback(async () => {
-  setLoading(true);
-  setError('');
-  try {
-    const qp = new URLSearchParams(location.search);
-
-    const hasAdvanced = Boolean(
-      qp.get('propertyType') || qp.get('property_type') ||
-      qp.get('budget_min') || qp.get('minPrice') ||
-      qp.get('budget_max') || qp.get('maxPrice') ||
-      qp.get('unitTypes') || qp.get('unitType') || qp.get('unit_type') ||
-      qp.get('furnishing') || qp.get('possession') ||
-      qp.get('min_rating') || qp.get('parking') ||
-      qp.get('floor_min') || qp.get('floor_max') ||
-      qp.get('bathrooms') || qp.get('bedrooms') ||
-      qp.get('property_subtype') || qp.get('propertySubtype') ||
-      qp.get('sort')
-    );
-
-    // --- helpers ---
-    const normalizeResponse = (resp: any): any[] => {
-      if (Array.isArray(resp)) return resp;
-      if (resp?.data && Array.isArray(resp.data)) return resp.data;
-      if (resp?.results && Array.isArray(resp.results)) return resp.results;
-      if (resp?.properties && Array.isArray(resp.properties)) return resp.properties;
-      if (Array.isArray(resp?.items)) return resp.items;
-      return [];
-    };
-
-    const buildAdvancedParams = () => {
-      const params: any = {
-        // public gate
-        isPublic: true, is_public: 1, visibility: 'public', publicOnly: 1,
-      };
-
-      // location (support repeated + CSV)
-      const allLocs = qp.getAll('location');
-      if (allLocs.length > 0) params.location = allLocs.join(',');
-      else if (qp.get('location')) params.location = qp.get('location');
-
-      // city
-      if (qp.get('city')) params.city = qp.get('city');
-
-      // property type (send both keys)
-      const pt = qp.get('propertyType') || qp.get('property_type');
-      if (pt) { params.propertyType = pt; params.property_type = pt; }
-
-      // subtype
-      const pst = qp.get('property_subtype') || qp.get('propertySubtype');
-      if (pst) { params.propertySubtype = pst; params.property_subtype = pst; }
-
-      // unit types (collect + send all aliases)
-      let unitTypes: string[] = [];
-      if (qp.get('unitTypes')) {
-        unitTypes = (qp.get('unitTypes') || '')
-          .split(',').map(s => s.trim()).filter(Boolean);
-      } else if (qp.get('unitType') || qp.get('unit_type')) {
-        unitTypes = [qp.get('unitType') || qp.get('unit_type')!].filter(Boolean) as string[];
-      }
-      if (unitTypes.length) {
-        params.unitTypes = unitTypes;
-        params.unitType = unitTypes[0];           // some backends accept single
-        params.unit_type = unitTypes.join(',');   // some accept CSV
-      }
-
-      // budget (send both styles)
-      const budgetMin = qp.get('budget_min') || qp.get('minPrice');
-      const budgetMax = qp.get('budget_max') || qp.get('maxPrice');
-      if (budgetMin) { params.budget_min = Number(budgetMin); params.minPrice = Number(budgetMin); }
-      if (budgetMax) { params.budget_max = Number(budgetMax); params.maxPrice = Number(budgetMax); }
-
-      if (qp.get('sort')) params.sort = qp.get('sort');
-      if (qp.get('furnishing')) params.furnishing = qp.get('furnishing');
-      if (qp.get('possession')) params.possession = qp.get('possession');
-      if (qp.get('min_rating')) params.minRating = Number(qp.get('min_rating'));
-      if (qp.get('parking')) params.parking = qp.get('parking');
-      if (qp.get('floor_min')) params.floor_min = Number(qp.get('floor_min'));
-      if (qp.get('floor_max')) params.floor_max = Number(qp.get('floor_max'));
-      if (qp.get('bathrooms')) params.bathrooms = Number(qp.get('bathrooms'));
-      if (qp.get('bedrooms')) params.bedrooms = qp.get('bedrooms');
-      if (qp.get('status')) params.status = qp.get('status');
-      if (filterParamKey && filterTokenFromUrl) params.filterToken = filterTokenFromUrl;
-
-      return params;
-    };
-
-    const buildSimpleParams = () => {
-      const simpleParams: any = {
-        status: qp.get('status') || 'Available',
-        limit: 50,
-        isPublic: true, is_public: 1, visibility: 'public', publicOnly: 1,
-      };
-
-      const allLocs = qp.getAll('location');
-      if (allLocs.length > 0) simpleParams.location = allLocs.join(',');
-      else if (qp.get('location')) simpleParams.location = qp.get('location');
-
-      if (qp.get('city')) simpleParams.city = qp.get('city');
-      if (qp.get('search')) simpleParams.q = qp.get('search');
-      return simpleParams;
-    };
-
-    const hadPropertyTypeInUrl = Boolean(qp.get('propertyType') || qp.get('property_type'));
-
-    let response: any = null;
-    let list: any[] = [];
-
-         if (hasAdvanced) {
-      // 1) strict advanced
-      const advParams = buildAdvancedParams();
-      try {
-        response = await propertiesAPI.searchProperties(advParams);
-        list = normalizeResponse(response);
-
-      } catch (e) {
-        console.warn('Advanced search failed, will relax. Error:', e);
-        list = [];
-      }
-
-      // 2) relaxed advanced (drop strict fields likely to zero-out results)
-      if (!list.length) {
-        const relaxed = { ...advParams };
-        delete relaxed.propertySubtype; delete relaxed.property_subtype;
-        delete relaxed.unitTypes; delete relaxed.unitType; delete relaxed.unit_type;
-        delete relaxed.furnishing; delete relaxed.possession; delete relaxed.parking;
-        delete relaxed.minRating; delete relaxed.floor_min; delete relaxed.floor_max;
-        delete relaxed.bathrooms; // keep bedrooms loosely (often used), but drop if present
-        if ('bedrooms' in relaxed && !Number(relaxed.bedrooms)) delete relaxed.bedrooms;
-
-        try {
-          const resp2 = await propertiesAPI.getSearch(relaxed);
-          list = normalizeResponse(resp2);
-        } catch (e2) {
-          console.warn('Relaxed advanced failed, will try simple list. Error:', e2);
-          list = [];
-        }
-      }
-
-      // 3) simple public list
-      if (!list.length) {
-        try {
-          const simpleParams = buildSimpleParams();
-          const resp3 = await propertiesAPI.PublicgetProperties(simpleParams);
-          list = normalizeResponse(resp3);
-        } catch (e3) {
-          console.warn('PublicgetProperties failed after advanced attempts', e3);
-          list = [];
-        }
-      }
-
-      // 4) if URL had propertyType and still empty => try once without it
-      if (!list.length && hadPropertyTypeInUrl) {
-        try {
-          const noPT = buildAdvancedParams();
-          delete noPT.propertyType; delete noPT.property_type;
-          const resp4 = await propertiesAPI.getSearch(noPT);
-          list = normalizeResponse(resp4);
-
-          if (!list.length) {
-            const simpleNoPT = buildSimpleParams(); // already no PT
-            const resp5 = await propertiesAPI.PublicgetProperties(simpleNoPT);
-            list = normalizeResponse(resp5);
-          }
-        } catch (e4) {
-          console.warn('No-PT fallback failed', e4);
-        }
-      }
-    } else {
-      // Basic header search
-      try {
-        response = await propertiesAPI.PublicgetProperties(buildSimpleParams());
-        list = normalizeResponse(response);
-      } catch (err) {
-        console.warn('PublicgetProperties failed, fallback to empty', err);
-        list = [];
-      }
-    }
-
-    // ✅ client-side strict public-only guard
-    list = list.filter(isPublicProp);
-
-    // ---- map → UI + fetch (views & tags) ----
-    const transformedProperties = await Promise.all(
-      list.map(async (p: any, index: number) => {
-        const [viewCounts, tags] = await Promise.all([
-          fetchPropertyViews(p.id),
-          fetchPropertyTags(p.id),
-        ]);
-
-        const propertyData: Property = {
-          id: p.id,
-          slug: p.slug || p.url_slug || p.generated_slug,
-          propertyId: (p.property_id && String(p.property_id).trim()) || `REX${String(p.id ?? '').padStart(4, '0')}`,
-          title: p.title || `${p.unit_type || ''} ${p.property_type_name || ''}`.trim() || `Property ${p.id}`,
-          price: Number(p.budget) || Number(p.price) || 0,
-          bedrooms: Number(p.bedrooms) || 0,
-          bathrooms: Number(p.bathrooms) || 0,
-          square_feet: Number(p.carpet_area) || Number(p.builtup_area) || 0,
-          city: p.city_name || p.city || '',
-          property_type: p.property_type_name || p.property_type || '',
-          status: p.status || '',
-          images: Array.isArray(p.photos) ? p.photos.map((ph: string) => ph.replace(/\\/g, '/')) :
-            (Array.isArray(p.photoUrls) ? p.photoUrls :
-              ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800']),
-          location: `${p.location_name || p.location || ''}`.replace(/\s*,\s*$/, ''),
-          society: p.society_name || p.project_name || `Society ${p.id}`,
-          area: Number(p.carpet_area) || Number(p.builtup_area) || 0,
-          parking: Number(p.parking_slots) || Math.floor(Math.random() * 3) + 1,
-          type: p.unit_type || p.property_subtype || p.property_type_name || p.property_type || 'Apartment',
-          furnishing: p.furnishing_status || ['Fully Furnished', 'Semi Furnished', 'Unfurnished'][index % 3],
-          possession: p.possession_status || ['Ready to Move', 'Under Construction'][index % 2],
-          amenities: p.amenities
-            ? (Array.isArray(p.amenities) ? p.amenities :
-              typeof p.amenities === 'string' ? p.amenities.split(',').map((a: string) => a.trim()) :
-                ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'])
-            : ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'],
-          rating: p.rating ? Number(p.rating) : (4.0 + Math.random() * 1.0),
-          reviews: p.reviews ? Number(p.reviews) : Math.floor(Math.random() * 50) + 5,
-          postedDate: p.created_at ? p.created_at.split('T')[0] : `2025-01-${String(Math.floor(Math.random() * 15) + 1).padStart(2, '0')}`,
-          views: viewCounts.total_views || 0,
-          total_views: viewCounts.total_views,
-          aiScore: p.ai_score || Math.floor(Math.random() * 30) + 70,
-          priceGrowth: p.price_growth || `+${(Math.random() * 20 + 5).toFixed(1)}%`,
-          investmentGrade: p.investment_grade || ['A++', 'A+', 'A', 'B+'][Math.floor(Math.random() * 4)],
-          executiveTo: p.assignedTo ? {
-            name: p.assignedTo.name || 'Not Assigned',
-            phone: p.assignedTo.phone || 'Not Available',
-            rating: p.rating || (4 + Math.random()),
-            email: p.assignedTo.email || 'Not Available'
-          } : {
-            name: 'Not Assigned',
-            phone: 'Not Available',
-            rating: p.rating || (4 + Math.random()),
-            email: 'Not Available'
-          },
-          highlights: p.highlights || ['Prime Location', 'Good Value', 'Verified', 'No Brokerage'].slice(0, (index % 4) + 1),
-          nearbyPlaces: p.nearby_places || [
-            { name: 'Metro Station', distance: `${(Math.random() * 2).toFixed(1)} km` },
-            { name: 'Shopping Mall', distance: `${(Math.random() * 3).toFixed(2)} km` },
-            { name: 'School', distance: `${(Math.random() * 2).toFixed(1)} km` }
-          ],
-          public_views: p.public_views ?? null,
-          floor: extractFloor({ ...p, _raw: p }),
-          tags,
-          _raw: p
-        };
-        return propertyData;
-      })
-    );
-
-    setAllProperties(transformedProperties);
+  const loadPropertiesFromSearch = useCallback(async () => {
+    setLoading(true);
     setError('');
-  } catch (err) {
-    console.error('Error fetching properties:', err);
-    setError('Failed to load properties. Please try again.');
-    setAllProperties([]);
-  } finally {
-    setLoading(false);
-  }
-}, [location.search, filterParamKey, filterTokenFromUrl]);
+    try {
+      const qp = new URLSearchParams(location.search);
+
+      const hasAdvanced = Boolean(
+        qp.get('propertyType') || qp.get('property_type') ||
+        qp.get('budget_min') || qp.get('minPrice') ||
+        qp.get('budget_max') || qp.get('maxPrice') ||
+        qp.get('unitTypes') || qp.get('unitType') || qp.get('unit_type') ||
+        qp.get('furnishing') || qp.get('possession') ||
+        qp.get('min_rating') || qp.get('parking') ||
+        qp.get('floor_min') || qp.get('floor_max') ||
+        qp.get('bathrooms') || qp.get('bedrooms') ||
+        qp.get('property_subtype') || qp.get('propertySubtype') ||
+        qp.get('sort')
+      );
+
+      // --- helpers ---
+      const normalizeResponse = (resp: any): any[] => {
+        if (Array.isArray(resp)) return resp;
+        if (resp?.data && Array.isArray(resp.data)) return resp.data;
+        if (resp?.results && Array.isArray(resp.results)) return resp.results;
+        if (resp?.properties && Array.isArray(resp.properties)) return resp.properties;
+        if (Array.isArray(resp?.items)) return resp.items;
+        return [];
+      };
+
+      const buildAdvancedParams = () => {
+        const params: any = {
+          // public gate
+          isPublic: true, is_public: 1, visibility: 'public', publicOnly: 1,
+        };
+
+        // location (support repeated + CSV)
+        const allLocs = qp.getAll('location');
+        if (allLocs.length > 0) params.location = allLocs.join(',');
+        else if (qp.get('location')) params.location = qp.get('location');
+
+        // city
+        if (qp.get('city')) params.city = qp.get('city');
+
+        // property type (send both keys)
+        const pt = qp.get('propertyType') || qp.get('property_type');
+        if (pt) { params.propertyType = pt; params.property_type = pt; }
+
+        // subtype
+        const pst = qp.get('property_subtype') || qp.get('propertySubtype');
+        if (pst) { params.propertySubtype = pst; params.property_subtype = pst; }
+
+        // unit types (collect + send all aliases)
+        let unitTypes: string[] = [];
+        if (qp.get('unitTypes')) {
+          unitTypes = (qp.get('unitTypes') || '')
+            .split(',').map(s => s.trim()).filter(Boolean);
+        } else if (qp.get('unitType') || qp.get('unit_type')) {
+          unitTypes = [qp.get('unitType') || qp.get('unit_type')!].filter(Boolean) as string[];
+        }
+        if (unitTypes.length) {
+          params.unitTypes = unitTypes;
+          params.unitType = unitTypes[0];           // some backends accept single
+          params.unit_type = unitTypes.join(',');   // some accept CSV
+        }
+
+        // budget (send both styles)
+        const budgetMin = qp.get('budget_min') || qp.get('minPrice');
+        const budgetMax = qp.get('budget_max') || qp.get('maxPrice');
+        if (budgetMin) { params.budget_min = Number(budgetMin); params.minPrice = Number(budgetMin); }
+        if (budgetMax) { params.budget_max = Number(budgetMax); params.maxPrice = Number(budgetMax); }
+
+        if (qp.get('sort')) params.sort = qp.get('sort');
+        if (qp.get('furnishing')) params.furnishing = qp.get('furnishing');
+        if (qp.get('possession')) params.possession = qp.get('possession');
+        if (qp.get('min_rating')) params.minRating = Number(qp.get('min_rating'));
+        if (qp.get('parking')) params.parking = qp.get('parking');
+        if (qp.get('floor_min')) params.floor_min = Number(qp.get('floor_min'));
+        if (qp.get('floor_max')) params.floor_max = Number(qp.get('floor_max'));
+        if (qp.get('bathrooms')) params.bathrooms = Number(qp.get('bathrooms'));
+        if (qp.get('bedrooms')) params.bedrooms = qp.get('bedrooms');
+        if (qp.get('status')) params.status = qp.get('status');
+        if (filterParamKey && filterTokenFromUrl) params.filterToken = filterTokenFromUrl;
+
+        return params;
+      };
+
+      const buildSimpleParams = () => {
+        const simpleParams: any = {
+          status: qp.get('status') || 'Available',
+          limit: 50,
+          isPublic: true, is_public: 1, visibility: 'public', publicOnly: 1,
+        };
+
+        const allLocs = qp.getAll('location');
+        if (allLocs.length > 0) simpleParams.location = allLocs.join(',');
+        else if (qp.get('location')) simpleParams.location = qp.get('location');
+
+        if (qp.get('city')) simpleParams.city = qp.get('city');
+        if (qp.get('search')) simpleParams.q = qp.get('search');
+        return simpleParams;
+      };
+
+      const hadPropertyTypeInUrl = Boolean(qp.get('propertyType') || qp.get('property_type'));
+
+      let response: any = null;
+      let list: any[] = [];
+
+      if (hasAdvanced) {
+        // 1) strict advanced
+        const advParams = buildAdvancedParams();
+        try {
+          response = await propertiesAPI.searchProperties(advParams);
+          list = normalizeResponse(response);
+
+        } catch (e) {
+          console.warn('Advanced search failed, will relax. Error:', e);
+          list = [];
+        }
+
+        // 2) relaxed advanced (drop strict fields likely to zero-out results)
+        if (!list.length) {
+          const relaxed = { ...advParams };
+          delete relaxed.propertySubtype; delete relaxed.property_subtype;
+          delete relaxed.unitTypes; delete relaxed.unitType; delete relaxed.unit_type;
+          delete relaxed.furnishing; delete relaxed.possession; delete relaxed.parking;
+          delete relaxed.minRating; delete relaxed.floor_min; delete relaxed.floor_max;
+          delete relaxed.bathrooms; // keep bedrooms loosely (often used), but drop if present
+          if ('bedrooms' in relaxed && !Number(relaxed.bedrooms)) delete relaxed.bedrooms;
+
+          try {
+            const resp2 = await propertiesAPI.getSearch(relaxed);
+            list = normalizeResponse(resp2);
+          } catch (e2) {
+            console.warn('Relaxed advanced failed, will try simple list. Error:', e2);
+            list = [];
+          }
+        }
+
+        // 3) simple public list
+        if (!list.length) {
+          try {
+            const simpleParams = buildSimpleParams();
+            const resp3 = await propertiesAPI.PublicgetProperties(simpleParams);
+            list = normalizeResponse(resp3);
+          } catch (e3) {
+            console.warn('PublicgetProperties failed after advanced attempts', e3);
+            list = [];
+          }
+        }
+
+        // 4) if URL had propertyType and still empty => try once without it
+        if (!list.length && hadPropertyTypeInUrl) {
+          try {
+            const noPT = buildAdvancedParams();
+            delete noPT.propertyType; delete noPT.property_type;
+            const resp4 = await propertiesAPI.getSearch(noPT);
+            list = normalizeResponse(resp4);
+
+            if (!list.length) {
+              const simpleNoPT = buildSimpleParams(); // already no PT
+              const resp5 = await propertiesAPI.PublicgetProperties(simpleNoPT);
+              list = normalizeResponse(resp5);
+            }
+          } catch (e4) {
+            console.warn('No-PT fallback failed', e4);
+          }
+        }
+      } else {
+        // Basic header search
+        try {
+          response = await propertiesAPI.PublicgetProperties(buildSimpleParams());
+          list = normalizeResponse(response);
+        } catch (err) {
+          console.warn('PublicgetProperties failed, fallback to empty', err);
+          list = [];
+        }
+      }
+
+      // ✅ client-side strict public-only guard
+      list = list.filter(isPublicProp);
+
+      // ---- map → UI + fetch (views & tags) ----
+      const transformedProperties = await Promise.all(
+        list.map(async (p: any, index: number) => {
+          const [viewCounts, tags] = await Promise.all([
+            fetchPropertyViews(p.id),
+            fetchPropertyTags(p.id),
+          ]);
+
+          // ✅ Use dynamic parking extraction
+          const parkingCount = extractParkingCount(p);
+
+          const propertyData: Property = {
+            id: p.id,
+            slug: p.slug || p.url_slug || p.generated_slug,
+            propertyId: (p.property_id && String(p.property_id).trim()) || `REX${String(p.id ?? '').padStart(4, '0')}`,
+            title: p.title || `${p.unit_type || ''} ${p.property_type_name || ''}`.trim() || `Property ${p.id}`,
+            price: Number(p.budget) || Number(p.price) || 0,
+            bedrooms: Number(p.bedrooms) || 0,
+            bathrooms: Number(p.bathrooms) || 0,
+            square_feet: Number(p.carpet_area) || Number(p.builtup_area) || 0,
+            city: p.city_name || p.city || '',
+            property_type: p.property_type_name || p.property_type || '',
+            status: p.status || '',
+            images: Array.isArray(p.photos) ? p.photos.map((ph: string) => ph.replace(/\\/g, '/')) :
+              (Array.isArray(p.photoUrls) ? p.photoUrls :
+                ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800']),
+            location: `${p.location_name || p.location || ''}`.replace(/\s*,\s*$/, ''),
+            society: p.society_name || p.project_name || `Society ${p.id}`,
+            area: Number(p.carpet_area) || Number(p.builtup_area) || 0,
+            parking: parkingCount, // ✅ Dynamic parking count
+            type: p.unit_type || p.property_subtype || p.property_type_name || p.property_type || 'Apartment',
+            furnishing: p.furnishing_status || ['Fully Furnished', 'Semi Furnished', 'Unfurnished'][index % 3],
+            possession: p.possession_status || ['Ready to Move', 'Under Construction'][index % 2],
+            amenities: p.amenities
+              ? (Array.isArray(p.amenities) ? p.amenities :
+                typeof p.amenities === 'string' ? p.amenities.split(',').map((a: string) => a.trim()) :
+                  ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'])
+              : ['Swimming Pool', 'Gym', 'Security', 'Garden', 'Club House', 'Power Backup'],
+            rating: p.rating ? Number(p.rating) : (4.0 + Math.random() * 1.0),
+            reviews: p.reviews ? Number(p.reviews) : Math.floor(Math.random() * 50) + 5,
+            postedDate: p.created_at ? p.created_at.split('T')[0] : `2025-01-${String(Math.floor(Math.random() * 15) + 1).padStart(2, '0')}`,
+            views: viewCounts.total_views || 0,
+            total_views: viewCounts.total_views,
+            aiScore: p.ai_score || Math.floor(Math.random() * 30) + 70,
+            priceGrowth: p.price_growth || `+${(Math.random() * 20 + 5).toFixed(1)}%`,
+            investmentGrade: p.investment_grade || ['A++', 'A+', 'A', 'B+'][Math.floor(Math.random() * 4)],
+            executiveTo: p.assignedTo ? {
+              name: p.assignedTo.name || 'Not Assigned',
+              phone: p.assignedTo.phone || 'Not Available',
+              rating: p.rating || (4 + Math.random()),
+              email: p.assignedTo.email || 'Not Available'
+            } : {
+              name: 'Not Assigned',
+              phone: 'Not Available',
+              rating: p.rating || (4 + Math.random()),
+              email: 'Not Available'
+            },
+            highlights: p.highlights || ['Prime Location', 'Good Value', 'Verified', 'No Brokerage'].slice(0, (index % 4) + 1),
+            nearbyPlaces: p.nearby_places || [
+              { name: 'Metro Station', distance: `${(Math.random() * 2).toFixed(1)} km` },
+              { name: 'Shopping Mall', distance: `${(Math.random() * 3).toFixed(2)} km` },
+              { name: 'School', distance: `${(Math.random() * 2).toFixed(1)} km` }
+            ],
+            public_views: p.public_views ?? null,
+            floor: extractFloor({ ...p, _raw: p }),
+            tags,
+            _raw: p
+          };
+          return propertyData;
+        })
+      );
+
+      setAllProperties(transformedProperties);
+      setError('');
+    } catch (err) {
+      console.error('Error fetching properties:', err);
+      setError('Failed to load properties. Please try again.');
+      setAllProperties([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [location.search, filterParamKey, filterTokenFromUrl]);
 
   // run loader
   useEffect(() => {
@@ -1606,6 +1651,9 @@ const loadPropertiesFromSearch = useCallback(async () => {
                   const shownAmenities = amenities.slice(0, 2);
                   const moreCount = Math.max(amenities.length - shownAmenities.length, 0);
 
+                  // ✅ Get dynamic parking count
+                  const parkingCount = property.parking || 0;
+
                   return (
                     <div
                       key={property.id}
@@ -1694,10 +1742,11 @@ const loadPropertiesFromSearch = useCallback(async () => {
                         <div className="flex items-center justify-between text-xs text-gray-600 mb-3">
                           <div className="flex items-center space-x-1"><Bed size={12} /><span>{property.bedrooms} Beds</span></div>
                           <div className="flex items-center space-x-1"><Building size={12} /><span>{property.bathrooms} Baths</span></div>
-                          <div className="flex items-center space-x-1"><Car size={12} /><span>{property.parking || 1} Parking</span></div>
+                          {/* ✅ Dynamic parking display */}
+                          <div className="flex items-center space-x-1"><Car size={12} /><span>{parkingCount} Parking</span></div>
                         </div>
 
-                        {/* ✅ Amenities: only 2 + “+N” */}
+                        {/* ✅ Amenities: only 2 + "+N" */}
                         <div className="flex flex-wrap gap-1 mb-3">
                           {shownAmenities.map((amenity, i) => (
                             <div key={i} className="flex items-center space-x-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
@@ -1758,7 +1807,7 @@ const loadPropertiesFromSearch = useCallback(async () => {
                               // ✅ Prepare property title
                               const title =
                                 property?.title ||
-                                [ property?.type].filter(Boolean).join(" ") ||
+                                [property?.type].filter(Boolean).join(" ") ||
                                 "a property";
 
                               // ✅ Prepare location
@@ -1809,6 +1858,10 @@ const loadPropertiesFromSearch = useCallback(async () => {
                   const composedTitle = composeHeaderTitle(property);
                   const unitAreaLine = formatUnitAreaLine(property);
                   const { locationPart, cityPart } = splitLocationCity(property);
+
+                  // ✅ Get dynamic parking count for list view
+                  const parkingCount = property.parking || 0;
+
                   return (
                     <div
                       key={property.id}
@@ -1857,7 +1910,8 @@ const loadPropertiesFromSearch = useCallback(async () => {
                             <div className="text-center p-2 bg-gray-50 rounded-lg"><Bed className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.bedrooms}</div><div className="text-xs text-gray-500">Bedrooms</div></div>
                             <div className="text-center p-2 bg-gray-50 rounded-lg"><Building className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.bathrooms}</div><div className="text-xs text-gray-500">Bathrooms</div></div>
                             <div className="text-center p-2 bg-gray-50 rounded-lg"><Home className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.area || property.square_feet}</div><div className="text-xs text-gray-500">Sq Ft</div></div>
-                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Car className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.parking || 1}</div><div className="text-xs text-gray-500">Parking</div></div>
+                            {/* ✅ Dynamic parking in list view */}
+                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Car className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{parkingCount}</div><div className="text-xs text-gray-500">Parking</div></div>
                           </div>
 
                           <div className="grid grid-cols-3 gap-3 mb-4">
