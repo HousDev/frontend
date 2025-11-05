@@ -10,6 +10,9 @@ export interface PropertyItem {
   property_type_name?: string;
   property_type?: string;
   unit_type?: string;
+  property_subtype_name?: string;
+  property_subtype?: string;
+  subtype?: string;
   society_name?: string;
   society?: string;
   title?: string;
@@ -69,12 +72,87 @@ const visitTypes = [
 ];
 
 const durations = ['30 minutes', '45 minutes', '60 minutes', '90 minutes', '120 minutes'];
-
 const statuses = ['scheduled', 'confirmed', 'completed', 'cancelled'];
+
+/* ------------------ Helpers ------------------ */
+const s = (v: any) => (v == null ? '' : String(v).trim());
+const toUpper = (v?: string) => s(v).toUpperCase();
+
+/** Format like: REX00{paddedId}. Adjust pad width here if you want */
+const formatPropertyCode = (id: string | number) => {
+  const n = String(id);
+  return `REX00${n.padStart(3, '0')}`;
+};
+
+/** Safely build: propertyType + UNIT_TYPE + propertySubtype (Society Name) */
+const buildCompositeTitle = (p: PropertyItem) => {
+  const propertyType = s(p.property_type_name || p.property_type);
+  const unitType = toUpper(p.unit_type);
+  const subtype = s(p.property_subtype_name || p.property_subtype || p.subtype);
+  const society = s(p.society_name || p.society);
+
+  const leftParts = [propertyType, unitType, subtype].filter(Boolean).join(' ');
+  const withSociety = society ? `${leftParts} (${society})` : leftParts;
+
+  // fallback to existing title if composite is empty
+  return withSociety || s(p.title) || 'Property';
+};
+
+const buildAddress = (p: PropertyItem) =>
+  s(p.address) || [s(p.location), s(p.area)].filter(Boolean).join(', ');
+
+const getSellerName = (p: PropertyItem) =>
+  s(p.seller_name || p.owner_name || p.contact_name);
+
+const getSellerPhone = (p: PropertyItem) =>
+  s(p.seller_phone || p.owner_phone || p.contact_phone || p.phone);
+
+const cleanDigits = (phone: string) => phone.replace(/\D/g, '');
+
+/* Optional helpers you can use in parent/API layer */
+export const parseDurationToMinutes = (d?: string) => {
+  if (!d) return 60;
+  const m = d.match(/\d+/);
+  return m ? Math.max(1, parseInt(m[0], 10)) : 60;
+};
+
+export const combineToDateTime = (date: string, time?: string) => {
+  const t = time && time.trim() ? time : '10:00';
+  return `${date} ${t.length === 5 ? t + ':00' : t}`; // "YYYY-MM-DD HH:mm:SS"
+};
+
+export const buildApiPayloadFromVisit = (
+  visitData: Visit,
+  executiveId?: number | null,
+  sellerId?: number | null
+) => {
+  return {
+    buyer_id: Number(visitData.buyerId),
+    buyer_name: visitData.buyerName || '',
+    seller_id: sellerId ?? null,
+    property_id: Number(visitData.propertyId),
+    property_title: visitData.property || '',
+    executive_id: executiveId ?? null,
+    visit_datetime: combineToDateTime(visitData.date, visitData.time),
+    duration_minutes: parseDurationToMinutes(visitData.duration),
+    visit_type: visitData.visitType || 'site_visit',
+    seller_present: visitData.sellerPresent ? 1 : 0,
+    seller_name: visitData.sellerName || null,
+    seller_phone: visitData.sellerPhone ? cleanDigits(visitData.sellerPhone) : null,
+    feedback: visitData.feedback || null,
+    rating: typeof visitData.rating === 'number' ? visitData.rating : 3,
+    outcome: visitData.outcome || null,
+    next_action: visitData.nextAction || null,
+    concerns: visitData.concerns || null,
+    positives: visitData.positives || null,
+    remarks: visitData.remarks || null,
+    status: visitData.status || 'scheduled',
+  };
+};
 
 /* ------------------ Component ------------------ */
 const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave, buyer }) => {
-  // Keep form as Partial<Visit> internally to avoid forcing every field to exist up-front.
+  // Keep form as Partial<Visit> internally
   const [formData, setFormData] = useState<Partial<Visit>>({
     property: visit?.property || '',
     propertyId: visit?.propertyId ? String(visit.propertyId) : '',
@@ -166,37 +244,49 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
     };
   }, []);
 
-  /* ------------------ Helpers ------------------ */
-  // generic input change for fields that exist on Visit -- store into Partial<Visit>
+  /* ------------------ Derived options ------------------ */
+  const dropdownOptions = useMemo(
+    () =>
+      properties.map((p) => {
+        const id = String(p.id ?? '');
+        const code = id ? formatPropertyCode(id) : '';
+        const compositeTitle = buildCompositeTitle(p); // type + UNIT + subtype (Society)
+        const address = buildAddress(p);
+        const seller = getSellerName(p);
+        const sellerPhone = getSellerPhone(p);
+        return {
+          id,
+          code,
+          title: compositeTitle,
+          address,
+          seller,
+          sellerPhone,
+        };
+      }),
+    [properties]
+  );
+
+  /* ------------------ Handlers ------------------ */
   const handleInputChange = <K extends keyof Visit>(field: K, value: Visit[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // dropdown options derived from properties
-  const dropdownOptions = useMemo(
-    () =>
-      properties.map((p) => ({
-        id: String(p.id ?? ''),
-        title:
-          [p.property_type_name || p.property_type || '', p.unit_type?.toUpperCase()].filter(Boolean).join(' ') ||
-          p.title ||
-          'Property',
-        address: p.address || p.location || p.area || '',
-        seller: p.seller_name || p.owner_name || p.contact_name || '',
-        sellerPhone: p.seller_phone || p.owner_phone || p.contact_phone || p.phone || '',
-      })),
-    [properties]
-  );
-
   const handlePropertySelect = (propertyId: string) => {
     const opt = dropdownOptions.find((o) => o.id === propertyId);
     if (!opt) {
-      setFormData((prev) => ({ ...prev, property: '', propertyId: '', sellerName: '', sellerPhone: '' }));
+      setFormData((prev) => ({
+        ...prev,
+        property: '',
+        propertyId: '',
+        sellerName: '',
+        sellerPhone: ''
+      }));
       return;
     }
+    const display = opt.code ? `[${opt.code}] ${opt.title}` : opt.title;
     setFormData((prev) => ({
       ...prev,
-      property: opt.title,
+      property: display,
       propertyId: opt.id,
       sellerName: opt.seller || (prev.sellerName as string),
       sellerPhone: opt.sellerPhone || (prev.sellerPhone as string),
@@ -219,6 +309,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
 
   // Build a full Visit payload from partial form data before saving
   const buildVisitPayload = (): Visit => {
+    const idFinal = visit?.id ?? formData.id ?? Date.now();
     return {
       property: (formData.property as string) || '',
       propertyId: (formData.propertyId as string) || '',
@@ -240,7 +331,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
       revisitDate: (formData.revisitDate as string) || '',
       remarks: (formData.remarks as string) || '',
       status: (formData.status as string) || 'scheduled',
-      id: visit?.id ?? formData.id ?? Date.now(),
+      id: idFinal,
       buyerId: buyer.id,
       buyerName: buyer.name,
       created_at: visit?.created_at ?? formData.created_at ?? new Date().toISOString(),
@@ -249,8 +340,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
   };
 
   const handleSave = async () => {
-    // ensure property selected and date set
-    if (!formData.propertyId || !(String(formData.propertyId).trim())) {
+    if (!formData.propertyId || !String(formData.propertyId).trim()) {
       alert('Please select a property');
       return;
     }
@@ -273,7 +363,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[95vh] overflow-hidden">
         {/* Header */}
         <div className="p-3 border-b border-gray-200 bg-gradient-to-r from-green-50 to-blue-50">
@@ -297,7 +387,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Left */}
             <div className="space-y-3">
-              {/* Property Selection (dynamic) */}
+              {/* Property Selection */}
               <div>
                 <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center">
                   <Building className="mr-1" size={14} />
@@ -316,11 +406,16 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                       disabled={loadingProps || !!propsError}
                     >
                       <option value="">
-                        {loadingProps ? 'Loading properties...' : propsError ? 'Failed to load' : 'Choose property to visit'}
+                        {loadingProps
+                          ? 'Loading properties...'
+                          : propsError
+                          ? 'Failed to load'
+                          : 'Choose property to visit'}
                       </option>
                       {dropdownOptions.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.title} {p.address ? `- ${p.address}` : ''}
+                          {p.code ? `[${p.code}] ` : ''}{p.title}
+                          {p.address ? ` - ${p.address}` : ''}
                         </option>
                       ))}
                     </select>
@@ -331,7 +426,15 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
 
                   {formData.property && (
                     <div className="p-2 text-xs bg-green-50 border border-green-200 rounded-md">
-                      <div className="font-medium text-green-900">{formData.property}</div>
+                      <div className="font-medium text-green-900 flex items-center gap-2">
+                        {/* Show the REX code prominently when selected */}
+                        {formData.propertyId ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-green-600 text-white text-[11px]">
+                            {formatPropertyCode(String(formData.propertyId))}
+                          </span>
+                        ) : null}
+                        <span>{formData.property}</span>
+                      </div>
                       {!!formData.sellerName && (
                         <div className="text-green-700">Seller: {formData.sellerName}</div>
                       )}
@@ -494,7 +597,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                       </div>
                       <div className="flex space-x-1">
                         <a
-                          href={formData.sellerPhone ? `tel:${formData.sellerPhone}` : '#'}
+                          href={formData.sellerPhone ? `tel:${cleanDigits(String(formData.sellerPhone))}` : '#'}
                           className="flex items-center space-x-1 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
                         >
                           <Phone size={12} />
@@ -504,7 +607,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                           type="button"
                           onClick={() => {
                             const message = `Hi ${formData.sellerName || ''}, ${buyer.name} would like to visit your property ${formData.property || ''} on ${formData.date} at ${formData.time}. Please confirm availability.`;
-                            const phone = (String(formData.sellerPhone || '')).replace(/\D/g, '');
+                            const phone = cleanDigits(String(formData.sellerPhone || ''));
                             if (!phone) return;
                             window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
                           }}
@@ -541,12 +644,12 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                           {formData.rating === 5
                             ? 'Excellent'
                             : formData.rating === 4
-                              ? 'Good'
-                              : formData.rating === 3
-                                ? 'Average'
-                                : formData.rating === 2
-                                  ? 'Poor'
-                                  : 'Very Poor'}
+                            ? 'Good'
+                            : formData.rating === 3
+                            ? 'Average'
+                            : formData.rating === 2
+                            ? 'Poor'
+                            : 'Very Poor'}
                         </span>
                       </div>
                     </div>
