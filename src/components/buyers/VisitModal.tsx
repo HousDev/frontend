@@ -1,24 +1,36 @@
+// src/components/visits/VisitModal.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   X, Save, Calendar, User, Star, Phone, MessageCircle, Building
 } from 'lucide-react';
 import { propertiesAPI } from '@/lib/propertiesAPI';
+import { visitsAPI } from '@/lib/visitsAPI';
+import { useAuth } from '@/contexts/AuthContext';
 
 /* ------------------ Types ------------------ */
 export interface PropertyItem {
   id: string | number;
+
+  // master/meta
   property_type_name?: string;
   property_type?: string;
   unit_type?: string;
   property_subtype_name?: string;
   property_subtype?: string;
   subtype?: string;
+
+  // location
   society_name?: string;
   society?: string;
   title?: string;
   address?: string;
   location?: string;
   area?: string;
+
+  // seller/contact — include common variants so mapping stays robust
+  seller_id?: string | number;
+  owner_id?: string | number;
+  contact_id?: string | number;
   seller_name?: string;
   owner_name?: string;
   contact_name?: string;
@@ -26,6 +38,12 @@ export interface PropertyItem {
   owner_phone?: string;
   contact_phone?: string;
   phone?: string;
+  seller_email?: string;
+  owner_email?: string;
+  contact_email?: string;
+
+  // optional courtesy fields
+  seller_salutation?: 'Mr' | 'Ms' | 'Mrs' | 'Mx' | 'Dr' | string;
 }
 
 export interface Visit {
@@ -50,6 +68,12 @@ export interface Visit {
   revisitDate: string;
   remarks: string;
   status: string;
+
+  // enriched (optional) — used to pass to API builder cleanly
+  sellerId?: string | number;
+  sellerEmail?: string;
+  sellerSalutation?: string;
+
   buyerId?: string | number;
   buyerName?: string;
   created_at?: string;
@@ -77,6 +101,14 @@ const statuses = ['scheduled', 'confirmed', 'completed', 'cancelled'];
 /* ------------------ Helpers ------------------ */
 const s = (v: any) => (v == null ? '' : String(v).trim());
 const toUpper = (v?: string) => s(v).toUpperCase();
+const cleanDigits = (phone: string) => phone.replace(/\D/g, '');
+
+const getUserId = (u: any): number | null => {
+  const val = u?.id ?? u?.user_id ?? u?._id ?? null;
+  return val != null ? Number(val) : null;
+};
+const getUserName = (u: any): string => s(u?.name || u?.fullName || u?.username || '');
+const getUserEmail = (u: any): string => s(u?.email || u?.mail || '');
 
 /** Format like: REX00{paddedId}. Adjust pad width here if you want */
 const formatPropertyCode = (id: string | number) => {
@@ -90,24 +122,24 @@ const buildCompositeTitle = (p: PropertyItem) => {
   const unitType = toUpper(p.unit_type);
   const subtype = s(p.property_subtype_name || p.property_subtype || p.subtype);
   const society = s(p.society_name || p.society);
-
   const leftParts = [propertyType, unitType, subtype].filter(Boolean).join(' ');
   const withSociety = society ? `${leftParts} (${society})` : leftParts;
-
-  // fallback to existing title if composite is empty
   return withSociety || s(p.title) || 'Property';
 };
 
 const buildAddress = (p: PropertyItem) =>
   s(p.address) || [s(p.location), s(p.area)].filter(Boolean).join(', ');
 
+/** Resolve seller identity across shapes */
+const getSellerId = (p: PropertyItem) =>
+  p.seller_id ?? p.owner_id ?? p.contact_id ?? undefined;
 const getSellerName = (p: PropertyItem) =>
   s(p.seller_name || p.owner_name || p.contact_name);
-
 const getSellerPhone = (p: PropertyItem) =>
   s(p.seller_phone || p.owner_phone || p.contact_phone || p.phone);
-
-const cleanDigits = (phone: string) => phone.replace(/\D/g, '');
+const getSellerEmail = (p: PropertyItem) =>
+  s(p.seller_email || p.owner_email || p.contact_email);
+const getSellerSalutation = (p: PropertyItem) => s(p.seller_salutation);
 
 /* Optional helpers you can use in parent/API layer */
 export const parseDurationToMinutes = (d?: string) => {
@@ -118,27 +150,39 @@ export const parseDurationToMinutes = (d?: string) => {
 
 export const combineToDateTime = (date: string, time?: string) => {
   const t = time && time.trim() ? time : '10:00';
-  return `${date} ${t.length === 5 ? t + ':00' : t}`; // "YYYY-MM-DD HH:mm:SS"
+  const hhmmss = t.length === 5 ? `${t}:00` : t;
+  return `${date} ${hhmmss}`; // "YYYY-MM-DD HH:mm:ss"
 };
 
+/** Build server payload (parent visit) */
 export const buildApiPayloadFromVisit = (
   visitData: Visit,
   executiveId?: number | null,
-  sellerId?: number | null
+  fallbackSellerId?: number | null
 ) => {
-  return {
+  const payload: any = {
     buyer_id: Number(visitData.buyerId),
     buyer_name: visitData.buyerName || '',
-    seller_id: sellerId ?? null,
+
+    // seller resolve priority: visitData.sellerId -> fallback param -> null
+    seller_id:
+      visitData.sellerId != null
+        ? Number(visitData.sellerId)
+        : fallbackSellerId ?? null,
+
     property_id: Number(visitData.propertyId),
     property_title: visitData.property || '',
     executive_id: executiveId ?? null,
+
     visit_datetime: combineToDateTime(visitData.date, visitData.time),
     duration_minutes: parseDurationToMinutes(visitData.duration),
     visit_type: visitData.visitType || 'site_visit',
+
     seller_present: visitData.sellerPresent ? 1 : 0,
     seller_name: visitData.sellerName || null,
     seller_phone: visitData.sellerPhone ? cleanDigits(visitData.sellerPhone) : null,
+
+    accompanied_by: Array.isArray(visitData.accompaniedBy) ? visitData.accompaniedBy : [],
     feedback: visitData.feedback || null,
     rating: typeof visitData.rating === 'number' ? visitData.rating : 3,
     outcome: visitData.outcome || null,
@@ -147,11 +191,25 @@ export const buildApiPayloadFromVisit = (
     positives: visitData.positives || null,
     remarks: visitData.remarks || null,
     status: visitData.status || 'scheduled',
+
+    // helpful to store extra meta
+    meta: {
+      seller_email: visitData.sellerEmail || null,
+      seller_salutation: visitData.sellerSalutation || null,
+      created_from_ui: 'VisitModal',
+    },
   };
+
+  return payload;
 };
 
 /* ------------------ Component ------------------ */
 const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave, buyer }) => {
+  const { user } = useAuth();
+  const executiveId = getUserId(user);
+  const executiveName = getUserName(user);
+  const executiveEmail = getUserEmail(user);
+
   // Keep form as Partial<Visit> internally
   const [formData, setFormData] = useState<Partial<Visit>>({
     property: visit?.property || '',
@@ -164,6 +222,9 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
     sellerPresent: visit?.sellerPresent ?? false,
     sellerName: visit?.sellerName || '',
     sellerPhone: visit?.sellerPhone || '-',
+    sellerId: visit?.sellerId,
+    sellerEmail: visit?.sellerEmail || '',
+    sellerSalutation: visit?.sellerSalutation || '',
     feedback: visit?.feedback || '',
     rating: visit?.rating ?? 3,
     outcome: visit?.outcome || '',
@@ -175,8 +236,8 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
     remarks: visit?.remarks || '',
     status: visit?.status || 'scheduled',
     id: visit?.id,
-    buyerId: visit?.buyerId,
-    buyerName: visit?.buyerName,
+    buyerId: visit?.buyerId ?? buyer.id,
+    buyerName: visit?.buyerName ?? buyer.name,
     created_at: visit?.created_at,
     updated_at: visit?.updated_at,
   });
@@ -194,6 +255,9 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
       sellerPresent: visit?.sellerPresent ?? false,
       sellerName: visit?.sellerName || '',
       sellerPhone: visit?.sellerPhone || '-',
+      sellerId: visit?.sellerId,
+      sellerEmail: visit?.sellerEmail || '',
+      sellerSalutation: visit?.sellerSalutation || '',
       feedback: visit?.feedback || '',
       rating: visit?.rating ?? 3,
       outcome: visit?.outcome || '',
@@ -205,12 +269,12 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
       remarks: visit?.remarks || '',
       status: visit?.status || 'scheduled',
       id: visit?.id,
-      buyerId: visit?.buyerId,
-      buyerName: visit?.buyerName,
+      buyerId: visit?.buyerId ?? buyer.id,
+      buyerName: visit?.buyerName ?? buyer.name,
       created_at: visit?.created_at,
       updated_at: visit?.updated_at,
     });
-  }, [visit]);
+  }, [visit, buyer.id, buyer.name]);
 
   const [newAccompany, setNewAccompany] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -250,17 +314,23 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
       properties.map((p) => {
         const id = String(p.id ?? '');
         const code = id ? formatPropertyCode(id) : '';
-        const compositeTitle = buildCompositeTitle(p); // type + UNIT + subtype (Society)
+        const compositeTitle = buildCompositeTitle(p);
         const address = buildAddress(p);
+        const sellerId = getSellerId(p);
         const seller = getSellerName(p);
         const sellerPhone = getSellerPhone(p);
+        const sellerEmail = getSellerEmail(p);
+        const sellerSalutation = getSellerSalutation(p);
         return {
           id,
           code,
           title: compositeTitle,
           address,
+          sellerId,
           seller,
           sellerPhone,
+          sellerEmail,
+          sellerSalutation,
         };
       }),
     [properties]
@@ -279,7 +349,10 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
         property: '',
         propertyId: '',
         sellerName: '',
-        sellerPhone: ''
+        sellerPhone: '',
+        sellerId: undefined,
+        sellerEmail: '',
+        sellerSalutation: '',
       }));
       return;
     }
@@ -290,12 +363,15 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
       propertyId: opt.id,
       sellerName: opt.seller || (prev.sellerName as string),
       sellerPhone: opt.sellerPhone || (prev.sellerPhone as string),
+      sellerId: opt.sellerId ?? prev.sellerId,
+      sellerEmail: opt.sellerEmail || (prev.sellerEmail as string),
+      sellerSalutation: opt.sellerSalutation || (prev.sellerSalutation as string),
     }));
   };
 
   const addAccompany = () => {
     const val = newAccompany.trim();
-    const current = formData.accompaniedBy || [];
+    const current = (formData.accompaniedBy as string[]) || [];
     if (val && !current.includes(val)) {
       setFormData((prev) => ({ ...prev, accompaniedBy: [...current, val] }));
       setNewAccompany('');
@@ -303,7 +379,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
   };
 
   const removeAccompany = (person: string) => {
-    const current = formData.accompaniedBy || [];
+    const current = (formData.accompaniedBy as string[]) || [];
     setFormData((prev) => ({ ...prev, accompaniedBy: current.filter((p) => p !== person) }));
   };
 
@@ -334,6 +410,12 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
       id: idFinal,
       buyerId: buyer.id,
       buyerName: buyer.name,
+
+      // new enrichments
+      sellerId: formData.sellerId,
+      sellerEmail: formData.sellerEmail,
+      sellerSalutation: formData.sellerSalutation,
+
       created_at: visit?.created_at ?? formData.created_at ?? new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -352,15 +434,33 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
     setIsSubmitting(true);
     try {
       const visitData = buildVisitPayload();
-      await onSave(visitData);
+      const payload = buildApiPayloadFromVisit(
+        visitData,
+        executiveId,                                  // ✅ from AuthContext
+        visitData.sellerId != null ? Number(visitData.sellerId) : null // ✅ ensure seller_id if present
+      );
+
+      if (visit?.id) {
+        await visitsAPI.updateVisit(visit.id, payload);
+      } else {
+        await visitsAPI.createVisit(payload);
+      }
+
+      await Promise.resolve(onSave(visitData));
+      onClose();
     } catch (error) {
       console.error('Error saving visit:', error);
+      alert('Failed to save visit. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   if (!isOpen) return null;
+
+  const salutation = s(formData.sellerSalutation);
+  const sellerNameWithSalutation =
+    (salutation ? `${salutation} ` : '') + s(formData.sellerName);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
@@ -372,7 +472,15 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
               <h2 className="text-lg font-bold text-gray-900">
                 {visit ? 'Edit Visit' : 'Schedule Visit'}
               </h2>
-              <p className="text-xs text-gray-600 mt-0.5">For {buyer.name}</p>
+              <p className="text-xs text-gray-600 mt-0.5">
+                For {buyer.name}
+                {executiveName ? (
+                  <span className="ml-1 text-gray-500">
+                    • Scheduled by {executiveName}
+                    {executiveEmail ? ` (${executiveEmail})` : ''}
+                  </span>
+                ) : null}
+              </p>
             </div>
             <button
               onClick={onClose}
@@ -427,7 +535,6 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                   {formData.property && (
                     <div className="p-2 text-xs bg-green-50 border border-green-200 rounded-md">
                       <div className="font-medium text-green-900 flex items-center gap-2">
-                        {/* Show the REX code prominently when selected */}
                         {formData.propertyId ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-green-600 text-white text-[11px]">
                             {formatPropertyCode(String(formData.propertyId))}
@@ -435,11 +542,19 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                         ) : null}
                         <span>{formData.property}</span>
                       </div>
-                      {!!formData.sellerName && (
-                        <div className="text-green-700">Seller: {formData.sellerName}</div>
+                      {!!sellerNameWithSalutation.trim() && (
+                        <div className="text-green-700">
+                          Seller: {sellerNameWithSalutation}
+                          {formData.sellerId ? (
+                            <span className="ml-1 text-green-800/70">[ID: {String(formData.sellerId)}]</span>
+                          ) : null}
+                        </div>
                       )}
                       {!!formData.sellerPhone && (
                         <div className="text-green-700">Contact: {formData.sellerPhone}</div>
+                      )}
+                      {!!formData.sellerEmail && (
+                        <div className="text-green-700">Email: {formData.sellerEmail}</div>
                       )}
                     </div>
                   )}
@@ -575,27 +690,50 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
 
                   {formData.sellerPresent && (
                     <div className="grid grid-cols-1 gap-2">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Seller Name</label>
-                        <input
-                          type="text"
-                          value={String(formData.sellerName || '')}
-                          onChange={(e) => handleInputChange('sellerName', e.target.value)}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
-                          placeholder="Seller name"
-                        />
+                      <div className="grid grid-cols-3 gap-2">
+                        
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Seller Name</label>
+                          <input
+                            type="text"
+                            value={String(formData.sellerName || '')}
+                            onChange={(e) => handleInputChange('sellerName', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            placeholder="Seller name"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Seller Phone</label>
-                        <input
-                          type="tel"
-                          value={String(formData.sellerPhone || '')}
-                          onChange={(e) => handleInputChange('sellerPhone', e.target.value)}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
-                          placeholder="+91 98765 43210"
-                        />
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Seller Phone</label>
+                          <input
+                            type="tel"
+                            value={String(formData.sellerPhone || '')}
+                            onChange={(e) => handleInputChange('sellerPhone', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            placeholder="+91 98765 43210"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Seller Email</label>
+                          <input
+                            type="email"
+                            value={String(formData.sellerEmail || '')}
+                            onChange={(e) => handleInputChange('sellerEmail', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            placeholder="name@example.com"
+                          />
+                        </div>
                       </div>
-                      <div className="flex space-x-1">
+
+                      {!!formData.sellerId && (
+                        <div className="text-[11px] text-gray-600">
+                          Seller ID: <span className="font-medium">{String(formData.sellerId)}</span>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-1">
                         <a
                           href={formData.sellerPhone ? `tel:${cleanDigits(String(formData.sellerPhone))}` : '#'}
                           className="flex items-center space-x-1 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
@@ -606,10 +744,11 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                         <button
                           type="button"
                           onClick={() => {
-                            const message = `Hi ${formData.sellerName || ''}, ${buyer.name} would like to visit your property ${formData.property || ''} on ${formData.date} at ${formData.time}. Please confirm availability.`;
+                            const when = `${formData.date} at ${formData.time || '10:00'}`;
+                            const msg = `Hi ${sellerNameWithSalutation || 'there'}, ${buyer.name} would like to visit your property ${formData.property || ''} on ${when}. Please confirm availability. — ${executiveName || 'Executive'}${executiveEmail ? ` (${executiveEmail})` : ''}`;
                             const phone = cleanDigits(String(formData.sellerPhone || ''));
                             if (!phone) return;
-                            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+                            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
                           }}
                           className="flex items-center space-x-1 px-2 py-1 text-xs bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
                         >
@@ -717,7 +856,6 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                           onChange={(e) => handleInputChange('revisitRequired', e.target.checked)}
                           className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                         />
-                        <span className="text-xs text-gray-700 font-medium">Revisit required</span>
                       </label>
 
                       {formData.revisitRequired && (
