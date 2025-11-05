@@ -15,6 +15,8 @@ import {
   Percent,
   Bot,
   ExternalLink,
+  Hash,
+  XCircle, // ✅ for Sold badge
 } from "lucide-react";
 
 import propertiesAPI from "@/lib/propertiesAPI";
@@ -39,6 +41,8 @@ type BuyerNorm = {
   city?: string;
 };
 
+type AvailabilityStatus = "available" | "sold";
+
 export type Property = {
   id: string | number;
   title?: string;
@@ -61,6 +65,7 @@ export type Property = {
     phone?: string | null;
   } | null;
   is_public?: boolean | 0 | 1 | "0" | "1";
+  status?: AvailabilityStatus; // ✅ added
 };
 
 /* ----------------------------------------------------------------------------
@@ -144,8 +149,9 @@ const safeJsonArray = (val: unknown) => {
   return [];
 };
 
+// Safer: no random fallback (so duplicates don't appear with different random ids)
 const resolveId = (row: any) =>
-  row?.id ?? row?.property_id ?? row?._id ?? row?.uuid ?? row?.slug ?? `${Math.random()}`;
+  row?.property_id ?? row?.id ?? row?._id ?? row?.uuid ?? row?.slug ?? null;
 
 const buildPublicUrl = (p: Property, raw: any): string => {
   const direct = raw?.website || raw?.url || p.website || p.url;
@@ -166,6 +172,49 @@ const normalizePhoneForWhatsApp = (phone?: string | null) => {
 };
 
 const inRange = (value: number, min: number, max: number) => value >= min && value <= max;
+
+const formatPropertyCode = (id: string | number | null | undefined) =>
+  id != null ? `REX00${String(id)}` : "REX00—";
+
+/* ----------------------------------------------------------------------------
+   Availability status normalization + badge
+---------------------------------------------------------------------------- */
+function normalizeAvailabilityStatus(row: any): AvailabilityStatus {
+  const isSold = row?.is_sold ?? row?.sold ?? row?.isSold;
+  if (typeof isSold === "boolean") return isSold ? "sold" : "available";
+  if (typeof isSold === "number") return isSold === 1 ? "sold" : "available";
+
+  const available = row?.available ?? row?.is_available ?? row?.isAvailable;
+  if (typeof available === "boolean") return available ? "available" : "sold";
+  if (typeof available === "number") return available === 1 ? "available" : "sold";
+
+  const raw =
+    row?.availability_status ??
+    row?.listing_status ??
+    row?.status ??
+    row?.availability ??
+    row?.property_status;
+
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (["sold", "booked", "unavailable", "not available", "closed"].includes(s)) return "sold";
+  if (["available", "active", "listed", "open", "public"].includes(s)) return "available";
+
+  return "available";
+}
+
+const StatusBadge: React.FC<{ status: AvailabilityStatus }> = ({ status }) => {
+  const isAvail = status === "available";
+  const cls = isAvail
+    ? "bg-green-100 text-green-700 ring-1 ring-green-200"
+    : "bg-red-100 text-red-700 ring-1 ring-red-200";
+  const Icon = isAvail ? CheckCircle : XCircle;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${cls}`}>
+      <Icon size={10} />
+      {isAvail ? "Available" : "Sold"}
+    </span>
+  );
+};
 
 /* ----------------------------------------------------------------------------
    Buyer normalization
@@ -205,7 +254,6 @@ const normalizeBuyer = (raw: BuyerRaw | null | undefined): BuyerNorm | null => {
    Matching Heuristics  (Budget strict; Score is weight-based)
 ---------------------------------------------------------------------------- */
 function normalizeUnitTypeToBHK(s: string) {
-  // "2 bhk", "2BHK", "2 Bedroom" -> "2"
   const m = String(s || "")
     .replace(/\s+/g, " ")
     .toLowerCase()
@@ -214,12 +262,10 @@ function normalizeUnitTypeToBHK(s: string) {
 }
 
 function computeMatchScore(p: Property, buyer: BuyerNorm) {
-  // Hard rule: if not in budget, return 0 (and UI anyway filters these out)
   const price = p.budget ?? 0;
   const isBudgetOk = inRange(price, buyer.budget.min, buyer.budget.max);
   if (!isBudgetOk) return 0;
 
-  // Weights
   const W_BUDGET = 55;
   const W_LOCATION = 25;
   const W_UNIT = 15;
@@ -227,14 +273,12 @@ function computeMatchScore(p: Property, buyer: BuyerNorm) {
 
   let score = 0;
 
-  // Budget sub-scoring: center of range is 100% of W_BUDGET; edges slightly less
   const mid = (buyer.budget.min + buyer.budget.max) / 2;
   const halfRange = Math.max(1, (buyer.budget.max - buyer.budget.min) / 2);
   const dist = Math.abs(price - mid);
-  const budgetFrac = Math.max(0, 1 - dist / halfRange); // 1 at mid, 0 at edges+
+  const budgetFrac = Math.max(0, 1 - dist / halfRange);
   score += Math.round(W_BUDGET * budgetFrac);
 
-  // Location match (token contains)
   let locPts = 0;
   if (buyer.requirements.preferredLocations?.length) {
     const locs = (p.location || "").toLowerCase();
@@ -243,12 +287,10 @@ function computeMatchScore(p: Property, buyer: BuyerNorm) {
     );
     locPts = hit ? W_LOCATION : 0;
   } else {
-    // If no preference, give neutral half credit
     locPts = Math.round(W_LOCATION * 0.5);
   }
   score += locPts;
 
-  // Unit type match
   let unitPts = 0;
   if (buyer.requirements.unitType) {
     const pu = Array.isArray(buyer.requirements.unitType)
@@ -261,14 +303,13 @@ function computeMatchScore(p: Property, buyer: BuyerNorm) {
 
     unitPts = exact ? W_UNIT : loose ? Math.round(W_UNIT * 0.6) : 0;
   } else {
-    unitPts = Math.round(W_UNIT * 0.5); // no preference => neutral
+    unitPts = Math.round(W_UNIT * 0.5);
   }
   score += unitPts;
 
-  // Extras (photos/amenities) small bump
   const hasPhotos = (p.photos?.length || 0) > 0;
   const hasAmenities = (p.amenities?.length || 0) > 0;
-  const extrasFrac = (Number(hasPhotos) + Number(hasAmenities)) / 2; // 0, 0.5, 1
+  const extrasFrac = (Number(hasPhotos) + Number(hasAmenities)) / 2;
   score += Math.round(W_EXTRAS * extrasFrac);
 
   return Math.max(0, Math.min(100, score));
@@ -403,7 +444,7 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
     };
   }, [isOpen, buyerN]);
 
-  // Fetch properties + tags - ONLY non-public (is_public = 0 / false / "0")
+  // Fetch properties + tags - ONLY public (is_public = 1 / true / "1")
   useEffect(() => {
     if (!isOpen || !buyerN) return;
     let mounted = true;
@@ -439,68 +480,76 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
             : Array.isArray(resp) ? (resp as any) : [];
         }
 
-        // Ensure only non-public properties are shown (is_public == 0 / false / "0")
-        const nonPublic = (list || []).filter((row: any) => {
+        // Keep ONLY public properties (is_public == 1 / true / "1")
+        const publicOnly = (list || []).filter((row: any) => {
           const v = row?.is_public;
-          return v === 0 || v === "0" || v === false;
+          return v === 1 || v === "1" || v === true;
         });
 
-        const normalized: Property[] = (nonPublic || []).map((row: any) => {
-          const photos = (() => {
-            const arr = safeJsonArray(row?.photos ?? row?.images ?? row?.media);
-            if (arr.length && typeof arr[0] === "object") {
-              return arr.map((m: any) => m?.url ?? m?.src ?? "").filter(Boolean);
-            }
-            return arr as string[];
-          })();
+        const normalized: Property[] = (publicOnly || [])
+          .map((row: any) => {
+            const idResolved = resolveId(row);
+            if (idResolved == null) return null; // skip if no stable id
 
-          const propertyType = row.property_type_name || row.property_type || "";
-          const unitType = row.unit_type || row.bhk_label || row.configuration || "";
-          const subtypeRaw = row.property_subtype_name || row.property_subtype || "";
+            const photos = (() => {
+              const arr = safeJsonArray(row?.photos ?? row?.images ?? row?.media);
+              if (arr.length && typeof arr[0] === "object") {
+                return arr.map((m: any) => m?.url ?? m?.src ?? "").filter(Boolean);
+              }
+              return arr as string[];
+            })();
 
-          const propertySubtypeArr = toStrArr(subtypeRaw);
-          const propertySubtype =
-            propertySubtypeArr.length > 0 ? propertySubtypeArr : (subtypeRaw ? [String(subtypeRaw)] : []);
+            const propertyType = row.property_type_name || row.property_type || "";
+            const unitType = row.unit_type || row.bhk_label || row.configuration || "";
+            const subtypeRaw = row.property_subtype_name || row.property_subtype || "";
 
-          const serverTitle = row.title || row.project_name || row.name || row.property_name || row.society_name;
+            const propertySubtypeArr = toStrArr(subtypeRaw);
+            const propertySubtype =
+              propertySubtypeArr.length > 0 ? propertySubtypeArr : (subtypeRaw ? [String(subtypeRaw)] : []);
 
-          const displayTitle = composePropertyTitle({
-            propertyType: propertyType ? String(propertyType) : undefined,
-            unitType: unitType ? String(unitType) : undefined,
-            propertySubtype,
-            fallback: serverTitle,
-          });
+            const serverTitle = row.title || row.project_name || row.name || row.property_name || row.society_name;
 
-          const assignedTo =
-            row.assignedTo ||
-            (row.executive_name || row.executive_email || row.executive_phone
-              ? {
-                  name: row.executive_name || null,
-                  email: row.executive_email || null,
-                  phone: row.executive_phone || null,
-                }
-              : null);
+            const displayTitle = composePropertyTitle({
+              propertyType: propertyType ? String(propertyType) : undefined,
+              unitType: unitType ? String(unitType) : undefined,
+              propertySubtype,
+              fallback: serverTitle,
+            });
 
-          return {
-            id: resolveId(row),
-            title: displayTitle,
-            propertyType: propertyType ? String(propertyType) : undefined,
-            unitType: unitType ? String(unitType) : undefined,
-            propertySubtype,
-            slug: row.slug,
-            photos,
-            city: row.city_name || row.city || row.cityNormalized,
-            location: row.location_name || row.location || row.locationNormalized || row.locality,
-            address: row.address || row.full_address,
-            budget: toNum(row.budget ?? row.final_price ?? row.price ?? row.expected_price ?? 0),
-            carpet_area: toNum(row.carpet_area ?? row.carpetArea ?? row.area ?? 0),
-            amenities: Array.isArray(row.amenities) ? row.amenities : toStrArr(row.amenities),
-            website: row.website || row.url,
-            url: row.url,
-            assignedTo,
-            is_public: row.is_public,
-          };
-        });
+            const assignedTo =
+              row.assignedTo ||
+              (row.executive_name || row.executive_email || row.executive_phone
+                ? {
+                    name: row.executive_name || null,
+                    email: row.executive_email || null,
+                    phone: row.executive_phone || null,
+                  }
+                : null);
+
+            const status = normalizeAvailabilityStatus(row); // ✅ normalize here
+
+            return {
+              id: idResolved,
+              title: displayTitle,
+              propertyType: propertyType ? String(propertyType) : undefined,
+              unitType: unitType ? String(unitType) : undefined,
+              propertySubtype,
+              slug: row.slug,
+              photos,
+              city: row.city_name || row.city || row.cityNormalized,
+              location: row.location_name || row.location || row.locationNormalized || row.locality,
+              address: row.address || row.full_address,
+              budget: toNum(row.budget ?? row.final_price ?? row.price ?? row.expected_price ?? 0),
+              carpet_area: toNum(row.carpet_area ?? row.carpetArea ?? row.area ?? 0),
+              amenities: Array.isArray(row.amenities) ? row.amenities : toStrArr(row.amenities),
+              website: row.website || row.url,
+              url: row.url,
+              assignedTo,
+              is_public: row.is_public,
+              status, // ✅ keep normalized status
+            } as Property;
+          })
+          .filter(Boolean) as Property[];
 
         // Tags map
         let tagMap: Record<string, string[]> = {};
@@ -602,6 +651,7 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
 
       return {
         id: String(p.id),
+        propertyCode: formatPropertyCode(p.id),
         title: p.title,
         propertyType: p.propertyType || "",
         unitType: p.unitType || "",
@@ -630,6 +680,7 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
         slug: p.slug,
         propertyId: p.id,
         shareImage: img,
+        status: p.status as AvailabilityStatus, // ✅ carry forward for UI
       };
     });
   }, [properties, buyerN, tagsByProperty]);
@@ -646,7 +697,7 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
     const byTab = (() => {
       switch (filterType) {
         case "budget_match":
-          return base; // already strict in-budget
+          return base;
         case "high_match":
           return base.filter((p) => p.matchScore >= 85);
         case "investment":
@@ -684,7 +735,7 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
     const wa = normalizePhoneForWhatsApp(phone);
     if (!wa) return alert("Executive phone not available.");
     const message = `Hi ${property.assignedTo?.name || "there"}, I'm interested in "${property.title}". My budget is ${formatCurrency(
-      buyerN?.budget.min ?? 0
+      (buyerN?.budget.min ?? 0)
     )} - ${formatCurrency(buyerN?.budget.max ?? 0)}. Can we schedule a visit?`;
     if (typeof window !== "undefined") {
       window.open(`https://wa.me/${wa}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
@@ -833,7 +884,16 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between mb-2">
                           <div className="min-w-0">
-                            <h4 className="font-bold text-gray-900 truncate">{property.title}</h4>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-bold text-gray-900 truncate">{property.title}</h4>
+                              {/* Property Code Badge */}
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 ring-1 ring-gray-200 text-[10px]">
+                                <Hash size={10} />
+                                {property.propertyCode}
+                              </span>
+                              {/* ✅ Availability Status */}
+                              <StatusBadge status={property.status as AvailabilityStatus} />
+                            </div>
 
                             <div className="flex items-center space-x-1 text-gray-600 mt-0.5">
                               <MapPin size={12} />
@@ -961,6 +1021,8 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
                           <button
                             onClick={() => handleScheduleVisit(property)}
                             className="flex items-center space-x-1 px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                            disabled={property.status === "sold"}
+                            title={property.status === "sold" ? "This property is sold" : "Schedule a visit"}
                           >
                             <Calendar size={12} />
                             <span>Visit</span>
@@ -969,6 +1031,8 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
                           <button
                             onClick={() => handleSaveToShortlist(property)}
                             className="flex items-center space-x-1 px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                            disabled={property.status === "sold"}
+                            title={property.status === "sold" ? "This property is sold" : "Add to shortlist"}
                           >
                             <Heart size={12} />
                             <span>Shortlist</span>

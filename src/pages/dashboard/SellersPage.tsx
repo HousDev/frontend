@@ -823,65 +823,65 @@ const SellersPage: React.FC = () => {
     }
   };
 
-const handleSaveSeller = async (sellerData: any) => {
-  try {
-    let savedSeller;
+  const handleSaveSeller = async (sellerData: any) => {
+    try {
+      let savedSeller;
 
-    if (editingSeller?.id) {
-      // UPDATE
-      try {
-        savedSeller = await sellerAPI.update(String(editingSeller.id), sellerData);
-        toast.success("Seller updated successfully");
-      } catch (error: any) {
-        // If update fails with "not found", try create instead
-        if (error?.response?.status === 404 || error?.message?.includes('not found')) {
-          console.warn('Seller not found, creating new one...');
-          savedSeller = await sellerAPI.create(sellerData);
-          toast.success("Seller created successfully (original not found)");
-        } else {
-          throw error;
+      if (editingSeller?.id) {
+        // UPDATE
+        try {
+          savedSeller = await sellerAPI.update(String(editingSeller.id), sellerData);
+          toast.success("Seller updated successfully");
+        } catch (error: any) {
+          // If update fails with "not found", try create instead
+          if (error?.response?.status === 404 || error?.message?.includes('not found')) {
+            console.warn('Seller not found, creating new one...');
+            savedSeller = await sellerAPI.create(sellerData);
+            toast.success("Seller created successfully (original not found)");
+          } else {
+            throw error;
+          }
         }
+      } else {
+        // CREATE
+        savedSeller = await sellerAPI.create(sellerData);
+        toast.success("Seller created successfully");
       }
-    } else {
-      // CREATE
-      savedSeller = await sellerAPI.create(sellerData);
-      toast.success("Seller created successfully");
+
+      // Map the saved entity into UI shape
+      const updated = mapApiSellerToUI(savedSeller);
+
+      // ✅ IMPORTANT: Refresh the sellers list by re-fetching
+      await refreshSellersList();
+
+      // Close modal
+      setShowSellerForm(false);
+      setEditingSeller(null);
+
+    } catch (error) {
+      console.error("❌ Error saving seller:", error);
+      toast.error("Failed to save seller. Please try again.");
     }
+  };
 
-    // Map the saved entity into UI shape
-    const updated = mapApiSellerToUI(savedSeller);
+  // ✅ नया function add करें sellers list refresh करने के लिए
+  const refreshSellersList = async () => {
+    try {
+      setLoading(true);
+      const apiSellers = await sellerAPI.getAll();
 
-    // ✅ IMPORTANT: Refresh the sellers list by re-fetching
-    await refreshSellersList();
+      const normalized = Array.isArray(apiSellers)
+        ? apiSellers.map(mapApiSellerToUI)
+        : [];
+      setSellers(normalized);
 
-    // Close modal
-    setShowSellerForm(false);
-    setEditingSeller(null);
-
-  } catch (error) {
-    console.error("❌ Error saving seller:", error);
-    toast.error("Failed to save seller. Please try again.");
-  }
-};
-
-// ✅ नया function add करें sellers list refresh करने के लिए
-const refreshSellersList = async () => {
-  try {
-    setLoading(true);
-    const apiSellers = await sellerAPI.getAll();
-    
-    const normalized = Array.isArray(apiSellers)
-      ? apiSellers.map(mapApiSellerToUI)
-      : [];
-    setSellers(normalized);
-    
-  } catch (err) {
-    console.error("Error refreshing sellers:", err);
-    toast.error("Failed to refresh sellers list");
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (err) {
+      console.error("Error refreshing sellers:", err);
+      toast.error("Failed to refresh sellers list");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSellerSelection = (sellerId: number) => {
     setSelectedSellers((prev) =>
@@ -1332,9 +1332,15 @@ const refreshSellersList = async () => {
 
                     <td className="px-3 py-3">
                       <div className="flex items-center space-x-3">
-                        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
-                          <User className="text-white" size={14} />
+                        <div className="flex flex-col items-center space-y-1">
+                          <div className="p-1.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
+                            <User className="text-white" size={14} />
+                          </div>
+                          <div className="text-[10px] text-[#0b3856] bg-[#0b3856]/10 px-2 py-0.5 rounded-md inline-block">
+                            Id : {seller.id}
+                          </div>
                         </div>
+
                         <div>
                           <div className="font-semibold text-gray-900 text-sm">
                             <div>{safe(seller.salutation)} {safe(seller.name)}</div>
@@ -1346,7 +1352,6 @@ const refreshSellersList = async () => {
                             {getStatusBadge(seller.isActive)}
                             {getLeadScore(seller.leadScore)}
                           </div>
-                            <div className='text-xs text-[#E6761D] font-bold'>Seller Id : {seller.id}</div>
                         </div>
                       </div>
                     </td>

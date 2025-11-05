@@ -141,14 +141,18 @@ const getDisplayName = (u: any): string => {
 };
 
 /* ---------------------- Multi-select Tag Picker ---------------------- */
+/* ---------------------- Multi-select Tag Picker ---------------------- */
+/* ---------------------- Multi-select Tag Picker ---------------------- */
 const TagPickerRow: React.FC<{
   label: "Add" | "Remove";
   knownTags: string[];
   selectedPropertyIds: (number | string)[];
   propTags: Record<string, string[]>;
   onApply: (tags: string[]) => void;
-}> = ({ label, knownTags, selectedPropertyIds, propTags, onApply }) => {
-  const [open, setOpen] = useState(false);
+  isOpen: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}> = ({ label, knownTags, selectedPropertyIds, propTags, onApply, isOpen, onToggle, onClose }) => {
   const [selected, setSelected] = useState<string[]>([]);
 
   const currentTags = useMemo(() => {
@@ -169,12 +173,12 @@ const TagPickerRow: React.FC<{
   }, [knownTags]);
 
   useEffect(() => {
-    if (label === "Remove" && open) {
+    if (label === "Remove" && isOpen) {
       setSelected(currentTags.filter(tag => options.includes(tag)));
-    } else if (label === "Add" && open) {
+    } else if (label === "Add" && isOpen) {
       setSelected([]);
     }
-  }, [open, label, currentTags, options]);
+  }, [isOpen, label, currentTags, options]);
 
   const toggle = (t: string) => {
     setSelected(prev => (prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]));
@@ -189,14 +193,17 @@ const TagPickerRow: React.FC<{
       return;
     }
     onApply(selected);
-    setOpen(false);
+    onClose();
   };
 
   return (
     <div className="mb-2 relative">
       <button
         className="w-full text-left text-xs px-2 py-1 rounded hover:bg-gray-50 font-medium border border-transparent hover:border-gray-200 transition-colors"
-        onClick={() => setOpen(o => !o)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
         type="button"
       >
         {label} tags
@@ -207,8 +214,8 @@ const TagPickerRow: React.FC<{
         )}
       </button>
 
-      {open && (
-        <div className="absolute z-30 left-0 right-0 mt-1 border rounded-lg bg-white shadow-lg p-2 min-w-[250px]">
+      {isOpen && (
+        <div className="absolute z-40 left-0 right-0 mt-1 border rounded-lg bg-white shadow-lg p-2 min-w-[250px]">
           <div className="flex items-center justify-between mb-2">
             <div className="text-[11px] text-gray-500">
               {options.length} available tags
@@ -281,7 +288,7 @@ const TagPickerRow: React.FC<{
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setOpen(false)}
+                onClick={onClose}
                 className="px-3 py-1.5 border rounded text-xs hover:bg-gray-50 transition-colors"
               >
                 Cancel
@@ -300,7 +307,6 @@ const TagPickerRow: React.FC<{
     </div>
   );
 };
-
 /* ---------------------- Executive Assignment Modal ---------------------- */
 const AssignExecutiveModal: React.FC<{
   isOpen: boolean;
@@ -683,31 +689,31 @@ function normalizeProperty(r: any, idx: number): UIProperty {
     return Number.isFinite(n) ? n : ' - ';
   })();
 
-// Normalizer function ko update karein
-const normalizedAssignedTo = (() => {
-  const raw = r?.assignedTo ?? (r?.assigned_to != null ? {
-    id: r.assigned_to,
-    name: r.assigned_to_name,
-    full_name: r.assigned_to_full_name,
-    email: r.assigned_to_email, // ✅ Add this
-    phone: r.assigned_to_phone, // ✅ Add this
-    department: r.assigned_to_department,
-    role: r.assigned_to_role
-  } : undefined);
+  // Normalizer function ko update karein
+  const normalizedAssignedTo = (() => {
+    const raw = r?.assignedTo ?? (r?.assigned_to != null ? {
+      id: r.assigned_to,
+      name: r.assigned_to_name,
+      full_name: r.assigned_to_full_name,
+      email: r.assigned_to_email, // ✅ Add this
+      phone: r.assigned_to_phone, // ✅ Add this
+      department: r.assigned_to_department,
+      role: r.assigned_to_role
+    } : undefined);
 
-  if (!raw) return undefined;
-  const id = raw.id ?? raw.userId ?? raw.user_id ?? r?.assigned_to;
-  if (id === null || id === undefined || String(id).trim() === '') return undefined;
+    if (!raw) return undefined;
+    const id = raw.id ?? raw.userId ?? raw.user_id ?? r?.assigned_to;
+    if (id === null || id === undefined || String(id).trim() === '') return undefined;
 
-  return {
-    id,
-    name: getDisplayName(raw),
-    email: raw.email || r?.assigned_to_email || '', // ✅ Ensure email
-    phone: raw.phone || r?.assigned_to_phone || '', // ✅ Ensure phone
-    department: raw.department || r?.assigned_to_department,
-    role: raw.role || r?.assigned_to_role,
-  };
-})();
+    return {
+      id,
+      name: getDisplayName(raw),
+      email: raw.email || r?.assigned_to_email || '', // ✅ Ensure email
+      phone: raw.phone || r?.assigned_to_phone || '', // ✅ Ensure phone
+      department: raw.department || r?.assigned_to_department,
+      role: raw.role || r?.assigned_to_role,
+    };
+  })();
   return {
     id: r.id ?? idx + 1,
     propertyId: r.property_id || `REX${String(r.id ?? idx + 1).padStart(4, '0')}`,
@@ -892,21 +898,23 @@ const PropertiesPage = () => {
   const [knownTags, setKnownTags] = useState<string[]>([]);
   const [loadedPropertyIds, setLoadedPropertyIds] = useState<Set<string>>(new Set());
   const [hasAutoTagged, setHasAutoTagged] = useState(false);
-const [totalViews, setTotalViews] = useState(0);
-const [totalUniqueViews, setTotalUniqueViews] = useState(0);
+  const [totalViews, setTotalViews] = useState(0);
+  const [totalUniqueViews, setTotalUniqueViews] = useState(0);
+  const [bulkTagsMenuOpen, setBulkTagsMenuOpen] = useState(false);
 
-
+  const [activeTagPicker, setActiveTagPicker] = useState<'add' | 'remove' | null>(null);
   useEffect(() => {
-  async function fetchViewStats() {
-    const res = await viewsAPI.getAll(false); // false → total views
-    const resUnique = await viewsAPI.getAll(true); // true → unique views
+    async function fetchViewStats() {
+      const res = await viewsAPI.getAll(false); // false → total views
+      const resUnique = await viewsAPI.getAll(true); // true → unique views
 
-    setTotalViews(res?.rows?.reduce((sum: number, row: any) => sum + (row?.total_views || 0), 0));
-    setTotalUniqueViews(resUnique?.rows?.reduce((sum: number, row: any) => sum + (row?.unique_views || 0), 0));
-  }
+      setTotalViews(res?.rows?.reduce((sum: number, row: any) => sum + (row?.total_views || 0), 0));
+      setTotalUniqueViews(resUnique?.rows?.reduce((sum: number, row: any) => sum + (row?.unique_views || 0), 0));
+    }
 
-  fetchViewStats();
-}, []);
+    fetchViewStats();
+  }, []);
+
 
   // Fetch sales executives
   useEffect(() => {
@@ -952,18 +960,18 @@ const [totalUniqueViews, setTotalUniqueViews] = useState(0);
   // Persist active tab - OPTIMIZED
   useEffect(() => {
     if (!activeTab) return;
-    
+
     const previousTab = localStorage.getItem('prop_list_tab');
     if (previousTab === activeTab) return;
-    
+
     localStorage.setItem('prop_list_tab', activeTab);
-    
+
     const timeoutId = setTimeout(() => {
       const url = new URL(window.location.href);
       url.searchParams.set('listTab', activeTab);
       window.history.replaceState({}, '', url.toString());
     }, 300);
-    
+
     return () => clearTimeout(timeoutId);
   }, [activeTab]);
 
@@ -1009,16 +1017,16 @@ const [totalUniqueViews, setTotalUniqueViews] = useState(0);
 
   // OPTIMIZED: Single API call without retry loop
   const fetchPropertiesOnce = async () => {
-  try {
-    // Directly call the API without type checking
-    const raw = await propertiesAPI.getProperties();
-    const list = Array.isArray(raw) ? raw : raw?.data || [];
-    return list.map((r: any, idx: number) => normalizeProperty(r, idx));
-  } catch (error) {
-    console.error('API call failed:', error);
-    throw error;
-  }
-};
+    try {
+      // Directly call the API without type checking
+      const raw = await propertiesAPI.getProperties();
+      const list = Array.isArray(raw) ? raw : raw?.data || [];
+      return list.map((r: any, idx: number) => normalizeProperty(r, idx));
+    } catch (error) {
+      console.error('API call failed:', error);
+      throw error;
+    }
+  };
 
   const presetTags = useMemo(() => Object.keys(DEFAULT_TAG_STYLE), []);
   const dynamicTagUniverse = useMemo(
@@ -1045,55 +1053,55 @@ const [totalUniqueViews, setTotalUniqueViews] = useState(0);
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
   }, [presetTags, knownTags, dynamicTagUniverse]);
 
-// REPLACE YOUR CURRENT loadProperties FUNCTION WITH THIS:
+  // REPLACE YOUR CURRENT loadProperties FUNCTION WITH THIS:
 
-const loadProperties = async () => {
-  console.log('🔄 Loading properties started...');
-  
-  setLoading(true);
-  setError(null);
-  setIsOffline(false);
-  
-  try {
-    console.log('📞 Calling propertiesAPI.getProperties()...');
+  const loadProperties = async () => {
+    console.log('🔄 Loading properties started...');
+
+    setLoading(true);
+    setError(null);
+    setIsOffline(false);
+
+    try {
+      console.log('📞 Calling propertiesAPI.getProperties()...');
+
+      // Remove the problematic type check
+      const raw = await propertiesAPI.getProperties();
+   
+
+      const list = Array.isArray(raw) ? raw : raw?.data || [];
     
-    // Remove the problematic type check
-    const raw = await propertiesAPI.getProperties();
-    console.log('✅ API Response:', raw);
-    
-    const list = Array.isArray(raw) ? raw : raw?.data || [];
-    console.log(`📊 Found ${list.length} properties`);
-    
-    const normalized = list.map((r: any, idx: number) => normalizeProperty(r, idx));
-    setProperties(normalized);
-    
-    console.log('✅ Properties loaded successfully');
-    
-  } catch (e: any) {
-    console.error('❌ Error fetching properties:', e);
-    
-    // More detailed error handling
-    let errorMsg = 'Failed to load properties.';
-    
-    if (e?.message) {
-      errorMsg = e.message;
-    } else if (e?.response?.data?.message) {
-      errorMsg = e.response.data.message;
-    } else if (e?.code === 'NETWORK_ERROR') {
-      errorMsg = 'Network error - please check your connection';
-      setIsOffline(true);
+
+      const normalized = list.map((r: any, idx: number) => normalizeProperty(r, idx));
+      setProperties(normalized);
+
+
+
+    } catch (e: any) {
+      console.error('❌ Error fetching properties:', e);
+
+      // More detailed error handling
+      let errorMsg = 'Failed to load properties.';
+
+      if (e?.message) {
+        errorMsg = e.message;
+      } else if (e?.response?.data?.message) {
+        errorMsg = e.response.data.message;
+      } else if (e?.code === 'NETWORK_ERROR') {
+        errorMsg = 'Network error - please check your connection';
+        setIsOffline(true);
+      }
+
+      setError(errorMsg);
+      setProperties([]);
+
+      // Show error in UI
+      toast.error(`Loading failed: ${errorMsg}`);
+    } finally {
+      setLoading(false);
+      console.log('🏁 Loading finished');
     }
-    
-    setError(errorMsg);
-    setProperties([]);
-    
-    // Show error in UI
-    toast.error(`Loading failed: ${errorMsg}`);
-  } finally {
-    setLoading(false);
-    console.log('🏁 Loading finished');
-  }
-};
+  };
 
   // Load properties on mount
   useEffect(() => {
@@ -1106,10 +1114,10 @@ const loadProperties = async () => {
   // OPTIMIZED: Update current property view only when specific property changes
   useEffect(() => {
     if (!currentPropertyView) return;
-    
+
     const currentPropertyId = String(currentPropertyView.id);
     const freshProperty = properties.find(p => String(p.id) === currentPropertyId);
-    
+
     if (freshProperty && freshProperty.updated_at !== currentPropertyView.updated_at) {
       setCurrentPropertyView(freshProperty);
     }
@@ -1119,8 +1127,8 @@ const loadProperties = async () => {
   useEffect(() => {
     if (!properties.length) return;
 
-    const newProperties = properties.filter(p => 
-      !loadedPropertyIds.has(String(p.id)) && 
+    const newProperties = properties.filter(p =>
+      !loadedPropertyIds.has(String(p.id)) &&
       !propTags[String(p.id)]
     );
 
@@ -1145,7 +1153,7 @@ const loadProperties = async () => {
         if (Object.keys(updates).length > 0) {
           setPropTags(prev => ({ ...prev, ...updates }));
           setKnownTags(prev => Array.from(new Set([...prev, ...Object.values(updates).flat()])).sort());
-          
+
           // Mark properties as loaded
           setLoadedPropertyIds(prev => {
             const newSet = new Set(prev);
@@ -1167,7 +1175,7 @@ const loadProperties = async () => {
 
     const now = Date.now();
     const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
-    
+
     const needsNewListing = properties.filter(p => {
       if (!p.created_at) return false;
       const created = new Date(p.created_at).getTime();
@@ -1184,20 +1192,20 @@ const loadProperties = async () => {
         for (const p of needsNewListing) {
           const key = String(p.id);
           const currentTags = propTags[key] || [];
-          
+
           if (!currentTags.some(t => t.toLowerCase() === "new listing")) {
             // Update local state immediately
             setPropTags(prev => ({
               ...prev,
               [key]: [...currentTags, "New Listing"]
             }));
-            
+
             // API call in background (don't await)
             propertyTagsAPI.add(p.id, ["New Listing"]).catch(console.error);
           }
         }
-        
-        setKnownTags(prev => 
+
+        setKnownTags(prev =>
           prev.includes("New Listing") ? prev : ["New Listing", ...prev].sort()
         );
         setHasAutoTagged(true);
@@ -1238,45 +1246,45 @@ const loadProperties = async () => {
         (activeTab === 'public' && p.isPublic) ||
         (activeTab === 'hot' && (Number(p.hotLeads) || 0) > 2);
 
-      const matchesExecutive = 
+      const matchesExecutive =
         filters.assignedExecutive === 'all' ||
         (filters.assignedExecutive === '__unassigned__' && !p.assignedTo?.id) ||
         (p.assignedTo?.id != null && String(p.assignedTo.id) === String(filters.assignedExecutive));
 
-      const matchesPublicFilter = 
+      const matchesPublicFilter =
         filters.isPublic === undefined ||
         filters.isPublic === Boolean(p.isPublic);
 
       const matchesPriceRange = (() => {
         if (filters.priceRange === 'all' || !filters.priceRange) return true;
-        
+
         const price = Number(p.budget);
         if (!price || price <= 0) return false;
-        
+
         return checkPriceRange(price, filters.priceRange);
       })();
 
       const matchesBudgetRange = (() => {
         const price = Number(p.budget);
         if (!price || price <= 0) return false;
-        
+
         const minBudget = filters.minBudget ? Number(filters.minBudget) : 0;
         const maxBudget = filters.maxBudget ? Number(filters.maxBudget) : Infinity;
-        
+
         return price >= minBudget && price <= maxBudget;
       })();
 
       const matchesDateRange = (() => {
         if (filters.ignoreDate) return true;
-        
+
         const dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : null;
         const dateTo = filters.dateTo ? new Date(filters.dateTo) : null;
-        
+
         if (!dateFrom && !dateTo) return true;
-        
+
         const propertyDate = new Date(p.created_at || p.updated_at || 0);
         propertyDate.setHours(0, 0, 0, 0);
-        
+
         if (dateFrom && dateTo) {
           dateFrom.setHours(0, 0, 0, 0);
           dateTo.setHours(23, 59, 59, 999);
@@ -1288,7 +1296,7 @@ const loadProperties = async () => {
           dateTo.setHours(23, 59, 59, 999);
           return propertyDate <= dateTo;
         }
-        
+
         return true;
       })();
 
@@ -1311,16 +1319,16 @@ const loadProperties = async () => {
       switch (filters.sortOrder) {
         case 'created_asc':
           return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-        
+
         case 'created_desc':
           return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-        
+
         case 'price_asc':
           return (Number(a.budget) || 0) - (Number(b.budget) || 0);
-        
+
         case 'price_desc':
           return (Number(b.budget) || 0) - (Number(a.budget) || 0);
-        
+
         default:
           return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       }
@@ -1372,7 +1380,7 @@ const loadProperties = async () => {
         await propertiesAPI.deleteProperty(propertyId.toString());
         setProperties((prev) => prev.filter((p) => p.id !== propertyId));
         toast.success("Property deleted successfully!");
-        
+
         // Remove from loaded property IDs
         setLoadedPropertyIds(prev => {
           const newSet = new Set(prev);
@@ -1449,12 +1457,12 @@ const loadProperties = async () => {
             : prev
         );
 
-       if (response.success) {
-      // ✅ Properties list refresh kar dein
-      await loadProperties(); // Ye wahi function hai jo initial load ke liye use karte hain
-      
-      toast.success(`Property assigned to ${executiveName}`);
-    }
+        if (response.success) {
+          // ✅ Properties list refresh kar dein
+          await loadProperties(); // Ye wahi function hai jo initial load ke liye use karte hain
+
+          toast.success(`Property assigned to ${executiveName}`);
+        }
 
       } else {
         toast.error("Failed to assign executive");
@@ -1508,11 +1516,11 @@ const loadProperties = async () => {
           console.error(`Failed to assign property ${propertyId}:`, error);
         }
       }
- if (successCount > 0) {
-      await loadProperties(); // Complete refresh for consistency
-      toast.success(`${successCount} properties assigned to ${executiveName}`);
-    }
-      
+      if (successCount > 0) {
+        await loadProperties(); // Complete refresh for consistency
+        toast.success(`${successCount} properties assigned to ${executiveName}`);
+      }
+
       setSelectedProperties([]);
     } catch (error: any) {
       console.error("Bulk assign failed:", error);
@@ -1810,14 +1818,14 @@ const loadProperties = async () => {
 
       if (response.success) {
         setProperties(prev => prev.filter(p => !selectedProperties.includes(p.id)));
-        
+
         // Remove from loaded property IDs
         setLoadedPropertyIds(prev => {
           const newSet = new Set(prev);
           selectedProperties.forEach(id => newSet.delete(String(id)));
           return newSet;
         });
-        
+
         setSelectedProperties([]);
         toast.success(`${response.data.summary.successful} properties deleted`);
 
@@ -1959,65 +1967,65 @@ const loadProperties = async () => {
           onClose={() => setBulkModalOpen(false)}
         />
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
-  <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-3 text-white">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-blue-100 text-xs">Total Properties</p>
-        <p className="text-lg font-bold">{properties.length}</p>
-      </div>
-      <Home size={18} className="text-blue-200" />
-    </div>
-  </div>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-3 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 text-xs">Total Properties</p>
+                <p className="text-lg font-bold">{properties.length}</p>
+              </div>
+              <Home size={18} className="text-blue-200" />
+            </div>
+          </div>
 
-  {/* ✅ NEW CARD: All Views Count */}
-  <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg p-3 text-white">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-indigo-100 text-xs">Total Views</p>
-        <p className="text-lg font-bold">{totalViews}</p>
-        <p className="text-xs text-indigo-200">Unique: {totalUniqueViews}</p>
-      </div>
-      <Eye size={18} className="text-indigo-300" />
-    </div>
-  </div>
+          {/* ✅ NEW CARD: All Views Count */}
+          <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg p-3 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-indigo-100 text-xs">Total Views</p>
+                <p className="text-lg font-bold">{totalViews}</p>
+                <p className="text-xs text-indigo-200">Unique: {totalUniqueViews}</p>
+              </div>
+              <Eye size={18} className="text-indigo-300" />
+            </div>
+          </div>
 
-  <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-3 text-white">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-green-100 text-xs">Available</p>
-        <p className="text-lg font-bold">
-          {properties.filter((p) => p.status === "Available").length}
-        </p>
-      </div>
-      <CheckCircle size={18} className="text-green-200" />
-    </div>
-  </div>
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-3 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 text-xs">Available</p>
+                <p className="text-lg font-bold">
+                  {properties.filter((p) => p.status === "Available").length}
+                </p>
+              </div>
+              <CheckCircle size={18} className="text-green-200" />
+            </div>
+          </div>
 
-  <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-3 text-white">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-purple-100 text-xs">Sold</p>
-        <p className="text-lg font-bold">
-          {properties.filter((p) => p.status === "Sold").length}
-        </p>
-      </div>
-      <Award size={18} className="text-purple-200" />
-    </div>
-  </div>
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-3 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-xs">Sold</p>
+                <p className="text-lg font-bold">
+                  {properties.filter((p) => p.status === "Sold").length}
+                </p>
+              </div>
+              <Award size={18} className="text-purple-200" />
+            </div>
+          </div>
 
-  <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-3 text-white">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-orange-100 text-xs">Assigned</p>
-        <p className="text-lg font-bold">
-          {properties.filter((p) => p.assignedTo).length}
-        </p>
-      </div>
-      <UserCheck size={18} className="text-orange-200" />
-    </div>
-  </div>
-</div>
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-3 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-orange-100 text-xs">Assigned</p>
+                <p className="text-lg font-bold">
+                  {properties.filter((p) => p.assignedTo).length}
+                </p>
+              </div>
+              <UserCheck size={18} className="text-orange-200" />
+            </div>
+          </div>
+        </div>
 
 
         <div className="mt-4">
@@ -2163,30 +2171,71 @@ const loadProperties = async () => {
                   </button>
                 </div>
 
-                {/* Bulk Tags Menu */}
-                <div className="relative group">
-                  <button className="px-2.5 py-1 bg-gray-800 text-white rounded text-xs hover:bg-gray-900 transition-colors">
+                {/* Bulk Tags Menu - FIXED */}
+                {/* Bulk Tags Menu - COMPLETELY FIXED */}
+                <div className="relative bulk-tags-menu">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBulkTagsMenuOpen(!bulkTagsMenuOpen);
+                      setActiveTagPicker(null); // Reset active tag picker when opening main menu
+                    }}
+                    className="px-2.5 py-1 bg-gray-800 text-white rounded text-xs hover:bg-gray-900 transition-colors"
+                  >
                     Tags
                   </button>
-                  <div className="absolute z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all min-w-[230px] right-0">
-                    <div className="p-3">
-                      <div className="text-xs font-medium text-gray-700 mb-2">Bulk Tag Operations</div>
-                      <TagPickerRow
-                        label="Add"
-                        knownTags={knownTagsAll}
-                        selectedPropertyIds={selectedProperties}
-                        propTags={propTags}
-                        onApply={handleBulkAddTags}
-                      />
-                      <TagPickerRow
-                        label="Remove"
-                        knownTags={knownTagsAll}
-                        selectedPropertyIds={selectedProperties}
-                        propTags={propTags}
-                        onApply={handleBulkRemoveTags}
-                      />
+
+                  {bulkTagsMenuOpen && (
+                    <div className="absolute z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[230px] right-0">
+                      <div className="p-3">
+                        <div className="text-xs font-medium text-gray-700 mb-2">Bulk Tag Operations</div>
+                        <div className="tag-picker-container">
+                          <TagPickerRow
+                            label="Add"
+                            knownTags={knownTagsAll}
+                            selectedPropertyIds={selectedProperties}
+                            propTags={propTags}
+                            onApply={(tags) => {
+                              handleBulkAddTags(tags);
+                              setBulkTagsMenuOpen(false);
+                              setActiveTagPicker(null);
+                            }}
+                            isOpen={activeTagPicker === 'add'}
+                            onToggle={() => {
+                              // Agar koi dusra tag picker open hai to use close karo
+                              if (activeTagPicker && activeTagPicker !== 'add') {
+                                setActiveTagPicker('add');
+                              } else {
+                                setActiveTagPicker(activeTagPicker === 'add' ? null : 'add');
+                              }
+                            }}
+                            onClose={() => setActiveTagPicker(null)}
+                          />
+                          <TagPickerRow
+                            label="Remove"
+                            knownTags={knownTagsAll}
+                            selectedPropertyIds={selectedProperties}
+                            propTags={propTags}
+                            onApply={(tags) => {
+                              handleBulkRemoveTags(tags);
+                              setBulkTagsMenuOpen(false);
+                              setActiveTagPicker(null);
+                            }}
+                            isOpen={activeTagPicker === 'remove'}
+                            onToggle={() => {
+                              // Agar koi dusra tag picker open hai to use close karo
+                              if (activeTagPicker && activeTagPicker !== 'remove') {
+                                setActiveTagPicker('remove');
+                              } else {
+                                setActiveTagPicker(activeTagPicker === 'remove' ? null : 'remove');
+                              }
+                            }}
+                            onClose={() => setActiveTagPicker(null)}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
               <button
@@ -2364,100 +2413,100 @@ const loadProperties = async () => {
                         </div>
                       </div>
 
-                    {/* Grid View में Actions Section - FIXED */}
-<div className="flex items-center space-x-2">
-  <button
-    onClick={() => handleViewProperty(property)}
-    className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-  >
-    View Details
-  </button>
-  <button
-    onClick={() => handleBuyerMatching(property)}
-    className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
-    title="Match Buyers"
-  >
-    <Users size={16} />
-  </button>
-  
-  {/* FIXED: MoreHorizontal Dropdown */}
-  <div className="relative">
-    <button 
-      onClick={(e) => {
-        e.stopPropagation();
-        setOpenDropdownId(openDropdownId === property.id ? null : property.id);
-      }}
-      className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-    >
-      <MoreHorizontal size={16} />
-    </button>
-    
-    {openDropdownId === property.id && (
-      <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
-        <div className="p-1">
-          {property.assignedTo ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleUnassignExecutive(property.id);
-                setOpenDropdownId(null);
-              }}
-              className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-            >
-              <UserX size={12} />
-              <span>Unassign Executive</span>
-            </button>
-          ) : (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAssignExecutive(property);
-                setOpenDropdownId(null);
-              }}
-              className="flex items-center space-x-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-100 rounded w-full text-left"
-            >
-              <UserPlus size={12} />
-              <span>Assign Executive</span>
-            </button>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditProperty(property);
-              setOpenDropdownId(null);
-            }}
-            className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-          >
-            <Edit size={12} />
-            <span>Edit</span>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleTogglePublic(property.id);
-              setOpenDropdownId(null);
-            }}
-            className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-          >
-            <Globe size={12} />
-            <span>{property.isPublic ? 'Make Private' : 'Make Public'}</span>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteProperty(property.id);
-              setOpenDropdownId(null);
-            }}
-            className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-          >
-            <Trash2 size={12} />
-            <span>Delete</span>
-          </button>
-        </div>
-      </div>
-    )}
-  </div>
-</div>
+                      {/* Grid View में Actions Section - FIXED */}
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleViewProperty(property)}
+                          className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => handleBuyerMatching(property)}
+                          className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                          title="Match Buyers"
+                        >
+                          <Users size={16} />
+                        </button>
+
+                        {/* FIXED: MoreHorizontal Dropdown */}
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenDropdownId(openDropdownId === property.id ? null : property.id);
+                            }}
+                            className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                          >
+                            <MoreHorizontal size={16} />
+                          </button>
+
+                          {openDropdownId === property.id && (
+                            <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+                              <div className="p-1">
+                                {property.assignedTo ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUnassignExecutive(property.id);
+                                      setOpenDropdownId(null);
+                                    }}
+                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
+                                  >
+                                    <UserX size={12} />
+                                    <span>Unassign Executive</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAssignExecutive(property);
+                                      setOpenDropdownId(null);
+                                    }}
+                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-100 rounded w-full text-left"
+                                  >
+                                    <UserPlus size={12} />
+                                    <span>Assign Executive</span>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditProperty(property);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
+                                >
+                                  <Edit size={12} />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleTogglePublic(property.id);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
+                                >
+                                  <Globe size={12} />
+                                  <span>{property.isPublic ? 'Make Private' : 'Make Public'}</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteProperty(property.id);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
+                                >
+                                  <Trash2 size={12} />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -2558,7 +2607,7 @@ const loadProperties = async () => {
                         {p.assignedTo ? (
                           <div className="flex items-center gap-2">
                             <ExecutiveBadge assignedTo={p.assignedTo} />
-                            
+
                           </div>
                         ) : (
                           <button
@@ -2589,90 +2638,90 @@ const loadProperties = async () => {
                         </div>
                       </td>
                       {/* List View में Actions Section - FIXED */}
-<td className="px-4 py-3">
-  <div className="flex items-center space-x-1">
-    <button
-      onClick={() => handleViewProperty(p)}
-      className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
-      title="View Property"
-    >
-      <Eye size={14} />
-    </button>
-    <button
-      onClick={() => handleBuyerMatching(p)}
-      className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors"
-      title="Match Buyers"
-    >
-      <Users size={14} />
-    </button>
-    {p.assignedTo ? (
-      <button
-        onClick={() => handleUnassignExecutive(p.id)}
-        className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
-        title="Unassign Executive"
-      >
-        <UserX size={14} />
-      </button>
-    ) : (
-      <button
-        onClick={() => handleAssignExecutive(p)}
-        className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded transition-colors"
-        title="Assign Executive"
-      >
-        <UserPlus size={14} />
-      </button>
-    )}
-    <button
-      onClick={() => handleEditProperty(p)}
-      className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
-      title="Edit"
-    >
-      <Edit size={14} />
-    </button>
-    
-    {/* FIXED: List View MoreHorizontal Dropdown */}
-    <div className="relative">
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpenDropdownId(openDropdownId === p.id ? null : p.id);
-        }}
-        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
-      >
-        <MoreHorizontal size={14} />
-      </button>
-      
-      {openDropdownId === p.id && (
-        <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
-          <div className="p-1">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleTogglePublic(p.id);
-                setOpenDropdownId(null);
-              }}
-              className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-            >
-              <Globe size={12} />
-              <span>{p.isPublic ? 'Make Private' : 'Make Public'}</span>
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteProperty(p.id);
-                setOpenDropdownId(null);
-              }}
-              className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-            >
-              <Trash2 size={12} />
-              <span>Delete</span>
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  </div>
-</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => handleViewProperty(p)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                            title="View Property"
+                          >
+                            <Eye size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleBuyerMatching(p)}
+                            className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors"
+                            title="Match Buyers"
+                          >
+                            <Users size={14} />
+                          </button>
+                          {p.assignedTo ? (
+                            <button
+                              onClick={() => handleUnassignExecutive(p.id)}
+                              className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
+                              title="Unassign Executive"
+                            >
+                              <UserX size={14} />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleAssignExecutive(p)}
+                              className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded transition-colors"
+                              title="Assign Executive"
+                            >
+                              <UserPlus size={14} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleEditProperty(p)}
+                            className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
+                            title="Edit"
+                          >
+                            <Edit size={14} />
+                          </button>
+
+                          {/* FIXED: List View MoreHorizontal Dropdown */}
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenDropdownId(openDropdownId === p.id ? null : p.id);
+                              }}
+                              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                            >
+                              <MoreHorizontal size={14} />
+                            </button>
+
+                            {openDropdownId === p.id && (
+                              <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+                                <div className="p-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleTogglePublic(p.id);
+                                      setOpenDropdownId(null);
+                                    }}
+                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
+                                  >
+                                    <Globe size={12} />
+                                    <span>{p.isPublic ? 'Make Private' : 'Make Public'}</span>
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteProperty(p.id);
+                                      setOpenDropdownId(null);
+                                    }}
+                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
+                                  >
+                                    <Trash2 size={12} />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

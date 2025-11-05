@@ -4,6 +4,8 @@ import {
   Building, Activity, MoreHorizontal, User, Star, FileText, MessageCircle,
   Bell, Upload, Download, ChevronLeft, ChevronRight, X, Target, Home,
   UserCheck, PhoneCall, Send,
+  Briefcase,
+  TrendingUp,
 } from 'lucide-react';
 import BuyerFormModal from '../../components/buyers/BuyerFormModal';
 import BuyerViewPage from '../../components/buyers/BuyerViewPage';
@@ -18,7 +20,7 @@ import { usersAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
-import { usePropertyMatches } from '@/hooks/usePropertyMatches';
+import { propertiesAPI } from '@/lib/propertiesAPI';
 
 type Executive = {
   id: string | number;
@@ -74,6 +76,7 @@ type UIBuyer = {
     creditScore?: number | null;
   };
   matchedProperties: any[];
+  matchedPropertiesCount?: number; // NEW: For showing match count
   activities: any[];
   followups: any[];
   documents: any[];
@@ -109,6 +112,8 @@ const BuyersPage = () => {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [properties, setProperties] = useState<any[]>([]); // NEW: For property matching
+  const [loadingProperties, setLoadingProperties] = useState(false); // NEW: Loading state for properties
 
   // Executive state
   const [executives, setExecutives] = useState<Executive[]>([]);
@@ -139,6 +144,119 @@ const BuyersPage = () => {
   /* ---------------- Data ---------------- */
   const [buyers, setBuyers] = useState<UIBuyer[]>([]);
 
+  /* ===================== Property Matching Logic ===================== */
+  
+  // Fetch properties for matching
+  useEffect(() => {
+    const fetchProperties = async () => {
+      try {
+        setLoadingProperties(true);
+        const res = await propertiesAPI.getProperties();
+        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        
+        // Filter only public properties
+        const publicProperties = list.filter((property: any) => 
+          property.is_public === true || 
+          property.is_public === 1 || 
+          property.isPublic === true ||
+          property.public === true
+        );
+        
+        setProperties(publicProperties ?? []);
+      } catch (err) {
+        console.error("Error fetching properties:", err);
+        setProperties([]);
+      } finally {
+        setLoadingProperties(false);
+      }
+    };
+
+    fetchProperties();
+  }, []);
+
+  // Property matching helper functions
+  const toArr = (v: any) => (Array.isArray(v) ? v.filter(Boolean) : v ? [v] : []);
+  const norm = (s: any) => String(s || "").toLowerCase().trim();
+  const hasAny = (haystack: string[], needles: string[]) =>
+    needles.some((n) => haystack.some((h) => h.includes(n)));
+
+const getBuyerBudget = (buyer: UIBuyer) => {
+  const rawMin = Number(buyer?.budget?.min ?? 0);
+  const rawMax = Number(buyer?.budget?.max ?? 0);
+
+  // treat 0/NaN as "not provided"
+  const min = Number.isFinite(rawMin) && rawMin > 0 ? rawMin : null;
+  const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : null;
+
+  return { min, max };
+};
+
+
+ const priceFrom = (p: any) =>
+  Number(p?.budget ?? p?.price ?? p?.expected_price ?? 0);
+
+const priceRangeFrom = (p: any) => {
+  const min = Number(p?.min_price ?? p?.budget_min ?? p?.minBudget ?? 0);
+  const max = Number(p?.max_price ?? p?.budget_max ?? p?.maxBudget ?? 0);
+  return { min, max };
+};
+
+const isWithinBuyerBudget = (p: any, buyer: UIBuyer) => {
+  const { min: bMin, max: bMax } = getBuyerBudget(buyer);
+  const hasMin = bMin != null;
+  const hasMax = bMax != null;
+
+  // ⛔ If buyer provided no budget, do NOT auto-pass everything.
+  // Choose ONE behavior:
+
+  // (A) Strict: require a budget to match on budget filter:
+  if (!hasMin && !hasMax) return false;
+
+  // ---- OR ----
+  // (B) Soft fallback: if no budget, use a minimum match score instead:
+  // if (!hasMin && !hasMax) return computeMatchScore(p, buyer) >= 50;
+
+  const { min: pMin, max: pMax } = priceRangeFrom(p);
+  const hasRange = !!pMin && !!pMax && pMax >= pMin;
+
+  if (hasRange) {
+    const left = hasMin ? (bMin as number) : Number.NEGATIVE_INFINITY;
+    const right = hasMax ? (bMax as number) : Number.POSITIVE_INFINITY;
+    return Math.max(pMin, left) <= Math.min(pMax, right);
+  }
+
+  const price = priceFrom(p);
+  if (!price) return false;
+  if (hasMin && price < (bMin as number)) return false;
+  if (hasMax && price > (bMax as number)) return false;
+  return true;
+};
+
+ 
+
+  // Count matching properties for a buyer
+const countMatchingProperties = (buyer: UIBuyer) => {
+  if (!properties.length) return 0;
+
+  const matchingProperties = properties.filter((property) => {
+    // same rule as PropertiesTab: must be within the buyer's budget
+    return isWithinBuyerBudget(property, buyer);
+  });
+
+  return matchingProperties.length;
+};
+
+  // Update buyers with match counts when properties are loaded
+ useEffect(() => {
+  if (!properties.length || !buyers.length) return;
+
+  setBuyers(prev => prev.map(b => ({
+    ...b,
+    matchedPropertiesCount: countMatchingProperties(b),
+  })));
+}, [properties, buyers]); // <-- depend on buyers (not buyers.length)
+
+
   /* ===================== Masters: fetch + normalize ===================== */
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, any>>({});
@@ -158,20 +276,6 @@ const BuyersPage = () => {
     return out;
   };
 
-
-  function BuyerMatchLogger({ buyer }: { buyer: any }) {
-    const { count, loading, error } = usePropertyMatches({ buyer, publicOnly: true });
-
-    useEffect(() => {
-
-    }, [buyer?.id, count, loading, error]);
-
-    // ✅ show it in UI too
-    if (loading) return <span className="text-gray-400">…</span>;
-    if (error) return <span className="text-red-500">0</span>;
-    return <span>{count}</span>;
-  }
-
   /** returns first non-empty array among the possible keys */
   const getMasterArray = (mastersObj: Record<string, any>, possibleKeys: string[]): any[] => {
     for (const key of possibleKeys) {
@@ -190,8 +294,6 @@ const BuyersPage = () => {
         const data = await getMasterDropdownOptions(['lead', 'buyer']);
         const normalized = normalizeMasterKeys(data);
         setMasters(normalized);
-
-
       } catch (err) {
         console.error('Error fetching master options:', err);
         toast.error('Failed to load dropdown options');
@@ -499,6 +601,7 @@ const BuyersPage = () => {
         creditScore: toNumOrNull(fin.creditScore ?? fin.credit_score),
       },
       matchedProperties: Array.isArray(b.matchedProperties) ? b.matchedProperties : [],
+      matchedPropertiesCount: b.matchedPropertiesCount ?? 0, // NEW: Initialize match count
       activities: Array.isArray(b.activities) ? b.activities : [],
       followups: Array.isArray(b.followups) ? b.followups : [],
       documents: Array.isArray(b.documents) ? b.documents : [],
@@ -695,14 +798,24 @@ const BuyersPage = () => {
         // UPDATE - सिर्फ update करें, sorting नहीं
         savedBuyer = await buyerAPI.update(String(editingBuyer.id), apiData);
         const normalized = normalizeBuyerForUI(savedBuyer);
+        // Update match count for the updated buyer
+        const updatedWithMatchCount = {
+          ...normalized,
+          matchedPropertiesCount: countMatchingProperties(normalized)
+        };
         setBuyers(prev =>
-          prev.map(b => b.id === editingBuyer.id ? { ...normalized, id: editingBuyer.id } : b)
+          prev.map(b => b.id === editingBuyer.id ? { ...updatedWithMatchCount, id: editingBuyer.id } : b)
         );
       } else {
         // CREATE - नया record सबसे ऊपर जोड़ें
         savedBuyer = await buyerAPI.create(apiData);
         const normalized = normalizeBuyerForUI(savedBuyer);
-        setBuyers(prev => [{ ...normalized }, ...prev]);
+        // Calculate match count for new buyer
+        const newWithMatchCount = {
+          ...normalized,
+          matchedPropertiesCount: countMatchingProperties(normalized)
+        };
+        setBuyers(prev => [{ ...newWithMatchCount }, ...prev]);
       }
 
       setShowBuyerForm(false);
@@ -917,6 +1030,7 @@ const BuyersPage = () => {
       { key: 'leadScore', label: 'Lead Score' },
       { key: 'budgetMin', label: 'Budget Min' },
       { key: 'budgetMax', label: 'Budget Max' },
+      { key: 'matchedPropertiesCount', label: 'Property Matches' }, // NEW: Added match count
       { key: 'requirements', label: 'Requirements' },
       { key: 'created_at', label: 'Created At' },
     ];
@@ -956,6 +1070,7 @@ const BuyersPage = () => {
         leadScore: b.leadScore ?? '',
         budgetMin,
         budgetMax,
+        matchedPropertiesCount: b.matchedPropertiesCount ?? 0, // NEW: Include match count
         requirements: reqSummary,
         created_at: b.created_at ? new Date(b.created_at).toISOString() : '',
       };
@@ -1353,7 +1468,7 @@ const BuyersPage = () => {
       )}
 
       {/* Table */}
-      <div className="flex-1 overflow-auto" ref={tableScrollRef}>
+     <div className="flex-1 overflow-auto" ref={tableScrollRef}>
         <div className="bg-white">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 sticky top-0">
@@ -1368,6 +1483,8 @@ const BuyersPage = () => {
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Buyer Details</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Contact & Location</th>
+                {/* ✅ NEW Business Info Column */}
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Business Info</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Requirements & Budget</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Progress & Activity</th>
@@ -1378,8 +1495,10 @@ const BuyersPage = () => {
             <tbody className="bg-white divide-y divide-gray-100 ">
               {loading ? (
                 <tr >
-                  <td colSpan={8} >
-                    <TableLoader colSpan={8} message="Loading buyers..." size="lg" />
+                  <td colSpan={9} > {/* ✅ colSpan 8 से 9 करें */}
+                      <div className="w-full flex items-center justify-center">
+                    <TableLoader colSpan={9} message="Loading buyers..." size="lg" />
+                    </div>
                   </td>
                 </tr>
               ) : paginatedBuyers.length > 0 ? (
@@ -1396,9 +1515,15 @@ const BuyersPage = () => {
 
                     <td className="px-3 py-3">
                       <div className="flex items-center space-x-3">
-                        <div className="p-1.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
-                          <User className="text-white" size={14} />
+                        <div className="flex flex-col items-center space-y-1">
+                          <div className="p-1.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
+                            <User className="text-white" size={14} />
+                          </div>
+                          <div className="text-[10px] text-[#0b3856] bg-[#0b3856]/10 px-2 py-0.5 rounded-md inline-block">
+                            Id : {buyer.id}
+                          </div>
                         </div>
+
                         <div>
                           <div className="font-semibold text-gray-900 text-sm">
                             <div>{safeStr(buyer.salutation)} {safeStr(buyer.name)}</div>
@@ -1407,9 +1532,7 @@ const BuyersPage = () => {
                           <div className="flex items-center space-x-1 mt-1">
                             {getStatusBadge(buyer.is_active)}
                             {getLeadScore(buyer.leadScore)}
-
                           </div>
-                            <div className='text-xs text-[#E6761D] font-bold '>Buyer Id : {buyer.id}</div>
                         </div>
                       </div>
                     </td>
@@ -1428,9 +1551,40 @@ const BuyersPage = () => {
                           <MapPin size={10} className="text-gray-400" />
                           <span>{safeStr(buyer.location)}{buyer.city ? `, ${buyer.city}` : ''}</span>
                         </div>
-                        <div className='flex items-center space-x-1 text-xs' >
-                          Source : {buyer.source}
+                        {/* ✅ Source को यहाँ से हटा दिया - अब Business Info में दिखेगा */}
+                      </div>
+                    </td>
+
+                    {/* ✅ NEW Business Info Column */}
+                    <td className="px-3 py-3">
+                      <div className="space-y-2">
+                        {/* Source */}
+                        <div className="flex items-center space-x-1">
+                         
+                          <div className="text-xs">
+                            <span className="text-gray-500">Source:</span>{' '}
+                            <span className="font-medium text-blue-700">
+                              {buyer.source || 'Not specified'}
+                            </span>
+                          </div>
                         </div>
+
+                        {/* Priority */}
+                        <div className="flex items-center space-x-1">
+                          
+                          <div className="text-xs">
+                           
+                            {getPriorityBadge(buyer.priority)}
+                          </div>
+                        </div>
+
+                       
+                        {/* Created Date */}
+                        {buyer.created_at && (
+                          <div className="text-xs text-gray-500">
+                            Created: {formatDate(buyer.created_at)}
+                          </div>
+                        )}
                       </div>
                     </td>
 
@@ -1454,9 +1608,6 @@ const BuyersPage = () => {
                                 <span className="text-gray-600">{buyer.assigned_executive_phone}</span>
                               </div>
                             )}
-                            {/* <div className="text-[10px] text-gray-500">
-                              ID: {buyer.assigned_executive}
-                            </div> */}
                           </>
                         ) : (
                           <span className="text-xs text-gray-500">Not assigned</span>
@@ -1480,9 +1631,7 @@ const BuyersPage = () => {
                             {formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}
                           </span>
                         </div>
-                        <div className="flex items-center space-x-1">
-                          {getPriorityBadge(buyer?.priority)}
-                        </div>
+                        {/* ✅ Priority को यहाँ से हटा दिया - अब Business Info में दिखेगा */}
                       </div>
                     </td>
 
@@ -1494,7 +1643,6 @@ const BuyersPage = () => {
                             className="bg-gradient-to-r from-purple-500 to-pink-500 h-1.5 rounded-full transition-all"
                             style={{ width: `${buyer.stageProgress || 0}%` } as React.CSSProperties}
                           />
-
                         </div>
                         <div className="text-xs text-gray-500">
                           Last: {formatDate(buyer.lastActivity)}
@@ -1504,13 +1652,17 @@ const BuyersPage = () => {
 
                     <td className="px-3 py-3">
                       <div className="space-y-1">
+                        
+                        {/* NEW: Property Matches Count in Performance Section */}
                         <div className="flex items-center space-x-2 text-xs">
-                          <Building size={10} className="text-blue-500" />
-
-                          <span>
-                            <BuyerMatchLogger buyer={buyer} /> matches
+                          <Target size={10} className="text-green-500" />
+                          <span className={`font-medium ${
+                            (buyer.matchedPropertiesCount || 0) > 0 
+                              ? 'text-green-600' 
+                              : 'text-gray-500'
+                          }`}>
+                            {buyer.matchedPropertiesCount || 0} matches
                           </span>
-
                         </div>
                         <div className="flex items-center space-x-2 text-xs">
                           <Activity size={10} className="text-green-500" />
@@ -1521,7 +1673,7 @@ const BuyersPage = () => {
                           <span>{buyer.visits ?? 0} visits</span>
                         </div>
                         <div className="flex items-center space-x-2 text-xs">
-                          <Target size={10} className="text-orange-500" />
+                          <TrendingUp size={10} className="text-orange-500" />
                           <span>{buyer.responseRate ? `${buyer.responseRate}% response` : ' - '}</span>
                         </div>
                         {buyer.notifications > 0 && (
@@ -1594,7 +1746,7 @@ const BuyersPage = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">
                     No buyers found.
                   </td>
                 </tr>
@@ -1771,7 +1923,7 @@ function getPriorityBadge(priority: string | null | undefined) {
     medium: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Medium', icon: '⚡' },
     low: { bg: 'bg-green-100', text: 'text-green-700', label: 'Low', icon: '🌱' },
   };
-  const fallbackLabel = raw ? raw.replace(/\b\w/g, c => c.toUpperCase()) : '—';
+  const fallbackLabel = raw ? raw.replace(/\b\w/g, c => c.toUpperCase()) : '-';
   const config = priorityConfig[keyP] ?? { bg: 'bg-gray-100', text: 'text-gray-700', label: fallbackLabel, icon: '' };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${config.bg} ${config.text}`}>
