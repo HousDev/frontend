@@ -49,7 +49,7 @@ interface UsersManagementProps {
 }
 
 const TABS = [
-  { id: 'all', name: 'Team Members', roles: ['admin', 'executive', 'manager', 'team leader'], showCreateButton: false, createButtonText: '' },
+  { id: 'all', name: 'Team Members', roles: ['admin', 'executive', 'manager', 'teamleader', 'team-leader', 'agent'], showCreateButton: false, createButtonText: '' },
   { id: 'buyers', name: 'Buyers', roles: ['buyer'], showCreateButton: true, createButtonText: '' },
   { id: 'sellers', name: 'Sellers', roles: ['seller'], showCreateButton: true, createButtonText: '' },
   { id: 'buyer-accounts', name: 'Buyer Accounts', roles: ['buyer'], showCreateButton: true, createButtonText: '' },
@@ -361,6 +361,12 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     return [];
   };
 
+  // FIXED: Normalize role for consistent comparison
+  const normalizeRole = (role: string): string => {
+    if (!role) return '';
+    return role.toLowerCase().trim().replace(/\s+/g, ' ');
+  };
+
   const handleTabChange = (tabId: any) => {
     setActiveTab(tabId);
     localStorage.setItem(LOCAL_STORAGE_TAB_KEY, tabId);
@@ -374,9 +380,9 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
   const hasAccountCreated = (buyerSellerId: string | number, type: 'buyer' | 'seller'): boolean => {
     return allUsers.some(user => {
       if (type === 'buyer') {
-        return String(user.buyer_id) === String(buyerSellerId) && user.role?.toLowerCase() === 'buyer';
+        return String(user.buyer_id) === String(buyerSellerId) && normalizeRole(user.role) === 'buyer';
       } else {
-        return String(user.seller_id) === String(buyerSellerId) && user.role?.toLowerCase() === 'seller';
+        return String(user.seller_id) === String(buyerSellerId) && normalizeRole(user.role) === 'seller';
       }
     });
   };
@@ -390,8 +396,8 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     username: u.username,
     // FIXED: Use formatDateForInput for proper date handling
     dob: formatDateForInput(u.dob),
-    buyer_id: u.buyer_id ?? (u.role === 'buyer' ? u.id ?? null : null),
-    seller_id: u.seller_id ?? (u.role === 'seller' ? u.id ?? null : null),
+    buyer_id: u.buyer_id ?? (normalizeRole(u.role || '') === 'buyer' ? u.id ?? null : null),
+    seller_id: u.seller_id ?? (normalizeRole(u.role || '') === 'seller' ? u.id ?? null : null),
   });
 
   // Fetch buyers and sellers data
@@ -435,6 +441,10 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
           const fromName = splitFullName(u.name);
           const first_name = (u.first_name && String(u.first_name).trim()) || fromName.first_name || '';
           const last_name = (u.last_name && String(u.last_name).trim()) || fromName.last_name || '';
+          
+          // FIXED: Normalize role for consistent filtering
+          const normalizedRole = normalizeRole(u.role || '');
+          
           return {
             id: u.id,
             username: u.username,
@@ -442,7 +452,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
             salutation: u.salutation,
             first_name,
             last_name,
-            role: u.role || '',
+            role: normalizedRole,
             phone: u.phone,
             avatar: u.avatar,
             designation: u.designation,
@@ -653,14 +663,17 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         source = sellersData;
         break;
       case 'buyer-accounts':
-        source = allUsers.filter(u => u.role?.toLowerCase() === 'buyer');
+        source = allUsers.filter(u => normalizeRole(u.role) === 'buyer');
         break;
       case 'seller-accounts':
-        source = allUsers.filter(u => u.role?.toLowerCase() === 'seller');
+        source = allUsers.filter(u => normalizeRole(u.role) === 'seller');
         break;
       default:
+        // FIXED: Case-insensitive role comparison with normalized roles
         source = allUsers.filter(u =>
-          activeTabConfig.roles.some(r => u.role?.toLowerCase() === r.toLowerCase())
+          activeTabConfig.roles.some(r => 
+            normalizeRole(u.role) === normalizeRole(r)
+          )
         );
     }
 
@@ -674,7 +687,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     }
 
     if (roleFilter !== 'all' && activeTab === 'all') {
-      source = source.filter(u => u.role?.toLowerCase() === roleFilter.toLowerCase());
+      source = source.filter(u => normalizeRole(u.role) === normalizeRole(roleFilter));
     }
 
     if (statusFilter !== 'all') {
@@ -696,14 +709,15 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
           counts[tab.id] = sellersData.length;
           break;
         case 'buyer-accounts':
-          counts[tab.id] = allUsers.filter(u => u.role?.toLowerCase() === 'buyer').length;
+          counts[tab.id] = allUsers.filter(u => normalizeRole(u.role) === 'buyer').length;
           break;
         case 'seller-accounts':
-          counts[tab.id] = allUsers.filter(u => u.role?.toLowerCase() === 'seller').length;
+          counts[tab.id] = allUsers.filter(u => normalizeRole(u.role) === 'seller').length;
           break;
         default:
+          // FIXED: Case-insensitive counting with normalized roles
           counts[tab.id] = allUsers.filter(u =>
-            tab.roles.some(r => u.role?.toLowerCase() === r.toLowerCase())
+            tab.roles.some(r => normalizeRole(u.role) === normalizeRole(r))
           ).length;
       }
     });
@@ -837,13 +851,16 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
 
   // Utility functions for display
   const getRoleColor = (role?: string) => {
-    switch (role?.toLowerCase()) {
+    const normalizedRole = normalizeRole(role || '');
+    switch (normalizedRole) {
       case 'admin': return 'bg-red-100 text-red-800';
       case 'manager': return 'bg-purple-100 text-purple-800';
       case 'agent': return 'bg-blue-100 text-blue-800';
       case 'seller': return 'bg-green-100 text-green-800';
       case 'buyer': return 'bg-orange-100 text-orange-800';
       case 'executive': return 'bg-indigo-100 text-indigo-800';
+      case 'team leader': return 'bg-teal-100 text-teal-800';
+      case 'team-leader': return 'bg-teal-100 text-teal-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -870,6 +887,16 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
   const roles = masters.role || [];
   const availableRoles = activeTab === 'all' ? roles : [];
   const activeTabConfig = TABS.find(t => t.id === activeTab)!;
+
+  // Debug: Check what roles are available in data
+  useEffect(() => {
+    if (allUsers.length > 0) {
+      console.log('Available roles in data:', [...new Set(allUsers.map(u => u.role))]);
+      console.log('Team leader users:', allUsers.filter(u => 
+        normalizeRole(u.role) === 'team leader' || normalizeRole(u.role) === 'team-leader'
+      ));
+    }
+  }, [allUsers]);
 
   return (
     <div className="space-y-6">
@@ -1145,6 +1172,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
                                 {accountAlreadyExists ? '✓ Account Created' : '○ No Account'}
                               </p>
                             )}
+                            {user.username && <p className="text-sm text-gray-500">id:{user.id}</p>}
                           </div>
                         </div>
                       </td>
@@ -1155,8 +1183,10 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleColor(user.role)}`}>{user.role}</span>
-                        {user.department && <div className="text-xs text-gray-400">Dept: {user.department}</div>}
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full capitalize ${getRoleColor(user.role)}`}>
+                          {getLabelFromValue('role', user.role) || user.role}
+                        </span>
+                        {user.department && <div className="text-xs text-gray-400">Dept: <span className='capitalize'> {user.department} </span></div>}
                         {user.designation && <div className="text-xs text-gray-400">Desig: {user.designation}</div>}
                       </td>
                       <td className="px-6 py-4">
