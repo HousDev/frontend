@@ -42,6 +42,7 @@ import FinancialTab from './buyerviewcomponents/FinancialTab';
 import ActivitiesTab from './buyerviewcomponents/ActivitiesTab';
 import PropertiesTab from './buyerviewcomponents/PropertiesTab';
 import OverviewTab from './buyerviewcomponents/OverviewTab';
+import VisitScheduleTab from './buyerviewcomponents/VisitScheduleTab';
 
 const BuyerViewPage = ({
   buyer,
@@ -64,16 +65,19 @@ const BuyerViewPage = ({
   const [editingActivity, setEditingActivity] = useState(null);
   const [editingFollowup, setEditingFollowup] = useState<any | null>(null);
   const [editingVisit, setEditingVisit] = useState(null);
-
+const [showVisitSchedule, setShowVisitSchedule] = useState(false);
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },
     { id: 'properties', label: 'Matched Properties', icon: Building },
+      { id: 'visit-schedule', label: 'Visit Schedule', icon: Calendar }, 
     { id: 'activities', label: 'Activities', icon: Activity },
     { id: 'followups', label: 'Follow-ups', icon: Calendar },
     { id: 'documents', label: 'Documents', icon: FileText },
     { id: 'financial', label: 'Financial', icon: CreditCard }
   ];
 
+
+  
   const formatCurrency = (amount: number) => {
     if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
     if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
@@ -239,7 +243,17 @@ const getPriorityBadge = (priority?: string) => {
     setShowVisitModal(false);
     setEditingVisit(null);
   };
-
+const handleDeleteVisit = (visitId: string) => {
+  // Confirmation dialog
+  if (window.confirm('Are you sure you want to delete this visit?')) {
+    const updatedBuyer = {
+      ...buyer,
+      visits: buyer.visits.filter((v: any) => v.id !== visitId)
+    };
+    onUpdateBuyer(updatedBuyer);
+    toast.success('Visit deleted successfully');
+  }
+};
   const handleWhatsApp = () => {
     const unitTypes =
       Array.isArray(buyer.requirements?.unitTypes)
@@ -384,7 +398,7 @@ ResaleExpert Team`;
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-auto p-6 pt-2 mb-20">
+      <div className="flex-1 overflow-auto p-6 pt-2 ">
         {activeTab === 'overview' && <OverviewTab buyer={buyer} onUpdateBuyer={onUpdateBuyer} />}
         {activeTab === 'properties' && (
           <PropertiesTab
@@ -555,6 +569,14 @@ ResaleExpert Team`;
           onUpdateBuyer={onUpdateBuyer}
         />
       )}
+      {activeTab === 'visit-schedule' && (
+  <VisitScheduleTab
+    buyer={buyer}
+    onAddVisit={handleAddVisit}
+    onEditVisit={handleEditVisit}
+    onDeleteVisit={handleDeleteVisit}
+  />
+)}
     </div>
   );
 };
