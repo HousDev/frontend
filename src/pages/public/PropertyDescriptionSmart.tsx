@@ -146,6 +146,9 @@ export default function PropertyDescriptionSmart({
                     ? <p>{highlightText(safeText, keywords)}</p>
                     : <p>{highlightText(safeText.slice(0, 420) + (safeText.length > 420 ? "…" : ""), keywords)}</p>}
             </div>
+            <div>
+                📞 Call now to schedule a site visit and make this beautiful home yours!
+            </div>
 
             {safeText.length > 420 && (
                 <button
