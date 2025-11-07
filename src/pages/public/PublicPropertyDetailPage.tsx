@@ -73,6 +73,7 @@ import { toast } from 'react-toastify'; // if not already imported
 import { getMasterDropdownOptions } from '@/lib/useMasterData';
 import { buyerAPI } from '@/lib/buyerAPI';
 
+
 type RawProperty = any;
 
 interface SimilarPropertiesProps {
@@ -638,7 +639,13 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
           : [],
       nearby_places: Array.isArray(p?.nearby_places) ? p.nearby_places
         : Array.isArray(p?.nearbyPlaces) ? p.nearbyPlaces
-          : [],
+          : Array.isArray(p?.nearby) ? p.nearby
+            : [],
+      // ✅ ADD BALCONY FIELD HERE
+      balcony: p?.balcony ?? p?.balconies ?? p?.balcony_count ?? '',
+
+
+
     };
 
     return normalized;
@@ -1252,15 +1259,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                         {displayOrDash(property?.parkingType)}
                       </span>
                     </div>
-
-                    {/* ✅ CHANGED: Unit No ke place par Balcony */}
-                    {/* <div>
-                      <span className="font-semibold text-gray-800">Balcony:</span>
-                      <span className="text-gray-600 ml-1 break-words">
-                        {displayOrDash(property?.balcony ?? property?.raw?.balcony ?? '2')}
-                      </span>
-                    </div> */}
-
                     {/* ✅ FIXED: Floor */}
                     <div>
                       <span className="font-semibold text-gray-800">Floor:</span>
@@ -1318,25 +1316,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                         </span>
                       </div>
                     )}
-                    
-                    {property?.nearby_places?.length > 0 && (
-                      <div className="sm:col-span-2 lg:col-span-3">
-                        <span className="font-semibold text-gray-800">Nearby:</span>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {property.nearby_places.map((p: any, i: number) => (
-                            <span
-                              key={i}
-                              className="inline-block bg-gray-100 px-2 py-0.5 rounded-full text-[10px] sm:text-xs text-gray-700"
-                            >
-                              {p?.name ?? "Place"}
-                              {p?.distance ? ` (${p.distance}${p?.unit ?? ""})` : ""}
-                              {p?.type ? ` • ${p.type}` : ""}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {property?.address && (
                       <div className="sm:col-span-2 lg:col-span-3">
                         <div className="font-semibold text-gray-800 mb-1">Address:</div>
@@ -1573,8 +1552,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   referrerPolicy="no-referrer-when-downgrade"
                 ></iframe>
               </div>
-
-              {/* Two-column section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 {/* Transportation */}
                 <div className="rounded-lg p-3 bg-[#0b3856]/5 ring-1 ring-[#0b3856]/20 hover:bg-[#0b3856]/10 transition-all duration-200">
@@ -1584,7 +1561,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   <ul className="space-y-1 text-sm text-[#0b3856] leading-tight">
                     <li className="flex items-center gap-2">
                       <ArrowRight className="w-3.5 h-3.5 text-[#E6761D]" />
-                      Bandra Station – 0.5 km
+                      Pune Station – 0.5 km
                     </li>
                     <li className="flex items-center gap-2">
                       <ArrowRight className="w-3.5 h-3.5 text-[#E6761D]" />
@@ -1602,20 +1579,25 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   <h3 className="font-semibold text-[#E6761D] mb-2 flex items-center gap-1.5 text-sm">
                     🏥 Essential Services
                   </h3>
-                  <ul className="space-y-1 text-sm text-[#0b3856] leading-tight">
-                    <li className="flex items-center gap-2">
-                      <ArrowRight className="w-3.5 h-3.5 text-[#0b3856]" />
-                      Shopping Mall – 0.3 km
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <ArrowRight className="w-3.5 h-3.5 text-[#0b3856]" />
-                      Hospital – 1.2 km
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <ArrowRight className="w-3.5 h-3.5 text-[#0b3856]" />
-                      School – 0.8 km
-                    </li>
-                  </ul>
+                  <div className="mt-0.5 text-[12px] text-slate-800">
+                    {property.nearby_places?.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {property.nearby_places.map((p: any, i: number) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-slate-700"
+                          >
+                            <li className="flex items-center gap-2" >
+                              <ArrowRight className="w-3.5 h-3.5 text-slate-700" />
+                              {p.type || ""} {p.distance ? ` – ${p.distance} ${p.unit || ""}` : ""}  {p.name || ""}
+                            </li>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[12px] font-semibold text-slate-800/80">Not Available</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1974,10 +1956,10 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   { label: "Bedrooms", icon: <Bed size={14} className="text-blue-600" />, value: property?.bedrooms ?? "-" },
                   { label: "Bathrooms", icon: <Bath size={14} className="text-green-600" />, value: property?.bathrooms ?? "-" },
                   { label: "Parking", icon: <Car size={14} className="text-orange-600" />, value: property?.parkingQty ?? "-" },
-                  { label: "Balcony", icon: <Building2 size={14} className="text-cyan-600" />, value: property?.balcony ?? "2" },
-                  { label: "Property Type", icon: <Building size={14} className="text-blue-600" />, value: property?.type ?? "Residential" },
+                  { label: "Balcony", icon: <Building2 size={14} className="text-cyan-600" />, value: property?.balcony || "-" },
+                  { label: "Property Type", icon: <Building size={14} className="text-blue-600" />, value: property?.type ?? "-" },
                   { label: "Built Year", icon: <Calendar size={14} className="text-green-600" />, value: property?.possessionYear ?? "-" },
-                  { label: "Furnishing", icon: <Home size={14} className="text-purple-600" />, value: property?.furnishing ?? "Semi-Furnished" },
+                  { label: "Furnishing", icon: <Home size={14} className="text-purple-600" />, value: property?.furnishing ?? "-" },
                   { label: "Facing", icon: <Target size={14} className="text-orange-600" />, value: property?.facing ?? "-" },
                 ].map((it, i) => (
                   <div
@@ -1992,7 +1974,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                       </span>
                       <span className="text-[12px] font-medium text-gray-600">{it.label}</span>
                     </div>
-                    <span className="text-[13px] font-semibold text-gray-900 leading-none">{it.value}</span>
+                    <span className="text-[12px] font-semibold text-gray-900 leading-none">{it.value}</span>
                   </div>
                 ))}
               </div>
