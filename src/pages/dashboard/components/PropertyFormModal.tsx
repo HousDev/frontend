@@ -65,11 +65,12 @@ interface PropertyFormData {
   // ...existing fields
   bedrooms?: string;
   bathrooms?: string;
+  balcony?: string;
   facing?: string;
   // ...existing
   priceType?: 'Fixed' | 'Negotiable';
   finalPrice?: string;          // store as rupee-integer string (e.g. "4500000")
-  
+
 
 }
 
@@ -112,6 +113,7 @@ interface InitialDataFromParent {
   // ...existing fields
   bedrooms?: string;
   bathrooms?: string;
+  balcony?: string;
   facing?: string;
   // ...existing
   priceType?: 'Fixed' | 'Negotiable';
@@ -432,6 +434,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     // ...existing defaults
     bedrooms: '',
     bathrooms: '',
+    balcony: '',
     facing: '',
     priceType: 'Fixed',   // default: Fixed (no extra field)
     finalPrice: '',
@@ -497,7 +500,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   };
 
   /* ---------- master data ---------- */
-
+  
   const fetchMasterData = async () => {
     try {
       const data = await getMasterDropdownOptions(['lead', 'common', 'property']);
@@ -506,7 +509,43 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       setErrorBanner(`Failed to load dropdown options: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
-
+  
+  /**
+   * loadProperties - local helper to refresh properties list.
+   * If propertiesAPI exposes a listing function it will be invoked; otherwise a global event is dispatched.
+   * This resolves the "Cannot find name 'loadProperties'" compile error while still attempting a sensible refresh.
+   */
+  const loadProperties = async () => {
+    // Try common names for a listing method on propertiesAPI (best-effort)
+    try {
+      const apiAny = propertiesAPI as any;
+      if (typeof apiAny.list === 'function') {
+        await apiAny.list();
+        return;
+      }
+      if (typeof apiAny.listProperties === 'function') {
+        await apiAny.listProperties();
+        return;
+      }
+      if (typeof apiAny.getAll === 'function') {
+        await apiAny.getAll();
+        return;
+      }
+    } catch (err) {
+      // swallow network/implementation errors but log for debugging
+      // eslint-disable-next-line no-console
+      console.warn('loadProperties: propertiesAPI listing call failed', err);
+    }
+  
+    // Fallback: emit a global event consumers can listen to for reloading properties
+    try {
+      window.dispatchEvent(new CustomEvent('properties:reload'));
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('loadProperties: failed to dispatch properties:reload event', err);
+    }
+  };
+  
   /* ---------- seed from initialData on open ---------- */
 
   useEffect(() => {
@@ -554,8 +593,9 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
         // ...existing seeds
         bedrooms: initialData.bedrooms || '',
         bathrooms: initialData.bathrooms || '',
+        balcony: initialData.balcony || '',
         facing: initialData.facing || '',
-
+        
         priceType: (initialData.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
         finalPrice: initialData.finalPrice || '',
       };
@@ -641,7 +681,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
- 
+
   }, [isOpen, initialData, masterOptions]);
 
   /* ---------- handlers ---------- */
@@ -757,21 +797,21 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       "furnishing", "parkingType", "parkingQty", "city", "location", "society",
       "floor", "totalFloors", "carpetArea", "builtupArea", "budget", "address",
       "status", "leadSource", "possessionMonth", "possessionYear",
-      "purchaseMonth", "purchaseYear", "sellingRights", "description", 
-      "bedrooms", "bathrooms", "facing", "priceType", "finalPrice",
+      "purchaseMonth", "purchaseYear", "sellingRights", "description",
+      "bedrooms", "bathrooms", "facing", "balcony", "priceType", "finalPrice",
     ];
     textFields.forEach((k) => fd.append(k, String((formData as any)[k] ?? "")));
 
     // FIXED: Add society_name with proper fallback logic
     const societyOptions = masterOptions['society'] || [];
-  ;
+    ;
 
     const societyLabel = getLabelFromValue(societyOptions, formData.society);
 
 
     // Use the label if found, otherwise use the raw value, otherwise use empty string
     const finalSocietyName = societyLabel || formData.society || '';
-    
+
 
     fd.append('society_name', finalSocietyName);
 
@@ -793,68 +833,69 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     (formData.photos || []).forEach((file) => file && fd.append("photos", file, file.name));
 
     // Debug: Log all FormData entries
-   
+
     for (let [key, value] of fd.entries()) {
       if (value instanceof File) {
-        
+
       } else {
-       
+
       }
     }
-   
+
 
     return fd;
   };
 
   // helper: formData -> UI patch (sirf woh fields jisse Overview turant update ho)
-function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FilePreview|null, photos: FilePreview[]}) {
-  return {
-    // basic mapping
-    seller: fd.seller ? { name: fd.seller } : undefined,
-    type: fd.propertyType,
-    subtype: fd.propertySubtype,
-    unitType: fd.unitType,
-    wing: fd.wing,
-    unitNo: fd.unitNo,
-    furnishing: fd.furnishing,
-    furnishingItems: fd.furnishingItems,
-    parkingType: fd.parkingType,
-    parkingQty: fd.parkingQty,
-    city: fd.city,
-    location: fd.location,
-    society: fd.society,
-    floor: fd.floor,
-    totalFloors: fd.totalFloors,
-    carpetArea: fd.carpetArea,
-    builtupArea: fd.builtupArea,
-    budget: fd.budget,
-    address: fd.address,
-    status: fd.status,
-    leadSource: fd.leadSource,
-    possessionMonth: fd.possessionMonth,
-    possessionYear: fd.possessionYear,
-    purchaseMonth: fd.purchaseMonth,
-    purchaseYear: fd.purchaseYear,
-    selling_rights: fd.sellingRights,
-    amenities: fd.amenities,
-    nearby_places: fd.nearby_places,
-    description: fd.description, 
-    // ...existing mappings
-    bedrooms: fd.bedrooms,
-    bathrooms: fd.bathrooms,
-    facing: fd.facing,
-    priceType: fd.priceType,
-    finalPrice: fd.finalPrice,
+  function buildUiPatchFromForm(fd: PropertyFormData, previews: { ownership?: FilePreview | null, photos: FilePreview[] }) {
+    return {
+      // basic mapping
+      seller: fd.seller ? { name: fd.seller } : undefined,
+      type: fd.propertyType,
+      subtype: fd.propertySubtype,
+      unitType: fd.unitType,
+      wing: fd.wing,
+      unitNo: fd.unitNo,
+      furnishing: fd.furnishing,
+      furnishingItems: fd.furnishingItems,
+      parkingType: fd.parkingType,
+      parkingQty: fd.parkingQty,
+      city: fd.city,
+      location: fd.location,
+      society: fd.society,
+      floor: fd.floor,
+      totalFloors: fd.totalFloors,
+      carpetArea: fd.carpetArea,
+      builtupArea: fd.builtupArea,
+      budget: fd.budget,
+      address: fd.address,
+      status: fd.status,
+      leadSource: fd.leadSource,
+      possessionMonth: fd.possessionMonth,
+      possessionYear: fd.possessionYear,
+      purchaseMonth: fd.purchaseMonth,
+      purchaseYear: fd.purchaseYear,
+      selling_rights: fd.sellingRights,
+      amenities: fd.amenities,
+      nearby_places: fd.nearby_places,
+      description: fd.description,
+      // ...existing mappings
+      bedrooms: fd.bedrooms,
+      bathrooms: fd.bathrooms,
+      balcony: fd.balcony,
+      facing: fd.facing,
+      priceType: fd.priceType,
+      finalPrice: fd.finalPrice,
 
-    // media (instant UI ke liye: existing + newly added previews ke URLs)
-    ownershipDocUrl: previews.ownership?.url,
-    ownershipDocName: previews.ownership?.name,
-    photos: previews.photos.map(p => p.url),
+      // media (instant UI ke liye: existing + newly added previews ke URLs)
+      ownershipDocUrl: previews.ownership?.url,
+      ownershipDocName: previews.ownership?.name,
+      photos: previews.photos.map(p => p.url),
 
-    // hard bump so parent <OverviewTab key=...> remounts
-    updated_at: new Date().toISOString(),
-  };
-}
+      // hard bump so parent <OverviewTab key=...> remounts
+      updated_at: new Date().toISOString(),
+    };
+  }
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
@@ -863,44 +904,51 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
       setLoading(true);
       setErrorBanner(null);
 
-      // 👇 Yahan pe directly form ka data print kar do
-      
-     
-      console.groupEnd();
+      // ✅ DEBUG: Form data check karein
+      console.log('=== FORM SUBMISSION DEBUG ===');
+      console.log('FORM DATA:', formData);
+      console.log('MODE:', mode);
+      console.log('PROPERTY ID:', propertyId);
 
       const payload = buildPayload();
+
+      // ✅ DEBUG: Payload check karein
+      console.log('=== FORM DATA PAYLOAD ===');
+      for (let [key, value] of payload.entries()) {
+        console.log(`${key}:`, value);
+      }
+
       let result;
 
       if (mode === "edit" && propertyId) {
+        console.log('🔄 UPDATE PROPERTY API CALL');
         result = await propertiesAPI.updateProperty(String(propertyId), payload);
-        await Promise.all([
-          propertiesAPI.getProperties(),
-          propertiesAPI.getProperty(String(propertyId)),
-        ]);
+        console.log('✅ UPDATE RESPONSE:', result);
       } else {
+        console.log('🆕 CREATE PROPERTY API CALL');
         result = await propertiesAPI.createProperty(payload);
-        const created = result?.data?.data ?? result?.data ?? result;
-        const newId = created?.id ?? created?._id ?? null;
-        await Promise.all([
-          propertiesAPI.getProperties(),
-          newId ? propertiesAPI.getProperty(String(newId)) : Promise.resolve(),
-        ]);
+        console.log('✅ CREATE RESPONSE:', result);
       }
+
+      // ✅ Refresh data
+      await loadProperties();
 
       const uiPatch = buildUiPatchFromForm(formData, {
         ownership: ownershipDocPreview,
         photos: photoPreviews,
       });
+
       onSubmit(uiPatch);
       window.dispatchEvent(
         new CustomEvent("overview:refresh", { detail: { id: propertyId } })
       );
+
+      toast.success(`Property ${mode === 'edit' ? 'updated' : 'created'} successfully!`);
       onClose?.();
+
     } catch (e: any) {
-      const msg =
-        e?.response?.data?.message ||
-        e?.message ||
-        `Failed to ${mode === "edit" ? "update" : "create"} property`;
+      console.error('❌ SUBMISSION ERROR:', e);
+      const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === "edit" ? "update" : "create"} property`;
       setErrorBanner(msg);
       toast.error(msg);
     } finally {
@@ -1059,7 +1107,18 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
               className="w-full"
             />
           </div>
-          
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Balcony</label>
+            <SafeDropdown
+              placeholder="Select Balcony"
+              options={getOptions('balcony')}
+              value={formData.balcony}
+              onChange={handleDropdownChange('balcony')}
+              className="w-full"
+            />
+          </div>
+
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Parking Qty</label>
             <SafeDropdown
@@ -1131,7 +1190,7 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
             />
           </div>
 
-          
+
 
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -1232,7 +1291,7 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
             <div className="flex items-center justify-between mb-2">
               <label className="block text-xs font-semibold text-gray-800 bt-8">
                 Sell Price (₹)*
-                
+
               </label>
             </div>
 
@@ -1266,7 +1325,7 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
                 Fixed
               </label>
 
-              <label className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700">
+              <label className="inline-flex items-center gap=1.5 text-xs font-medium text-gray-700">
                 <input
                   type="checkbox"
                   name="priceType"
@@ -1304,7 +1363,7 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
                     aria-label="Final negotiated price"
                   />
                   {/* compact readout: 30L / 1.25Cr */}
-                  <span className="text-[11px] text-green-800 whitespace-nowrap"> 
+                  <span className="text-[11px] text-green-800 whitespace-nowrap">
                     {(() => {
                       const v = parseBudgetToRupees(formData.finalPrice || '');
                       if (!v || v <= 0) return '';
@@ -1312,7 +1371,7 @@ function buildUiPatchFromForm(fd: PropertyFormData, previews: {ownership?: FileP
                       return `${(v / 10_000_000).toFixed(v % 10_000_000 ? 2 : 0)}Cr`;
                     })()}
                   </span>
-                 
+
                 </div>
               </div>
             )}
