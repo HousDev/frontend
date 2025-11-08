@@ -1316,14 +1316,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                         </span>
                       </div>
                     )}
-                    {property?.address && (
-                      <div className="sm:col-span-2 lg:col-span-3">
-                        <div className="font-semibold text-gray-800 mb-1">Address:</div>
-                        <div className="ml-1 text-gray-700 whitespace-pre-line break-words text-xs sm:text-sm">
-                          {property.address}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
