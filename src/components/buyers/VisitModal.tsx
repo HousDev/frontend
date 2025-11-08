@@ -1,8 +1,6 @@
 // src/components/visits/VisitModal.tsx
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  X, Save, Calendar, User, Star, Phone, MessageCircle, Building
-} from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { X, Save, Calendar, User, Star, Phone, MessageCircle, Building, RefreshCw, Clock } from 'lucide-react';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { visitsAPI } from '@/lib/visitsAPI';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +8,11 @@ import { useAuth } from '@/contexts/AuthContext';
 /* ------------------ Types ------------------ */
 export interface PropertyItem {
   id: string | number;
+
+  // visibility (support many shapes)
+  is_public?: 0 | 1 | boolean | 'true' | 'false' | '1' | '0' | 'public' | 'private';
+  visibility?: string | number | boolean;
+  isPublic?: boolean;
 
   // master/meta
   property_type_name?: string;
@@ -27,7 +30,7 @@ export interface PropertyItem {
   location?: string;
   area?: string;
 
-  // seller/contact — include common variants so mapping stays robust
+  // seller/contact
   seller_id?: string | number;
   owner_id?: string | number;
   contact_id?: string | number;
@@ -66,10 +69,11 @@ export interface Visit {
   positives: string;
   revisitRequired: boolean;
   revisitDate: string;
+  revisitTime: string;
   remarks: string;
   status: string;
 
-  // enriched (optional) — used to pass to API builder cleanly
+  // enriched
   sellerId?: string | number;
   sellerEmail?: string;
   sellerSalutation?: string;
@@ -83,7 +87,7 @@ export interface Visit {
 type VisitModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  visit?: Visit;
+  visit?: any;
   onSave: (data: Visit) => Promise<void> | void;
   buyer: { id: string | number; name: string };
 };
@@ -110,13 +114,20 @@ const getUserId = (u: any): number | null => {
 const getUserName = (u: any): string => s(u?.name || u?.fullName || u?.username || '');
 const getUserEmail = (u: any): string => s(u?.email || u?.mail || '');
 
-/** Format like: REX00{paddedId}. Adjust pad width here if you want */
-const formatPropertyCode = (id: string | number) => {
-  const n = String(id);
-  return `REX00${n.padStart(3, '0')}`;
+const isPublicFlag = (raw: unknown): boolean => {
+  if (raw === true || raw === 1) return true;
+  if (raw === false || raw === 0 || raw == null) return false;
+  const t = String(raw).toLowerCase();
+  return t === '1' || t === 'true' || t === 'public' || t === 'yes';
 };
 
-/** Safely build: propertyType + UNIT_TYPE + propertySubtype (Society Name) */
+/** Format like: REX00{paddedId}. Adjust pad width here if you want */
+const formatPropertyCode = (id: string | number) => {
+  const n = String(id ?? '');
+  return n ? `REX00${n.padStart(3, '0')}` : '';
+};
+
+/** Safely build title */
 const buildCompositeTitle = (p: PropertyItem) => {
   const propertyType = s(p.property_type_name || p.property_type);
   const unitType = toUpper(p.unit_type);
@@ -130,29 +141,141 @@ const buildCompositeTitle = (p: PropertyItem) => {
 const buildAddress = (p: PropertyItem) =>
   s(p.address) || [s(p.location), s(p.area)].filter(Boolean).join(', ');
 
-/** Resolve seller identity across shapes */
-const getSellerId = (p: PropertyItem) =>
-  p.seller_id ?? p.owner_id ?? p.contact_id ?? undefined;
-const getSellerName = (p: PropertyItem) =>
-  s(p.seller_name || p.owner_name || p.contact_name);
-const getSellerPhone = (p: PropertyItem) =>
-  s(p.seller_phone || p.owner_phone || p.contact_phone || p.phone);
-const getSellerEmail = (p: PropertyItem) =>
-  s(p.seller_email || p.owner_email || p.contact_email);
+/** Resolve seller fields */
+const getSellerId = (p: PropertyItem) => p.seller_id ?? p.owner_id ?? p.contact_id ?? undefined;
+const getSellerName = (p: PropertyItem) => s(p.seller_name || p.owner_name || p.contact_name);
+const getSellerPhone = (p: PropertyItem) => s(p.seller_phone || p.owner_phone || p.contact_phone || p.phone);
+const getSellerEmail = (p: PropertyItem) => s(p.seller_email || p.owner_email || p.contact_email);
 const getSellerSalutation = (p: PropertyItem) => s(p.seller_salutation);
 
-/* Optional helpers you can use in parent/API layer */
 export const parseDurationToMinutes = (d?: string) => {
   if (!d) return 60;
   const m = d.match(/\d+/);
   return m ? Math.max(1, parseInt(m[0], 10)) : 60;
 };
 
-export const combineToDateTime = (date: string, time?: string) => {
-  const t = time && time.trim() ? time : '10:00';
-  const hhmmss = t.length === 5 ? `${t}:00` : t;
-  return `${date} ${hhmmss}`; // "YYYY-MM-DD HH:mm:ss"
+/** 24h "HH:mm" normalizer */
+const formatHHMM = (t?: string) => {
+  if (!t) return '';
+  const m = String(t).match(/(\d{1,2}):(\d{2})/);
+  if (!m) return '';
+  const hh = String(Math.min(23, Math.max(0, Number(m[1])))).padStart(2, '0');
+  const mm = String(Math.min(59, Math.max(0, Number(m[2])))).padStart(2, '0');
+  return `${hh}:${mm}`;
 };
+
+/** add :ss if missing */
+const ensureSeconds = (t?: string) => {
+  const hhmm = formatHHMM(t);
+  return hhmm ? `${hhmm}:00` : '';
+};
+
+/** Server expects "YYYY-MM-DD HH:mm:ss" (no timezone) */
+export const combineToDateTime = (date: string, time?: string) => {
+  const hhmmss = ensureSeconds(time || '10:00');
+  return `${date} ${hhmmss}`;
+};
+
+/** TIMEZONE-SAFE splitter
+ * - If ISO with 'T' or 'Z' → use Date() and convert to local parts
+ * - Else try to parse "YYYY-MM-DD HH:mm:ss" or "YYYY-MM-DD"
+ */
+const splitDateTime = (dt?: string) => {
+  if (!dt) return { date: '', time: '' };
+
+  const str = String(dt).trim();
+
+  // ISO path (e.g., "2025-11-07T09:30:00.000Z" or "2025-11-07T09:30:00")
+  if (str.includes('T')) {
+    const d = new Date(str);
+    if (!isNaN(+d)) {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const mm = pad(d.getMonth() + 1);
+      const dd = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const mi = pad(d.getMinutes());
+      return { date: `${yyyy}-${mm}-${dd}`, time: `${hh}:${mi}` };
+    }
+  }
+
+  // SQL path "YYYY-MM-DD HH:mm:ss" or just date
+  const m = str.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/
+  );
+  if (m) {
+    const [, y, mo, d, hh = '00', mi = '00'] = m;
+    return { date: `${y}-${mo}-${d}`, time: `${hh}:${mi}` };
+  }
+
+  // very last fallback (split by space)
+  const [date, timeRaw] = str.split(' ');
+  const time = (timeRaw || '').slice(0, 5);
+  return { date: s(date), time: s(time) };
+};
+
+/** Convert minutes → "xx minutes" (fallback 60) */
+const minutesToLabel = (mins?: any) => {
+  const n = Number(mins);
+  return Number.isFinite(n) && n > 0 ? `${n} minutes` : '60 minutes';
+};
+
+/* ---------- NEW: SAME TIME FORMAT LOGIC AS NOTIFICATION PANEL ---------- */
+/** Backend sometimes sends IST time but with "Z" suffix (means UTC).
+ *  If so, parse as UTC and then add +5:30 to get correct IST local.
+ */
+const parseDbTimestampToDate = (ts?: string | null): Date => {
+  if (!ts) return new Date(NaN);
+  const str = String(ts);
+
+  if (str.endsWith('Z')) {
+    const utcDate = new Date(str);
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    return new Date(utcDate.getTime() + IST_OFFSET);
+  }
+
+  if (/[tT]|\+/.test(str)) return new Date(str);
+
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
+  if (m) {
+    const [, y, mo, d, h, mi, s] = m;
+    return new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +s));
+  }
+
+  return new Date(str);
+};
+
+const formatAbsoluteLocal = (date: Date) => {
+  if (Number.isNaN(date.getTime())) return 'Unknown time';
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const month = months[date.getMonth()];
+  const day = date.getDate();
+  const year = date.getFullYear();
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  const minStr = minutes < 10 ? `0${minutes}` : `${minutes}`;
+  return `${month} ${day}, ${year}, ${hours}:${minStr} ${ampm}`;
+};
+
+const formatRelative = (timestamp?: string | null) => {
+  const when = parseDbTimestampToDate(timestamp ?? '');
+  if (Number.isNaN(when.getTime())) return 'Unknown time';
+  const diffMin = Math.floor((Date.now() - when.getTime()) / 60000);
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  const diffD = Math.round(diffH / 24);
+  return `${diffD}d ago`;
+};
+
+const formatStamp = (ts?: string | null) => {
+  const d = parseDbTimestampToDate(ts ?? '');
+  return `${formatAbsoluteLocal(d)} · ${formatRelative(ts ?? '')}`;
+};
+/* ---------------------------------------------------------------------- */
 
 /** Build server payload (parent visit) */
 export const buildApiPayloadFromVisit = (
@@ -164,7 +287,6 @@ export const buildApiPayloadFromVisit = (
     buyer_id: Number(visitData.buyerId),
     buyer_name: visitData.buyerName || '',
 
-    // seller resolve priority: visitData.sellerId -> fallback param -> null
     seller_id:
       visitData.sellerId != null
         ? Number(visitData.sellerId)
@@ -192,7 +314,6 @@ export const buildApiPayloadFromVisit = (
     remarks: visitData.remarks || null,
     status: visitData.status || 'scheduled',
 
-    // helpful to store extra meta
     meta: {
       seller_email: visitData.sellerEmail || null,
       seller_salutation: visitData.sellerSalutation || null,
@@ -203,6 +324,97 @@ export const buildApiPayloadFromVisit = (
   return payload;
 };
 
+/* ------------------ NORMALIZER ------------------ */
+const normalizeVisit = (raw: any, buyer: { id: string | number; name: string }): Visit => {
+  if (!raw) {
+    const today = new Date().toISOString().slice(0, 10);
+    return {
+      id: undefined,
+      property: '',
+      propertyId: '',
+      date: today,
+      time: '10:00',
+      duration: '60 minutes',
+      visitType: 'site_visit',
+      accompaniedBy: [],
+      sellerPresent: false,
+      sellerName: '',
+      sellerPhone: '-',
+      feedback: '',
+      rating: 3,
+      outcome: '',
+      nextAction: '',
+      concerns: '',
+      positives: '',
+      revisitRequired: false,
+      revisitDate: '',
+      revisitTime: '15:00',
+      remarks: '',
+      status: 'scheduled',
+      buyerId: buyer.id,
+      buyerName: buyer.name,
+      created_at: undefined,
+      updated_at: undefined,
+      sellerId: undefined,
+      sellerEmail: '',
+      sellerSalutation: '',
+    };
+  }
+
+  const toUI = (obj: any): Visit => {
+    const visitDT = obj.visit_datetime || obj.datetime;
+    const splitV = splitDateTime(visitDT);
+
+    // parent-कॉलम में revisit न हुआ तो खाली रहने दो; बाद में revisits fetch होकर prefill करेंगे
+    const rDate = s(obj.revisitDate ?? obj.revisit_date);
+    const rTime =
+      s(obj.revisitTime ?? obj.revisit_time) ||
+      (obj.revisit_datetime ? splitDateTime(obj.revisit_datetime).time : '');
+
+    return {
+      id: obj.id ?? obj.visit_id ?? obj._id,
+      property: s(obj.property || obj.property_title),
+      propertyId: String(obj.propertyId ?? obj.property_id ?? ''),
+      date: s(obj.date) || splitV.date || new Date().toISOString().slice(0, 10),
+      time: s(obj.time) || splitV.time || '10:00',
+      duration: s(obj.duration) || minutesToLabel(obj.duration_minutes),
+      visitType: s(obj.visitType || obj.visit_type || 'site_visit'),
+      accompaniedBy: Array.isArray(obj.accompaniedBy ?? obj.accompanied_by)
+        ? (obj.accompaniedBy ?? obj.accompanied_by)
+        : [],
+      sellerPresent:
+        typeof obj.sellerPresent === 'boolean'
+          ? obj.sellerPresent
+          : Number(obj.seller_present) === 1,
+      sellerName: s(obj.sellerName ?? obj.seller_name),
+      sellerPhone: s(obj.sellerPhone ?? obj.seller_phone ?? '-'),
+      feedback: s(obj.feedback),
+      rating: typeof obj.rating === 'number' ? obj.rating : Number(obj.rating) || 3,
+      outcome: s(obj.outcome),
+      nextAction: s(obj.nextAction ?? obj.next_action),
+      concerns: s(obj.concerns),
+      positives: s(obj.positives),
+      revisitRequired:
+        typeof obj.revisitRequired === 'boolean'
+          ? obj.revisitRequired
+          : Boolean(obj.revisit_date || obj.revisit_datetime),
+      revisitDate: rDate,
+      revisitTime: rTime || '15:00',
+      remarks: s(obj.remarks),
+      status: s(obj.status) || 'scheduled',
+      buyerId: obj.buyerId ?? obj.buyer_id ?? buyer.id,
+      buyerName: s(obj.buyerName ?? obj.buyer_name) || buyer.name,
+      created_at: obj.created_at,
+      updated_at: obj.updated_at,
+      sellerId: obj.sellerId ?? obj.seller_id,
+      sellerEmail: s(obj.sellerEmail ?? obj.seller_email ?? obj?.meta?.seller_email),
+      sellerSalutation: s(obj.sellerSalutation ?? obj?.meta?.seller_salutation),
+    };
+  };
+
+  return toUI(raw);
+};
+
 /* ------------------ Component ------------------ */
 const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave, buyer }) => {
   const { user } = useAuth();
@@ -210,71 +422,20 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
   const executiveName = getUserName(user);
   const executiveEmail = getUserEmail(user);
 
-  // Keep form as Partial<Visit> internally
-  const [formData, setFormData] = useState<Partial<Visit>>({
-    property: visit?.property || '',
-    propertyId: visit?.propertyId ? String(visit.propertyId) : '',
-    date: visit?.date || new Date().toISOString().split('T')[0],
-    time: visit?.time || '10:00',
-    duration: visit?.duration || '60 minutes',
-    visitType: visit?.visitType || 'site_visit',
-    accompaniedBy: visit?.accompaniedBy || [],
-    sellerPresent: visit?.sellerPresent ?? false,
-    sellerName: visit?.sellerName || '',
-    sellerPhone: visit?.sellerPhone || '-',
-    sellerId: visit?.sellerId,
-    sellerEmail: visit?.sellerEmail || '',
-    sellerSalutation: visit?.sellerSalutation || '',
-    feedback: visit?.feedback || '',
-    rating: visit?.rating ?? 3,
-    outcome: visit?.outcome || '',
-    nextAction: visit?.nextAction || '',
-    concerns: visit?.concerns || '',
-    positives: visit?.positives || '',
-    revisitRequired: visit?.revisitRequired ?? false,
-    revisitDate: visit?.revisitDate || '',
-    remarks: visit?.remarks || '',
-    status: visit?.status || 'scheduled',
-    id: visit?.id,
-    buyerId: visit?.buyerId ?? buyer.id,
-    buyerName: visit?.buyerName ?? buyer.name,
-    created_at: visit?.created_at,
-    updated_at: visit?.updated_at,
-  });
+  const normalized = useMemo(() => normalizeVisit(visit, buyer), [visit, buyer]);
 
-  // Sync when visit prop changes (edit mode)
+  const [formData, setFormData] = useState<Partial<Visit>>(normalized);
+
+  // revisits list for the current parent visit (edit mode)
+  const [revisits, setRevisits] = useState<any[]>([]);
+  const [revLoading, setRevLoading] = useState(false);
+  const [revError, setRevError] = useState<string | null>(null);
+
   useEffect(() => {
-    setFormData({
-      property: visit?.property || '',
-      propertyId: visit?.propertyId ? String(visit.propertyId) : '',
-      date: visit?.date || new Date().toISOString().split('T')[0],
-      time: visit?.time || '10:00',
-      duration: visit?.duration || '60 minutes',
-      visitType: visit?.visitType || 'site_visit',
-      accompaniedBy: visit?.accompaniedBy || [],
-      sellerPresent: visit?.sellerPresent ?? false,
-      sellerName: visit?.sellerName || '',
-      sellerPhone: visit?.sellerPhone || '-',
-      sellerId: visit?.sellerId,
-      sellerEmail: visit?.sellerEmail || '',
-      sellerSalutation: visit?.sellerSalutation || '',
-      feedback: visit?.feedback || '',
-      rating: visit?.rating ?? 3,
-      outcome: visit?.outcome || '',
-      nextAction: visit?.nextAction || '',
-      concerns: visit?.concerns || '',
-      positives: visit?.positives || '',
-      revisitRequired: visit?.revisitRequired ?? false,
-      revisitDate: visit?.revisitDate || '',
-      remarks: visit?.remarks || '',
-      status: visit?.status || 'scheduled',
-      id: visit?.id,
-      buyerId: visit?.buyerId ?? buyer.id,
-      buyerName: visit?.buyerName ?? buyer.name,
-      created_at: visit?.created_at,
-      updated_at: visit?.updated_at,
-    });
-  }, [visit, buyer.id, buyer.name]);
+    if (!isOpen) return;
+    setFormData(normalized);
+    hydratedFromOptionsRef.current = false;
+  }, [isOpen, normalized]);
 
   const [newAccompany, setNewAccompany] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -282,8 +443,11 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
   const [loadingProps, setLoadingProps] = useState(false);
   const [propsError, setPropsError] = useState<string | null>(null);
 
+  const hydratedFromOptionsRef = useRef(false);
+
   /* ------------------ Effects ------------------ */
   useEffect(() => {
+    if (!isOpen) return;
     let isMounted = true;
     (async () => {
       setLoadingProps(true);
@@ -295,7 +459,12 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
           : Array.isArray(res)
           ? res
           : [];
-        if (isMounted) setProperties(list ?? []);
+
+        const onlyPublic = (list ?? []).filter((p) =>
+          isPublicFlag(p.is_public ?? p.visibility ?? p.isPublic)
+        );
+
+        if (isMounted) setProperties(onlyPublic);
       } catch (err) {
         console.error('Error fetching properties:', err);
         if (isMounted) setPropsError('Could not load properties');
@@ -306,7 +475,55 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isOpen]);
+
+  // Load revisits when editing an existing parent visit
+  useEffect(() => {
+    const parentId = visit?.id ?? visit?.visit_id ?? visit?._id;
+    if (!isOpen || !parentId) return;
+
+    let mounted = true;
+    (async () => {
+      try {
+        setRevLoading(true);
+        setRevError(null);
+        const data = await visitsAPI.getRevisitsByVisit(parentId);
+        const arr = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setRevisits(arr);
+
+        // ✅ Prefill parent revisit fields from latest revisit (timezone-safe)
+        if (arr.length) {
+          // pick latest by revisit_datetime || (date + time)
+          const withKey = arr.map((r: any) => {
+            const { date, time } = splitDateTime(r.revisit_datetime || `${r.revisit_date ?? ''} ${r.revisit_time ?? ''}`);
+            return { raw: r, key: `${date} ${ensureSeconds(time)}`.trim(), date, time };
+          }).filter(x => x.date);
+
+          withKey.sort((a, b) => a.key.localeCompare(b.key));
+          const latest = withKey[withKey.length - 1];
+
+          if (latest?.date) {
+            setFormData(prev => ({
+              ...prev,
+              revisitRequired: true,
+              revisitDate: latest.date,
+              revisitTime: latest.time || '15:00'
+            }));
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load revisits', e);
+        if (mounted) setRevError('Failed to load revisits');
+      } finally {
+        if (mounted) setRevLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, visit]);
 
   /* ------------------ Derived options ------------------ */
   const dropdownOptions = useMemo(
@@ -336,8 +553,48 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
     [properties]
   );
 
+  /* ---------- Auto-hydrate title + seller fields ---------- */
+  useEffect(() => {
+    if (hydratedFromOptionsRef.current) return;
+    if (!dropdownOptions.length) return;
+
+    const pid = String(formData.propertyId || '');
+    if (!pid) return;
+
+    const opt = dropdownOptions.find((o) => o.id === pid);
+    if (!opt) return;
+
+    const currentlyHasLabel = s(formData.property);
+    const shouldEnrichSeller =
+      !s(formData.sellerName) ||
+      !s(formData.sellerPhone) ||
+      formData.sellerId == null ||
+      !s(formData.sellerEmail) ||
+      !s(formData.sellerSalutation);
+
+    const display = opt.code ? `[${opt.code}] ${opt.title}` : opt.title;
+
+    setFormData((prev) => ({
+      ...prev,
+      property: currentlyHasLabel || display,
+      propertyId: opt.id,
+      sellerName: shouldEnrichSeller ? (opt.seller || s(prev.sellerName || '')) : prev.sellerName,
+      sellerPhone: shouldEnrichSeller ? (opt.sellerPhone || s(prev.sellerPhone || '')) : prev.sellerPhone,
+      sellerId: shouldEnrichSeller ? (opt.sellerId ?? prev.sellerId) : prev.sellerId,
+      sellerEmail: shouldEnrichSeller ? (opt.sellerEmail || s(prev.sellerEmail || '')) : prev.sellerEmail,
+      sellerSalutation: shouldEnrichSeller ? (opt.sellerSalutation || s(prev.sellerSalutation || '')) : prev.sellerSalutation,
+    }));
+
+    hydratedFromOptionsRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dropdownOptions, formData.propertyId]);
+
   /* ------------------ Handlers ------------------ */
   const handleInputChange = <K extends keyof Visit>(field: K, value: Visit[K]) => {
+    // normalize time inputs to "HH:mm"
+    if (field === 'time' || field === 'revisitTime') {
+      value = formatHHMM(String(value || '')) as Visit[K];
+    }
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -361,11 +618,11 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
       ...prev,
       property: display,
       propertyId: opt.id,
-      sellerName: opt.seller || (prev.sellerName as string),
-      sellerPhone: opt.sellerPhone || (prev.sellerPhone as string),
+      sellerName: opt.seller || s(prev.sellerName || ''),
+      sellerPhone: opt.sellerPhone || s(prev.sellerPhone || ''),
       sellerId: opt.sellerId ?? prev.sellerId,
-      sellerEmail: opt.sellerEmail || (prev.sellerEmail as string),
-      sellerSalutation: opt.sellerSalutation || (prev.sellerSalutation as string),
+      sellerEmail: opt.sellerEmail || s(prev.sellerEmail || ''),
+      sellerSalutation: opt.sellerSalutation || s(prev.sellerSalutation || ''),
     }));
   };
 
@@ -383,14 +640,13 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
     setFormData((prev) => ({ ...prev, accompaniedBy: current.filter((p) => p !== person) }));
   };
 
-  // Build a full Visit payload from partial form data before saving
   const buildVisitPayload = (): Visit => {
-    const idFinal = visit?.id ?? formData.id ?? Date.now();
+    const idFinal = visit?.id ?? visit?.visit_id ?? visit?._id ?? formData.id ?? Date.now();
     return {
       property: (formData.property as string) || '',
       propertyId: (formData.propertyId as string) || '',
       date: (formData.date as string) || new Date().toISOString().split('T')[0],
-      time: (formData.time as string) || '10:00',
+      time: formatHHMM(formData.time as string) || '10:00',
       duration: (formData.duration as string) || '60 minutes',
       visitType: (formData.visitType as string) || 'site_visit',
       accompaniedBy: (formData.accompaniedBy as string[]) || [],
@@ -405,13 +661,13 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
       positives: (formData.positives as string) || '',
       revisitRequired: (formData.revisitRequired as boolean) ?? false,
       revisitDate: (formData.revisitDate as string) || '',
+      revisitTime: formatHHMM(formData.revisitTime as string) || '15:00',
       remarks: (formData.remarks as string) || '',
       status: (formData.status as string) || 'scheduled',
       id: idFinal,
-      buyerId: buyer.id,
-      buyerName: buyer.name,
+      buyerId: formData.buyerId ?? buyer.id,
+      buyerName: formData.buyerName ?? buyer.name,
 
-      // new enrichments
       sellerId: formData.sellerId,
       sellerEmail: formData.sellerEmail,
       sellerSalutation: formData.sellerSalutation,
@@ -419,6 +675,44 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
       created_at: visit?.created_at ?? formData.created_at ?? new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+  };
+
+  const pickVisitId = (result: any, fallback?: any) =>
+    result?.id ??
+    result?.visit_id ??
+    result?.data?.id ??
+    result?.data?.visit_id ??
+    result?.insertId ??
+    result?.data?.insertId ??
+    fallback ??
+    null;
+
+  const createChildRevisitIfNeeded = async (parentVisitId: any, visitData: Visit) => {
+    if (!visitData.revisitRequired) return;
+    if (!visitData.revisitDate && !visitData.revisitTime) return;
+
+    const payload = {
+      revisit_date: visitData.revisitDate || undefined,
+      revisit_time: ensureSeconds(visitData.revisitTime) || undefined,
+      duration_minutes: parseDurationToMinutes(visitData.duration),
+      accompanied_by: Array.isArray(visitData.accompaniedBy) ? visitData.accompaniedBy : [],
+      status: 'scheduled',
+      remarks: visitData.remarks || null,
+      executive_id: executiveId ?? null,
+      meta: {
+        created_from_ui: 'VisitModal.revisit',
+        buyer_id: visitData.buyerId ?? null,
+        property_id: visitData.propertyId ?? null,
+      },
+    } as const;
+
+    await visitsAPI.createRevisit(parentVisitId, payload);
+
+    try {
+      const data = await visitsAPI.getRevisitsByVisit(parentVisitId);
+      const arr = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      setRevisits(arr);
+    } catch {/* ignore */}
   };
 
   const handleSave = async () => {
@@ -436,15 +730,20 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
       const visitData = buildVisitPayload();
       const payload = buildApiPayloadFromVisit(
         visitData,
-        executiveId,                                  // ✅ from AuthContext
-        visitData.sellerId != null ? Number(visitData.sellerId) : null // ✅ ensure seller_id if present
+        executiveId,
+        visitData.sellerId != null ? Number(visitData.sellerId) : null
       );
 
-      if (visit?.id) {
-        await visitsAPI.updateVisit(visit.id, payload);
+      let parentId: any = visit?.id ?? visit?.visit_id ?? visit?._id ?? null;
+
+      if (parentId) {
+        await visitsAPI.updateVisit(parentId, payload);
       } else {
-        await visitsAPI.createVisit(payload);
+        const created = await visitsAPI.createVisit(payload);
+        parentId = pickVisitId(created);
       }
+
+      await createChildRevisitIfNeeded(parentId, visitData);
 
       await Promise.resolve(onSave(visitData));
       onClose();
@@ -462,15 +761,20 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
   const sellerNameWithSalutation =
     (salutation ? `${salutation} ` : '') + s(formData.sellerName);
 
+  // Build stamps
+  const createdStamp = formData.created_at ? formatStamp(formData.created_at) : null;
+  const updatedStamp = formData.updated_at ? formatStamp(formData.updated_at) : null;
+  const plannedStamp = formatStamp(combineToDateTime(String(formData.date || ''), String(formData.time || '')));
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[95vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[100vh] overflow-hidden">
         {/* Header */}
         <div className="p-3 border-b border-gray-200 bg-gradient-to-r from-green-50 to-blue-50">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-gray-900">
-                {visit ? 'Edit Visit' : 'Schedule Visit'}
+                {normalized.id ? 'Edit Visit' : 'Schedule Visit'}
               </h2>
               <p className="text-xs text-gray-600 mt-0.5">
                 For {buyer.name}
@@ -481,10 +785,24 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                   </span>
                 ) : null}
               </p>
+              {/* NEW: show created/updated timestamps like notifications */}
+              <div className="flex flex-wrap gap-2 mt-1">
+                {createdStamp && (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                    <Clock size={11} /> Created: {createdStamp}
+                  </span>
+                )}
+                {updatedStamp && (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                    <Clock size={11} /> Updated: {updatedStamp}
+                  </span>
+                )}
+              </div>
             </div>
             <button
               onClick={onClose}
               className="p-1 rounded-lg bg-white hover:bg-gray-50 transition-colors shadow-sm"
+              title="Close"
             >
               <X size={16} />
             </button>
@@ -528,7 +846,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                       ))}
                     </select>
                     {propsError && (
-                      <p className="text-[11px] text-red-600 mt-1">{propsError}</p>
+                      <p className="text[11px] text-red-600 mt-1">{propsError}</p>
                     )}
                   </div>
 
@@ -571,7 +889,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                       <button
                         key={type.value}
                         type="button"
-                        onClick={() => handleInputChange('visitType', type.value)}
+                        onClick={() => handleInputChange('visitType', type.value as Visit['visitType'])}
                         className={`p-2 text-xs rounded-md border transition-all text-left ${
                           isSelected ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
                         }`}
@@ -640,7 +958,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                     <input
                       type="date"
                       value={String(formData.date || '')}
-                      onChange={(e) => handleInputChange('date', e.target.value)}
+                      onChange={(e) => handleInputChange('date', e.target.value as Visit['date'])}
                       className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                       required
                     />
@@ -650,7 +968,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                     <input
                       type="time"
                       value={String(formData.time || '')}
-                      onChange={(e) => handleInputChange('time', e.target.value)}
+                      onChange={(e) => handleInputChange('time', e.target.value as Visit['time'])}
                       className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                     />
                   </div>
@@ -658,7 +976,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                     <label className="block text-xs font-medium text-gray-700 mb-1">Duration</label>
                     <select
                       value={String(formData.duration || '')}
-                      onChange={(e) => handleInputChange('duration', e.target.value)}
+                      onChange={(e) => handleInputChange('duration', e.target.value as Visit['duration'])}
                       className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                     >
                       {durations.map((d) => (
@@ -669,6 +987,14 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                     </select>
                   </div>
                 </div>
+
+                {/* NEW: schedule preview stamp like notifications */}
+                {formData.date ? (
+                  <div className="mt-2 text-[11px] text-gray-600 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100">
+                    <Clock size={11} />
+                    Planned: {plannedStamp}
+                  </div>
+                ) : null}
               </div>
 
               {/* Seller Information */}
@@ -682,7 +1008,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                     <input
                       type="checkbox"
                       checked={Boolean(formData.sellerPresent)}
-                      onChange={(e) => handleInputChange('sellerPresent', e.target.checked)}
+                      onChange={(e) => handleInputChange('sellerPresent', e.target.checked as Visit['sellerPresent'])}
                       className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                     />
                     <span className="text-xs text-gray-700 font-medium">Seller will be present</span>
@@ -691,13 +1017,12 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                   {formData.sellerPresent && (
                     <div className="grid grid-cols-1 gap-2">
                       <div className="grid grid-cols-3 gap-2">
-                        
                         <div className="col-span-2">
                           <label className="block text-xs font-medium text-gray-700 mb-1">Seller Name</label>
                           <input
                             type="text"
                             value={String(formData.sellerName || '')}
-                            onChange={(e) => handleInputChange('sellerName', e.target.value)}
+                            onChange={(e) => handleInputChange('sellerName', e.target.value as Visit['sellerName'])}
                             className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                             placeholder="Seller name"
                           />
@@ -710,7 +1035,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                           <input
                             type="tel"
                             value={String(formData.sellerPhone || '')}
-                            onChange={(e) => handleInputChange('sellerPhone', e.target.value)}
+                            onChange={(e) => handleInputChange('sellerPhone', e.target.value as Visit['sellerPhone'])}
                             className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                             placeholder="+91 98765 43210"
                           />
@@ -720,7 +1045,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                           <input
                             type="email"
                             value={String(formData.sellerEmail || '')}
-                            onChange={(e) => handleInputChange('sellerEmail', e.target.value)}
+                            onChange={(e) => handleInputChange('sellerEmail', e.target.value as Visit['sellerEmail'])}
                             className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                             placeholder="name@example.com"
                           />
@@ -773,7 +1098,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                           <button
                             key={star}
                             type="button"
-                            onClick={() => handleInputChange('rating', star)}
+                            onClick={() => handleInputChange('rating', star as Visit['rating'])}
                             className={`p-0.5 rounded ${star <= (formData.rating || 0) ? 'text-yellow-500' : 'text-gray-300'}`}
                           >
                             <Star size={16} className={star <= (formData.rating || 0) ? 'fill-current' : ''} />
@@ -797,7 +1122,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                       <label className="block text-xs font-medium text-gray-700 mb-1">Feedback</label>
                       <textarea
                         value={String(formData.feedback || '')}
-                        onChange={(e) => handleInputChange('feedback', e.target.value)}
+                        onChange={(e) => handleInputChange('feedback', e.target.value as Visit['feedback'])}
                         className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                         rows={2}
                         placeholder="Overall feedback about the property visit..."
@@ -808,7 +1133,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                       <label className="block text-xs font-medium text-gray-700 mb-1">What they liked</label>
                       <textarea
                         value={String(formData.positives || '')}
-                        onChange={(e) => handleInputChange('positives', e.target.value)}
+                        onChange={(e) => handleInputChange('positives', e.target.value as Visit['positives'])}
                         className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                         rows={1}
                         placeholder="Positive aspects they mentioned..."
@@ -819,7 +1144,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                       <label className="block text-xs font-medium text-gray-700 mb-1">Concerns/Issues</label>
                       <textarea
                         value={String(formData.concerns || '')}
-                        onChange={(e) => handleInputChange('concerns', e.target.value)}
+                        onChange={(e) => handleInputChange('concerns', e.target.value as Visit['concerns'])}
                         className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                         rows={1}
                         placeholder="Any concerns or issues they raised..."
@@ -830,7 +1155,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                       <label className="block text-xs font-medium text-gray-700 mb-1">Outcome</label>
                       <textarea
                         value={String(formData.outcome || '')}
-                        onChange={(e) => handleInputChange('outcome', e.target.value)}
+                        onChange={(e) => handleInputChange('outcome', e.target.value as Visit['outcome'])}
                         className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                         rows={1}
                         placeholder="Final outcome of the visit..."
@@ -841,32 +1166,44 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                       <label className="block text-xs font-medium text-gray-700 mb-1">Next Action</label>
                       <textarea
                         value={String(formData.nextAction || '')}
-                        onChange={(e) => handleInputChange('nextAction', e.target.value)}
+                        onChange={(e) => handleInputChange('nextAction', e.target.value as Visit['nextAction'])}
                         className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                         rows={1}
                         placeholder="What should be done next..."
                       />
                     </div>
 
+                    {/* REVISIT */}
                     <div className="space-y-2">
                       <label className="flex items-center space-x-2">
                         <input
                           type="checkbox"
                           checked={Boolean(formData.revisitRequired)}
-                          onChange={(e) => handleInputChange('revisitRequired', e.target.checked)}
+                          onChange={(e) => handleInputChange('revisitRequired', e.target.checked as Visit['revisitRequired'])}
                           className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                         />
                       </label>
 
                       {formData.revisitRequired && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Revisit Date</label>
-                          <input
-                            type="date"
-                            value={String(formData.revisitDate || '')}
-                            onChange={(e) => handleInputChange('revisitDate', e.target.value)}
-                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
-                          />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Revisit Date</label>
+                            <input
+                              type="date"
+                              value={String(formData.revisitDate || '')}
+                              onChange={(e) => handleInputChange('revisitDate', e.target.value as Visit['revisitDate'])}
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Revisit Time</label>
+                            <input
+                              type="time"
+                              value={String(formatHHMM(formData.revisitTime || '15:00'))}
+                              onChange={(e) => handleInputChange('revisitTime', e.target.value as Visit['revisitTime'])}
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -879,7 +1216,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                 <label className="block text-xs font-medium text-gray-700 mb-1">Visit Status</label>
                 <select
                   value={String(formData.status || '')}
-                  onChange={(e) => handleInputChange('status', e.target.value)}
+                  onChange={(e) => handleInputChange('status', e.target.value as Visit['status'])}
                   className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                 >
                   {statuses.map((status) => (
@@ -895,12 +1232,73 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                 <label className="block text-xs font-medium text-gray-700 mb-1">Additional Remarks</label>
                 <textarea
                   value={String(formData.remarks || '')}
-                  onChange={(e) => handleInputChange('remarks', e.target.value)}
+                  onChange={(e) => handleInputChange('remarks', e.target.value as Visit['remarks'])}
                   className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-green-500 focus:border-green-500"
                   rows={2}
                   placeholder="Any additional notes about the visit..."
                 />
               </div>
+
+              {/* Revisits list (Edit mode) */}
+              {(visit?.id || visit?.visit_id || visit?._id) && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-xs font-semibold text-gray-900 flex items-center">
+                      <RefreshCw className="mr-1" size={14} />
+                      Revisits
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setRevLoading(true);
+                          const parentId = visit?.id ?? visit?.visit_id ?? visit?._id;
+                          const data = await visitsAPI.getRevisitsByVisit(parentId);
+                          const arr = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+                          setRevisits(arr);
+                        } catch {
+                          setRevError('Failed to refresh');
+                        } finally {
+                          setRevLoading(false);
+                        }
+                      }}
+                      className="text[11px] px-2 py-0.5 rounded border border-gray-300 hover:bg-gray-50"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-md p-2 bg-white">
+                    {revLoading ? (
+                      <div className="text-[11px] text-gray-500 flex items-center"><Clock className="mr-1" size={12}/>Loading revisits…</div>
+                    ) : revError ? (
+                      <div className="text-[11px] text-red-600">{revError}</div>
+                    ) : revisits.length === 0 ? (
+                      <div className="text-[11px] text-gray-500">No revisits yet.</div>
+                    ) : (
+                      <ul className="space-y-1">
+                        {revisits.map((rv) => {
+                          // Combine to a single timestamp for stamp formatting
+                          const rawTs =
+                            rv.revisit_datetime ||
+                            (rv.revisit_date ? `${rv.revisit_date} ${ensureSeconds(rv.revisit_time || '15:00')}` : '');
+                          const stamp = formatStamp(rawTs);
+                          const status = s(rv.status || 'scheduled');
+                          return (
+                            <li key={rv.id ?? rv.revisit_id ?? rawTs} className="text-[11px] text-gray-700 flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                                <Clock size={11} /> {stamp}
+                              </span>
+                              <span className="px-1 rounded bg-gray-100 text-gray-700">{status}</span>
+                              {rv.remarks ? <span className="text-gray-500">— {rv.remarks}</span> : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -922,7 +1320,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                 className="flex items-center space-x-1 px-3 py-1 text-xs bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save size={12} />
-                <span>{isSubmitting ? 'Saving...' : visit ? 'Update' : 'Schedule'}</span>
+                <span>{isSubmitting ? 'Saving...' : normalized.id ? 'Update' : 'Schedule'}</span>
               </button>
             </div>
           </div>
