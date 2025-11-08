@@ -39,6 +39,7 @@ interface UIProperty {
   facing: string;
   bedrooms: string;
   bathrooms: string;
+  balcony: string;
   priceType?: 'Fixed' | 'Negotiable' | string;
   finalPrice?: number | string;
   furnishingItems?: string[];
@@ -748,6 +749,7 @@ function normalizeProperty(r: any, idx: number): UIProperty {
 
     bedrooms: r.bedrooms || '',
     bathrooms: r.bathrooms || '',
+    balcony: r.balcony || ' ',
     facing: r.facing || ' ',
 
     priceType: normalizedPriceType,
@@ -802,6 +804,7 @@ const buildInitialData = (p: UIProperty) => {
     facing: clean(p.facing),
     bedrooms: clean(p.bedrooms),
     bathrooms: clean(p.bathrooms),
+    balcony: clean(p.balcony),
     priceType: (p.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
     finalPrice: clean(p.finalPrice),
     parkingType: clean(p.parkingType),

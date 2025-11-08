@@ -34,7 +34,8 @@
     Wifi as WifiIcon,
     Share2,
     IndianRupee,
-    Bot // ✅ Added Bot icon for AI score
+    Bot, // ✅ Added Bot icon for AI score
+    ArrowRight
   } from 'lucide-react';
   import AmenityPill from "../properties/AmenityPill";
   import FurnishingPill from '../properties/FurnishingPill'
@@ -88,6 +89,7 @@ import ReportsTab from './propertiescomponents/ReportsTab';
 
     // add new
     facing: string,
+    balcony: string;
     bedrooms: string,
     bathrooms: string,
     priceType?: 'Fixed' | 'Negotiable' | string;
@@ -261,6 +263,8 @@ import ReportsTab from './propertiescomponents/ReportsTab';
 
       // add new
       facing: p.facing || '',
+      
+      balcony: p.balcony ? String(p.balcony) : '',
       bedrooms: p.bedrooms ? String(p.bedrooms) : '',
       bathrooms: p.bathrooms ? String(p.bathrooms) : '',
 
@@ -1509,7 +1513,7 @@ useEffect(() => {
  <div className="p-2 rounded-md bg-emerald-50/60 ring-1 ring-emerald-100/60">
       <div className="text-[10px] font-medium text-emerald-600/90">Balcony</div>
       <div className="mt-0 text-[12px] font-semibold text-emerald-900">
-        {/* {property?.balcony || "-"} */}
+        {property?.balcony || "-"}
       </div>
     </div>
     {/* Floor */}
@@ -1637,22 +1641,25 @@ useEffect(() => {
       {/* Nearby */}
       <div className="flex-1 p-2 rounded-md bg-slate-50 ring-1 ring-slate-100">
         <div className="text-[10px] font-medium text-slate-500">Nearby</div>
-        <div className="mt-0.5 text-[12px] text-slate-800">
-          {property.nearby_places?.length ? (
-            <div className="flex flex-wrap gap-1">
-              {property.nearby_places.map((p: any, i: number) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 ring-1 ring-slate-200"
-                >
-                  {p.name} {p.distance ? `(${p.distance}${p.unit || ""})` : ""} {p.type || ""}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="text-[12px] font-semibold text-slate-800/80">Not Available</span>
-          )}
-        </div>
+                      <div className="mt-0.5 text-[12px] text-slate-800">
+                        {property.nearby_places?.length ? (
+                          <div className="flex flex-wrap gap-1">
+                            {property.nearby_places.map((p: any, i: number) => (
+                              <span
+                                key={i}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-slate-700"
+                              >
+                                <li className="flex items-center gap-2" >
+                                  <ArrowRight className="w-3.5 h-3.5 text-slate-700" />
+                                  {p.type || ""} {p.distance ? ` – ${p.distance} ${p.unit || ""}` : ""}  {p.name || ""}
+                                </li>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-[12px] font-semibold text-slate-800/80">Not Available</span>
+                        )}
+                      </div>
       </div>
 
       {/* Address */}

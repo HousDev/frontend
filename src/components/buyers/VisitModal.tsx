@@ -1182,7 +1182,6 @@ const VisitModal: React.FC<VisitModalProps> = ({ isOpen, onClose, visit, onSave,
                           onChange={(e) => handleInputChange('revisitRequired', e.target.checked as Visit['revisitRequired'])}
                           className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                         />
-                        <span className="text-xs text-gray-700 font-medium">Revisit required</span>
                       </label>
 
                       {formData.revisitRequired && (

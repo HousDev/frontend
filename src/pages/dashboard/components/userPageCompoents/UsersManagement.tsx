@@ -8,9 +8,10 @@ import {
 import { usersAPI } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { toast } from '@/hooks/useToast';
+
 import { buyerAPI } from '@/lib/buyerAPI';
 import { sellerAPI } from '@/lib/sellersAPI';
+import { toast } from 'react-toastify';
 
 interface User {
   id?: string | number;
@@ -1164,7 +1165,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
                           )}
                           <div>
                             <p className="text-sm font-medium text-gray-900">{user.salutation ? user.salutation + ' ' : ''}{user.first_name} {user.last_name}</p>
-                            {user.username && <p className="text-sm text-gray-500">@{user.username}</p>}
+                            {user.username && <p className="text-sm text-gray-500">{user.username}</p>}
                             {/* FIXED: Use formatDateForDisplay for proper date display */}
                             {user.dob && <p className="text-xs text-gray-400">DOB: {formatDateForDisplay(user.dob)}</p>}
                             {(activeTab === 'buyers' || activeTab === 'sellers') && (
