@@ -21,7 +21,7 @@ import BuyerFormModal from "./components/BuyerFormModal";
 import AddLeadModal from "./components/AddLeadModal";
 import { useAuth } from "@/contexts/AuthContext";
 import SellerFormModal from "./components/SellerFormModel";
-import { canDeleteLead } from "@/utils/rolePermissions";
+
 
 /* ===================== Types ===================== */
 type UserRole = "admin" | "manager" | "agent" | "executive";
@@ -1028,12 +1028,11 @@ const LeadDetailPage: React.FC = () => {
                 <span className="hidden sm:inline">Edit</span>
               </button>
 
-              {canDeleteLead(user as any) && (
                 <button onClick={handleDelete} className="flex items-center justify-center gap-1 px-2 py-1 text-xs border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors bg-white">
                   <FiTrash2 className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Delete</span>
                 </button>
-              )}
+            
 
               <button
                 onClick={handlePreviousLead}

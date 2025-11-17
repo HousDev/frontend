@@ -15,9 +15,8 @@ import FilterModal from './components/FilterModal';
 import { leadsAPI, usersAPI } from '@/lib/api';
 import { notificationAPI } from '@/lib/notificationAPI';
 import { filterLeadsByRole } from '@/utils/roleBasedLeadFilter';
-import { canAddLead, canDeleteLead, canEditLead, canExportLeads, canImportLeads, canViewLead } from '@/utils/rolePermissions';
 import { toast } from 'react-toastify';
-
+import { can } from "@/utils/permission";
 // ✅ only-presales assign helper
 import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 
@@ -48,6 +47,10 @@ type TabID = 'all' | 'contacted' | 'new' | 'qualified' | 'unqualified';
 
 const LeadsPage: React.FC = () => {
   const { user } = useAuth();
+  console.log('AUTH user:', user);
+  console.log('can import (lead.import):', can(user, 'data.import'));
+  console.log('can export (lead.export):', can(user, 'data.export'));
+
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [presalesUsers, setPresalesUsers] = useState<any[]>([]);
 
@@ -501,61 +504,60 @@ const LeadsPage: React.FC = () => {
   };
 
   // ---------- export ----------
-const exportLeads = async () => {
-  try {
-    // ✅ Added "Salutation" in headers
-    const headers = [
-      'Salutation',
-      'Name',
-      'Phone',
-      'Email',
-      'City',
-      'Location',
-      'Lead Source',
-      'Lead Type',
-      'Status',
-      'Created At',
-    ];
+  const exportLeads = async () => {
+    try {
+      // ✅ Added "Salutation" in headers
+      const headers = [
+        'Salutation',
+        'Name',
+        'Phone',
+        'Email',
+        'City',
+        'Location',
+        'Lead Source',
+        'Lead Type',
+        'Status',
+        'Created At',
+      ];
 
-    // ✅ Include l.salutation in each row
-    const rows = filteredLeads.map((l) => [
-      l.salutation,
-      l.name,
-      l.phone,
-      l.email,
-      l.city,
-      l.location,
-      l.lead_source,
-      l.lead_type,
-      l.status,
-      l.created_at,
-    ]);
+      // ✅ Include l.salutation in each row
+      const rows = filteredLeads.map((l) => [
+        l.salutation,
+        l.name,
+        l.phone,
+        l.email,
+        l.city,
+        l.location,
+        l.lead_source,
+        l.lead_type,
+        l.status,
+        l.created_at,
+      ]);
 
-    // CSV formatting (safe escaping)
-    const csv = [headers, ...rows]
-      .map((r) =>
-        r
-          .map((x) => `"${(x ?? '').toString().replace(/"/g, '""')}"`)
-          .join(',')
-      )
-      .join('\n');
+      // CSV formatting (safe escaping)
+      const csv = [headers, ...rows]
+        .map((r) =>
+          r
+            .map((x) => `"${(x ?? '').toString().replace(/"/g, '""')}"`)
+            .join(',')
+        )
+        .join('\n');
 
-    // Create and trigger download
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `leads-export-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+      // Create and trigger download
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `leads-export-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
 
-    toast.success('Leads exported successfully');
-  } catch (error) {
-    console.error('Error exporting leads:', error);
-    toast.error('Failed to export leads');
-  }
-};
-
+      toast.success('Leads exported successfully');
+    } catch (error) {
+      console.error('Error exporting leads:', error);
+      toast.error('Failed to export leads');
+    }
+  };
 
   // ---------- badges ----------
   const getSourceBadgeClass = (src?: string) => {
@@ -718,10 +720,10 @@ const exportLeads = async () => {
         prev.map(l =>
           selectedLeads.includes(l.id)
             ? {
-                ...l,
-                assigned_executive: newAssigneeId ?? undefined,
-                assigned_executive_name: newAssigneeId ? newAssigneeName : undefined,
-              }
+              ...l,
+              assigned_executive: newAssigneeId ?? undefined,
+              assigned_executive_name: newAssigneeId ? newAssigneeName : undefined,
+            }
             : l
         )
       );
@@ -800,23 +802,25 @@ const exportLeads = async () => {
             </div>
 
             <div className="flex flex-wrap gap-2">
-             
+
+              {can(user, 'data.export') && (
                 <Button variant="outline" onClick={exportLeads} className="px-3 py-1 rounded-lg text-xs whitespace-nowrap">
                   <Download className="h-3 w-3" />
                   <span>Export</span>
                 </Button>
-             
+              )}
 
-            
-                <Button onClick={() => setShowImportModal(true)}>Import Leads</Button>
-             
+              {can(user, 'data.import') && (
+                <Button onClick={() => can(user, 'data.import') && setShowImportModal(true)}>Import Leads</Button>
+              )}
 
-             
-                <Button className="px-3 py-1 rounded-lg text-xs whitespace-nowrap" onClick={() => setShowAddLeadModal(true)}>
+              {can(user, 'lead.create') && (
+                <Button className="px-3 py-1 rounded-lg text-xs whitespace-nowrap" onClick={() => can(user, 'lead.create') && setShowAddLeadModal(true)}>
                   <Plus className="h-3 w-3" />
                   <span>Add Lead</span>
                 </Button>
-           
+              )}
+
             </div>
           </div>
 
@@ -873,84 +877,88 @@ const exportLeads = async () => {
                   filters.location ||
                   (!filters.ignoreDate && (filters.dateFrom || filters.dateTo))
                 ) && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setFilters({
-                        status: 'all',
-                        source: 'all',
-                        leadType: 'all',
-                        assignedExecutive: 'all',
-                        createdBy: 'all',
-                        priority: 'all',
-                        city: '',
-                        location: '',
-                        dateFrom: '',
-                        dateTo: '',
-                        ignoreDate: false,
-                        sortOrder: 'desc',
-                      });
-                      setSearchFilters({ name: "", contact: "", location: "", source: "", status: "", created: "", priority: "" });
-                      setActiveTab('all');
-                    }}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    Clear All
-                  </Button>
-                )}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setFilters({
+                          status: 'all',
+                          source: 'all',
+                          leadType: 'all',
+                          assignedExecutive: 'all',
+                          createdBy: 'all',
+                          priority: 'all',
+                          city: '',
+                          location: '',
+                          dateFrom: '',
+                          dateTo: '',
+                          ignoreDate: false,
+                          sortOrder: 'desc',
+                        });
+                        setSearchFilters({ name: "", contact: "", location: "", source: "", status: "", created: "", priority: "" });
+                        setActiveTab('all');
+                      }}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      Clear All
+                    </Button>
+                  )}
               </div>
             </div>
           </div>
 
           {/* BULK ACTIONS BAR */}
-          {selectedLeads.length > 0 && (
+          {selectedLeads.length > 0 && (can(user, 'lead.update') || can(user, 'lead.assign') || can(user, 'lead.bulk_delete')) && (
             <div className="flex flex-col md:flex-row md:items-center gap-3 bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
               <div className="text-sm">
                 Selected: <span className="font-medium">{selectedLeads.length}</span>
               </div>
 
               {/* Bulk Status */}
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-600">Update status:</label>
-                <select
-                  value={bulkStatus}
-                  onChange={(e) => setBulkStatus(e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
-                >
-                  <option value="">-- choose --</option>
-                  {['new', 'contacted', 'qualified', 'unqualified', 'hot', 'warm', 'cold', 'converted', 'lost', ...Array.from(new Set(statusOptions.map(o => o.value).filter(v => v !== 'all')))]
-                    .filter((v, i, arr) => arr.indexOf(v) === i)
-                    .map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
-                </select>
-                <Button onClick={handleBulkStatusUpdate} disabled={bulkLoading || !bulkStatus}>
-                  {bulkLoading ? 'Updating…' : 'Apply Status'}
-                </Button>
-              </div>
+              {can(user, 'lead.update') && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-600">Update status:</label>
+                  <select
+                    value={bulkStatus}
+                    onChange={(e) => setBulkStatus(e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                  >
+                    <option value="">-- choose --</option>
+                    {['new', 'contacted', 'qualified', 'unqualified', 'hot', 'warm', 'cold', 'converted', 'lost', ...Array.from(new Set(statusOptions.map(o => o.value).filter(v => v !== 'all')))]
+                      .filter((v, i, arr) => arr.indexOf(v) === i)
+                      .map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
+                  </select>
+                  <Button onClick={handleBulkStatusUpdate} disabled={bulkLoading || !bulkStatus}>
+                    {bulkLoading ? 'Updating…' : 'Apply Status'}
+                  </Button>
+                </div>
+              )}
 
               <div className="hidden md:block h-6 w-px bg-gray-200" />
 
               {/* Bulk Assign (ONLY Presales Executives) */}
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-600 whitespace-nowrap">Assign to:</label>
-                <select
-                  value={bulkAssignee}
-                  onChange={(e) => setBulkAssignee(e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1 text-sm bg-white min-w-[220px]"
-                >
-                  <option value="">-- choose executive --</option>
-                  <option value="Unassigned">Unassign</option>
-                  {assignableExecutives.map((u: any) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
-                <Button onClick={handleBulkAssign} disabled={bulkLoading || !bulkAssignee}>
-                  {bulkLoading ? 'Assigning…' : 'Apply Assignment'}
-                </Button>
-              </div>
+              {can(user, 'lead.assign') && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-600 whitespace-nowrap">Assign to:</label>
+                  <select
+                    value={bulkAssignee}
+                    onChange={(e) => setBulkAssignee(e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-1 text-sm bg-white min-w-[220px]"
+                  >
+                    <option value="">-- choose executive --</option>
+                    <option value="Unassigned">Unassign</option>
+                    {assignableExecutives.map((u: any) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                  <Button onClick={handleBulkAssign} disabled={bulkLoading || !bulkAssignee}>
+                    {bulkLoading ? 'Assigning…' : 'Apply Assignment'}
+                  </Button>
+                </div>
+              )}
 
               {/* Delete + Clear */}
               <div className="flex items-center gap-2 md:ml-auto">
-                {canDeleteLead(user) && (
+                {can(user, 'lead.bulk_delete') && (
                   <Button
                     variant="outline"
                     onClick={handleBulkDelete}
@@ -960,6 +968,7 @@ const exportLeads = async () => {
                     {bulkLoading ? "Deleting…" : `Delete (${selectedLeads.length})`}
                   </Button>
                 )}
+
                 <Button variant="outline" onClick={() => setSelectedLeads([])}>
                   Clear Selection
                 </Button>
@@ -969,7 +978,11 @@ const exportLeads = async () => {
 
           {/* Leads Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden flex-1">
-            {loading ? (
+            {!can(user, 'lead.read') ? (
+              <div className="p-6 text-center text-sm text-red-600">
+                You do not have permission to view leads.
+              </div>
+            ) : loading ? (
               <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
             ) : (
               <>
@@ -1052,8 +1065,8 @@ const exportLeads = async () => {
                                   </p>
 
                                   <p className="text-gray-500">{lead.lead_type?.toUpperCase()}</p>
-                                 <p className='text-[10px] text-[#0b3856] bg-[#0b3856]/10 px-2 py-0.5 rounded-md inline-block'>Id : {String(lead.id).slice(0, 4)}</p>
-                              
+                                  <p className='text-[10px] text-[#0b3856] bg-[#0b3856]/10 px-2 py-0.5 rounded-md inline-block'>Id : {String(lead.id).slice(0, 4)}</p>
+
                                 </div>
                               </Link>
                             </td>
@@ -1117,7 +1130,8 @@ const exportLeads = async () => {
                             </td>
                             <td className="px-3 py-3 text-right">
                               <div className="flex justify-end gap-2">
-                                {canViewLead(user, lead) && (
+
+                                {can(user, 'lead.read') && (
                                   <Link to={`/dashboard/leads/${lead.id}`}>
                                     <Button
                                       variant="outline"
@@ -1129,12 +1143,13 @@ const exportLeads = async () => {
                                   </Link>
                                 )}
 
-                                {canEditLead(user, lead) && (
+                                {can(user, 'lead.update') && (
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     className="border-green-200 text-green-600 hover:bg-green-50 hover:text-green-700"
                                     onClick={() => {
+                                      if (!can(user, 'lead.update')) return;
                                       setSelectedLead(lead);
                                       setShowEditLeadModal(true);
                                     }}
@@ -1143,7 +1158,7 @@ const exportLeads = async () => {
                                   </Button>
                                 )}
 
-                                {canDeleteLead(user) && (
+                                {can(user, 'lead.delete') && (
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -1153,6 +1168,7 @@ const exportLeads = async () => {
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
                                 )}
+
                               </div>
                             </td>
                           </tr>
@@ -1207,24 +1223,30 @@ const exportLeads = async () => {
       />
 
       {/* ADD */}
-      <AddLeadModal
-        isOpen={showAddLeadModal}
-        onClose={() => setShowAddLeadModal(false)}
-        onSave={handleAddLead}
-      />
+      {can(user, 'lead.create') && (
+        <AddLeadModal
+          isOpen={showAddLeadModal}
+          onClose={() => setShowAddLeadModal(false)}
+          onSave={handleAddLead}
+        />
+      )}
 
       {/* EDIT (reuse Add modal) */}
-      <AddLeadModal
-        isOpen={showEditLeadModal}
-        lead={selectedLead || undefined}
-        onClose={() => { setShowEditLeadModal(false); setSelectedLead(null); }}
-        onSave={handleEditLead}
-      />
+      {can(user, 'lead.update') && (
+        <AddLeadModal
+          isOpen={showEditLeadModal}
+          lead={selectedLead || undefined}
+          onClose={() => { setShowEditLeadModal(false); setSelectedLead(null); }}
+          onSave={handleEditLead}
+        />
+      )}
 
-      <ImportLeadsModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-      />
+      {can(user, 'data.import') && (
+        <ImportLeadsModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+        />
+      )}
     </div>
   );
 };
