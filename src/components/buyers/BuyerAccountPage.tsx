@@ -136,7 +136,13 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
                 >
                   <Menu size={20} />
                 </button>
-
+              <button
+                onClick={onBack}
+                className="p-2 rounded-lg bg-white/90 text-gray-700 hover:bg-white transition-colors hidden sm:inline-flex"
+                aria-label="Back"
+              >
+                <ArrowLeft size={20} />
+              </button>
                 <div>
                   <h2 className="text-base sm:text-lg md:text-xl font-bold text-[#E6761D] leading-tight truncate">
                     Welcome, {buyer.salutation} {buyer.name}!

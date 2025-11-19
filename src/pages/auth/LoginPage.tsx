@@ -13,7 +13,7 @@ interface User {
   email: string;
   first_name: string;
   last_name: string;
-  role: 'admin' | 'manager' | 'agent' | 'buyer' | 'seller';
+  role: 'admin' | 'manager' | 'agent' | 'buyer' | 'seller' | 'team leader' | 'sales team leader' | 'presales team leader' | 'sales manager' | 'marketing executive' | 'presales executive' |'sales executive';
   phone?: string;
   avatar?: string;
   is_active: boolean;

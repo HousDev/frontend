@@ -1,4 +1,3 @@
-
 // // src/components/blogManager/BlogManagement.tsx
 // import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // import {
@@ -141,6 +140,7 @@
 //     [rssources]
 //   );
 
+//   // Updated function to get post source name with "Manual" as default
 //   const getPostSourceName = useCallback(
 //     (p: any) => {
 //       const explicit = p?.sourceName ?? p?.source_name ?? p?.source?.name;
@@ -151,7 +151,9 @@
 //         p?.rss_source_id ??
 //         (p?.source?.id ?? undefined);
 //       const mapped = sid != null ? sourceNameById[String(sid)] : undefined;
-//       return (explicit || mapped || '') as string;
+
+//       // Return "Manual" if no source information is found
+//       return (explicit || mapped || 'Manual') as string;
 //     },
 //     [sourceNameById]
 //   );
@@ -205,7 +207,8 @@
 //       readTime:
 //         typeof p.readTime === 'number' ? p.readTime : Math.ceil(((p.content || '').length || 0) / 200),
 //       ...(sourceId !== undefined ? { sourceId } : {}),
-//       ...(sourceName ? { sourceName } : {}),
+//       // Set sourceName to "Manual" if no source information is available
+//       sourceName: sourceName || 'Manual',
 //     } as any;
 //   };
 
@@ -466,10 +469,7 @@
 //     if (!p) return;
 //     if (typeof window === 'undefined') return;
 //     const safeTitle = (p.title || 'Preview').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-//     const src =
-//       (p as any)?.sourceName
-//       || ((p as any)?.sourceId && sourceNameById[String((p as any).sourceId)])
-//       || '';
+//     const src = getPostSourceName(p);
 //     const srcDot = src ? ` • ${src}` : '';
 //     const bodyHtml = `<article style="max-width:900px;margin:20px auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#111827;line-height:1.7;">
 //       <header style="margin-bottom:16px;">
@@ -1077,12 +1077,17 @@
 //                       {/* SOURCE */}
 //                       <td className="py-3 px-4">
 //                         {srcName ? (
-//                           <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-xs">
-//                             <GlobeIcon size={12} />
+//                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${srcName === 'Manual'
+//                               ? 'bg-gray-100 text-gray-700'
+//                               : 'bg-indigo-50 text-indigo-700'
+//                             }`}>
+//                             {srcName !== 'Manual' && <GlobeIcon size={12} />}
 //                             {srcName}
 //                           </span>
 //                         ) : (
-//                           <span className="text-gray-400 text-xs">—</span>
+//                           <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 text-gray-700 px-2 py-0.5 text-xs">
+//                             Manual
+//                           </span>
 //                         )}
 //                       </td>
 
@@ -1250,7 +1255,7 @@
 //   };
 
 //   /* ------------------------- COMMENTS ACTION HANDLERS ------------------------- */
- 
+
 //   const deleteComment = async (id: string) => {
 //     if (!window.confirm('Delete this comment?')) return;
 //     try {
@@ -1371,10 +1376,10 @@
 //                       <td className="py-3 px-4">
 //                         <span
 //                           className={`px-2 py-1 rounded-full text-xs ${r.status === 'approved'
-//                               ? 'bg-green-100 text-green-800'
-//                               : r.status === 'rejected'
-//                                 ? 'bg-red-100 text-red-700'
-//                                 : 'bg-yellow-100 text-yellow-800'
+//                             ? 'bg-green-100 text-green-800'
+//                             : r.status === 'rejected'
+//                               ? 'bg-red-100 text-red-700'
+//                               : 'bg-yellow-100 text-yellow-800'
 //                             }`}
 //                         >
 //                           {r.status}
@@ -1695,10 +1700,7 @@
 //                   <div className="text-xs text-gray-500">
 //                     {previewPost.author} • {formatDate(previewPost.publishedAt || previewPost.createdAt)}
 //                     {(() => {
-//                       const src =
-//                         (previewPost as any).sourceName ||
-//                         ((previewPost as any).sourceId &&
-//                           sourceNameById[String((previewPost as any).sourceId)]);
+//                       const src = getPostSourceName(previewPost);
 //                       return src ? ` • ${src}` : '';
 //                     })()}
 //                   </div>
@@ -1788,6 +1790,9 @@ import { rssAPI } from '@/lib/rssAPI';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 
+// Permission check function import karo
+import { can } from '@/utils/permission';
+
 type CommentItem = {
   id: string | number;
   author: string;
@@ -1817,6 +1822,31 @@ const blogsAPI: any = (blogsAPIDefault as any)?.default ?? blogsAPIDefault;
 
 const BlogManagement: React.FC = () => {
   const { user } = useAuth() ?? { user: null };
+
+  // Permission checks
+  const canRead = can(user, 'blog.read');
+  const canCreate = can(user, 'blog.create');
+  const canUpdate = can(user, 'blog.update');
+  const canDelete = can(user, 'blog.delete');
+  const canBulkDelete = can(user, 'blog.bulk_delete');
+
+  // Main content access check
+  if (!canRead) {
+    return (
+      <div className="h-full flex flex-col bg-gray-50">
+        <div className="flex-1 grid place-items-center">
+          <div className="text-center p-6">
+            <div className="text-red-600 text-lg font-semibold mb-2">
+              Access Denied
+            </div>
+            <div className="text-gray-600 text-sm">
+              You do not have permission to view sellers.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const getUserDisplayName = (u: any) => {
     if (!u) return 'Admin';
@@ -1893,7 +1923,7 @@ const BlogManagement: React.FC = () => {
   // Updated function to get post source name with "Manual" as default
   const getPostSourceName = useCallback(
     (p: any) => {
-      const explicit = p?.sourceName ?? p?.source_name ?? p?.source?.name;
+      const explicit = p?.sourceName ?? p?.source_name ?? p?.sourceLabel ?? p?.rssSourceName ?? p?.rss_source_name ?? p?.source?.name ?? p?.rss?.name;
       const sid =
         p?.sourceId ??
         p?.source_id ??
@@ -1908,17 +1938,18 @@ const BlogManagement: React.FC = () => {
     [sourceNameById]
   );
 
+  // Tabs with permission checks
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, description: 'Overview and quick actions' },
-    { id: 'content', label: 'Content Management', icon: FileText, description: 'Manage all blog posts' },
-    { id: 'comments', label: 'Comments', icon: MessageSquare, description: 'Manage comments & replies' },
-    { id: 'ai-writer', label: 'AI Content Studio', icon: Bot, description: 'Create content with AI' },
-    { id: 'ai-tools', label: 'AI Enhancement Tools', icon: Wrench, description: 'Enhance existing content' },
-    { id: 'rss', label: 'RSS Sources', icon: GlobeIcon, description: 'Auto-import from RSS feeds' },
-    { id: 'social', label: 'Social Media', icon: Share2, description: 'Schedule posts' },
-    { id: 'seo', label: 'SEO Tools', icon: TrendingUp, description: 'Optimize for search engines' },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp, description: 'Performance insights' },
-  ];
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, description: 'Overview and quick actions', permission: canRead },
+    { id: 'content', label: 'Content Management', icon: FileText, description: 'Manage all blog posts', permission: canRead },
+    { id: 'comments', label: 'Comments', icon: MessageSquare, description: 'Manage comments & replies', permission: canRead },
+    { id: 'ai-writer', label: 'AI Content Studio', icon: Bot, description: 'Create content with AI', permission: canCreate },
+    { id: 'ai-tools', label: 'AI Enhancement Tools', icon: Wrench, description: 'Enhance existing content', permission: canUpdate },
+    { id: 'rss', label: 'RSS Sources', icon: GlobeIcon, description: 'Auto-import from RSS feeds', permission: canCreate },
+    { id: 'social', label: 'Social Media', icon: Share2, description: 'Schedule posts', permission: canCreate },
+    { id: 'seo', label: 'SEO Tools', icon: TrendingUp, description: 'Optimize for search engines', permission: canUpdate },
+    { id: 'analytics', label: 'Analytics', icon: TrendingUp, description: 'Performance insights', permission: canRead },
+  ].filter(tab => tab.permission); // Only show tabs user has permission for
 
   // ---------- Normalize Posts ----------
   const normalizePost = (p: any): BlogPost & { sourceId?: string | number; sourceName?: string; slug?: string } => {
@@ -1963,6 +1994,11 @@ const BlogManagement: React.FC = () => {
   };
 
   const loadPosts = useCallback(async (params?: Record<string, any>) => {
+    if (!canRead) {
+      toast.error('You do not have permission to view blog posts');
+      return;
+    }
+
     setLoadingPosts(true);
     setPostsError(null);
     try {
@@ -2001,27 +2037,36 @@ const BlogManagement: React.FC = () => {
     } finally {
       setLoadingPosts(false);
     }
-  }, []);
+  }, [canRead]);
 
   // Load posts for the sub-tab (server-side status filter)
   useEffect(() => {
-    loadPosts({ status: postStateTab });
-  }, [loadPosts, postStateTab]);
+    if (canRead) {
+      loadPosts({ status: postStateTab });
+    }
+  }, [loadPosts, postStateTab, canRead]);
 
   // Load RSS sources (optional)
   useEffect(() => {
-    (async () => {
-      try {
-        const resp = await rssAPI.getAll();
-        const list = Array.isArray(resp?.data) ? resp.data : Array.isArray(resp) ? resp : [];
-        setRSSources(list as RSSSource[]);
-      } catch {
-        // silent
-      }
-    })();
-  }, []);
+    if (canCreate) {
+      (async () => {
+        try {
+          const resp = await rssAPI.getAll();
+          const list = Array.isArray(resp?.data) ? resp.data : Array.isArray(resp) ? resp : [];
+          setRSSources(list as RSSSource[]);
+        } catch {
+          // silent
+        }
+      })();
+    }
+  }, [canCreate]);
 
   const handleRefresh = async () => {
+    if (!canRead) {
+      toast.error('You do not have permission to refresh posts');
+      return;
+    }
+
     try {
       setPage(1);
       await loadPosts({ status: postStateTab, _ts: Date.now() });
@@ -2032,6 +2077,18 @@ const BlogManagement: React.FC = () => {
   /** Save / update post into list */
   const handleSavePost = (postData: Partial<BlogPost>) => {
     if (!postData) return;
+
+    // Check permissions based on action
+    const isNewPost = !postData.id;
+    if (isNewPost && !canCreate) {
+      toast.error('You do not have permission to create blog posts');
+      return;
+    }
+    if (!isNewPost && !canUpdate) {
+      toast.error('You do not have permission to update blog posts');
+      return;
+    }
+
     const raw: any = (postData as any)?.data ?? (postData as any)?.post ?? postData;
 
     const normalized = normalizePost(raw);
@@ -2064,6 +2121,11 @@ const BlogManagement: React.FC = () => {
   };
 
   const handleDeletePost = async (postId: string | number) => {
+    if (!canDelete) {
+      toast.error('You do not have permission to delete blog posts');
+      return;
+    }
+
     if (!window.confirm('Are you sure you want to delete this post?')) return;
     try {
       setPosts((curr) =>
@@ -2112,6 +2174,11 @@ const BlogManagement: React.FC = () => {
   };
 
   const bulkDeleteSelected = async () => {
+    if (!canBulkDelete) {
+      toast.error('You do not have permission to bulk delete posts');
+      return;
+    }
+
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return toast.info('No posts selected');
 
@@ -2140,6 +2207,11 @@ const BlogManagement: React.FC = () => {
   };
 
   const bulkPublishSelected = async () => {
+    if (!canUpdate) {
+      toast.error('You do not have permission to publish posts');
+      return;
+    }
+
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return toast.info('No posts selected');
 
@@ -2170,6 +2242,10 @@ const BlogManagement: React.FC = () => {
   };
 
   const handleEditPost = (post: BlogPost) => {
+    if (!canUpdate) {
+      toast.error('You do not have permission to edit blog posts');
+      return;
+    }
     setSelectedPost(post);
     setShowPostEditor(true);
   };
@@ -2274,6 +2350,11 @@ const BlogManagement: React.FC = () => {
   };
 
   const loadAllComments = useCallback(async () => {
+    if (!canRead) {
+      toast.error('You do not have permission to view comments');
+      return;
+    }
+
     setLoadingAllComments(true);
     try {
       // 1) get all posts (best effort)
@@ -2362,14 +2443,14 @@ const BlogManagement: React.FC = () => {
     } finally {
       setLoadingAllComments(false);
     }
-  }, [posts]);
+  }, [posts, canRead]);
 
   // Auto-load when user opens the Comments tab
   useEffect(() => {
-    if (activeTab === 'comments') {
+    if (activeTab === 'comments' && canRead) {
       loadAllComments();
     }
-  }, [activeTab, loadAllComments]);
+  }, [activeTab, loadAllComments, canRead]);
 
   // --------- Filters & pagination for posts list ---------
   const postsArray = Array.isArray(posts) ? posts : [];
@@ -2476,44 +2557,52 @@ const BlogManagement: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button
-            onClick={() => {
-              setSelectedPost(null);
-              setShowAIWriter(true);
-            }}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 rounded-xl hover:shadow-lg transition-all text-left"
-          >
-            <Bot className="mb-2" size={24} />
-            <div className="font-semibold">AI Writer</div>
-            <div className="text-xs text-purple-100">Generate new content</div>
-          </button>
-          <button
-            onClick={() => {
-              setShowPostEditor(true);
-              setSelectedPost(null);
-            }}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-xl hover:shadow-lg transition-all text-left"
-          >
-            <Plus className="mb-2" size={24} />
-            <div className="font-semibold">New Post</div>
-            <div className="text-xs text-blue-100">Create manually</div>
-          </button>
-          <button
-            onClick={() => setShowRSSManager(true)}
-            className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4 rounded-xl hover:shadow-lg transition-all text-left"
-          >
-            <GlobeIcon className="mb-2" size={24} />
-            <div className="font-semibold">RSS Import</div>
-            <div className="text-xs text-green-100">Auto-import content</div>
-          </button>
-          <button
-            onClick={() => setShowSocialManager(true)}
-            className="bg-gradient-to-r from-orange-600 to-red-600 text-white p-4 rounded-xl hover:shadow-lg transition-all text-left"
-          >
-            <Share2 className="mb-2" size={24} />
-            <div className="font-semibold">Social Media</div>
-            <div className="text-xs text-orange-100">Schedule posts</div>
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => {
+                setSelectedPost(null);
+                setShowAIWriter(true);
+              }}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 rounded-xl hover:shadow-lg transition-all text-left"
+            >
+              <Bot className="mb-2" size={24} />
+              <div className="font-semibold">AI Writer</div>
+              <div className="text-xs text-purple-100">Generate new content</div>
+            </button>
+          )}
+          {canCreate && (
+            <button
+              onClick={() => {
+                setShowPostEditor(true);
+                setSelectedPost(null);
+              }}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-xl hover:shadow-lg transition-all text-left"
+            >
+              <Plus className="mb-2" size={24} />
+              <div className="font-semibold">New Post</div>
+              <div className="text-xs text-blue-100">Create manually</div>
+            </button>
+          )}
+          {canCreate && (
+            <button
+              onClick={() => setShowRSSManager(true)}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4 rounded-xl hover:shadow-lg transition-all text-left"
+            >
+              <GlobeIcon className="mb-2" size={24} />
+              <div className="font-semibold">RSS Import</div>
+              <div className="text-xs text-green-100">Auto-import content</div>
+            </button>
+          )}
+          {canCreate && (
+            <button
+              onClick={() => setShowSocialManager(true)}
+              className="bg-gradient-to-r from-orange-600 to-red-600 text-white p-4 rounded-xl hover:shadow-lg transition-all text-left"
+            >
+              <Share2 className="mb-2" size={24} />
+              <div className="font-semibold">Social Media</div>
+              <div className="text-xs text-orange-100">Schedule posts</div>
+            </button>
+          )}
         </div>
       </div>
 
@@ -2572,13 +2661,15 @@ const BlogManagement: React.FC = () => {
                   >
                     <Eye size={20} />
                   </button>
-                  <button
-                    onClick={() => handleEditPost(post)}
-                    className="text-blue-600 hover:text-blue-700"
-                    title="Edit"
-                  >
-                    <Edit size={20} />
-                  </button>
+                  {canUpdate && (
+                    <button
+                      onClick={() => handleEditPost(post)}
+                      className="text-blue-600 hover:text-blue-700"
+                      title="Edit"
+                    >
+                      <Edit size={20} />
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -2615,13 +2706,15 @@ const BlogManagement: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowPostEditor(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-              >
-                <Plus size={18} />
-                <span>New Post</span>
-              </button>
+              {canCreate && (
+                <button
+                  onClick={() => setShowPostEditor(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                >
+                  <Plus size={18} />
+                  <span>New Post</span>
+                </button>
+              )}
               <button
                 onClick={handleRefresh}
                 disabled={loadingPosts}
@@ -2677,39 +2770,45 @@ const BlogManagement: React.FC = () => {
         </div>
 
         {/* Bulk action bar */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
-          <div className="text-sm">
-            Selected: <span className="font-semibold">{selectedIds.size}</span>
+        {(canUpdate || canBulkDelete) && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+            <div className="text-sm">
+              Selected: <span className="font-semibold">{selectedIds.size}</span>
+            </div>
+            <div className="flex gap-2">
+              {canUpdate && (
+                <button
+                  onClick={bulkPublishSelected}
+                  disabled={selectedIds.size === 0}
+                  className={`px-3 py-2 rounded-md border ${selectedIds.size === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                    }`}
+                  title="Publish selected"
+                >
+                  Publish Selected
+                </button>
+              )}
+              {canBulkDelete && (
+                <button
+                  onClick={bulkDeleteSelected}
+                  disabled={selectedIds.size === 0}
+                  className={`px-3 py-2 rounded-md border text-red-600 ${selectedIds.size === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50 border-red-300'
+                    }`}
+                  title="Delete selected"
+                >
+                  Delete Selected
+                </button>
+              )}
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                disabled={selectedIds.size === 0}
+                className={`px-3 py-2 rounded-md border ${selectedIds.size === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                  }`}
+              >
+                Clear Selection
+              </button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={bulkPublishSelected}
-              disabled={selectedIds.size === 0}
-              className={`px-3 py-2 rounded-md border ${selectedIds.size === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                }`}
-              title="Publish selected"
-            >
-              Publish Selected
-            </button>
-            <button
-              onClick={bulkDeleteSelected}
-              disabled={selectedIds.size === 0}
-              className={`px-3 py-2 rounded-md border text-red-600 ${selectedIds.size === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50 border-red-300'
-                }`}
-              title="Delete selected"
-            >
-              Delete Selected
-            </button>
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              disabled={selectedIds.size === 0}
-              className={`px-3 py-2 rounded-md border ${selectedIds.size === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                }`}
-            >
-              Clear Selection
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* Posts table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -2748,13 +2847,15 @@ const BlogManagement: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="py-3 px-4">
-                    <input
-                      type="checkbox"
-                      checked={paginatedPosts.length > 0 && paginatedPosts.every((p) => selectedIds.has(String(p.id)))}
-                      onChange={() => toggleSelectAllOnPage(paginatedPosts)}
-                    />
-                  </th>
+                  {(canUpdate || canBulkDelete) && (
+                    <th className="py-3 px-4">
+                      <input
+                        type="checkbox"
+                        checked={paginatedPosts.length > 0 && paginatedPosts.every((p) => selectedIds.has(String(p.id)))}
+                        onChange={() => toggleSelectAllOnPage(paginatedPosts)}
+                      />
+                    </th>
+                  )}
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Title</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Source</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Category</th>
@@ -2782,13 +2883,15 @@ const BlogManagement: React.FC = () => {
 
                   return (
                     <tr key={post.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleSelectOne(post.id!)}
-                        />
-                      </td>
+                      {(canUpdate || canBulkDelete) && (
+                        <td className="py-3 px-4">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleSelectOne(post.id!)}
+                          />
+                        </td>
+                      )}
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-3">
                           {post.featuredImage ? (
@@ -2828,8 +2931,8 @@ const BlogManagement: React.FC = () => {
                       <td className="py-3 px-4">
                         {srcName ? (
                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${srcName === 'Manual'
-                              ? 'bg-gray-100 text-gray-700'
-                              : 'bg-indigo-50 text-indigo-700'
+                            ? 'bg-gray-100 text-gray-700'
+                            : 'bg-indigo-50 text-indigo-700'
                             }`}>
                             {srcName !== 'Manual' && <GlobeIcon size={12} />}
                             {srcName}
@@ -2892,13 +2995,15 @@ const BlogManagement: React.FC = () => {
                       {/* ACTIONS */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3 whitespace-nowrap">
-                          <button
-                            onClick={() => handleEditPost(post)}
-                            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition"
-                            title="Edit"
-                          >
-                            <Edit size={18} className="shrink-0" />
-                          </button>
+                          {canUpdate && (
+                            <button
+                              onClick={() => handleEditPost(post)}
+                              className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition"
+                              title="Edit"
+                            >
+                              <Edit size={18} className="shrink-0" />
+                            </button>
+                          )}
 
                           <button
                             onClick={() => handlePreviewPost(post)}
@@ -2908,32 +3013,38 @@ const BlogManagement: React.FC = () => {
                             <Eye size={18} className="shrink-0" />
                           </button>
 
-                          <button
-                            onClick={() => {
-                              setActiveTab('comments');
-                              // comments auto-load via effect
-                            }}
-                            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition"
-                            title="Comments"
-                          >
-                            <MessageSquare size={18} className="shrink-0" />
-                          </button>
+                          {canRead && (
+                            <button
+                              onClick={() => {
+                                setActiveTab('comments');
+                                // comments auto-load via effect
+                              }}
+                              className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition"
+                              title="Comments"
+                            >
+                              <MessageSquare size={18} className="shrink-0" />
+                            </button>
+                          )}
 
-                          <button
-                            onClick={() => setShowAIWriter(true)}
-                            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 transition"
-                            title="AI Rewrite"
-                          >
-                            <Wand2 size={18} className="shrink-0" />
-                          </button>
+                          {canCreate && (
+                            <button
+                              onClick={() => setShowAIWriter(true)}
+                              className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 transition"
+                              title="AI Rewrite"
+                            >
+                              <Wand2 size={18} className="shrink-0" />
+                            </button>
+                          )}
 
-                          <button
-                            onClick={() => handleDeletePost(post.id!)}
-                            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition"
-                            title="Delete"
-                          >
-                            <Trash2 size={18} className="shrink-0" />
-                          </button>
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDeletePost(post.id!)}
+                              className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition"
+                              title="Delete"
+                            >
+                              <Trash2 size={18} className="shrink-0" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -3007,6 +3118,11 @@ const BlogManagement: React.FC = () => {
   /* ------------------------- COMMENTS ACTION HANDLERS ------------------------- */
 
   const deleteComment = async (id: string) => {
+    if (!canDelete) {
+      toast.error('You do not have permission to delete comments');
+      return;
+    }
+
     if (!window.confirm('Delete this comment?')) return;
     try {
       setCommentActionLoading(id);
@@ -3022,6 +3138,11 @@ const BlogManagement: React.FC = () => {
   };
 
   const editComment = async (row: CommentRow) => {
+    if (!canUpdate) {
+      toast.error('You do not have permission to edit comments');
+      return;
+    }
+
     try {
       const newAuthor = window.prompt('Edit author', row.author ?? '') ?? row.author;
       const newEmail = window.prompt('Edit email', row.email ?? '') ?? row.email;
@@ -3058,6 +3179,16 @@ const BlogManagement: React.FC = () => {
 
   // -------- COMMENTS TAB UI --------
   const renderCommentsTab = () => {
+    if (!canRead) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
+          <div className="text-gray-500">
+            You do not have permission to view comments.
+          </div>
+        </div>
+      );
+    }
+
     const filtered = commentsRows.filter((r) => {
       if (!commentsSearch) return true;
       const q = commentsSearch.toLowerCase();
@@ -3139,24 +3270,28 @@ const BlogManagement: React.FC = () => {
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           {/* Edit */}
-                          <button
-                            disabled={isRowLoading}
-                            onClick={() => editComment(r)}
-                            title="Edit"
-                            className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition ${isRowLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
-                          >
-                            <Edit size={18} />
-                          </button>
+                          {canUpdate && (
+                            <button
+                              disabled={isRowLoading}
+                              onClick={() => editComment(r)}
+                              title="Edit"
+                              className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition ${isRowLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            >
+                              <Edit size={18} />
+                            </button>
+                          )}
 
                           {/* Delete */}
-                          <button
-                            disabled={isRowLoading}
-                            onClick={() => deleteComment(r.id)}
-                            title="Delete"
-                            className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition ${isRowLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
-                          >
-                            <Trash2 size={18} />
-                          </button>
+                          {canDelete && (
+                            <button
+                              disabled={isRowLoading}
+                              onClick={() => deleteComment(r.id)}
+                              title="Delete"
+                              className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition ${isRowLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -3191,149 +3326,173 @@ const BlogManagement: React.FC = () => {
   };
 
   // ---------- AI tools + SEO unchanged ----------
-  const renderAITools = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-6">AI Enhancement Tools</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Save className="text-green-600" size={20} />
-              </div>
-              <h4 className="font-semibold text-gray-900">Plagiarism Checker</h4>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Advanced AI-powered plagiarism detection with 99.7% accuracy
-            </p>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Accuracy Rate</span>
-                <span className="font-bold text-green-600">99.7%</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Avg Originality</span>
-                <span className="font-bold text-green-600">97.2%</span>
-              </div>
-            </div>
-            <button className="w-full mt-4 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
-              Run Bulk Check
-            </button>
+  const renderAITools = () => {
+    if (!canUpdate) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
+          <div className="text-gray-500">
+            You do not have permission to access AI tools.
           </div>
+        </div>
+      );
+    }
 
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <TrendingUp className="text-blue-600" size={20} />
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-6">AI Enhancement Tools</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Save className="text-green-600" size={20} />
+                </div>
+                <h4 className="font-semibold text-gray-900">Plagiarism Checker</h4>
               </div>
-              <h4 className="font-semibold text-gray-900">SEO Optimizer</h4>
+              <p className="text-sm text-gray-600 mb-4">
+                Advanced AI-powered plagiarism detection with 99.7% accuracy
+              </p>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Accuracy Rate</span>
+                  <span className="font-bold text-green-600">99.7%</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Avg Originality</span>
+                  <span className="font-bold text-green-600">97.2%</span>
+                </div>
+              </div>
+              <button className="w-full mt-4 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
+                Run Bulk Check
+              </button>
             </div>
-            <p className="text-sm text-gray-600 mb-4">Automatically optimize content for search engines</p>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Avg SEO Score</span>
-                <span className="font-bold text-blue-600">89.5%</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Posts Optimized</span>
-                <span className="font-bold text-blue-600">{postsArray.length}</span>
-              </div>
-            </div>
-            <button className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-              Optimize All
-            </button>
-          </div>
 
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Wand2 className="text-purple-600" size={20} />
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <TrendingUp className="text-blue-600" size={20} />
+                </div>
+                <h4 className="font-semibold text-gray-900">SEO Optimizer</h4>
               </div>
-              <h4 className="font-semibold text-gray-900">AI Enhancer</h4>
+              <p className="text-sm text-gray-600 mb-4">Automatically optimize content for search engines</p>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Avg SEO Score</span>
+                  <span className="font-bold text-blue-600">89.5%</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Posts Optimized</span>
+                  <span className="font-bold text-blue-600">{postsArray.length}</span>
+                </div>
+              </div>
+              <button className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                Optimize All
+              </button>
             </div>
-            <p className="text-sm text-gray-600 mb-4">Improve readability, tone, and engagement</p>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Enhancement Rate</span>
-                <span className="font-bold text-purple-600">92.8%</span>
+
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Wand2 className="text-purple-600" size={20} />
+                </div>
+                <h4 className="font-semibold text-gray-900">AI Enhancer</h4>
               </div>
-              <div className="flex justify-between text-sm">
-                <span>Improved Posts</span>
-                <span className="font-bold text-purple-600">{Math.floor(postsArray.length * 0.8)}</span>
+              <p className="text-sm text-gray-600 mb-4">Improve readability, tone, and engagement</p>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Enhancement Rate</span>
+                  <span className="font-bold text-purple-600">92.8%</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Improved Posts</span>
+                  <span className="font-bold text-purple-600">{Math.floor(postsArray.length * 0.8)}</span>
+                </div>
               </div>
+              <button className="w-full mt-4 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">
+                Bulk Enhance
+              </button>
             </div>
-            <button className="w-full mt-4 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">
-              Bulk Enhance
-            </button>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  const renderSEOTools = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-6">SEO Optimization Tools</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Keyword Analysis</h4>
-            <div className="space-y-3">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <h5 className="font-medium text-blue-900 mb-2">Top Performing Keywords</h5>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>"real estate investment"</span>
-                    <span className="font-bold text-blue-600">1,200 searches</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>"mumbai property"</span>
-                    <span className="font-bold text-blue-600">890 searches</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>"home buying guide"</span>
-                    <span className="font-bold text-blue-600">650 searches</span>
+  const renderSEOTools = () => {
+    if (!canUpdate) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
+          <div className="text-gray-500">
+            You do not have permission to access SEO tools.
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-6">SEO Optimization Tools</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-4">Keyword Analysis</h4>
+              <div className="space-y-3">
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <h5 className="font-medium text-blue-900 mb-2">Top Performing Keywords</h5>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>"real estate investment"</span>
+                      <span className="font-bold text-blue-600">1,200 searches</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>"mumbai property"</span>
+                      <span className="font-bold text-blue-600">890 searches</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>"home buying guide"</span>
+                      <span className="font-bold text-blue-600">650 searches</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Content Optimization</h4>
-            <div className="space-y-4">
-              {postsArray.slice(0, 3).map((post) => {
-                const seoScore = (post.content || '').includes('#') ? 85 : 65;
-                return (
-                  <div key={post.id} className="p-4 border border-gray-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <h5 className="font-medium text-gray-900 text-sm">{post.title}</h5>
-                      <span
-                        className={`text-xs font-bold ${seoScore > 80 ? 'text-green-600' : seoScore > 60 ? 'text-yellow-600' : 'text-red-600'
-                          }`}
-                      >
-                        {seoScore}%
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="w-full bg-gray-200 rounded-full h-2 mr-3">
-                        <div
-                          className={`h-2 rounded-full ${seoScore > 80 ? 'bg-green-500' : seoScore > 60 ? 'bg-yellow-500' : 'bg-red-500'
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-4">Content Optimization</h4>
+              <div className="space-y-4">
+                {postsArray.slice(0, 3).map((post) => {
+                  const seoScore = (post.content || '').includes('#') ? 85 : 65;
+                  return (
+                    <div key={post.id} className="p-4 border border-gray-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="font-medium text-gray-900 text-sm">{post.title}</h5>
+                        <span
+                          className={`text-xs font-bold ${seoScore > 80 ? 'text-green-600' : seoScore > 60 ? 'text-yellow-600' : 'text-red-600'
                             }`}
-                          style={{ width: `${seoScore}%` }}
-                        />
+                        >
+                          {seoScore}%
+                        </span>
                       </div>
-                      <button className="text-blue-600 hover:text-blue-700 text-xs">Optimize</button>
+                      <div className="flex items-center justify-between">
+                        <div className="w-full bg-gray-200 rounded-full h-2 mr-3">
+                          <div
+                            className={`h-2 rounded-full ${seoScore > 80 ? 'bg-green-500' : seoScore > 60 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
+                            style={{ width: `${seoScore}%` }}
+                          />
+                        </div>
+                        <button className="text-blue-600 hover:text-blue-700 text-xs">Optimize</button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // ---------- Main render ----------
   return (
@@ -3373,12 +3532,16 @@ const BlogManagement: React.FC = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-2">AI Content Studio</h3>
               <p className="text-gray-600 mb-4">Generate long-form, SEO-optimized posts with images &amp; ToC.</p>
-              <button
-                onClick={() => { setSelectedPost(null); setShowAIWriter(true); }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
-              >
-                <Bot size={18} /> Open AI Writer
-              </button>
+              {canCreate ? (
+                <button
+                  onClick={() => { setSelectedPost(null); setShowAIWriter(true); }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+                >
+                  <Bot size={18} /> Open AI Writer
+                </button>
+              ) : (
+                <div className="text-gray-500">You do not have permission to access AI Writer.</div>
+              )}
             </div>
           )}
 
@@ -3403,7 +3566,7 @@ const BlogManagement: React.FC = () => {
           />
         )}
 
-        {showAIWriter && (
+        {showAIWriter && canCreate && (
           <AIBlogWriter
             isOpen={true}
             post={selectedPost as any}
@@ -3422,9 +3585,9 @@ const BlogManagement: React.FC = () => {
           />
         )}
 
-        {showRSSManager && <RSSSourceManager isOpen={true} onClose={() => setShowRSSManager(false)} />}
+        {showRSSManager && canCreate && <RSSSourceManager isOpen={true} onClose={() => setShowRSSManager(false)} />}
 
-        {showSocialManager && (
+        {showSocialManager && canCreate && (
           <SocialMediaManager
             posts={postsArray}
             isOpen={true}

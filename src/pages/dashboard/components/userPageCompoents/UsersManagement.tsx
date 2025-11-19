@@ -50,7 +50,7 @@ interface UsersManagementProps {
 }
 
 const TABS = [
-  { id: 'all', name: 'Team Members', roles: ['admin', 'executive', 'manager', 'teamleader', 'team-leader', 'agent'], showCreateButton: false, createButtonText: '' },
+  { id: 'all', name: 'Team Members', roles: ['admin', 'executive', 'manager', 'team leader', 'agent', 'sales team leader', 'presales team leader', 'sales manager', 'marketing executive', 'presales executive','sales executive'], showCreateButton: false, createButtonText: '' },
   { id: 'buyers', name: 'Buyers', roles: ['buyer'], showCreateButton: true, createButtonText: '' },
   { id: 'sellers', name: 'Sellers', roles: ['seller'], showCreateButton: true, createButtonText: '' },
   { id: 'buyer-accounts', name: 'Buyer Accounts', roles: ['buyer'], showCreateButton: true, createButtonText: '' },

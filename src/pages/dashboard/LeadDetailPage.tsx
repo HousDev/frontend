@@ -1,3 +1,4 @@
+// src/pages/LeadDetailPage.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Phone, Mail, MapPin, User as UserIcon, ChevronDown, Calendar, Clock,
@@ -22,13 +23,14 @@ import AddLeadModal from "./components/AddLeadModal";
 import { useAuth } from "@/contexts/AuthContext";
 import SellerFormModal from "./components/SellerFormModel";
 
+import { can } from "@/utils/permission";
 
 /* ===================== Types ===================== */
 type UserRole = "admin" | "manager" | "agent" | "executive";
 
 interface AuthUser {
-  id?: string;
-  user_id?: string;
+  id?: string | number;
+  user_id?: string | number;
   first_name?: string;
   last_name?: string;
   name?: string;
@@ -173,7 +175,7 @@ const getAssignableExecutives = (user: any, presalesUsers: any[]) => {
     const selfExecutive = {
       ...toExecutive(user),
       selfOnly: true,
-      name: `${user?.salutation ? user.salutation + " " : ""}${user?.first_name || user?.name || "You"}${user?.last_name ? " " + user.last_name : ""} (Self)`,
+      name: `${(user as AuthUser)?.salutation ? (user as AuthUser).salutation + " " : ""}${(user as AuthUser)?.first_name || (user as AuthUser)?.name || "You"}${(user as AuthUser)?.last_name ? " " + (user as AuthUser).last_name : ""} (Self)`,
     };
     return [selfExecutive];
   }
@@ -192,8 +194,7 @@ const getAssignableExecutives = (user: any, presalesUsers: any[]) => {
   const selfExecutive = {
     ...toExecutive(user),
     selfOnly: true,
-    name: `${user?.salutation ? user.salutation + " " : ""}${user?.first_name || user?.name || "You"}${user?.last_name ? " " + user.last_name : ""} (Self)`,
-
+    name: `${(user as AuthUser)?.salutation ? (user as AuthUser).salutation + " " : ""}${(user as AuthUser)?.first_name || (user as AuthUser)?.name || "You"}${(user as AuthUser)?.last_name ? " " + (user as AuthUser).last_name : ""} (Self)`,
   };
   return [selfExecutive];
 };
@@ -225,11 +226,11 @@ const getFilteredLeads = (allLeads: Lead[], user: AuthUser | null): Lead[] => {
 const fetchUsersSafely = async (user: AuthUser | null): Promise<any[]> => {
   const userRole = normalizeString(user?.role);
   const userDept = normalizeString(user?.department);
-  
+
   // Only admin, manager, and presales managers can fetch all users
-  if (userRole === "admin" || 
-      userRole === "manager" || 
-      (userRole === "manager" && (userDept === "presales" || userDept === "presale"))) {
+  if (userRole === "admin" ||
+    userRole === "manager" ||
+    (userRole === "manager" && (userDept === "presales" || userDept === "presale"))) {
     try {
       const resp = await usersAPI.getAllUsers?.();
       const raw = resp?.data ?? resp?.items ?? resp ?? [];
@@ -240,7 +241,7 @@ const fetchUsersSafely = async (user: AuthUser | null): Promise<any[]> => {
       return [];
     }
   }
-  
+
   // For executives and other roles, return empty array
   return [];
 };
@@ -248,7 +249,19 @@ const fetchUsersSafely = async (user: AuthUser | null): Promise<any[]> => {
 const LeadDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth() as { user: AuthUser | null };
+  // const { user } = useAuth() as { user: AuthUser | null };
+    const { user } = useAuth();
+
+  // ---------- Permissions ----------
+  const canReadLeads = can(user, "lead.read");
+  const canUpdateLeads = can(user, "lead.update");
+  const canDeleteLeads = can(user, "lead.delete");
+  const canAssignLeads = can(user, "lead.assign");
+
+  const canViewFollowups = can(user, "followup.read");
+  const canCreateFollowups = can(user, "followup.create");
+  const canUpdateFollowups = can(user, "followup.update");
+  const canDeleteFollowups = can(user, "followup.delete");
 
   const [isFollowupModalOpen, setIsFollowupModalOpen] = useState(false);
   const [lead, setLead] = useState<Lead | null>(null);
@@ -287,6 +300,14 @@ const LeadDetailPage: React.FC = () => {
   const [showSellerComponent, setShowSellerComponent] = useState(false);
   const [editingFollowup, setEditingFollowup] = useState<Followup | null>(null);
 
+  /* ===================== Access check early return ===================== */
+  useEffect(() => {
+    if (!canReadLeads) {
+      // no toast here — UI will show Access Denied
+      setLoading(false);
+    }
+  }, [canReadLeads]);
+
   /* ===================== Fetch Presales Executives Safely ===================== */
   useEffect(() => {
     let mounted = true;
@@ -317,7 +338,6 @@ const LeadDetailPage: React.FC = () => {
         setPreSalesUsers(presalesExecs);
       } catch (err) {
         console.error("Failed to load presales executives:", err);
-        // Don't show error toast - just use empty array and allow self-assignment
         setPreSalesUsers([]);
       } finally {
         setExecsLoading(false);
@@ -365,14 +385,12 @@ const LeadDetailPage: React.FC = () => {
     }
 
     // Check if current user is assigned to themselves
-    const currentUserId = user?.id ?? user?.user_id;
+    const currentUserId = user?.id ?? (user as AuthUser)?.user_id;
     if (
       lead.assigned_executive &&
       String(lead.assigned_executive) === String(currentUserId)
     ) {
-      return `${user?.salutation ? user.salutation + " " : ""
-        }${user?.first_name || user?.name || "You"}${user?.last_name ? " " + user.last_name : ""
-        } (Self)`;
+      return `${(user as AuthUser)?.salutation ? (user as AuthUser).salutation + " " : ""}${(user as AuthUser)?.first_name || (user as AuthUser)?.name || "You"}${(user as AuthUser)?.last_name ? " " + (user as AuthUser).last_name : ""} (Self)`;
     }
 
     return "Unassigned";
@@ -391,6 +409,13 @@ const LeadDetailPage: React.FC = () => {
 
   /* ===================== Followups ===================== */
   const fetchFollowups = async (leadIdParam?: string): Promise<Followup[]> => {
+    if (!canViewFollowups) {
+      setFollowups([]);
+      setFollowupsError("You do not have permission to view follow-ups");
+      setFollowupsLoading(false);
+      return [];
+    }
+
     const leadToUse = leadIdParam ?? id;
     if (!leadToUse) {
       setFollowups([]);
@@ -460,13 +485,19 @@ const LeadDetailPage: React.FC = () => {
     if (id) {
       fetchFollowups();
     }
-  }, [id]);
+  }, [id, canViewFollowups]);
 
   /* ===================== Fetch Lead + Master Data ===================== */
   useEffect(() => {
     const fetchLead = async () => {
       try {
         setLoading(true);
+
+        if (!canReadLeads) {
+          setError("You do not have permission to view this lead.");
+          setLoading(false);
+          return;
+        }
 
         if (id) {
           const [response, allLeadsResponse] = await Promise.all([
@@ -611,7 +642,7 @@ const LeadDetailPage: React.FC = () => {
     fetchMasters();
     fetchLead();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, execsLoading]);
+  }, [id, execsLoading, canReadLeads]);
 
   // When presalesUsers arrives later, resolve assigned name (no page refresh needed)
   useEffect(() => {
@@ -633,6 +664,10 @@ const LeadDetailPage: React.FC = () => {
   /* ===================== Edit / Delete ===================== */
   const handleDelete = async () => {
     if (!id) return;
+    if (!canDeleteLeads) {
+      toast.error("You do not have permission to delete leads");
+      return;
+    }
     if (confirm("Are you sure you want to delete this lead?")) {
       try {
         const response = await leadsAPI.deleteLead(id);
@@ -652,6 +687,10 @@ const LeadDetailPage: React.FC = () => {
   /* ===================== Exec Assignment + Notification ===================== */
   const handleExecAssign = async (execId: string, execName: string) => {
     if (!lead) return;
+    if (!canAssignLeads) {
+      toast.error("You do not have permission to assign leads");
+      return;
+    }
 
     try {
       const prevExec = lead.assigned_executive || "";
@@ -691,6 +730,10 @@ const LeadDetailPage: React.FC = () => {
   /* ===================== Save lead (edit) + Notification if assignee changed ===================== */
   const handleSaveLead = async (updatedLead: Lead | null) => {
     if (!updatedLead) return;
+    if (!canUpdateLeads) {
+      toast.error("You do not have permission to update leads");
+      return;
+    }
     try {
       const prevExec = lead?.assigned_executive || "";
       const newExec = updatedLead.assigned_executive || "";
@@ -732,6 +775,15 @@ const LeadDetailPage: React.FC = () => {
       return;
     }
 
+    if (editingFollowup && !canUpdateFollowups) {
+      toast.error("You do not have permission to update follow-ups");
+      return;
+    }
+    if (!editingFollowup && !canCreateFollowups) {
+      toast.error("You do not have permission to create follow-ups");
+      return;
+    }
+
     let saved: any = null;
     const scheduledISO = data.scheduleDate ? `${data.scheduleDate}T${(data.scheduleTime || "00:00")}:00` : null;
 
@@ -745,7 +797,7 @@ const LeadDetailPage: React.FC = () => {
       nextAction: data.nextAction,
       scheduledDate: scheduledISO,
       priority: data.priority,
-      updated_by: user?.id ?? user?.user_id,
+      updated_by: (user as AuthUser)?.id ?? (user as AuthUser)?.user_id,
     };
 
     try {
@@ -788,7 +840,7 @@ const LeadDetailPage: React.FC = () => {
         stage: data.leadStage,
         status: data.leadStatus,
         priority: data.priority,
-        updated_by: user?.id ?? user?.user_id,
+        updated_by: (user as AuthUser)?.id ?? (user as AuthUser)?.user_id,
       });
       setLead((prev) =>
         prev
@@ -821,19 +873,29 @@ const LeadDetailPage: React.FC = () => {
 
     setIsFollowupModalOpen(false);
 
-    // background refresh for consistency
-    setTimeout(() => {
-      fetchFollowups();
-    }, 800);
+    // refresh followups for consistency
+    try {
+      await fetchFollowups();
+    } catch {
+      // ignore
+    }
   };
 
   /* ===================== Followup Edit/Delete Handlers ===================== */
   const handleEditFollowup = (followup: Followup) => {
+    if (!canUpdateFollowups) {
+      toast.error("You do not have permission to edit follow-ups");
+      return;
+    }
     setEditingFollowup(followup);
     setIsFollowupModalOpen(true);
   };
 
   const handleDeleteFollowup = async (followupId: string | number) => {
+    if (!canDeleteFollowups) {
+      toast.error("You do not have permission to delete follow-ups");
+      return;
+    }
     if (!confirm("Are you sure you want to delete this follow-up?")) return;
 
     const prevFollowups = [...followups];
@@ -939,7 +1001,13 @@ const LeadDetailPage: React.FC = () => {
   const { date: lastContactDate, time: lastContactTime } = formatDateTime(lead?.last_contact || "");
 
   const handleBack = () => navigate("/dashboard/leads");
-  const handleEdit = () => setIsEditModalOpen(true);
+  const handleEdit = () => {
+    if (!canUpdateLeads) {
+      toast.error("You do not have permission to edit leads");
+      return;
+    }
+    setIsEditModalOpen(true);
+  };
   const handleCall = () => lead?.phone && window.open(`tel:${lead.phone}`, "_self");
   const handleWhatsApp = () => lead?.whatsapp_number && window.open(`https://wa.me/${lead.whatsapp_number.replace(/\D/g, "")}`, "_blank");
   const handleEmail = () => lead?.email && window.open(`mailto:${lead.email}`, "_self");
@@ -987,6 +1055,21 @@ const LeadDetailPage: React.FC = () => {
   };
 
   /* ===================== Render ===================== */
+  if (!canReadLeads) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+        <div className="text-center p-6">
+          <div className="text-red-600 text-lg font-semibold mb-2">
+            Access Denied
+          </div>
+          <div className="text-gray-600 text-sm">
+            You do not have permission to view leads.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
@@ -1023,16 +1106,15 @@ const LeadDetailPage: React.FC = () => {
             </button>
 
             <div className="grid grid-cols-4 gap-2">
-              <button onClick={handleEdit} className="flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded-md hover:bg-gray-50 transition-colors bg-white">
+              <button onClick={handleEdit} className={`flex items-center justify-center gap-1 px-2 py-1 text-xs border ${canUpdateLeads ? "border-gray-300 hover:bg-gray-50 bg-white" : "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"} rounded-md transition-colors`} disabled={!canUpdateLeads}>
                 <FiEdit className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Edit</span>
               </button>
 
-                <button onClick={handleDelete} className="flex items-center justify-center gap-1 px-2 py-1 text-xs border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors bg-white">
-                  <FiTrash2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Delete</span>
-                </button>
-            
+              <button onClick={handleDelete} className={`flex items-center justify-center gap-1 px-2 py-1 text-xs border rounded-md transition-colors ${canDeleteLeads ? "border-red-300 text-red-600 hover:bg-red-50 bg-white" : "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"}`} disabled={!canDeleteLeads}>
+                <FiTrash2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
 
               <button
                 onClick={handlePreviousLead}
@@ -1080,7 +1162,18 @@ const LeadDetailPage: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 justify-end">
-                <button onClick={() => { setEditingFollowup(null); setIsFollowupModalOpen(true); }} className="flex items-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2.5 py-1.5 rounded-md shadow text-xs">
+                <button
+                  onClick={() => {
+                    if (!canCreateFollowups) {
+                      toast.error("You do not have permission to create follow-ups");
+                      return;
+                    }
+                    setEditingFollowup(null);
+                    setIsFollowupModalOpen(true);
+                  }}
+                  className={`flex items-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2.5 py-1.5 rounded-md shadow text-xs ${!canCreateFollowups ? "opacity-60 cursor-not-allowed" : ""}`}
+                  title="Add Follow-up"
+                >
                   <div className="p-1 rounded-md bg-[#ea8634]">
                     <NotebookPen className="w-3.5 h-3.5 text-white" />
                   </div>
@@ -1090,16 +1183,22 @@ const LeadDetailPage: React.FC = () => {
                 {/* Assign Executive dropdown */}
                 <div className="relative">
                   <button
-                    onClick={() => !execsLoading && setShowExecDropdown((s) => !s)}
-                    className="flex items-center justify-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2.5 py-1.5 rounded-md shadow text-xs"
+                    onClick={() => {
+                      if (!canAssignLeads) {
+                        toast.error("You do not have permission to assign leads");
+                        return;
+                      }
+                      if (!execsLoading) setShowExecDropdown((s) => !s);
+                    }}
+                    className={`flex items-center justify-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2.5 py-1.5 rounded-md shadow text-xs ${(!canAssignLeads || assignableExecs.length === 0) ? "opacity-60 cursor-not-allowed" : ""}`}
                     title="Assign Lead"
-                    disabled={execsLoading || assignableExecs.length === 0}
+                    disabled={!canAssignLeads || execsLoading || assignableExecs.length === 0}
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     <ChevronDown className="w-2.5 h-2.5" />
                   </button>
 
-                  {showExecDropdown && (
+                  {showExecDropdown && canAssignLeads && (
                     <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border z-10 text-xs">
                       <div className="p-2">
                         <div className="text-[10px] text-gray-500 uppercase tracking-wide px-2 py-1 border-b truncate">
@@ -1327,8 +1426,10 @@ const LeadDetailPage: React.FC = () => {
                         <div className="flex items-center justify-between">
                           <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${color.badge}`}>{f.type}</span>
                           <div className="flex items-center gap-1">
-                            <button onClick={() => handleEditFollowup(f)} className="p-1 rounded hover:bg-gray-200 transition" title="Edit"><Pencil className="h-3.5 w-3.5 text-gray-600" /></button>
-                            {(String(user?.role || "").toLowerCase() === "admin") && (
+                            {canUpdateFollowups && (
+                              <button onClick={() => handleEditFollowup(f)} className="p-1 rounded hover:bg-gray-200 transition" title="Edit"><Pencil className="h-3.5 w-3.5 text-gray-600" /></button>
+                            )}
+                            {canDeleteFollowups && (
                               <button onClick={() => handleDeleteFollowup(f.id)} className="p-1 rounded hover:bg-red-100 transition" title="Delete"><Trash2 className="h-3.5 w-3.5 text-red-600" /></button>
                             )}
                           </div>
