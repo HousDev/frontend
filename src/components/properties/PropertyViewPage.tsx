@@ -75,6 +75,10 @@ import MarketingTab from './propertiescomponents/MarketingTab';
 import NegotiationsTab from './propertiescomponents/NegotiationsTab';
 import ReportsTab from './propertiescomponents/ReportsTab';
 
+
+import { useAuth } from '@/contexts/AuthContext';
+import { can } from '@/utils/permission';
+
   // ---------- Types ----------
   interface UIProperty {
     id: number | string;
@@ -423,6 +427,8 @@ import ReportsTab from './propertiescomponents/ReportsTab';
     onBuyerMatching,
     onViewBuyers
   }) => {
+    const { user } = useAuth();
+    const canUpdate = can(user, 'property.update');
     // restore tab from ?tab=... or localStorage, fallback 'overview'
     const [activeTab, setActiveTab] = useState<string>(() => {
       const sp = new URLSearchParams(window.location.search);
@@ -993,13 +999,15 @@ useEffect(() => {
               >
                 Update Stage
               </button>
-
-              <button
-                onClick={handleEditProperty}
-                className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
-              >
-                <Edit size={18} />
-              </button>
+              {/* Edit - Conditional */}
+              {canUpdate && (
+                <button
+                  onClick={handleEditProperty}
+                  className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                  <Edit size={18} />
+                </button>
+              )}
             </div>
           </div>
 

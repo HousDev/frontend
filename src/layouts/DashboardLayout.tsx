@@ -907,9 +907,14 @@
 
 // export default DashboardLayout;
 
-// src/layouts/DashboardLayout.tsx (updated)
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import { Outlet, Link, useLocation, Navigate } from "react-router-dom";
 import {
   Home,
   Users,
@@ -958,18 +963,19 @@ import {
   Archive,
   Bookmark,
   Info,
-  PanelBottom
-} from 'lucide-react';
-import { FaEarthAsia } from 'react-icons/fa6';
-import { useAuth } from '@/contexts/AuthContext';
-import { useSystemSettings } from '@/contexts/SystemSettingsContext';
-import { cn } from '@/lib/utils';
-import ActivityTrackerModal from './ActivityTrackerModal';
-import NotificationPanel from './NotificationPanel';
-import { notificationAPI } from '@/lib/notificationAPI';
-import UserProfileMenu from './UserProfileMenu';
+  PanelBottom,
+} from "lucide-react";
+import { FaEarthAsia } from "react-icons/fa6";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+import { cn } from "@/lib/utils";
+import ActivityTrackerModal from "./ActivityTrackerModal";
+import NotificationPanel from "./NotificationPanel";
+import { notificationAPI } from "@/lib/notificationAPI";
+import UserProfileMenu from "./UserProfileMenu";
+import { can } from "@/utils/permission"; // ✅ PERMISSION HELPER IMPORT
 
-// ---------- notification helpers & mapping ----------
+// 1) put these helpers near the top of DashboardLayout (outside the component is fine)
 type UILevel = "low" | "medium" | "high";
 
 type RawNotification = {
@@ -992,8 +998,8 @@ type NotificationItem = {
   message: string;
   type: string;
   priority: UILevel;
-  timestamp: string;      // ALWAYS created_at
-  read: boolean;          // normalized
+  timestamp: string; // ALWAYS created_at
+  read: boolean; // normalized
   link?: string | null;
   color?: string;
 };
@@ -1036,7 +1042,7 @@ const mapRawToUI = (n: RawNotification): NotificationItem => {
     message: n.message ?? "",
     type,
     priority: (n.priority as UILevel) ?? "medium",
-    // always created_at for display/sorting; fallback to updated/epoch if missing
+    // ✅ always created_at for display/sorting; fallback to updated/epoch if missing
     timestamp: n.created_at ?? n.updated_at ?? "1970-01-01 00:00:00",
     read: normalizeRead(n.is_read),
     link: n.link ?? null,
@@ -1044,20 +1050,50 @@ const mapRawToUI = (n: RawNotification): NotificationItem => {
   };
 };
 
-// ---------- DashboardLayout ----------
+// DashboardLayout with unified menu color (#0b3855)
+type PermissionKey = string; // e.g. "lead.read", "report.read"
+
+type NavigationSingle = {
+  name: string;
+  href: string;
+  icon: any;
+  exact: boolean;
+  colorClass: string;
+  type: "single";
+  required?: PermissionKey | PermissionKey[]; // ✅ NEW
+};
+
+type NavigationDropdown = {
+  name: string;
+  icon: any;
+  colorClass: string;
+  type: "dropdown";
+  key: string;
+  required?: PermissionKey | PermissionKey[]; // ✅ NEW
+  submenu: Array<{
+    name: string;
+    href: string;
+    icon: any;
+    colorClass: string;
+    required?: PermissionKey | PermissionKey[]; // ✅ NEW
+  }>;
+};
+
+type NavigationItem = NavigationSingle | NavigationDropdown;
+
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activityModalOpen, setActivityModalOpen] = useState(false);
-  const [sessionTime, setSessionTime] = useState('00:00:00');
-  const [workTime, setWorkTime] = useState('00:00:00');
+  const [sessionTime, setSessionTime] = useState("00:00:00");
+  const [workTime, setWorkTime] = useState("00:00:00");
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [loginTime, setLoginTime] = useState<number | null>(null);
   const [totalWorkTime, setTotalWorkTime] = useState(0);
   const [breakStartTime, setBreakStartTime] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState(new Set<string>());
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 
   const location = useLocation();
   const { user, logout, hasRole } = useAuth();
@@ -1073,55 +1109,77 @@ const DashboardLayout = () => {
   const mobileTimersRef = useRef<HTMLDivElement | null>(null);
 
   const NotificationPanelAny = NotificationPanel;
-
-  // UI notifications state
+  // 2) state types: make them UI notifications
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Unified nav color (from image)
-  const navColorHex = '#0b3855';
-  const navTextClass = `text-[${navColorHex}]`; // used for icon/text classes
+  const navColorHex = "#0b3855";
+  const navTextClass = `text-[${navColorHex}]`; // will be used where text color is needed
   const navHoverClass = `group-hover:text-[${navColorHex}]`;
+  // NOTE: tailwind arbitrary classes in template strings are fine in JSX className
 
-  // Exclusive toggleMenu: opening one menu closes others
+  // ✅ PERMISSION CHECK HELPER
+  const userCan = useCallback(
+    (perm?: PermissionKey | PermissionKey[]) => {
+      if (!perm) return true; // agar required nahi diya to sab dekh sakte
+
+      if (Array.isArray(perm)) {
+        // agar multiple diye: kisi ek ka hona enough
+        return perm.some((p) => can(user, p));
+      }
+
+      return can(user, perm);
+    },
+    [user]
+  );
+
+  // Exclusive toggleMenu: opening one menu closes others. Closing a menu only closes it.
   const toggleMenu = useCallback((menuKey: string) => {
     setExpandedMenus((prev) => {
       const next = new Set(prev);
       if (next.has(menuKey)) {
+        // close it
         next.delete(menuKey);
         return next;
       } else {
+        // open this exclusively
         return new Set([menuKey]);
       }
     });
   }, []);
 
-  // Auto-expand menus based on route — exclusive open
+  // Auto-expand menus based on route — exclusive open (only the matched menu opens)
   useEffect(() => {
     const currentPath = location.pathname;
     const menuMappings: Record<string, string[]> = {
-      cms: ['/dashboard/blog-manager', '/dashboard/home-manager'],
+      cms: ["/dashboard/blog-manager"],
       crm: [
-        '/dashboard/leads',
-        '/dashboard/buyers',
-        '/dashboard/sellers',
-        '/dashboard/properties',
-        '/dashboard/contact-messages'
+        "/dashboard/leads",
+        "/dashboard/buyers",
+        "/dashboard/sellers",
+        "/dashboard/properties",
+        "/dashboard/contact-messages",
       ],
-      administrator: ['/dashboard/document-center', '/dashboard/template-center', '/dashboard/accounts'],
-      tools: ['/dashboard/vendors', '/dashboard/ai-training'],
-      reports: ['/dashboard/activities', '/dashboard/analytics'],
+      administrator: [
+        "/dashboard/document-center",
+        "/dashboard/template-center",
+        "/dashboard/accounts",
+      ],
+      tools: ["/dashboard/vendors", "/dashboard/ai-training"],
+      reports: ["/dashboard/activities", "/dashboard/analytics"],
       settings: [
-        '/dashboard/settings',
-        '/dashboard/settings/roles-permissions',
-        '/dashboard/settings/integrations',
-        '/dashboard/settings/ai',
-        '/dashboard/settings/master-data',
-        '/dashboard/settings/veriable-center',
-        '/dashboard/settings/import-export'
-      ]
+        "/dashboard/settings",
+        "/dashboard/settings/roles-permissions",
+        "/dashboard/settings/integrations",
+        "/dashboard/settings/ai",
+        "/dashboard/settings/master-data",
+        "/dashboard/settings/veriable-center",
+        "/dashboard/settings/import-export",
+      ],
     };
 
+    // Find first matching menuKey (if any) and set it exclusively open.
     let matchedKey: string | null = null;
     Object.entries(menuMappings).some(([menuKey, paths]) => {
       if (paths.some((p) => currentPath.startsWith(p))) {
@@ -1131,255 +1189,380 @@ const DashboardLayout = () => {
       return false;
     });
 
-    if (matchedKey) setExpandedMenus(new Set([matchedKey]));
-    else setExpandedMenus(new Set());
+    if (matchedKey) {
+      setExpandedMenus(new Set([matchedKey]));
+    } else {
+      // Optional: close all dropdowns when no mapping matches current route.
+      setExpandedMenus(new Set());
+    }
   }, [location.pathname]);
 
+  // findLastWorkStart remains same logic
   const findLastWorkStart = useCallback((history: any[]) => {
     for (let i = history.length - 1; i >= 0; i--) {
-      if (history[i].type === 'login' || history[i].type === 'end_break') return history[i].timestamp;
-      if (history[i].type === 'start_break') return null;
+      if (
+        history[i].type === "login" ||
+        history[i].type === "end_break"
+      )
+        return history[i].timestamp;
+      if (history[i].type === "start_break") return null;
     }
     return loginTimeRef.current;
   }, []);
 
-  // navigation structure (unchanged, color assigned via navTextClass)
-  type NavigationSingle = {
-    name: string;
-    href: string;
-    icon: any;
-    exact?: boolean;
-    colorClass: string;
-    type: 'single';
-  };
-
-  type NavigationDropdown = {
-    name: string;
-    icon: any;
-    colorClass: string;
-    type: 'dropdown';
-    key: string;
-    submenu: Array<{
-      name: string;
-      href: string;
-      icon: any;
-      colorClass: string;
-    }>;
-  };
-
-  type NavigationItem = NavigationSingle | NavigationDropdown;
-
+  // navigation structure with unified color for icons/text
   const navigationStructure: NavigationItem[] = useMemo(() => {
-    const nav: NavigationItem[] = [
+    const structure: NavigationItem[] = [
       {
-        name: 'Overview',
-        href: '/dashboard',
+        name: "Overview",
+        href: "/dashboard",
         icon: Home,
         exact: true,
         colorClass: navTextClass,
-        type: 'single'
-      }
+        type: "single",
+        // optional: home sabko dikhana hai to required hata sakte ho
+        required: ["lead.read", "property.read", "buyer.read"],
+      },
     ];
 
-    // role specific dashboard links
-    if (hasRole('admin')) {
-      nav.push({
-        name: 'Admin Dashboard',
-        href: '/dashboard/admin',
+    if (hasRole("admin")) {
+      structure.push({
+        name: "Admin Dashboard",
+        href: "/dashboard/admin",
         icon: Crown,
         exact: true,
         colorClass: navTextClass,
-        type: 'single'
+        type: "single",
+        required: "system.manage",
       });
     }
-    if (hasRole(['admin', 'manager'])) {
-      nav.push({
-        name: 'Manager Dashboard',
-        href: '/dashboard/manager',
+    if (hasRole(["admin", "manager"])) {
+      structure.push({
+        name: "Manager Dashboard",
+        href: "/dashboard/manager",
         icon: UserCheck,
         exact: true,
         colorClass: navTextClass,
-        type: 'single'
+        type: "single",
+        required: ["lead.read", "report.read"],
       });
     }
-    if (hasRole(['admin', 'manager', 'agent'])) {
-      nav.push({
-        name: 'Agent Dashboard',
-        href: '/dashboard/agent',
+    if (hasRole(["admin", "manager", "agent"])) {
+      structure.push({
+        name: "Agent Dashboard",
+        href: "/dashboard/agent",
         icon: Briefcase,
         exact: true,
         colorClass: navTextClass,
-        type: 'single'
+        type: "single",
+        required: ["lead.read", "buyer.read", "seller.read"],
       });
     }
 
-    // CMS dropdown
-    nav.push(
+    structure.push(
       {
-        name: 'CMS',
+        name: "CMS",
         icon: Globe,
         colorClass: navTextClass,
-        type: 'dropdown',
-        key: 'cms',
+        type: "dropdown",
+        key: "cms",
+        required: ["blog.read"],
         submenu: [
-          { name: 'Home Manager', href: '/dashboard/home-manager', icon: Home, colorClass: navTextClass },
-          { name: 'Blog Manager', href: '/dashboard/blog-manager', icon: Edit3, colorClass: navTextClass },
-        ]
+          {
+            name: "Home Manager",
+            href: "/dashboard/home-manager",
+            icon: Home,
+            colorClass: navTextClass,
+            required: "blog.read", // ya cms.read jo bhi key define karo
+          },
+          {
+            name: "Blog Manager",
+            href: "/dashboard/blog-manager",
+            icon: Edit3,
+            colorClass: navTextClass,
+            required: "blog.read",
+          },
+        ],
       },
       {
-        name: 'CRM',
+        name: "CRM",
         icon: Users,
         colorClass: navTextClass,
-        type: 'dropdown',
-        key: 'crm',
+        type: "dropdown",
+        key: "crm",
+        required: [
+          "lead.read",
+          "buyer.read",
+          "seller.read",
+          "property.read",
+        ],
         submenu: [
-          { name: 'Leads', href: '/dashboard/leads', icon: Target, colorClass: navTextClass },
-          { name: 'Buyers', href: '/dashboard/buyers', icon: UserCheck, colorClass: navTextClass },
-          { name: 'Sellers', href: '/dashboard/sellers', icon: Users, colorClass: navTextClass },
-          { name: 'Properties', href: '/dashboard/properties', icon: Building, colorClass: navTextClass },
-          { name: 'Contact Messages', href: '/dashboard/contact-messages', icon: MessageCircle, colorClass: navTextClass }
-        ]
+          {
+            name: "Leads",
+            href: "/dashboard/leads",
+            icon: Target,
+            colorClass: navTextClass,
+            required: "lead.read",
+          },
+          {
+            name: "Buyers",
+            href: "/dashboard/buyers",
+            icon: UserCheck,
+            colorClass: navTextClass,
+            required: "buyer.read",
+          },
+          {
+            name: "Sellers",
+            href: "/dashboard/sellers",
+            icon: Users,
+            colorClass: navTextClass,
+            required: "seller.read",
+          },
+          {
+            name: "Properties",
+            href: "/dashboard/properties",
+            icon: Building,
+            colorClass: navTextClass,
+            required: "property.read",
+          },
+          {
+            name: "Contact Messages",
+            href: "/dashboard/contact-messages",
+            icon: MessageCircle,
+            colorClass: navTextClass,
+            required: "lead.read", // ya contact.read
+          },
+        ],
       },
       {
-        name: 'Administrator',
+        name: "Administrator",
         icon: Shield,
         colorClass: navTextClass,
-        type: 'dropdown',
-        key: 'administrator',
+        type: "dropdown",
+        key: "administrator",
+        required: "system.manage",
         submenu: [
-          { name: 'Document Center', href: '/dashboard/document-center', icon: FileText, colorClass: navTextClass },
-          { name: 'Template Center', href: '/dashboard/template-center', icon: LayoutTemplate, colorClass: navTextClass },
-          { name: 'Accounts', href: '/dashboard/accounts', icon: Receipt, colorClass: navTextClass }
-        ]
+          {
+            name: "Document Center",
+            href: "/dashboard/document-center",
+            icon: FileText,
+            colorClass: navTextClass,
+            required: "system.manage",
+          },
+          {
+            name: "Template Center",
+            href: "/dashboard/template-center",
+            icon: LayoutTemplate,
+            colorClass: navTextClass,
+            required: "system.manage",
+          },
+          {
+            name: "Accounts",
+            href: "/dashboard/accounts",
+            icon: Receipt,
+            colorClass: navTextClass,
+            required: "system.manage",
+          },
+        ],
       },
-      { name: 'Communication', href: '/dashboard/communication', icon: MessageSquare, exact: true, colorClass: navTextClass, type: 'single' },
       {
-        name: 'Tools',
+        name: "Communication",
+        href: "/dashboard/communication",
+        icon: MessageSquare,
+        exact: true,
+        colorClass: navTextClass,
+        type: "single",
+        required: ["lead.read", "buyer.read", "seller.read"], // example
+      },
+      {
+        name: "Tools",
         icon: Wrench,
         colorClass: navTextClass,
-        type: 'dropdown',
-        key: 'tools',
+        type: "dropdown",
+        key: "tools",
+        required: ["property.read", "vendor.read"],
         submenu: [
-          { name: 'Vendors', href: '/dashboard/vendors', icon: Building, colorClass: navTextClass },
-          { name: 'AI Training', href: '/dashboard/ai-training', icon: FileText, colorClass: navTextClass }
-        ]
+          {
+            name: "Vendors",
+            href: "/dashboard/vendors",
+            icon: Building,
+            colorClass: navTextClass,
+            required: "vendor.read",
+          },
+          {
+            name: "AI Training",
+            href: "/dashboard/ai-training",
+            icon: FileText,
+            colorClass: navTextClass,
+            required: "system.manage",
+          },
+        ],
       },
       {
-        name: 'Reports',
+        name: "Reports",
         icon: TrendingUp,
         colorClass: navTextClass,
-        type: 'dropdown',
-        key: 'reports',
+        type: "dropdown",
+        key: "reports",
+        required: "report.read",
         submenu: [
-          { name: 'Activities', href: '/dashboard/activities', icon: Activity, colorClass: navTextClass },
-          { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, colorClass: navTextClass }
-        ]
+          {
+            name: "Activities",
+            href: "/dashboard/activities",
+            icon: Activity,
+            colorClass: navTextClass,
+            required: "report.read",
+          },
+          {
+            name: "Analytics",
+            href: "/dashboard/analytics",
+            icon: BarChart3,
+            colorClass: navTextClass,
+            required: "report.read",
+          },
+        ],
       }
     );
 
     // Settings dropdown
-    nav.push({
-      name: 'Settings',
+    structure.push({
+      name: "Settings",
       icon: Settings,
       colorClass: navTextClass,
-      type: 'dropdown',
-      key: 'settings',
+      type: "dropdown",
+      key: "settings",
+      required: ["system.manage", "data.export", "data.import"],
       submenu: [
-        { name: 'General Settings', href: '/dashboard/settings', icon: Settings, colorClass: navTextClass },
-        { name: 'Roles & Permissions', href: '/dashboard/settings/roles-permissions', icon: Shield, colorClass: navTextClass },
-        { name: 'Integrations', href: '/dashboard/settings/integrations', icon: Zap, colorClass: navTextClass },
-        { name: 'AI Settings', href: '/dashboard/settings/ai', icon: Zap, colorClass: navTextClass },
-        { name: 'Master Data', href: '/dashboard/settings/master-data', icon: Database, colorClass: navTextClass },
-        { name: 'Variable Center', href: '/dashboard/settings/veriable-center', icon: Database, colorClass: navTextClass },
-        { name: 'Import/Export', href: '/dashboard/settings/import-export', icon: Download, colorClass: navTextClass }
-      ]
+        {
+          name: "General Settings",
+          href: "/dashboard/settings",
+          icon: Settings,
+          colorClass: navTextClass,
+          required: "system.manage",
+        },
+        {
+          name: "Roles & Permissions",
+          href: "/dashboard/settings/roles-permissions",
+          icon: Shield,
+          colorClass: navTextClass,
+          required: "system.manage",
+        },
+        {
+          name: "Integrations",
+          href: "/dashboard/settings/integrations",
+          icon: Zap,
+          colorClass: navTextClass,
+          required: "system.manage",
+        },
+        {
+          name: "AI Settings",
+          href: "/dashboard/settings/ai",
+          icon: Zap,
+          colorClass: navTextClass,
+          required: "system.manage",
+        },
+        {
+          name: "Master Data",
+          href: "/dashboard/settings/master-data",
+          icon: Database,
+          colorClass: navTextClass,
+          required: "system.manage",
+        },
+        {
+          name: "Variable Center",
+          href: "/dashboard/settings/veriable-center",
+          icon: Database,
+          colorClass: navTextClass,
+          required: "system.manage",
+        },
+        {
+          name: "Import/Export",
+          href: "/dashboard/settings/import-export",
+          icon: Download,
+          colorClass: navTextClass,
+          required: ["data.import", "data.export"],
+        },
+      ],
     });
 
-    if (hasRole('admin')) {
-      nav.push({ name: 'Users', href: '/dashboard/users', icon: Users, exact: true, colorClass: navTextClass, type: 'single' });
-    }
-
-    return nav;
-  }, [hasRole, navTextClass]);
-
-  // -------------------------
-  // Role-based filtering
-  // -------------------------
-  // Admin & Manager: see all items
-  // Executive: only show Overview, CMS, CRM, Communication, Reports, Tools (with their submenus)
-  // Others: show everything (can be tightened later by permission checks)
-  const filteredNavigation = useMemo(() => {
-    const isAdminOrManager = hasRole('admin') || hasRole('manager');
-    const isExecutive = hasRole('executive');
-
-    if (isAdminOrManager) {
-      // show everything
-      return navigationStructure;
-    }
-
-    if (isExecutive) {
-      const allowedTopLevel = new Set(['overview', 'cms', 'crm', 'communication', 'reports', 'tools']);
-      // compare via lowercase names/keys: create a mapping
-      return navigationStructure.filter((item) => {
-        // identify a stable key for single/dropdown: use name lowercased, or for dropdown use key if present
-        const key = (item as any).key ? (item as any).key.toString().toLowerCase() : item.name.toLowerCase();
-        // allow Overview explicitly (name 'overview')
-        if (allowedTopLevel.has(key)) return true;
-
-        // allow CMS/CRM/Communication/Reports/Tools by name match
-        const lowerName = item.name.toLowerCase();
-        if (['cms', 'crm', 'communication', 'reports', 'tools', 'overview'].includes(lowerName)) return true;
-
-        return false;
-      }).map((item) => {
-        // For dropdowns not in allowed set, keep them if their name is allowed; else drop.
-        // Also for safety, if it's a dropdown and its submenu contains only items that should be filtered,
-        // we keep the dropdown as is (executive should see full submenus of allowed dropdowns).
-        return item;
+    if (hasRole("admin")) {
+      structure.push({
+        name: "Users",
+        href: "/dashboard/users",
+        icon: Users,
+        exact: true,
+        colorClass: navTextClass,
+        type: "single",
+        required: "user.read",
       });
     }
 
-    // default: show all (or you can restrict based on explicit permission later)
-    return navigationStructure;
-  }, [navigationStructure, hasRole]);
+    // ✅ FINAL FILTERING BY PERMISSIONS
+    const withPermissions: NavigationItem[] = structure
+      .map((item) => {
+        if (!userCan(item.required)) return null;
 
-  // search-filter applied on top of role-filter
-  const searchedNavigation = useMemo(() => {
-    if (!searchQuery.trim()) return filteredNavigation;
+        if (item.type === "dropdown") {
+          const allowedSubmenu = item.submenu.filter((s) =>
+            userCan(s.required)
+          );
+          if (allowedSubmenu.length === 0) return null; // agar koi child nahi to parent bhi hide
+          return { ...item, submenu: allowedSubmenu };
+        }
 
-    const q = searchQuery.toLowerCase();
-    const result: NavigationItem[] = [];
+        return item;
+      })
+      .filter((i): i is NavigationItem => i !== null);
 
-    filteredNavigation.forEach((item) => {
-      if (item.type === 'single') {
-        if (item.name.toLowerCase().includes(q)) result.push(item);
+    return withPermissions;
+  }, [hasRole, navTextClass, userCan]);
+
+  const filteredNavigation = useMemo(() => {
+    if (!searchQuery.trim()) return navigationStructure;
+
+    const filtered: NavigationItem[] = [];
+    navigationStructure.forEach((item) => {
+      if (item.type === "single") {
+        if (
+          item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+          filtered.push(item);
       } else {
-        const matchingSub = item.submenu.filter((c) => c.name.toLowerCase().includes(q));
-        if (item.name.toLowerCase().includes(q) || matchingSub.length > 0) {
-          // include dropdown but with filtered submenu if necessary
-          result.push({
+        const matchingsubmenu = item.submenu.filter((c) =>
+          c.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        if (
+          item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          matchingsubmenu.length > 0
+        ) {
+          filtered.push({
             ...item,
-            submenu: matchingSub.length > 0 ? matchingSub : item.submenu
-          } as NavigationDropdown);
+            submenu:
+              matchingsubmenu.length > 0
+                ? matchingsubmenu
+                : item.submenu,
+          });
         }
       }
     });
 
-    return result;
-  }, [filteredNavigation, searchQuery]);
+    return filtered;
+  }, [navigationStructure, searchQuery]);
 
-  // click outside for mobile timers
+  // mobile timers click outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (!mobileTimersRef.current) return;
       if (!(e.target instanceof Node)) return;
-      if (!mobileTimersRef.current.contains(e.target)) setMobileTimersOpen(false);
+      if (!mobileTimersRef.current.contains(e.target))
+        setMobileTimersOpen(false);
     }
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
+    return () =>
+      document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  // notifications polling and mapping
+  // notifications polling
   useEffect(() => {
     let interval: any;
 
@@ -1389,30 +1572,24 @@ const DashboardLayout = () => {
         const userIdNum = Number(user.id);
         if (Number.isNaN(userIdNum)) return;
 
-        const res = await notificationAPI.getUserNotifications(userIdNum);
-        // support different response shapes
+        const res = await notificationAPI.getUserNotifications(
+          userIdNum
+        );
         const list: RawNotification[] = Array.isArray(res?.notifications)
           ? res.notifications
-          : Array.isArray(res?.data)
-            ? res.data
-            : Array.isArray(res?.notifications?.data)
-              ? res.notifications.data
-              : res?.notifications
-                ? [res.notifications]
-                : [];
+          : res?.notifications
+            ? [res.notifications]
+            : [];
 
         const ui = list.map(mapRawToUI);
 
-        setNotifications((prev) => {
-          try {
-            return JSON.stringify(prev) !== JSON.stringify(ui) ? ui : prev;
-          } catch {
-            return ui;
-          }
-        });
-
+        setNotifications((prev) =>
+          JSON.stringify(prev) !== JSON.stringify(ui) ? ui : prev
+        );
         const newUnread = ui.filter((n) => !n.read).length;
-        setUnreadCount((prev) => (prev !== newUnread ? newUnread : prev));
+        setUnreadCount((prev) =>
+          prev !== newUnread ? newUnread : prev
+        );
       } catch (err) {
         console.error("❌ Error fetching notifications:", err);
       }
@@ -1425,23 +1602,28 @@ const DashboardLayout = () => {
     return () => interval && clearInterval(interval);
   }, [user?.id]);
 
-  // bell click: toggle panel + mark all read
+  // 4) bell click: call API, then update local to read:true (UI shape)
   const handleBellClick = useCallback(async () => {
     setOpen((prev) => !prev);
     if (unreadCount > 0 && user?.id) {
       try {
         const userIdNum = Number(user.id);
-        if (!Number.isNaN(userIdNum)) await notificationAPI.markAllAsRead(userIdNum);
+        if (!Number.isNaN(userIdNum))
+          await notificationAPI.markAllAsRead(userIdNum);
 
-        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        setNotifications((prev) =>
+          prev.map((n) => ({ ...n, read: true }))
+        );
         setUnreadCount(0);
       } catch (err) {
-        console.error("❌ Error marking notifications as read:", err);
+        console.error(
+          "❌ Error marking notifications as read:",
+          err
+        );
       }
     }
   }, [unreadCount, user?.id]);
 
-  // session/activity tracking logic (unchanged)
   useEffect(() => {
     loginTimeRef.current = loginTime;
   }, [loginTime]);
@@ -1457,16 +1639,25 @@ const DashboardLayout = () => {
       const now = Date.now();
       setLoginTime(now);
       const today = new Date().toDateString();
-      localStorage.setItem('todayLoginTime', now.toString());
-      localStorage.setItem('loginDate', today);
-      const activityHistory = JSON.parse(localStorage.getItem('activityHistory') || '[]');
+      localStorage.setItem("todayLoginTime", now.toString());
+      localStorage.setItem("loginDate", today);
+      const activityHistory = JSON.parse(
+        localStorage.getItem("activityHistory") || "[]"
+      );
       activityHistory.push({
-        label: 'Login',
-        type: 'login',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
-        timestamp: now
+        label: "Login",
+        type: "login",
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }),
+        timestamp: now,
       });
-      localStorage.setItem('activityHistory', JSON.stringify(activityHistory));
+      localStorage.setItem(
+        "activityHistory",
+        JSON.stringify(activityHistory)
+      );
     }
   }, [user, loginTime]);
 
@@ -1474,25 +1665,55 @@ const DashboardLayout = () => {
     if (!loginTime) return;
     const interval = setInterval(() => {
       const now = Date.now();
-      const totalElapsed = Math.floor((now - (loginTimeRef.current ?? 0)) / 1000);
+      const totalElapsed = Math.floor(
+        (now - (loginTimeRef.current ?? 0)) / 1000
+      );
       const sessionHours = Math.floor(totalElapsed / 3600);
-      const sessionMinutes = Math.floor((totalElapsed % 3600) / 60);
+      const sessionMinutes = Math.floor(
+        (totalElapsed % 3600) / 60
+      );
       const sessionSeconds = totalElapsed % 60;
-      const formattedSessionTime = `${sessionHours.toString().padStart(2, '0')}:${sessionMinutes.toString().padStart(2, '0')}:${sessionSeconds.toString().padStart(2, '0')}`;
-      setSessionTime((prev) => (prev !== formattedSessionTime ? formattedSessionTime : prev));
+      const formattedSessionTime = `${sessionHours
+        .toString()
+        .padStart(2, "0")}:${sessionMinutes
+          .toString()
+          .padStart(2, "0")}:${sessionSeconds
+            .toString()
+            .padStart(2, "0")}`;
+      setSessionTime((prev) =>
+        prev !== formattedSessionTime
+          ? formattedSessionTime
+          : prev
+      );
 
       let currentWorkTime = totalWorkTimeRef.current ?? 0;
       if (!isOnBreakRef.current) {
-        const lastActivityHistory = JSON.parse(localStorage.getItem('activityHistory') || '[]');
-        const lastWorkStart = findLastWorkStart(lastActivityHistory);
-        if (lastWorkStart) currentWorkTime += Math.floor((now - lastWorkStart) / 1000);
+        const lastActivityHistory = JSON.parse(
+          localStorage.getItem("activityHistory") || "[]"
+        );
+        const lastWorkStart =
+          findLastWorkStart(lastActivityHistory);
+        if (lastWorkStart)
+          currentWorkTime += Math.floor(
+            (now - lastWorkStart) / 1000
+          );
       }
 
       const workHours = Math.floor(currentWorkTime / 3600);
-      const workMinutes = Math.floor((currentWorkTime % 3600) / 60);
+      const workMinutes = Math.floor(
+        (currentWorkTime % 3600) / 60
+      );
       const workSecs = currentWorkTime % 60;
-      const formattedWorkTime = `${workHours.toString().padStart(2, '0')}:${workMinutes.toString().padStart(2, '0')}:${workSecs.toString().padStart(2, '0')}`;
-      setWorkTime((prev) => (prev !== formattedWorkTime ? formattedWorkTime : prev));
+      const formattedWorkTime = `${workHours
+        .toString()
+        .padStart(2, "0")}:${workMinutes
+          .toString()
+          .padStart(2, "0")}:${workSecs
+            .toString()
+            .padStart(2, "0")}`;
+      setWorkTime((prev) =>
+        prev !== formattedWorkTime ? formattedWorkTime : prev
+      );
     }, 1000);
     return () => clearInterval(interval);
   }, [loginTime, findLastWorkStart]);
@@ -1502,14 +1723,30 @@ const DashboardLayout = () => {
     const now = Date.now();
     setIsOnBreak(true);
     setBreakStartTime(now);
-    const activityHistory = JSON.parse(localStorage.getItem('activityHistory') || '[]');
+    const activityHistory = JSON.parse(
+      localStorage.getItem("activityHistory") || "[]"
+    );
     const lastWorkStart = findLastWorkStart(activityHistory);
     if (lastWorkStart) {
-      const workDuration = Math.floor((now - lastWorkStart) / 1000);
+      const workDuration = Math.floor(
+        (now - lastWorkStart) / 1000
+      );
       setTotalWorkTime((prev) => prev + workDuration);
     }
-    activityHistory.push({ label: 'Start Break', type: 'start_break', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }), timestamp: now });
-    localStorage.setItem('activityHistory', JSON.stringify(activityHistory));
+    activityHistory.push({
+      label: "Start Break",
+      type: "start_break",
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }),
+      timestamp: now,
+    });
+    localStorage.setItem(
+      "activityHistory",
+      JSON.stringify(activityHistory)
+    );
   }, [findLastWorkStart]);
 
   const endBreak = useCallback(() => {
@@ -1517,75 +1754,141 @@ const DashboardLayout = () => {
     const now = Date.now();
     setIsOnBreak(false);
     setBreakStartTime(null);
-    const activityHistory = JSON.parse(localStorage.getItem('activityHistory') || '[]');
-    activityHistory.push({ label: 'End Break', type: 'end_break', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }), timestamp: now });
-    localStorage.setItem('activityHistory', JSON.stringify(activityHistory));
+    const activityHistory = JSON.parse(
+      localStorage.getItem("activityHistory") || "[]"
+    );
+    activityHistory.push({
+      label: "End Break",
+      type: "end_break",
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }),
+      timestamp: now,
+    });
+    localStorage.setItem(
+      "activityHistory",
+      JSON.stringify(activityHistory)
+    );
   }, []);
 
   const handleLogout = useCallback(async () => {
     try {
       const now = Date.now();
-      const activityHistory = JSON.parse(localStorage.getItem('activityHistory') || '[]');
+      const activityHistory = JSON.parse(
+        localStorage.getItem("activityHistory") || "[]"
+      );
 
       if (!isOnBreakRef.current && loginTimeRef.current) {
         const lastWorkStart = findLastWorkStart(activityHistory);
         if (lastWorkStart) {
-          const workDuration = Math.floor((now - lastWorkStart) / 1000);
+          const workDuration = Math.floor(
+            (now - lastWorkStart) / 1000
+          );
           setTotalWorkTime((prev) => prev + workDuration);
         }
       }
 
-      activityHistory.push({ label: 'Logout', type: 'logout', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }), timestamp: now });
-      localStorage.setItem('activityHistory', JSON.stringify(activityHistory));
-      localStorage.removeItem('todayLoginTime');
-      localStorage.removeItem('loginDate');
+      activityHistory.push({
+        label: "Logout",
+        type: "logout",
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }),
+        timestamp: now,
+      });
+      localStorage.setItem(
+        "activityHistory",
+        JSON.stringify(activityHistory)
+      );
+      localStorage.removeItem("todayLoginTime");
+      localStorage.removeItem("loginDate");
 
       await logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     }
   }, [logout, findLastWorkStart]);
 
-  const isActive = useCallback((href: string, exact = false) => {
-    if (exact) return location.pathname === href;
-    return location.pathname.startsWith(href);
-  }, [location.pathname]);
+  const isActive = useCallback(
+    (href: string, exact = false) => {
+      if (exact) return location.pathname === href;
+      return location.pathname.startsWith(href);
+    },
+    [location.pathname]
+  );
 
-  const isParentActive = useCallback((submenu: { href: string }[]) => submenu.some((child) => location.pathname.startsWith(child.href)), [location.pathname]);
+  const isParentActive = useCallback(
+    (submenu: NavigationDropdown["submenu"]) =>
+      submenu.some((child) =>
+        location.pathname.startsWith(child.href)
+      ),
+    [location.pathname]
+  );
 
   const handleSidebarLinkClick = useCallback(() => {
     if (sidebarOpen) setSidebarOpen(false);
   }, [sidebarOpen]);
 
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value), []);
-  const handleSearchFocus = useCallback(() => setSearchFocused(true), []);
-  const handleSearchBlur = useCallback(() => setSearchFocused(false), []);
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setSearchQuery(e.target.value),
+    []
+  );
+  const handleSearchFocus = useCallback(
+    () => setSearchFocused(true),
+    []
+  );
+  const handleSearchBlur = useCallback(
+    () => setSearchFocused(false),
+    []
+  );
   const clearSearch = useCallback(() => {
-    setSearchQuery('');
+    setSearchQuery("");
     if (searchInputRef.current) searchInputRef.current.focus();
   }, []);
 
-  const openActivityModal = useCallback(() => setActivityModalOpen(true), []);
-  const closeActivityModal = useCallback(() => setActivityModalOpen(false), []);
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
-  const openSidebar = useCallback(() => setSidebarOpen(true), []);
-  const closeNotificationPanel = useCallback(() => setOpen(false), []);
+  const openActivityModal = useCallback(
+    () => setActivityModalOpen(true),
+    []
+  );
+  const closeActivityModal = useCallback(
+    () => setActivityModalOpen(false),
+    []
+  );
+  const closeSidebar = useCallback(
+    () => setSidebarOpen(false),
+    []
+  );
+  const openSidebar = useCallback(
+    () => setSidebarOpen(true),
+    []
+  );
+  const closeNotificationPanel = useCallback(
+    () => setOpen(false),
+    []
+  );
 
   if (!user) return <Navigate to="/login" replace />;
 
   const companyLogo = systemSettings?.company_logo;
   const companyName = systemSettings?.company_name;
 
-  // Sidebar component rendering (memoized)
+  // Sidebar component with unified nav color
   const SidebarComponent = useMemo(() => {
     return (
       <div className="flex flex-col h-full" ref={sidebarRef}>
+        {/* Modern header with blue gradient */}
         <div className="flex items-center h-16 px-6 border-b border-slate-200 ">
           {companyLogo ? (
             <img
               src={companyLogo}
               alt={`${companyName}`}
-              className="h-10 max-h-10 flex-1 object-contain" />
+              className="h-10 max-h-10 flex-1 object-contain"
+            />
           ) : (
             <div className="flex items-center space-x-3">
               <div className="hidden sm:block">
@@ -1597,10 +1900,18 @@ const DashboardLayout = () => {
           )}
         </div>
 
+        {/* Modern search with blue accent */}
         <div className="px-4 py-4 border-b border-slate-200 bg-slate-50">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className={cn('h-4 w-4 transition-colors duration-200', searchFocused ? 'text-blue-600' : 'text-slate-400')} />
+              <Search
+                className={cn(
+                  "h-4 w-4 transition-colors duration-200",
+                  searchFocused
+                    ? "text-blue-600"
+                    : "text-slate-400"
+                )}
+              />
             </div>
             <input
               ref={searchInputRef}
@@ -1611,94 +1922,166 @@ const DashboardLayout = () => {
               onFocus={handleSearchFocus}
               onBlur={handleSearchBlur}
               className={cn(
-                'block w-full pl-10 pr-10 py-2.5 border border-slate-300 rounded-xl text-sm bg-white',
-                'placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600',
-                'transition-all duration-200 hover:border-slate-400 shadow-sm',
-                searchFocused && 'shadow-md'
+                "block w-full pl-10 pr-10 py-2.5 border border-slate-300 rounded-xl text-sm bg-white",
+                "placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600",
+                "transition-all duration-200 hover:border-slate-400 shadow-sm",
+                searchFocused && "shadow-md"
               )}
               aria-label="Search navigation"
             />
             {searchQuery && (
-              <button onClick={clearSearch} className="absolute inset-y-0 right-0 pr-3 flex items-center hover:text-slate-700 text-slate-400 transition-colors" type="button" aria-label="Clear search">
+              <button
+                onClick={clearSearch}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center hover:text-slate-700 text-slate-400 transition-colors"
+                type="button"
+                aria-label="Clear search"
+              >
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto bg-white" role="navigation" aria-label="Main sidebar navigation">
-          {searchedNavigation.map((item) => (
+        {/* Navigation with unified color for icons and labels */}
+        <nav
+          className="flex-1 px-4 py-4 space-y-1 overflow-y-auto bg-white"
+          role="navigation"
+          aria-label="Main sidebar navigation"
+        >
+          {filteredNavigation.map((item) => (
             <div key={item.name}>
-              {item.type === 'single' ? (
-                <Link to={item.href} onClick={handleSidebarLinkClick} className={cn(
-                  'group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 hover:translate-x-1',
-                  isActive(item.href, item.exact)
-                    ? 'bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg shadow-blue-700/25'
-                    : 'text-blue-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:text-blue-800 hover:shadow-md'
-                )}>
+              {item.type === "single" ? (
+                <Link
+                  to={item.href}
+                  onClick={handleSidebarLinkClick}
+                  className={cn(
+                    "group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 hover:translate-x-1",
+                    isActive(item.href, item.exact)
+                      ? "bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg shadow-blue-700/25"
+                      : "text-blue-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:text-blue-800 hover:shadow-md"
+                  )}
+                >
                   <item.icon
                     className={cn(
-                      'mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-150',
+                      "mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-150",
                       isActive(item.href, item.exact)
-                        ? 'text-white'
+                        ? "text-white"
                         : `${item.colorClass} ${navHoverClass}`
                     )}
                   />
-                  <span className={cn('flex-1', !isActive(item.href, item.exact) ? `${item.colorClass}` : '')}>{item.name}</span>
-                  {isActive(item.href, item.exact) && <div className="w-2 h-2 bg-white rounded-full opacity-90" />}
+                  <span
+                    className={cn(
+                      "flex-1",
+                      !isActive(item.href, item.exact)
+                        ? `${item.colorClass}`
+                        : ""
+                    )}
+                  >
+                    {item.name}
+                  </span>
+                  {isActive(item.href, item.exact) && (
+                    <div className="w-2 h-2 bg-white rounded-full opacity-90" />
+                  )}
                 </Link>
               ) : (
                 <div>
                   <button
                     onClick={() => toggleMenu(item.key)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleMenu(item.key); }}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === "Enter" ||
+                        e.key === " "
+                      )
+                        toggleMenu(item.key);
+                    }}
                     aria-expanded={expandedMenus.has(item.key)}
                     aria-controls={`menu-${item.key}`}
                     tabIndex={0}
                     className={cn(
-                      'group flex items-center w-full px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 hover:translate-x-1',
+                      "group flex items-center w-full px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 hover:translate-x-1",
                       isParentActive(item.submenu)
-                        ? 'bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg'
-                        : 'text-blue-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:text-blue-800 hover:shadow-md'
+                        ? "bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg"
+                        : "text-blue-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:text-blue-800 hover:shadow-md"
                     )}
                     type="button"
                   >
                     <item.icon
                       className={cn(
-                        'mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-150',
+                        "mr-3 h-5 w-5 flex-shrink-0 transition-colors duration-150",
                         isParentActive(item.submenu)
-                          ? 'text-white'
+                          ? "text-white"
                           : `${item.colorClass} ${navHoverClass}`
                       )}
                     />
-                    <span className={cn('flex-1 text-left', !isParentActive(item.submenu) ? `${item.colorClass}` : '')}>{item.name}</span>
+                    <span
+                      className={cn(
+                        "flex-1 text-left",
+                        !isParentActive(item.submenu)
+                          ? `${item.colorClass}`
+                          : ""
+                      )}
+                    >
+                      {item.name}
+                    </span>
                     {expandedMenus.has(item.key) ? (
-                      <ChevronDown className={cn('h-4 w-4 transition-transform duration-200',
-                        isParentActive(item.submenu) ? 'text-white' : 'text-blue-500'
-                      )} />
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 transition-transform duration-200",
+                          isParentActive(item.submenu)
+                            ? "text-white"
+                            : "text-blue-500"
+                        )}
+                      />
                     ) : (
-                      <ChevronRight className={cn('h-4 w-4 transition-transform duration-200',
-                        isParentActive(item.submenu) ? 'text-white' : 'text-blue-500'
-                      )} />
+                      <ChevronRight
+                        className={cn(
+                          "h-4 w-4 transition-transform duration-200",
+                          isParentActive(item.submenu)
+                            ? "text-white"
+                            : "text-blue-500"
+                        )}
+                      />
                     )}
                   </button>
 
                   {expandedMenus.has(item.key) && (
-                    <div id={`menu-${item.key}`} className="ml-6 mt-2 space-y-1 border-l-2 border-blue-200 pl-4">
+                    <div
+                      id={`menu-${item.key}`}
+                      className="ml-6 mt-2 space-y-1 border-l-2 border-blue-200 pl-4"
+                    >
                       {item.submenu.map((child) => (
-                        <Link key={child.name} to={child.href} onClick={handleSidebarLinkClick} className={cn(
-                          'group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 hover:translate-x-1',
-                          isActive(child.href)
-                            ? 'bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-md'
-                            : 'text-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:text-blue-800 hover:shadow-sm'
-                        )}>
-                          <child.icon className={cn('mr-3 h-4 w-4 flex-shrink-0 transition-colors duration-150',
+                        <Link
+                          key={child.name}
+                          to={child.href}
+                          onClick={handleSidebarLinkClick}
+                          className={cn(
+                            "group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 hover:translate-x-1",
                             isActive(child.href)
-                              ? 'text-white'
-                              : `${child.colorClass} ${navHoverClass}`
-                          )} />
-                          <span className={cn('flex-1', !isActive(child.href) ? `${child.colorClass}` : '')}>{child.name}</span>
-                          {isActive(child.href) && <div className="w-1.5 h-1.5 bg-white rounded-full opacity-90" />}
+                              ? "bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-md"
+                              : "text-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:text-blue-800 hover:shadow-sm"
+                          )}
+                        >
+                          <child.icon
+                            className={cn(
+                              "mr-3 h-4 w-4 flex-shrink-0 transition-colors duration-150",
+                              isActive(child.href)
+                                ? "text-white"
+                                : `${child.colorClass} ${navHoverClass}`
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              "flex-1",
+                              !isActive(child.href)
+                                ? `${child.colorClass}`
+                                : ""
+                            )}
+                          >
+                            {child.name}
+                          </span>
+                          {isActive(child.href) && (
+                            <div className="w-1.5 h-1.5 bg-white rounded-full opacity-90" />
+                          )}
                         </Link>
                       ))}
                     </div>
@@ -1708,109 +2091,259 @@ const DashboardLayout = () => {
             </div>
           ))}
 
-          {searchQuery && searchedNavigation.length === 0 && (
+          {searchQuery && filteredNavigation.length === 0 && (
             <div className="text-center py-8">
               <Search className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-slate-500 text-sm">No results found for "{searchQuery}"</p>
+              <p className="text-slate-500 text-sm">
+                No results found for "{searchQuery}"
+              </p>
             </div>
           )}
         </nav>
 
+        {/* Modern logout button */}
         <div className="p-4 border-t border-slate-200 bg-slate-50">
-          <button onClick={handleLogout} className="group flex items-center w-full px-4 py-3 text-sm font-medium text-red-600 rounded-xl hover:bg-red-50 hover:text-red-700 transition-all duration-150 hover:translate-x-1 hover:shadow-md" type="button">
+          <button
+            onClick={handleLogout}
+            className="group flex items-center w-full px-4 py-3 text-sm font-medium text-red-600 rounded-xl hover:bg-red-50 hover:text-red-700 transition-all duration-150 hover:translate-x-1 hover:shadow-md"
+            type="button"
+          >
             <LogOut className="mr-3 h-5 w-5 text-red-500 group-hover:text-red-600 transition-colors duration-150" />
-            <span className="flex-1 font-semibold">Sign out</span>
+            <span className="flex-1 font-semibold">
+              Sign out
+            </span>
           </button>
         </div>
       </div>
     );
-  }, [companyLogo, companyName, searchFocused, searchQuery, handleSearchChange, handleSearchFocus, handleSearchBlur, clearSearch, searchedNavigation, isActive, isParentActive, handleSidebarLinkClick, handleLogout, expandedMenus, toggleMenu, navHoverClass]);
+  }, [
+    companyLogo,
+    companyName,
+    searchFocused,
+    searchQuery,
+    handleSearchChange,
+    handleSearchFocus,
+    handleSearchBlur,
+    clearSearch,
+    filteredNavigation,
+    isActive,
+    isParentActive,
+    handleSidebarLinkClick,
+    handleLogout,
+    expandedMenus,
+    toggleMenu,
+    navHoverClass,
+  ]);
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-blue-100/50">
       {/* Mobile sidebar with modern overlay */}
-      <div className={cn('fixed inset-0 z-50 lg:hidden', sidebarOpen ? 'block' : 'hidden')}>
-        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-sm" onClick={closeSidebar} aria-hidden />
+      <div
+        className={cn(
+          "fixed inset-0 z-50 lg:hidden",
+          sidebarOpen ? "block" : "hidden"
+        )}
+      >
+        <div
+          className="fixed inset-0 bg-slate-900 bg-opacity-60 backdrop-blur-sm"
+          onClick={closeSidebar}
+          aria-hidden
+        />
 
         <div className="relative flex flex-col w-full max-w-xs bg-white shadow-2xl h-full max-h-screen">
           <div className="absolute top-0 right-0 -mr-12 pt-2 z-20">
-            <button type="button" className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white hover:bg-slate-800 transition-colors" onClick={closeSidebar} aria-label="Close sidebar">
+            <button
+              type="button"
+              className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white hover:bg-slate-800 transition-colors"
+              onClick={closeSidebar}
+              aria-label="Close sidebar"
+            >
               <X className="h-6 w-6 text-white" />
             </button>
           </div>
 
-          <div className="h-full overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>{SidebarComponent}</div>
+          <div
+            className="h-full overflow-y-auto"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
+            {SidebarComponent}
+          </div>
         </div>
       </div>
 
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar with modern styling */}
       <aside className="hidden lg:flex lg:flex-shrink-0">
-        <div className="flex flex-col w-64 bg-white shadow-2xl border-r border-slate-200">{SidebarComponent}</div>
+        <div className="flex flex-col w-64 bg-white shadow-2xl border-r border-slate-200">
+          {SidebarComponent}
+        </div>
       </aside>
 
       <div className="flex flex-col flex-1 overflow-hidden">
+        {/* Modern header with gradient */}
         <header className="bg-white shadow-lg border-b border-slate-200">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
             <div className="flex items-center">
-              <button type="button" className="lg:hidden -ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-xl text-slate-500 hover:text-blue-700 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-600 transition-colors" onClick={openSidebar} aria-label="Open sidebar">
+              <button
+                type="button"
+                className="lg:hidden -ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-xl text-slate-500 hover:text-blue-700 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-600 transition-colors"
+                onClick={openSidebar}
+                aria-label="Open sidebar"
+              >
                 <Menu className="h-6 w-6" />
               </button>
 
-              <Link to="/home" title="Go back to website" className="ml-3 flex items-center justify-center text-white font-semibold  bg-[#0c3854] px-2 py-1 rounded-xl text-sm  hover:bg-[#0b3858]/95 transition-colors shadow-md hover:shadow-lg">
+              <Link
+                to="/home"
+                title="Go back to website"
+                className="ml-3 flex items-center justify-center text-white font-semibold  bg-[#0c3854] px-2 py-1 rounded-xl text-sm  hover:bg-[#0b3858]/95 transition-colors shadow-md hover:shadow-lg"
+              >
                 <FaEarthAsia className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline text-sm">Website</span>
+                <span className="hidden sm:inline text-sm">
+                  Website
+                </span>
               </Link>
             </div>
 
             <div className="flex items-center space-x-4">
+              {/* Desktop timer buttons with unified icon color */}
               <div className="hidden lg:flex items-center space-x-3">
-                <button onClick={openActivityModal} title="Click to open activity tracker" className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all group shadow-sm hover:shadow-md" type="button">
-                  <Clock className={`h-4 w-4 ${navTextClass} group-hover:opacity-90`} />
-                  <span className="text-blue-700 text-sm font-semibold group-hover:text-blue-800">{sessionTime}</span>
+                <button
+                  onClick={openActivityModal}
+                  title="Click to open activity tracker"
+                  className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all group shadow-sm hover:shadow-md"
+                  type="button"
+                >
+                  <Clock
+                    className={`h-4 w-4 ${navTextClass} group-hover:opacity-90`}
+                  />
+                  <span className="text-blue-700 text-sm font-semibold group-hover:text-blue-800">
+                    {sessionTime}
+                  </span>
                 </button>
 
-                <button title="Activity progress" className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all group shadow-sm hover:shadow-md" type="button">
-                  <Activity className={`h-4 w-4 ${navTextClass} group-hover:opacity-90`} />
-                  <span className="text-blue-700 text-sm font-semibold group-hover:text-blue-800">100%</span>
+                <button
+                  title="Activity progress"
+                  className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all group shadow-sm hover:shadow-md"
+                  type="button"
+                >
+                  <Activity
+                    className={`h-4 w-4 ${navTextClass} group-hover:opacity-90`}
+                  />
+                  <span className="text-blue-700 text-sm font-semibold group-hover:text-blue-800">
+                    100%
+                  </span>
                 </button>
 
-                <button title="Coffee breaks taken" className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all group shadow-sm hover:shadow-md" type="button">
-                  <Coffee className={`h-4 w-4 ${navTextClass} group-hover:opacity-90`} />
-                  <span className="text-blue-700 text-sm font-semibold group-hover:text-blue-800">10</span>
+                <button
+                  title="Coffee breaks taken"
+                  className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all group shadow-sm hover:shadow-md"
+                  type="button"
+                >
+                  <Coffee
+                    className={`h-4 w-4 ${navTextClass} group-hover:opacity-90`}
+                  />
+                  <span className="text-blue-700 text-sm font-semibold group-hover:text-blue-800">
+                    10
+                  </span>
                 </button>
               </div>
 
-              <div className="relative lg:hidden" ref={mobileTimersRef}>
-                <button onClick={(e) => { e.stopPropagation(); setMobileTimersOpen((p) => !p); }} title="Open timers" className="p-2.5 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm" type="button" aria-haspopup="true" aria-expanded={mobileTimersOpen}>
-                  <Clock className={`h-5 w-5 ${navTextClass}`} />
+              {/* Mobile timers dropdown with unified icon color */}
+              <div
+                className="relative lg:hidden"
+                ref={mobileTimersRef}
+              >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMobileTimersOpen((p) => !p);
+                  }}
+                  title="Open timers"
+                  className="p-2.5 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm"
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded={mobileTimersOpen}
+                >
+                  <Clock
+                    className={`h-5 w-5 ${navTextClass}`}
+                  />
                 </button>
 
                 {mobileTimersOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="px-3">
-                      <button onClick={() => { setMobileTimersOpen(false); openActivityModal(); }} title="Open activity tracker" className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg hover:bg-blue-50 transition-colors" type="button">
-                        <Clock className={`h-4 w-4 ${navTextClass}`} />
-                        <span className="text-sm font-medium text-blue-700">{sessionTime}</span>
+                      <button
+                        onClick={() => {
+                          setMobileTimersOpen(false);
+                          openActivityModal();
+                        }}
+                        title="Open activity tracker"
+                        className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg hover:bg-blue-50 transition-colors"
+                        type="button"
+                      >
+                        <Clock
+                          className={`h-4 w-4 ${navTextClass}`}
+                        />
+                        <span className="text-sm font-medium text-blue-700">
+                          {sessionTime}
+                        </span>
                       </button>
 
-                      <button onClick={() => setMobileTimersOpen(false)} title="Activity progress" className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg hover:bg-blue-50 transition-colors" type="button">
-                        <Activity className={`h-4 w-4 ${navTextClass}`} />
-                        <span className="text-sm font-medium text-blue-700">100%</span>
+                      <button
+                        onClick={() =>
+                          setMobileTimersOpen(false)
+                        }
+                        title="Activity progress"
+                        className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg hover:bg-blue-50 transition-colors"
+                        type="button"
+                      >
+                        <Activity
+                          className={`h-4 w-4 ${navTextClass}`}
+                        />
+                        <span className="text-sm font-medium text-blue-700">
+                          100%
+                        </span>
                       </button>
 
-                      <button onClick={() => setMobileTimersOpen(false)} title="Coffee breaks" className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg hover:bg-blue-50 transition-colors" type="button">
-                        <Coffee className={`h-4 w-4 ${navTextClass}`} />
-                        <span className="text-sm font-medium text-blue-700">10</span>
+                      <button
+                        onClick={() =>
+                          setMobileTimersOpen(false)
+                        }
+                        title="Coffee breaks"
+                        className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg hover:bg-blue-50 transition-colors"
+                        type="button"
+                      >
+                        <Coffee
+                          className={`h-4 w-4 ${navTextClass}`}
+                        />
+                        <span className="text-sm font-medium text-blue-700">
+                          10
+                        </span>
                       </button>
                     </div>
                   </div>
                 )}
               </div>
 
+              {/* Modern notification bell with blue accent */}
               <div className="relative">
-                <button onClick={handleBellClick} title="Notifications" className="relative p-2.5 text-slate-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 rounded-xl hover:bg-blue-50 transition-all shadow-sm" type="button" aria-haspopup="true" aria-expanded={open}>
+                <button
+                  onClick={handleBellClick}
+                  title="Notifications"
+                  className="relative p-2.5 text-slate-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 rounded-xl hover:bg-blue-50 transition-all shadow-sm"
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded={open}
+                >
                   <Bell className="h-5 w-5" />
-                  {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-gradient-to-br from-orange-500 to-orange-600 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-lg animate-pulse font-semibold">{unreadCount}</span>}
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-gradient-to-br from-orange-500 to-orange-600 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-lg animate-pulse font-semibold">
+                      {unreadCount}
+                    </span>
+                  )}
                 </button>
 
                 {open && (
@@ -1828,6 +2361,7 @@ const DashboardLayout = () => {
           </div>
         </header>
 
+        {/* Main content with blue gradient background */}
         <main className="flex-1 overflow-y-auto focus:outline-none bg-gradient-to-br from-blue-50/30 via-slate-50 to-blue-100/20">
           <div className="px-4">
             <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -1837,7 +2371,16 @@ const DashboardLayout = () => {
         </main>
       </div>
 
-      <ActivityTrackerModal isOpen={activityModalOpen} onClose={closeActivityModal} sessionTime={sessionTime} workTime={workTime} isOnBreak={isOnBreak} onStartBreak={startBreak} onEndBreak={endBreak} loginTime={loginTime} />
+      <ActivityTrackerModal
+        isOpen={activityModalOpen}
+        onClose={closeActivityModal}
+        sessionTime={sessionTime}
+        workTime={workTime}
+        isOnBreak={isOnBreak}
+        onStartBreak={startBreak}
+        onEndBreak={endBreak}
+        loginTime={loginTime}
+      />
     </div>
   );
 };
