@@ -25,6 +25,10 @@ import getTagStyle, { DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 import { usersAPI } from '@/lib/api';
 import viewsAPI from '@/lib/viewAPI';
 
+// ---------- NEW: auth + permission imports ----------
+import { useAuth } from '@/contexts/AuthContext';
+import { can } from '@/utils/permission';
+
 /* ---------------------- Types ---------------------- */
 interface UIProperty {
   id: number | string;
@@ -141,8 +145,6 @@ const getDisplayName = (u: any): string => {
   return (pick || 'Unnamed Executive').trim();
 };
 
-/* ---------------------- Multi-select Tag Picker ---------------------- */
-/* ---------------------- Multi-select Tag Picker ---------------------- */
 /* ---------------------- Multi-select Tag Picker ---------------------- */
 const TagPickerRow: React.FC<{
   label: "Add" | "Remove";
@@ -861,6 +863,37 @@ function tabCountClass(active: boolean, color: string) {
 
 /* ---------------------- Component ---------------------- */
 const PropertiesPage = () => {
+  // ---------- NEW: auth + permission usage ----------
+  const { user } = useAuth();
+
+  // Permission checks
+  const canRead = can(user, 'property.read');
+  const canCreate = can(user, 'property.create');
+  const canUpdate = can(user, 'property.update');
+  const canDelete = can(user, 'property.delete');
+  const canImport = can(user, 'data.import');
+  const canExport = can(user, 'data.export');
+  const canAssign = can(user, 'property.assign');
+  const canBulkDelete = can(user, 'property.bulk_delete');
+
+  // Main content access check
+  if (!canRead) {
+    return (
+      <div className="h-full flex flex-col bg-gray-50">
+        <div className="flex-1 grid place-items-center">
+          <div className="text-center p-6">
+            <div className="text-red-600 text-lg font-semibold mb-2">
+              Access Denied
+            </div>
+            <div className="text-gray-600 text-sm">
+              You do not have permission to view properties.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (typeof window === "undefined") return "all";
     const sp = new URLSearchParams(window.location.search);
@@ -1070,10 +1103,10 @@ const PropertiesPage = () => {
 
       // Remove the problematic type check
       const raw = await propertiesAPI.getProperties();
-   
+
 
       const list = Array.isArray(raw) ? raw : raw?.data || [];
-    
+
 
       const normalized = list.map((r: any, idx: number) => normalizeProperty(r, idx));
       setProperties(normalized);
@@ -1923,6 +1956,18 @@ const PropertiesPage = () => {
     );
   }
 
+  // Calculate column span based on permissions
+  const getColSpan = () => {
+    let colSpan = 7; // Base columns without actions and checkbox
+    if (canUpdate || canDelete || canAssign || canBulkDelete) {
+      colSpan += 1; // Add checkbox column
+    }
+    if (canUpdate || canDelete || canAssign) {
+      colSpan += 1; // Add actions column
+    }
+    return colSpan;
+  };
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
@@ -1939,29 +1984,39 @@ const PropertiesPage = () => {
               </p>
             </div>
           </div>
-
           <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowImportProperties(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-md hover:from-green-600 hover:to-emerald-700 transition-all text-xs"
-            >
-              <Upload size={14} />
-              <span>Import</span>
-            </button>
-            <button
-              onClick={handleAddProperty}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md hover:from-blue-600 hover:to-indigo-700 transition-all text-xs"
-            >
-              <Plus size={14} />
-              <span>Add</span>
-            </button>
-            <button
-              onClick={handlebrochureDownloadsy}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md hover:from-blue-600 hover:to-indigo-700 transition-all text-xs"
-            >
-              <Download size={14} />
-              <span>brochureDownloads</span>
-            </button>
+            {/* Import Button - Conditional */}
+            {canImport && (
+              <button
+                onClick={() => setShowImportProperties(true)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-md hover:from-green-600 hover:to-emerald-700 transition-all text-xs"
+              >
+                <Upload size={14} />
+                <span>Import</span>
+              </button>
+            )}
+
+            {/* Add Property Button - Conditional */}
+            {canCreate && (
+              <button
+                onClick={handleAddProperty}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md hover:from-blue-600 hover:to-indigo-700 transition-all text-xs"
+              >
+                <Plus size={14} />
+                <span>Add</span>
+              </button>
+            )}
+
+            {/* Brochure Downloads Button - Conditional */}
+            {canExport && (
+              <button
+                onClick={handlebrochureDownloadsy}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md hover:from-blue-600 hover:to-indigo-700 transition-all text-xs"
+              >
+                <Download size={14} />
+                <span>brochureDownloads</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -2095,18 +2150,21 @@ const PropertiesPage = () => {
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-            <button
-              onClick={handleBulkExport}
-              disabled={bulkLoading}
-              className="flex items-center space-x-1.5 px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-xs disabled:opacity-50"
-            >
-              <Download size={14} />
-              <span>Export</span>
-            </button>
+            {/* Export Button - Conditional */}
+            {canExport && (
+              <button
+                onClick={handleBulkExport}
+                disabled={bulkLoading}
+                className="flex items-center space-x-1.5 px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-xs disabled:opacity-50"
+              >
+                <Download size={14} />
+                <span>Export</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {selectedProperties.length > 0 && (
+        {selectedProperties.length > 0 && (canUpdate || canAssign || canBulkDelete || canExport) && (
           <div className="bg-blue-50 border-b border-blue-200 px-4 mt-2 lg:px-6 py-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -2114,132 +2172,152 @@ const PropertiesPage = () => {
                   {selectedProperties.length} selected
                 </span>
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    onClick={() => handleBulkStatusChange('Available')}
-                    disabled={bulkLoading}
-                    className="px-2.5 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-50"
-                  >
-                    Mark Available
-                  </button>
-                  <button
-                    onClick={() => handleBulkStatusChange('Sold')}
-                    disabled={bulkLoading}
-                    className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Mark Sold
-                  </button>
-                  <button
-                    onClick={handleBulkAssignExecutive}
-                    disabled={bulkLoading || executivesLoading}
-                    className="px-2.5 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 disabled:opacity-50 flex items-center space-x-1"
-                  >
-                    <UserPlus size={12} />
-                    <span>Assign Executive</span>
-                  </button>
-                  <button
-                    onClick={handleBulkUnassign}
-                    disabled={bulkLoading}
-                    className="px-2.5 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-1"
-                  >
-                    <UserX size={12} />
-                    <span>Unassign Executive</span>
-                  </button>
-                  <button
-                    onClick={() => handleBulkMakePublic()}
-                    disabled={bulkLoading}
-                    className="px-2.5 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    Mark Public
-                  </button>
-                  <button
-                    onClick={() => handleBulkMakePrivate()}
-                    disabled={bulkLoading}
-                    className="px-2.5 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 disabled:opacity-50"
-                  >
-                    Mark Private
-                  </button>
-                  <button
-                    onClick={handleBulkExport}
-                    disabled={bulkLoading}
-                    className="px-2.5 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 disabled:opacity-50"
-                  >
-                    Export
-                  </button>
-                  <button
-                    onClick={handleBulkDelete}
-                    disabled={bulkLoading}
-                    className="px-2.5 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50"
-                  >
-                    Delete
-                  </button>
+                  {canUpdate && (
+                    <>
+                      <button
+                        onClick={() => handleBulkStatusChange('Available')}
+                        disabled={bulkLoading}
+                        className="px-2.5 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-50"
+                      >
+                        Mark Available
+                      </button>
+                      <button
+                        onClick={() => handleBulkStatusChange('Sold')}
+                        disabled={bulkLoading}
+                        className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        Mark Sold
+                      </button>
+                    </>
+                  )}
+                  {canAssign && (
+                    <>
+                      <button
+                        onClick={handleBulkAssignExecutive}
+                        disabled={bulkLoading || executivesLoading}
+                        className="px-2.5 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 disabled:opacity-50 flex items-center space-x-1"
+                      >
+                        <UserPlus size={12} />
+                        <span>Assign Executive</span>
+                      </button>
+                      <button
+                        onClick={handleBulkUnassign}
+                        disabled={bulkLoading}
+                        className="px-2.5 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-1"
+                      >
+                        <UserX size={12} />
+                        <span>Unassign Executive</span>
+                      </button>
+                    </>
+                  )}
+                  {canUpdate && (
+                    <>
+                      <button
+                        onClick={() => handleBulkMakePublic()}
+                        disabled={bulkLoading}
+                        className="px-2.5 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        Mark Public
+                      </button>
+                      <button
+                        onClick={() => handleBulkMakePrivate()}
+                        disabled={bulkLoading}
+                        className="px-2.5 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 disabled:opacity-50"
+                      >
+                        Mark Private
+                      </button>
+                    </>
+                  )}
+                  {/* Export - Conditional */}
+                  {canExport && (
+                    <button
+                      onClick={handleBulkExport}
+                      disabled={bulkLoading}
+                      className="px-2.5 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      Export
+                    </button>
+                  )}
+                  {/* Delete - Conditional */}
+                  {canBulkDelete && (
+                    <button
+                      onClick={handleBulkDelete}
+                      disabled={bulkLoading}
+                      className="px-2.5 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
 
                 {/* Bulk Tags Menu - FIXED */}
                 {/* Bulk Tags Menu - COMPLETELY FIXED */}
-                <div className="relative bulk-tags-menu">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setBulkTagsMenuOpen(!bulkTagsMenuOpen);
-                      setActiveTagPicker(null); // Reset active tag picker when opening main menu
-                    }}
-                    className="px-2.5 py-1 bg-gray-800 text-white rounded text-xs hover:bg-gray-900 transition-colors"
-                  >
-                    Tags
-                  </button>
+                {(canUpdate || canAssign) && (
+                  <div className="relative bulk-tags-menu">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBulkTagsMenuOpen(!bulkTagsMenuOpen);
+                        setActiveTagPicker(null); // Reset active tag picker when opening main menu
+                      }}
+                      className="px-2.5 py-1 bg-gray-800 text-white rounded text-xs hover:bg-gray-900 transition-colors"
+                    >
+                      Tags
+                    </button>
 
-                  {bulkTagsMenuOpen && (
-                    <div className="absolute z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[230px] right-0">
-                      <div className="p-3">
-                        <div className="text-xs font-medium text-gray-700 mb-2">Bulk Tag Operations</div>
-                        <div className="tag-picker-container">
-                          <TagPickerRow
-                            label="Add"
-                            knownTags={knownTagsAll}
-                            selectedPropertyIds={selectedProperties}
-                            propTags={propTags}
-                            onApply={(tags) => {
-                              handleBulkAddTags(tags);
-                              setBulkTagsMenuOpen(false);
-                              setActiveTagPicker(null);
-                            }}
-                            isOpen={activeTagPicker === 'add'}
-                            onToggle={() => {
-                              // Agar koi dusra tag picker open hai to use close karo
-                              if (activeTagPicker && activeTagPicker !== 'add') {
-                                setActiveTagPicker('add');
-                              } else {
-                                setActiveTagPicker(activeTagPicker === 'add' ? null : 'add');
-                              }
-                            }}
-                            onClose={() => setActiveTagPicker(null)}
-                          />
-                          <TagPickerRow
-                            label="Remove"
-                            knownTags={knownTagsAll}
-                            selectedPropertyIds={selectedProperties}
-                            propTags={propTags}
-                            onApply={(tags) => {
-                              handleBulkRemoveTags(tags);
-                              setBulkTagsMenuOpen(false);
-                              setActiveTagPicker(null);
-                            }}
-                            isOpen={activeTagPicker === 'remove'}
-                            onToggle={() => {
-                              // Agar koi dusra tag picker open hai to use close karo
-                              if (activeTagPicker && activeTagPicker !== 'remove') {
-                                setActiveTagPicker('remove');
-                              } else {
-                                setActiveTagPicker(activeTagPicker === 'remove' ? null : 'remove');
-                              }
-                            }}
-                            onClose={() => setActiveTagPicker(null)}
-                          />
+                    {bulkTagsMenuOpen && (
+                      <div className="absolute z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[230px] right-0">
+                        <div className="p-3">
+                          <div className="text-xs font-medium text-gray-700 mb-2">Bulk Tag Operations</div>
+                          <div className="tag-picker-container">
+                            <TagPickerRow
+                              label="Add"
+                              knownTags={knownTagsAll}
+                              selectedPropertyIds={selectedProperties}
+                              propTags={propTags}
+                              onApply={(tags) => {
+                                handleBulkAddTags(tags);
+                                setBulkTagsMenuOpen(false);
+                                setActiveTagPicker(null);
+                              }}
+                              isOpen={activeTagPicker === 'add'}
+                              onToggle={() => {
+                                // Agar koi dusra tag picker open hai to use close karo
+                                if (activeTagPicker && activeTagPicker !== 'add') {
+                                  setActiveTagPicker('add');
+                                } else {
+                                  setActiveTagPicker(activeTagPicker === 'add' ? null : 'add');
+                                }
+                              }}
+                              onClose={() => setActiveTagPicker(null)}
+                            />
+                            <TagPickerRow
+                              label="Remove"
+                              knownTags={knownTagsAll}
+                              selectedPropertyIds={selectedProperties}
+                              propTags={propTags}
+                              onApply={(tags) => {
+                                handleBulkRemoveTags(tags);
+                                setBulkTagsMenuOpen(false);
+                                setActiveTagPicker(null);
+                              }}
+                              isOpen={activeTagPicker === 'remove'}
+                              onToggle={() => {
+                                // Agar koi dusra tag picker open hai to use close karo
+                                if (activeTagPicker && activeTagPicker !== 'remove') {
+                                  setActiveTagPicker('remove');
+                                } else {
+                                  setActiveTagPicker(activeTagPicker === 'remove' ? null : 'remove');
+                                }
+                              }}
+                              onClose={() => setActiveTagPicker(null)}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => setSelectedProperties([])}
@@ -2333,15 +2411,17 @@ const PropertiesPage = () => {
                         propertyCtx={{ title: property.title, propertyId: property.propertyId }}
                       />
 
-                      <div className="absolute top-3 left-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedProperties.includes(property.id)}
-                          onChange={() => handlePropertySelection(property.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                      </div>
+                      {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                        <div className="absolute top-3 left-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedProperties.includes(property.id)}
+                            onChange={() => handlePropertySelection(property.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </div>
+                      )}
 
                       <div className="absolute top-3 right-3 flex max-w-[78%] flex-wrap gap-1 justify-end">
                         <PropertyTags
@@ -2472,17 +2552,20 @@ const PropertiesPage = () => {
                                     <span>Assign Executive</span>
                                   </button>
                                 )}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditProperty(property);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-                                >
-                                  <Edit size={12} />
-                                  <span>Edit</span>
-                                </button>
+                                {/* Edit - Conditional */}
+                                {canUpdate && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditProperty(property);
+                                      setOpenDropdownId(null);
+                                    }}
+                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
+                                  >
+                                    <Edit size={12} />
+                                    <span>Edit</span>
+                                  </button>
+                                )}
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -2494,17 +2577,20 @@ const PropertiesPage = () => {
                                   <Globe size={12} />
                                   <span>{property.isPublic ? 'Make Private' : 'Make Public'}</span>
                                 </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteProperty(property.id);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-                                >
-                                  <Trash2 size={12} />
-                                  <span>Delete</span>
-                                </button>
+                                {/* Delete - Conditional */}
+                                {canDelete && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteProperty(property.id);
+                                      setOpenDropdownId(null);
+                                    }}
+                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
+                                  >
+                                    <Trash2 size={12} />
+                                    <span>Delete</span>
+                                  </button>
+                                )}
                               </div>
                             </div>
                           )}
@@ -2520,34 +2606,43 @@ const PropertiesPage = () => {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-3 text-left w-8">
-                      <input
-                        type="checkbox"
-                        checked={selectedProperties.length === paginatedProperties.length && paginatedProperties.length > 0}
-                        onChange={handleSelectAll}
-                        className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    </th>
+                    {/* Selection Checkbox - Conditional */}
+                    {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                      <th className="px-4 py-3 text-left w-8">
+                        <input
+                          type="checkbox"
+                          checked={selectedProperties.length === paginatedProperties.length && paginatedProperties.length > 0}
+                          onChange={handleSelectAll}
+                          className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </th>
+                    )}
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Property Details</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location & Seller</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Specifications</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status & Stage</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    {/* Actions Column - Conditional */}
+                    {(canUpdate || canDelete || canAssign) && (
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {paginatedProperties.map((p) => (
                     <tr key={p.id} className="group hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedProperties.includes(p.id)}
-                          onChange={() => handlePropertySelection(p.id)}
-                          className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                      </td>
+                      {/* Selection Checkbox - Conditional */}
+                      {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedProperties.includes(p.id)}
+                            onChange={() => handlePropertySelection(p.id)}
+                            className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </td>
+                      )}
 
                       <td className="px-4 py-3">
                         <div className="flex items-center space-x-3">
@@ -2641,90 +2736,96 @@ const PropertiesPage = () => {
                         </div>
                       </td>
                       {/* List View में Actions Section - FIXED */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => handleViewProperty(p)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
-                            title="View Property"
-                          >
-                            <Eye size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleBuyerMatching(p)}
-                            className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors"
-                            title="Match Buyers"
-                          >
-                            <Users size={14} />
-                          </button>
-                          {p.assignedTo ? (
+                      {(canUpdate || canDelete || canAssign) && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center space-x-1">
                             <button
-                              onClick={() => handleUnassignExecutive(p.id)}
-                              className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
-                              title="Unassign Executive"
+                              onClick={() => handleViewProperty(p)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                              title="View Property"
                             >
-                              <UserX size={14} />
+                              <Eye size={14} />
                             </button>
-                          ) : (
                             <button
-                              onClick={() => handleAssignExecutive(p)}
-                              className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded transition-colors"
-                              title="Assign Executive"
+                              onClick={() => handleBuyerMatching(p)}
+                              className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors"
+                              title="Match Buyers"
                             >
-                              <UserPlus size={14} />
+                              <Users size={14} />
                             </button>
-                          )}
-                          <button
-                            onClick={() => handleEditProperty(p)}
-                            className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
-                            title="Edit"
-                          >
-                            <Edit size={14} />
-                          </button>
-
-                          {/* FIXED: List View MoreHorizontal Dropdown */}
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenDropdownId(openDropdownId === p.id ? null : p.id);
-                              }}
-                              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                            >
-                              <MoreHorizontal size={14} />
-                            </button>
-
-                            {openDropdownId === p.id && (
-                              <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
-                                <div className="p-1">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleTogglePublic(p.id);
-                                      setOpenDropdownId(null);
-                                    }}
-                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-                                  >
-                                    <Globe size={12} />
-                                    <span>{p.isPublic ? 'Make Private' : 'Make Public'}</span>
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteProperty(p.id);
-                                      setOpenDropdownId(null);
-                                    }}
-                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-                                  >
-                                    <Trash2 size={12} />
-                                    <span>Delete</span>
-                                  </button>
-                                </div>
-                              </div>
+                            {p.assignedTo ? (
+                              <button
+                                onClick={() => handleUnassignExecutive(p.id)}
+                                className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
+                                title="Unassign Executive"
+                              >
+                                <UserX size={14} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleAssignExecutive(p)}
+                                className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded transition-colors"
+                                title="Assign Executive"
+                              >
+                                <UserPlus size={14} />
+                              </button>
                             )}
+                            {canUpdate && (
+                              <button
+                                onClick={() => handleEditProperty(p)}
+                                className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
+                                title="Edit"
+                              >
+                                <Edit size={14} />
+                              </button>
+                            )}
+
+                            {/* FIXED: List View MoreHorizontal Dropdown */}
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenDropdownId(openDropdownId === p.id ? null : p.id);
+                                }}
+                                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                <MoreHorizontal size={14} />
+                              </button>
+
+                              {openDropdownId === p.id && (
+                                <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+                                  <div className="p-1">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTogglePublic(p.id);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
+                                    >
+                                      <Globe size={12} />
+                                      <span>{p.isPublic ? 'Make Private' : 'Make Public'}</span>
+                                    </button>
+                                    {canDelete && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteProperty(p.id);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
+                                      >
+                                        <Trash2 size={12} />
+                                        <span>Delete</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
