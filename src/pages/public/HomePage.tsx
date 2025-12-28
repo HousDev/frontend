@@ -1,4 +1,3 @@
-
 // HomePage.tsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
@@ -142,7 +141,7 @@ const isPublicProp = (p: any): boolean => {
 
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedCity, setSelectedCity] = useState('Pune'); // ✅ Changed: Default to Pune
   const [localityInput, setLocalityInput] = useState('');
   const [localities, setLocalities] = useState<string[]>([]);
   const [selectedBudget, setSelectedBudget] = useState('');
@@ -287,6 +286,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           visibility: 'public',
           publicOnly: 1,
         });
+
+        // DEBUG: API response देखें
+        console.log('API Response:', response);
+        console.log('Raw data:', response?.data);
 
         const listRaw = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
         let rawList = listRaw.filter(isPublicProp);
@@ -472,28 +475,43 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     return [];
   };
 
-const masterCity: MasterOption[] = useMemo(
-  () => findMasterOptions(['city']),
-  [masters]
-);
+  const masterCity: MasterOption[] = useMemo(
+    () => findMasterOptions(['city']),
+    [masters]
+  );
 
-const propertyTypeOptions: MasterOption[] = useMemo(
-  () => findMasterOptions(['property type', 'property_type', 'propertytype', 'type', 'property']),
-  [masters]
-);
+  const propertyTypeOptions: MasterOption[] = useMemo(
+    () => findMasterOptions(['property type', 'property_type', 'propertytype', 'type', 'property']),
+    [masters]
+  );
 
-const masterLocation: MasterOption[] = useMemo(
-  () => findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']),
-  [masters]
-);
-  const formatPrice = (price: any) => {
-    const num = Number(price);
-    if (!Number.isFinite(num) || num <= 0) return ' - ';
-    if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
-    if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
-    return `₹${num.toLocaleString('en-IN')}`;
+  const masterLocation: MasterOption[] = useMemo(
+    () => findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']),
+    [masters]
+  );
+  const formatCurrency = (amount: number | string) => {
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n <= 0) return ' - ';
+
+    const CRORE = 10_000_000;
+    const LAKH = 100_000;
+
+    // Crores → keep actual value (max 2 decimals, no rounding loss)
+    if (n >= CRORE) {
+      const cr = n / CRORE;
+      return `₹${parseFloat(cr.toFixed(2))}Cr`;
+    }
+
+    // Lakhs → whole lakhs only
+    if (n >= LAKH) {
+      const l = n / LAKH;
+      return `₹${parseFloat(l.toFixed(0))}L`;
+    }
+
+    // Rupees
+    return `₹${n.toLocaleString('en-IN')}`;
   };
-  const formatCurrency = (price: any) => formatPrice(price);
+
   const [transactionType, setTransactionType] = useState<'buy' | 'rent'>('buy');
 
   const addLocality = (value?: string) => {
@@ -523,34 +541,34 @@ const masterLocation: MasterOption[] = useMemo(
   const removeLocality = (idx: number) => setLocalities(prev => prev.filter((_, i) => i !== idx));
 
   const inputRef = useRef<HTMLInputElement | null>(null);
- useEffect(() => {
-  const q = (localityInput || '').trim().toLowerCase();
+  useEffect(() => {
+    const q = (localityInput || '').trim().toLowerCase();
 
-  // nothing to search -> only update if needed
-  if (!q || !Array.isArray(masterLocation) || masterLocation.length === 0) {
-    setSuggestions(prev => (prev.length ? [] : prev));
-    setShowSuggestions(prev => (prev ? false : prev));
-    return;
-  }
+    // nothing to search -> only update if needed
+    if (!q || !Array.isArray(masterLocation) || masterLocation.length === 0) {
+      setSuggestions(prev => (prev.length ? [] : prev));
+      setShowSuggestions(prev => (prev ? false : prev));
+      return;
+    }
 
-  const matched = masterLocation
-    .filter(opt => {
-      const label = (opt.label || '').toString().toLowerCase();
-      const value = (opt.value || '').toString().toLowerCase();
-      return label.includes(q) || value.includes(q);
-    })
-    .slice(0, 10);
+    const matched = masterLocation
+      .filter(opt => {
+        const label = (opt.label || '').toString().toLowerCase();
+        const value = (opt.value || '').toString().toLowerCase();
+        return label.includes(q) || value.includes(q);
+      })
+      .slice(0, 10);
 
-  // shallow guard to avoid redundant state updates (and re-renders)
-  const sameLen = matched.length === suggestions.length;
-  const sameItems = sameLen && matched.every((m, i) =>
-    m.value === suggestions[i]?.value && m.label === suggestions[i]?.label
-  );
+    // shallow guard to avoid redundant state updates (and re-renders)
+    const sameLen = matched.length === suggestions.length;
+    const sameItems = sameLen && matched.every((m, i) =>
+      m.value === suggestions[i]?.value && m.label === suggestions[i]?.label
+    );
 
-  if (!sameItems) setSuggestions(matched);
-  setShowSuggestions(matched.length > 0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [localityInput, masterLocation]);
+    if (!sameItems) setSuggestions(matched);
+    setShowSuggestions(matched.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localityInput, masterLocation]);
 
 
   const handleSearch = async (e?: React.FormEvent) => {
@@ -748,7 +766,7 @@ const masterLocation: MasterOption[] = useMemo(
                     type="button"
                     onClick={() => { }}
                     className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition bg-gray-100 text-gray-700 opacity-60 cursor-not-allowed`}
-                    title="Rent search not available yet"
+                    title="Launching soon !"
                     disabled
                     aria-disabled="true"
                     aria-pressed={false}
@@ -1078,7 +1096,7 @@ const masterLocation: MasterOption[] = useMemo(
 
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <div className="text-xl font-bold text-green-600">{formatPrice(property.price)}</div>
+                          <div className="text-xl font-bold text-green-600">{formatCurrency(property.price)}</div>
                           <div className="text-sm text-gray-500">
                             {property.unitType || property.type} • {property.square_feet ?? property.area ?? ' - '} sq ft
                           </div>
@@ -1096,7 +1114,7 @@ const masterLocation: MasterOption[] = useMemo(
                         <span>{property.location || property.city || ' - '}</span>
                       </div>
 
-                      {/* Amenities: show 2 + “+N more” */}
+                      {/* Amenities: show 2 + "+N more" */}
                       <div className="flex flex-wrap gap-2 mb-4">
                         {shownAmenities.map((a, i) => (
                           <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{a}</span>

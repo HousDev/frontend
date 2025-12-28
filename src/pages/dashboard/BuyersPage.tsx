@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+// src/pages/BuyersPage.tsx
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import {
   Users, Plus, Search, Filter, Eye, Edit, Trash2, Phone, Mail, MapPin,
   Building, Activity, MoreHorizontal, User, Star, FileText, MessageCircle,
   Bell, Upload, Download, ChevronLeft, ChevronRight, X, Target, Home,
   UserCheck, PhoneCall, Send,
-  Briefcase,
+  Briefcase, UserX,
   TrendingUp,
 } from 'lucide-react';
 import BuyerFormModal from '../../components/buyers/BuyerFormModal';
@@ -22,6 +23,7 @@ import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { can } from '@/utils/permission';
+import { filterBuyersByRole } from '@/utils/roleBasedBuyerFilter';
 
 type Executive = {
   id: string | number;
@@ -29,6 +31,8 @@ type Executive = {
   email?: string;
   phone?: string;
   username?: string;
+  department?: string;
+  role?: string;
 };
 
 type UIBuyer = {
@@ -77,7 +81,7 @@ type UIBuyer = {
     creditScore?: number | null;
   };
   matchedProperties: any[];
-  matchedPropertiesCount?: number; // NEW: For showing match count
+  matchedPropertiesCount?: number;
   activities: any[];
   followups: any[];
   documents: any[];
@@ -107,11 +111,46 @@ const BuyersPage = () => {
   const canAssign = can(user, 'buyer.assign');
   const canBulkDelete = can(user, 'buyer.bulk_delete');
 
-  // ✅ FIXED: Check if user has any action permissions
+  // Check if user has any action permissions
   const hasAnyActionPermission = canUpdate || canDelete || canAssign;
+  const shouldShowActionsColumn = canRead && (hasAnyActionPermission || true);
 
-  // ✅ FIXED: Check if user should see actions column
-  const shouldShowActionsColumn = canRead && (hasAnyActionPermission || true); // Always show if can read
+  // Role-based visibility check
+  const isAdmin = useMemo(() => {
+    const role = (user?.role || '').toLowerCase();
+    return role.includes('admin') || role.includes('manager') || role.includes('superadmin');
+  }, [user]);
+
+  const isExecutive = useMemo(() => {
+    const role = (user?.role || '').toLowerCase();
+    return role.includes('executive');
+  }, [user]);
+
+
+  const canViewBuyer = (_buyer: UIBuyer) => {
+    return canRead;
+  };
+
+
+  // Check if user can edit buyer (role-based)
+  const canEditBuyer = (buyer: UIBuyer) => {
+    if (!canUpdate) return false;
+    if (isAdmin) return true;
+    if (isExecutive) {
+      return String(buyer.assigned_executive) === String(user?.id);
+    }
+    return false;
+  };
+
+  // Check if user can delete buyer (role-based)
+  const canDeleteBuyer = (buyer: UIBuyer) => {
+    if (!canDelete) return false;
+    if (isAdmin) return true;
+    if (isExecutive) {
+      return String(buyer.assigned_executive) === String(user?.id);
+    }
+    return false;
+  };
 
   // Main content access check
   if (!canRead) {
@@ -147,17 +186,19 @@ const BuyersPage = () => {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [properties, setProperties] = useState<any[]>([]); // NEW: For property matching
-  const [loadingProperties, setLoadingProperties] = useState(false); // NEW: Loading state for properties
+  const [properties, setProperties] = useState<any[]>([]);
+  const [loadingProperties, setLoadingProperties] = useState(false);
 
   // Executive state
-  const [executives, setExecutives] = useState<Executive[]>([]);
-  const [execsLoading, setExecsLoading] = useState<boolean>(false);
+  const [executives, setExecutives] = useState<Executive[]>([{ id: 0, name: "Not assigned", email: "", phone: "" }]);
+  const [execsLoading, setExecsLoading] = useState<boolean>(true);
   const [execDropdownOpen, setExecDropdownOpen] = useState<boolean>(false);
   const [execSearch, setExecSearch] = useState<string>('');
   const [selectedExecId, setSelectedExecId] = useState<string | number | null>(null);
 
-  // for reliable scroll-to-top after create/update
+  // FIX: Executive को unassigned buyers दिखाने का option
+  const [showUnassignedToExecutives, setShowUnassignedToExecutives] = useState(false);
+
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -177,11 +218,10 @@ const BuyersPage = () => {
   });
 
   /* ---------------- Data ---------------- */
-  const [buyers, setBuyers] = useState<UIBuyer[]>([]);
+  const [allBuyers, setAllBuyers] = useState<UIBuyer[]>([]);
+  const [roleFilteredBuyers, setRoleFilteredBuyers] = useState<UIBuyer[]>([]);
 
   /* ===================== Property Matching Logic ===================== */
-
-  // Fetch properties for matching
   useEffect(() => {
     const fetchProperties = async () => {
       try {
@@ -189,7 +229,6 @@ const BuyersPage = () => {
         const res = await propertiesAPI.getProperties();
         const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
 
-        // Filter only public properties
         const publicProperties = list.filter((property: any) =>
           property.is_public === true ||
           property.is_public === 1 ||
@@ -199,7 +238,6 @@ const BuyersPage = () => {
 
         setProperties(publicProperties ?? []);
       } catch (err) {
-        console.error("Error fetching properties:", err);
         setProperties([]);
       } finally {
         setLoadingProperties(false);
@@ -209,7 +247,6 @@ const BuyersPage = () => {
     fetchProperties();
   }, []);
 
-  // Property matching helper functions
   const toArr = (v: any) => (Array.isArray(v) ? v.filter(Boolean) : v ? [v] : []);
   const norm = (s: any) => String(s || "").toLowerCase().trim();
   const hasAny = (haystack: string[], needles: string[]) =>
@@ -218,14 +255,10 @@ const BuyersPage = () => {
   const getBuyerBudget = (buyer: UIBuyer) => {
     const rawMin = Number(buyer?.budget?.min ?? 0);
     const rawMax = Number(buyer?.budget?.max ?? 0);
-
-    // treat 0/NaN as "not provided"
     const min = Number.isFinite(rawMin) && rawMin > 0 ? rawMin : null;
     const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : null;
-
     return { min, max };
   };
-
 
   const priceFrom = (p: any) =>
     Number(p?.budget ?? p?.price ?? p?.expected_price ?? 0);
@@ -241,15 +274,7 @@ const BuyersPage = () => {
     const hasMin = bMin != null;
     const hasMax = bMax != null;
 
-    // ⛔ If buyer provided no budget, do NOT auto-pass everything.
-    // Choose ONE behavior:
-
-    // (A) Strict: require a budget to match on budget filter:
     if (!hasMin && !hasMax) return false;
-
-    // ---- OR ----
-    // (B) Soft fallback: if no budget, use a minimum match score instead:
-    // if (!hasMin && !hasMax) return computeMatchScore(p, buyer) >= 50;
 
     const { min: pMin, max: pMax } = priceRangeFrom(p);
     const hasRange = !!pMin && !!pMax && pMax >= pMin;
@@ -267,36 +292,193 @@ const BuyersPage = () => {
     return true;
   };
 
-
-
-  // Count matching properties for a buyer
   const countMatchingProperties = (buyer: UIBuyer) => {
     if (!properties.length) return 0;
-
     const matchingProperties = properties.filter((property) => {
-      // same rule as PropertiesTab: must be within the buyer's budget
       return isWithinBuyerBudget(property, buyer);
     });
-
     return matchingProperties.length;
   };
 
-  // Update buyers with match counts when properties are loaded
+  // FIXED VERSION - Remove allBuyers from dependencies
   useEffect(() => {
-    if (!properties.length || !buyers.length) return;
+    if (!properties.length || !allBuyers.length) return;
 
-    setBuyers(prev => prev.map(b => ({
+    setAllBuyers(prev => prev.map(b => ({
       ...b,
       matchedPropertiesCount: countMatchingProperties(b),
     })));
-  }, [properties, buyers]); // <-- depend on buyers (not buyers.length)
+  }, [properties]); // ✅ Only depend on properties
 
+  /* ===================== Updated Load Executives Function ===================== */
+  useEffect(() => {
+    const loadExecutives = async () => {
+      try {
+        setExecsLoading(true);
 
-  /* ===================== Masters: fetch + normalize ===================== */
+        // Helper to format name
+        const formatName = (u: any): string => {
+          const salutation = u?.salutation ? `${u.salutation} ` : '';
+          const firstName = u?.first_name || u?.firstName || '';
+          const lastName = u?.last_name || u?.lastName || '';
+          const fullName = `${salutation}${firstName} ${lastName}`.trim();
+
+          if (fullName) return fullName;
+          if (u?.name) return u.name;
+          if (u?.full_name) return u.full_name;
+          if (u?.username) return u.username;
+          if (u?.email) return u.email.split('@')[0];
+          return 'Sales Executive';
+        };
+
+        let executivesList: any[] = [];
+
+        // METHOD 1: Try getSalesExecutives if available
+        try {
+          if (usersAPI.getSalesExecutives) {
+            const res = await usersAPI.getSalesExecutives();
+            if (res && (Array.isArray(res) || res.items || res.data)) {
+              executivesList = Array.isArray(res) ? res : (res.items || res.data || []);
+            }
+          }
+        } catch (err) {
+        }
+
+        // METHOD 2: Try getByDeptRole
+        if (executivesList.length === 0 && usersAPI.getByDeptRole) {
+          const paramCombinations = [
+            { department: "Sales", role: "Sales Executive" },
+            { department: "sales", role: "sales executive" },
+            { department: "Sales", role: "Executive" },
+            { department: "sales", role: "executive" }
+          ];
+
+          for (const params of paramCombinations) {
+            try {
+              const res = await usersAPI.getByDeptRole({
+                ...params,
+                is_active: 1,
+                limit: 100
+              });
+
+              if (res && (Array.isArray(res) || res.items || res.data)) {
+                const data = Array.isArray(res) ? res : (res.items || res.data || []);
+                if (data.length > 0) {
+                  executivesList = data;
+                  break;
+                }
+              }
+            } catch (err) {
+              continue;
+            }
+          }
+        }
+
+        // METHOD 3: Try getAll users and filter for Sales Executives
+        if (executivesList.length === 0 && (usersAPI as any).getAll) {
+          try {
+            const allUsers = await (usersAPI as any).getAll({ is_active: true });
+            const usersArray = Array.isArray(allUsers) ? allUsers :
+              (allUsers?.items || allUsers?.data || []);
+
+            if (usersArray.length > 0) {
+              // Filter for sales executives only
+              executivesList = usersArray.filter((u: any) => {
+                const dept = String(u.department || '').toLowerCase();
+                const role = String(u.role || '').toLowerCase();
+                return (dept.includes('sales') || role.includes('sales')) &&
+                  (role.includes('executive') || role.includes('sales'));
+              });
+            }
+          } catch (err) {
+          }
+        }
+
+        // METHOD 4: Try getUsers
+        if (executivesList.length === 0 && (usersAPI as any).getUsers) {
+          try {
+            const allUsers = await (usersAPI as any).getUsers();
+            const usersArray = Array.isArray(allUsers) ? allUsers :
+              (allUsers?.items || allUsers?.data || []);
+
+            if (usersArray.length > 0) {
+              executivesList = usersArray.filter((u: any) => {
+                const dept = String(u.department || '').toLowerCase();
+                const role = String(u.role || '').toLowerCase();
+                return (dept.includes('sales') || role.includes('sales')) &&
+                  (role.includes('executive') || role.includes('sales'));
+              });
+            }
+          } catch (err) {
+          }
+        }
+
+        // Process executives data
+        const processedExecutives: Executive[] = executivesList.map((user: any) => {
+          const id = user.id || user.userId || user._id ||
+            user.uuid || `exec-${Date.now()}-${Math.random()}`;
+
+          return {
+            id: Number(id) || 0,
+            name: formatName(user),
+            email: user.email || null,
+            phone: user.phone || user.mobile || user.contact_number || null,
+            username: user.username || null,
+            department: user.department || 'Sales',
+            role: user.role || 'Sales Executive',
+          };
+        });
+
+        // Remove duplicates by ID
+        const uniqueExecutives = processedExecutives.filter((exec, index, self) =>
+          index === self.findIndex(e => String(e.id) === String(exec.id) && e.id !== 0)
+        );
+        // Apply permission filtering
+        const allowedExecutives = getAssignableExecutives(user, uniqueExecutives);
+        setExecutives(allowedExecutives);
+        // Show warning if no executives found
+        if (allowedExecutives.length <= 1) { // Only unassigned
+        }
+      } catch (error) {
+        // Fallback to just unassigned
+        setExecutives([{ id: 0, name: "Not assigned", email: "", phone: "" }]);
+
+        if (!['executive', 'sales'].includes(user?.role)) {
+          toast.error('Failed to load sales executives');
+        }
+      } finally {
+        setExecsLoading(false);
+      }
+    };
+
+    loadExecutives();
+  }, [user]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setExecDropdownOpen(false);
+      }
+    }
+    if (execDropdownOpen) document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [execDropdownOpen]);
+
+  // Filter executives based on search
+  const filteredExecutives = executives.filter(exec =>
+    execSearch.trim() === '' ? true :
+      exec.name.toLowerCase().includes(execSearch.toLowerCase()) ||
+      (exec.email && exec.email.toLowerCase().includes(execSearch.toLowerCase())) ||
+      (exec.phone && exec.phone.includes(execSearch)) ||
+      (exec.department && exec.department.toLowerCase().includes(execSearch.toLowerCase())) ||
+      (exec.role && exec.role.toLowerCase().includes(execSearch.toLowerCase()))
+  );
+
+  /* ---------------- Masters Loading ---------------- */
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, any>>({});
 
-  /** "Lead Stage" -> "lead_stage" ; "buyer lead stage" -> "buyer_lead_stage" */
   const normKey = (s: any) =>
     String(s ?? '')
       .trim()
@@ -311,7 +493,6 @@ const BuyersPage = () => {
     return out;
   };
 
-  /** returns first non-empty array among the possible keys */
   const getMasterArray = (mastersObj: Record<string, any>, possibleKeys: string[]): any[] => {
     for (const key of possibleKeys) {
       const k = normKey(key);
@@ -330,7 +511,6 @@ const BuyersPage = () => {
         const normalized = normalizeMasterKeys(data);
         setMasters(normalized);
       } catch (err) {
-        console.error('Error fetching master options:', err);
         toast.error('Failed to load dropdown options');
       } finally {
         setMasterLoading(false);
@@ -347,7 +527,6 @@ const BuyersPage = () => {
   const toOptionValue = (o: any) =>
     (o?.value ?? o?.key ?? o?.code ?? o?.name ?? '').toString();
 
-  // prefer buyer-specific; fallback to generic lead
   const stageRaw = getMasterArray(masters, [
     'buyer_lead_stage',
     'buyer stage',
@@ -366,7 +545,6 @@ const BuyersPage = () => {
     .map((o) => ({ value: toOptionValue(o).toLowerCase(), label: toOptionLabel(o) }))
     .filter((o) => o.value);
 
-  /** safe fallbacks if masters missing */
   const stageOptionsFallback = [
     { value: 'initial_contact', label: 'Initial Contact' },
     { value: 'requirement_gathering', label: 'Requirement Gathering' },
@@ -383,103 +561,11 @@ const BuyersPage = () => {
     { value: 'low', label: 'Low' },
   ];
 
-  /** Use masters if present, else fallback */
   const effectiveStageOptions = (stageOptions?.length ? stageOptions : stageOptionsFallback);
   const effectivePriorityOptions = (priorityOptions?.length ? priorityOptions : priorityOptionsFallback);
 
-  // convenience arrays for the Filters drawer (strings)
   const stagesFromMasters: string[] = ['all', ...effectiveStageOptions.map(o => o.value)];
   const prioritiesFromMasters: string[] = ['all', ...effectivePriorityOptions.map(o => o.value)];
-
-  /* ---------------- Load Executives ---------------- */
-  useEffect(() => {
-    const loadExecutives = async () => {
-      try {
-        setExecsLoading(true);
-
-        console.log('=== EXECUTIVES LOADING DEBUG ===');
-        console.log('Current User:', user);
-        console.log('User Role:', user?.role);
-
-        // Helper to format name with salutation
-        const formatName = (u: any) => {
-          const salutation = u?.salutation ? `${u.salutation} ` : '';
-          const firstName = u?.first_name || '';
-          const lastName = u?.last_name || '';
-          const usernameFallback = u?.username || u?.email || 'Executive';
-          const name = `${salutation}${firstName} ${lastName}`.trim();
-          return name || usernameFallback;
-        };
-
-        // Fetch executives
-        const get = async (department: string) =>
-          usersAPI.getByDeptRole?.({ department, role: 'executive', is_active: 1, limit: 100 });
-
-        let res: any;
-        try { res = await get('sales'); }
-        catch { res = await get('sales'); }
-
-        const salesUsers = (res?.items ?? res?.data ?? res ?? []).map((u: any) => ({
-          ...u,
-          id: u.id ?? u.userId ?? u._id ?? u.uuid ?? String(u.email || u.username || Math.random()),
-          name: formatName(u),
-          email: u.email || null,
-          phone: u.phone || u.mobile || null,
-        }));
-
-        const allowed = getAssignableExecutives(user, salesUsers) || [];
-        const mapped: Executive[] = allowed.map((u: any) => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          phone: u.phone,
-          username: u.raw?.username || u.username,
-        }));
-
-        console.log('Final executives list:', mapped);
-        setExecutives(mapped);
-      } catch (e) {
-        console.error('Error loading executives:', e);
-
-        // Fallback for executive users - at least show empty array
-        if (user && ['executive', 'sales'].includes(user.role)) {
-          setExecutives([]);
-        } else {
-          setExecutives([]);
-        }
-
-        // Only show error for non-executive users
-        if (!['executive', 'sales'].includes(user?.role)) {
-          toast.error('Could not fetch executives');
-        }
-      } finally {
-        setExecsLoading(false);
-      }
-    };
-
-    if (user) {
-      loadExecutives();
-    } else {
-      setExecutives([]);
-    }
-  }, [user]);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setExecDropdownOpen(false);
-      }
-    }
-    if (execDropdownOpen) document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [execDropdownOpen]);
-
-  const filteredExecutives = executives.filter(exec =>
-    exec.name.toLowerCase().includes(execSearch.toLowerCase()) ||
-    exec.email?.toLowerCase().includes(execSearch.toLowerCase()) ||
-    exec.username?.toLowerCase().includes(execSearch.toLowerCase())
-  );
 
   /* ---------------- Helpers ---------------- */
   const formatDate = (val: string | null) => {
@@ -585,27 +671,56 @@ const BuyersPage = () => {
     };
   };
 
-  // Normalize buyer object for UI
-  const normalizeBuyerForUI = (b: any) => {
+  // ✅ FIXED: Executive name resolution function
+  const resolveExecutiveName = useCallback((executiveId: string | number | null): { name: string; isCurrentUser: boolean } => {
+    if (!executiveId || executiveId === 0) return { name: 'Not assigned', isCurrentUser: false };
+
+    // Check if it's the current user
+    const isCurrentUser = String(executiveId) === String(user?.id);
+
+    if (isCurrentUser) {
+      return { name: user?.name || 'You', isCurrentUser: true };
+    }
+
+    // Look in executives list
+    const exec = executives.find(e => String(e.id) === String(executiveId));
+    if (exec) {
+      return { name: exec.name, isCurrentUser: false };
+    }
+
+    // If not found, return ID
+    return { name: `Executive (ID: ${executiveId})`, isCurrentUser: false };
+  }, [user, executives]);
+
+  // ✅ FIXED: Normalize buyer object for UI
+  const normalizeBuyerForUI = useCallback((b: any): UIBuyer => {
     const rawReq = parseJSON(b.requirements) || b.requirements || {};
     const fin = parseJSON(b.financials) || b.financials || {};
     const toStr = (v: any) => (v === null || v === undefined ? null : String(v));
 
-    // Ensure budget
     const budgetMin = toNumOrNull(b.budget_min ?? b.budgetMin);
     const budgetMax = toNumOrNull(b.budget_max ?? b.budgetMax);
 
-    // Convert dates to MySQL-safe format
     const dob = toMySQLDate(b.dob ?? null);
     const expectedClose = toMySQLDate(b.expected_close ?? b.expectedClose ?? null);
     const createdAt = toMySQLDate(b.created_at ?? null);
 
     // Get executive details
-    const assignedExecutiveId = b.assigned_executive ?? null;
-    const assignedExecutive = executives.find(exec => exec.id == assignedExecutiveId);
-    const assignedExecutiveName = assignedExecutive?.name || null;
-    const assignedExecutiveEmail = assignedExecutive?.email || null;
-    const assignedExecutivePhone = assignedExecutive?.phone || null;
+    const assignedExecutiveId = b.assigned_executive ?? b.assigned_to ?? null;
+    const { name: execName, isCurrentUser: isCurrentExec } = resolveExecutiveName(assignedExecutiveId);
+
+    // Count matching properties
+    const matchingPropertiesCount = b.matchedPropertiesCount ||
+      (() => {
+        if (properties.length > 0) {
+          const tempBuyer = {
+            id: b.id,
+            budget: { min: budgetMin, max: budgetMax }
+          } as UIBuyer;
+          return countMatchingProperties(tempBuyer);
+        }
+        return 0;
+      })();
 
     return {
       id: b.id ?? `${b.name ?? 'buyer'}-${Math.random().toString(36).slice(2)}`,
@@ -625,9 +740,9 @@ const BuyersPage = () => {
       status: b.buyer_lead_status ?? b.status ?? null,
       assigned: b.assigned_to ?? b.assigned ?? null,
       assigned_executive: assignedExecutiveId,
-      assigned_executive_name: assignedExecutiveName,
-      assigned_executive_email: assignedExecutiveEmail,
-      assigned_executive_phone: assignedExecutivePhone,
+      assigned_executive_name: execName !== 'Not assigned' ? execName : null,
+      assigned_executive_email: null,
+      assigned_executive_phone: null,
       leadScore: toNumOrNull(b.lead_score) ?? toNumOrNull(b.leadScore) ?? 0,
       budget: { min: budgetMin, max: budgetMax },
       expectedClose,
@@ -656,7 +771,7 @@ const BuyersPage = () => {
         creditScore: toNumOrNull(fin.creditScore ?? fin.credit_score),
       },
       matchedProperties: Array.isArray(b.matchedProperties) ? b.matchedProperties : [],
-      matchedPropertiesCount: b.matchedPropertiesCount ?? 0, // NEW: Initialize match count
+      matchedPropertiesCount: matchingPropertiesCount,
       activities: Array.isArray(b.activities) ? b.activities : [],
       followups: Array.isArray(b.followups) ? b.followups : [],
       documents: Array.isArray(b.documents) ? b.documents : [],
@@ -671,68 +786,146 @@ const BuyersPage = () => {
       responseRate: toNumOrNull(b.responseRate) ?? 0,
       avgResponseTime: b.avgResponseTime ?? null,
     };
-  };
+  }, [resolveExecutiveName, properties]);
 
-  /* ---------------- Fetch ---------------- */
-  useEffect(() => {
-    const fetchBuyers = async () => {
-      try {
-        setLoading(true);
-        const apiBuyers = await buyerAPI.getAll();
-        const normalized = Array.isArray(apiBuyers) ? apiBuyers.map(normalizeBuyerForUI) : [];
+  /* ===================== ✅ OPTIMIZED: Fetch All Buyers Function ===================== */
+  const fetchBuyers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const apiBuyers = await buyerAPI.getAll();
 
-        // Proper sorting - नए records पहले दिखें
-        const sorted = [...normalized].sort((a, b) => {
-          // पहले created_at से sort
-          const aCreated = new Date(a.created_at || 0).getTime();
-          const bCreated = new Date(b.created_at || 0).getTime();
+      if (!Array.isArray(apiBuyers)) {
+        setAllBuyers([]);
+        return;
+      }
 
-          if (aCreated !== bCreated) {
-            return bCreated - aCreated; // DESC - newest first
-          }
+      const normalized = apiBuyers.map(normalizeBuyerForUI);
 
-          // फिर ID से sort (backup)
-          return Number(b.id) - Number(a.id);
+      // ✅ CRITICAL FIX: Remove duplicates from backend response
+      const uniqueBuyers = normalized.reduce((acc: UIBuyer[], current: UIBuyer) => {
+        // Check if this buyer already exists in accumulator
+        const exists = acc.some(buyer => {
+          // Check by ID first
+          if (buyer.id === current.id) return true;
+
+          // Check by phone (if both have phones)
+          if (buyer.phone && current.phone && buyer.phone === current.phone) return true;
+
+          // Check by email (if both have emails)
+          if (buyer.email && current.email &&
+            buyer.email.toLowerCase() === current.email.toLowerCase()) return true;
+
+          return false;
         });
 
-        setBuyers(sorted);
-      } catch (err) {
-        console.error('Error fetching buyers:', err);
-        toast.error('Failed to fetch buyers');
-        setBuyers([]);
-      } finally {
-        setLoading(false);
+        if (!exists) {
+          acc.push(current);
+        } else {
+          console.warn('Duplicate buyer filtered:', {
+            id: current.id,
+            name: current.name,
+            phone: current.phone
+          });
+        }
+
+        return acc;
+      }, []);
+
+      // Sort by creation date (newest first)
+      const sorted = [...uniqueBuyers].sort((a, b) => {
+        const aCreated = new Date(a.created_at || 0).getTime();
+        const bCreated = new Date(b.created_at || 0).getTime();
+        if (aCreated !== bCreated) {
+          return bCreated - aCreated;
+        }
+        return Number(b.id) - Number(a.id);
+      });
+
+      setAllBuyers(sorted);
+    } catch (err) {
+      toast.error('Failed to fetch buyers');
+      setAllBuyers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [normalizeBuyerForUI]);
+
+  /* ===================== Fetch All Buyers Effect ===================== */
+  useEffect(() => {
+    fetchBuyers();
+  }, [fetchBuyers]);
+
+  /* ---------------- Apply Role-based Filtering ---------------- */
+  useEffect(() => {
+    if (allBuyers.length > 0 && user) {
+      const filtered = filterBuyersByRole(
+        user,
+        allBuyers,
+        executives,
+        showUnassignedToExecutives
+      );
+      setRoleFilteredBuyers(filtered);
+    } else {
+      setRoleFilteredBuyers([]);
+    }
+  }, [allBuyers, user, executives, showUnassignedToExecutives]);
+
+  /* ---------------- Update Executive Names ---------------- */
+  useEffect(() => {
+    const updateBuyersWithExecutiveNames = async () => {
+      if (allBuyers.length > 0 && executives.length > 0) {
+        const updatedBuyers = allBuyers.map(buyer => {
+          if (buyer.assigned_executive) {
+            const { name: execName } = resolveExecutiveName(buyer.assigned_executive);
+            if (execName !== buyer.assigned_executive_name) {
+              return {
+                ...buyer,
+                assigned_executive_name: execName
+              };
+            }
+          }
+          return buyer;
+        });
+
+        // Only update if there are changes
+        const hasChanges = updatedBuyers.some((buyer, index) =>
+          buyer.assigned_executive_name !== allBuyers[index]?.assigned_executive_name
+        );
+
+        if (hasChanges) {
+          setAllBuyers(updatedBuyers);
+        }
       }
     };
-    fetchBuyers();
-  }, [executives]);
 
-  /* ---------------- Tabs, Constants ---------------- */
+    updateBuyersWithExecutiveNames();
+  }, [executives, allBuyers, resolveExecutiveName]);
+
+  /* ---------------- Tabs ---------------- */
   const tabs = [
-    { id: 'all', label: 'All', count: buyers.length, color: 'blue' },
+    { id: 'all', label: 'All', count: roleFilteredBuyers.length, color: 'blue' },
     {
       id: 'hot_leads', label: 'Hot Leads',
-      count: buyers.filter(b => priorityKey(b.priority) === 'high').length, color: 'red'
+      count: roleFilteredBuyers.filter(b => priorityKey(b.priority) === 'high').length, color: 'red'
     },
     {
       id: 'active', label: 'Active',
-      count: buyers.filter(b => b.is_active === true).length, color: 'green'
+      count: roleFilteredBuyers.filter(b => b.is_active === true).length, color: 'green'
     },
     {
       id: 'property_hunting', label: 'Property Hunting',
-      count: buyers.filter(b => stageKey(b.stage) === 'property_hunting').length, color: 'purple'
+      count: roleFilteredBuyers.filter(b => stageKey(b.stage) === 'property_hunting').length, color: 'purple'
     },
     {
       id: 'loan_processing', label: 'Loan Processing',
-      count: buyers.filter(b => stageKey(b.stage) === 'loan_processing').length, color: 'orange'
+      count: roleFilteredBuyers.filter(b => stageKey(b.stage) === 'loan_processing').length, color: 'orange'
     },
     {
       id: 'ready_to_buy', label: 'Ready to Buy',
-      count: buyers.filter(b => stageKey(b.stage) === 'property_finalization').length, color: 'indigo'
+      count: roleFilteredBuyers.filter(b => stageKey(b.stage) === 'property_finalization').length, color: 'indigo'
     }
   ];
 
-  // static lists only for sources/budget/propertyTypes
   const sources = ['all', 'Website', 'Referral', 'Social Media', 'Advertisement', 'Walk-in', 'Cold Call'];
   const budgetRanges = ['all', '0-50L', '50L-1Cr', '1Cr-2Cr', '2Cr-5Cr', '5Cr+'];
   const propertyTypes = ['all', 'Residential', 'Commercial'];
@@ -747,7 +940,7 @@ const BuyersPage = () => {
   };
 
   /* ---------------- Filtered & Paginated ---------------- */
-  const filteredBuyers = buyers.filter(buyer => {
+  const filteredBuyers = roleFilteredBuyers.filter(buyer => {
     const s = searchTerm.toLowerCase();
 
     const matchesSearch =
@@ -786,15 +979,11 @@ const BuyersPage = () => {
   });
 
   const filteredSortedBuyers = [...filteredBuyers].sort((a, b) => {
-    // सबसे पहले created_at से sort करें
     const aCreated = new Date(a.created_at || 0).getTime();
     const bCreated = new Date(b.created_at || 0).getTime();
-
-    // अगर created_at same है तो lastActivity से sort करें
     if (aCreated !== bCreated) {
-      return bCreated - aCreated; // नए से पुराने
+      return bCreated - aCreated;
     }
-
     const aLastActivity = new Date(a.lastActivity || 0).getTime();
     const bLastActivity = new Date(b.lastActivity || 0).getTime();
     return bLastActivity - aLastActivity;
@@ -811,17 +1000,29 @@ const BuyersPage = () => {
   };
 
   const handleEditBuyer = (buyer: UIBuyer) => {
+    if (!canEditBuyer(buyer)) {
+      toast.error('You do not have permission to edit this buyer');
+      return;
+    }
     setEditingBuyer(buyer);
     setShowBuyerForm(true);
   };
 
   const handleViewBuyer = (buyer: UIBuyer) => {
+    if (!canViewBuyer(buyer)) {
+      toast.error('You do not have permission to view this buyer');
+      return;
+    }
     const index = filteredSortedBuyers.findIndex(b => b.id === buyer.id);
     setCurrentBuyerIndex(index >= 0 ? index : 0);
     setCurrentBuyerView(buyer);
   };
 
   const handleBuyerAccount = (buyer: UIBuyer) => {
+    if (!canViewBuyer(buyer)) {
+      toast.error('You do not have permission to view this buyer account');
+      return;
+    }
     navigate(`/dashboard/buyers-account/${buyer.id}`);
   };
 
@@ -832,67 +1033,93 @@ const BuyersPage = () => {
   };
 
   const handleDeleteBuyer = async (buyerId: number | string) => {
+    const buyer = allBuyers.find(b => b.id === buyerId);
+    if (!buyer) return;
+
+    if (!canDeleteBuyer(buyer)) {
+      toast.error('You do not have permission to delete this buyer');
+      return;
+    }
+
     if (!window.confirm('Are you sure you want to delete this buyer?')) return;
     try {
       await buyerAPI.delete(String(buyerId));
-      setBuyers(prev => prev.filter(b => b.id !== buyerId));
+      setAllBuyers(prev => prev.filter(b => b.id !== buyerId));
       toast.success('Buyer deleted successfully');
     } catch (err) {
-      console.error('Error deleting buyer:', err);
       toast.error('Failed to delete buyer. Please try again.');
     }
   };
 
-  /* ---------------- Save Buyer ---------------- */
-  const handleSaveBuyer = async (buyerData: any) => {
-    const apiData = normalizeBuyerForAPI(buyerData);
-
+  /* ===================== ✅ FIXED: Save Buyer Function ===================== */
+  const handleSaveBuyer = async (response: any) => {
     try {
-      let savedBuyer;
+      if (!response) {
+        throw new Error('No response received from server');
+      }
+
+      const normalizedBuyer = normalizeBuyerForUI({
+        ...response,
+        assigned_executive: response.assigned_executive ?? user?.id ?? null,
+      });
+
+
       if (editingBuyer) {
-        // UPDATE - सिर्फ update करें, sorting नहीं
-        savedBuyer = await buyerAPI.update(String(editingBuyer.id), apiData);
-        const normalized = normalizeBuyerForUI(savedBuyer);
-        // Update match count for the updated buyer
-        const updatedWithMatchCount = {
-          ...normalized,
-          matchedPropertiesCount: countMatchingProperties(normalized)
-        };
-        setBuyers(prev =>
-          prev.map(b => b.id === editingBuyer.id ? { ...updatedWithMatchCount, id: editingBuyer.id } : b)
-        );
+        // ✅ UPDATE: Replace existing buyer
+        setAllBuyers(prev => prev.map(b =>
+          b.id === editingBuyer.id ? normalizedBuyer : b
+        ));
+        toast.success('Buyer updated successfully');
       } else {
-        // CREATE - नया record सबसे ऊपर जोड़ें
-        savedBuyer = await buyerAPI.create(apiData);
-        const normalized = normalizeBuyerForUI(savedBuyer);
-        // Calculate match count for new buyer
-        const newWithMatchCount = {
-          ...normalized,
-          matchedPropertiesCount: countMatchingProperties(normalized)
-        };
-        setBuyers(prev => [{ ...newWithMatchCount }, ...prev]);
+        // ✅ CREATE: Add new buyer at the beginning
+        setAllBuyers(prev => [normalizedBuyer, ...prev]);
+        toast.success('Buyer created successfully');
       }
 
       setShowBuyerForm(false);
       setEditingBuyer(null);
       setCurrentPage(1);
-      setTimeout(() => tableScrollRef.current?.scrollTo(0, 0), 0);
-      toast.success(editingBuyer ? 'Buyer updated successfully' : 'Buyer created successfully');
-    } catch (err) {
-      console.error('Error saving buyer:', err);
-      toast.error('Failed to save buyer. Please check the data and try again.');
+
+      // Scroll to top to see the new/updated buyer
+      setTimeout(() => {
+        if (tableScrollRef.current) {
+          tableScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 100);
+
+    } catch (err: any) {
+      console.error('Error in handleSaveBuyer:', err);
+      toast.error(err.message || 'Failed to save buyer');
+
+      // Refresh list to get correct data
+      fetchBuyers();
     }
   };
 
   const handleBuyerSelection = (buyerId: number | string) => {
+    const buyer = roleFilteredBuyers.find(b => b.id === buyerId);
+    if (!buyer || !canViewBuyer(buyer)) {
+      toast.error('You do not have permission to select this buyer');
+      return;
+    }
     setSelectedBuyers(prev =>
       prev.includes(buyerId) ? prev.filter(id => id !== buyerId) : [...prev, buyerId]
     );
   };
 
   const handleSelectAll = () => {
-    if (selectedBuyers.length === paginatedBuyers.length && paginatedBuyers.length > 0) setSelectedBuyers([]);
-    else setSelectedBuyers(paginatedBuyers.map(b => b.id));
+    // Only select buyers that user can view
+    const selectableBuyers = paginatedBuyers.filter(b => {
+      if (isAdmin) return true;
+      if (isExecutive) return String(b.assigned_executive) === String(user?.id);
+      return false;
+    });
+
+    if (selectedBuyers.length === selectableBuyers.length && selectableBuyers.length > 0) {
+      setSelectedBuyers([]);
+    } else {
+      setSelectedBuyers(selectableBuyers.map(b => b.id));
+    }
   };
 
   const handleNextBuyer = () => {
@@ -918,31 +1145,51 @@ const BuyersPage = () => {
       return;
     }
 
+    // Check if user has permission to assign
+    if (!canAssign) {
+      toast.error('You do not have permission to assign executives');
+      return;
+    }
+
+    if (user?.role?.toLowerCase().includes('executive')) {
+      if (executiveId !== 0 && String(executiveId) !== String(user.id)) {
+        toast.error("You can only assign buyers to yourself");
+        return;
+      }
+    }
+
+
     try {
       const buyerIds = selectedBuyers.map(id => String(id));
-      await buyerAPI.bulkAssignExecutive(buyerIds, executiveId, false);
+      const apiExecutiveId = executiveId === 0 ? null : executiveId;
 
-      // Update local state
-      const executive = executives.find(exec => exec.id == executiveId);
-      setBuyers(prev => prev.map(buyer =>
-        selectedBuyers.includes(buyer.id)
-          ? {
-            ...buyer,
-            assigned_executive: executiveId,
-            assigned_executive_name: executive?.name || null,
-            assigned_executive_email: executive?.email || null,
-            assigned_executive_phone: executive?.phone || null
-          }
-          : buyer
-      ));
+      const result = await buyerAPI.bulkAssignExecutive(buyerIds, apiExecutiveId, false);
 
-      setSelectedBuyers([]);
-      setSelectedExecId(null);
-      setExecDropdownOpen(false);
-      toast.success(`Executive assigned to ${selectedBuyers.length} buyer(s) successfully`);
-    } catch (err) {
-      console.error('Error assigning executive:', err);
-      toast.error('Failed to assign executive');
+      if (result.success) {
+        // Find executive details
+        const executive = executives.find(exec => exec.id == executiveId);
+        const execName = executive ? executive.name : 'Not assigned';
+
+        // Update all buyers
+        setAllBuyers(prev => prev.map(buyer =>
+          selectedBuyers.includes(buyer.id)
+            ? {
+              ...buyer,
+              assigned_executive: apiExecutiveId,
+              assigned_executive_name: execName !== 'Not assigned' ? execName : null,
+            }
+            : buyer
+        ));
+
+        setSelectedBuyers([]);
+        setSelectedExecId(null);
+        setExecDropdownOpen(false);
+        toast.success(`Executive assigned to ${selectedBuyers.length} buyer(s) successfully`);
+      } else {
+        toast.error(result.message || 'Failed to assign executive');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to assign executive');
     }
   };
 
@@ -950,6 +1197,15 @@ const BuyersPage = () => {
   const handleBulkDelete = () => {
     if (selectedBuyers.length === 0) {
       toast.info('⚠️ No buyers selected for deletion.', { position: 'top-center' });
+      return;
+    }
+
+    // Check if user has permission to delete all selected buyers
+    const buyersToDelete = allBuyers.filter(b => selectedBuyers.includes(b.id));
+    const unauthorizedBuyers = buyersToDelete.filter(b => !canDeleteBuyer(b));
+
+    if (unauthorizedBuyers.length > 0) {
+      toast.error(`You do not have permission to delete ${unauthorizedBuyers.length} buyer(s)`);
       return;
     }
 
@@ -965,16 +1221,15 @@ const BuyersPage = () => {
             <button
               className="px-4 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
               onClick={async () => {
-                const prevBuyers = buyers;
+                const prevBuyers = allBuyers;
                 try {
                   setBulkDeleting(true);
-                  setBuyers(prev => prev.filter(b => !ids.includes(String(b.id))));
+                  setAllBuyers(prev => prev.filter(b => !ids.includes(String(b.id))));
                   setSelectedBuyers([]);
                   await buyerAPI.bulkDelete(ids, false);
                   toast.success(`🗑️ ${ids.length} buyer(s) deleted successfully.`);
                 } catch (err) {
-                  console.error('Error bulk deleting buyers:', err);
-                  setBuyers(prevBuyers);
+                  setAllBuyers(prevBuyers);
                   toast.error('❌ Failed to delete buyers. Try again.');
                 } finally {
                   setBulkDeleting(false);
@@ -1009,37 +1264,54 @@ const BuyersPage = () => {
       return;
     }
 
+    // Check permission
+    if (!canUpdate) {
+      toast.error('You do not have permission to update buyers');
+      return;
+    }
+
+    // Check if user can update all selected buyers
+    const buyersToUpdate = allBuyers.filter(b => selectedBuyers.includes(b.id));
+    const unauthorizedBuyers = buyersToUpdate.filter(b => !canEditBuyer(b));
+
+    if (unauthorizedBuyers.length > 0) {
+      toast.error(`You do not have permission to update ${unauthorizedBuyers.length} buyer(s)`);
+      return;
+    }
+
     try {
       const buyerIds = selectedBuyers.map(id => String(id));
-      await buyerAPI.bulkUpdateLeadField(buyerIds, field, value, onlyEmpty);
+      const result = await buyerAPI.bulkUpdateLeadField(buyerIds, field, value, onlyEmpty);
 
-      // Update local state
-      setBuyers(prev => prev.map(buyer => {
-        if (!selectedBuyers.includes(buyer.id)) return buyer;
+      if (result.success) {
+        setAllBuyers(prev => prev.map(buyer => {
+          if (!selectedBuyers.includes(buyer.id)) return buyer;
 
-        const updatedBuyer = { ...buyer };
-        switch (field) {
-          case 'buyer_lead_stage':
-            updatedBuyer.stage = value;
-            updatedBuyer.currentStage = value;
-            break;
-          case 'buyer_lead_status':
-            updatedBuyer.status = value;
-            break;
-          case 'buyer_lead_priority':
-            updatedBuyer.priority = value;
-            break;
-          case 'is_active':
-            updatedBuyer.is_active = !!Number(value);
-            break;
-        }
-        return updatedBuyer;
-      }));
+          const updatedBuyer = { ...buyer };
+          switch (field) {
+            case 'buyer_lead_stage':
+              updatedBuyer.stage = value;
+              updatedBuyer.currentStage = value;
+              break;
+            case 'buyer_lead_status':
+              updatedBuyer.status = value;
+              break;
+            case 'buyer_lead_priority':
+              updatedBuyer.priority = value;
+              break;
+            case 'is_active':
+              updatedBuyer.is_active = !!Number(value);
+              break;
+          }
+          return updatedBuyer;
+        }));
 
-      setSelectedBuyers([]);
-      toast.success('Field updated successfully');
+        setSelectedBuyers([]);
+        toast.success('Field updated successfully');
+      } else {
+        toast.error(result.message || 'Failed to update field');
+      }
     } catch (err) {
-      console.error('Error bulk updating field:', err);
       toast.error('Failed to update field');
     }
   };
@@ -1048,7 +1320,7 @@ const BuyersPage = () => {
   const exportToCSV = (mode: 'filtered' | 'selected' | 'all' = 'filtered') => {
     let source: UIBuyer[] = [];
     if (mode === 'selected') {
-      source = buyers.filter(b => selectedBuyers.includes(b.id));
+      source = roleFilteredBuyers.filter(b => selectedBuyers.includes(b.id));
       if (selectedBuyers.length === 0) {
         toast.info('No buyers selected to export.');
         return;
@@ -1060,7 +1332,7 @@ const BuyersPage = () => {
         return;
       }
     } else {
-      source = buyers;
+      source = roleFilteredBuyers;
       if (!source || source.length === 0) {
         toast.info('No buyers available to export.');
         return;
@@ -1085,7 +1357,7 @@ const BuyersPage = () => {
       { key: 'leadScore', label: 'Lead Score' },
       { key: 'budgetMin', label: 'Budget Min' },
       { key: 'budgetMax', label: 'Budget Max' },
-      { key: 'matchedPropertiesCount', label: 'Property Matches' }, // NEW: Added match count
+      { key: 'matchedPropertiesCount', label: 'Property Matches' },
       { key: 'requirements', label: 'Requirements' },
       { key: 'created_at', label: 'Created At' },
     ];
@@ -1125,7 +1397,7 @@ const BuyersPage = () => {
         leadScore: b.leadScore ?? '',
         budgetMin,
         budgetMax,
-        matchedPropertiesCount: b.matchedPropertiesCount ?? 0, // NEW: Include match count
+        matchedPropertiesCount: b.matchedPropertiesCount ?? 0,
         requirements: reqSummary,
         created_at: b.created_at ? new Date(b.created_at).toISOString() : '',
       };
@@ -1166,16 +1438,14 @@ const BuyersPage = () => {
     });
   };
 
-  // ✅ FIXED: Calculate column span based on permissions
+  // Calculate column span based on permissions
   const getColSpan = () => {
     let colSpan = 8; // Base columns without actions and checkbox
 
-    // Checkbox column - show if user has any bulk operation permission
     if (canUpdate || canDelete || canAssign || canBulkDelete) {
       colSpan += 1;
     }
 
-    // ✅ FIXED: Actions column - show if user has read permission
     if (shouldShowActionsColumn) {
       colSpan += 1;
     }
@@ -1197,7 +1467,7 @@ const BuyersPage = () => {
           currentIndex={currentBuyerIndex}
           totalBuyers={filteredSortedBuyers.length}
           onUpdateBuyer={(updatedBuyer: UIBuyer) => {
-            setBuyers(prev => {
+            setAllBuyers(prev => {
               const next = prev.map(b => (b.id === updatedBuyer.id ? updatedBuyer : b));
               return next.sort((a, b) => {
                 const ad = new Date(a.created_at || a.lastActivity || 0).getTime();
@@ -1242,7 +1512,6 @@ const BuyersPage = () => {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            {/* Import Button - Conditional */}
             {canImport && (
               <button
                 onClick={() => setShowImportBuyers(true)}
@@ -1252,7 +1521,6 @@ const BuyersPage = () => {
                 <span>Import</span>
               </button>
             )}
-            {/* Add Buyer Button - Conditional */}
             {canCreate && (
               <button
                 onClick={handleAddBuyer}
@@ -1335,7 +1603,6 @@ const BuyersPage = () => {
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-            {/* Export Button - Conditional */}
             {canExport && (
               <button
                 onClick={() => exportToCSV('filtered')}
@@ -1348,11 +1615,40 @@ const BuyersPage = () => {
           </div>
         </div>
 
+        {/* Role-based visibility hint */}
+        {isExecutive && (
+          <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 text-xs text-blue-700 flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="mr-2">
+                <UserCheck size={14} className="text-blue-500" />
+              </div>
+              <div>
+                <strong className="font-semibold">Visibility Note:</strong>{' '}
+                You are viewing {roleFilteredBuyers.length} buyer(s) -{' '}
+                {roleFilteredBuyers.filter(b => String(b.assigned_executive) === String(user?.id)).length} assigned to you
+                {showUnassignedToExecutives && roleFilteredBuyers.filter(b => !b.assigned_executive).length > 0 && (
+                  <> + {roleFilteredBuyers.filter(b => !b.assigned_executive).length} unassigned</>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center text-[10px]">
+                <input
+                  type="checkbox"
+                  checked={showUnassignedToExecutives}
+                  onChange={(e) => setShowUnassignedToExecutives(e.target.checked)}
+                  className="mr-1 h-3 w-3"
+                />
+                Show unassigned
+              </label>
+            </div>
+          </div>
+        )}
+
         {/* Quick Filters */}
         <div className="flex flex-wrap items-center gap-2 mt-3">
           <span className="text-xs font-medium text-gray-500">Quick:</span>
 
-          {/* Stages from masters */}
           {(() => {
             const quickStages = ['all', ...effectiveStageOptions.map(o => o.value).slice(0, 4)];
             return quickStages.map(stage => (
@@ -1378,7 +1674,6 @@ const BuyersPage = () => {
             ));
           })()}
 
-          {/* Priorities from masters */}
           {effectivePriorityOptions.map(opt => (
             <button
               key={opt.value}
@@ -1421,56 +1716,115 @@ const BuyersPage = () => {
               </span>
 
               <div className="flex items-center flex-wrap gap-2">
-                {/* Executive Assignment Dropdown - Conditional */}
+                {/* Executive Assignment Dropdown */}
                 {canAssign && (
                   <div className="relative" ref={dropdownRef}>
                     <button
                       onClick={() => setExecDropdownOpen(!execDropdownOpen)}
-                      className="flex items-center space-x-2 px-3 py-1 bg-white border border-gray-300 rounded text-xs hover:bg-gray-50"
+                      className="flex items-center space-x-2 px-3 py-1.5 bg-white border border-gray-300 rounded text-xs hover:bg-gray-50 transition-colors"
                     >
                       <UserCheck size={12} />
                       <span>Assign Executive</span>
+                      {selectedExecId && (
+                        <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px]">
+                          {executives.find(e => e.id == selectedExecId)?.name || 'Selected'}
+                        </span>
+                      )}
                     </button>
 
                     {execDropdownOpen && (
-                      <div className="absolute top-8 left-0 z-20 w-36 bg-white border border-gray-200 rounded-lg shadow-lg">
-                        <div className="p-2 border-b">
-                          <input
-                            type="text"
-                            placeholder="Search executives..."
-                            value={execSearch}
-                            onChange={(e) => setExecSearch(e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                          />
+                      <div className="absolute top-10 left-0 z-50 w-64 bg-white border border-gray-200 rounded-lg shadow-lg">
+                        <div className="p-3 border-b">
+                          <div className="text-sm font-medium text-gray-700 mb-2">Assign Executive</div>
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
+                            <input
+                              type="text"
+                              placeholder="Search executives..."
+                              value={execSearch}
+                              onChange={(e) => setExecSearch(e.target.value)}
+                              className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              autoFocus
+                            />
+                          </div>
                         </div>
-                        <div className="max-h-48 overflow-auto">
+
+                        <div className="max-h-64 overflow-auto">
                           {execsLoading ? (
-                            <div className="p-2 text-xs text-gray-500">Loading executives...</div>
+                            <div className="p-4 text-center">
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto mb-2"></div>
+                              <div className="text-xs text-gray-500">Loading executives...</div>
+                            </div>
                           ) : filteredExecutives.length === 0 ? (
-                            <div className="p-2 text-xs text-gray-500">No executives found</div>
+                            <div className="p-4 text-center">
+                              <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                              <div className="text-sm font-medium text-gray-700 mb-1">
+                                {executives.length === 0 ? 'No executives available' : 'No matching executives'}
+                              </div>
+                              <div className="text-xs text-gray-500 mb-3">
+                                {executives.length === 0
+                                  ? "Create sales executives in User Management"
+                                  : "Try a different search term"}
+                              </div>
+                              {executives.length === 0 && canUpdate && (
+                                <button
+                                  onClick={() => {
+                                    navigate('/dashboard/users?role=Sales+Executive');
+                                    setExecDropdownOpen(false);
+                                  }}
+                                  className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded text-xs hover:bg-purple-200 transition-colors"
+                                >
+                                  Go to User Management
+                                </button>
+                              )}
+                            </div>
                           ) : (
                             <>
                               <button
                                 onClick={() => {
                                   handleAssignExecutive(null);
+                                  setSelectedExecId(null);
                                   setExecDropdownOpen(false);
+                                  setExecSearch('');
                                 }}
-                                className="text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 border-b"
+                                className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b flex items-center transition-colors"
                               >
-                                Unassign Executive
+                                <UserX size={14} className="mr-2 text-gray-400" />
+                                <div>
+                                  <div className="font-medium">Unassign Executive</div>
+                                  <div className="text-xs text-gray-500">Remove executive assignment</div>
+                                </div>
                               </button>
-                              {filteredExecutives.map((exec) => (
-                                <button
-                                  key={exec.id}
-                                  onClick={() => {
-                                    handleAssignExecutive(exec.id);
-                                    setExecDropdownOpen(false);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="font-medium">{exec.name}</div>
-                                </button>
-                              ))}
+
+                              {filteredExecutives
+                                .filter(exec => exec.id !== 0) // Remove unassigned from main list
+                                .map((exec) => (
+                                  <button
+                                    key={exec.id}
+                                    onClick={() => {
+                                      setSelectedExecId(exec.id);
+                                      handleAssignExecutive(exec.id);
+                                      setExecDropdownOpen(false);
+                                      setExecSearch('');
+                                    }}
+                                    className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b last:border-b-0 transition-colors ${selectedExecId == exec.id ? 'bg-blue-50' : ''}`}
+                                  >
+                                    <div className="flex justify-between items-start">
+                                      <div>
+                                        <div className="font-medium text-gray-900 text-sm">
+                                          {exec.name}
+                                          {exec.id === user?.id && (
+                                            <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">You</span>
+                                          )}
+                                        </div>
+                                        {exec.department || 'Sales'} • {exec.role || 'Sales Executive'}
+                                      </div>
+                                      {exec.id !== 0 && exec.id === user?.id && (
+                                        <span className="text-[8px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Current</span>
+                                      )}
+                                    </div>
+                                  </button>
+                                ))}
                             </>
                           )}
                         </div>
@@ -1479,7 +1833,7 @@ const BuyersPage = () => {
                   </div>
                 )}
 
-                {/* Bulk: Update Stage from Masters - Conditional */}
+                {/* Bulk: Update Stage from Masters */}
                 {canUpdate && (
                   <select
                     onChange={(e) => {
@@ -1488,7 +1842,7 @@ const BuyersPage = () => {
                       handleBulkUpdateLeadField('buyer_lead_stage', v);
                       e.currentTarget.selectedIndex = 0;
                     }}
-                    className="px-3 py-1 border border-gray-300 rounded text-xs"
+                    className="px-3 py-1.5 border border-gray-300 rounded text-xs"
                   >
                     <option value="">Update Stage</option>
                     {effectiveStageOptions.map(opt => (
@@ -1497,7 +1851,7 @@ const BuyersPage = () => {
                   </select>
                 )}
 
-                {/* Bulk: Update Priority from Masters - Conditional */}
+                {/* Bulk: Update Priority from Masters */}
                 {canUpdate && (
                   <select
                     onChange={(e) => {
@@ -1506,7 +1860,7 @@ const BuyersPage = () => {
                       handleBulkUpdateLeadField('buyer_lead_priority', v);
                       e.currentTarget.selectedIndex = 0;
                     }}
-                    className="px-3 py-1 border border-gray-300 rounded text-xs"
+                    className="px-3 py-1.5 border border-gray-300 rounded text-xs"
                   >
                     <option value="">Update Priority</option>
                     {effectivePriorityOptions.map(opt => (
@@ -1515,47 +1869,47 @@ const BuyersPage = () => {
                   </select>
                 )}
 
-                {/* NEW: Bulk Activate / Inactivate - Conditional */}
+                {/* Bulk Activate / Inactivate */}
                 {canUpdate && (
                   <>
                     <button
                       onClick={() => handleBulkUpdateLeadField('is_active', 1)}
-                      className="px-3 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-700"
+                      className="px-3 py-1.5 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-700 transition-colors"
                     >
                       Mark Active
                     </button>
                     <button
                       onClick={() => handleBulkUpdateLeadField('is_active', 0)}
-                      className="px-3 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700"
+                      className="px-3 py-1.5 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 transition-colors"
                     >
                       Mark Inactive
                     </button>
                   </>
                 )}
 
-                {/* Export - Conditional */}
+                {/* Export */}
                 {canExport && (
                   <button
                     onClick={() => exportToCSV('selected')}
-                    className="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                    className="px-3 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors"
                   >
                     Export
                   </button>
                 )}
 
-                {/* Delete - Conditional */}
+                {/* Delete */}
                 {canBulkDelete && (
                   <button
                     onClick={handleBulkDelete}
                     disabled={bulkDeleting}
-                    className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {bulkDeleting ? 'Deleting...' : 'Delete'}
                   </button>
                 )}
               </div>
             </div>
-            <button onClick={() => setSelectedBuyers([])} className="text-purple-600 hover:text-purple-800">
+            <button onClick={() => setSelectedBuyers([])} className="text-purple-600 hover:text-purple-800 transition-colors">
               <X size={16} />
             </button>
           </div>
@@ -1568,7 +1922,6 @@ const BuyersPage = () => {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 sticky top-0">
               <tr>
-                {/* Selection Checkbox - Conditional */}
                 {(canUpdate || canDelete || canAssign || canBulkDelete) && (
                   <th className="px-3 py-2 text-left w-8">
                     <input
@@ -1581,14 +1934,12 @@ const BuyersPage = () => {
                 )}
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Buyer Details</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Contact & Location</th>
-                {/* ✅ NEW Business Info Column */}
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Business Info</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Requirements & Budget</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Progress & Activity</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
 
-                {/* ✅ FIXED: Actions column - show if user has read permission */}
                 {shouldShowActionsColumn && (
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     {hasAnyActionPermission ? 'Actions' : 'View'}
@@ -1598,271 +1949,286 @@ const BuyersPage = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-100 ">
               {loading ? (
-                <tr >
-                  <td colSpan={getColSpan()} > {/* ✅ Dynamic colSpan */}
+                <tr>
+                  <td colSpan={getColSpan()}>
                     <div className="w-full flex items-center justify-center">
                       <TableLoader colSpan={getColSpan()} message="Loading buyers..." size="lg" />
                     </div>
                   </td>
                 </tr>
               ) : paginatedBuyers.length > 0 ? (
-                paginatedBuyers.map((buyer) => (
-                  <tr key={buyer.id} className="hover:bg-gray-50 transition-colors">
-                    {/* Selection Checkbox - Conditional */}
-                    {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                paginatedBuyers.map((buyer) => {
+                  const { name: execName, isCurrentUser } = resolveExecutiveName(buyer.assigned_executive);
+
+                  return (
+                    <tr key={buyer.id} className="hover:bg-gray-50 transition-colors">
+                      {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                        <td className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedBuyers.includes(buyer.id)}
+                            onChange={() => handleBuyerSelection(buyer.id)}
+                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          />
+                        </td>
+                      )}
+
+                      {/* Buyer Details */}
                       <td className="px-3 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedBuyers.includes(buyer.id)}
-                          onChange={() => handleBuyerSelection(buyer.id)}
-                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                        />
+                        <div className="flex items-center space-x-3">
+                          <div className="flex flex-col items-center space-y-1">
+                            <div className="p-1.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
+                              <User className="text-white" size={14} />
+                            </div>
+                            <div className="text-[10px] text-[#0b3856] bg-[#0b3856]/10 px-2 py-0.5 rounded-md inline-block">
+                              Id : {buyer.id}
+                            </div>
+                          </div>
+
+                          <div>
+                            <button
+                              onClick={() => handleViewBuyer(buyer)}
+                              className="font-semibold text-gray-900 text-sm hover:text-purple-600 text-left"
+                            >
+                              <div>{safeStr(buyer.salutation)} {safeStr(buyer.name)}</div>
+                              {buyer.dob && <div className="text-gray-500 text-xs">{formatDOB(buyer.dob)}</div>}
+                            </button>
+                            <div className="flex items-center space-x-1 mt-1">
+                              {getStatusBadge(buyer.is_active)}
+                              {getLeadScore(buyer.leadScore)}
+                            </div>
+                          </div>
+                        </div>
                       </td>
-                    )}
 
-                    <td className="px-3 py-3">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex flex-col items-center space-y-1">
-                          <div className="p-1.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
-                            <User className="text-white" size={14} />
+                      <td className="px-3 py-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-1 text-xs">
+                            <Phone size={10} className="text-gray-400" />
+                            <span className="font-medium">{safeStr(buyer.phone)}</span>
                           </div>
-                          <div className="text-[10px] text-[#0b3856] bg-[#0b3856]/10 px-2 py-0.5 rounded-md inline-block">
-                            Id : {buyer.id}
+                          <div className="flex items-center space-x-1 text-xs">
+                            <Mail size={10} className="text-gray-400" />
+                            <span className="truncate max-w-24">{safeStr(buyer.email)}</span>
                           </div>
-                        </div>
-
-                        <div>
-                          <div className="font-semibold text-gray-900 text-sm">
-                            <div>{safeStr(buyer.salutation)} {safeStr(buyer.name)}</div>
-                            {buyer.dob && <div className="text-gray-500 text-xs">{formatDOB(buyer.dob)}</div>}
-                          </div>
-                          <div className="flex items-center space-x-1 mt-1">
-                            {getStatusBadge(buyer.is_active)}
-                            {getLeadScore(buyer.leadScore)}
+                          <div className="flex items-center space-x-1 text-xs">
+                            <MapPin size={10} className="text-gray-400" />
+                            <span>{safeStr(buyer.location)}{buyer.city ? `, ${buyer.city}` : ''}</span>
                           </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="px-3 py-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-1 text-xs">
-                          <Phone size={10} className="text-gray-400" />
-                          <span className="font-medium">{safeStr(buyer.phone)}</span>
-                        </div>
-                        <div className="flex items-center space-x-1 text-xs">
-                          <Mail size={10} className="text-gray-400" />
-                          <span className="truncate max-w-24">{safeStr(buyer.email)}</span>
-                        </div>
-                        <div className="flex items-center space-x-1 text-xs">
-                          <MapPin size={10} className="text-gray-400" />
-                          <span>{safeStr(buyer.location)}{buyer.city ? `, ${buyer.city}` : ''}</span>
-                        </div>
-                        {/* ✅ Source को यहाँ से हटा दिया - अब Business Info में दिखेगा */}
-                      </div>
-                    </td>
+                      {/* Business Info Column */}
+                      <td className="px-3 py-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-1">
+                            <div className="text-xs">
+                              <span className="text-gray-500">Source:</span>{' '}
+                              <span className="font-medium text-blue-700">
+                                {buyer.source || 'Not specified'}
+                              </span>
+                            </div>
+                          </div>
 
-                    {/* ✅ NEW Business Info Column */}
-                    <td className="px-3 py-3">
-                      <div className="space-y-2">
-                        {/* Source */}
-                        <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-1">
+                            <div className="text-xs">
+                              {getPriorityBadge(buyer.priority)}
+                            </div>
+                          </div>
 
+                          {buyer.created_at && (
+                            <div className="text-xs text-gray-500">
+                              Created: {formatDate(buyer.created_at)}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* ✅ FIXED: Assigned To Column */}
+                      <td className="px-3 py-3">
+                        <div className="space-y-1">
+                          {buyer.assigned_executive ? (
+                            <>
+                              <div className="flex items-center space-x-1 text-xs">
+                                <UserCheck size={10} className={isCurrentUser ? "text-green-500" : "text-blue-500"} />
+                                <span className={`font-medium ${isCurrentUser ? "text-green-700" : "text-blue-700"}`}>
+                                  {execName}
+                                </span>
+                                {isCurrentUser && (
+                                  <span className="text-[8px] bg-green-100 text-green-700 px-1 rounded">(You)</span>
+                                )}
+                              </div>
+                              {/* Debug info */}
+                              <div className="text-[8px] text-gray-400">
+                                ID: {buyer.assigned_executive}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-500">Not assigned</span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3">
+                        <div className="space-y-1">
                           <div className="text-xs">
-                            <span className="text-gray-500">Source:</span>{' '}
-                            <span className="font-medium text-blue-700">
-                              {buyer.source || 'Not specified'}
+                            <span className="text-gray-500">Property:</span>{' '}
+                            {buyer.requirements?.propertyType || '—'}
+                          </div>
+                          <div className="text-xs">
+                            <span className="text-gray-500">Types:</span>{' '}
+                            {safeStr(buyer.requirements?.unitTypes)}
+                          </div>
+                          <div className="text-xs">
+                            <span className="text-gray-500">Budget:</span>
+                            <span className="font-medium text-green-600 ml-1">
+                              {formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}
                             </span>
                           </div>
                         </div>
+                      </td>
 
-                        {/* Priority */}
-                        <div className="flex items-center space-x-1">
-
-                          <div className="text-xs">
-
-                            {getPriorityBadge(buyer.priority)}
-                          </div>
-                        </div>
-
-
-                        {/* Created Date */}
-                        {buyer.created_at && (
-                          <div className="text-xs text-gray-500">
-                            Created: {formatDate(buyer.created_at)}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="px-3 py-3">
-                      <div className="space-y-1">
-                        {buyer.assigned_executive_name ? (
-                          <>
-                            <div className="flex items-center space-x-1 text-xs">
-                              <UserCheck size={10} className="text-green-500" />
-                              <span className="font-medium text-green-700">{buyer.assigned_executive_name}</span>
-                            </div>
-                            {buyer.assigned_executive_email && (
-                              <div className="flex items-center space-x-1 text-xs">
-                                <Mail size={10} className="text-gray-400" />
-                                <span className="text-gray-600 truncate max-w-24">{buyer.assigned_executive_email}</span>
-                              </div>
-                            )}
-                            {buyer.assigned_executive_phone && (
-                              <div className="flex items-center space-x-1 text-xs">
-                                <Phone size={10} className="text-gray-400" />
-                                <span className="text-gray-600">{buyer.assigned_executive_phone}</span>
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-xs text-gray-500">Not assigned</span>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="px-3 py-3">
-                      <div className="space-y-1">
-                        <div className="text-xs">
-                          <span className="text-gray-500">Property:</span>{' '}
-                          {buyer.requirements?.propertyType || '—'}
-                        </div>
-                        <div className="text-xs">
-                          <span className="text-gray-500">Types:</span>{' '}
-                          {safeStr(buyer.requirements?.unitTypes)}
-                        </div>
-                        <div className="text-xs">
-                          <span className="text-gray-500">Budget:</span>
-                          <span className="font-medium text-green-600 ml-1">
-                            {formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}
-                          </span>
-                        </div>
-                        {/* ✅ Priority को यहाँ से हटा दिया - अब Business Info में दिखेगा */}
-                      </div>
-                    </td>
-
-                    <td className="px-3 py-3">
-                      <div className="space-y-2">
-                        {getStageBadge(buyer.stage)}
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
-                          <div
-                            className="bg-gradient-to-r from-purple-500 to-pink-500 h-1.5 rounded-full transition-all"
-                            style={{ width: `${buyer.stageProgress || 0}%` } as React.CSSProperties}
-                          />
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Last: {formatDate(buyer.lastActivity)}
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-3 py-3">
-                      <div className="space-y-1">
-
-                        {/* NEW: Property Matches Count in Performance Section */}
-                        <div className="flex items-center space-x-2 text-xs">
-                          <Target size={10} className="text-green-500" />
-                          <span className={`font-medium ${(buyer.matchedPropertiesCount || 0) > 0
-                            ? 'text-green-600'
-                            : 'text-gray-500'
-                            }`}>
-                            {buyer.matchedPropertiesCount || 0} matches
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2 text-xs">
-                          <Activity size={10} className="text-green-500" />
-                          <span>{buyer.activities?.length ?? 0} activities</span>
-                        </div>
-                        <div className="flex items-center space-x-2 text-xs">
-                          <Eye size={10} className="text-purple-500" />
-                          <span>{buyer.visits ?? 0} visits</span>
-                        </div>
-                        <div className="flex items-center space-x-2 text-xs">
-                          <TrendingUp size={10} className="text-orange-500" />
-                          <span>{buyer.responseRate ? `${buyer.responseRate}% response` : ' - '}</span>
-                        </div>
-                        {buyer.notifications > 0 && (
-                          <div className="flex items-center space-x-1 text-xs">
-                            <Bell size={10} className="text-red-500" />
-                            <span className="text-red-600 font-medium">{buyer.notifications}</span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* ✅ FIXED: Actions Column - Always show if user can read */}
-                    {shouldShowActionsColumn && (
                       <td className="px-3 py-3">
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => handleViewBuyer(buyer)}
-                            className="p-1.5 text-purple-600 hover:bg-purple-100 rounded transition-colors"
-                            title="View Details"
-                          >
-                            <Eye size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleBuyerAccount(buyer)}
-                            className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors"
-                            title="Buyer Account"
-                          >
-                            <UserCheck size={14} />
-                          </button>
-                          {/* Edit Button - Conditional */}
-                          {canUpdate && (
-                            <button
-                              onClick={() => handleEditBuyer(buyer)}
-                              className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
-                              title="Edit"
-                            >
-                              <Edit size={14} />
-                            </button>
-                          )}
-                          <div className="relative group">
-                            <button className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors">
-                              <MoreHorizontal size={14} />
-                            </button>
-                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                              <div className="p-1">
-                                <button className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left">
-                                  <PhoneCall size={12} />
-                                  <span>Call</span>
-                                </button>
-                                <button className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left">
-                                  <MessageCircle size={12} />
-                                  <span>WhatsApp</span>
-                                </button>
-                                <button className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left">
-                                  <Send size={12} />
-                                  <span>Email</span>
-                                </button>
-                                <button className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left">
-                                  <Home size={12} />
-                                  <span>Send Properties</span>
-                                </button>
-                                {/* Delete Button - Conditional */}
-                                {canDelete && (
-                                  <button
-                                    onClick={() => handleDeleteBuyer(buyer.id)}
-                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-                                  >
-                                    <Trash2 size={12} />
-                                    <span>Delete</span>
-                                  </button>
-                                )}
-                              </div>
-                            </div>
+                        <div className="space-y-2">
+                          {getStageBadge(buyer.stage)}
+                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div
+                              className="bg-gradient-to-r from-purple-500 to-pink-500 h-1.5 rounded-full transition-all"
+                              style={{ width: `${buyer.stageProgress || 0}%` } as React.CSSProperties}
+                            />
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Last: {formatDate(buyer.lastActivity)}
                           </div>
                         </div>
                       </td>
-                    )}
-                  </tr>
-                ))
+
+                      <td className="px-3 py-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2 text-xs">
+                            <Target size={10} className="text-green-500" />
+                            <span className={`font-medium ${(buyer.matchedPropertiesCount || 0) > 0
+                              ? 'text-green-600'
+                              : 'text-gray-500'
+                              }`}>
+                              {buyer.matchedPropertiesCount || 0} matches
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-xs">
+                            <Activity size={10} className="text-green-500" />
+                            <span>{buyer.activities?.length ?? 0} activities</span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-xs">
+                            <Eye size={10} className="text-purple-500" />
+                            <span>{buyer.visits ?? 0} visits</span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-xs">
+                            <TrendingUp size={10} className="text-orange-500" />
+                            <span>{buyer.responseRate ? `${buyer.responseRate}% response` : ' - '}</span>
+                          </div>
+                          {buyer.notifications > 0 && (
+                            <div className="flex items-center space-x-1 text-xs">
+                              <Bell size={10} className="text-red-500" />
+                              <span className="text-red-600 font-medium">{buyer.notifications}</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {shouldShowActionsColumn && (
+                        <td className="px-3 py-3">
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={() => handleViewBuyer(buyer)}
+                              className="p-1.5 text-purple-600 hover:bg-purple-100 rounded transition-colors"
+                              title="View Details"
+                            >
+                              <Eye size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleBuyerAccount(buyer)}
+                              className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors"
+                              title="Buyer Account"
+                            >
+                              <UserCheck size={14} />
+                            </button>
+                            {canEditBuyer(buyer) && (
+                              <button
+                                onClick={() => handleEditBuyer(buyer)}
+                                className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
+                                title="Edit"
+                              >
+                                <Edit size={14} />
+                              </button>
+                            )}
+                            <div className="relative group">
+                              <button className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors">
+                                <MoreHorizontal size={14} />
+                              </button>
+                              <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                                <div className="p-1">
+                                  <button className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left">
+                                    <PhoneCall size={12} />
+                                    <span>Call</span>
+                                  </button>
+                                  <button className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left">
+                                    <MessageCircle size={12} />
+                                    <span>WhatsApp</span>
+                                  </button>
+                                  <button className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left">
+                                    <Send size={12} />
+                                    <span>Email</span>
+                                  </button>
+                                  <button className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left">
+                                    <Home size={12} />
+                                    <span>Send Properties</span>
+                                  </button>
+                                  {canDeleteBuyer(buyer) && (
+                                    <button
+                                      onClick={() => handleDeleteBuyer(buyer.id)}
+                                      className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
+                                    >
+                                      <Trash2 size={12} />
+                                      <span>Delete</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={getColSpan()} className="px-3 py-8 text-center text-sm text-gray-500">
-                    No buyers found.
+                    {roleFilteredBuyers.length === 0 ?
+                      (isExecutive ?
+                        <div className="flex flex-col items-center space-y-2">
+                          <Users className="h-8 w-8 text-gray-300" />
+                          <div>No buyers assigned to you yet.</div>
+                          <div className="text-xs text-gray-500">
+                            {showUnassignedToExecutives ?
+                              'No buyers available (assigned or unassigned)' :
+                              'Contact Admin to get assigned buyers or enable "Show unassigned" option.'
+                            }
+                          </div>
+                          {!showUnassignedToExecutives && (
+                            <button
+                              onClick={() => setShowUnassignedToExecutives(true)}
+                              className="mt-2 px-3 py-1 bg-blue-100 text-blue-600 rounded text-xs hover:bg-blue-200"
+                            >
+                              Show Unassigned Buyers
+                            </button>
+                          )}
+                        </div>
+                        :
+                        'No buyers found.'
+                      ) :
+                      'No buyers match the current filters.'
+                    }
                   </td>
                 </tr>
               )}

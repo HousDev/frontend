@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, Save, User, Phone, MapPin, Building, Star, Trash2, Home, Handshake } from 'lucide-react';
+import { X, Save, User, Phone, MapPin, Building, Star, Trash2, Home, Handshake, Search } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
@@ -7,6 +7,8 @@ import { useProperties } from '@/hooks/properties';
 import { FaWhatsapp } from 'react-icons/fa';
 import DOBStepCalendar from '../ui/DOBStepCalendar';
 import { usersAPI } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+
 
 /* --------------------------------- Utils --------------------------------- */
 
@@ -104,7 +106,7 @@ const adaptProperties = (arr: any[]): MiniProperty[] =>
     const pid = getPropertyId(p);
     // Create a unique ID to prevent duplicates
     const uniqueId = pid || `P-${Math.random().toString(36).slice(2, 11)}`;
-    
+
     const base: MiniProperty = {
       id: uniqueId, // Use unique ID to prevent duplicates
       title: composePropertyTitle(p),
@@ -119,7 +121,7 @@ const adaptProperties = (arr: any[]): MiniProperty[] =>
       _pid: pid, // 👈 explicit raw id kept
       _rawProperty: p, // Keep raw property data for debugging
     };
-    
+
     if (DEBUG) {
       // eslint-disable-next-line no-console
       console.log('[adaptProperties] RAW → BASE', p, base);
@@ -301,6 +303,7 @@ const adaptIncomingSellerToForm = (
 /* -------------------------------- Component -------------------------------- */
 
 const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) => {
+  const { user } = useAuth();
   // ---------- state ----------
   const [formData, setFormData] = useState<Seller>({
     salutation: 'Mr.',
@@ -332,6 +335,7 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
   const [phoneCountryData, setPhoneCountryData] = useState<any>(null);
   const [salesUsers, setSalesUsers] = useState<any[]>([]);
+  const [propertySearchQuery, setPropertySearchQuery] = useState(''); // New state for property search
 
   // ---------- masters ----------
   useEffect(() => {
@@ -360,16 +364,63 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
     let alive = true;
     (async () => {
       try {
-        const data = await usersAPI.getAllUsers();
-        const execs = (data?.data || []).filter(
-          (u: any) =>
-            String(u?.department || '').toLowerCase() === 'sales' &&
-            String(u?.role || '').toLowerCase() === 'executive'
-        );
+        // Format function for executive name
+        const formatExecutiveName = (user: any): string => {
+          const firstName = user?.first_name || user?.firstName || '';
+          const lastName = user?.last_name || user?.lastName || '';
+          const fullName = `${firstName} ${lastName}`.trim();
+
+          if (fullName) return fullName;
+          if (user?.name) return user.name;
+          if (user?.username) return user.username;
+          if (user?.email) return user.email.split('@')[0];
+          return 'Sales Executive';
+        };
+
+        // Try multiple methods to get sales executives
+        let executivesData: any[] = [];
+
+        // Method 1: Try getSalesExecutives if available
+        try {
+          if (usersAPI.getSalesExecutives) {
+            const res = await usersAPI.getSalesExecutives();
+            if (res && (Array.isArray(res) || res.items || res.data)) {
+              executivesData = Array.isArray(res) ? res : (res.items || res.data || []);
+            }
+          }
+        } catch (err) {
+          console.log('getSalesExecutives failed, trying next method...');
+        }
+
+        // Method 2: Try getAllUsers and filter
+        if (executivesData.length === 0 && usersAPI.getAllUsers) {
+          const allUsers = await usersAPI.getAllUsers();
+          const usersArray = Array.isArray(allUsers) ? allUsers : (allUsers?.data || []);
+
+          executivesData = usersArray.filter((user: any) => {
+            const department = String(user?.department || '').toLowerCase();
+            const role = String(user?.role || '').toLowerCase();
+            return department.includes('sales') && role.includes('executive');
+          });
+        }
+
+        // Format the executives
+        const formattedExecutives = executivesData.map((user: any) => ({
+          id: user.id || user.userId || user._id,
+          name: formatExecutiveName(user),
+          first_name: user.first_name || user.firstName || '',
+          last_name: user.last_name || user.lastName || '',
+          email: user.email || '',
+          phone: user.phone || user.mobile || '',
+          department: user.department || 'Sales',
+          role: user.role || 'Sales Executive',
+        }));
+
         if (!alive) return;
-        setSalesUsers(execs);
+        setSalesUsers(formattedExecutives);
       } catch (e) {
-        console.error('Error fetching users:', e);
+        console.error('Error fetching sales users:', e);
+        setSalesUsers([]);
       }
     })();
     return () => {
@@ -464,6 +515,30 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
     return result;
   }, [properties]);
 
+  // Filter properties based on search query
+  const filteredAvailableProperties = useMemo(() => {
+    if (!propertySearchQuery.trim()) return availableProperties;
+
+    const query = propertySearchQuery.toLowerCase().trim();
+    return availableProperties.filter((property) => {
+      const searchableFields = [
+        property.title || '',
+        property.address || '',
+        property._rxpBadge || '',
+        property._pid || '',
+        // Also search in raw property data if needed
+        property._rawProperty?.society_name || '',
+        property._rawProperty?.project_name || '',
+        property._rawProperty?.location_name || '',
+        property._rawProperty?.locality_name || '',
+      ];
+
+      return searchableFields.some(field =>
+        field.toLowerCase().includes(query)
+      );
+    });
+  }, [availableProperties, propertySearchQuery]);
+
   const filteredCities = useMemo(
     () => cityOptions.filter((c: any) => !formData.state || c.parentValue === formData.state),
     [cityOptions, formData.state]
@@ -530,7 +605,7 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
       const property = availableProperties.find((p) => String(p.id) === String(propertyId));
       if (DEBUG) console.log('[SellerFormModal] handlePropertySelection', propertyId, property);
       if (!property) return;
-      
+
       // Check if property already exists to prevent duplicates
       const existingProperty = (formData.properties || []).find((p) => String(p.id) === String(propertyId));
       if (existingProperty) {
@@ -538,12 +613,13 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
         setShowPropertySelector(false);
         return;
       }
-      
+
       setFormData((prev) => ({
         ...prev,
         properties: [...(prev.properties || []), { ...property, id: String(property.id) }],
       }));
       setShowPropertySelector(false);
+      setPropertySearchQuery(''); // Clear search when closing
     },
     [availableProperties, formData.properties]
   );
@@ -677,23 +753,29 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
       }));
 
       const nowIso = new Date().toISOString();
+      // 🔥 AUTO ASSIGN SELLER TO EXECUTIVE
+      const assignedToFinal =
+        formData.assigned_to ||
+        (user?.role?.toLowerCase().includes('executive') ? user.id : '');
 
       const sellerData: Seller & { cosellers: any[] } = {
         ...formData,
+
         phone: onlyDigits(String(formData.phone || '')),
         whatsapp: onlyDigits(formData.whatsapp || ''),
         email: (formData.email || '').trim(),
-        created_at: formData.created_at || nowIso,
-        updated_at: nowIso,
-        lastActivity: nowIso.split('T')[0],
-        visits: formData.visits || 0,
-        notifications: formData.notifications || 0,
-        source: formData.source || '',
-        assigned_to: formData?.assigned_to || '',
-        assigned_to_name: formData?.assigned_to_name || '',
+
+        assigned_to: assignedToFinal,           // 🔥 AUTO ASSIGN
+        assigned_to_name:
+          formData.assigned_to_name ||
+          (assignedToFinal && user
+            ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+            : ''),
+
         coSellers: uiCoSellers,
         cosellers,
       };
+
 
       if (DEBUG) console.log('[SellerFormModal] onSave payload', sellerData);
 
@@ -1024,14 +1106,14 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
                     handleInputChange('assigned_to', id);
                     handleInputChange(
                       'assigned_to_name',
-                      exec ? `${exec.first_name || ''} ${exec.last_name || ''}`.trim() : ''
+                      exec ? exec.name : ''
                     );
                   }}
                 >
                   <option value="">Select Sales Executive</option>
                   {salesUsers.map((user: any) => (
                     <option key={user.id} value={user.id}>
-                      {(user.first_name || '') + ' ' + (user.last_name || '')}
+                      {user.name}
                     </option>
                   ))}
                 </select>
@@ -1065,7 +1147,7 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
                           {property._rxpBadge}
                         </span>
                       )}
-                      
+
                     </div>
                     <div className="text-[11px] text-gray-600 truncate">{property.address}</div>
                     {property.price && (
@@ -1278,56 +1360,86 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
           </div>
         </div>
 
-        {/* Property Selector */}
+        {/* Property Selector Modal */}
         {showPropertySelector && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
             <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] overflow-hidden">
               <div className="p-4 border-b flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Select Property</h3>
                 <button
-                  onClick={() => setShowPropertySelector(false)}
+                  onClick={() => {
+                    setShowPropertySelector(false);
+                    setPropertySearchQuery(''); // Clear search when closing
+                  }}
                   className="group p-2 hover:bg-red-50 rounded-lg transition-all duration-200 border border-transparent hover:border-red-200"
                   aria-label="Close property selector"
                 >
                   <X size={20} className="text-gray-600 group-hover:text-red-500 transition-colors" />
                 </button>
               </div>
+
+              {/* Search Bar */}
+              <div className="p-4 border-b">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    value={propertySearchQuery}
+                    onChange={(e) => setPropertySearchQuery(e.target.value)}
+                    placeholder="Search properties by title, address, RXP ID..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    autoFocus
+                  />
+                </div>
+                <div className="mt-2 text-sm text-gray-500">
+                  Found {filteredAvailableProperties.length} properties
+                </div>
+              </div>
+
               <div className="p-4 max-h-96 overflow-y-auto space-y-3">
-                {availableProperties.length === 0 && (
-                  <div className="text-sm text-gray-500">No public, unassigned properties available.</div>
-                )}
-                {availableProperties.map((property) => (
-                  <button
-                    key={property.id}
-                    onClick={() => handlePropertySelection(property.id)}
-                    className="group w-full flex items-center space-x-3 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 hover:shadow-md transform hover:scale-[1.01]"
-                  >
-                    {property.image ? (
-                      <img src={property.image} alt={property.title} className="w-16 h-16 object-cover rounded-lg" />
-                    ) : (
-                      <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-500">
-                        No Image
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0 text-left">
-                      <div className="flex items-center gap-2">
-                        <div className="font-medium truncate">{property.title}</div>
-                        {property._rxpBadge && (
-                          <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 border border-blue-200">
-                            {property._rxpBadge}
-                          </span>
-                        )}
-                        
-                      </div>
-                      <div className="text-sm text-gray-600 truncate">{property.address}</div>
-                      {property.price ? (
-                        <div className="text-xs text-green-600 font-semibold">
-                          ₹ {Number(property.price).toLocaleString('en-IN')}
+                {filteredAvailableProperties.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    {propertySearchQuery ?
+                      `No properties found for "${propertySearchQuery}"` :
+                      "No public, unassigned properties available."}
+                  </div>
+                ) : (
+                  filteredAvailableProperties.map((property) => (
+                    <button
+                      key={property.id}
+                      onClick={() => handlePropertySelection(property.id)}
+                      className="group w-full flex items-center space-x-3 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 hover:shadow-md transform hover:scale-[1.01]"
+                    >
+                      {property.image ? (
+                        <img src={property.image} alt={property.title} className="w-16 h-16 object-cover rounded-lg" />
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-500">
+                          No Image
                         </div>
-                      ) : null}
-                    </div>
-                  </button>
-                ))}
+                      )}
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium truncate">{property.title}</div>
+                          {property._rxpBadge && (
+                            <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 border border-blue-200">
+                              {property._rxpBadge}
+                            </span>
+                          )}
+
+                        </div>
+                        <div className="text-sm text-gray-600 truncate">{property.address}</div>
+                        {property.price ? (
+                          <div className="text-xs text-green-600 font-semibold">
+                            ₹ {Number(property.price).toLocaleString('en-IN')}
+                          </div>
+                        ) : null}
+                        {property._pid && (
+                          <div className="text-xs text-gray-500 mt-1">ID: {property._pid}</div>
+                        )}
+                      </div>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>

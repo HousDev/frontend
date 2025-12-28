@@ -17,7 +17,7 @@ export interface NearbyPlace {
   type?: string;
   unit?: string;
 }
-
+  
 interface FilePreview {
   file?: File;
   url: string;
@@ -397,6 +397,14 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   const CURRENT_MONTH = now.getMonth() + 1;
 
   /* ---------- state ---------- */
+
+  const sortFloorOptions = (options: MasterOption[] = []) => {
+    return [...options].sort((a, b) => {
+      const numA = parseInt(a.label || a.value || '0', 10);
+      const numB = parseInt(b.label || b.value || '0', 10);
+      return numA - numB;
+    });
+  };
 
   const [formData, setFormData] = useState<PropertyFormData>(() => ({
     seller: '',
@@ -1173,25 +1181,25 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             <label className="block text-xs font-medium text-gray-700 mb-1">Total Floors</label>
             <SafeDropdown
               placeholder="Select Total Floors"
-              options={getOptions('total floors')}
+              options={sortFloorOptions(getOptions('total floors'))}
               value={formData.totalFloors}
               onChange={handleDropdownChange('totalFloors')}
               className="w-full"
+              searchable
             />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Floor</label>
             <SafeDropdown
               placeholder="Select Floor"
-              options={getOptions('floor')}
+              options={sortFloorOptions(getOptions('floor'))}
               value={formData.floor}
               onChange={handleDropdownChange('floor')}
               className="w-full"
+              searchable
             />
+
           </div>
-
-
-
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
               Carpet Area (sq.ft)*

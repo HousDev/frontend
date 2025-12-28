@@ -39,11 +39,29 @@ const SellerAccountSidebar = ({ activeTab, onTabChange, seller, unreadCount }: a
       ? seller.properties.length
       : 0;
 
-  const formatCurrency = (amount: number) => {
-    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-    return `₹${amount.toLocaleString('en-IN')}`;
+  const formatCurrency = (amount: number | string) => {
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n <= 0) return ' - ';
+
+    const CRORE = 10_000_000;
+    const LAKH = 100_000;
+
+    // Crores → keep actual value (max 2 decimals, no rounding loss)
+    if (n >= CRORE) {
+      const cr = n / CRORE;
+      return `₹${parseFloat(cr.toFixed(2))}Cr`;
+    }
+
+    // Lakhs → whole lakhs only
+    if (n >= LAKH) {
+      const l = n / LAKH;
+      return `₹${parseFloat(l.toFixed(0))}L`;
+    }
+
+    // Rupees
+    return `₹${n.toLocaleString('en-IN')}`;
   };
+
 
   const { logout } = useAuth();
 

@@ -1052,7 +1052,7 @@ const ContactUsPage: React.FC = () => {
                               isVisit ? (
                                 <p key={i} className="text-gray-700 font-medium">
                                   <a
-                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                    href={`https://www.google.com/maps/place/Resale+Expert/@18.6043773,73.7822784,786m/data=!3m2!1e3!4b1!4m6!3m5!1s0x210d06d018a02fa1:0xcb55e5426416ae86!8m2!3d18.6043723!4d73.7871493!16s%2Fg%2F11ksnvr1rf?entry=ttu&g_ep=EgoyMDI1MTIwOS4wIKXMDSoASAFQAw%3D%3D=${encodeURIComponent(
                                       detail
                                     )}`}
                                     target="_blank"
@@ -1233,7 +1233,7 @@ const ContactUsPage: React.FC = () => {
               <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
                 <div className="flex items-center space-x-2">
                   <Phone size={20} />
-                  <span className="font-semibold">Emergency: +91 77777 77777</span>
+                  <span className="font-semibold">Emergency: +91 9146 00 9176</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Mail size={20} />

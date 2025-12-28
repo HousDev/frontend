@@ -77,9 +77,37 @@ import { buyerAPI } from '@/lib/buyerAPI';
 type RawProperty = any;
 
 interface SimilarPropertiesProps {
-  properties?: []; // Add question mark to make it optional
-  // other props...
+  properties?: [];
 }
+
+interface PropertyCharges {
+  basePrice: number;
+
+  stampDuty: {
+    amount: number;
+    rate: number;
+  };
+
+  registration: {
+    amount: number;
+    rate: number;
+  };
+
+  legalFees: number;
+  additionalCharges: number;
+  totalCost: number;
+  percentageOverBase: number;
+}
+
+interface EMIDetails {
+  emi: number;
+  totalPayment: number;
+  totalInterest: number;
+  principal: number;
+  interestRate: number;
+  tenureYears: number;
+}
+
 const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const [open, setOpen] = useState(false);
   // UI state
@@ -114,9 +142,18 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   // local property state used across the component
   const [property, setProperty] = useState<any>(null);
 
+  // NEW: Property charges and EMI state
+  const [propertyCharges, setPropertyCharges] = useState<PropertyCharges | null>(null);
+  const [emiDetails, setEmiDetails] = useState<EMIDetails | null>(null);
+  const [loanAmount, setLoanAmount] = useState<number>(0);
+  const [loanPercentage, setLoanPercentage] = useState<number>(80); // Default 80%
+  const [interestRate, setInterestRate] = useState<number>(8.5); // Default 8.5%
+  const [tenureYears, setTenureYears] = useState<number>(30); // Default 20 years
+
 
   // NEW: auth
   const { currentUser, user } = useAuth() as any;
+
   // useEffect में master data fetch करें
   useEffect(() => {
     const fetchMasterData = async () => {
@@ -133,6 +170,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
     fetchMasterData();
   }, []);
+
   // Master data से salutation options निकालें
   const salutationOptions = masterData['salutation'] || [
     { value: 'Mr', label: 'Mr' },
@@ -140,6 +178,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     { value: 'Mrs', label: 'Mrs' },
     { value: 'Dr', label: 'Dr' },
   ];
+
   // Helper: buyer id resolve (different shapes ke liye safe)
   const getBuyerIdFromAuth = (): number | null => {
     // try common shapes
@@ -156,6 +195,160 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   // (optional) loading for save click
   const [saving, setSaving] = useState(false);
 
+  // ===========================================
+  // FIXED RATES CONFIGURATION FOR RESALE PROPERTIES
+  // ===========================================
+
+  // FIXED RATES FOR ALL STATES - RESALE PROPERTIES ONLY
+  const FIXED_RATES = {
+    stampDuty: 0.07,      // 7% fixed for all states
+    registration: 0.01,   // 1% fixed for all states
+    maxRegistration: 30000, // Max ₹30,000
+    legalFees: 10000,     // Fixed ₹10,000 for legal documentation (10,000-15,000 range)
+  };
+
+
+
+  // Get state from city (for display only, rates are fixed)
+  const getStateFromCity = (city: string): string => {
+    const cityStateMap: Record<string, string> = {
+      'Mumbai': 'Maharashtra',
+      'Pune': 'Maharashtra',
+      'Delhi': 'Delhi',
+      'Gurgaon': 'Haryana',
+      'Noida': 'Uttar Pradesh',
+      'Bangalore': 'Karnataka',
+      'Chennai': 'Tamil Nadu',
+      'Hyderabad': 'Telangana',
+      'Ahmedabad': 'Gujarat',
+      'Kolkata': 'West Bengal'
+    };
+    return cityStateMap[city] || 'Maharashtra';
+  };
+
+  // Calculate property charges for RESALE PROPERTIES ONLY
+  const calculatePropertyCharges = (property: any): PropertyCharges => {
+    const basePrice = property?.price || 0;
+    const carpetArea = property?.square_feet || 0;
+
+    const stampDutyAmount = basePrice * FIXED_RATES.stampDuty;
+
+    // 2. Registration - FIXED 1% (max ₹30,000) for resale properties
+    const registrationAmount = Math.min(
+      Math.round(basePrice * FIXED_RATES.registration),
+      FIXED_RATES.maxRegistration
+    );
+
+
+
+    // 4. Legal Fees - Fixed ₹12,500 (10,000-15,000 range)
+    const legalFees = FIXED_RATES.legalFees;
+
+    // REMOVED FOR RESALE PROPERTIES:
+    // - GST (only for under-construction)
+    // - Brokerage
+    // - Processing Fees
+    // - Insurance
+    // - Parking Charges
+
+    // Totals
+    const additionalCharges = stampDutyAmount + registrationAmount + legalFees;
+
+    const totalCost = basePrice + additionalCharges;
+    const percentageOverBase = basePrice > 0 ? (additionalCharges / basePrice) * 100 : 0;
+
+    return {
+      basePrice,
+      stampDuty: { amount: stampDutyAmount, rate: 7 }, // Fixed 7%
+      registration: { amount: registrationAmount, rate: 1 }, // Fixed 1%
+      legalFees,
+      additionalCharges,
+      totalCost,
+      percentageOverBase
+    };
+  };
+
+  // Calculate EMI with standard formula
+  const calculateEMI = (principal: number, annualRate: number, years: number): EMIDetails => {
+    if (!principal || principal <= 0 || !annualRate || annualRate <= 0 || !years || years <= 0) {
+      return {
+        emi: 0,
+        totalPayment: 0,
+        totalInterest: 0,
+        principal: 0,
+        interestRate: annualRate,
+        tenureYears: years
+      };
+    }
+
+    const monthlyRate = annualRate / 12 / 100;
+    const months = years * 12;
+
+    const emi = principal * monthlyRate * Math.pow(1 + monthlyRate, months) /
+      (Math.pow(1 + monthlyRate, months) - 1);
+
+    const totalPayment = emi * months;
+    const totalInterest = totalPayment - principal;
+
+    return {
+      emi: Math.round(emi),
+      totalPayment: Math.round(totalPayment),
+      totalInterest: Math.round(totalInterest),
+      principal,
+      interestRate: annualRate,
+      tenureYears: years
+    };
+  };
+
+  // Update calculations when property changes
+  useEffect(() => {
+    if (property) {
+      const charges = calculatePropertyCharges(property);
+      setPropertyCharges(charges);
+
+      // Calculate loan amount (default 80% of property price)
+      const baseLoanAmount = Math.round((property.price || 0) * (loanPercentage / 100));
+      setLoanAmount(baseLoanAmount);
+
+      // Calculate EMI
+      const emi = calculateEMI(baseLoanAmount, interestRate, tenureYears);
+      setEmiDetails(emi);
+    }
+  }, [property, loanPercentage, interestRate, tenureYears]);
+
+  // Handle loan percentage change
+  const handleLoanPercentageChange = (percentage: number) => {
+    setLoanPercentage(percentage);
+    const newLoanAmount = Math.round((property?.price || 0) * (percentage / 100));
+    setLoanAmount(newLoanAmount);
+
+    const newEmi = calculateEMI(newLoanAmount, interestRate, tenureYears);
+    setEmiDetails(newEmi);
+  };
+
+  // Handle interest rate change
+  const handleInterestRateChange = (rate: number) => {
+    setInterestRate(rate);
+    const newEmi = calculateEMI(loanAmount, rate, tenureYears);
+    setEmiDetails(newEmi);
+  };
+
+  // Handle tenure change
+  const handleTenureChange = (years: number) => {
+    setTenureYears(years);
+    const newEmi = calculateEMI(loanAmount, interestRate, years);
+    setEmiDetails(newEmi);
+  };
+
+  // Helper functions for display
+  const isReadyToMove = (property: any): boolean => {
+    return property?.status?.toLowerCase().includes('ready') ||
+      property?.possession?.toLowerCase().includes('ready');
+  };
+
+  const isAffordableProperty = (price: number): boolean => {
+    return price <= 4500000; // ₹45 लाख तक affordable
+  };
 
   // put near other helpers
   const checkSavedStatus = async () => {
@@ -170,10 +363,12 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       console.warn("checkSavedStatus failed", err);
     }
   };
+
   useEffect(() => {
     if (!property) return;
     checkSavedStatus();
   }, [property, currentUser]);
+
   useEffect(() => {
     if (!property) return;
     const refetch = () => checkSavedStatus();
@@ -321,14 +516,32 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     return val;
   };
 
-  // currency formatter
-  const formatCurrency = (amount: number | null | undefined) => {
-    if (amount === null || amount === undefined) return ' - ';
-    if (!Number.isFinite(amount)) return ' - ';
-    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)} Cr`;
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)} L`;
-    return `₹${amount.toLocaleString('en-IN')}`;
+  const formatCurrency = (amount: number | string) => {
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n <= 0) return ' - ';
+
+    const CRORE = 10_000_000;
+    const LAKH = 100_000;
+
+    // Crores → 2 decimals (exact)
+    if (n >= CRORE) {
+      return `₹${(n / CRORE).toFixed(2)}Cr`;
+    }
+
+    // Lakhs → 2 decimals (exact)
+    if (n >= LAKH) {
+      return `₹${(n / LAKH).toFixed(2)}L`;
+    }
+
+    // Rupees
+    return `₹${n.toLocaleString('en-IN')}`;
   };
+
+  const getMaskedMapUrl = (lat?: number, lng?: number) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
+    return `https://www.google.com/maps?q=${lat},${lng}&z=16&output=embed`;
+  };
+
 
   // === NEW: tiny helpers for calling / whatsapp ===
   const getexecutiveToPhone = () => {
@@ -336,6 +549,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     const digits = (raw || "").replace(/\D/g, "");
     return digits || "+91999999999"; // fallback if nothing present
   };
+
   const callexecutiveTo = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const phone = getexecutiveToPhone();
@@ -353,6 +567,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     if (Array.isArray(p?.amenityList) && p.amenityList.length) return p.amenityList.map(String);
     return [];
   };
+
   // put above PropertyTags (same place where old extractLocalityCity lived)
   const isPin = (s: string) => /^\d{5,6}$/.test((s || "").replace(/\s+/g, ""));
 
@@ -581,6 +796,23 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       city: p?.city_name ?? p?.city ?? city,      // ✅ make city available to filters
       locality: p?.locality ?? p?.location_name ?? locality, // ✅ for display/search
 
+     lat_display:
+  Number(p?.lat_display ??
+  p?.display_lat ??
+  p?.lat ??
+  p?.latitude ??
+  p?.raw?.lat ??
+  NaN),
+
+lng_display:
+  Number(p?.lng_display ??
+  p?.display_lng ??
+  p?.lng ??
+  p?.longitude ??
+  p?.raw?.lng ??
+  NaN),
+
+
       price: Number.isFinite(price) ? price : undefined,
       square_feet: sqft,
       area: sqft, // alias
@@ -643,9 +875,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
             : [],
       // ✅ ADD BALCONY FIELD HERE
       balcony: p?.balcony ?? p?.balconies ?? p?.balcony_count ?? '',
-
-
-
     };
 
     return normalized;
@@ -960,10 +1189,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
     try {
       const buyerData = {
-        // ⚠️ If backend really needs the typo, bhej do — warna chhod do.
-        // salution: contactForm.salutation, 
-        salutation: contactForm.salutation,     // screenshot me DB field 'salutation' dikh raha hai
-        name: contactForm.name.trim(),          // only name
+        salutation: contactForm.salutation,
+        name: contactForm.name.trim(),
         phone: contactForm.phone.replace(/\D/g, ''),
         email: contactForm.email?.trim() || undefined,
         source: 'Website',
@@ -977,27 +1204,22 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       const res = await buyerAPI.create(buyerData);
 
       // ---- Normalize possible shapes ----
-      // res could be axios response, or already unwrapped
-      const body = res?.data ?? res;                 // axios => res.data, custom => res
-      const buyer = body?.data ?? body;              // sometimes wrapped in {data: {...}}
-      const ok = !!(buyer?.id);                      // consider success if id present
+      const body = res?.data ?? res;
+      const buyer = body?.data ?? body;
+      const ok = !!(buyer?.id);
 
       if (ok) {
         console.log("✅ Buyer created:", buyer);
         toast.success("We'll contact you shortly!");
-        // reset & close on success only
         setShowContactForm(false);
         setContactForm({ salutation: 'Mr', name: '', phone: '', email: '', source: 'website' });
       } else {
         console.error("❌ Unexpected create response:", body);
         toast.error("Failed to submit request. Please try again.");
-        // keep form open so user can retry/correct
       }
     } catch (error: any) {
       console.error("🔥 Error creating buyer:", error);
-      // Server may return 4xx/5xx but record already created in some edge cases — log carefully
       toast.error(error?.response?.data?.message || error?.message || "Something went wrong. Please try again.");
-      // keep form open on error
     }
   };
 
@@ -1108,7 +1330,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
                 {/* Save / Bookmark */}
                 <button
-                  onClick={handleSaveClick} // CHANGED
+                  onClick={handleSaveClick}
                   disabled={saving}
                   className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
                   aria-label="Save property"
@@ -1291,14 +1513,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                         {formatCurrency(property?.price)}({displayOrDash(property?.priceType)})
                       </span>
                     </div>
-
-                    {/* ✅  Price Type */}
-                    {/* <div>
-                      <span className="font-semibold text-gray-800">Price Type:</span>
-                      <span className="text-gray-600 ml-1 break-words">
-                        {displayOrDash(property?.priceType)}
-                      </span>
-                    </div> */}
 
                     <div>
                       <span className="font-semibold text-gray-800">Furnishing:</span>
@@ -1532,18 +1746,29 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 Location & Connectivity
               </h2>
 
-              {/* ✅ Google Map Embed */}
-              <div className="rounded-lg overflow-hidden mb-4 ring-1 ring-[#0b3856]/20">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3781.30130000024!2d73.78210647468123!3d18.60551298250459!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b92079f4046d%3A0xff65689f48a7dbd3!2sTamara%20Uprise!5e0!3m2!1sen!2sin!4v1761138421746!5m2!1sen!2sin"
-                  width="100%"
-                  height="250"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                ></iframe>
+              <div className="relative rounded-lg overflow-hidden mb-4 ring-1 ring-[#0b3856]/20">
+                {/* click blocker for privacy */}
+                <div className="absolute inset-0 z-10 cursor-not-allowed" />
+
+                {Number.isFinite(property?.lat_display) &&
+                  Number.isFinite(property?.lng_display) ? (
+
+                  <iframe
+                    src={getMaskedMapUrl(property.lat_display, property.lng_display)}
+                    width="100%"
+                    height="250"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                ) : (
+                  <div className="h-[250px] flex items-center justify-center text-gray-500">
+                    Location not available
+                  </div>
+                )}
               </div>
+
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 {/* Transportation */}
                 <div className="rounded-lg p-3 bg-[#0b3856]/5 ring-1 ring-[#0b3856]/20 hover:bg-[#0b3856]/10 transition-all duration-200">
@@ -1596,15 +1821,23 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               {/* CTA Button */}
               <div className="mt-5 text-center">
                 <a
-                  href="https://www.google.com/maps?q=Tamara+Uprise"
+                  href={
+                    Number.isFinite(property?.lat_display) &&
+                      Number.isFinite(property?.lng_display)
+
+                      ? `https://www.google.com/maps?q=${property.lat_display},${property.lng_display}`
+                      : "#"
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-white bg-[#E6761D] hover:bg-[#E6761D]  font-semibold text-sm shadow-md transition-all duration-200"
+                  className="group inline-flex items-center justify-center gap-2 px-5 py-2.5
+               rounded-lg text-white bg-[#E6761D] font-semibold text-sm shadow-md"
                 >
-                  View on Google Maps
-                  <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                  View Nearby Location
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </a>
               </div>
+
             </div>
 
             {/* Reviews - Responsive */}
@@ -1973,48 +2206,266 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
             </div>
 
 
-            {/* Price Breakdown */}
-            <div className="bg-white rounded-xl shadow-sm p-2 ring-1 ring-gray-100">
-              <h3 className="font-bold text-gray-900 mb-3">Price Breakdown</h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Base Price</span>
-                  <span className="font-medium text-gray-900">{formatCurrency(property?.price)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Maintenance (Annual)</span>
-                  <span className="font-medium text-gray-900">₹2.4L</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Registration</span>
-                  <span className="font-medium text-gray-900">₹2.5L</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Stamp Duty</span>
-                  <span className="font-medium text-gray-900">₹15L</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Society Charges</span>
-                  <span className="font-medium text-gray-900">₹3L</span>
-                </div>
-                <div className="border-t pt-3 flex items-center justify-between">
-                  <span className="font-semibold text-gray-900">Total Cost</span>
-                  <span className="font-bold text-blue-600 text-lg">
-                    {formatCurrency((property?.price ?? 25000000) + 240000 + 250000 + 1500000 + 300000)}
-                  </span>
-                </div>
-              </div>
+            {/* Price Breakdown - UPDATED FOR RESALE PROPERTIES */}
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 ring-1 ring-gray-100">
+              <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-4">Price Breakdown</h3>
 
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
-                  <Calculator size={16} className="mr-1" />
-                  Smart EMI Calculator
-                </h4>
-                <div className="text-sm text-blue-800">
-                  <p>For ₹20L loan at 8.5% for 20 years:</p>
-                  <p className="font-bold">Monthly EMI: ₹17,456</p>
-                </div>
-              </div>
+              {propertyCharges ? (
+                <>
+                  <div className="space-y-3">
+                    {/* Base Price */}
+                    <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                      <span className="text-gray-700">Base Price</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(propertyCharges.basePrice)}</span>
+                    </div>
+
+                    {/* Additional Charges */}
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-1">Total Taxes & Charges</h4>
+
+                      {/* Stamp Duty - FIXED 7% */}
+                      <div className="flex items-center justify-between text-sm">
+                        <div>
+                          <span className="text-gray-600">Stamp Duty </span>
+                          <span className="text-xs text-green-600 font-medium ml-1">
+                            7%
+                          </span>
+                        </div>
+                        <span className="font-medium text-gray-900">
+                          {formatCurrency(propertyCharges.stampDuty.amount)}
+                        </span>
+                      </div>
+
+                      {/* Registration - FIXED 1% */}
+                      <div className="flex items-center justify-between text-sm">
+                        <div>
+                          <span className="text-gray-600">Registration Charges </span>
+                          <span className="text-xs text-green-600 font-medium ml-1">
+                            1% or (Max ₹30,000)
+                          </span>
+                        </div>
+                        <span className="font-medium text-gray-900">
+                          {formatCurrency(propertyCharges.registration.amount)}
+                        </span>
+                      </div>
+
+                      {/* Legal Documentation - Fixed ₹12,500 */}
+                      <div className="flex items-center justify-between text-sm">
+                        <div>
+                          <span className="text-gray-600">Legal & Documentation</span>
+                          <span className="text-xs text-blue-600 font-medium ml-1">
+                            (₹10,000-15,000)
+                          </span>
+                        </div>
+                        <span className="font-medium text-gray-900">
+                          {formatCurrency(propertyCharges.legalFees)}
+                        </span>
+                      </div>
+
+
+                      {/* Note about removed charges for resale properties */}
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                        <p className="flex items-start">
+                          <CheckCircle size={12} className="mr-1 mt-0.5 flex-shrink-0 text-green-600" />
+                          <span>
+                            <strong>For Resale Properties:</strong> No GST,Society Charges (at actual).
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Total Additional Cost */}
+                    <div className="border-t pt-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Total Taxes & Charges</span>
+                        <span className="font-medium">
+                          {formatCurrency(propertyCharges.additionalCharges)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        That's {propertyCharges.percentageOverBase.toFixed(1)}% over the base price
+                      </div>
+                    </div>
+
+                    {/* Total Cost with Highlight */}
+                    <div className="border-t pt-3 flex items-center justify-between bg-[#E6761D]/5 p-3 rounded-lg">
+                      <div>
+                        <span className="font-semibold text-gray-900 text-base">Total Cost</span>
+                        <div className=" text-xs text-gray-500 mt-1">
+                          Including: 7% Stamp Duty + Registration
+                          <br />+ Legal Fees
+                        </div>
+                      </div>
+                      <span className="font-bold text-[#E6761D] text-lg">
+                        {formatCurrency(propertyCharges.totalCost)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* EMI Calculator - UPDATED WITH FIXED RATES */}
+                  <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-blue-900 flex items-center">
+                        <Calculator size={18} className="mr-2" />
+                        Smart EMI Calculator
+                      </h4>
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        {isReadyToMove(property) ? 'Resale Property' : 'Resale Property'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Loan Percentage Selector */}
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-600">Loan Percentage</span>
+                          <span className="font-semibold">{loanPercentage}%</span>
+                        </div>
+                        <div className="flex space-x-2 mb-3">
+                          {[70, 75, 80, 85, 90].map((percent) => (
+                            <button
+                              key={percent}
+                              onClick={() => handleLoanPercentageChange(percent)}
+                              className={`flex-1 py-1.5 text-xs rounded ${loanPercentage === percent ? 'bg-[#E6761D] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                              {percent}%
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Loan Details */}
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="bg-white p-2 rounded border">
+                          <div className="text-gray-600 text-xs">Loan Amount</div>
+                          <div className="font-bold text-blue-700">{formatCurrency(loanAmount)}</div>
+                          <div className="text-xs text-gray-500">({loanPercentage}% of property value)</div>
+                        </div>
+
+                        <div className="bg-white p-2 rounded border">
+                          <div className="text-gray-600 text-xs">Self Payment</div>
+                          <div className="font-bold text-green-700">
+                            {formatCurrency(propertyCharges.totalCost - loanAmount)}
+                          </div>
+                          <div className="text-xs text-gray-500">({100 - loanPercentage}% required)</div>
+                        </div>
+                      </div>
+
+                      {/* Interest Rate Slider */}
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-600">Interest Rate</span>
+                          <span className="font-semibold">{interestRate}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="7"
+                          max="12"
+                          step="0.1"
+                          value={interestRate}
+                          onChange={(e) => handleInterestRateChange(parseFloat(e.target.value))}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#E6761D]"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>7%</span>
+                          <span>9.5%</span>
+                          <span>12%</span>
+                        </div>
+                      </div>
+
+                      {/* Tenure Selector */}
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-600">Loan Tenure</span>
+                          <span className="font-semibold">{tenureYears} years</span>
+                        </div>
+                        <div className="flex space-x-2">
+                          {[15, 20, 25, 30].map((years) => (
+                            <button
+                              key={years}
+                              onClick={() => handleTenureChange(years)}
+                              className={`flex-1 py-1.5 text-xs rounded ${tenureYears === years ? 'bg-[#E6761D] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                              {years} years
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* EMI Result */}
+                      {emiDetails && (
+                        <div className="bg-white p-3 rounded-lg border border-blue-200">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-gray-700">Monthly EMI</span>
+                            <span className="text-2xl font-bold text-[#E6761D]">
+                              ₹{emiDetails.emi?.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            For {loanAmount >= 10000000 ? '₹' + (loanAmount / 10000000).toFixed(2) + 'Cr' : '₹' + (loanAmount / 100000).toFixed(2) + 'L'}
+                            loan at {interestRate}% for {tenureYears} years
+                          </div>
+
+                          {/* EMI Breakdown */}
+                          <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                            <div className="text-center p-2 bg-blue-50 rounded">
+                              <div className="text-gray-600">Principal</div>
+                              <div className="font-semibold">{formatCurrency(emiDetails.principal)}</div>
+                            </div>
+                            <div className="text-center p-2 bg-red-50 rounded">
+                              <div className="text-gray-600">Interest</div>
+                              <div className="font-semibold">{formatCurrency(emiDetails.totalInterest)}</div>
+                            </div>
+                            <div className="text-center p-2 bg-green-50 rounded">
+                              <div className="text-gray-600">Total</div>
+                              <div className="font-semibold">{formatCurrency(emiDetails.totalPayment)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Quick EMI Options */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { years: 15, rate: 8.4 },
+                          { years: 20, rate: 8.5 },
+                          { years: 25, rate: 8.6 },
+                        ].map((option, idx) => {
+                          const quickEmi = calculateEMI(loanAmount, option.rate, option.years);
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                setTenureYears(option.years);
+                                setInterestRate(option.rate);
+                              }}
+                              className={`text-xs p-2 bg-white border rounded hover:bg-blue-50 transition ${tenureYears === option.years && Math.abs(interestRate - option.rate) < 0.1 ? 'border-[#E6761D] bg-blue-50' : ''}`}
+                            >
+                              <div className="font-medium">{option.years} Years</div>
+                              <div className="text-gray-600">{option.rate}%</div>
+                              <div className="text-[#E6761D] font-semibold">
+                                ₹{quickEmi.emi?.toLocaleString('en-IN')}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Disclaimer */}
+                      <div className="text-xs text-gray-500 mt-2">
+                        <p className="flex items-start">
+                          <Info size={12} className="mr-1 mt-0.5 flex-shrink-0" />
+                          EMI calculated for illustrative purposes. Actual rates may vary based on credit score, bank policies, and market conditions.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <div className="animate-pulse text-gray-400">Calculating charges...</div>
+                  </div>
+              )}
             </div>
 
             {/* AI Investment Analysis */}
@@ -2284,5 +2735,4 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     </div>
   );
 };
-
 export default PublicPropertyDetailPage;

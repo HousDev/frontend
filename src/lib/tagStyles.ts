@@ -72,6 +72,27 @@ export const DEFAULT_TAG_STYLE: Record<string, TagTone> = {
     ring: "ring-amber-200/50",
     emoji: "💎",
   },
+  "sold out": {
+  bg: "bg-neutral-500/80",
+  text: "text-white font-semibold",
+  ring: "ring-white/10",
+  emoji: "🛑",
+},
+/** ⭐ NEW: On Hold tag */
+"on hold": {
+  bg: "bg-amber-500/90",
+  text: "text-white font-semibold",
+  ring: "ring-white/20",
+  emoji: "⏸️",
+},
+
+/** ⭐ NEW: Available tag */
+"available": {
+  bg: "bg-green-600/90",
+  text: "text-white font-semibold",
+  ring: "ring-white/20",
+  emoji: "✅",
+},
 };
 
 /** Fallback tone */

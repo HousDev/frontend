@@ -709,7 +709,16 @@ export default function MasterDataPage(): JSX.Element {
   };
 
   const filteredValues: Value[] =
-    selectedMaster?.values?.filter((value) => value.value.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+    selectedMaster?.values
+      ?.filter((value) =>
+        value.value.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => {
+        const numA = parseInt(a.value); // "10th Floor" -> 10
+        const numB = parseInt(b.value); // "2nd Floor"  -> 2
+        return numA - numB;
+      }) || [];
+
 
   const filteredMasterItems = itemsByTab[activeId].filter((item) =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase())

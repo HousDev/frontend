@@ -79,11 +79,27 @@ const isPublicProp = (p: any): boolean => {
   );
 };
 
-// currency short
-const formatCurrency = (amount: number) => {
-  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
-  if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-  return `₹${amount.toLocaleString('en-IN')}`;
+const formatCurrency = (amount: number | string) => {
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n <= 0) return ' - ';
+
+  const CRORE = 10_000_000;
+  const LAKH = 100_000;
+
+  // Crores → keep actual value (max 2 decimals, no rounding loss)
+  if (n >= CRORE) {
+    const cr = n / CRORE;
+    return `₹${parseFloat(cr.toFixed(2))}Cr`;
+  }
+
+  // Lakhs → whole lakhs only
+  if (n >= LAKH) {
+    const l = n / LAKH;
+    return `₹${parseFloat(l.toFixed(0))}L`;
+  }
+
+  // Rupees
+  return `₹${n.toLocaleString('en-IN')}`;
 };
 
 // amenity icon
@@ -340,7 +356,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
   // core UI states
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState(''); // stores city or "location, city"
+  const [selectedLocation, setSelectedLocation] = useState('Pune'); // ✅ Changed: Default to Pune
   const [localityInput, setLocalityInput] = useState('');
   const [localities, setLocalities] = useState<string[]>([]);
   const [selectedBudget, setSelectedBudget] = useState('');
@@ -487,7 +503,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   useEffect(() => {
     const qp = new URLSearchParams(location.search);
 
-    const cityFromUrl = qp.get('city') || '';
+    // ✅ Changed: Default to Pune if no city in URL
+    const cityFromUrl = qp.get('city') || 'Pune';
     setSelectedLocation(cityFromUrl);
 
     let locs: string[] = [];
@@ -1118,7 +1135,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                   type="button"
                   onClick={() => { }}
                   className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base transition bg-gray-100 text-gray-700 opacity-60 cursor-not-allowed"
-                  title="Rent search not available yet"
+                  title="Launching Soon !"
                   disabled
                   aria-disabled="true"
                   aria-pressed={false}
@@ -1283,70 +1300,110 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         </div>
       </div>
 
-      {/* AI Recommendations bar */}
-      {showAIRecommendations && !loading && allProperties.length > 0 && (
-        <div className="bg-gradient-to-r from-[#0b3856] via-[#6c6258] via-[#0b3856] to-[#0c3854] text-white py-2 transition-colors duration-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-start sm:items-center justify-between">
-              <div className="flex items-start sm:items-center space-x-2 sm:space-x-3">
-                <Bot className="text-yellow-300 drop-shadow-md shrink-0 mt-0.5 sm:mt-0" size={40} />
-                <div className="flex flex-col">
-                  <span className="font-semibold">AI Recommendations:</span>
-                  <span className="text-xs sm:text-sm">
-                    Found {allProperties.length} public properties. {selectedLocation || "Top areas"} show strong growth potential
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowAIRecommendations(false)}
-                className="ml-3 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2 py-1 rounded transition-colors duration-200"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Body */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header row */}
         <div className="grid grid-cols-1 mb-6">
-          <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 text-nowrap sm:items-center sm:justify-between mb-2">
+
+          {/* TOP LINE */}
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+
+            {/* LEFT : All Properties */}
             <div className="min-w-0">
-              <h2 className="text-2xl font-bold text-[#0b3856]">All Properties</h2>
+              <h2 className="text-xl font-bold text-[#0b3856] flex items-center gap-3 flex-wrap">
+                All Properties {!loading && !error && `(${filteredProperties.length})`}
+                {showAIRecommendations && !loading && allProperties.length > 0 && (
+                  <div
+                    className="
+      flex items-center gap-2
+      bg-white
+      border border-gray-100
+      shadow-sm
+      px-4 py-2
+      rounded-xl
+      text-sm
+      w-full sm:w-[520px] lg:w-[800px]
+    "
+                  >
+                    {/* Icon */}
+                    <Bot className="text-[#E6761D] shrink-0" size={22} />
+
+                    {/* Text */}
+                    <div className="flex-1 leading-snug">
+                      <div className="font-semibold text-gray-800">
+                        AI Recommendations
+                      </div>
+                      <div className="text-gray-600 text-xs">
+                        Found <span className="font-medium text-gray-800">{allProperties.length}</span> public properties.
+                        <span className="ml-1">
+                          {selectedLocation || "Top areas"} show strong growth potential.
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Close */}
+                    <button
+                      onClick={() => setShowAIRecommendations(false)}
+                      className="
+        text-gray-500
+        hover:text-gray-800
+        hover:bg-gray-100
+        px-2 py-1
+        rounded-lg
+        transition
+      "
+                      aria-label="Close AI recommendations"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+
+
+              </h2>
+
               {Boolean(selectedLocation || localities.length || selectedBudget) && (
                 <p className="text-gray-600 text-sm">
                   {selectedLocation && `in ${selectedLocation} • `}
                   {localities.length > 0 && `${localities.join(', ')} • `}
                   {selectedBudget &&
-                    `${(budgetOptions.find((b) => (b.value || b.label) === selectedBudget)?.label) || selectedBudget} • `}
-                  Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedProperties.length)} results
+                    `${(budgetOptions.find(
+                      (b) => (b.value || b.label) === selectedBudget
+                    )?.label) || selectedBudget} • `}
+                  Showing {startIndex + 1}-
+                  {Math.min(startIndex + itemsPerPage, sortedProperties.length)} of{" "}
+                  {filteredProperties.length} results
                 </p>
               )}
             </div>
 
+            {/* RIGHT : Grid / List */}
             <div className="flex items-center justify-end gap-2">
               <button
-                onClick={() => setViewMode('grid')}
-                aria-label="Grid view"
-                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
-                title="Grid view"
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center ${viewMode === "grid"
+                  ? "bg-blue-100 text-blue-600"
+                  : "bg-gray-100 text-gray-600"
+                  }`}
               >
                 <Grid size={18} />
               </button>
+
               <button
-                onClick={() => setViewMode('list')}
-                aria-label="List view"
-                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
-                title="List view"
+                onClick={() => setViewMode("list")}
+                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center ${viewMode === "list"
+                  ? "bg-blue-100 text-blue-600"
+                  : "bg-gray-100 text-gray-600"
+                  }`}
               >
                 <List size={18} />
               </button>
             </div>
           </div>
 
-          <div className="flex items-end justify-end gap-3">
+          {/* SECOND LINE : AI Powered Search + Filters (UNCHANGED) */}
+          <div className="flex items-end justify-end gap-3 mt-2">
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <Target className="text-blue-600" size={16} />
               <span>AI-Powered Search</span>
@@ -1532,11 +1589,13 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Bathrooms (min)</label>
                       <input
-                        type="number" min={0}
+                        type="text" min={0}
                         value={bathroomsFilter as any}
                         onChange={(e) => setBathroomsFilter(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                        placeholder="e.g. 2"
                       />
+
                     </div>
 
                     {/* Actions */}
@@ -1621,6 +1680,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             </div>
           </div>
         </div>
+
 
         {/* Loading / Error / Results */}
         {loading && (
@@ -1986,7 +2046,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         {!loading && !error && allProperties.length === 0 && (
           <div className="text-center py-16">
             <Home className="mx-auto text-gray-300 mb-6" size={64} />
-            <h3 className="text-2xl font-bold text-[#0b3856] mb-4">No Properties Available</h3>
+            <h3 className="text-2xl font-bold text-[#0b3856] mb-4">No Properties Available (0)</h3>
             <p className="text-gray-600 mb-8">Properties will appear here once they are added to the system</p>
             <button onClick={() => loadPropertiesFromSearch()} className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold">
               Refresh Page

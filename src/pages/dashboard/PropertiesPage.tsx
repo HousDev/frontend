@@ -952,14 +952,53 @@ const PropertiesPage = () => {
   }, []);
 
 
-  // Fetch sales executives
+  // // Fetch sales executives
+  // useEffect(() => {
+  //   const fetchExecutives = async () => {
+  //     try {
+  //       setExecutivesLoading(true);
+  //       const res = await usersAPI.getByDeptRole({
+  //         department: "sales",
+  //         role: "executive",
+  //         is_active: 1,
+  //         limit: 50,
+  //       });
+
+  //       const items = res?.items ?? res?.data ?? res ?? [];
+
+  //       if (Array.isArray(items)) {
+  //         const executives: SalesExecutive[] = items.map((user: any) => ({
+  //           id: user.id || user.userId,
+  //           name: getDisplayName(user),
+  //           email: user.email,
+  //           phone: user.phone || user.mobile,
+  //           department: user.department,
+  //           role: user.role,
+  //           is_active: user.is_active ?? user.active ?? true,
+  //         }));
+
+  //         setSalesExecutives(executives);
+  //       } else {
+  //         console.warn("Unexpected executives response format:", res);
+  //         setSalesExecutives([]);
+  //       }
+  //     } catch (err) {
+  //       console.error("Error fetching executives:", err);
+  //       setSalesExecutives([]);
+  //     } finally {
+  //       setExecutivesLoading(false);
+  //     }
+  //   };
+
+  //   fetchExecutives();
+  // }, []);
   useEffect(() => {
     const fetchExecutives = async () => {
       try {
         setExecutivesLoading(true);
         const res = await usersAPI.getByDeptRole({
-          department: "sales",
-          role: "executive",
+          department: "Sales",              // FIXED
+          role: "Sales Executive",          // FIXED
           is_active: 1,
           limit: 50,
         });
@@ -992,6 +1031,7 @@ const PropertiesPage = () => {
 
     fetchExecutives();
   }, []);
+
 
   // Persist active tab - OPTIMIZED
   useEffect(() => {
@@ -1916,13 +1956,27 @@ const PropertiesPage = () => {
 
   const formatCurrency = (amount: number | string) => {
     const n = Number(amount);
-    if (Number.isFinite(n)) {
-      if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
-      if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
-      return `₹${n.toLocaleString('en-IN')}`;
+    if (!Number.isFinite(n) || n <= 0) return ' - ';
+
+    const CRORE = 10_000_000;
+    const LAKH = 100_000;
+
+    // Crores → keep actual value (max 2 decimals, no rounding loss)
+    if (n >= CRORE) {
+      const cr = n / CRORE;
+      return `₹${parseFloat(cr.toFixed(2))}Cr`;
     }
-    return ' - ';
+
+    // Lakhs → whole lakhs only
+    if (n >= LAKH) {
+      const l = n / LAKH;
+      return `₹${parseFloat(l.toFixed(0))}L`;
+    }
+
+    // Rupees
+    return `₹${n.toLocaleString('en-IN')}`;
   };
+
 
   // Executive badge component
   const ExecutiveBadge = ({ assignedTo }: { assignedTo?: UIProperty['assignedTo'] }) => {
@@ -1969,9 +2023,13 @@ const PropertiesPage = () => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
+      {/* <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4"> */}
+      <div className="sticky top-0 z-40 bg-gray-50">
+
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center space-x-4">
             <div className="p-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
@@ -2101,9 +2159,13 @@ const PropertiesPage = () => {
           </div>
         </div>
       </div>
+      </div>
+      {/* ================= END STICKY TOP AREA ================= */}
 
       {/* Top bar */}
+      {/* Top bar */}
       <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3">
+
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="flex-1 flex items-center space-x-2">
             <div className="relative flex-1 max-w-md">
@@ -2388,9 +2450,9 @@ const PropertiesPage = () => {
 
       {/* Properties */}
       {!loading && !error && filteredProperties.length > 0 && (
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-hidden">
           {viewMode === 'grid' ? (
-            <div className="p-6">
+            <div className="p-6  h-full overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {paginatedProperties.map((property) => (
                   <div key={property.id} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all group">
@@ -2602,9 +2664,9 @@ const PropertiesPage = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-white">
+              <div className="bg-white h-full overflow-y-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 sticky top-0">
+                  <thead className="bg-gray-50 sticky top-0 z-20">
                   <tr>
                     {/* Selection Checkbox - Conditional */}
                     {(canUpdate || canDelete || canAssign || canBulkDelete) && (
@@ -2837,7 +2899,7 @@ const PropertiesPage = () => {
 
       {/* Pagination */}
       {!loading && !error && filteredProperties.length > 0 && (
-        <div className="bg-white border-t border-gray-200 px-4 lg:px-6 py-3">
+        <div className="bg-white border-t border-gray-200 px-4 lg:px-6 py-3 sticky bottom-0 z-30">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="text-sm text-gray-700">
               Showing {filteredProperties.length ? startIndex + 1 : 0}-{Math.min(startIndex + itemsPerPage, filteredProperties.length)} of {filteredProperties.length}
@@ -2991,4 +3053,4 @@ function getStageBadge(stage: string) {
   return <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>{cfg.icon} {cfg.label}</span>;
 }
 
-export default PropertiesPage;
+export default PropertiesPage; 
