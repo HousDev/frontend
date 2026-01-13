@@ -77,9 +77,34 @@ interface Property {
   public_views?: number | null;
   total_views?: number;
   executive?: { phone?: string, name?: string, email?: string };
-  // ✅ NEW: Add tags field
   tags?: string[];
+  featured?: boolean;
 }
+
+// ✅ Default images by property type
+const DEFAULT_IMAGES = {
+  APARTMENT: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800',
+  HOUSE: 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=800',
+  VILLA: 'https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&cs=tinysrgb&w=800',
+  PLOT: 'https://images.pexels.com/photos/259588/pexels-photo-259588.jpeg?auto=compress&cs=tinysrgb&w=800',
+  COMMERCIAL: 'https://images.pexels.com/photos/3620416/pexels-photo-3620416.jpeg?auto=compress&cs=tinysrgb&w=800',
+  DEFAULT: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'
+};
+
+// ✅ Function to get default image based on property type
+const getDefaultImageByType = (propertyType: string): string => {
+  if (!propertyType) return DEFAULT_IMAGES.DEFAULT;
+  const type = propertyType.toLowerCase();
+
+  if (type.includes('apartment') || type.includes('flat')) return DEFAULT_IMAGES.APARTMENT;
+  if (type.includes('house') || type.includes('bungalow')) return DEFAULT_IMAGES.HOUSE;
+  if (type.includes('villa')) return DEFAULT_IMAGES.VILLA;
+  if (type.includes('plot') || type.includes('land')) return DEFAULT_IMAGES.PLOT;
+  if (type.includes('commercial') || type.includes('shop') || type.includes('office') || type.includes('retail'))
+    return DEFAULT_IMAGES.COMMERCIAL;
+
+  return DEFAULT_IMAGES.DEFAULT;
+};
 
 // ✅ Tag display component
 const PropertyTags = ({ tags }: { tags: string[] }) => {
@@ -141,7 +166,7 @@ const isPublicProp = (p: any): boolean => {
 
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCity, setSelectedCity] = useState('Pune'); // ✅ Changed: Default to Pune
+  const [selectedCity, setSelectedCity] = useState('Pune');
   const [localityInput, setLocalityInput] = useState('');
   const [localities, setLocalities] = useState<string[]>([]);
   const [selectedBudget, setSelectedBudget] = useState('');
@@ -271,7 +296,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   };
 
   // ---------- Featured Properties (public-only) ----------
-  // ---------- Featured Properties (public-only) ----------
   useEffect(() => {
     const fetchFeaturedProperties = async () => {
       try {
@@ -280,14 +304,13 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         // ✅ server से public-only
         const response = await propertiesAPI.PublicgetProperties({
           status: 'Available',
-          limit: 12,            // 12 तक लें, बाद में filter कर लेंगे
+          limit: 12,
           isPublic: true,
           is_public: 1,
           visibility: 'public',
           publicOnly: 1,
         });
 
-        // DEBUG: API response देखें
         console.log('API Response:', response);
         console.log('Raw data:', response?.data);
 
@@ -317,10 +340,25 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         // ⬇️ एक बार में map + views + tags
         const mapped: Property[] = await Promise.all(
           rawList.slice(0, 12).map(async (p: any) => {
-            const images: string[] =
-              Array.isArray(p.photos)
-                ? p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'))
-                : (Array.isArray(p.photoUrls) ? p.photoUrls : []);
+            // ✅ Get property type for default image
+            const propertyType = p.property_type_name || p.property_type || '';
+
+            // ✅ Create images array with proper fallback
+            let images: string[] = [];
+
+            // First check p.photos
+            if (Array.isArray(p.photos) && p.photos.length > 0) {
+              images = p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'));
+            }
+            // Then check p.photoUrls
+            else if (Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
+              images = p.photoUrls;
+            }
+            // If no images from backend, use default based on property type
+            else {
+              const defaultImage = getDefaultImageByType(propertyType);
+              images = [defaultImage];
+            }
 
             const city = p.city_name || p.city || p.town || p.cityName || '';
             const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
@@ -356,9 +394,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               bathrooms: Number(p.bathrooms) || undefined,
               square_feet: totalArea,
               city,
-              property_type: p.property_type_name || p.property_type || '',
+              property_type: propertyType,
               status: p.status || '',
-              images,
+              images, // ✅ Now images will never be empty
               location,
               area: totalArea,
               type: p.property_type_name || p.property_type || '',
@@ -376,7 +414,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               badge: p.featured ? 'Premium' : (p.badge || 'Standard'),
               rating: (typeof p.rating === 'number' ? p.rating : (4.5 + Math.random() * 0.4)),
               views: viewData.total_views || 0,
-              total_views: viewData.total_views || 0, // 👈 यही key आप card में पढ़ रहे हैं
+              total_views: viewData.total_views || 0,
               aiScore: Number(p.aiScore) || Math.floor(Math.random() * 20) + 80,
               sellerName: p.seller_name || p.owner_name || p.seller?.name || '',
               slug,
@@ -396,7 +434,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           })
         );
 
-        // ✅ सिर्फ featured pick करें, नहीं मिले तो empty रहने दें (या चाहें तो top 6 दिखा दें)
+        // ✅ सिर्फ featured pick करें
         const featuredOnly = mapped.filter(isFeatured);
         setFeaturedProperties(featuredOnly.length ? featuredOnly : []);
 
@@ -489,6 +527,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     () => findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']),
     [masters]
   );
+
   const formatCurrency = (amount: number | string) => {
     const n = Number(amount);
     if (!Number.isFinite(n) || n <= 0) return ' - ';
@@ -689,7 +728,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const activeHeroUrl =
     heroSlides.length > 0
       ? heroSlides[heroIndex]?.url
-      : (featuredProperties[featuredIndex]?.images?.[0] || '');
+      : (featuredProperties[featuredIndex]?.images?.[0] );
 
   const activeHeroTitle =
     heroSlides.length > 0 ? (heroSlides[heroIndex]?.title || '') : '';
@@ -1039,20 +1078,17 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   <div key={property.id} className="bg-white rounded-2xl shadow-lg overflow-hidden group h-full flex flex-col">
                     {/* Image */}
                     <div className="relative">
-                      {property.images && property.images.length ? (
-                        <div onClick={() => handleNavigateToProperty(property)} className="cursor-pointer relative">
-                          <img
-                            src={property.images[0]}
-                            alt={property.title || 'Property image'}
-                            className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <span className="text-white text-2xl font-bold opacity-40 select-none">ResaleExpert.in</span>
-                          </div>
+                      <div onClick={() => handleNavigateToProperty(property)} className="cursor-pointer relative">
+                        {/* ✅ This will always show an image - either from backend or default */}
+                        <img
+                          src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
+                          alt={property.title || 'Property image'}
+                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="text-white text-2xl font-bold opacity-40 select-none">ResaleExpert.in</span>
                         </div>
-                      ) : (
-                        <div className="h-48 bg-gray-200 flex items-center justify-center"><Building className="text-gray-400" /></div>
-                      )}
+                      </div>
 
                       {/* top-left tags + AI */}
                       <div className="absolute top-3 left-3 flex items-start flex-wrap gap-2 z-20">
@@ -1530,8 +1566,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         open={open}
         onClose={() => setOpen(false)}
         onFreeValuation={() => {
-          setOpen(false);            // close WhySell modal
-          setIsValuationOpen(true);  // ✅ open ValuationModal
+          setOpen(false);
+          setIsValuationOpen(true);
         }}
       />
 

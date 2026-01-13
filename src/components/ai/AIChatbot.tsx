@@ -49,7 +49,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
     {
       id: "1",
       text:
-        "👋 Namaste! I'm RE AI Agent, your intelligent real estate assistant. I can help you with property search, market analysis, pricing, legal guidance, and investment advice. How can I assist you today?",
+        "👋 Namaste! I'm REX AI Agent, your intelligent real estate assistant. I can help you with property search, market analysis, pricing, legal guidance, and investment advice. How can I assist you today?",
       sender: "bot",
       timestamp: new Date(),
       suggestions: [
@@ -246,7 +246,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
 
     return {
       text:
-        "🤖 **RE AI Agent Understanding...**\n\nI'm here to help with all your real estate needs! I can assist you with:\n\n🏠 **Property Search & Analysis**\n💰 **Pricing & Investment Advice**\n📊 **Market Trends & Predictions**\n⚖️ **Legal Documentation**\n🏦 **Loan & EMI Calculations**\n📍 **Location Intelligence**\n\nCould you please be more specific about what you're looking for? For example:\n• \"Show me 2BHK under ₹80L in Andheri\"\n• \"Best investment areas in Mumbai\"\n• \"Calculate EMI for ₹60L loan\"\n\nI'm powered by real-time data and machine learning to give you the most accurate insights!",
+        "🤖 **REX AI Agent Understanding...**\n\nI'm here to help with all your real estate needs! I can assist you with:\n\n🏠 **Property Search & Analysis**\n💰 **Pricing & Investment Advice**\n📊 **Market Trends & Predictions**\n⚖️ **Legal Documentation**\n🏦 **Loan & EMI Calculations**\n📍 **Location Intelligence**\n\nCould you please be more specific about what you're looking for? For example:\n• \"Show me 2BHK under ₹80L in Andheri\"\n• \"Best investment areas in Mumbai\"\n• \"Calculate EMI for ₹60L loan\"\n\nI'm powered by real-time data and machine learning to give you the most accurate insights!",
       suggestions: ["Property search help", "Investment advice", "Market analysis", "EMI calculator"],
     };
   };
@@ -350,7 +350,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
         className={`fixed z-[70] ${isMobile ? "inset-x-0 bottom-0 flex justify-center" : getChatbotPosition()}`}
         role="dialog"
         aria-modal="true"
-        aria-label="RE AI Agent chat"
+        aria-label="REX AI Agent chat"
       >
         <div ref={panelRef} className={panelBase} style={{ maxWidth: isMobile ? "100%" : undefined }}>
           {/* Header */}
@@ -363,7 +363,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse ring-2 ring-blue-600" />
               </div>
               <div className="leading-tight">
-                <h3 className="font-semibold text-sm sm:text-base">RE AI Agent</h3>
+                <h3 className="font-semibold text-sm sm:text-base">REX AI Agent</h3>
                 <p className="text-[10px] sm:text-xs text-blue-100 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" /> Online
                 </p>
@@ -495,7 +495,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
                     type="text"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Ask RE AI Agent anything..."
+                    placeholder="Ask REX AI Agent anything..."
                     className="flex-1 px-3 py-2 border border-gray-300 text-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     aria-label="Message input"
                   />

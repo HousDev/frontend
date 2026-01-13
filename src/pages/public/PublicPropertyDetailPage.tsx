@@ -207,31 +207,12 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     legalFees: 10000,     // Fixed ₹10,000 for legal documentation (10,000-15,000 range)
   };
 
-
-
-  // Get state from city (for display only, rates are fixed)
-  const getStateFromCity = (city: string): string => {
-    const cityStateMap: Record<string, string> = {
-      'Mumbai': 'Maharashtra',
-      'Pune': 'Maharashtra',
-      'Delhi': 'Delhi',
-      'Gurgaon': 'Haryana',
-      'Noida': 'Uttar Pradesh',
-      'Bangalore': 'Karnataka',
-      'Chennai': 'Tamil Nadu',
-      'Hyderabad': 'Telangana',
-      'Ahmedabad': 'Gujarat',
-      'Kolkata': 'West Bengal'
-    };
-    return cityStateMap[city] || 'Maharashtra';
-  };
-
   // Calculate property charges for RESALE PROPERTIES ONLY
   const calculatePropertyCharges = (property: any): PropertyCharges => {
     const basePrice = property?.price || 0;
     const carpetArea = property?.square_feet || 0;
 
-    const stampDutyAmount = basePrice * FIXED_RATES.stampDuty;
+    const stampDutyAmount = Math.round(basePrice * FIXED_RATES.stampDuty);
 
     // 2. Registration - FIXED 1% (max ₹30,000) for resale properties
     const registrationAmount = Math.min(
@@ -239,17 +220,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       FIXED_RATES.maxRegistration
     );
 
-
-
-    // 4. Legal Fees - Fixed ₹12,500 (10,000-15,000 range)
+    // 4. Legal Fees - Fixed ₹10,000 (10,000-15,000 range)
     const legalFees = FIXED_RATES.legalFees;
-
-    // REMOVED FOR RESALE PROPERTIES:
-    // - GST (only for under-construction)
-    // - Brokerage
-    // - Processing Fees
-    // - Insurance
-    // - Parking Charges
 
     // Totals
     const additionalCharges = stampDutyAmount + registrationAmount + legalFees;
@@ -523,17 +495,35 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     const CRORE = 10_000_000;
     const LAKH = 100_000;
 
-    // Crores → 2 decimals (exact)
+    // For exact amounts, use toFixed(2) for crores and lakhs
     if (n >= CRORE) {
-      return `₹${(n / CRORE).toFixed(2)}Cr`;
+      const croreValue = n / CRORE;
+      // Check if it's exactly divisible or needs exact decimal
+      if (croreValue === Math.round(croreValue)) {
+        return `₹${croreValue}Cr`;
+      }
+      return `₹${croreValue.toFixed(2)}Cr`;
     }
 
-    // Lakhs → 2 decimals (exact)
     if (n >= LAKH) {
-      return `₹${(n / LAKH).toFixed(2)}L`;
+      const lakhValue = n / LAKH;
+      // Check if it's exactly divisible or needs exact decimal
+      if (lakhValue === Math.round(lakhValue)) {
+        return `₹${lakhValue}L`;
+      }
+      return `₹${lakhValue.toFixed(2)}L`;
     }
 
-    // Rupees
+    // For rupees
+    return `₹${n.toLocaleString('en-IN')}`;
+  };
+
+  // Format exact currency without abbreviation
+  const formatExactCurrency = (amount: number | string) => {
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n <= 0) return ' - ';
+
+    // Always show exact value with commas
     return `₹${n.toLocaleString('en-IN')}`;
   };
 
@@ -796,21 +786,21 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       city: p?.city_name ?? p?.city ?? city,      // ✅ make city available to filters
       locality: p?.locality ?? p?.location_name ?? locality, // ✅ for display/search
 
-     lat_display:
-  Number(p?.lat_display ??
-  p?.display_lat ??
-  p?.lat ??
-  p?.latitude ??
-  p?.raw?.lat ??
-  NaN),
+      lat_display:
+        Number(p?.lat_display ??
+          p?.display_lat ??
+          p?.lat ??
+          p?.latitude ??
+          p?.raw?.lat ??
+          NaN),
 
-lng_display:
-  Number(p?.lng_display ??
-  p?.display_lng ??
-  p?.lng ??
-  p?.longitude ??
-  p?.raw?.lng ??
-  NaN),
+      lng_display:
+        Number(p?.lng_display ??
+          p?.display_lng ??
+          p?.lng ??
+          p?.longitude ??
+          p?.raw?.lng ??
+          NaN),
 
 
       price: Number.isFinite(price) ? price : undefined,
@@ -2249,7 +2239,7 @@ lng_display:
                         </span>
                       </div>
 
-                      {/* Legal Documentation - Fixed ₹12,500 */}
+                      {/* Legal Documentation - Fixed ₹10,000 */}
                       <div className="flex items-center justify-between text-sm">
                         <div>
                           <span className="text-gray-600">Legal & Documentation</span>
@@ -2287,7 +2277,7 @@ lng_display:
                       </div>
                     </div>
 
-                    {/* Total Cost with Highlight */}
+                    {/* Total Cost with Highlight - EXACT VALUE DISPLAY */}
                     <div className="border-t pt-3 flex items-center justify-between bg-[#E6761D]/5 p-3 rounded-lg">
                       <div>
                         <span className="font-semibold text-gray-900 text-base">Total Cost</span>
@@ -2296,9 +2286,14 @@ lng_display:
                           <br />+ Legal Fees
                         </div>
                       </div>
-                      <span className="font-bold text-[#E6761D] text-lg">
-                        {formatCurrency(propertyCharges.totalCost)}
-                      </span>
+                      <div className="text-right">
+                        <span className="font-bold text-[#E6761D] text-lg block">
+                          {formatExactCurrency(propertyCharges.totalCost)}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          Exact value
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -2464,7 +2459,7 @@ lng_display:
               ) : (
                 <div className="text-center py-4">
                   <div className="animate-pulse text-gray-400">Calculating charges...</div>
-                  </div>
+                </div>
               )}
             </div>
 
