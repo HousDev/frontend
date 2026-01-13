@@ -124,8 +124,8 @@ const ServicesPage = () => {
         'Disbursement',
       ],
       price: 'Free Service',
-      duration: '7-21 days',
-      successRate: '88%',
+      duration: '3-15 days',
+      successRate: '99%',
     },
     {
       id: 'legal-services',
@@ -151,7 +151,7 @@ const ServicesPage = () => {
         'Registration Support',
         'Post-transaction Support',
       ],
-      price: '₹15,000 onwards',
+      price: '₹10,000 onwards',
       duration: '5-10 days',
       successRate: '99%',
     },
@@ -214,14 +214,14 @@ const ServicesPage = () => {
   ];
 
   const additionalServices = [
-    { title: 'Property Valuation', description: 'Professional property valuation for accurate market pricing', icon: Calculator, price: '₹5,000' },
-    { title: 'Virtual Property Tours', description: '360° virtual tours for remote property viewing', icon: Eye, price: '₹8,000' },
-    { title: 'Market Research Reports', description: 'Detailed market analysis and trends for specific areas', icon: Search, price: '₹15,000' },
-    { title: 'Interior Design Consultation', description: 'Expert interior design advice for home staging', icon: HandHeart, price: '₹20,000' },
+    { title: 'Property Valuation', description: 'Professional property valuation for accurate market pricing', icon: Calculator, price: 'Contact for Pricing' },
+    { title: 'Virtual Property Tours', description: '360° virtual tours for remote property viewing', icon: Eye, price: 'Contact for Pricing' },
+    { title: 'Market Research Reports', description: 'Detailed market analysis and trends for specific areas', icon: Search, price: 'Contact for Pricing' },
+    { title: 'Interior Design Consultation', description: 'Expert interior design advice for home staging', icon: HandHeart, price: 'Contact for Pricing' },
   ];
 
   const whyChooseUs = [
-    { title: '15+ Years Experience', description: 'Decades of expertise in real estate', icon: Award, stat: '15+' },
+    { title: '12+ Years Experience', description: 'Decades of expertise in real estate', icon: Award, stat: '12+' },
     { title: 'Verified Properties', description: '100% legal and verified listings', icon: Shield, stat: '100%' },
     { title: 'Expert Team', description: 'Certified real estate professionals', icon: Users, stat: '50+' },
     { title: 'Customer Satisfaction', description: 'Happy customers across India', icon: Star, stat: '98%' },

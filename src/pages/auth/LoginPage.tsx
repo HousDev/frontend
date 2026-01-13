@@ -64,27 +64,47 @@ const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       const response = (await login(formData)) as unknown as User;
-
-      toast.success('Login successful!');
-
       const user = response;
-      const role = user?.role?.toString().toLowerCase() || '';
-      const id = user?.id;
-
-      if (user.role === 'buyer' && user.buyer_id) {
-        navigate(`/buyer-dashboard/${user.buyer_id}`, { replace: true });
-      } else if (user.role === 'seller' && user.seller_id) {
-        navigate(`/seller-dashboard/${user.seller_id}`, { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
+      if (!user) {
+        toast.error('Invalid login response');
+        return;
       }
 
-    } catch (error: any) {
-      toast.error(error?.message || 'Login failed. Please try again.');
+      // normalize role for robust comparisons
+      const role = (user.role ?? '').toString().trim().toLowerCase();
+
+      // debug logs (remove later)
+      console.log('Login user:', user);
+      console.log('Normalized role:', role);
+
+      // buyer/seller specific dashboards
+      if (role === 'buyer' && user.buyer_id) {
+        navigate(`/buyer-dashboard/${user.buyer_id}`, { replace: true });
+        return;
+      }
+      if (role === 'seller' && user.seller_id) {
+        navigate(`/seller-dashboard/${user.seller_id}`, { replace: true });
+        return;
+      }
+
+      // executives who go to general dashboard
+      const generalRoles = ['marketing executive', 'sales executive', 'presales executive'];
+      if (generalRoles.includes(role)) {
+        navigate(from || '/dashboard', { replace: true });
+        return;
+      }
+
+      // default fallback
+      navigate(from || '/dashboard', { replace: true });
+
+    } catch (err: any) {
+      toast.error(err?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">

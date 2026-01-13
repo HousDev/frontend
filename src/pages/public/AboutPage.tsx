@@ -27,7 +27,7 @@ const AboutUsPage = () => {
   const stats = [
     { label: 'Properties Sold', value: '10,000+', icon: Home },
     { label: 'Happy Customers', value: '25,000+', icon: Users },
-    { label: 'Years of Experience', value: '15+', icon: Award },
+    { label: 'Years of Experience', value: '12+', icon: Award },
     { label: 'Cities Covered', value: '50+', icon: Building }
   ];
 
@@ -56,40 +56,40 @@ const AboutUsPage = () => {
 
   const team = [
     {
-      name: 'Rajesh Patel',
+      name: 'Laxman Vhadade',
       role: 'Founder & CEO',
       experience: '15+ years',
       specialization: 'Luxury Properties',
       image: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=300'
     },
-    {
-      name: 'Priya Sharma',
-      role: 'Head of Sales',
-      experience: '12+ years',
-      specialization: 'Residential Sales',
-      image: 'https://images.pexels.com/photos/3756679/pexels-photo-3756679.jpeg?auto=compress&cs=tinysrgb&w=300'
-    },
-    {
-      name: 'Amit Kumar',
-      role: 'Legal Advisor',
-      experience: '10+ years',
-      specialization: 'Property Law',
-      image: 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=300'
-    },
-    {
-      name: 'Neha Gupta',
-      role: 'Customer Relations',
-      experience: '8+ years',
-      specialization: 'Client Support',
-      image: 'https://images.pexels.com/photos/3756679/pexels-photo-3756679.jpeg?auto=compress&cs=tinysrgb&w=300'
-    }
+    // {
+    //   name: 'Priya Sharma',
+    //   role: 'Head of Sales',
+    //   experience: '12+ years',
+    //   specialization: 'Residential Sales',
+    //   image: 'https://images.pexels.com/photos/3756679/pexels-photo-3756679.jpeg?auto=compress&cs=tinysrgb&w=300'
+    // },
+    // {
+    //   name: 'Amit Kumar',
+    //   role: 'Legal Advisor',
+    //   experience: '10+ years',
+    //   specialization: 'Property Law',
+    //   image: 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=300'
+    // },
+    // {
+    //   name: 'Neha Gupta',
+    //   role: 'Customer Relations',
+    //   experience: '8+ years',
+    //   specialization: 'Client Support',
+    //   image: 'https://images.pexels.com/photos/3756679/pexels-photo-3756679.jpeg?auto=compress&cs=tinysrgb&w=300'
+    // }
   ];
 
   const achievements = [
     {
-      year: '2010',
+      year: '2013',
       title: 'Company Founded',
-      description: 'Started with a vision to revolutionize real estate in Mumbai'
+      description: 'Started with a vision to revolutionize real estate in Pune'
     },
     {
       year: '2015',
@@ -129,7 +129,7 @@ const AboutUsPage = () => {
             </p>
             <div className="flex items-center justify-center space-x-8">
               <div className="text-center">
-                <div className="text-xl font-bold text-white">15+</div>
+                <div className="text-xl font-bold text-white">12+</div>
                 <div className="text-blue-200">Years Experience</div>
               </div>
               <div className="text-center">

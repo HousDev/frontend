@@ -1380,14 +1380,14 @@ const DashboardLayout = () => {
         colorClass: navTextClass,
         type: "dropdown",
         key: "tools",
-        required: ["property.read", "vendor.read"],
+        required: hasRole("admin") ? undefined : ["property.read", "vendor.read"], // ✅ Add this check
         submenu: [
           {
             name: "Vendors",
             href: "/dashboard/vendors",
             icon: Building,
             colorClass: navTextClass,
-            required: "vendor.read",
+            required: hasRole("admin") ? undefined : "vendor.read", // ✅ Add for submenu too
           },
           {
             name: "AI Training",

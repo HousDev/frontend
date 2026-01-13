@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X, Save, User, Phone as PhoneIcon, MapPin, Star,
   AlertCircle, Home, CreditCard, ChevronDown, Search, IndianRupee
@@ -11,9 +11,10 @@ import BudgetInput from '@/pages/dashboard/components/BudgetInput';
 import { buyerAPI } from '@/lib/buyerAPI';
 import { toast } from 'react-toastify';
 import DOBStepCalendar from '../ui/DOBStepCalendar';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ------------------------------
-// Helpers
+// Helpers (keep the same)
 // ------------------------------
 const parseMaybeJSON = (val: any) => {
   if (!val) return null;
@@ -50,8 +51,7 @@ const buildFormStateFromBuyer = (b: any) => {
     salutation: b?.salutation ?? 'Mr.',
     name: b?.name ?? '',
     phone: b?.phone ?? '',
-    // FIX: Ensure dob is properly extracted from all possible field names
-    dob: b?.dob ?? b?.buyer_dob ?? ISO_18Y_BACK, // Add fallback to ISO_18Y_BACK
+    dob: b?.dob ?? b?.buyer_dob ?? ISO_18Y_BACK,
     whatsapp_number: b?.whatsapp_number ?? b?.whatsapp ?? '',
     email: b?.email ?? '',
     state: b?.state ?? '',
@@ -85,6 +85,7 @@ const buildFormStateFromBuyer = (b: any) => {
     },
   };
 };
+
 const dedupeByValue = (opts: any[] = []) =>
   Array.from(new Map(opts.map(o => [o?.value, o])).values());
 
@@ -117,7 +118,7 @@ const arePhoneNumbersSame = (phone1: string, phone2: string) => {
 };
 
 // ------------------------------
-// MultiSelect Dropdown (local component)
+// Fixed MultiSelectDropdown with proper closing behavior
 // ------------------------------
 const MultiSelectDropdown = ({
   label,
@@ -136,6 +137,8 @@ const MultiSelectDropdown = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const safeOptions = Array.isArray(options) ? options : [];
 
@@ -145,36 +148,103 @@ const MultiSelectDropdown = ({
     return safeOptions.filter((o) => o?.label?.toLowerCase().includes(t));
   }, [withSearch, searchTerm, safeOptions]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+      if (event.key === 'Tab' && isOpen) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  // Focus search input when dropdown opens with search
+  useEffect(() => {
+    if (isOpen && withSearch && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen, withSearch]);
+
+  const handleToggle = (val: any) => {
+    onToggle(val);
+    // Don't close dropdown after selection - let user continue selecting
+  };
+
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
       <button
         type="button"
-        className="border border-gray-300 rounded w-full h-8 px-3 text-left text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent flex items-center justify-between"
-        onClick={() => setIsOpen(v => !v)}
+        className="border border-gray-300 rounded w-full h-8 px-3 text-left text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent flex items-center justify-between hover:border-gray-400 transition-colors"
+        onClick={() => {
+          setIsOpen(prev => !prev);
+          setSearchTerm('');
+        }}
+        onBlur={(e) => {
+          // Only close if related target is not inside dropdown
+          if (!dropdownRef.current?.contains(e.relatedTarget as Node)) {
+            setTimeout(() => {
+              if (!dropdownRef.current?.contains(document.activeElement)) {
+                setIsOpen(false);
+                setSearchTerm('');
+              }
+            }, 200);
+          }
+        }}
       >
         <span className="text-gray-500 truncate">
           {selectedValues.length > 0
             ? selectedValues.slice(0, 2).join(', ') + (selectedValues.length > 2 ? ` +${selectedValues.length - 2} more` : '')
             : placeholder}
         </span>
-        <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          size={14}
+          className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {isOpen && (
         <div
-          className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
+          className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-hidden"
+          onMouseDown={(e) => e.preventDefault()} // Prevent blur on mouse down inside dropdown
         >
           {withSearch && (
-            <div className="p-2 border-b border-gray-200">
+            <div className="p-2 border-b border-gray-200 sticky top-0 bg-white z-10">
               <div className="relative">
                 <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
+                  ref={inputRef}
                   type="text"
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setIsOpen(false);
+                      setSearchTerm('');
+                    }
+                  }}
                   className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -182,17 +252,22 @@ const MultiSelectDropdown = ({
           )}
           <div className="overflow-y-auto max-h-32">
             {filteredOptions.map((option) => (
-              <label key={option.value} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer gap-2">
+              <label
+                key={option.value}
+                className="flex items-center p-2 hover:bg-gray-100 cursor-pointer gap-2 transition-colors"
+                onMouseDown={(e) => e.preventDefault()} // Prevent blur
+              >
                 <input
                   type="checkbox"
                   checked={selectedValues.includes(option.value)}
-                  onChange={() => onToggle(option.value)}
+                  onChange={() => handleToggle(option.value)}
+                  className="h-3 w-3"
                 />
                 <span className="text-xs">{option.label}</span>
               </label>
             ))}
             {filteredOptions.length === 0 && (
-              <div className="p-2 text-xs text-gray-500">No options</div>
+              <div className="p-2 text-xs text-gray-500 text-center">No options found</div>
             )}
           </div>
         </div>
@@ -232,8 +307,39 @@ const BuyerFormModal = ({
   const [masters, setMasters] = useState<any>({});
   const [touched, setTouched] = useState({ minBudget: false, maxBudget: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [formData, setFormData] = useState(() => buildFormStateFromBuyer(buyer || {}));
+
+  // Add a ref to track the active element before modal opens
+  const modalRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+
+  // Close modal when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen, onClose]);
 
   const calcAge = (iso?: string) => {
     if (!iso) return 0;
@@ -246,11 +352,11 @@ const BuyerFormModal = ({
   };
 
   const age = useMemo(() => calcAge(formData.dob), [formData.dob]);
-
   const ageError = formData.dob
     ? (age < 18 ? 'Buyer must be at least 18 years old' : '')
     : '';
 
+  // Fetch master data
   useEffect(() => {
     if (!isOpen) return;
     (async () => {
@@ -267,31 +373,29 @@ const BuyerFormModal = ({
   }, [isOpen]);
 
 
-  // FIXED: Reset form data when buyer changes and modal opens
   useEffect(() => {
     if (isOpen) {
       const newFormData = buildFormStateFromBuyer(buyer || {});
+
+      // 🔥 AUTO ASSIGN FOR EXECUTIVE (NEW BUYER ONLY)
+      if (!buyer?.id) {
+        const dept = (user?.department || '').toLowerCase();
+        const role = (user?.role || '').toLowerCase();
+
+        if (dept.includes('presale') || dept.includes('sales')) {
+          if (role.includes('executive')) {
+            (newFormData as any).assigned_executive = String(user.id);
+          }
+        }
+      }
+
       setFormData(newFormData);
-
-      // Set sameAsPhone toggle based on whether phone and whatsapp numbers are same
-      if (buyer && buyer.phone && (buyer.whatsapp_number || buyer.whatsapp)) {
-        const phoneSame = arePhoneNumbersSame(buyer.phone, buyer.whatsapp_number || buyer.whatsapp);
-        setSameAsPhone(phoneSame);
-      } else {
-        setSameAsPhone(false);
-      }
-
-      if (buyer && buyer.id) {
-     
-      } else {
-        
-      }
     }
-  }, [isOpen, buyer]); // Added isOpen dependency
+  }, [isOpen, buyer, user]);
 
   const getMasterOptions = (key: string) => dedupeByValue(masters?.[key] || []);
 
-  // Normalize edit-mode values to canonical option.value once masters are ready
+  // Normalize edit-mode values
   useEffect(() => {
     if (!isOpen || masterLoading) return;
 
@@ -393,55 +497,86 @@ const BuyerFormModal = ({
     });
 
   const handleSave = async () => {
-    if (!String(formData.name || '').trim()) {
-      alert('Please enter buyer name');
-      return;
-    }
-    if (!String(formData.phone || '').trim()) {
-      alert('Please enter phone number');
+    if (isSubmitting) {
+      console.log('⚠️ Already submitting, ignoring duplicate call');
       return;
     }
 
-    const minBudget = parseInt(String(formData.budget_min).replace(/,/g, ''), 10) || 0;
-    const maxBudget = parseInt(String(formData.budget_max).replace(/,/g, ''), 10) || 0;
+    console.log('🟢 handleSave called, isSubmitting:', isSubmitting);
 
-    if (!minBudget || !maxBudget) {
-      setTouched({ minBudget: true, maxBudget: true });
-      alert('Please enter valid budget range');
+    // Validation
+    if (!formData.name.trim()) {
+      toast.error('Name is required');
       return;
     }
-    if (minBudget >= maxBudget) {
-      alert('Maximum budget should be greater than minimum budget');
+
+    if (!formData.phone.trim()) {
+      toast.error('Phone number is required');
+      return;
+    }
+
+    if (ageError) {
+      toast.error(ageError);
       return;
     }
 
     setIsSubmitting(true);
+
     try {
       const payload = {
         ...formData,
-        budget_min: minBudget,
-        budget_max: maxBudget,
+
+        // ✅ force add even if TS type doesn't know
+        assigned_executive:
+          (formData as any).assigned_executive ??
+          (user?.role?.toLowerCase().includes('executive')
+            ? user.id
+            : null),
+
+        budget_min: formData.budget_min,
+        budget_max: formData.budget_max,
         requirements: JSON.stringify(formData.requirements || {}),
         financials: JSON.stringify(formData.financials || {}),
         created_at: buyer?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      };
+      } as any;
+
+
+      console.log('📤 Sending payload to API:', {
+        name: payload.name,
+        phone: payload.phone,
+        email: payload.email,
+        budget: `${payload.budget_min}-${payload.budget_max}`
+      });
 
       let response;
       if (buyer?.id) {
+        console.log(`🔄 Updating buyer ID: ${buyer.id}`);
         response = await buyerAPI.update(buyer.id, payload);
-
+        console.log('✅ Update response:', response);
       } else {
+        console.log('🆕 Creating new buyer');
         response = await buyerAPI.create(payload);
-
+        console.log('✅ Create response:', response);
       }
-      if (onSave) onSave((response as any)?.data || response);
+
+      if (onSave && typeof onSave === 'function') {
+        console.log('📞 Calling onSave callback');
+        onSave(response);
+      } else {
+        console.warn('⚠️ onSave callback not available or not a function');
+      }
+
       onClose?.();
+
     } catch (error: any) {
-      console.error('Error saving buyer:', error);
+      console.error('❌ API Error:', error);
+      console.error('❌ Error response:', error.response?.data);
+
       const msg = error?.response?.data?.message || error?.message || 'Unknown error';
       toast.error(`Failed to save buyer: ${msg}`);
     } finally {
+      console.log('🟢 Setting isSubmitting to false');
       setIsSubmitting(false);
     }
   };
@@ -463,8 +598,12 @@ const BuyerFormModal = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div
+        ref={modalRef}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="px-6 py-2 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
           <div className="flex items-center justify-between">
@@ -472,7 +611,10 @@ const BuyerFormModal = ({
               <h2 className="text-xl font-bold text-gray-900">{buyer ? 'Edit Buyer' : 'Add New Buyer'}</h2>
               <p className="text-gray-600 mt-1 text-xs">Enter buyer information and requirements</p>
             </div>
-            <button onClick={onClose} className="p-2 rounded-xl bg-white hover:bg-gray-50 transition-colors shadow-lg">
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl bg-white hover:bg-gray-50 transition-colors shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
               <X size={20} />
             </button>
           </div>
@@ -498,6 +640,7 @@ const BuyerFormModal = ({
                     <select
                       value={formData.salutation}
                       onChange={(e) => setFormData(prev => ({ ...prev, salutation: e.target.value }))}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">Select</option>
@@ -515,6 +658,7 @@ const BuyerFormModal = ({
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter full name"
                       required
@@ -564,6 +708,7 @@ const BuyerFormModal = ({
                       type="tel"
                       value={formData.whatsapp_number}
                       onChange={(e) => setFormData(prev => ({ ...prev, whatsapp_number: e.target.value }))}
+                      onBlur={(e) => e.target.blur()}
                       placeholder="WhatsApp number (without country code)"
                       className={`border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${sameAsPhone ? 'bg-gray-100' : ''}`}
                       disabled={sameAsPhone}
@@ -576,15 +721,15 @@ const BuyerFormModal = ({
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter email address"
                     />
                   </div>
 
-                  {/* FIXED: DOB Field */}
                   <div className="md:col-span-1">
                     <DOBStepCalendar
-                      value={formData.dob || ISO_18Y_BACK} // Add fallback to ISO_18Y_BACK
+                      value={formData.dob || ISO_18Y_BACK}
                       onChange={(iso) => setFormData(prev => ({ ...prev, dob: iso }))}
                       label="Date of Birth"
                       placeholder="Select date of birth"
@@ -592,7 +737,6 @@ const BuyerFormModal = ({
                       max={ISO_18Y_BACK}
                     />
                     {ageError && <p className="mt-1 text-[11px] text-red-600">{ageError}</p>}
-
                   </div>
                 </div>
               </div>
@@ -610,6 +754,7 @@ const BuyerFormModal = ({
                       type="text"
                       value={formData.state}
                       onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter state"
                     />
@@ -620,6 +765,7 @@ const BuyerFormModal = ({
                       type="text"
                       value={formData.city}
                       onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter city"
                     />
@@ -630,6 +776,7 @@ const BuyerFormModal = ({
                       type="text"
                       value={formData.location}
                       onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter location/area"
                     />
@@ -649,6 +796,7 @@ const BuyerFormModal = ({
                     <select
                       value={formData.buyer_lead_source}
                       onChange={(e) => setFormData(prev => ({ ...prev, buyer_lead_source: e.target.value }))}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">Select Source</option>
@@ -662,6 +810,7 @@ const BuyerFormModal = ({
                     <select
                       value={formData.buyer_lead_priority}
                       onChange={(e) => setFormData(prev => ({ ...prev, buyer_lead_priority: e.target.value }))}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">Select Priority</option>
@@ -675,6 +824,7 @@ const BuyerFormModal = ({
                     <select
                       value={formData.buyer_lead_stage}
                       onChange={(e) => setFormData(prev => ({ ...prev, buyer_lead_stage: e.target.value }))}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">Select Stage</option>
@@ -688,6 +838,7 @@ const BuyerFormModal = ({
                     <select
                       value={formData.buyer_lead_status}
                       onChange={(e) => setFormData(prev => ({ ...prev, buyer_lead_status: e.target.value }))}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">Select Status</option>
@@ -747,6 +898,7 @@ const BuyerFormModal = ({
                             },
                           }))
                         }
+                        onBlur={(e) => e.target.blur()}
                         className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">Select Property Type</option>
@@ -793,6 +945,7 @@ const BuyerFormModal = ({
                       <select
                         value={formData.requirements.furnishing}
                         onChange={(e) => setReq({ furnishing: e.target.value })}
+                        onBlur={(e) => e.target.blur()}
                         className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">Any</option>
@@ -807,6 +960,7 @@ const BuyerFormModal = ({
                       <select
                         value={formData.requirements.possession}
                         onChange={(e) => setReq({ possession: e.target.value })}
+                        onBlur={(e) => e.target.blur()}
                         className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">Any</option>
@@ -821,6 +975,7 @@ const BuyerFormModal = ({
                       <select
                         value={formData.requirements.facing}
                         onChange={(e) => setReq({ facing: e.target.value })}
+                        onBlur={(e) => e.target.blur()}
                         className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">Any Facing</option>
@@ -835,6 +990,7 @@ const BuyerFormModal = ({
                       <select
                         value={formData.requirements.floor}
                         onChange={(e) => setReq({ floor: e.target.value })}
+                        onBlur={(e) => e.target.blur()}
                         className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">Any Floor</option>
@@ -905,6 +1061,7 @@ const BuyerFormModal = ({
                     <textarea
                       value={formData.requirements.specialRequirements}
                       onChange={(e) => setReq({ specialRequirements: e.target.value })}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Any specific requirements or additional notes..."
                       rows={3}
@@ -945,6 +1102,7 @@ const BuyerFormModal = ({
                       type="number"
                       value={formData.financials.loanAmount}
                       onChange={(e) => setFin({ loanAmount: parseFloat(e.target.value) || 0 })}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter loan amount"
                     />
@@ -955,6 +1113,7 @@ const BuyerFormModal = ({
                       type="number"
                       value={formData.financials.downPayment}
                       onChange={(e) => setFin({ downPayment: parseFloat(e.target.value) || 0 })}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter down payment"
                     />
@@ -965,6 +1124,7 @@ const BuyerFormModal = ({
                       type="number"
                       value={formData.financials.monthlyIncome}
                       onChange={(e) => setFin({ monthlyIncome: parseFloat(e.target.value) || 0 })}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter monthly income"
                     />
@@ -974,6 +1134,7 @@ const BuyerFormModal = ({
                     <select
                       value={formData.financials.bankPreference}
                       onChange={(e) => setFin({ bankPreference: e.target.value })}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">Select Bank</option>
@@ -987,6 +1148,7 @@ const BuyerFormModal = ({
                     <select
                       value={formData.financials.loanStatus}
                       onChange={(e) => setFin({ loanStatus: e.target.value })}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">Select Loan Status</option>
@@ -1003,6 +1165,7 @@ const BuyerFormModal = ({
                       type="number"
                       value={formData.financials.creditScore}
                       onChange={(e) => setFin({ creditScore: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                      onBlur={(e) => e.target.blur()}
                       className="border border-gray-300 rounded w-full h-8 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter credit score"
                       min={300}

@@ -1,26 +1,103 @@
-export function filterLeadsByRole(user: any, allLeads: any[], presalesUsers: any[]) {
-    const role = (user?.role || "").toLowerCase();
-    const dept = (user?.department || "").toLowerCase();
+import { User } from '@/contexts/AuthContext';
 
-    // Executive (Presales) → सिर्फ खुद के leads
-    if (role === "executive" && dept === "presales") {
-        return allLeads.filter(l => String(l.assigned_executive) === String(user.id));
-    }
+export const filterLeadsByRole = (
+  user: User | null,
+  leads: any[],
+  allUsers: any[] = []
+): any[] => {
+  if (!user) return [];
 
-    // Manager (Presales) → presales executives के सारे leads
-    if (role === "manager" && dept === "presales") {
-        const presalesExecIds = presalesUsers
-            .filter(u => (u.role || "").toLowerCase() === "executive")
-            .map(u => String(u.id));
+  const userRole = (user.role || '').toLowerCase();
+  const userDept = (user.department || '').toLowerCase();
+  const userId = String(user.id|| '');
 
-        return allLeads.filter(l => presalesExecIds.includes(String(l.assigned_executive)));
-    }
+  // 1. Super Admin / Admin - सभी leads दिखें
+  if (userRole === 'superadmin' || userRole === 'admin') {
+    return leads;
+  }
 
-    // Admin (Admin) → सारे leads दिखने चाहिए
-    if (role === "admin") {
-        return allLeads;
-    }
+  // 2. Presales Executive - केवल अपनी assigned leads
+  if (userDept.includes('presales') && userRole.includes('executive')) {
+    return leads.filter((lead) => {
+      // यदि lead assigned है
+      if (lead.assigned_executive) {
+        return String(lead.assigned_executive) === userId;
+      }
+      // Unassigned leads न दिखें
+      return false;
+    });
+  }
 
-    // Default → कोई restriction नहीं
-    return allLeads;
-}
+  // 3. Presales Manager - अपनी team की सभी leads + unassigned leads
+  if (userDept.includes('presales') && userRole.includes('manager')) {
+    // अपने under के executives ढूंढें
+    const teamExecutives = allUsers.filter((u: any) => {
+      const uDept = (u.department || '').toLowerCase();
+      const uRole = (u.role || '').toLowerCase();
+      const uManagerId = String(u.reports_to || u.manager_id || '');
+      
+      return (
+        uDept.includes('presales') && 
+        uRole.includes('executive') &&
+        uManagerId === userId
+      );
+    });
+
+    const teamExecutiveIds = teamExecutives.map((e: any) => 
+      String(e.id || e._id || e.user_id || '')
+    );
+
+    return leads.filter((lead) => {
+      // Unassigned leads
+      if (!lead.assigned_executive || lead.assigned_executive === '') {
+        return true;
+      }
+      
+      // अपनी team की assigned leads
+      return teamExecutiveIds.includes(String(lead.assigned_executive)) ||
+             String(lead.assigned_executive) === userId;
+    });
+  }
+
+  // 4. Sales Executive - केवल अपनी assigned leads
+  if (userDept.includes('sales') && userRole.includes('executive')) {
+    return leads.filter((lead) => {
+      if (lead.assigned_executive) {
+        return String(lead.assigned_executive) === userId;
+      }
+      return false;
+    });
+  }
+
+  // 5. Sales Manager - अपनी team की leads
+  if (userDept.includes('sales') && userRole.includes('manager')) {
+    const teamExecutives = allUsers.filter((u: any) => {
+      const uDept = (u.department || '').toLowerCase();
+      const uRole = (u.role || '').toLowerCase();
+      const uManagerId = String(u.reports_to || u.manager_id || '');
+      
+      return (
+        uDept.includes('sales') && 
+        uRole.includes('executive') &&
+        uManagerId === userId
+      );
+    });
+
+    const teamExecutiveIds = teamExecutives.map((e: any) => 
+      String(e.id || e._id || e.user_id || '')
+    );
+
+    return leads.filter((lead) => {
+      if (!lead.assigned_executive || lead.assigned_executive === '') {
+        return true;
+      }
+      return teamExecutiveIds.includes(String(lead.assigned_executive)) ||
+             String(lead.assigned_executive) === userId;
+    });
+  }
+
+  // 6. Default: केवल अपनी created leads
+  return leads.filter((lead) => 
+    String(lead.created_by) === userId
+  );
+};

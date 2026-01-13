@@ -1182,7 +1182,7 @@ const LeadDetailPage: React.FC = () => {
 
                 {/* Assign Executive dropdown */}
                 <div className="relative">
-                  <button
+                  {/* <button
                     onClick={() => {
                       if (!canAssignLeads) {
                         toast.error("You do not have permission to assign leads");
@@ -1196,7 +1196,7 @@ const LeadDetailPage: React.FC = () => {
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     <ChevronDown className="w-2.5 h-2.5" />
-                  </button>
+                  </button> */}
 
                   {showExecDropdown && canAssignLeads && (
                     <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg border z-10 text-xs">

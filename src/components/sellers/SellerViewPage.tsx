@@ -3303,7 +3303,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
   return (
     <div className="h-full flex flex-col bg-gray-50 text-xs">
       {/* TOP BAR */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-50">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button onClick={onBack} className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
@@ -3367,13 +3367,13 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
             >
               <Mail size={20} />
             </button>
-
             <button
               onClick={() => {
                 if (!canUpdateSeller) {
                   toast.error('You do not have permission to edit seller');
                   return;
                 }
+                // ✅ Call parent's onEdit function
                 onEdit(seller);
               }}
               className={`p-2 rounded-lg ${canUpdateSeller ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
@@ -3463,7 +3463,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       </div>
 
       {/* FOOTER ACTIONS */}
-      <div className="bg-white border-t border-gray-200 px-6 py-4">
+      <div className="bg-white border-t border-gray-200 px-6 py-4 sticky bottom-0 z-50">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <button onClick={() => setShowStageUpdateModal(true)} className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">

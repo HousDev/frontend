@@ -63,8 +63,35 @@ interface Property {
 }
 
 /* ==============================
-   Helpers
+   Default Images Constants
 ============================== */
+const DEFAULT_IMAGES = {
+  APARTMENT: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800',
+  HOUSE: 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=800',
+  VILLA: 'https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&cs=tinysrgb&w=800',
+  PLOT: 'https://images.pexels.com/photos/259588/pexels-photo-259588.jpeg?auto=compress&cs=tinysrgb&w=800',
+  COMMERCIAL: 'https://images.pexels.com/photos/3620416/pexels-photo-3620416.jpeg?auto=compress&cs=tinysrgb&w=800',
+  DEFAULT: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'
+};
+
+/* ==============================
+   Helper Functions
+============================== */
+
+// ✅ Property type se default image dhundne ka function
+const getDefaultImageByType = (propertyType: string): string => {
+  if (!propertyType) return DEFAULT_IMAGES.DEFAULT;
+  const type = propertyType.toLowerCase();
+
+  if (type.includes('apartment') || type.includes('flat')) return DEFAULT_IMAGES.APARTMENT;
+  if (type.includes('house') || type.includes('bungalow') || type.includes('independent')) return DEFAULT_IMAGES.HOUSE;
+  if (type.includes('villa')) return DEFAULT_IMAGES.VILLA;
+  if (type.includes('plot') || type.includes('land')) return DEFAULT_IMAGES.PLOT;
+  if (type.includes('commercial') || type.includes('shop') || type.includes('office') || type.includes('retail'))
+    return DEFAULT_IMAGES.COMMERCIAL;
+
+  return DEFAULT_IMAGES.DEFAULT;
+};
 
 // ✅ Public gate — client-side hard guard
 const isPublicProp = (p: any): boolean => {
@@ -79,11 +106,27 @@ const isPublicProp = (p: any): boolean => {
   );
 };
 
-// currency short
-const formatCurrency = (amount: number) => {
-  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
-  if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-  return `₹${amount.toLocaleString('en-IN')}`;
+const formatCurrency = (amount: number | string) => {
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n <= 0) return ' - ';
+
+  const CRORE = 10_000_000;
+  const LAKH = 100_000;
+
+  // Crores → keep actual value (max 2 decimals, no rounding loss)
+  if (n >= CRORE) {
+    const cr = n / CRORE;
+    return `₹${parseFloat(cr.toFixed(2))}Cr`;
+  }
+
+  // Lakhs → whole lakhs only
+  if (n >= LAKH) {
+    const l = n / LAKH;
+    return `₹${parseFloat(l.toFixed(0))}L`;
+  }
+
+  // Rupees
+  return `₹${n.toLocaleString('en-IN')}`;
 };
 
 // amenity icon
@@ -306,7 +349,6 @@ const PropertyTags = ({ tags }: { tags: string[] }) => {
           </span>
           : style.emoji;
 
-
         return (
           <span
             key={index}
@@ -340,7 +382,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
   // core UI states
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState(''); // stores city or "location, city"
+  const [selectedLocation, setSelectedLocation] = useState('Pune'); // ✅ Changed: Default to Pune
   const [localityInput, setLocalityInput] = useState('');
   const [localities, setLocalities] = useState<string[]>([]);
   const [selectedBudget, setSelectedBudget] = useState('');
@@ -487,7 +529,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   useEffect(() => {
     const qp = new URLSearchParams(location.search);
 
-    const cityFromUrl = qp.get('city') || '';
+    // ✅ Changed: Default to Pune if no city in URL
+    const cityFromUrl = qp.get('city') || 'Pune';
     setSelectedLocation(cityFromUrl);
 
     let locs: string[] = [];
@@ -712,6 +755,26 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           // ✅ Use dynamic parking extraction
           const parkingCount = extractParkingCount(p);
 
+          // ✅ Get property type for default image
+          const propertyType = p.property_type_name || p.property_type || '';
+
+          // ✅ Create images array with proper fallback
+          let images: string[] = [];
+
+          // First check p.photos
+          if (Array.isArray(p.photos) && p.photos.length > 0) {
+            images = p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'));
+          }
+          // Then check p.photoUrls
+          else if (Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
+            images = p.photoUrls;
+          }
+          // If no images from backend, use default based on property type
+          else {
+            const defaultImage = getDefaultImageByType(propertyType);
+            images = [defaultImage];
+          }
+
           const propertyData: Property = {
             id: p.id,
             slug: p.slug || p.url_slug || p.generated_slug,
@@ -722,11 +785,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             bathrooms: Number(p.bathrooms) || 0,
             square_feet: Number(p.carpet_area) || Number(p.builtup_area) || 0,
             city: p.city_name || p.city || '',
-            property_type: p.property_type_name || p.property_type || '',
+            property_type: propertyType,
             status: p.status || '',
-            images: Array.isArray(p.photos) ? p.photos.map((ph: string) => ph.replace(/\\/g, '/')) :
-              (Array.isArray(p.photoUrls) ? p.photoUrls :
-                ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800']),
+            images, // ✅ Now images will never be empty
             location: `${p.location_name || p.location || ''}`.replace(/\s*,\s*$/, ''),
             society: p.society_name || p.project_name || `Society ${p.id}`,
             area: Number(p.carpet_area) || Number(p.builtup_area) || 0,
@@ -1118,7 +1179,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                   type="button"
                   onClick={() => { }}
                   className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base transition bg-gray-100 text-gray-700 opacity-60 cursor-not-allowed"
-                  title="Rent search not available yet"
+                  title="Launching Soon !"
                   disabled
                   aria-disabled="true"
                   aria-pressed={false}
@@ -1283,70 +1344,84 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         </div>
       </div>
 
-      {/* AI Recommendations bar */}
-      {showAIRecommendations && !loading && allProperties.length > 0 && (
-        <div className="bg-gradient-to-r from-[#0b3856] via-[#6c6258] via-[#0b3856] to-[#0c3854] text-white py-2 transition-colors duration-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-start sm:items-center justify-between">
-              <div className="flex items-start sm:items-center space-x-2 sm:space-x-3">
-                <Bot className="text-yellow-300 drop-shadow-md shrink-0 mt-0.5 sm:mt-0" size={40} />
-                <div className="flex flex-col">
-                  <span className="font-semibold">AI Recommendations:</span>
-                  <span className="text-xs sm:text-sm">
-                    Found {allProperties.length} public properties. {selectedLocation || "Top areas"} show strong growth potential
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowAIRecommendations(false)}
-                className="ml-3 bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-2 py-1 rounded transition-colors duration-200"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Body */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header row */}
         <div className="grid grid-cols-1 mb-6">
-          <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 text-nowrap sm:items-center sm:justify-between mb-2">
-            <div className="min-w-0">
-              <h2 className="text-2xl font-bold text-[#0b3856]">All Properties</h2>
-              {Boolean(selectedLocation || localities.length || selectedBudget) && (
-                <p className="text-gray-600 text-sm">
-                  {selectedLocation && `in ${selectedLocation} • `}
-                  {localities.length > 0 && `${localities.join(', ')} • `}
-                  {selectedBudget &&
-                    `${(budgetOptions.find((b) => (b.value || b.label) === selectedBudget)?.label) || selectedBudget} • `}
-                  Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedProperties.length)} results
-                </p>
-              )}
-            </div>
 
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setViewMode('grid')}
-                aria-label="Grid view"
-                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
-                title="Grid view"
-              >
-                <Grid size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                aria-label="List view"
-                className={`p-2 rounded-lg w-10 h-10 flex items-center justify-center ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
-                title="List view"
-              >
-                <List size={18} />
-              </button>
+          {/* TOP LINE */}
+          <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4 w-full">
+
+            <div className="flex flex-wrap items-center justify-between w-full gap-3 sm:gap-4">
+
+              {/* LEFT SECTION */}
+              <div className="flex-shrink-0 min-w-[180px]">
+                <h2 className="text-lg sm:text-xl font-bold text-[#0b3856]">
+                  All Properties {!loading && !error && `(${filteredProperties.length})`}
+                </h2>
+
+                {Boolean(selectedLocation || localities.length || selectedBudget) && (
+                  <p className="text-gray-600 text-xs sm:text-sm leading-snug">
+                    {selectedLocation && `in ${selectedLocation} • `}
+                    {localities.length > 0 && `${localities.join(', ')} • `}
+                    {selectedBudget &&
+                      `${(budgetOptions.find((b) => (b.value || b.label) === selectedBudget)?.label) || selectedBudget} • `}
+                    Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedProperties.length)} of{" "}
+                    {filteredProperties.length} results
+                  </p>
+                )}
+              </div>
+
+              {/* AI Recommendation Banner */}
+              <div className="w-full sm:flex-1 flex justify-start sm:justify-center">
+                {showAIRecommendations && !loading && allProperties.length > 0 && (
+                  <div className="flex items-start gap-2 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg shadow-sm text-xs sm:text-sm max-w-full">
+                    <Bot className="text-[#E6761D] flex-shrink-0" size={16} />
+
+                    <div className="flex-1 leading-snug">
+                      <div className="font-semibold text-gray-800">AI Recommendations</div>
+
+                      <div className="text-gray-700">
+                        Found <span className="font-semibold">{allProperties.length}</span> public properties.{" "}
+                        {(selectedLocation || "Top areas")} show strong growth potential.
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setShowAIRecommendations(false)}
+                      className="ml-1 text-gray-500 hover:text-gray-800 flex-shrink-0"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT SECTION */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 rounded-lg w-9 h-9 flex items-center justify-center ${viewMode === "grid" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600"
+                    }`}
+                >
+                  <Grid size={16} />
+                </button>
+
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-2 rounded-lg w-9 h-9 flex items-center justify-center ${viewMode === "list" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600"
+                    }`}
+                >
+                  <List size={16} />
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-end justify-end gap-3">
+
+          {/* SECOND LINE : AI Powered Search + Filters (UNCHANGED) */}
+          <div className="flex items-end justify-end gap-3 mt-2">
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <Target className="text-blue-600" size={16} />
               <span>AI-Powered Search</span>
@@ -1478,21 +1553,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         <option value="Under Construction">Under Construction</option>
                       </select>
                     </div>
-
-                    {/* Parking */}
-                    {/* <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Parking</label>
-                      <select
-                        value={parkingFilter}
-                        onChange={(e) => setParkingFilter(e.target.value as any)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
-                      >
-                        <option value="any">Any</option>
-                        <option value="2w">2-Wheeler</option>
-                        <option value="4w">4-Wheeler</option>
-                      </select>
-                    </div> */}
-
                     {/* Min Rating */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Min Rating</label>
@@ -1532,11 +1592,13 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Bathrooms (min)</label>
                       <input
-                        type="number" min={0}
+                        type="text" min={0}
                         value={bathroomsFilter as any}
                         onChange={(e) => setBathroomsFilter(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                        placeholder="e.g. 2"
                       />
+
                     </div>
 
                     {/* Actions */}
@@ -1622,6 +1684,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           </div>
         </div>
 
+
         {/* Loading / Error / Results */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-16">
@@ -1667,7 +1730,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                       {/* Image */}
                       <div className="relative">
                         <img
-                          src={property.images?.[0] || 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'}
+                          src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
                           alt={String(property.title)}
                           className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
                         />
@@ -1868,12 +1931,12 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                       className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all group cursor-pointer"
                       onClick={() => { if (property.slug) { handleNavigateToProperty(property); return; } setCurrentPropertyView(property); if (onPropertyView) onPropertyView(property); }}
                     >
-                      <div className="md:flex">
-                        <div className="md:w-1/3 relative">
+                      <div className="md:flex gap-4 p-4 items-start">
+                        <div className="md:w-[38%] relative">
                           <img
-                            src={property.images?.[0] || 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'}
+                            src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
                             alt={String(property.title)}
-                            className="w-full h-64 md:h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            className="w-full h-48 md:h-56 lg:h-52 object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"
                           />
 
                           <div className="absolute top-3 left-3 flex space-x-2">
@@ -1886,10 +1949,10 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           </div>
                         </div>
 
-                        <div className="md:w-2/3 p-6">
-                          <div className="flex items-start justify-between mb-4">
+                        <div className="md:flex-1 p-3 space-y-1.5">
+                          <div className="flex items-start justify-between mb-2">
                             <div>
-                              <h3 className="text-xl font-bold text-[#0b3856] mb-2 group-hover:text-blue-600 transition-colors">{composedTitle}</h3>
+                              <h3 className="text-xl font-bold text-[#0b3856] mb-2 group-hover:text-[#E6761D] transition-colors">{composedTitle}</h3>
                               <div className="flex items-center text-gray-600 mb-2"><MapPin size={16} className="mr-2" /><span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span></div>
                               <div className="text-sm text-gray-600"><span>{unitAreaLine}</span></div>
                             </div>
@@ -1902,20 +1965,20 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           </div>
 
                           <div className="mb-4">
-                            <div className="text-2xl font-bold text-green-600">{formatCurrency(property.price)}</div>
+                            <div className="text-xl font-semibold text-green-600 leading-tight">{formatCurrency(property.price)}</div>
                             <div className="text-sm text-gray-500">₹{Math.round(property.price / (property.area || property.square_feet || 1)).toLocaleString()}/sq ft</div>
                           </div>
 
-                          <div className="grid grid-cols-4 gap-3 mb-4">
-                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Bed className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.bedrooms}</div><div className="text-xs text-gray-500">Bedrooms</div></div>
-                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Building className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.bathrooms}</div><div className="text-xs text-gray-500">Bathrooms</div></div>
-                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Home className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.area || property.square_feet}</div><div className="text-xs text-gray-500">Sq Ft</div></div>
+                          <div className="grid grid-cols-4 gap-2 mb-3 text-center">
+                            <div className="p-2 bg-gray-50 rounded-lg text-xs"><Bed className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.bedrooms}</div><div className="text-xs text-gray-500">Bedrooms</div></div>
+                            <div className="p-2 bg-gray-50 rounded-lg text-xs"><Building className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.bathrooms}</div><div className="text-xs text-gray-500">Bathrooms</div></div>
+                            <div className="p-2 bg-gray-50 rounded-lg text-xs"><Home className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.area || property.square_feet}</div><div className="text-xs text-gray-500">Sq Ft</div></div>
                             {/* ✅ Dynamic parking in list view */}
-                            <div className="text-center p-2 bg-gray-50 rounded-lg"><Car className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{parkingCount}</div><div className="text-xs text-gray-500">Parking</div></div>
+                            <div className="p-2 bg-gray-50 rounded-lg text-xs"><Car className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{parkingCount}</div><div className="text-xs text-gray-500">Parking</div></div>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-3 mb-4">
-                            <div className="text-center p-2 bg-green-50 rounded-lg"><TrendingUp className="mx-auto text-green-600 mb-1" size={16} /><div className="text-sm font-semibold text-green-600">{property.priceGrowth || '+12%'}</div><div className="text-xs text-gray-500">Growth</div></div>
+                          <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+                            <div className="p-2 rounded-lg text-xs"><TrendingUp className="mx-auto text-green-600 mb-1" size={16} /><div className="text-sm font-semibold text-green-600">{property.priceGrowth || '+12%'}</div><div className="text-xs text-gray-500">Growth</div></div>
                             <div className="text-center p-2 bg-purple-50 rounded-lg"><Bot className="mx-auto text-purple-600 mb-1" size={16} /><div className="text-sm font-semibold text-purple-600">{property.aiScore || 85}</div><div className="text-xs text-gray-500">AI Score</div></div>
                             <div className="text-center p-2 bg-blue-50 rounded-lg"><BarChart3 className="mx-auto text-blue-600 mb-1" size={16} /><div className="text-sm font-semibold text-blue-600">{property.investmentGrade || 'A'}</div><div className="text-xs text-gray-500">Grade</div></div>
                           </div>
@@ -1925,7 +1988,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
                             <div className="flex items-center space-x-2">
                               {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
-                                <button onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }} className=" bg-[#E6761D] text-white px-6 py-2 rounded-lg hover:bg-[#E6761D] transition-colors font-medium">View Details</button>
+                                <button onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }} className=" bg-[#E6761D] text-white px-4 py-1.5 rounded-lg text-sm hover:bg-[#E6761D] transition-colors font-medium">View Details</button>
                               ) : (
                                 <button disabled aria-disabled="true" title="Details not available – missing backend slug" className="bg-gray-300 text-gray-600 px-6 py-2 rounded-lg cursor-not-allowed">View Details</button>
                               )}
@@ -1986,7 +2049,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         {!loading && !error && allProperties.length === 0 && (
           <div className="text-center py-16">
             <Home className="mx-auto text-gray-300 mb-6" size={64} />
-            <h3 className="text-2xl font-bold text-[#0b3856] mb-4">No Properties Available</h3>
+            <h3 className="text-2xl font-bold text-[#0b3856] mb-4">No Properties Available (0)</h3>
             <p className="text-gray-600 mb-8">Properties will appear here once they are added to the system</p>
             <button onClick={() => loadPropertiesFromSearch()} className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold">
               Refresh Page
