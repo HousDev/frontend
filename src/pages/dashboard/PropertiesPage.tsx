@@ -244,7 +244,7 @@ const TagPickerRow: React.FC<{
             </div>
           </div>
 
-          <div className="max-h-64 overflow-auto">
+          <div className="max-h-32   overflow-auto">
             <ul className="grid grid-cols-1 gap-2">
               {options.map(t => {
                 const active = selected.includes(t);
@@ -2023,10 +2023,10 @@ const PropertiesPage = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+    <div className="h-[90vh] flex flex-col bg-gray-50 overflow-hidden">
       {/* Header */}
       {/* <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4"> */}
-      <div className="sticky top-0 z-40 bg-gray-50">
+      <div className="sticky top-0  bg-gray-50">
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
@@ -2899,7 +2899,7 @@ const PropertiesPage = () => {
 
       {/* Pagination */}
       {!loading && !error && filteredProperties.length > 0 && (
-        <div className="bg-white border-t border-gray-200 px-4 lg:px-6 py-3 sticky bottom-0 z-30">
+        <div className="bg-white border-t border-gray-200 px-4 lg:px-6 py-3 sticky bottom-0">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="text-sm text-gray-700">
               Showing {filteredProperties.length ? startIndex + 1 : 0}-{Math.min(startIndex + itemsPerPage, filteredProperties.length)} of {filteredProperties.length}
