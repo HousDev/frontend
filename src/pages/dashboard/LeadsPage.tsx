@@ -910,7 +910,7 @@ const LeadsPage: React.FC = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* ================= STICKY TOP AREA ================= */}
-        <div className="sticky top-0 z-30 bg-gray-50">
+        <div className="sticky top-0 bg-gray-50">
         <div className="p-6 space-y-6">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">

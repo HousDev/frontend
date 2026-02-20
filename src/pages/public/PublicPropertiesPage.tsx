@@ -1358,7 +1358,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
               {/* LEFT SECTION */}
               <div className="flex-shrink-0 min-w-[180px]">
                 <h2 className="text-lg sm:text-xl font-bold text-[#0b3856]">
-                  All Properties {!loading && !error && `(${filteredProperties.length})`}
+                  All Properties {!loading && !error && `(${allProperties.length})`}
                 </h2>
 
                 {Boolean(selectedLocation || localities.length || selectedBudget) && (
@@ -1368,7 +1368,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                     {selectedBudget &&
                       `${(budgetOptions.find((b) => (b.value || b.label) === selectedBudget)?.label) || selectedBudget} • `}
                     Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedProperties.length)} of{" "}
-                    {filteredProperties.length} results
+                    {allProperties.length} results
                   </p>
                 )}
               </div>

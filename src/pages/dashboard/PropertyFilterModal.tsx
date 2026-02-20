@@ -105,14 +105,14 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 right-0 h-full bg-gradient-to-b from-indigo-50 via-white to-purple-50 
+        className={`fixed top-0 right-0 h-full bg-gradient-to-b from-indigo-50 via-white to-purple-50 z-50 
         shadow-2xl w-full sm:w-[400px] transform transition-transform duration-300 ease-out
         ${isOpen ? "translate-x-0" : "translate-x-full"}`}
         role="dialog"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
+        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-indigo-500 to-purple-500 text-white z">
           <h3 className="text-sm font-semibold tracking-wide">Property Filters</h3>
           <button
             onClick={onClose}

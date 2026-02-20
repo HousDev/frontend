@@ -63,7 +63,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 right-0 h-full bg-gradient-to-b from-indigo-50 via-white to-purple-50 
+        className={`fixed top-0 right-0 h-full bg-gradient-to-b from-indigo-50 via-white to-purple-50 z-50
         shadow-2xl w-full sm:w-[380px] transform transition-transform duration-300 ease-out
         ${isOpen ? "translate-x-0" : "translate-x-full"}`}
         role="dialog"
