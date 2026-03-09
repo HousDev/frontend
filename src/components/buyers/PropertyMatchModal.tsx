@@ -372,7 +372,8 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
     })();
 
     return () => { cancelled = true; };
-  }, [isOpen, fetchProperties]);
+    // }, [isOpen, fetchProperties]);
+  }, [isOpen]);
 
   // Normalize properties and **filter only public** before mapping
   const normalizedProperties = useMemo(() => {
