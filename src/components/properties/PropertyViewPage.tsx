@@ -368,7 +368,7 @@ const getOrMakeFltCnt = (propId: string | number) => {
 // ✅ build the public property URL
 const buildPublicPropertyUrl = (property: any) => {
   const origin =
-    import.meta.env.VITE_PUBLIC_SITE_ORIGIN // e.g. https://investordeal.in
+    import.meta.env.VITE_PUBLIC_SITE_ORIGIN // e.g. https://resaleexpert.in
     || window.location.origin;              // fallback: http://localhost:5173
 
   const id = property?.id ?? property?.propertyId;

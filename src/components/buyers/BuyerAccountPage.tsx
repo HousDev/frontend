@@ -162,7 +162,7 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
                 <button
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E6761D] text-white rounded-lg hover:bg-[#CC6A1A] transition-colors text-xs"
                   title="Open public property page"
-                  onClick={() => window.open('http://investordeal.in/', '_blank')}
+                  onClick={() => window.open('http://resaleexpert.in/', '_blank')}
                 >
                   <ExternalLink size={14} />
                   <span>Visit Website</span>
@@ -790,7 +790,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
   const ORIGIN =
     typeof window !== "undefined" && window.location?.origin
       ? window.location.origin
-      : "https://investordeal.in";
+      : "https://resaleexpert.in";
 
   const NO_IMAGE_SVG =
     'data:image/svg+xml;utf8,' +
