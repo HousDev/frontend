@@ -158,7 +158,7 @@ const buildPublicUrl = (p: Property, raw: any): string => {
   if (direct && /^https?:\/\//i.test(String(direct))) return String(direct);
 
   const isBrowser = typeof window !== "undefined";
-  const origin = isBrowser ? window.location.origin : "https://investordeal.in";
+  const origin = isBrowser ? window.location.origin : "https://resaleexpert.in";
   if (p.slug) return `${origin}/properties/${String(p.slug).replace(/^\//, "")}`;
   return `${origin}/properties/${p.id}`;
 };

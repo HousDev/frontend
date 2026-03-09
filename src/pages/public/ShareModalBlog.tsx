@@ -19,7 +19,7 @@ type Props = {
   /** Canonical URL banane ke liye parts */
   slug?: string;            // e.g. "how-to-invest-smart"
   trackingToken?: string;   // optional e.g. "d00937b3-..."
-  absoluteBase?: string;    // e.g. "https://investordeal.in" (SSR ke liye)
+  absoluteBase?: string;    // e.g. "https://resaleexpert.in" (SSR ke liye)
 
   title?: string;
   description?: string;
@@ -33,7 +33,7 @@ const getOrigin = (fallback?: string) => {
   if (typeof window !== "undefined" && window.location?.origin) {
     return window.location.origin;
   }
-  return fallback || "https://investordeal.in";
+  return fallback || "https://resaleexpert.in";
 };
 
 /** ✅ Single-source-of-truth: blog URL builder */

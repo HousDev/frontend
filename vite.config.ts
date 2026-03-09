@@ -33,16 +33,16 @@ export default defineConfig({
 
   server: {
     host: true,
-    allowedHosts: ['investordeal.in', 'localhost'],
+    allowedHosts: ['resaleexpert.in', 'localhost'],
     proxy: {
       "/api": {
         // target: "http://localhost:3000",
-        target: "http://investordeal.in", // for server
+        target: "https://resaleexpert.in", // for server
         changeOrigin: true,
       },
       "/uploads": {
       //  target: "http://localhost:3000",
-        target: "http://investordeal.in" ,  // for server
+        target: "https://resaleexpert.in" ,  // for server
         changeOrigin: true,
       },
       '/artifacts': {
@@ -53,7 +53,7 @@ export default defineConfig({
   },
 
   preview: {
-    allowedHosts: ['investordeal.in', 'localhost']
+    allowedHosts: ['resaleexpert.in', 'localhost']
   },
 
   build: {

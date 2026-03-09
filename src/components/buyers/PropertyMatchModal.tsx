@@ -323,7 +323,7 @@ function buildPublicUrl(p: any, raw: any): string {
   const origin =
     typeof window !== "undefined" && (window as any).location?.origin
       ? window.location.origin
-      : "https://investordeal.in";
+      : "https://resaleexpert.in";
 
   if (p?.slug) {
     const clean = String(p.slug).replace(/^\//, "");

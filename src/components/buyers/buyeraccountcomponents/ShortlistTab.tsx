@@ -245,7 +245,7 @@ const ShortlistTab: React.FC<ShortlistTabProps> = ({ buyer }) => {
     // Build public URL
     const origin = typeof window !== "undefined" && window.location?.origin
       ? window.location.origin
-      : "https://investordeal.in";
+      : "https://resaleexpert.in";
 
     const slug = p?.slug || p?.property_slug || p?.id;
     const baseUrl = `${origin}/properties/${encodeURIComponent(String(slug))}`;
@@ -297,7 +297,7 @@ const ShortlistTab: React.FC<ShortlistTabProps> = ({ buyer }) => {
       }
 
       // Append ?fltcnt=token preserving existing params/hash
-      const u = new URL(baseUrl, typeof window !== "undefined" ? window.location.origin : "https://investordeal.in");
+      const u = new URL(baseUrl, typeof window !== "undefined" ? window.location.origin : "https://resaleexpert.in");
       u.searchParams.set(TRACKING_PARAM_KEY, token);
 
       window.open(u.toString(), '_blank', 'noopener,noreferrer');

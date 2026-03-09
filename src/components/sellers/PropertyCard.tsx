@@ -27,7 +27,7 @@ const STORAGE_KEY = "re_filter_token";
 
 const getOrigin = (fallback?: string) => {
   if (typeof window !== "undefined" && window.location?.origin) return window.location.origin;
-  return fallback || "https://investordeal.in";
+  return fallback || "https://resaleexpert.in";
 };
 
 const getParam = (key: string): string | null => {
