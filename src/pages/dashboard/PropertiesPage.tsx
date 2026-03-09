@@ -1448,7 +1448,10 @@ const PropertiesPage = () => {
       const p = properties.find(pp => String(pp.id) === viewId || String(pp.propertyId) === viewId);
       if (p) setCurrentPropertyView(p);
     }
-  }, [loading, error, properties, currentPropertyView]);
+    // }, [loading, error, properties, currentPropertyView]);
+    
+  }, [loading, error, properties]);
+    
 
   const handleDeleteProperty = async (propertyId: number | string) => {
     if (window.confirm("Are you sure you want to delete this property?")) {
