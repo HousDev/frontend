@@ -990,7 +990,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 <div>
                   <h3 className="font-semibold text-gray-800">Price Trends</h3>
                   <div className="text-xs text-gray-500">
-                    Andheri West <span className="font-medium text-green-600">+12.5%</span>
+                    Pune <span className="font-medium text-green-600">+12.5%</span>
                   </div>
                 </div>
               </div>
@@ -1005,7 +1005,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 <div>
                   <h3 className="font-semibold text-gray-800">Best ROI</h3>
                   <div className="text-xs text-gray-500">
-                    Bandra West <span className="font-medium text-blue-600">18.2%</span>
+                    Pune <span className="font-medium text-blue-600">18.2%</span>
                   </div>
                 </div>
               </div>
