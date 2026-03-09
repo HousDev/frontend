@@ -5,7 +5,7 @@ const API_BASE_LOCAL = (import.meta.env.VITE_API_BASE_URL as string) ?? "http://
 const API_BASE_PROD = (import.meta.env.VITE_API_BASE_PROD_URL as string) ?? "https://resaleexpert.in/api/";
 const API_FORCE = (import.meta.env.VITE_FORCE_API_BASE as string) ?? "";
 const isBrowser = typeof window !== "undefined";
-const isProdHost = isBrowser && /(?:^|\.)investordeal\.in$/i.test(window.location.hostname);
+const isProdHost = isBrowser && /(?:^|\.)resaleexpert\.in$/i.test(window.location.hostname);
 const API_BASE = (API_FORCE || (isProdHost ? API_BASE_PROD : API_BASE_LOCAL)).replace(/\/?$/, "/");
 
 export const api = axios.create({
