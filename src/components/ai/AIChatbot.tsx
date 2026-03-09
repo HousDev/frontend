@@ -54,7 +54,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
       timestamp: new Date(),
       suggestions: [
         "Find properties under ₹1 Cr",
-        "Market trends in Bandra",
+        "Market trends in Pune",
         "Calculate EMI",
         "Best investment areas",
       ],
@@ -126,7 +126,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
     if (lowerMessage.includes("price") || lowerMessage.includes("cost") || lowerMessage.includes("₹") || lowerMessage.includes("under")) {
       return {
         text:
-          "💰 **Property Pricing Analysis**\n\nBased on current market data:\n\n📍 **Mumbai Average Prices:**\n• Andheri West: ₹15,000-₹22,000/sq ft\n• Bandra West: ₹25,000-₹35,000/sq ft\n• Powai: ₹12,000-₹18,000/sq ft\n• Juhu: ₹20,000-₹30,000/sq ft\n\n🏠 **For Budget ₹1 Cr, you can get:**\n• 600-800 sq ft in Andheri West\n• 450-550 sq ft in Bandra West\n• 700-900 sq ft in Powai\n\nWould you like me to show you specific properties in your budget range?",
+          "💰 Property Pricing Analysis (Pune – West Side)\n\nBased on current market data in Pune:\n\n📍 Average Property Prices:\n• Hinjewadi: ₹7,500 – ₹10,500 / sq ft\n• Wakad: ₹8,000 – ₹10,800 / sq ft\n• Tathawade: ₹7,500 – ₹9,500 / sq ft\n• Punawale / Ravet: ₹6,500 – ₹8,500 / sq ft\n• Pimpri / Pimple Saudagar / Pimple Nilakh: ₹8,500 – ₹12,000 / sq ft\n\n🏠 For a Budget of ₹1 Cr, you can typically get:\n• 2 BHK (750–900 sq ft) in Hinjewadi\n• 2 BHK (700–850 sq ft) in Wakad or Tathawade\n• 2–3 BHK (850–1000 sq ft) in Punawale or Ravet\n\n📍 Areas We Serve:\nHinjewadi, Kalewadi, Moshi, Pimple Gurav, Pimple Nilakh, Pimple Saudagar, Pimpri, Punawale, Rahatani, Ravet, Tathawade, Wakad.\n\nWould you like me to show you available properties in these locations within your budget?",
         suggestions: [
           "Show properties under ₹1 Cr",
           "Calculate affordability",
@@ -165,12 +165,12 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
     if (
       lowerMessage.includes("trend") ||
       lowerMessage.includes("market") ||
-      lowerMessage.includes("bandra") ||
+      lowerMessage.includes("pune") ||
       lowerMessage.includes("andheri")
     ) {
       return {
         text:
-          "📊 **AI Market Intelligence**\n\n🔥 **Current Trends (Jan 2025):**\n\n**🏆 Bandra West:**\n• Price: +12.8% in 6 months\n• Demand: Very High (9.2/10)\n• Supply: Limited (4.1/10)\n• Rental Yield: 2.8%\n\n**📈 Andheri West:**\n• Price: +8.7% in 6 months\n• Demand: High (8.5/10)\n• Supply: Moderate (6.2/10)\n• Rental Yield: 3.2%\n\n**🚀 Price Drivers:**\n• Metro Line 3 completion\n• IT company expansions\n• Premium retail developments\n\n**🎯 AI Prediction:** 15-18% growth expected in next 12 months.",
+          "📊 AI Market Intelligence\n\n🔥 Current Trends (Pune Real Estate):\n\n🏆 Hinjewadi:\n• Price Growth: +10–13% in last 6 months\n• Demand: Very High (9.1/10)\n• Supply: Moderate (6.0/10)\n• Rental Yield: 3.5–4.2%\n\n📈 Wakad:\n• Price Growth: +8–11% in last 6 months\n• Demand: High (8.6/10)\n• Supply: Moderate (6.5/10)\n• Rental Yield: 3.2–3.8%\n\n🚀 Price Drivers:\n• Hinjewadi IT Park expansion\n• Pune Metro connectivity (PCMC–Hinjewadi corridor)\n• Rapid infrastructure growth in Wakad, Tathawade & Punawale\n\n🎯 AI Prediction: 12–16% property value growth expected in the next 12 months in West Pune.\n\n📍 Key locations we serve:\nHinjewadi, Kalewadi, Moshi, Pimple Gurav, Pimple Nilakh, Pimple Saudagar, Pimpri, Punawale, Rahatani, Ravet, Tathawade, Wakad.",
         suggestions: ["Location comparison", "Future predictions", "Investment hotspots", "Rental analysis"],
       };
     }
@@ -226,7 +226,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
     ) {
       return {
         text:
-          "⚖️ **AI Property Comparison**\n\n📊 **Location Comparison Matrix:**\n\n**Andheri West vs Bandra West:**\n\n🏆 **Andheri West:**\n• Price: ₹15-22K/sq ft\n• Connectivity: Metro + Airport\n• Growth: 15% annually\n• Best for: IT professionals\n\n🏆 **Bandra West:**\n• Price: ₹25-35K/sq ft\n• Connectivity: Station + Sea link\n• Growth: 12% annually\n• Best for: Premium lifestyle\n\n**Winner depends on:**\n• Budget: Andheri (affordable)\n• Luxury: Bandra (premium)\n• ROI: Andheri (higher returns)\n• Prestige: Bandra (status symbol)\n\nWhich locations would you like me to compare in detail?",
+          "⚖️ AI Property Comparison\n\n📊 Location Comparison Matrix:\n\nWakad vs Hinjewadi:\n\n🏆 Wakad:\n• Price: ₹8K–₹10.8K/sq ft\n• Connectivity: Mumbai–Pune Highway + Metro access\n• Growth: ~12–14% annually\n• Best for: Families & working professionals\n\n🏆 Hinjewadi:\n• Price: ₹7.5K–₹10.5K/sq ft\n• Connectivity: IT Park + upcoming Metro\n• Growth: ~15–18% annually\n• Best for: IT professionals & investors\n\nWinner depends on:\n• Budget: Hinjewadi (more affordable)\n• Lifestyle: Wakad (better residential infra)\n• ROI: Hinjewadi (IT hub growth)\n• Convenience: Wakad (closer to city)\n\n📍 Other locations we serve:\nHinjewadi, Kalewadi, Moshi, Pimple Gurav, Pimple Nilakh, Pimple Saudagar, Pimpri, Punawale, Rahatani, Ravet, Tathawade, Wakad.\n\nWhich locations would you like me to compare in detail?",
         suggestions: ["Compare 3 locations", "Price comparison", "Connectivity analysis", "Lifestyle comparison"],
       };
     }
@@ -239,7 +239,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
     ) {
       return {
         text:
-          "🎓 **Family-Friendly Areas Analysis**\n\n👨‍👩‍👧‍👦 **Best Areas for Families with Kids:**\n\n🏫 **Top Educational Hubs:**\n\n1️⃣ **Bandra West**\n• Dhirubhai Ambani International School\n• Jamnabai Narsee School\n• Hill Spring International\n\n2️⃣ **Powai**\n• Hiranandani Foundation School\n• Delhi Public School\n• JBCN International\n\n3️⃣ **Juhu**\n• Jamnabai Narsee School\n• Utpal Shanghvi Global School\n• SVKM International School\n\n🎯 **Family Amenities Nearby:**\n• Parks & playgrounds\n• Pediatric healthcare\n• Activity centers\n• Safe neighborhoods\n\n🤖 **AI Family Score:** Each area rated 0-100 for family suitability.",
+          "🎓 Family-Friendly Areas Analysis\n\n👨‍👩‍👧‍👦 Best Areas for Families with Kids:\n\n🏫 Top Educational Hubs:\n\n1️⃣ Wakad\n• Indira National School\n• Wisdom World School\n• Podar International School\n\n2️⃣ Hinjewadi\n• Blue Ridge Public School\n• Mahindra International School\n• Pawar Public School\n\n3️⃣ Pimple Saudagar\n• City International School\n• EuroSchool\n• GK Gurukul School\n\n🎯 Family Amenities Nearby:\n• Parks & playgrounds\n• Pediatric healthcare\n• Activity centers\n• Safe residential neighborhoods\n\n📍 Popular Family Locations We Serve:\nHinjewadi, Kalewadi, Moshi, Pimple Gurav, Pimple Nilakh, Pimple Saudagar, Pimpri, Punawale, Rahatani, Ravet, Tathawade, Wakad.\n\n🤖 AI Family Score: Each area rated 0–100 for family suitability based on schools, safety, connectivity, and lifestyle facilities.",
         suggestions: ["School ratings", "Family properties", "Safety analysis", "Kids activities nearby"],
       };
     }
