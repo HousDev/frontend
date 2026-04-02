@@ -888,7 +888,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   /* ---------- Render ---------- */
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} width="max-w-[95vw] md:max-w-4xl lg:max-w-5xl">
-      <div className="relative px-6 py-5">
+      <div className="relative px-3 py-5">
         {loading && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-xl">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 border-t-transparent mb-3" />

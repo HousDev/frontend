@@ -64,13 +64,13 @@ const Modal: React.FC<ModalProps> = ({
       />
 
       <div
-        className={`relative bg-white rounded-lg shadow-xl w-full ${width}  max-h-[90vh] flex flex-col z-50`}
+        className={`relative bg-white rounded-lg shadow-xl w-full ${width} max-h-[90vh] flex flex-col z-50`}
         onClick={(e) => e.stopPropagation()}
         style={{ minWidth: 320 }}
       >
         {/* header — keep above portal/dropdown */}
         {(title || subtitle) && (
-          <div className="sticky top-0 bg-gray-100 text-gray-800  z-[60] p-4 py-6 rounded-t-lg shadow-sm">
+          <div className="sticky top-0 bg-gray-100 text-gray-800  z-[60] p-4 py-2 rounded-t-lg shadow-sm">
             {title && <h2 className="text-xl font-semibold">{title}</h2>}
             {subtitle && <p className="text-sm opacity-90">{subtitle}</p>}
           </div>
