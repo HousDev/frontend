@@ -166,8 +166,10 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
   const handleSellerSave = async (sellerData: any) => {
     try {
-      alert('Seller information saved successfully!');
-      setIsSellerModalOpen(false);
+      // alert('Seller information saved successfully!');
+      setTimeout(() => {
+        setIsSellerModalOpen(false);
+      }, 3000)
     } catch (error) {
       console.error('Error saving seller:', error);
       alert('Failed to save seller information. Please try again.');
