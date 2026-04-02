@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Upload, Plus, FileText, Trash2, Edit } from 'lucide-react';
+import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
@@ -8,16 +8,320 @@ import { propertiesAPI } from '@/lib/propertiesAPI';
 import { toast } from 'react-toastify';
 import PropertyDescriptionAI from './PropertyDescriptionAI';
 import PriceRangeSelector from '@/components/ui/PriceRangeSelector';
+import { createPortal } from 'react-dom';
 
-/* ---------------- Types ---------------- */
+/* ---------- Design Tokens ---------- */
+const BRAND = '#E6761D';
+const BRAND_DARK = '#CC6A1A';
+const BRAND_LIGHT = '#FEF3E8';
+const LBL = 'block text-[11px] font-semibold uppercase tracking-wide text-black mb-1.5';
+const INP = 'w-full h-9 px-3 rounded-lg text-sm border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E6761D]/30 focus:border-[#E6761D] transition-colors placeholder:text-gray-400';
+const SECTION_HDR = 'flex items-center gap-3 text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-4 after:content-[""] after:flex-1 after:h-px after:bg-gray-100';
 
+/* ---------- Helper Components ---------- */
+const Field: React.FC<{ label: string; required?: boolean; error?: string; children: React.ReactNode; className?: string }> = ({
+  label, required, error, children, className = '',
+}) => (
+  <div className={`flex flex-col gap-1 ${className}`}>
+    <label className={LBL}>
+      {label} {required && <span className="text-red-400 normal-case tracking-normal">*</span>}
+    </label>
+    {children}
+    {error && <p className="text-red-400 text-[11px] mt-0.5">{error}</p>}
+  </div>
+);
+
+const SectionHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className={SECTION_HDR}>{children}</div>
+);
+
+/* ---------- Scroll Parent Helper for Portal ---------- */
+function getScrollParents(node: Element | null): Element[] {
+  const parents: Element[] = [];
+  let el = node?.parentElement || null;
+  while (el) {
+    const style = window.getComputedStyle(el);
+    const oy = style.overflowY;
+    if (oy === 'auto' || oy === 'scroll' || el === document.body) parents.push(el);
+    el = el.parentElement;
+  }
+  return parents;
+}
+
+/* ---------- Improved MultiSelectDropdown with Portal ---------- */
+const MultiSelectDropdown: React.FC<{
+  options: MasterOption[];
+  selectedValues: string[];
+  onToggle: (value: string) => void;
+  label: string;
+  placeholder?: string;
+}> = ({ options, selectedValues, onToggle, label, placeholder = "Select options…" }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  const filteredOptions = useMemo(
+    () => options.filter((o) => (o.label || '').toLowerCase().includes(searchTerm.toLowerCase())),
+    [options, searchTerm]
+  );
+
+  const displayText = useMemo(() => {
+    if (selectedValues.length === 0) return placeholder;
+    if (selectedValues.length === 1) {
+      const option = options.find((opt) => String(opt.value) === String(selectedValues[0]));
+      return option?.label || selectedValues[0];
+    }
+    return `${selectedValues.length} items selected`;
+  }, [selectedValues, options, placeholder]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (dropdownRef.current?.contains(target)) return;
+      if (buttonRef.current?.contains(target)) return;
+      setIsOpen(false);
+      setSearchTerm('');
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [isOpen]);
+
+  const updateRect = () => {
+    if (!buttonRef.current) return setRect(null);
+    setRect(buttonRef.current.getBoundingClientRect());
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    updateRect();
+    const onResize = () => updateRect();
+    const onScroll = () => updateRect();
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onScroll, true);
+    const parents = getScrollParents(buttonRef.current);
+    parents.forEach((p) => p.addEventListener('scroll', onScroll, true));
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll, true);
+      parents.forEach((p) => p.removeEventListener('scroll', onScroll, true));
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    if (isOpen) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = prev || '';
+    return () => { document.body.style.overflow = prev || ''; };
+  }, [isOpen]);
+
+  const getPortalTarget = () => {
+    if (typeof document === 'undefined') return null;
+    return document.getElementById('modal-portal') || document.body;
+  };
+
+  const isModalPortal = typeof document !== 'undefined' && !!document.getElementById('modal-portal');
+  const Z = isModalPortal ? 1050 : 9999999;
+
+  const popupStyle: React.CSSProperties = rect
+    ? {
+      position: 'fixed', zIndex: Z,
+      top: rect.bottom + window.scrollY + 6,
+      left: rect.left + window.scrollX,
+      minWidth: rect.width,
+      maxHeight: '40vh', overflow: 'hidden',
+      pointerEvents: 'auto',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+    }
+    : { position: 'fixed', zIndex: Z, top: 0, left: 0, minWidth: 200, pointerEvents: 'auto' };
+
+  const popup = (
+    <div
+      ref={dropdownRef}
+      className="bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden"
+      style={popupStyle}
+    >
+      <div className="p-2.5 border-b border-gray-100">
+        <input
+          type="text"
+          placeholder="Search…"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400"
+          autoFocus
+        />
+      </div>
+      <div className="max-h-52 overflow-y-auto">
+        {filteredOptions.length === 0 ? (
+          <p className="text-xs text-gray-400 p-3 text-center">No options found</p>
+        ) : (
+          filteredOptions.map((option) => (
+            <label
+              key={String(option.value)}
+              className="flex items-center px-3 py-2.5 hover:bg-orange-50 cursor-pointer transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={selectedValues.map(String).includes(String(option.value))}
+                onChange={() => onToggle(String(option.value))}
+                className="mr-3 h-4 w-4 rounded border-gray-300 accent-orange-500"
+              />
+              <span className="text-sm text-gray-700">{option.label}</span>
+            </label>
+          ))
+        )}
+      </div>
+      {selectedValues.length > 0 && (
+        <div className="px-3 py-2 bg-orange-50 border-t border-orange-100 text-xs text-orange-600 font-medium">
+          {selectedValues.length} item{selectedValues.length !== 1 ? 's' : ''} selected
+        </div>
+      )}
+    </div>
+  );
+
+  const portalTarget = typeof document !== 'undefined' ? getPortalTarget() : null;
+
+  return (
+    <div className="relative">
+      <label className={LBL}>{label}</label>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen((prev) => !prev);
+          setTimeout(updateRect, 0);
+        }}
+        className={`${INP} flex items-center justify-between text-left`}
+      >
+        <span className={selectedValues.length === 0 ? 'text-gray-400' : 'text-gray-800'}>
+          {displayText}
+        </span>
+        <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />
+      </button>
+      {isOpen && buttonRef.current && portalTarget && createPortal(popup, portalTarget)}
+    </div>
+  );
+};
+
+/* ---------- FilePreviewComponent (styled) ---------- */
+const FilePreviewComponent: React.FC<{
+  preview: FilePreview;
+  onRemove: () => void;
+}> = ({ preview, onRemove }) => (
+  <div className="relative group rounded-xl overflow-hidden border border-gray-200">
+    {preview.type === 'image' ? (
+      <>
+        <img
+          src={preview.url}
+          alt={preview.name || preview.file?.name || 'Image'}
+          className="w-full h-24 object-cover"
+        />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
+          <button
+            onClick={onRemove}
+            className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1.5 transition-all hover:bg-red-600 hover:scale-110"
+          >
+            <X size={14} />
+          </button>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+          <p className="text-white text-[10px] truncate">{preview.name || preview.file?.name}</p>
+        </div>
+      </>
+    ) : (
+      <div className="bg-gray-50 p-3 h-24 flex flex-col items-center justify-center gap-1">
+        <FileText className="text-orange-500" size={22} />
+        <span className="text-xs text-gray-600 text-center truncate w-full px-1">
+          {preview.name || preview.file?.name || 'Document'}
+        </span>
+        <button
+          onClick={onRemove}
+          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+        >
+          <X size={11} />
+        </button>
+      </div>
+    )}
+  </div>
+);
+
+/* ---------- PossessionDropdown (styled) ---------- */
+const PossessionDropdown: React.FC<{
+  possessionMonth: string;
+  possessionYear: string;
+  onMonthChange: (month: string) => void;
+  onYearChange: (year: string) => void;
+  title: string;
+}> = ({ possessionMonth, possessionYear, onMonthChange, onYearChange, title }) => {
+  const now = new Date();
+  const CURRENT_YEAR = now.getFullYear();
+  const CURRENT_MONTH = now.getMonth() + 1;
+
+  const monthNames = useMemo(
+    () => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    []
+  );
+
+  const currentYear = parseInt(possessionYear) || CURRENT_YEAR;
+  const currentMonth = parseInt(possessionMonth) || CURRENT_MONTH;
+
+  useEffect(() => {
+    if (currentYear === CURRENT_YEAR && currentMonth > CURRENT_MONTH) {
+      onMonthChange(CURRENT_MONTH.toString());
+    }
+  }, [currentYear, currentMonth, CURRENT_MONTH, CURRENT_YEAR, onMonthChange]);
+
+  const yearOptions = Array.from({ length: 40 }, (_, i) => {
+    const y = (CURRENT_YEAR - i).toString();
+    return { value: y, label: y };
+  });
+
+  const monthOptions = monthNames.map((name, idx) => {
+    const m = idx + 1;
+    const disabled = currentYear === CURRENT_YEAR && m > CURRENT_MONTH;
+    return { value: m.toString(), label: name, disabled };
+  });
+
+  return (
+    <div>
+      <label className={LBL}>{title}</label>
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <SafeDropdown placeholder="Year" options={yearOptions} value={possessionYear} onChange={onYearChange} className="w-full" />
+        </div>
+        <div className="flex-1">
+          <SafeDropdown
+            placeholder="Month"
+            options={monthOptions.filter((o) => !o.disabled)}
+            value={possessionMonth}
+            onChange={onMonthChange}
+            className="w-full"
+          />
+        </div>
+      </div>
+      {possessionMonth && possessionYear && (
+        <p className="mt-1.5 text-[11px] text-orange-600 bg-orange-50 px-2 py-1 rounded-md inline-block">
+          {monthNames[parseInt(possessionMonth) - 1]} {possessionYear}
+        </p>
+      )}
+    </div>
+  );
+};
+
+/* ---------- SafeDropdown wrapper ---------- */
+const SafeDropdown: React.FC<any> = (props) => <Dropdown {...props} />;
+
+/* ---------- Types ---------- */
 export interface NearbyPlace {
   name: string;
   distance?: string;
   type?: string;
   unit?: string;
 }
-  
+
 interface FilePreview {
   file?: File;
   url: string;
@@ -56,22 +360,16 @@ interface PropertyFormData {
   furnishingItems: string[];
   description: string;
   nearby_places: NearbyPlace[];
-
   ownershipDoc: File | null;
   photos: File[];
-
   ownershipDocUrl?: string;
   photoUrls?: string[];
-  // ...existing fields
   bedrooms?: string;
   bathrooms?: string;
   balcony?: string;
   facing?: string;
-  // ...existing
   priceType?: 'Fixed' | 'Negotiable';
-  finalPrice?: string;          // store as rupee-integer string (e.g. "4500000")
-
-
+  finalPrice?: string;
 }
 
 interface InitialDataFromParent {
@@ -105,17 +403,14 @@ interface InitialDataFromParent {
   furnishingItems?: string[];
   description?: string;
   nearby_places?: NearbyPlace[];
-
   existingOwnershipDocUrl?: string;
   existingOwnershipDocName?: string;
   existingOwnershipDocId?: string;
   existingPhotos?: Array<{ id: string; url: string; name?: string }>;
-  // ...existing fields
   bedrooms?: string;
   bathrooms?: string;
   balcony?: string;
   facing?: string;
-  // ...existing
   priceType?: 'Fixed' | 'Negotiable';
   finalPrice?: string;
 }
@@ -129,261 +424,30 @@ interface PropertyFormModalProps {
   initialData?: InitialDataFromParent | null;
 }
 
-
-// --- helpers for budget <-> crores (TOP-LEVEL, outside any component) ---
+/* ---------- Budget Helpers ---------- */
 const RUPEE_PER_CRORE = 10_000_000;
 const RUPEE_PER_LAKH = 100_000;
 
 export function parseBudgetToRupees(text?: string): number {
   const raw = (text || "").trim().toLowerCase();
   if (!raw) return 0;
-
   const cleaned = raw.replace(/₹/g, "").replace(/\s+/g, "");
   const digitsOnly = cleaned.replace(/,/g, "");
-
   if (/^\d+$/.test(digitsOnly)) return parseInt(digitsOnly, 10) || 0;
-
   const lakhMatch = cleaned.match(/^([\d,.]+)l$/);
   if (lakhMatch) return Math.round(parseFloat(lakhMatch[1].replace(/,/g, "")) * RUPEE_PER_LAKH) || 0;
-
   const croreMatch = cleaned.match(/^([\d,.]+)(cr|c)$/);
   if (croreMatch) return Math.round(parseFloat(croreMatch[1].replace(/,/g, "")) * RUPEE_PER_CRORE) || 0;
-
   const n = parseFloat(digitsOnly);
   return Number.isNaN(n) ? 0 : Math.round(n);
 }
 
 export function rupeesToCrores(r: number): number {
-  if (!r || r <= 0) return 0.01; // selector minimum (1L == 0.01 Cr)
+  if (!r || r <= 0) return 0.01;
   return r / RUPEE_PER_CRORE;
 }
 
-/* ---------------- Possession Dropdown ---------------- */
-
-const PossessionDropdown: React.FC<{
-  possessionMonth: string;
-  possessionYear: string;
-  onMonthChange: (month: string) => void;
-  onYearChange: (year: string) => void;
-  title: string;
-}> = ({ possessionMonth, possessionYear, onMonthChange, onYearChange, title }) => {
-  const now = new Date();
-  const CURRENT_YEAR = now.getFullYear();
-  const CURRENT_MONTH = now.getMonth() + 1;
-
-  const monthNames = useMemo(
-    () => [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
-    ],
-    []
-  );
-
-  const currentYear = parseInt(possessionYear) || CURRENT_YEAR;
-  const currentMonth = parseInt(possessionMonth) || CURRENT_MONTH;
-
-  useEffect(() => {
-    if (currentYear === CURRENT_YEAR && currentMonth > CURRENT_MONTH) {
-      onMonthChange(CURRENT_MONTH.toString());
-    }
-  }, [currentYear, currentMonth, CURRENT_MONTH, CURRENT_YEAR, onMonthChange]);
-
-  const yearOptions = Array.from({ length: 40 }, (_, i) => {
-    const y = (CURRENT_YEAR - i).toString();
-    return { value: y, label: y };
-  });
-
-  const monthOptions = monthNames.map((name, idx) => {
-    const m = idx + 1;
-    const disabled = currentYear === CURRENT_YEAR && m > CURRENT_MONTH;
-    return { value: m.toString(), label: name, disabled };
-  });
-
-  return (
-    <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">{title}</label>
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <SafeDropdown placeholder="Year" options={yearOptions} value={possessionYear} onChange={onYearChange} className="w-full" />
-        </div>
-        <div className="flex-1">
-          <SafeDropdown
-            placeholder="Month"
-            options={monthOptions.filter(opt => !opt.disabled)}
-            value={possessionMonth}
-            onChange={onMonthChange}
-            className="w-full"
-          />
-        </div>
-      </div>
-      {possessionMonth && possessionYear && (
-        <div className="mt-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-          Selected: {monthNames[parseInt(possessionMonth) - 1]} {possessionYear}
-        </div>
-      )}
-    </div>
-  );
-};
-
-/* ---------------- MultiSelect ---------------- */
-
-const MultiSelectDropdown: React.FC<{
-  options: MasterOption[];
-  selectedValues: string[];
-  onToggle: (value: string) => void;
-  label: string;
-  placeholder?: string;
-}> = ({ options, selectedValues, onToggle, label, placeholder = "Select options..." }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const filteredOptions = useMemo(
-    () => options.filter(option => option.label.toLowerCase().includes(searchTerm.toLowerCase())),
-    [options, searchTerm]
-  );
-
-  const displayText = useMemo(() => {
-    if (selectedValues.length === 0) return placeholder;
-    if (selectedValues.length === 1) {
-      const option = options.find(opt => opt.value === selectedValues[0]);
-      return option?.label || selectedValues[0];
-    }
-    return `${selectedValues.length} items selected`;
-  }, [selectedValues, options, placeholder]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
-        buttonRef.current && !buttonRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-        setSearchTerm('');
-      }
-    };
-    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
-
-  return (
-    <div className="relative">
-      <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full border border-gray-300 p-2 rounded text-left bg-white flex justify-between items-center text-xs min-h-[38px]"
-      >
-        <span className={selectedValues.length === 0 ? "text-gray-500" : "text-gray-900"}>{displayText}</span>
-        <span className="text-gray-500">▼</span>
-      </button>
-
-      {isOpen && buttonRef.current && (
-        <div
-          ref={dropdownRef}
-          className="bg-white border rounded shadow-lg max-h-64 overflow-hidden"
-          style={{
-            position: 'fixed', zIndex: 9999,
-            top: buttonRef.current.getBoundingClientRect().bottom + window.scrollY + 4,
-            left: buttonRef.current.getBoundingClientRect().left + window.scrollX,
-            width: buttonRef.current.getBoundingClientRect().width
-          }}
-        >
-          <div className="p-2 border-b">
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-              autoFocus
-            />
-          </div>
-          <div className="max-h-48 overflow-y-auto">
-            {filteredOptions.length === 0 ? (
-              <p className="text-xs text-gray-500 p-2">No options found</p>
-            ) : (
-              filteredOptions.map(option => (
-                <label key={option.value} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedValues.includes(option.value)}
-                    onChange={() => onToggle(option.value)}
-                    className="mr-2 h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-xs text-gray-700">{option.label}</span>
-                </label>
-              ))
-            )}
-          </div>
-          {selectedValues.length > 0 && (
-            <div className="p-2 bg-gray-50 border-t text-xs text-blue-600">
-              Selected: {selectedValues.length} item(s)
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-/* ---------------- File Preview ---------------- */
-
-const FilePreviewComponent: React.FC<{
-  preview: FilePreview;
-  onRemove: () => void;
-  className?: string;
-}> = ({ preview, onRemove, className = "" }) => {
-  return (
-    <div className={`relative group ${className}`}>
-      {preview.type === 'image' ? (
-        <div className="relative">
-          <img
-            src={preview.url}
-            alt={preview.name || preview.file?.name || 'Image'}
-            className="w-full h-20 object-cover rounded-lg border border-gray-300"
-          />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all rounded-lg flex items-center justify-center">
-            <button
-              onClick={onRemove}
-              className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-opacity hover:bg-red-600"
-              title="Remove"
-            >
-              <X size={14} />
-            </button>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 rounded-b-lg truncate">
-            {preview.name || preview.file?.name || 'Image'}
-          </div>
-        </div>
-      ) : (
-        <div className="relative bg-gray-100 border border-gray-300 rounded-lg p-2 h-20 flex flex-col items-center justify-center">
-          <FileText className="text-blue-500 mb-1" size={20} />
-          <span className="text-[10px] text-gray-700 text-center truncate w-full">
-            {preview.name || preview.file?.name || 'Document'}
-          </span>
-          <button
-            onClick={onRemove}
-            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-            title="Remove"
-          >
-            <X size={10} />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-/* ---------------- SafeDropdown wrapper ---------------- */
-const SafeDropdown: React.FC<any> = (props) => {
-  return <Dropdown {...props} />;
-};
-
-/* ---------------- Modal ---------------- */
-
+/* ---------- Main Component ---------- */
 const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   isOpen,
   onClose,
@@ -395,8 +459,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   const now = new Date();
   const CURRENT_YEAR = now.getFullYear();
   const CURRENT_MONTH = now.getMonth() + 1;
-
-  /* ---------- state ---------- */
 
   const sortFloorOptions = (options: MasterOption[] = []) => {
     return [...options].sort((a, b) => {
@@ -438,16 +500,13 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     nearby_places: [],
     ownershipDoc: null,
     photos: [],
-
-    // ...existing defaults
     bedrooms: '',
     bathrooms: '',
     balcony: '',
     facing: '',
-    priceType: 'Fixed',   // default: Fixed (no extra field)
+    priceType: 'Fixed',
     finalPrice: '',
   }));
-
 
   const [ownershipDocPreview, setOwnershipDocPreview] = useState<FilePreview | null>(null);
   const [photoPreviews, setPhotoPreviews] = useState<FilePreview[]>([]);
@@ -457,36 +516,15 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [masterOptions, setMasterOptions] = useState<Record<string, MasterOption[]>>({});
 
-  /* ---------- utilities ---------- */
-
-  // FIXED: Improved getLabelFromValue with multiple fallback strategies
+  /* ---------- Utilities ---------- */
   const getLabelFromValue = (options: MasterOption[] = [], value: string): string => {
-    if (!value || !options || !Array.isArray(options)) {
-      return '';
-    }
-
-    // Try exact match first
+    if (!value || !options || !Array.isArray(options)) return '';
     const exactMatch = options.find(o => String(o.value) === String(value));
-    if (exactMatch) {
-      return exactMatch.label || '';
-    }
-
-    // Try case-insensitive match
-    const caseInsensitiveMatch = options.find(o =>
-      String(o.value).toLowerCase() === String(value).toLowerCase()
-    );
-    if (caseInsensitiveMatch) {
-      return caseInsensitiveMatch.label || '';
-    }
-
-    // Try label-to-value match (in case value is actually a label)
-    const labelMatch = options.find(o =>
-      String(o.label).toLowerCase() === String(value).toLowerCase()
-    );
-    if (labelMatch) {
-      return labelMatch.label || '';
-    }
-
+    if (exactMatch) return exactMatch.label || '';
+    const caseInsensitiveMatch = options.find(o => String(o.value).toLowerCase() === String(value).toLowerCase());
+    if (caseInsensitiveMatch) return caseInsensitiveMatch.label || '';
+    const labelMatch = options.find(o => String(o.label).toLowerCase() === String(value).toLowerCase());
+    if (labelMatch) return labelMatch.label || '';
     return '';
   };
 
@@ -507,8 +545,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     photoPreviews.forEach(p => { if (!p.isExisting) cleanupPreview(p); });
   };
 
-  /* ---------- master data ---------- */
-  
+  /* ---------- Master Data ---------- */
   const fetchMasterData = async () => {
     try {
       const data = await getMasterDropdownOptions(['lead', 'common', 'property']);
@@ -517,48 +554,26 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       setErrorBanner(`Failed to load dropdown options: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
-  
-  /**
-   * loadProperties - local helper to refresh properties list.
-   * If propertiesAPI exposes a listing function it will be invoked; otherwise a global event is dispatched.
-   * This resolves the "Cannot find name 'loadProperties'" compile error while still attempting a sensible refresh.
-   */
+
   const loadProperties = async () => {
-    // Try common names for a listing method on propertiesAPI (best-effort)
     try {
       const apiAny = propertiesAPI as any;
-      if (typeof apiAny.list === 'function') {
-        await apiAny.list();
-        return;
-      }
-      if (typeof apiAny.listProperties === 'function') {
-        await apiAny.listProperties();
-        return;
-      }
-      if (typeof apiAny.getAll === 'function') {
-        await apiAny.getAll();
-        return;
-      }
+      if (typeof apiAny.list === 'function') await apiAny.list();
+      else if (typeof apiAny.listProperties === 'function') await apiAny.listProperties();
+      else if (typeof apiAny.getAll === 'function') await apiAny.getAll();
     } catch (err) {
-      // swallow network/implementation errors but log for debugging
-      // eslint-disable-next-line no-console
       console.warn('loadProperties: propertiesAPI listing call failed', err);
     }
-  
-    // Fallback: emit a global event consumers can listen to for reloading properties
     try {
       window.dispatchEvent(new CustomEvent('properties:reload'));
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.warn('loadProperties: failed to dispatch properties:reload event', err);
     }
   };
-  
-  /* ---------- seed from initialData on open ---------- */
 
+  /* ---------- Seed from initialData ---------- */
   useEffect(() => {
     if (!isOpen) return;
-
     setErrorBanner(null);
     setErrors({});
     fetchMasterData();
@@ -598,32 +613,20 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
         photos: [],
         ownershipDocUrl: initialData.existingOwnershipDocUrl,
         photoUrls: (initialData.existingPhotos || []).map(p => p.url),
-        // ...existing seeds
         bedrooms: initialData.bedrooms || '',
         bathrooms: initialData.bathrooms || '',
         balcony: initialData.balcony || '',
         facing: initialData.facing || '',
-        
         priceType: (initialData.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
         finalPrice: initialData.finalPrice || '',
       };
-
       setFormData(seed);
-
       if (initialData.existingOwnershipDocUrl) {
-        setOwnershipDocPreview(
-          createExistingFilePreview(
-            initialData.existingOwnershipDocUrl,
-            initialData.existingOwnershipDocName || 'Ownership Document'
-          )
-        );
+        setOwnershipDocPreview(createExistingFilePreview(initialData.existingOwnershipDocUrl, initialData.existingOwnershipDocName || 'Ownership Document'));
       } else {
         setOwnershipDocPreview(null);
       }
-
-      const existingPhotos = (initialData.existingPhotos || []).map(p =>
-        createExistingFilePreview(p.url, p.name || 'Photo')
-      );
+      const existingPhotos = (initialData.existingPhotos || []).map(p => createExistingFilePreview(p.url, p.name || 'Photo'));
       setPhotoPreviews(existingPhotos);
     } else {
       setFormData(prev => ({
@@ -637,7 +640,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       setOwnershipDocPreview(null);
       setPhotoPreviews([]);
     }
-
     return () => {
       cleanupAllPreviews();
       setOwnershipDocPreview(null);
@@ -646,8 +648,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, mode, initialData]);
 
-  /* ---------- auto-address when creating ---------- */
-
+  /* ---------- Auto-address ---------- */
   const generateAddress = () => {
     const parts: string[] = [];
     if (formData.wing.trim()) parts.push(`Wing ${formData.wing.trim()}`);
@@ -675,25 +676,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     if (!isOpen) return;
     if (mode !== 'create') return;
     if (Object.keys(masterOptions).length === 0) return;
-
     const addr = generateAddress();
     if (addr) setFormData(prev => ({ ...prev, address: addr }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isOpen, mode,
-    formData.wing, formData.unitNo, formData.society, formData.floor, formData.location, formData.city,
-    masterOptions
-  ]);
+  }, [isOpen, mode, formData.wing, formData.unitNo, formData.society, formData.floor, formData.location, formData.city, masterOptions]);
 
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-
-  }, [isOpen, initialData, masterOptions]);
-
-  /* ---------- handlers ---------- */
-
+  /* ---------- Handlers ---------- */
   const handleDropdownChange = (field: keyof PropertyFormData) => (value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field as string]) setErrors(prev => ({ ...prev, [field as string]: '' }));
@@ -707,18 +695,14 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   const handleAmenitiesToggle = (value: string) => {
     setFormData(prev => ({
       ...prev,
-      amenities: prev.amenities.includes(value)
-        ? prev.amenities.filter(v => v !== value)
-        : [...prev.amenities, value],
+      amenities: prev.amenities.includes(value) ? prev.amenities.filter(v => v !== value) : [...prev.amenities, value],
     }));
   };
 
   const handleFurnishingItemsToggle = (value: string) => {
     setFormData(prev => ({
       ...prev,
-      furnishingItems: prev.furnishingItems.includes(value)
-        ? prev.furnishingItems.filter(v => v !== value)
-        : [...prev.furnishingItems, value],
+      furnishingItems: prev.furnishingItems.includes(value) ? prev.furnishingItems.filter(v => v !== value) : [...prev.furnishingItems, value],
     }));
   };
 
@@ -775,13 +759,11 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     const removed = next.splice(index, 1)[0];
     if (removed && !removed.isExisting) cleanupPreview(removed);
     setPhotoPreviews(next);
-
     const newFiles = next.filter(p => !p.isExisting && p.file).map(p => p.file!);
     setFormData(prev => ({ ...prev, photos: newFiles }));
   };
 
-  /* ---------- validation + submit ---------- */
-
+  /* ---------- Validation & Submit ---------- */
   const validateForm = () => {
     const e: Record<string, string> = {};
     if (!formData.propertyType) e.propertyType = 'Property type is required';
@@ -796,10 +778,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     return Object.keys(e).length === 0;
   };
 
-  // FIXED: buildPayload with proper society_name handling
   const buildPayload = (): FormData => {
     const fd = new FormData();
-
     const textFields: (keyof PropertyFormData)[] = [
       "seller", "propertyType", "propertySubtype", "unitType", "wing", "unitNo",
       "furnishing", "parkingType", "parkingQty", "city", "location", "society",
@@ -809,55 +789,25 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       "bedrooms", "bathrooms", "facing", "balcony", "priceType", "finalPrice",
     ];
     textFields.forEach((k) => fd.append(k, String((formData as any)[k] ?? "")));
-
-    // FIXED: Add society_name with proper fallback logic
     const societyOptions = masterOptions['society'] || [];
-    ;
-
     const societyLabel = getLabelFromValue(societyOptions, formData.society);
-
-
-    // Use the label if found, otherwise use the raw value, otherwise use empty string
     const finalSocietyName = societyLabel || formData.society || '';
-
-
     fd.append('society_name', finalSocietyName);
-
     fd.append("amenities", JSON.stringify(formData.amenities || []));
     fd.append("furnishingItems", JSON.stringify(formData.furnishingItems || []));
     fd.append("nearby_places", JSON.stringify(formData.nearby_places || []));
-
     if (mode === 'edit') {
       const existingPhotoUrls = photoPreviews.filter(p => p.isExisting).map(p => p.url);
       fd.append("existingPhotoUrls", JSON.stringify(existingPhotoUrls));
-      if (ownershipDocPreview?.isExisting) {
-        fd.append("existingOwnershipDocUrl", ownershipDocPreview.url);
-      }
+      if (ownershipDocPreview?.isExisting) fd.append("existingOwnershipDocUrl", ownershipDocPreview.url);
     }
-
-    if (formData.ownershipDoc) {
-      fd.append("ownershipDoc", formData.ownershipDoc, formData.ownershipDoc.name);
-    }
+    if (formData.ownershipDoc) fd.append("ownershipDoc", formData.ownershipDoc, formData.ownershipDoc.name);
     (formData.photos || []).forEach((file) => file && fd.append("photos", file, file.name));
-
-    // Debug: Log all FormData entries
-
-    for (let [key, value] of fd.entries()) {
-      if (value instanceof File) {
-
-      } else {
-
-      }
-    }
-
-
     return fd;
   };
 
-  // helper: formData -> UI patch (sirf woh fields jisse Overview turant update ho)
   function buildUiPatchFromForm(fd: PropertyFormData, previews: { ownership?: FilePreview | null, photos: FilePreview[] }) {
     return {
-      // basic mapping
       seller: fd.seller ? { name: fd.seller } : undefined,
       type: fd.propertyType,
       subtype: fd.propertySubtype,
@@ -887,73 +837,37 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       amenities: fd.amenities,
       nearby_places: fd.nearby_places,
       description: fd.description,
-      // ...existing mappings
       bedrooms: fd.bedrooms,
       bathrooms: fd.bathrooms,
       balcony: fd.balcony,
       facing: fd.facing,
       priceType: fd.priceType,
       finalPrice: fd.finalPrice,
-
-      // media (instant UI ke liye: existing + newly added previews ke URLs)
       ownershipDocUrl: previews.ownership?.url,
       ownershipDocName: previews.ownership?.name,
       photos: previews.photos.map(p => p.url),
-
-      // hard bump so parent <OverviewTab key=...> remounts
       updated_at: new Date().toISOString(),
     };
   }
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-
     try {
       setLoading(true);
       setErrorBanner(null);
-
-      // ✅ DEBUG: Form data check karein
-      console.log('=== FORM SUBMISSION DEBUG ===');
-      console.log('FORM DATA:', formData);
-      console.log('MODE:', mode);
-      console.log('PROPERTY ID:', propertyId);
-
       const payload = buildPayload();
-
-      // ✅ DEBUG: Payload check karein
-      console.log('=== FORM DATA PAYLOAD ===');
-      for (let [key, value] of payload.entries()) {
-        console.log(`${key}:`, value);
-      }
-
       let result;
-
       if (mode === "edit" && propertyId) {
-        console.log('🔄 UPDATE PROPERTY API CALL');
         result = await propertiesAPI.updateProperty(String(propertyId), payload);
-        console.log('✅ UPDATE RESPONSE:', result);
       } else {
-        console.log('🆕 CREATE PROPERTY API CALL');
         result = await propertiesAPI.createProperty(payload);
-        console.log('✅ CREATE RESPONSE:', result);
       }
-
-      // ✅ Refresh data
       await loadProperties();
-
-      const uiPatch = buildUiPatchFromForm(formData, {
-        ownership: ownershipDocPreview,
-        photos: photoPreviews,
-      });
-
+      const uiPatch = buildUiPatchFromForm(formData, { ownership: ownershipDocPreview, photos: photoPreviews });
       onSubmit(uiPatch);
-      window.dispatchEvent(
-        new CustomEvent("overview:refresh", { detail: { id: propertyId } })
-      );
-
+      window.dispatchEvent(new CustomEvent("overview:refresh", { detail: { id: propertyId } }));
       toast.success(`Property ${mode === 'edit' ? 'updated' : 'created'} successfully!`);
       onClose?.();
-
     } catch (e: any) {
       console.error('❌ SUBMISSION ERROR:', e);
       const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === "edit" ? "update" : "create"} property`;
@@ -964,657 +878,293 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     }
   };
 
-  /* ---------- options helper ---------- */
-
   const getOptions = (key: string): MasterOption[] =>
     masterOptions[key] || masterOptions[key.toLowerCase()] || [];
 
-  /* ---------- UI ---------- */
-
   const modalTitle = mode === 'edit' ? 'Edit Property' : 'Add New Property';
   const submitButtonText = mode === 'edit' ? 'Update Property' : 'Add Property';
-  const submitIcon = mode === 'edit' ? Edit : Plus;
+  const SubmitIcon = mode === 'edit' ? Edit : Plus;
 
+  /* ---------- Render ---------- */
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} width="max-w-[95vw] md:max-w-4xl lg:max-w-5xl">
-      <div className="space-y-4 relative" style={{ minHeight: '320px' }}>
+      <div className="relative px-6 py-5">
         {loading && (
-          <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            <span className="ml-2">{mode === 'edit' ? 'Updating...' : 'Saving...'}</span>
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-xl">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 border-t-transparent mb-3" />
+            <p className="text-sm font-medium text-gray-600">{mode === 'edit' ? 'Updating property…' : 'Saving property…'}</p>
           </div>
         )}
 
         {errorBanner && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3">
+          <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 text-sm rounded">
             {errorBanner}
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Seller (optional)</label>
-            <input
-              type="text"
-              placeholder="Enter Seller"
-              value={formData.seller || ""}
-              onChange={(e) => handleInputChange('seller', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-            />
+        <div className="space-y-8">
+          {/* Property Details Section */}
+          <SectionHeader>Property Details</SectionHeader>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4">
+            <Field label="Seller (optional)">
+              <input type="text" placeholder="Enter Seller" value={formData.seller} onChange={(e) => handleInputChange('seller', e.target.value)} className={INP} />
+            </Field>
+            <Field label="Property Type" required error={errors.propertyType}>
+              <SafeDropdown placeholder="Select Property Type" options={getOptions('property type')} value={formData.propertyType} onChange={handleDropdownChange('propertyType')} className="w-full" />
+            </Field>
+            <Field label="Property Subtype" required error={errors.propertySubtype}>
+              <SafeDropdown placeholder="Select Property Subtype" options={getOptions('property subtype')} value={formData.propertySubtype} onChange={handleDropdownChange('propertySubtype')} className="w-full" />
+            </Field>
+            <Field label="Unit Type" required error={errors.unitType}>
+              <SafeDropdown placeholder="Select Unit Type" options={getOptions('unit type')} value={formData.unitType} onChange={handleDropdownChange('unitType')} className="w-full" />
+            </Field>
+            <Field label="Wing">
+              <input type="text" placeholder="Wing name/number" value={formData.wing} onChange={(e) => handleInputChange('wing', e.target.value)} className={INP} />
+            </Field>
+            <Field label="Unit No">
+              <input type="text" placeholder="Unit/Flat no" value={formData.unitNo} onChange={(e) => handleInputChange('unitNo', e.target.value)} className={INP} />
+            </Field>
+            <Field label="Furnishing">
+              <SafeDropdown placeholder="Select Furnishing" options={getOptions('furnishing')} value={formData.furnishing} onChange={handleDropdownChange('furnishing')} className="w-full" />
+            </Field>
+            <Field label="Parking Type">
+              <SafeDropdown placeholder="Select Parking Type" options={getOptions('parking type')} value={formData.parkingType} onChange={handleDropdownChange('parkingType')} className="w-full" />
+            </Field>
+            <Field label="Bedrooms">
+              <SafeDropdown placeholder="Select Bedrooms" options={getOptions('bedrooms')} value={formData.bedrooms} onChange={handleDropdownChange('bedrooms')} className="w-full" />
+            </Field>
+            <Field label="Bathrooms">
+              <SafeDropdown placeholder="Select Bathrooms" options={getOptions('bathrooms')} value={formData.bathrooms} onChange={handleDropdownChange('bathrooms')} className="w-full" />
+            </Field>
+            <Field label="Facing">
+              <SafeDropdown placeholder="Select Facing" options={getOptions('facing')} value={formData.facing} onChange={handleDropdownChange('facing')} className="w-full" />
+            </Field>
+            <Field label="Balcony">
+              <SafeDropdown placeholder="Select Balcony" options={getOptions('balcony')} value={formData.balcony} onChange={handleDropdownChange('balcony')} className="w-full" />
+            </Field>
+            <Field label="Parking Qty">
+              <SafeDropdown placeholder="Select Parking Quantity" options={getOptions('parking qty')} value={formData.parkingQty} onChange={handleDropdownChange('parkingQty')} className="w-full" />
+            </Field>
+            <Field label="Total Floors">
+              <SafeDropdown placeholder="Select Total Floors" options={sortFloorOptions(getOptions('total floors'))} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" searchable />
+            </Field>
+            <Field label="Floor">
+              <SafeDropdown placeholder="Select Floor" options={sortFloorOptions(getOptions('floor'))} value={formData.floor} onChange={handleDropdownChange('floor')} className="w-full" searchable />
+            </Field>
+            <Field label="Property Status">
+              <SafeDropdown placeholder="Select Status" options={getOptions('property status')} value={formData.status} onChange={handleDropdownChange('status')} className="w-full" />
+            </Field>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Property Type*</label>
-            <SafeDropdown
-              placeholder="Select Property Type"
-              options={getOptions('property type')}
-              value={formData.propertyType}
-              onChange={handleDropdownChange('propertyType')}
-              className="w-full"
-            />
-            {errors.propertyType && <p className="text-red-500 text-xs mt-1">{errors.propertyType}</p>}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Property Subtype*</label>
-            <SafeDropdown
-              placeholder="Select Property Subtype"
-              options={getOptions('property subtype')}
-              value={formData.propertySubtype}
-              onChange={handleDropdownChange('propertySubtype')}
-              className="w-full"
-            />
-            {errors.propertySubtype && <p className="text-red-500 text-xs mt-1">{errors.propertySubtype}</p>}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Unit Type*</label>
-            <SafeDropdown
-              placeholder="Select Unit Type"
-              options={getOptions('unit type')}
-              value={formData.unitType}
-              onChange={handleDropdownChange('unitType')}
-              className="w-full"
-            />
-            {errors.unitType && <p className="text-red-500 text-xs mt-1">{errors.unitType}</p>}
-          </div>
-
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Wing</label>
-            <input
-              type="text"
-              placeholder="Wing name/number"
-              value={formData.wing}
-              onChange={(e) => handleInputChange('wing', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Unit No</label>
-            <input
-              type="text"
-              placeholder="Unit/Flat no"
-              value={formData.unitNo}
-              onChange={(e) => handleInputChange('unitNo', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Furnishing</label>
-            <SafeDropdown
-              placeholder="Select Furnishing"
-              options={getOptions('furnishing')}
-              value={formData.furnishing}
-              onChange={handleDropdownChange('furnishing')}
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Parking Type</label>
-            <SafeDropdown
-              placeholder="Select Parking Type"
-              options={getOptions('parking type')}
-              value={formData.parkingType}
-              onChange={handleDropdownChange('parkingType')}
-              className="w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Bedrooms</label>
-            <SafeDropdown
-              placeholder="Select Bedrooms"
-              options={getOptions('bedrooms')}
-              value={formData.bedrooms}
-              onChange={handleDropdownChange('bedrooms')}
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Bathrooms</label>
-            <SafeDropdown
-              placeholder="Select Bathrooms"
-              options={getOptions('bathrooms')}
-              value={formData.bathrooms}
-              onChange={handleDropdownChange('bathrooms')}
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Facing</label>
-            <SafeDropdown
-              placeholder="Select Facing"
-              options={getOptions('facing')}
-              value={formData.facing}
-              onChange={handleDropdownChange('facing')}
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Balcony</label>
-            <SafeDropdown
-              placeholder="Select Balcony"
-              options={getOptions('balcony')}
-              value={formData.balcony}
-              onChange={handleDropdownChange('balcony')}
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Parking Qty</label>
-            <SafeDropdown
-              placeholder="Select Parking Quantity"
-              options={getOptions('parking qty')}
-              value={formData.parkingQty}
-              onChange={handleDropdownChange('parkingQty')}
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">City*</label>
-            <SafeDropdown
-              placeholder="Select City"
-              options={getOptions('city')}
-              value={formData.city}
-              onChange={handleDropdownChange('city')}
-              className="w-full"
-              searchable
-            />
-            {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Location*</label>
-            <SafeDropdown
-              placeholder="Select Location"
-              options={getOptions('location')}
-              value={formData.location}
-              onChange={handleDropdownChange('location')}
-              className="w-full"
-              searchable
-            />
-            {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Society Name*</label>
-            <SafeDropdown
-              placeholder="Select Society"
-              options={getOptions('society')}
-              value={formData.society}
-              onChange={handleDropdownChange('society')}
-              className="w-full"
-              searchable
-            />
-            {errors.society && <p className="text-red-500 text-xs mt-1">{errors.society}</p>}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Total Floors</label>
-            <SafeDropdown
-              placeholder="Select Total Floors"
-              options={sortFloorOptions(getOptions('total floors'))}
-              value={formData.totalFloors}
-              onChange={handleDropdownChange('totalFloors')}
-              className="w-full"
-              searchable
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Floor</label>
-            <SafeDropdown
-              placeholder="Select Floor"
-              options={sortFloorOptions(getOptions('floor'))}
-              value={formData.floor}
-              onChange={handleDropdownChange('floor')}
-              className="w-full"
-              searchable
-            />
-
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Carpet Area (sq.ft)*
-            </label>
-            <input
-              type="text"
-              placeholder="Enter carpet area"
-              value={formData.carpetArea}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (/^\d*\.?\d*$/.test(val) || val === '') {
-                  handleInputChange('carpetArea', val);
-                }
-              }}
-              className={`w-full px-3 py-2 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.carpetArea ? 'border-red-500' : 'border-gray-300'
-                }`}
-            />
-            {errors.carpetArea && (
-              <p className="text-red-500 text-xs mt-1">{errors.carpetArea}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Builtup Area (sq.ft) (optional)
-            </label>
-            <input
-              type="text"
-              placeholder="Enter builtup area"
-              value={formData.builtupArea}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (/^\d*\.?\d*$/.test(val) || val === '') {
-                  handleInputChange('builtupArea', val);
-                }
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Property Status</label>
-            <SafeDropdown
-              placeholder="Select Status"
-              options={getOptions('property status')}
-              value={formData.status}
-              onChange={handleDropdownChange('status')}
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Lead Source</label>
-            <SafeDropdown
-              placeholder="Select Lead Source"
-              options={getOptions('lead source')}
-              value={formData.leadSource}
-              onChange={handleDropdownChange('leadSource')}
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <PossessionDropdown
-              title="Purchase Month & Year"
-              possessionMonth={formData.purchaseMonth}
-              possessionYear={formData.purchaseYear}
-              onMonthChange={(m) => handleInputChange('purchaseMonth', m)}
-              onYearChange={(y) => handleInputChange('purchaseYear', y)}
-            />
-          </div>
-
-          <div>
-            <PossessionDropdown
-              title="Possession Month & Year"
-              possessionMonth={formData.possessionMonth}
-              possessionYear={formData.possessionYear}
-              onMonthChange={(m) => handleInputChange('possessionMonth', m)}
-              onYearChange={(y) => handleInputChange('possessionYear', y)}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Selling Rights</label>
-            <SafeDropdown
-              placeholder="Select Selling Rights"
-              options={getOptions('selling rights')}
-              value={formData.sellingRights}
-              onChange={handleDropdownChange('sellingRights')}
-              className="w-full"
-            />
-          </div>
-
-          {/* SELL PRICE — keep in grid, tidy spacing */}
-          <div className="md:col-span-3 lg:col-span-2">
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-semibold text-gray-800 bt-8">
-                Sell Price (₹)*
-
-              </label>
+          {/* Location Section */}
+          <SectionHeader>Location</SectionHeader>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <Field label="City" required error={errors.city}>
+              <SafeDropdown placeholder="Select City" options={getOptions('city')} value={formData.city} onChange={handleDropdownChange('city')} className="w-full" searchable />
+            </Field>
+            <Field label="Location" required error={errors.location}>
+              <SafeDropdown placeholder="Select Location" options={getOptions('location')} value={formData.location} onChange={handleDropdownChange('location')} className="w-full" searchable />
+            </Field>
+            <Field label="Society Name" required error={errors.society} className="lg:col-span-2">
+              <SafeDropdown placeholder="Select Society" options={getOptions('society')} value={formData.society} onChange={handleDropdownChange('society')} className="w-full" searchable />
+            </Field>
+            <div className="col-span-2 sm:col-span-3 lg:col-span-4">
+              <Field label="Address">
+                <textarea placeholder="Auto-filled based on selections (editable)" value={formData.address} onChange={(e) => handleInputChange('address', e.target.value)} rows={2} className={`${INP} h-auto py-2 resize-none`} />
+              </Field>
             </div>
+          </div>
 
-            {/* ---- Main slider (now also controls Final Price when Negotiable) ---- */}
-            <PriceRangeSelector
-              initialMax={rupeesToCrores(parseBudgetToRupees(formData.budget))}
-              max={10}
-              /* keep old payload shape working; we also read rupees if present */
-              onChange={({ max }) => {
-                const rupeeVal = Math.round(max * 10_000_000); // crores → rupees
-
-                handleInputChange('budget', String(rupeeVal));
-
-                // when Negotiable, mirror into Final Price
-                if (formData.priceType === 'Negotiable') {
-                  handleInputChange('finalPrice', String(rupeeVal));
-                }
-              }}
-              className="p-0 mt-1"
-            />
-            <div className="flex items-center gap-4 mt-4">
-              <label className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700">
-                <input
-                  type="checkbox"
-                  name="priceType"
-                  className="h-3 w-3 text-orange-600 rounded focus:ring-orange-500"
-                  value="Fixed"
-                  checked={(formData.priceType || 'Fixed') === 'Fixed'}
-                  onChange={() => handleInputChange('priceType', 'Fixed')}
+          {/* Area & Pricing Section */}
+          <SectionHeader>Area & Pricing</SectionHeader>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <Field label="Carpet Area (sq.ft)" required error={errors.carpetArea}>
+              <input type="text" placeholder="e.g. 850" value={formData.carpetArea} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value) || e.target.value === '') handleInputChange('carpetArea', e.target.value); }} className={`${INP} ${errors.carpetArea ? 'border-red-400' : ''}`} />
+            </Field>
+            <Field label="Builtup Area (sq.ft)">
+              <input type="text" placeholder="e.g. 1050" value={formData.builtupArea} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value) || e.target.value === '') handleInputChange('builtupArea', e.target.value); }} className={INP} />
+            </Field>
+            <Field label="Lead Source">
+              <SafeDropdown placeholder="Lead Source" options={getOptions('lead source')} value={formData.leadSource} onChange={handleDropdownChange('leadSource')} className="w-full" />
+            </Field>
+            <div className="col-span-2 sm:col-span-3 lg:col-span-4">
+              <label className={LBL}>Sell Price (₹) <span className="text-red-400">*</span></label>
+              <div className="p-4 rounded-xl border border-gray-200 bg-gray-50 space-y-3">
+                <PriceRangeSelector
+                  initialMax={rupeesToCrores(parseBudgetToRupees(formData.budget))}
+                  max={10}
+                  onChange={({ max }) => {
+                    const rupeeVal = Math.round(max * 10_000_000);
+                    handleInputChange('budget', String(rupeeVal));
+                    if (formData.priceType === 'Negotiable') handleInputChange('finalPrice', String(rupeeVal));
+                  }}
+                  className="p-0"
                 />
-                Fixed
-              </label>
-
-              <label className="inline-flex items-center gap=1.5 text-xs font-medium text-gray-700">
-                <input
-                  type="checkbox"
-                  name="priceType"
-                  className="h-3 w-3 text-orange-600 rounded focus:ring-orange-500"
-                  value="Negotiable"
-                  checked={formData.priceType === 'Negotiable'}
-                  onChange={() => handleInputChange('priceType', 'Negotiable')}
-                />
-                Negotiable
-              </label>
-            </div>
-            {/* ---- Final Price when Negotiable ---- */}
-            {formData.priceType === 'Negotiable' && (
-              <div className="mt-4">
-                <label className="block text-xs font-medium text-gray-700 mb-2">
-                  Final Price (₹)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9,]*"
-                    className="w-40 md:w-48 border rounded px-2 py-1.5 text-sm outline-none"
-                    value={formData.finalPrice || ''}
-                    onChange={(e) => {
-                      // keep raw typing; slider will follow via controlledRupees after blur/valid change
-                      handleInputChange('finalPrice', e.target.value);
-                    }}
-                    onBlur={(e) => {
-                      const rupees = parseBudgetToRupees(e.target.value);
-                      // normalize stored integer; this also drives the slider via controlledRupees
-                      handleInputChange('finalPrice', String(rupees));
-                    }}
-                    placeholder="e.g. 45,00,000"
-                    aria-label="Final negotiated price"
-                  />
-                  {/* compact readout: 30L / 1.25Cr */}
-                  <span className="text-[11px] text-green-800 whitespace-nowrap">
-                    {(() => {
-                      const v = parseBudgetToRupees(formData.finalPrice || '');
-                      if (!v || v <= 0) return '';
-                      if (v < 10_000_000) return `${Math.round(v / 100_000)}L`;
-                      return `${(v / 10_000_000).toFixed(v % 10_000_000 ? 2 : 0)}Cr`;
-                    })()}
-                  </span>
-
+                <div className="flex items-center gap-5 pt-1">
+                  {(['Fixed', 'Negotiable'] as const).map((type) => (
+                    <label key={type} className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" className="h-3.5 w-3.5 rounded accent-orange-500" checked={(formData.priceType || 'Fixed') === type} onChange={() => handleInputChange('priceType', type)} />
+                      <span className={`text-sm font-medium ${(formData.priceType || 'Fixed') === type ? 'text-gray-800' : 'text-gray-400'}`}>{type}</span>
+                    </label>
+                  ))}
                 </div>
-              </div>
-            )}
-
-            {errors.budget && (
-              <p className="text-red-500 text-xs mt-1">{errors.budget}</p>
-            )}
-          </div>
-
-          <div>
-            <MultiSelectDropdown
-              label="Amenities"
-              options={getOptions('amenities')}
-              selectedValues={formData.amenities}
-              onToggle={handleAmenitiesToggle}
-              placeholder="Select amenities..."
-            />
-            {formData.amenities.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {formData.amenities.map((val) => {
-                  const opt = getOptions('amenities').find(o => o.value === val);
-                  return (
-                    <span key={val} className="flex items-center bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-[10px]">
-                      {opt?.label || val}
-                      <button type="button" onClick={() => handleAmenitiesToggle(val)} className="ml-1 text-purple-500 hover:text-purple-700">×</button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <MultiSelectDropdown
-              label="Furnishing Items"
-              options={getOptions('furnishing items')}
-              selectedValues={formData.furnishingItems}
-              onToggle={handleFurnishingItemsToggle}
-              placeholder="Select furnishing items..."
-            />
-            {formData.furnishingItems.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {formData.furnishingItems.map((val) => {
-                  const opt = getOptions('furnishing items').find(o => o.value === val);
-                  return (
-                    <span key={val} className="flex items-center bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-[10px]">
-                      {opt?.label || val}
-                      <button type="button" onClick={() => handleFurnishingItemsToggle(val)} className="ml-1 text-purple-500 hover:text-purple-700">×</button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-gray-700 mb-1">Address</label>
-            <textarea
-              placeholder="Auto-filled based on selections (editable)"
-              value={formData.address}
-              onChange={(e) => handleInputChange('address', e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-gray-50"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <h3 className="block text-xs font-medium text-gray-700 mb-1">Nearby Places</h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-12 gap-3">
-                <div className="col-span-12 md:col-span-4">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Place Name</label>
-                  <SafeDropdown
-                    placeholder="Select Place"
-                    options={getOptions('place name')}
-                    value={nearbyPlaceForm.name}
-                    onChange={(v) => handleNearbyPlaceInputChange('name', v)}
-                    className="w-full"
-                    searchable
-                  />
-                </div>
-                <div className="col-span-6 md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Distance</label>
-                  <input
-                    type="text"
-                    className="w-full h-9 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                    placeholder="Enter distance"
-                    value={nearbyPlaceForm.distance}
-                    onChange={(e) => handleNearbyPlaceInputChange('distance', e.target.value)}
-                  />
-                </div>
-                <div className="col-span-6 md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Unit</label>
-                  <select
-                    className="w-full h-9 px-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                    value={nearbyPlaceForm.unit}
-                    onChange={(e) => handleNearbyPlaceInputChange('unit', e.target.value)}
-                  >
-                    <option value="">Select Unit</option>
-                    <option value="km">km</option>
-                    <option value="m">m</option>
-                    <option value="min">min</option>
-                  </select>
-                </div>
-                <div className="col-span-12 md:col-span-3">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Place Type</label>
-                  <div className="flex gap-2">
-                    <SafeDropdown
-                      placeholder="Select"
-                      options={getOptions('place type')}
-                      value={nearbyPlaceForm.type}
-                      onChange={(v) => handleNearbyPlaceInputChange('type', v)}
-                      className="flex-1"
-                      searchable
-                    />
-                    <button
-                      type="button"
-                      onClick={addNearbyPlace}
-                      className="h-9 px-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                      disabled={!nearbyPlaceForm.name || !nearbyPlaceForm.distance || !nearbyPlaceForm.unit || !nearbyPlaceForm.type}
-                      title="Add place"
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {formData.nearby_places.length === 0 ? (
-                  <div className="text-xs text-gray-500 italic p-2 bg-gray-50 rounded">
-                    No nearby places added yet. Fill the form above and click + to add places.
-                  </div>
-                ) : (
-                  formData.nearby_places.map((place, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded-lg">
-                      <div className="text-xs text-gray-700">
-                        <span className="font-medium text-blue-600">{place.name}</span>
-                        <span className="text-gray-500 ml-2">({place.distance} {place.unit})</span>
-                        <span className="text-green-600 ml-2 capitalize">{place.type}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeNearbyPlace(index)}
-                        className="text-red-600 hover:text-red-800 transition-colors"
-                        title="Remove"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                {formData.priceType === 'Negotiable' && (
+                  <div className="pt-2 border-t border-gray-200">
+                    <label className={`${LBL} mb-2`}>Final Price (₹)</label>
+                    <div className="flex items-center gap-3">
+                      <input type="text" inputMode="numeric" className={`${INP} max-w-[200px]`} value={formData.finalPrice || ''} onChange={(e) => handleInputChange('finalPrice', e.target.value)} onBlur={(e) => { const rupees = parseBudgetToRupees(e.target.value); handleInputChange('finalPrice', String(rupees)); }} placeholder="e.g. 45,00,000" />
+                      {(() => {
+                        const v = parseBudgetToRupees(formData.finalPrice || '');
+                        if (!v || v <= 0) return null;
+                        const label = v < 10_000_000 ? `${Math.round(v / 100_000)}L` : `${(v / 10_000_000).toFixed(2)}Cr`;
+                        return <span className="text-sm font-semibold text-green-700">≈ ₹{label}</span>;
+                      })()}
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="md:col-span-2">
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Ownership Doc (PDF/JPG/PNG)</label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-gray-400 transition-colors">
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => handleOwnershipDocUpload(e.target.files?.[0] || null)}
-                    className="hidden" id="ownership-doc"
-                  />
-                  <label htmlFor="ownership-doc" className="cursor-pointer">
-                    <Upload className="h-4 w-4 text-gray-400 mx-auto mb-1" />
-                    <p className="text-xs text-gray-600 mb-1">Choose Document</p>
-                    <p className="text-xs text-gray-500">PDF, JPG, PNG up to 10MB</p>
-                  </label>
-                </div>
-              </div>
-
-              {ownershipDocPreview && (
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Document Preview</label>
-                  <FilePreviewComponent preview={ownershipDocPreview} onRemove={removeOwnershipDoc} />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="md:col-span-2">
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Property Photos (JPG/PNG, Multiple)</label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-gray-400 transition-colors">
-                  <input
-                    type="file"
-                    accept=".jpg,.jpeg,.png"
-                    multiple
-                    onChange={(e) => {
-                      const selected = Array.from(e.target.files || []);
-                      if (selected.length > 0) handlePhotosUpload(selected);
-                    }}
-                    className="hidden" id="property-photos"
-                  />
-                  <label htmlFor="property-photos" className="cursor-pointer">
-                    <Upload className="h-4 w-4 text-gray-400 mx-auto mb-1" />
-                    <p className="text-xs text-gray-600 mb-1">{photoPreviews.length > 0 ? 'Add More Photos' : 'Choose Photos'}</p>
-                    <p className="text-xs text-gray-500">JPG, PNG up to 5MB each</p>
-                  </label>
-                </div>
-              </div>
-
-              {photoPreviews.length > 0 && (
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Photos Preview ({photoPreviews.length} files)
-                  </label>
-                  <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                    {photoPreviews.map((preview, index) => (
-                      <FilePreviewComponent key={index} preview={preview} onRemove={() => removePhoto(index)} />
-                    ))}
                   </div>
+                )}
+                {errors.budget && <p className="text-red-400 text-[11px]">{errors.budget}</p>}
+              </div>
+            </div>
+          </div>
+
+          {/* Timeline & Selling Rights */}
+          <SectionHeader>Timeline & Selling Rights</SectionHeader>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <PossessionDropdown title="Purchase Month & Year" possessionMonth={formData.purchaseMonth} possessionYear={formData.purchaseYear} onMonthChange={(m) => handleInputChange('purchaseMonth', m)} onYearChange={(y) => handleInputChange('purchaseYear', y)} />
+            <PossessionDropdown title="Possession Month & Year" possessionMonth={formData.possessionMonth} possessionYear={formData.possessionYear} onMonthChange={(m) => handleInputChange('possessionMonth', m)} onYearChange={(y) => handleInputChange('possessionYear', y)} />
+            <Field label="Selling Rights">
+              <SafeDropdown placeholder="Select Selling Rights" options={getOptions('selling rights')} value={formData.sellingRights} onChange={handleDropdownChange('sellingRights')} className="w-full" />
+            </Field>
+          </div>
+
+          {/* Amenities & Furnishings */}
+          <SectionHeader>Amenities & Furnishings</SectionHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <MultiSelectDropdown label="Amenities" options={getOptions('amenities')} selectedValues={formData.amenities} onToggle={handleAmenitiesToggle} placeholder="Select amenities…" />
+              {formData.amenities.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {formData.amenities.map((val) => {
+                    const opt = getOptions('amenities').find(o => String(o.value) === String(val));
+                    return (
+                      <span key={val} className="inline-flex items-center gap-1 bg-violet-50 text-violet-700 border border-violet-200 px-2.5 py-0.5 rounded-full text-[11px] font-medium">
+                        {opt?.label || val}
+                        <button type="button" onClick={() => handleAmenitiesToggle(val)} className="text-violet-400 hover:text-violet-600 leading-none">×</button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div>
+              <MultiSelectDropdown label="Furnishing Items" options={getOptions('furnishing items')} selectedValues={formData.furnishingItems} onToggle={handleFurnishingItemsToggle} placeholder="Select furnishing items…" />
+              {formData.furnishingItems.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {formData.furnishingItems.map((val) => {
+                    const opt = getOptions('furnishing items').find(o => String(o.value) === String(val));
+                    return (
+                      <span key={val} className="inline-flex items-center gap-1 bg-violet-50 text-violet-700 border border-violet-200 px-2.5 py-0.5 rounded-full text-[11px] font-medium">
+                        {opt?.label || val}
+                        <button type="button" onClick={() => handleFurnishingItemsToggle(val)} className="text-violet-400 hover:text-violet-600 leading-none">×</button>
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>
           </div>
-        </div>
 
-        <PropertyDescriptionAI
-          formData={formData}
-          setFormData={(u) => setFormData((p) => u(p))}
-          endpoint="/api/ai/generate-description"
-        />
+          {/* Nearby Places */}
+          <SectionHeader>Nearby Places</SectionHeader>
+          <div className="mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 items-end mb-3">
+              <Field label="Place Name" className="sm:col-span-1 lg:col-span-1">
+                <SafeDropdown placeholder="Select" options={getOptions('place name')} value={nearbyPlaceForm.name} onChange={(v) => handleNearbyPlaceInputChange('name', v)} className="w-full" searchable />
+              </Field>
+              <Field label="Distance">
+                <input type="text" className={INP} placeholder="e.g. 2" value={nearbyPlaceForm.distance} onChange={(e) => handleNearbyPlaceInputChange('distance', e.target.value)} />
+              </Field>
+              <Field label="Unit">
+                <select className={INP} value={nearbyPlaceForm.unit} onChange={(e) => handleNearbyPlaceInputChange('unit', e.target.value)}>
+                  <option value="">—</option>
+                  <option value="km">km</option>
+                  <option value="m">m</option>
+                  <option value="min">min</option>
+                </select>
+              </Field>
+              <div className="flex items-end gap-2">
+                <Field label="Place Type" className="flex-1">
+                  <SafeDropdown placeholder="Select" options={getOptions('place type')} value={nearbyPlaceForm.type} onChange={(v) => handleNearbyPlaceInputChange('type', v)} className="w-full" searchable />
+                </Field>
+                <button type="button" onClick={addNearbyPlace} disabled={!nearbyPlaceForm.name || !nearbyPlaceForm.distance || !nearbyPlaceForm.unit || !nearbyPlaceForm.type} className="flex-shrink-0 h-9 w-9 rounded-lg text-white flex items-center justify-center transition-colors disabled:bg-gray-200 disabled:cursor-not-allowed" style={{ background: '#16A34A' }}>
+                  <Plus size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {formData.nearby_places.length === 0 ? (
+                <div className="text-sm text-gray-400 italic py-3 px-4 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-center">No nearby places added yet</div>
+              ) : (
+                formData.nearby_places.map((place, index) => (
+                  <div key={index} className="flex items-center justify-between px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="text-sm">
+                      <span className="font-semibold text-blue-600">{place.name}</span>
+                      <span className="text-gray-400 mx-1.5">·</span>
+                      <span className="text-gray-500">{place.distance} {place.unit}</span>
+                      <span className="text-gray-400 mx-1.5">·</span>
+                      <span className="text-green-600 capitalize">{place.type}</span>
+                    </div>
+                    <button type="button" onClick={() => removeNearbyPlace(index)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 size={15} /></button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
 
-        <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
-          <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {React.createElement(submitIcon, { className: "h-4 w-4 mr-2" })}
-            {submitButtonText}
-          </Button>
+          {/* Documents & Photos */}
+          <SectionHeader>Documents & Photos</SectionHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <label className={LBL}>Ownership Document</label>
+              <div className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center hover:border-orange-300 hover:bg-orange-50/30 transition-all cursor-pointer group" onClick={() => document.getElementById('ownership-doc-input')?.click()}>
+                <input id="ownership-doc-input" type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={(e) => handleOwnershipDocUpload(e.target.files?.[0] || null)} />
+                <Upload className="h-6 w-6 text-gray-300 group-hover:text-orange-400 mx-auto mb-2 transition-colors" />
+                <p className="text-sm font-medium text-gray-500 group-hover:text-gray-700 mb-0.5">Click to upload</p>
+                <p className="text-xs text-gray-400">PDF, JPG, PNG — up to 10 MB</p>
+              </div>
+              {ownershipDocPreview && <div className="mt-3"><FilePreviewComponent preview={ownershipDocPreview} onRemove={removeOwnershipDoc} /></div>}
+            </div>
+            <div>
+              <label className={LBL}>Property Photos</label>
+              <div className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center hover:border-orange-300 hover:bg-orange-50/30 transition-all cursor-pointer group" onClick={() => document.getElementById('property-photos-input')?.click()}>
+                <input id="property-photos-input" type="file" accept=".jpg,.jpeg,.png" multiple className="hidden" onChange={(e) => { const selected = Array.from(e.target.files || []); if (selected.length > 0) handlePhotosUpload(selected); }} />
+                <Upload className="h-6 w-6 text-gray-300 group-hover:text-orange-400 mx-auto mb-2 transition-colors" />
+                <p className="text-sm font-medium text-gray-500 group-hover:text-gray-700 mb-0.5">{photoPreviews.length > 0 ? `${photoPreviews.length} file(s) — click to add more` : 'Click to upload photos'}</p>
+                <p className="text-xs text-gray-400">JPG, PNG — up to 5 MB each</p>
+              </div>
+              {photoPreviews.length > 0 && (
+                <div className="grid grid-cols-4 gap-2 mt-3 max-h-52 overflow-y-auto">
+                  {photoPreviews.map((preview, index) => <FilePreviewComponent key={index} preview={preview} onRemove={() => removePhoto(index)} />)}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Description via AI only */}
+          <SectionHeader>Description</SectionHeader>
+          <PropertyDescriptionAI
+            formData={formData}
+            setFormData={(u) => setFormData((p) => u(p))}
+            endpoint="/api/ai/generate-description"
+          />
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button type="button" onClick={onClose} disabled={loading} className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50">Cancel</button>
+            <button type="button" onClick={handleSubmit} disabled={loading} className="h-9 px-5 rounded-lg text-sm font-semibold text-white flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md shadow-orange-200 hover:shadow-orange-300" style={{ background: loading ? '#ccc' : BRAND }} onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = BRAND_DARK; }} onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = BRAND; }}>
+              {loading ? <><span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" /> {mode === 'edit' ? 'Updating…' : 'Submitting…'}</> : <><SubmitIcon size={14} /> {submitButtonText}</>}
+            </button>
+          </div>
         </div>
       </div>
     </Modal>

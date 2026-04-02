@@ -2978,7 +2978,7 @@ const PropertiesPage = () => {
           initialData={editingProperty ? buildInitialData(editingProperty) : null}
           onSubmit={async () => {
             await loadProperties();
-            toast.success(editingProperty ? 'Property updated successfully' : 'Property created successfully');
+            // toast.success(editingProperty ? 'Property updated successfully' : 'Property created successfully');
           }}
         />
       )}
