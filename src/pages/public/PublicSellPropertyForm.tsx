@@ -464,7 +464,7 @@ const PossessionDropdown: React.FC<{
         </div>
       </div>
       {possessionMonth && possessionYear && (
-        <p className="mt-1.5 text-[11px] text-orange-600 bg-orange-50 px-2 py-1 rounded-md inline-block">
+        <p className="mt-1.5 text-[16px] text-orange-600 bg-orange-50 px-2 py-1 rounded-md inline-block">
           {monthNames[parseInt(possessionMonth) - 1]} {possessionYear}
         </p>
       )}
@@ -1705,56 +1705,116 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       </div>
 
       {/* ── Footer Actions ── */}
-      <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-100">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-gray-100">
+
+        {/* MOBILE GRID */}
+        <div className="grid grid-cols-2 gap-2 w-full sm:hidden">
+
           <button
             type="button"
             onClick={() => setStep(1)}
             disabled={loading}
-            className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 flex items-center justify-center gap-1.5 disabled:opacity-50"
           >
             <ArrowLeft size={14} />
             Back
           </button>
+
           <button
             type="button"
             onClick={() => setStep(1)}
-            className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
+            className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50"
           >
             Edit Owner
           </button>
-        </div>
-        <div className="flex items-center gap-2">
+
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel
           </button>
+
           <button
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="h-9 px-5 rounded-lg text-sm font-semibold text-white flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md shadow-orange-200 hover:shadow-orange-300"
+            className="h-9 px-2 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold text-white flex items-center justify-center gap-1 sm:gap-2 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-orange-200"
             style={{ background: loading ? '#ccc' : BRAND }}
-            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = BRAND_DARK; }}
-            onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = BRAND; }}
           >
             {loading ? (
               <>
-                <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                <span className="animate-spin rounded-full h-3 w-3 sm:h-3.5 sm:w-3.5 border-2 border-white border-t-transparent" />
                 {mode === 'edit' ? 'Updating…' : 'Submitting…'}
               </>
             ) : (
               <>
-                <SubmitIcon size={14} />
+                <SubmitIcon size={10} />
                 {mode === 'edit' ? 'Update Property' : 'Submit Property'}
               </>
             )}
           </button>
         </div>
+
+        {/* DESKTOP (UNCHANGED) */}
+        <div className="hidden sm:flex items-center justify-between w-full">
+
+          {/* Left */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              disabled={loading}
+              className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <ArrowLeft size={14} />
+              Back
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50"
+            >
+              Edit Owner
+            </button>
+          </div>
+
+          {/* Right */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading}
+              className="h-9 px-2 rounded-lg text-sm font-semibold text-white flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-orange-200"
+              style={{ background: loading ? '#ccc' : BRAND }}
+            >
+              {loading ? (
+                <>
+                  <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                  {mode === 'edit' ? 'Updating…' : 'Submitting…'}
+                </>
+              ) : (
+                <>
+                  <SubmitIcon size={14} />
+                  {mode === 'edit' ? 'Update Property' : 'Submit Property'}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
       </div>
     </>
   );
@@ -1812,7 +1872,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
         }
         width="max-w-[95vw] md:max-w-4xl lg:max-w-5xl"
       >
-        <div className="relative px-6 py-5">
+        <div className="relative px-2 py-5">
           {/* Global loading overlay */}
           {loading && (
             <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-xl">
