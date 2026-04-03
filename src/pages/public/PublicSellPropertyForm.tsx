@@ -76,7 +76,7 @@ interface PropertyFormData {
   bedrooms?: string;
   bathrooms?: string;
   facing?: string;
-  priceType?: 'Fixed' | 'Negotiable';
+  priceType?: 'Fixed' | 'Negotiable' | '';
   finalPrice?: string;
 }
 
@@ -125,7 +125,7 @@ interface InitialDataFromParent {
   bedrooms?: string;
   bathrooms?: string;
   facing?: string;
-  priceType?: 'Fixed' | 'Negotiable';
+  priceType?: 'Fixed' | 'Negotiable' | "";
   finalPrice?: string;
 }
 
@@ -533,10 +533,17 @@ const Field: React.FC<{ label: string; required?: boolean; error?: string; child
 /* ─────────────────────────────────────────────────────────────
    SECTION HEADER  (new helper)
 ───────────────────────────────────────────────────────────── */
-const SectionHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className={SECTION_HDR}>{children}</div>
-);
-
+const SectionHeader: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => {
+  return (
+    <div className={SECTION_HDR}>
+      <span className="text-[#E6761D]">
+        {children}
+      </span>
+    </div>
+  );
+  };
 /* ─────────────────────────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────────────────────────── */
@@ -597,7 +604,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
     bedrooms: '',
     bathrooms: '',
     facing: '',
-    priceType: 'Fixed',
+    priceType: '',
     finalPrice: '',
   }));
 
@@ -739,7 +746,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
         bedrooms: initialData.bedrooms || '',
         bathrooms: initialData.bathrooms || '',
         facing: initialData.facing || '',
-        priceType: (initialData.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
+        priceType: (initialData.priceType as 'Fixed' | 'Negotiable') || '',
         finalPrice: initialData.finalPrice || '',
       };
       setFormData(seed);
@@ -1031,7 +1038,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
           toast.error(msg);
           return;
         }
-      } 
+      }
       setShowThankYou(true);
       if (typeof onSubmit === 'function') { try { onSubmit(result); } catch (err) { console.error('onSubmit handler threw:', err); } }
     } catch (e: any) {
@@ -1087,7 +1094,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
         bedrooms: '',
         bathrooms: '',
         facing: '',
-        priceType: 'Fixed',
+        priceType: '',
         finalPrice: '',
       })
     }
@@ -1129,10 +1136,9 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
         <div className="flex items-center gap-3 -mt-4">
 
           {/* Title */}
-          <h3 className="text-sm sm:text-base font-semibold text-gray-800 tracking-wide uppercase whitespace-nowrap">
+          <h3 className="text-sm sm:text-base font-semibold text-[#E6761D] tracking-wide uppercase whitespace-nowrap">
             Owner Information
           </h3>
-
           {/* 🔥 Line beside text */}
           <div className="flex-1 h-[1px] bg-orange-300"></div>
 
@@ -1255,7 +1261,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
         onClick={() => { try { onClose(); } catch { } }}
         className="h-8 px-4 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
       >
-          Cancel
+        Cancel
       </button>
         <button
           type="button"
@@ -1322,7 +1328,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       {/* ════════════════════════════════
           SECTION: Property Details
       ════════════════════════════════ */}
-      <SectionHeader>Property Details</SectionHeader>
+      <SectionHeader >Property Details</SectionHeader>
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
         <Field label="Property Type" required error={errors.propertyType}>
           <SafeDropdown placeholder="Select Type" options={getOptions('property type')} value={formData.propertyType} onChange={handleDropdownChange('propertyType')} className="w-full" />
@@ -1470,10 +1476,10 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
                   <input
                     type="checkbox"
                     className="h-3.5 w-3.5 rounded accent-orange-500"
-                    checked={(formData.priceType || 'Fixed') === type}
-                    onChange={() => handleInputChange('priceType', type)}
+                    checked={(formData.priceType) === type}
+                    onChange={(e) => handleInputChange('priceType', e.target.checked ? type : "")}
                   />
-                  <span className={`text-sm font-medium ${(formData.priceType || 'Fixed') === type ? 'text-gray-800' : 'text-gray-400'}`}>{type}</span>
+                  <span className={`text-sm font-medium ${(formData.priceType) === type ? 'text-gray-800' : 'text-gray-400'}`}>{type}</span>
                 </label>
               ))}
             </div>

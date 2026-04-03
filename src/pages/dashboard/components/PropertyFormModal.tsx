@@ -31,10 +31,17 @@ const Field: React.FC<{ label: string; required?: boolean; error?: string; child
   </div>
 );
 
-const SectionHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className={SECTION_HDR}>{children}</div>
-);
-
+const SectionHeader: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => {
+  return (
+    <div className={SECTION_HDR}>
+      <span className="text-[#E6761D]">
+        {children}
+      </span>
+    </div>
+  );
+  };
 /* ---------- Scroll Parent Helper for Portal ---------- */
 function getScrollParents(node: Element | null): Element[] {
   const parents: Element[] = [];
@@ -368,7 +375,7 @@ interface PropertyFormData {
   bathrooms?: string;
   balcony?: string;
   facing?: string;
-  priceType?: 'Fixed' | 'Negotiable';
+  priceType?: 'Fixed' | 'Negotiable'|"";
   finalPrice?: string;
 }
 
@@ -411,7 +418,7 @@ interface InitialDataFromParent {
   bathrooms?: string;
   balcony?: string;
   facing?: string;
-  priceType?: 'Fixed' | 'Negotiable';
+  priceType?: 'Fixed' | 'Negotiable'|"";
   finalPrice?: string;
 }
 
@@ -504,7 +511,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     bathrooms: '',
     balcony: '',
     facing: '',
-    priceType: 'Fixed',
+    priceType: '',
     finalPrice: '',
   }));
 
@@ -617,7 +624,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
         bathrooms: initialData.bathrooms || '',
         balcony: initialData.balcony || '',
         facing: initialData.facing || '',
-        priceType: (initialData.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
+        priceType: (initialData.priceType as 'Fixed' | 'Negotiable') || '',
         finalPrice: initialData.finalPrice || '',
       };
       setFormData(seed);
@@ -1003,8 +1010,10 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                 <div className="flex items-center gap-5 pt-1">
                   {(['Fixed', 'Negotiable'] as const).map((type) => (
                     <label key={type} className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" className="h-3.5 w-3.5 rounded accent-orange-500" checked={(formData.priceType || 'Fixed') === type} onChange={() => handleInputChange('priceType', type)} />
-                      <span className={`text-sm font-medium ${(formData.priceType || 'Fixed') === type ? 'text-gray-800' : 'text-gray-400'}`}>{type}</span>
+                      <input type="checkbox" className="h-3.5 w-3.5 rounded accent-orange-500"
+                        checked={(formData.priceType) === type}
+                        onChange={(e) => handleInputChange('priceType', e.target.checked ? type : "")} />
+                      <span className={`text-sm font-medium ${(formData.priceType) === type ? 'text-gray-800' : 'text-gray-400'}`}>{type}</span>
                     </label>
                   ))}
                 </div>
