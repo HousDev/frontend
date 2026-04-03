@@ -13,7 +13,7 @@ interface User {
   email: string;
   first_name: string;
   last_name: string;
-  role: 'admin' | 'manager' | 'agent' | 'buyer' | 'seller' | 'team leader' | 'sales team leader' | 'presales team leader' | 'sales manager' | 'marketing executive' | 'presales executive' |'sales executive';
+  role: 'admin' | 'manager' | 'agent' | 'buyer' | 'seller' | 'team leader' | 'sales team leader' | 'presales team leader' | 'sales manager' | 'marketing executive' | 'presales executive' | 'sales executive';
   phone?: string;
   avatar?: string;
   is_active: boolean;
@@ -70,14 +70,11 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      // normalize role for robust comparisons
       const role = (user.role ?? '').toString().trim().toLowerCase();
 
-      // debug logs (remove later)
       console.log('Login user:', user);
       console.log('Normalized role:', role);
 
-      // buyer/seller specific dashboards
       if (role === 'buyer' && user.buyer_id) {
         navigate(`/buyer-dashboard/${user.buyer_id}`, { replace: true });
         return;
@@ -87,14 +84,12 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      // executives who go to general dashboard
       const generalRoles = ['marketing executive', 'sales executive', 'presales executive'];
       if (generalRoles.includes(role)) {
         navigate(from || '/dashboard', { replace: true });
         return;
       }
 
-      // default fallback
       navigate(from || '/dashboard', { replace: true });
 
     } catch (err: any) {
@@ -103,8 +98,6 @@ const LoginPage: React.FC = () => {
       setLoading(false);
     }
   };
-
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
@@ -119,8 +112,8 @@ const LoginPage: React.FC = () => {
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjAzIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-50"></div>
 
       <div className="relative w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-12 z-10">
-        {/* Left Side - Welcome Content */}
-        <div className="flex-1 text-center lg:text-left space-y-8 px-4">
+        {/* Left Side - Welcome Content - Hidden on mobile, shown on desktop */}
+        <div className="hidden lg:block flex-1 text-center lg:text-left space-y-8 px-4">
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 backdrop-blur-sm rounded-full border border-indigo-500/20">
               <Sparkles className="h-4 w-4 text-indigo-400" />
@@ -158,7 +151,7 @@ const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Side - Login Form */}
+        {/* Right Side - Login Form (visible on all screen sizes) */}
         <div className="w-full max-w-md">
           <div className="bg-white/5 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-2xl p-8 hover:bg-white/[0.07] transition-all duration-300">
             {/* Header */}
@@ -222,7 +215,7 @@ const LoginPage: React.FC = () => {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 border-0 text-white font-semibold py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50"
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 border-0 text-white font-semibold py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] shadow-lg shadow-indigo-500/30 hover:shadow-indigo-50"
                 loading={loading}
                 disabled={loading}
               >
@@ -232,8 +225,8 @@ const LoginPage: React.FC = () => {
 
             {/* Footer Links */}
             <div className="mt-8 space-y-4 text-center">
-              <div className="pt-6 border-t border-white/10">
-                <span className="text-slate-400 text-sm">Don't have an account? </span>
+              <div className="pt-3 border-t border-white/10">
+                {/* <span className="text-slate-400 text-sm">Don't have an account? </span> */}
                 {/* <Link to="/register" className="font-medium text-indigo-400 hover:text-indigo-300 transition-colors">Sign up</Link> */}
               </div>
               <div>

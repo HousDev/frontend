@@ -951,7 +951,7 @@ const DashboardPage: React.FC = () => {
   const [userRole, setUserRole] = useState<string>('default');
 
   // Sidebar State
-  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [energyLevel, setEnergyLevel] = useState(75);
   const [dailyGoal, setDailyGoal] = useState({ completed: 3, target: 10 });
