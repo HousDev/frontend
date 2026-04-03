@@ -2856,7 +2856,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       </div>
 
       {/* Row 1: Salutation + Name + Email */}
-      <div className="grid grid-cols-12 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
         <div className="col-span-2">
           <Field label="Title">
             <select name="salutation" value={formData.salutation || ''} onChange={handleEventChange} className={INP}>
@@ -2966,7 +2966,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0"
         style={{ background: BRAND }}>{ownerInitials}</div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-gray-800 truncate leading-tight">{formData.ownerName || '—'}</p>
+        <p className="text-xs font-bold text-gray-800 truncate leading-tight">{`${formData.salutation || ''} ${formData.ownerName || ''}`.trim() || '—'}</p>
         <p className="text-[10px] text-gray-500 truncate leading-tight">
           {[formData.ownerEmail, formData.ownerPhone].filter(Boolean).join(' · ')}
           {formData.sameAsPhone
@@ -3125,7 +3125,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
 
       {/* ── Timeline & Rights ── */}
       <SectionHeader>Timeline & Selling Rights</SectionHeader>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
         <PossessionDropdown title="Purchase Month & Year" possessionMonth={formData.purchaseMonth} possessionYear={formData.purchaseYear}
           onMonthChange={(m) => handleInputChange('purchaseMonth', m)} onYearChange={(y) => handleInputChange('purchaseYear', y)} />
         <PossessionDropdown title="Possession Month & Year" possessionMonth={formData.possessionMonth} possessionYear={formData.possessionYear}
