@@ -1916,94 +1916,204 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                 })}
               </div>
             ) : (
-              <div className="space-y-6">
-                {paginatedProperties.map((property) => {
-                  const composedTitle = composeHeaderTitle(property);
-                  const unitAreaLine = formatUnitAreaLine(property);
-                  const { locationPart, cityPart } = splitLocationCity(property);
+              <div className="space-y-3">
+  {paginatedProperties.map((property) => {
+    const composedTitle = composeHeaderTitle(property);
+    const { locationPart, cityPart } = splitLocationCity(property);
+    const parkingCount = Number.isFinite(Number(property.parking)) ? Number(property.parking) : 0;
+    const amenities = Array.isArray(property.amenities) ? property.amenities : [];
+    const showAmenities = amenities.slice(0, 3);
 
-                  // ✅ Get dynamic parking count for list view
-                  const parkingCount = property.parking || 0;
+    const pricePerSqFt = property.price && (property.area || property.square_feet)
+      ? Math.round(property.price / (Number(property.area || property.square_feet) || 1))
+      : null;
 
-                  return (
-                    <div
-                      key={property.id}
-                      className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all group cursor-pointer"
-                      onClick={() => { if (property.slug) { handleNavigateToProperty(property); return; } setCurrentPropertyView(property); if (onPropertyView) onPropertyView(property); }}
-                    >
-                      <div className="md:flex gap-4 p-4 items-start">
-                        <div className="md:w-[38%] relative">
-                          <img
-                            src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
-                            alt={String(property.title)}
-                            className="w-full h-48 md:h-56 lg:h-52 object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"
-                          />
+    // ✅ Dynamic floor - jaisa detail page mein hai
+    
 
-                          <div className="absolute top-3 left-3 flex space-x-2">
-                            <PropertyTags tags={property.tags || []} />
-                          </div>
+    const getFloorSuffix = (floor: number) => {
+      if (floor === 1) return 'st';
+      if (floor === 2) return 'nd';
+      if (floor === 3) return 'rd';
+      return 'th';
+    };
 
-                          <div className="absolute bottom-3 right-3 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full text-xs flex items-center space-x-1">
-                            <Eye size={10} />
-                            <span>{property.total_views || property.views || 0} views</span>
-                          </div>
-                        </div>
+    return (
+      <div
+        key={property.id}
+        className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-gray-300 transition-all group cursor-pointer"
+        onClick={() => {
+          if (property.slug) { handleNavigateToProperty(property); return; }
+          setCurrentPropertyView(property);
+          if (onPropertyView) onPropertyView(property);
+        }}
+      >
+        <div className="flex h-[220px]">
 
-                        <div className="md:flex-1 p-3 space-y-1.5">
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <h3 className="text-xl font-bold text-[#0b3856] mb-2 group-hover:text-[#E6761D] transition-colors">{composedTitle}</h3>
-                              <div className="flex items-center text-gray-600 mb-2"><MapPin size={16} className="mr-2" /><span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span></div>
-                              <div className="text-sm text-gray-600"><span>{unitAreaLine}</span></div>
-                            </div>
-
-                            <div className="flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-lg">
-                              <Star size={16} />
-                              <span className="font-semibold text-gray-700">{(property.rating || 4.2).toFixed(1)}</span>
-                              <span className="text-sm text-gray-500">({property.reviews || 0})</span>
-                            </div>
-                          </div>
-
-                          <div className="mb-4">
-                            <div className="text-xl font-semibold text-green-600 leading-tight">{formatCurrency(property.price)}</div>
-                            <div className="text-sm text-gray-500">₹{Math.round(property.price / (property.area || property.square_feet || 1)).toLocaleString()}/sq ft</div>
-                          </div>
-
-                          <div className="grid grid-cols-4 gap-2 mb-3 text-center">
-                            <div className="p-2 bg-gray-50 rounded-lg text-xs"><Bed className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.bedrooms}</div><div className="text-xs text-gray-500">Bedrooms</div></div>
-                            <div className="p-2 bg-gray-50 rounded-lg text-xs"><Building className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.bathrooms}</div><div className="text-xs text-gray-500">Bathrooms</div></div>
-                            <div className="p-2 bg-gray-50 rounded-lg text-xs"><Home className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{property.area || property.square_feet}</div><div className="text-xs text-gray-500">Sq Ft</div></div>
-                            {/* ✅ Dynamic parking in list view */}
-                            <div className="p-2 bg-gray-50 rounded-lg text-xs"><Car className="mx-auto text-gray-600 mb-1" size={20} /><div className="font-semibold text-[#0b3856]">{parkingCount}</div><div className="text-xs text-gray-500">Parking</div></div>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 mb-3 text-center">
-                            <div className="p-2 rounded-lg text-xs"><TrendingUp className="mx-auto text-green-600 mb-1" size={16} /><div className="text-sm font-semibold text-green-600">{property.priceGrowth || '+12%'}</div><div className="text-xs text-gray-500">Growth</div></div>
-                            <div className="text-center p-2 bg-purple-50 rounded-lg"><Bot className="mx-auto text-purple-600 mb-1" size={16} /><div className="text-sm font-semibold text-purple-600">{property.aiScore || 85}</div><div className="text-xs text-gray-500">AI Score</div></div>
-                            <div className="text-center p-2 bg-blue-50 rounded-lg"><BarChart3 className="mx-auto text-blue-600 mb-1" size={16} /><div className="text-sm font-semibold text-blue-600">{property.investmentGrade || 'A'}</div><div className="text-xs text-gray-500">Grade</div></div>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4"><div className="text-sm text-gray-500">Posted {property.postedDate}</div></div>
-
-                            <div className="flex items-center space-x-2">
-                              {(typeof property.slug === 'string' && property.slug.trim().length > 0) ? (
-                                <button onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }} className=" bg-[#E6761D] text-white px-4 py-1.5 rounded-lg text-sm hover:bg-[#E6761D] transition-colors font-medium">View Details</button>
-                              ) : (
-                                <button disabled aria-disabled="true" title="Details not available – missing backend slug" className="bg-gray-300 text-gray-600 px-6 py-2 rounded-lg cursor-not-allowed">View Details</button>
-                              )}
-
-                              <button onClick={(e) => { e.stopPropagation(); setLikedProperties((prev) => prev.includes(property.id.toString()) ? prev.filter((id) => id !== property.id.toString()) : [...prev, property.id.toString()]); }} className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-                                <Heart size={16} className={likedProperties.includes(property.id.toString()) ? 'text-red-500 fill-current' : 'text-gray-600'} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+          {/* LEFT: Image */}
+          <div className="w-[380px] min-w-[380px] relative overflow-hidden">
+            <img
+              src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
+              alt={String(property.title)}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+            {(property.tags || []).length > 0 && (
+              <div className="absolute top-2 left-2">
+                <PropertyTags tags={(property.tags || []).slice(0, 1)} />
               </div>
+            )}
+            <div className="absolute bottom-2 left-2 bg-black/55 text-white px-2 py-0.5 rounded-full text-[10px] flex items-center gap-1">
+              <Eye size={9} />
+              <span>{property.total_views || property.views || 0}</span>
+            </div>
+            {/* ✅ Image Counter */}
+            <div className="absolute bottom-2 right-2 bg-black/55 text-white px-2 py-0.5 rounded-full text-[10px]">
+              {(property.images || []).length || 1} photos
+            </div>
+          </div>
+
+          {/* RIGHT: Body */}
+          <div className="flex-1 flex flex-col justify-between px-4 py-3 min-w-0 gap-2">
+
+            {/* Row 1: Title + Location */}
+            <div>
+              <h3 className="font-medium text-[#0b3856] text-sm leading-tight truncate group-hover:text-[#E6761D] transition-colors">
+                {composedTitle}
+              </h3>
+              <div className="flex items-center text-gray-400 text-xs mt-0.5 gap-1">
+                <MapPin size={11} className="shrink-0" />
+                <span className="truncate">
+                  {locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}
+                </span>
+              </div>
+            </div>
+
+            {/* Row 2: Metrics */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-gray-50 rounded-lg p-2">
+                <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Price</div>
+                <div className="text-sm font-medium text-green-700">{formatCurrency(property.price)}</div>
+                {pricePerSqFt && (
+                  <div className="text-[10px] text-gray-400">₹{pricePerSqFt.toLocaleString('en-IN')}/sq ft</div>
+                )}
+              </div>
+              <div className="bg-gray-50 rounded-lg p-2">
+                <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Area</div>
+                <div className="text-sm font-medium text-blue-700">{property.area || property.square_feet} sq.ft</div>
+                <div className="text-[10px] text-gray-400">{property.furnishing || 'Semi-Furnished'}</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-2">
+                <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Investment</div>
+                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                  <span className="text-[10px] font-medium bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full">
+                    {property.investmentGrade || 'A'} Grade
+                  </span>
+                  <span className="text-[10px] font-medium bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded-full">
+                    {property.priceGrowth || '+12%'}
+                  </span>
+                </div>
+                <div className="text-[10px] text-gray-400 mt-0.5">Projected growth</div>
+              </div>
+            </div>
+
+            {/* Row 3: Specs with colored backgrounds - ✅ Dynamic Floor */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1 text-[11px] font-medium text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1">
+                <Bed size={11} className="text-orange-500" />
+                {property.bedrooms} Bedroom
+              </div>
+              <div className="flex items-center gap-1 text-[11px] font-medium text-cyan-700 bg-cyan-50 border border-cyan-100 rounded-lg px-2 py-1">
+                <Building size={11} className="text-cyan-500" />
+                {property.bathrooms} Bathroom
+              </div>
+              <div className="flex items-center gap-1 text-[11px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1">
+                <Car size={11} className="text-indigo-500" />
+                {parkingCount} Parking
+              </div>
+              
+              
+            </div>
+
+            {/* Row 4: Amenities + Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {showAmenities.map((amenity: string, idx: number) => (
+                  <span key={idx} className="text-[10px] text-blue-600 bg-blue-50 rounded-full px-2 py-0.5 truncate max-w-[90px]">
+                    {amenity}
+                  </span>
+                ))}
+                {amenities.length > 3 && (
+                  <span className="text-[10px] text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+                    +{amenities.length - 3}
+                  </span>
+                )}
+              </div>
+              
+              {/* ✅ Action Buttons - Heart icon View Details ke LEFT mein */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const phone = property.executiveTo?.phone || "919999999999";
+                    if (phone && phone !== "Not Available") window.open(`tel:${phone}`);
+                  }}
+                  className="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+                >
+                  <Phone size={12} className="text-blue-500" />
+                </button>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const phone = property?.executiveTo?.phone?.replace(/\D/g, "") || "9637009639";
+                    const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+                    const title = property?.title || [property?.type].filter(Boolean).join(" ") || "a property";
+                    const loc = property?.location || property?.city || "your listed property location";
+                    const priceText = !isNaN(Number(property?.price || 0)) ? `₹${Number(property?.price || 0).toLocaleString("en-IN")}` : "Price on request";
+                    const link = property?.slug ? `${window.location.origin}/properties/${encodeURIComponent(String(property.slug))}` : `${window.location.origin}/properties`;
+                    const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
+                    window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+                  }}
+                  className="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+                >
+                  <FaWhatsapp size={13} className="text-[#16a34a]" />
+                </button>
+                
+                {/* ✅ Heart (Like) Button - View Details ke LEFT mein */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLikedProperties((prev) =>
+                      prev.includes(property.id.toString())
+                        ? prev.filter((id) => id !== property.id.toString())
+                        : [...prev, property.id.toString()]
+                    );
+                  }}
+                  className="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+                >
+                  <Heart 
+                    size={12} 
+                    className={likedProperties.includes(property.id.toString()) ? 'text-red-500 fill-current' : 'text-gray-500'} 
+                  />
+                </button>
+                
+                {/* View Details Button */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }}
+                  className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white text-xs font-medium px-4 py-1.5 rounded-lg transition"
+                >
+                  View Details
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    );
+  })}
+</div>
             )}
 
             {/* Pagination */}

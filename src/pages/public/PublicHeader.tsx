@@ -158,23 +158,26 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
     return false;
   };
 
+  // const handleSellPropertyClick = () => {
+  //   if (onAuthAction) onAuthAction('sell');
+  //   else setIsSellerModalOpen(true);
+  // };
   const handleSellPropertyClick = () => {
-    if (onAuthAction) onAuthAction('sell');
-    else setIsSellerModalOpen(true);
-  };
+  navigate('/sell-property');
+};
 
-  const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
-  const handleSellerSave = async (sellerData: any) => {
-    try {
-      // alert('Seller information saved successfully!');
-      setTimeout(() => {
-        setIsSellerModalOpen(false);
-      }, 3000)
-    } catch (error) {
-      console.error('Error saving seller:', error);
-      alert('Failed to save seller information. Please try again.');
-    }
-  };
+  // const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
+  // const handleSellerSave = async (sellerData: any) => {
+  //   try {
+  //     // alert('Seller information saved successfully!');
+  //     setTimeout(() => {
+  //       setIsSellerModalOpen(false);
+  //     }, 3000)
+  //   } catch (error) {
+  //     console.error('Error saving seller:', error);
+  //     alert('Failed to save seller information. Please try again.');
+  //   }
+  // };
 
   const displayName = (() => {
     if (!user) return 'User';
@@ -302,7 +305,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                 onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = colors.brand)}
                 aria-label="Sell property"
               >
-                <span className="font-semibold">Sell Property</span>
+                <span className="font-semibold"> Post Property</span>
               </button>
 
               {!isAuthenticated ? (
@@ -516,7 +519,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                   className="w-full flex items-center justify-center space-x-2 text-white px-4 py-3 rounded-xl font-medium text-sm shadow-md"
                   style={{ backgroundColor: colors.brand }}
                 >
-                  <span>Sell Property</span>
+                  <span>Post Property</span>
                 </button>
 
                 {!isAuthenticated ? (
@@ -586,11 +589,11 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
       </main>
 
       <PublicFooter />
-      <PublicSellPropertyForm
+      {/* <PublicSellPropertyForm
         isOpen={isSellerModalOpen}
         onClose={() => setIsSellerModalOpen(false)}
         onSubmit={handleSellerSave}
-      />
+      /> */}
     </>
   );
 };

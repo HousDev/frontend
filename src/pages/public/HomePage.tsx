@@ -649,9 +649,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   };
 
   const handleSellPropertyClick = () => {
-    if (onAuthAction) onAuthAction('sell');
-    else setIsSellerModalOpen(true);
-  };
+  // Redirect to seller page instead of opening modal
+  navigate('/sell-property');
+};
 
   const handleSellerSave = async (formData: any) => {
     try {
@@ -1344,119 +1344,157 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
 
       {/* Why Choose Us cards */}
-      <section className="py-8 bg-gray-50 border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Heading */}
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              Why Choose&nbsp;{companyName}?
-            </h2>
-            <h3 className="text-base sm:text-lg text-gray-700 font-medium mb-3">
-              Trusted Resale Property Consultant in Pune & PCMC
-            </h3>
-            <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
-              Buying or selling a resale property can be overwhelming. That's why thousands of homeowners and buyers choose Resale Expert for hassle-free transactions.
-            </p>
+    {/* Why Choose Section - Modern like Roomac */}
+<section className="py-5 md:py-7 bg-gradient-to-b from-white to-gray-50">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    {/* Heading with dot decoration */}
+    <div className="text-center mb-10 md:mb-14">
+      <div className="inline-flex items-center gap-2 mb-3">
+        <span className="w-8 h-0.5 bg-[#E6761D]"></span>
+        <span className="text-[#E6761D] text-sm font-semibold uppercase tracking-wide">Why Choose Us</span>
+        <span className="w-8 h-0.5 bg-[#E6761D]"></span>
+      </div>
+      <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-3">
+        Why Choose&nbsp;{companyName}?
+      </h2>
+      <p className="text-gray-600 max-w-2xl mx-auto text-sm md:text-base">
+        Trusted Resale Property Consultant in Pune & PCMC
+      </p>
+    </div>
+
+    {/* Cards Grid - 2x2 on mobile, 4 on desktop */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6 lg:gap-8">
+      
+      {/* Card 1 */}
+      <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
+        <div className="relative inline-block mb-4">
+          <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
+            <ShieldCheck className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
           </div>
-
-          {/* Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 items-stretch">
-            {/* Card 1 */}
-            <div className="h-full bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all flex flex-col items-center">
-              <div className="w-14 h-14 rounded-2xl bg-[#E6761D] flex items-center justify-center mb-4">
-                <ShieldCheck className="text-white" size={26} />
-              </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                Verified Listings Only
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Every property undergoes legal and documentation checks.
-              </p>
-            </div>
-
-            {/* Card 2 */}
-            <div className="h-full bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all flex flex-col items-center">
-              <div className="w-14 h-14 rounded-2xl bg-[#E6761D] flex items-center justify-center mb-4">
-                <Brain className="text-white" size={26} />
-              </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                Fair Market Valuation
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Transparent pricing — no hidden charges, no inflated rates.
-              </p>
-            </div>
-
-            {/* Card 3 */}
-            <div className="h-full bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all flex flex-col items-center">
-              <div className="w-14 h-14 rounded-2xl bg-[#E6761D] flex items-center justify-center mb-4">
-                <Users className="text-white" size={26} />
-              </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                Local Market Expertise
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                Deep understanding of Pune and PCMC real estate trends.
-              </p>
-            </div>
-
-            {/* Card 4 */}
-            <div className="h-full bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm hover:shadow-md transition-all flex flex-col items-center">
-              <div className="w-14 h-14 rounded-2xl bg-[#E6761D] flex items-center justify-center mb-4">
-                <Handshake className="text-white" size={26} />
-              </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                End-to-End Assistance
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                From property search to registration and possession.
-              </p>
-            </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+            01
           </div>
         </div>
-      </section>
-      {/* Stats cards */}
-      <section className="py-5 bg-white border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch text-center">
-            {/* Stat 1 */}
-            <div className="h-full bg-white border border-gray-100 rounded-2xl px-6 py-8 flex flex-col items-center justify-center shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-              <div className="w-14 h-14 rounded-xl bg-blue-100 flex items-center justify-center mb-4">
-                <Home className="text-blue-600" size={20} />
-              </div>
-              <h4 className="text-2xl font-bold text-gray-900">10K+</h4>
-              <p className="text-gray-600 text-sm mt-1">Properties</p>
-            </div>
+        <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+          Verified Listings Only
+        </h3>
+        <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
+          Every property undergoes legal and documentation checks for complete peace of mind.
+        </p>
+      </div>
 
-            {/* Stat 2 */}
-            <div className="h-full bg-white border border-gray-100 rounded-2xl px-6 py-8 flex flex-col items-center justify-center shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-              <div className="w-14 h-14 rounded-xl bg-green-100 flex items-center justify-center mb-4">
-                <Users className="text-green-600" size={20} />
-              </div>
-              <h4 className="text-2xl font-bold text-gray-900">25K+</h4>
-              <p className="text-gray-600 text-sm mt-1">Customers</p>
-            </div>
-
-            {/* Stat 3 */}
-            <div className="h-full bg-white border border-gray-100 rounded-2xl px-6 py-8 flex flex-col items-center justify-center shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-              <div className="w-14 h-14 rounded-xl bg-orange-100 flex items-center justify-center mb-4">
-                <Award className="text-orange-600" size={20} />
-              </div>
-              <h4 className="text-2xl font-bold text-gray-900">15+</h4>
-              <p className="text-gray-600 text-sm mt-1">Years</p>
-            </div>
-
-            {/* Stat 4 */}
-            <div className="h-full bg-white border border-gray-100 rounded-2xl px-6 py-8 flex flex-col items-center justify-center shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-              <div className="w-14 h-14 rounded-xl bg-purple-100 flex items-center justify-center mb-4">
-                <Star className="text-purple-600" size={20} />
-              </div>
-              <h4 className="text-2xl font-bold text-gray-900">4.9★</h4>
-              <p className="text-gray-600 text-sm mt-1">Rating</p>
-            </div>
+      {/* Card 2 */}
+      <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
+        <div className="relative inline-block mb-4">
+          <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
+            <Brain className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+            02
           </div>
         </div>
-      </section>
+        <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+          Fair Market Valuation
+        </h3>
+        <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
+          Transparent pricing with no hidden charges or inflated rates guaranteed.
+        </p>
+      </div>
+
+      {/* Card 3 */}
+      <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
+        <div className="relative inline-block mb-4">
+          <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
+            <Users className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+            03
+          </div>
+        </div>
+        <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+          Local Market Expertise
+        </h3>
+        <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
+          Deep understanding of Pune and PCMC real estate trends and micro-markets.
+        </p>
+      </div>
+
+      {/* Card 4 */}
+      <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
+        <div className="relative inline-block mb-4">
+          <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
+            <Handshake className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+            04
+          </div>
+        </div>
+        <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+          End-to-End Assistance
+        </h3>
+        <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
+          Complete support from property search to registration and final possession.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{/* Stats Section - Modern stats cards */}
+<section className="py-4 md:py-5 bg-gradient-to-br from-slate-50 via-white to-blue-50">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
+      
+      {/* Stat 1 */}
+      <div className="bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-blue-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
+        <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-blue-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-blue-300 transition-colors">
+          <Home className="text-blue-700" size={18} />
+        </div>
+        <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
+          10K<span className="text-base md:text-lg text-gray-600">+</span>
+        </h4>
+        <p className="text-gray-600 text-[11px] md:text-xs font-medium">Properties Sold</p>
+        <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-blue-300 rounded-full mx-auto"></div>
+      </div>
+
+      {/* Stat 2 */}
+      <div className="bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-emerald-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
+        <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-emerald-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-emerald-300 transition-colors">
+          <Users className="text-emerald-700" size={18} />
+        </div>
+        <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
+          25K<span className="text-base md:text-lg text-gray-600">+</span>
+        </h4>
+        <p className="text-gray-600 text-[11px] md:text-xs font-medium">Happy Customers</p>
+        <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-emerald-300 rounded-full mx-auto"></div>
+      </div>
+
+      {/* Stat 3 */}
+      <div className="bg-gradient-to-br from-amber-100 to-amber-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-amber-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
+        <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-amber-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-amber-300 transition-colors">
+          <Award className="text-amber-700" size={18} />
+        </div>
+        <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
+          15<span className="text-base md:text-lg text-gray-600">+</span>
+        </h4>
+        <p className="text-gray-600 text-[11px] md:text-xs font-medium">Years of Trust</p>
+        <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-amber-300 rounded-full mx-auto"></div>
+      </div>
+
+      {/* Stat 4 */}
+      <div className="bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-purple-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
+        <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-purple-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-purple-300 transition-colors">
+          <Star className="text-purple-700" size={18} />
+        </div>
+        <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
+          4.9<span className="text-base md:text-lg text-gray-600">★</span>
+        </h4>
+        <p className="text-gray-600 text-[11px] md:text-xs font-medium">Customer Rating</p>
+        <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-purple-300 rounded-full mx-auto"></div>
+      </div>
+    </div>
+  </div>
+</section>
 
 
       {/* Testimonials - Compact */}
