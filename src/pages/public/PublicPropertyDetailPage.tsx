@@ -1253,13 +1253,12 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 md:pb-6 pt-0 bg-gradient-to-b from-white via-slate-50 to-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-6 py-6 pb-4 md:pb-6 pt-0 bg-gradient-to-b from-white via-slate-50 to-white">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-4 sm:space-y-5 lg:space-y-6">
-            {/* Image Carousel - Responsive */}
-            <div className="relative w-full h-64 sm:h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl ring-1 ring-black/10 group">
+<div className="lg:col-span-2 space-y-4 sm:space-y-5 lg:space-y-6 flex flex-col">            {/* Image Carousel - Responsive */}
+            <div className="relative w-full h-72 sm:h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl ring-1 ring-black/10 group">
               <img
                 src={images[currentImageIndex]}
                 alt={property?.title || "Property Image"}
@@ -1300,6 +1299,9 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   <span className="truncate">{displayOrDash(property?.locationNormalized)}</span>
                 </div>
               </div>
+              <div className="absolute top-14 left-2 z-20 block sm:hidden">
+  <PropertyTags tags={propertyTags} />
+</div>
 
               {/* Property Tags - Display fetched tags */}
               <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 ">
@@ -1312,7 +1314,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               <div className="absolute top-2 sm:top-3 md:top-8 right-2 sm:right-3 md:right-4 z-20 flex flex-col space-y-1.5 sm:space-y-2">
                 <button
                   onClick={() => setOpen(true)}
-                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
+                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/70 hover:bg-white/80 backdrop-blur-md text-white  shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
                   aria-label="Share property"
                 >
                   <Share className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
@@ -1322,7 +1324,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 <button
                   onClick={handleSaveClick}
                   disabled={saving}
-                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/95 backdrop-blur-md shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
+                  className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/70 hover:bg-white/80 backdrop-blur-md text-white shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
                   aria-label="Save property"
                   title={liked ? "Unsave" : "Save"}
                 >
@@ -1333,20 +1335,19 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
               </div>
               {/* Bottom-Left Price - Responsive */}
-              <div className="absolute bottom-8 sm:bottom-10 md:bottom-12 left-2 sm:left-3 md:left-4 z-20 w-[90%]">
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 md:gap-5 items-start sm:items-center">
+<div className="absolute bottom-3 sm:bottom-10 md:bottom-12 left-2 sm:left-3 md:left-4 z-20 w-[90%]">               
+   <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 md:gap-5 items-start sm:items-center">
                   <div className="flex flex-col text-left">
-                    <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white leading-tight">
-                      {formatCurrency(property?.price)}
+<div className="text-base sm:text-2xl md:text-3xl font-bold text-white leading-tight">                      
+  {formatCurrency(property?.price)}
                     </div>
-                    <div className="text-xs sm:text-sm md:text-base text-white mt-0.5 sm:mt-1">
-                      {pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - '}
+<div className="text-[10px] sm:text-sm md:text-base text-white mt-0 sm:mt-1">                   
+     {pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - '}
                     </div>
                   </div>
 
                   <div className="flex flex-col items-left">
-                    <span className="text-sm sm:text-base md:text-lg font-semibold text-white">
-                      Carpet Area
+<span className="text-xs sm:text-sm md:text-base text-white">                      Carpet Area
                     </span>
                     <span className="text-xs sm:text-sm md:text-base text-white">
                       {displayOrDash(property?.square_feet)} sq ft
@@ -1384,8 +1385,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
               {/* Dot Indicators - Responsive */}
               {images.length > 1 && images.length <= 8 && (
-                <div className="absolute bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 flex space-x-1.5 sm:space-x-2">
-                  {images.map((_, idx) => (
+<div className="absolute bottom-2 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 flex space-x-1.5 sm:space-x-2">                  {images.map((_, idx) => (
                     <button
                       key={idx}
                       onClick={() => setCurrentImageIndex(idx)}
@@ -1399,40 +1399,38 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               )}
 
               {/* View Options Buttons - Responsive */}
-              <div className="absolute bottom-14 sm:bottom-16 right-2 sm:right-3 md:right-4 z-20 flex space-x-1.5 sm:space-x-2">
-                <button
-                  onClick={() => {
-                    setPhotoGalleryStartIndex(currentImageIndex);
-                    setShowPhotoGallery(true);
-                  }}
-                  className="bg-white/95 backdrop-blur-md text-gray-900 px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60"
-                >
-                  <Camera size={12} className="sm:w-3.5 sm:h-3.5" />
-                  <span className="hidden xs:inline">Photos</span>
-                </button>
-                {showPhotoGallery && (
-                  <PhotoGalleryModal
-                    images={images}
-                    isOpen={showPhotoGallery}
-                    onClose={() => setShowPhotoGallery(false)}
-                    initialIndex={photoGalleryStartIndex}
-                  />
-                )}
-                <button className="bg-white/95 backdrop-blur-md text-gray-900 px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60">
-                  <Video size={12} className="sm:w-3.5 sm:h-3.5" />
-                  <span className="hidden xs:inline">Tour</span>
-                </button>
-              </div>
+              <div className="absolute bottom-14 sm:bottom-16 right-2 sm:right-3 md:right-4 z-20 flex flex-col sm:flex-row space-y-1.5 sm:space-y-0 sm:space-x-1.5">
+  <button
+    onClick={() => {
+      setPhotoGalleryStartIndex(currentImageIndex);
+      setShowPhotoGallery(true);
+    }}
+    className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-black px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60"
+  >
+    <Camera size={12} className="sm:w-3.5 sm:h-3.5" />
+    <span className="hidden xs:inline">Photos</span>
+  </button>
+  {showPhotoGallery && (
+    <PhotoGalleryModal
+      images={images}
+      isOpen={showPhotoGallery}
+      onClose={() => setShowPhotoGallery(false)}
+      initialIndex={photoGalleryStartIndex}
+    />
+  )}
+  <button className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-black px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60">
+    <Video size={12} className="sm:w-3.5 sm:h-3.5" />
+    <span className="hidden xs:inline">Tour</span>
+  </button>
+</div>
             </div>
 
             {/* Property Details Section - Responsive */}
-            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 !mt-3 sm:!mt-4 ring-1 ring-gray-100">
-              {/* Description - Responsive */}
+            <div >
+              
 
-              <div className="  block sm:hidden">
-                <PropertyTags tags={propertyTags} />
-              </div>
-              <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
+             
+              <div className="bg-white  backdrop-blur rounded-xl sm:rounded-2xl border  shadow-sm -mt-3 p-2 sm:p-3 mb-1 sm:mb-2">
                 <PropertyDescriptionSmart
                   description={property?.description}
                   property={property}
@@ -1440,15 +1438,15 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
 
               {/* Property Details Grid - Fully Responsive */}
-              <div className="bg-white/95 backdrop-blur rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all ring-1 ring-gray-100">
+              <div className="bg-white/95 backdrop-blur rounded-xl sm:rounded-2xl border  shadow-sm hover:shadow-sm transition-all mb-2 ">
                 <div className="px-3 sm:px-4 md:px-5 pt-3 sm:pt-4">
-                  <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-3 sm:mb-4">
+                  <h3 className="font-bold text-black text-lg sm:text-xl mb-3 sm:mb-4">
                     Property Details
                   </h3>
                 </div>
 
                 <div className="px-3 sm:px-4 md:px-5 pb-3 sm:pb-4 md:pb-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
                     <div>
                       <span className="font-semibold text-gray-800">Property type:</span>
                       <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.type)}</span>
@@ -1525,212 +1523,163 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
 
               {/* Amenities & Furnishing - Responsive Grid */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4">
-                {/* Amenities */}
-                <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-3 sm:p-4 ring-1 ring-gray-100">
-                  <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Amenities</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
-                    {(() => {
-                      let amenitiesList: string[] = [];
-                      if (Array.isArray(property?.amenities) && property.amenities.length > 0) {
-                        amenitiesList = property.amenities;
-                      } else if (Array.isArray(property?.raw?.amenities) && property.raw.amenities.length > 0) {
-                        amenitiesList = property.raw.amenities;
-                      } else if (typeof property?.amenities === 'string' && property.amenities.trim()) {
-                        amenitiesList = property.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
-                      } else if (typeof property?.raw?.amenities === 'string' && property.raw.amenities.trim()) {
-                        amenitiesList = property.raw.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
-                      }
+           {/* Amenities & Furnishing - Responsive Grid */}
+{/* Amenities & Furnishing - Compact without scroll */}
+<div className="grid grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-2 sm:mt-1 mb-2">
+  {/* Amenities */}
+  <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-2 sm:p-2.5 ring-1 ring-gray-100">
+    <h3 className="font-semibold text-gray-900 text-[10px] sm:text-xs mb-1 sm:mb-1.5">Amenities</h3>
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-1.5">
+      {(() => {
+        let amenitiesList: string[] = [];
+        if (Array.isArray(property?.amenities) && property.amenities.length > 0) {
+          amenitiesList = property.amenities;
+        } else if (Array.isArray(property?.raw?.amenities) && property.raw.amenities.length > 0) {
+          amenitiesList = property.raw.amenities;
+        } else if (typeof property?.amenities === 'string' && property.amenities.trim()) {
+          amenitiesList = property.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+        } else if (typeof property?.raw?.amenities === 'string' && property.raw.amenities.trim()) {
+          amenitiesList = property.raw.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+        }
 
-                      return amenitiesList.length > 0 ? (
-                        amenitiesList.map((name, i) => <AmenityPill key={i} name={name} />)
-                      ) : (
-                        <span className="text-xs sm:text-sm text-gray-500 col-span-full">No amenities listed</span>
-                      );
-                    })()}
-                  </div>
-                </div>
+        return amenitiesList.length > 0 ? (
+          amenitiesList.map((name, i) => <AmenityPill key={i} name={name} size={8} compact />)
+        ) : (
+          <span className="text-[10px] sm:text-xs text-gray-500 col-span-full">No amenities listed</span>
+        );
+      })()}
+    </div>
+  </div>
 
-                {/* Furnishing Items */}
-                <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-3 sm:p-4 ring-1 ring-gray-100">
-                  <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Furnishing Items</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-3 gap-2">
-                    {(() => {
-                      let furnishingList: string[] = [];
-                      if (Array.isArray(property?.furnishingItems) && property.furnishingItems.length > 0) {
-                        furnishingList = property.furnishingItems;
-                      } else if (Array.isArray(property?.raw?.furnishingItems) && property.raw.furnishingItems.length > 0) {
-                        furnishingList = property.raw.furnishingItems;
-                      } else if (Array.isArray(property?.raw?.furnishing_items) && property.raw.furnishing_items.length > 0) {
-                        furnishingList = property.raw.furnishing_items;
-                      }
+  {/* Furnishing Items */}
+  <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-2 sm:p-2.5 ring-1 ring-gray-100">
+    <h3 className="font-semibold text-gray-900 text-[10px] sm:text-xs mb-1 sm:mb-1.5">Furnishing Items</h3>
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-1.5">
+      {(() => {
+        let furnishingList: string[] = [];
+        if (Array.isArray(property?.furnishingItems) && property.furnishingItems.length > 0) {
+          furnishingList = property.furnishingItems;
+        } else if (Array.isArray(property?.raw?.furnishingItems) && property.raw.furnishingItems.length > 0) {
+          furnishingList = property.raw.furnishingItems;
+        } else if (Array.isArray(property?.raw?.furnishing_items) && property.raw.furnishing_items.length > 0) {
+          furnishingList = property.raw.furnishing_items;
+        }
 
-                      return furnishingList.length > 0 ? (
-                        furnishingList.map((item: string, index: number) => (
-                          <FurnishingPill key={index} name={item} />
-                        ))
-                      ) : (
-                        <span className="text-xs sm:text-sm text-gray-500 col-span-full">No furnishing items listed</span>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
+        return furnishingList.length > 0 ? (
+          furnishingList.map((item: string, index: number) => (
+            <FurnishingPill key={index} name={item} size={8} compact />
+          ))
+        ) : (
+          <span className="text-[10px] sm:text-xs text-gray-500 col-span-full">No furnishing items listed</span>
+        );
+      })()}
+    </div>
+  </div>
+</div>
 
               {/* AI Insights Banner - Responsive */}
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 md:mb-8 mt-3 sm:mt-4 border border-purple-100 ring-1 ring-purple-100/70">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-1 sm:space-x-1.5 mb-2 sm:mb-3 md:mb-4">
-                      <Bot className="text-purple-600" size={16} />
-                      <h3 className="font-bold text-gray-900 text-sm sm:text-base mb-0.5 sm:mb-1">AI Property Analysis</h3>
-                    </div>
-                    {hasSubscription || !isLoggedIn ? (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 text-xs sm:text-sm">
-                        <div>
-                          <span className="text-gray-600">AI Score: </span>
-                          <span className="font-bold text-purple-600">{displayOrDash(property?.aiScore ?? '94')}/100</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Growth: </span>
-                          <span className="font-bold text-green-600">{displayOrDash(property?.priceGrowth ?? '+12.5%')}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Investment: </span>
-                          <span className="font-bold text-blue-600">{displayOrDash(property?.investmentGrade ?? 'A+')}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">ROI Potential: </span>
-                          <span className="font-bold text-orange-600">18.2%</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="relative">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 text-xs sm:text-sm blur-sm">
-                          <div>
-                            <span className="text-gray-600">AI Score: </span>
-                            <span className="font-bold text-purple-600">••/100</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Growth: </span>
-                            <span className="font-bold text-green-600">+••.•%</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Investment: </span>
-                            <span className="font-bold text-blue-600">••</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">ROI Potential: </span>
-                            <span className="font-bold text-orange-600">••.•%</span>
-                          </div>
-                        </div>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <button
-                            onClick={() => handlePaywallOpen('ai-investment')}
-                            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-lg hover:shadow-xl transition-all flex items-center space-x-1.5 sm:space-x-2"
-                          >
-                            <Lock size={14} className="sm:w-4 sm:h-4" />
-                            <span className="hidden xs:inline">Unlock AI Analysis - ₹299</span>
-                            <span className="xs:hidden">Unlock ₹299</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+<div className="bg-white rounded-xl border border-purple-100 p-3 sm:p-4">
+    <div className="flex items-center gap-2 mb-3">
+    <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+      <Bot className="text-purple-600" size={14} />
+    </div>
+    <h3 className="font-medium text-gray-900 text-sm sm:text-base">AI Property Analysis</h3>
+  </div>
+
+  {hasSubscription || !isLoggedIn ? (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {[
+        { label: 'AI Score', value: `${displayOrDash(property?.aiScore ?? '94')}/100`, color: 'text-purple-600' },
+        { label: 'Growth', value: displayOrDash(property?.priceGrowth ?? '+12.5%'), color: 'text-green-600' },
+        { label: 'Investment', value: displayOrDash(property?.investmentGrade ?? 'A+'), color: 'text-blue-600' },
+        { label: 'ROI Potential', value: '18.2%', color: 'text-orange-600' },
+      ].map((item, i) => (
+        <div key={i} className="bg-gray-50 rounded-lg px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+          <span className="text-[11px] text-gray-500">{item.label}</span>
+          <span className={`text-sm font-medium ${item.color}`}>{item.value}</span>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="relative">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 blur-sm pointer-events-none select-none">
+        {[
+          { label: 'AI Score', value: '••/100', color: 'text-purple-600' },
+          { label: 'Growth', value: '+••.•%', color: 'text-green-600' },
+          { label: 'Investment', value: '••', color: 'text-blue-600' },
+          { label: 'ROI Potential', value: '••.•%', color: 'text-orange-600' },
+        ].map((item, i) => (
+          <div key={i} className="bg-gray-50 rounded-lg px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+            <span className="text-[11px] text-gray-500">{item.label}</span>
+            <span className={`text-sm font-medium ${item.color}`}>{item.value}</span>
+          </div>
+        ))}
+      </div>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <button onClick={() => handlePaywallOpen('ai-investment')}
+          className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-md flex items-center gap-2">
+          <Lock size={13} />Unlock AI Analysis · ₹299
+        </button>
+      </div>
+    </div>
+  )}
+</div>
+<div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 ring-1 mt-3 ring-gray-100">  <div className="flex items-center gap-2 mb-3">
+    <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+      <Lightbulb className="text-blue-600" size={14} />
+    </div>
+    <h2 className="font-medium text-gray-900 text-sm sm:text-base">AI Recommendations</h2>
+  </div>
+
+  {hasSubscription ? (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+      {[
+        { label: 'Price Appreciation', value: '+15.2%', sub: 'Next 12 months', color: 'text-green-600', bg: 'bg-green-50' },
+        { label: 'Market Position', value: 'Top 10%', sub: 'In this locality', color: 'text-blue-600', bg: 'bg-blue-50' },
+        { label: 'Investment Timing', value: 'Excellent', sub: 'Buy now recommended', color: 'text-orange-600', bg: 'bg-orange-50' },
+      ].map((item, i) => (
+        <div key={i} className={`${item.bg} rounded-lg p-3 border border-gray-100`}>
+          <div className="text-[11px] text-gray-500 mb-1">{item.label}</div>
+          <div className={`text-lg font-medium ${item.color}`}>{item.value}</div>
+          <div className="text-[10px] text-gray-500 mt-0.5">{item.sub}</div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="relative">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 blur-md pointer-events-none select-none">
+        {[
+          { label: 'Price Appreciation', value: '+••.•%', sub: 'Next 12 months', color: 'text-green-600', bg: 'bg-green-50' },
+          { label: 'Market Position', value: 'Top ••%', sub: 'In this locality', color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Investment Timing', value: '••••••••', sub: 'Buy now recommended', color: 'text-orange-600', bg: 'bg-orange-50' },
+        ].map((item, i) => (
+          <div key={i} className={`${item.bg} rounded-lg p-3 border border-gray-100`}>
+            <div className="text-[11px] text-gray-500 mb-1">{item.label}</div>
+            <div className={`text-lg font-medium ${item.color}`}>{item.value}</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">{item.sub}</div>
+          </div>
+        ))}
+      </div>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="bg-white/95 border border-gray-200 rounded-xl p-4 text-center w-[85%] sm:w-64 shadow-sm -mt-6">
+          <Lock className="text-blue-600 mx-auto mb-1.5" size={16} />
+          <p className="font-medium text-gray-900 text-sm mb-1">Premium AI Insights</p>
+          <p className="text-[11px] text-gray-500 mb-3 leading-snug">Detailed recommendations &amp; market analysis</p>
+          <button onClick={() => handlePaywallOpen('ai-recommendations')}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1.5 rounded-lg text-xs font-medium w-full">
+            Unlock for ₹299
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+</div>
             </div>
 
-            {/* AI Recommendations - Responsive */}
-            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 relative ring-1 ring-gray-100">
-              <div className="flex items-center space-x-1.5 sm:space-x-2 mb-2 sm:mb-3">
-                <div className="bg-blue-100 rounded-lg p-1">
-                  <Lightbulb className="text-blue-600" size={16} />
-                </div>
-                <h2 className="font-bold text-gray-900 text-sm sm:text-base">AI Recommendations</h2>
-              </div>
 
-              {hasSubscription ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-                  <div className="bg-green-50 rounded-lg p-2.5 sm:p-3 border border-green-100">
-                    <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
-                      <TrendingUp className="text-green-600" />
-                      <span className="font-semibold text-green-800 text-xs sm:text-sm">Price Appreciation</span>
-                    </div>
-                    <div className="text-lg sm:text-xl font-bold text-green-600 leading-tight">+15.2%</div>
-                    <div className="text-[10px] sm:text-xs text-green-700 mt-0.5">Expected in next 12 months</div>
-                  </div>
-
-                  <div className="bg-blue-50 rounded-lg p-2.5 sm:p-3 border border-blue-100">
-                    <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
-                      <PieChart className="text-blue-600" />
-                      <span className="font-semibold text-blue-800 text-xs sm:text-sm">Market Position</span>
-                    </div>
-                    <div className="text-lg sm:text-xl font-bold text-blue-600 leading-tight">Top 10%</div>
-                    <div className="text-[10px] sm:text-xs text-blue-700 mt-0.5">In this locality</div>
-                  </div>
-
-                  <div className="bg-orange-50 rounded-lg p-2.5 sm:p-3 border border-orange-100">
-                    <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
-                      <AlertCircle className="text-orange-600" />
-                      <span className="font-semibold text-orange-800 text-xs sm:text-sm">Investment Timing</span>
-                    </div>
-                    <div className="text-lg sm:text-xl font-bold text-orange-600 leading-tight">Excellent</div>
-                    <div className="text-[10px] sm:text-xs text-orange-700 mt-0.5">Buy now recommended</div>
-                  </div>
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 blur-md pointer-events-none select-none">
-                    <div className="bg-green-50 rounded-lg p-2.5 sm:p-3 border border-green-100">
-                      <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
-                        <TrendingUp className="text-green-600" size={14} />
-                        <span className="font-semibold text-green-800 text-xs sm:text-sm">Price Appreciation</span>
-                      </div>
-                      <div className="text-lg sm:text-xl font-bold text-green-600 leading-tight">+••.•%</div>
-                      <div className="text-[10px] sm:text-xs text-green-700 mt-0.5">Expected in next 12 months</div>
-                    </div>
-
-                    <div className="bg-blue-50 rounded-lg p-2.5 sm:p-3 border border-blue-100">
-                      <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
-                        <PieChart className="text-blue-600" size={14} />
-                        <span className="font-semibold text-blue-800 text-xs sm:text-sm">Market Position</span>
-                      </div>
-                      <div className="text-lg sm:text-xl font-bold text-blue-600 leading-tight">Top ••%</div>
-                      <div className="text-[10px] sm:text-xs text-blue-700 mt-0.5">In this locality</div>
-                    </div>
-
-                    <div className="bg-orange-50 rounded-lg p-2.5 sm:p-3 border border-orange-100">
-                      <div className="flex items-center space-x-1 sm:space-x-1.5 mb-1 sm:mb-1.5">
-                        <AlertCircle className="text-orange-600" size={14} />
-                        <span className="font-semibold text-orange-800 text-xs sm:text-sm">Investment Timing</span>
-                      </div>
-                      <div className="text-lg sm:text-xl font-bold text-orange-600 leading-tight">••••••••</div>
-                      <div className="text-[10px] sm:text-xs text-orange-700 mt-0.5">Buy now recommended</div>
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center bg-white/95 p-3 sm:p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[85%] sm:w-[80%]">
-                      <Lock className="text-blue-600 mx-auto mb-1" size={16} />
-                      <h3 className="font-bold text-gray-900 text-xs sm:text-sm mb-1">Premium AI Insights</h3>
-                      <p className="text-gray-600 text-[10px] sm:text-xs mb-2 sm:mb-3 leading-snug">
-                        Get detailed recommendations and market analysis
-                      </p>
-                      <button
-                        onClick={() => handlePaywallOpen('ai-recommendations')}
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold hover:shadow-md transition-all"
-                      >
-                        Unlock for ₹299
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Location & Nearby - Responsive */}
-            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 md:p-6 ring-1 ring-gray-100">
-              {/* Header */}
+<div className="bg-white rounded-xl shadow-sm p-4 sm:p-2 md:p-2 ring-1 ring-gray-100 -mt-9">              {/* Header */}
               <h2 className="font-bold text-[#0b3856] text-base sm:text-lg mb-3 flex items-center gap-2">
                 <MapPin className="text-[#E6761D] w-5 h-5" />
                 Location & Connectivity
@@ -1831,9 +1780,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
             </div>
 
             {/* Reviews - Responsive */}
-            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 ring-gray-100">
-              <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Customer Reviews</h2>
-
+{/* Reviews - Desktop only (mobile version is below grid) */}
+<div className="hidden lg:block bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 ring-gray-100">
               <div className="flex items-center mb-3 sm:mb-4">
                 <div className="flex items-center space-x-0.5 sm:space-x-1 mr-2 sm:mr-3">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -1881,283 +1829,287 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
           {/* Sidebar (hidden on mobile/tablet; shows on lg+) */}
           <div className="space-y-2">
             {/* Desktop View - Sticky Card */}
-            <div className="hidden md:block lg:self-start lg:overflow-visible sticky top-24 z-40">
-              <div className="sticky top-20">
-                <div className="bg-white rounded-xl shadow-sm p-2 ring-1 ring-gray-100">
-                  {/* Agent Info */}
-                  <div className="flex items-center space-x-3 mb-2">
-                    <div className="w-7 h-7 rounded-full bg-blue-50 ring-1 ring-blue-200 flex items-center justify-center shadow-sm">
-                      <User size={16} className="text-blue-600" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-sm">
-                        {displayOrDash(property?.executiveTo?.name) === ' - '
-                          ? ' - '
-                          : property?.executiveTo?.name || '-'}
-                      </h3>
-                    </div>
-                  </div>
+<div className="hidden md:block lg:self-start lg:overflow-visible sticky top-24 z-10">
+  <div className="sticky top-20">
+    <div className="bg-white rounded-lg border border-blue-400 p-2 w-auto">
 
-                  {/* Action Icons Row */}
-                  <div className="flex justify-between gap-2">
-                    {/* Call */}
-                    <button
-                      onClick={callexecutiveTo}
-                      className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
-              bg-gradient-to-br from-blue-50 to-blue-100 
-              text-blue-700 hover:from-blue-100 hover:to-blue-200 
-              transition-all shadow-sm hover:shadow-md hover:scale-105"
-                    >
-                      <Phone size={16} />
-                    </button>
+      {/* Agent Info - Ultra Compact */}
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="w-6 h-6 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+          <User size={11} className="text-blue-600" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-medium text-gray-900 text-[11px] truncate leading-tight">
+            {displayOrDash(property?.executiveTo?.name) === ' - '
+              ? ' - '
+              : property?.executiveTo?.name || '-'}
+          </h3>
+          <p className="text-[9px] text-gray-400 leading-tight">Property Executive</p>
+        </div>
+      </div>
 
-                    {/* WhatsApp */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
+      <hr className="border-blue-100 mb-1.5" />
 
-                        // ✅ Get executive phone
-                        const phone = getexecutiveToPhone();
-                        if (!phone) return;
+      {/* Action Buttons Row - Ultra Compact with Light Background Colors */}
+      <div className="grid grid-cols-4 gap-0.5">
 
-                        // ✅ Add +91 if needed
-                        const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+        {/* Call - Light Blue Background */}
+        <button
+          onClick={callexecutiveTo}
+          className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
+            bg-blue-50 border border-blue-100
+            hover:bg-blue-100 hover:border-blue-200
+            transition-all text-[9px] text-gray-500"
+        >
+          <Phone size={11} className="text-blue-600" />
+          <span className="mt-0.5">Call</span>
+        </button>
 
-                        // ✅ Property info
-                        const title =
-                          property?.title ||
-                          [property?.unitType, property?.type].filter(Boolean).join(" ") ||
-                          "a property";
+        {/* WhatsApp - Light Green Background */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
 
-                        const loc =
-                          property?.locationNormalized ||
-                          property?.location ||
-                          property?.city ||
-                          "your listed property location";
+            const phone = getexecutiveToPhone();
+            if (!phone) return;
 
-                        const priceValue = Number(property?.price || 0);
-                        const priceText = !isNaN(priceValue)
-                          ? `₹${priceValue.toLocaleString("en-IN")}`
-                          : "Price on request";
+            const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
 
-                        // ✅ Build property link (slug-safe)
-                        const slugValue =
-                          property?.slug ||
-                          property?.raw?.slug ||
-                          (typeof window !== "undefined"
-                            ? window.location.pathname.split("/").pop()
-                            : "") ||
-                          "";
-                        const link = `${window.location.origin}/properties/${encodeURIComponent(
-                          String(slugValue)
-                        )}`;
+            const title =
+              property?.title ||
+              [property?.unitType, property?.type].filter(Boolean).join(" ") ||
+              "a property";
 
-                        // ✅ WhatsApp message with clickable URL
-                        const message = `Hi! I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you provide more details?\n${link}`;
+            const loc =
+              property?.locationNormalized ||
+              property?.location ||
+              property?.city ||
+              "your listed property location";
 
-                        // ✅ Open WhatsApp chat
-                        if (typeof window !== "undefined") {
-                          window.open(
-                            `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
-                            "_blank",
-                            "noopener,noreferrer"
-                          );
-                        }
-                      }}
-                      className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
-  bg-gradient-to-br from-green-50 to-green-100 
-  text-green-700 hover:from-green-100 hover:to-green-200 
-  transition-all shadow-sm hover:shadow-md hover:scale-105"
-                    >
-                      <FaWhatsapp size={16} className="text-[#25D366]" />
-                    </button>
+            const priceValue = Number(property?.price || 0);
+            const priceText = !isNaN(priceValue)
+              ? `₹${priceValue.toLocaleString("en-IN")}`
+              : "Price on request";
 
-                    {/* Message */}
-                    <button
-                      onClick={() => setShowContactForm(true)}
-                      className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
-              bg-gradient-to-br from-purple-50 to-purple-100 
-              text-purple-700 hover:from-purple-100 hover:to-purple-200 
-              transition-all shadow-sm hover:shadow-md hover:scale-105"
-                    >
-                      <MessageCircle size={16} />
-                    </button>
+            const slugValue =
+              property?.slug ||
+              property?.raw?.slug ||
+              (typeof window !== "undefined"
+                ? window.location.pathname.split("/").pop()
+                : "") ||
+              "";
+            const link = `${window.location.origin}/properties/${encodeURIComponent(
+              String(slugValue)
+            )}`;
 
-                    {/* Schedule */}
-                    <button
-                      onClick={() => setShowContactForm(true)}
-                      className="flex-1 flex flex-col items-center justify-center py-2 rounded-xl 
-              bg-gradient-to-br from-emerald-50 to-emerald-100 
-              text-emerald-700 hover:from-emerald-100 hover:to-emerald-200 
-              transition-all shadow-sm hover:shadow-md hover:scale-105"
-                    >
-                      <Calendar size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            const message = `Hi! I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you provide more details?\n${link}`;
 
+            if (typeof window !== "undefined") {
+              window.open(
+                `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
+                "_blank",
+                "noopener,noreferrer"
+              );
+            }
+          }}
+          className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
+            bg-green-50 border border-green-100
+            hover:bg-green-100 hover:border-green-200
+            transition-all text-[9px] text-gray-500"
+        >
+          <FaWhatsapp size={11} className="text-[#16a34a]" />
+          <span className="mt-0.5">WhatsApp</span>
+        </button>
+
+        {/* Message - Light Purple Background */}
+        <button
+          onClick={() => setShowContactForm(true)}
+          className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
+            bg-purple-50 border border-purple-100
+            hover:bg-purple-100 hover:border-purple-200
+            transition-all text-[9px] text-gray-500"
+        >
+          <MessageCircle size={11} className="text-purple-600" />
+          <span className="mt-0.5">Message</span>
+        </button>
+
+        {/* Schedule - Light Cyan Background */}
+        <button
+          onClick={() => setShowContactForm(true)}
+          className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
+            bg-cyan-50 border border-cyan-100
+            hover:bg-cyan-100 hover:border-cyan-200
+            transition-all text-[9px] text-gray-500"
+        >
+          <Calendar size={11} className="text-cyan-600" />
+          <span className="mt-0.5">Schedule</span>
+        </button>
+
+      </div>
+    </div>
+  </div>
+</div>
             {/* Mobile View - Fixed Bottom Bar */}
-            <div className="fixed inset-x-0 bottom-[max(env(safe-area-inset-bottom,0),8px)] z-[60] md:hidden pointer-events-none">
-              <div className="mx-auto max-w-sm px-3">
-                <div
-                  className="pointer-events-auto bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 z-50
-       shadow-[0_10px_30px_-10px_rgba(0,0,0,.35)]
-      ring-1 ring-gray-200 border border-white/60 p-2.5"
-                  role="toolbar"
-                  aria-label="Mobile quick actions"
-                >
-                  {/* executiveTo Info */}
-                  <div className="flex items-center gap-2.5 mb-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-50 ring-1 ring-blue-200 flex items-center justify-center shadow-sm">
-                      <User size={16} className="text-blue-600" aria-hidden="true" />
-                    </div>
-                    <h3 className="font-semibold text-gray-900 text-[13px] leading-none truncate">
-                      {displayOrDash(property?.executiveTo?.name) === ' - ' ? ' - ' : property?.executiveTo?.name || 'Rohit Sharma'}
-                    </h3>
-                  </div>
+           <div className="fixed inset-x-0 bottom-[max(env(safe-area-inset-bottom,0),8px)] z-[60] md:hidden pointer-events-none">
+  <div className="mx-auto max-w-sm px-3">
+    <div
+      className="pointer-events-auto bg-white rounded-2xl border border-gray-100
+        shadow-[0_8px_32px_-4px_rgba(0,0,0,0.18)] px-3 py-2"
+      role="toolbar"
+      aria-label="Mobile quick actions"
+    >
+      {/* executiveTo Info */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className="w-6 h-6 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+          <User size={12} className="text-blue-600" aria-hidden="true" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="font-semibold text-gray-900 text-[12px] truncate leading-tight">
+            {displayOrDash(property?.executiveTo?.name) === ' - ' ? ' - ' : property?.executiveTo?.name || 'Rohit Sharma'}
+          </h3>
+          <p className="text-[10px] text-gray-400">Property Executive</p>
+        </div>
+      </div>
 
-                  {/* Action Buttons Grid */}
-                  <div className="grid grid-cols-4 gap-2">
-                    {/* Call */}
-                    <button
-                      onClick={callexecutiveTo}
-                      aria-label="Call executiveTo"
-                      className="flex flex-col items-center justify-center gap-1 rounded-xl
-          bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700 border border-blue-200/60
-          transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
-                    >
-                      <span className="w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-blue-200/60">
-                        <Phone size={14} aria-hidden="true" />
-                      </span>
-                    </button>
-                    {/* WhatsApp */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
+      <hr className="border-gray-100 mb-1.5" />
 
-                        // ✅ Clean phone (executiveTo → executive → fallback)
-                        const phone =
-                          property?.executiveTo?.phone?.replace(/\D/g, "") ||
-                          property?.executive?.phone?.replace(/\D/g, "") ||
-                          "919637009639"; // fallback
+      {/* Action Buttons Grid */}
+      <div className="grid grid-cols-4 gap-1.5">
 
-                        if (!phone) return;
+        {/* Call */}
+        <button
+          onClick={callexecutiveTo}
+          aria-label="Call executiveTo"
+          className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
+            bg-gray-50 border border-gray-100
+            hover:bg-blue-50 hover:border-blue-100
+            active:scale-95 transition-all text-[10px] text-gray-400"
+        >
+          <Phone size={13} className="text-blue-600" aria-hidden="true" />
+          <span>Call</span>
+        </button>
 
-                        // ✅ Country code logic
-                        const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+        {/* WhatsApp */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
 
-                        // ✅ Property details
-                        const title =
-                          property?.title ||
-                          [property?.unitType, property?.type].filter(Boolean).join(" ") ||
-                          "a property";
+            const phone =
+              property?.executiveTo?.phone?.replace(/\D/g, "") ||
+              property?.executive?.phone?.replace(/\D/g, "") ||
+              "919637009639";
 
-                        const loc =
-                          property?.locationNormalized ||
-                          property?.location ||
-                          property?.city ||
-                          "your listed property location";
+            if (!phone) return;
 
-                        const priceValue = Number(property?.price || 0);
-                        const priceText = !isNaN(priceValue)
-                          ? `₹${priceValue.toLocaleString("en-IN")}`
-                          : "Price on request";
+            const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
 
-                        // ✅ Build property link (slug-safe)
-                        const slugValue =
-                          property?.slug ||
-                          property?.raw?.slug ||
-                          (typeof window !== "undefined"
-                            ? window.location.pathname.split("/").pop()
-                            : "") ||
-                          "";
-                        const link = `${window.location.origin}/properties/${encodeURIComponent(
-                          String(slugValue)
-                        )}`;
+            const title =
+              property?.title ||
+              [property?.unitType, property?.type].filter(Boolean).join(" ") ||
+              "a property";
 
-                        // ✅ WhatsApp message (with clickable property URL)
-                        const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
+            const loc =
+              property?.locationNormalized ||
+              property?.location ||
+              property?.city ||
+              "your listed property location";
 
-                        // ✅ Open WhatsApp
-                        window.open(
-                          `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
-                          "_blank",
-                          "noopener,noreferrer"
-                        );
-                      }}
-                      aria-label="WhatsApp executiveTo"
-                      className="flex flex-col items-center justify-center gap-1 rounded-xl
-  bg-[#25D366]/10 hover:bg-[#25D366]/15 text-[#128C7E]
-  border border-[#25D366]/30 transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
-                    >
-                      <span className="w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-[#25D366]/30">
-                        <FaWhatsapp size={14} aria-hidden="true" />
-                      </span>
-                    </button>
+            const priceValue = Number(property?.price || 0);
+            const priceText = !isNaN(priceValue)
+              ? `₹${priceValue.toLocaleString("en-IN")}`
+              : "Price on request";
 
+            const slugValue =
+              property?.slug ||
+              property?.raw?.slug ||
+              (typeof window !== "undefined"
+                ? window.location.pathname.split("/").pop()
+                : "") ||
+              "";
+            const link = `${window.location.origin}/properties/${encodeURIComponent(
+              String(slugValue)
+            )}`;
 
-                    {/* Message */}
-                    <button
-                      onClick={() => setShowContactForm(true)}
-                      aria-label="Message executiveTo"
-                      className="flex flex-col items-center justify-center gap-1 rounded-xl
-          bg-gradient-to-br from-purple-50 to-purple-100 text-purple-700 border border-purple-200/60
-          transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
-                    >
-                      <span className="w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-purple-200/60">
-                        <MessageCircle size={14} aria-hidden="true" />
-                      </span>
-                    </button>
+            const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
 
-                    {/* Schedule */}
-                    <button
-                      aria-label="Schedule visit"
-                      className="flex flex-col items-center justify-center gap-1 rounded-xl
-          bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-700 border border-emerald-200/60
-          transition-all shadow-sm hover:shadow-md active:scale-[0.98] py-1.5"
-                    >
-                      <span className="w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-emerald-200/60">
-                        <Calendar size={14} aria-hidden="true" />
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            window.open(
+              `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
+              "_blank",
+              "noopener,noreferrer"
+            );
+          }}
+          aria-label="WhatsApp executiveTo"
+          className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
+            bg-gray-50 border border-gray-100
+            hover:bg-green-50 hover:border-green-100
+            active:scale-95 transition-all text-[10px] text-gray-400"
+        >
+          <FaWhatsapp size={13} className="text-[#16a34a]" aria-hidden="true" />
+          <span>WhatsApp</span>
+        </button>
+
+        {/* Message */}
+        <button
+          onClick={() => setShowContactForm(true)}
+          aria-label="Message executiveTo"
+          className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
+            bg-gray-50 border border-gray-100
+            hover:bg-purple-50 hover:border-purple-100
+            active:scale-95 transition-all text-[10px] text-gray-400"
+        >
+          <MessageCircle size={13} className="text-purple-600" aria-hidden="true" />
+          <span>Message</span>
+        </button>
+
+        {/* Schedule */}
+        <button
+          onClick={() => setShowContactForm(true)}
+          aria-label="Schedule visit"
+          className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
+            bg-gray-50 border border-gray-100
+            hover:bg-cyan-50 hover:border-cyan-100
+            active:scale-95 transition-all text-[10px] text-gray-400"
+        >
+          <Calendar size={13} className="text-cyan-600" aria-hidden="true" />
+          <span>Schedule</span>
+        </button>
+
+      </div>
+    </div>
+  </div>
+</div>
 
             {/* Interest & Shortlisted */}
-            <div className="px-2 py-1 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-              <h3 className="font-bold text-gray-900 text-sm mb-4">Property Activity</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-1 bg-green-50 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <Eye className="text-green-600" size={16} />
-                    <span className="text-sm font-medium text-gray-700">Total Views</span>
-                  </div>
-                  <span className="text-green-600">{property?.views ?? '—'}</span>
-                </div>
+          <div className="px-3 py-2 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+  <h3 className="font-bold text-gray-900 text-sm mb-3">Property Activity</h3>
+  <div className="space-y-2.5">
+    <div className="flex items-center justify-between p-1.5 bg-green-50 rounded-lg">
+      <div className="flex items-center space-x-2.5">
+        <Eye className="text-green-600" size={15} />
+        <span className="text-xs sm:text-sm font-medium text-gray-700">Total Views</span>
+      </div>
+      <span className="text-green-600 text-xs sm:text-sm font-medium">{property?.views ?? '—'}</span>
+    </div>
 
-                <div className="flex items-center justify-between p-1 bg-blue-50 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <Heart className="text-blue-600" size={16} />
-                    <span className="text-sm font-medium text-gray-700">Shortlisted By</span>
-                  </div>
-                  <span className="text-blue-600">23 People</span>
-                </div>
+    <div className="flex items-center justify-between p-1.5 bg-blue-50 rounded-lg">
+      <div className="flex items-center space-x-2.5">
+        <Heart className="text-blue-600" size={15} />
+        <span className="text-xs sm:text-sm font-medium text-gray-700">Shortlisted By</span>
+      </div>
+      <span className="text-blue-600 text-xs sm:text-sm font-medium">23 People</span>
+    </div>
 
-                <div className="flex items-center justify-between p-1 bg-orange-50 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <Phone className="text-orange-600" size={16} />
-                    <span className="text-sm font-medium text-gray-700">Contact Requests</span>
-                  </div>
-                  <span className=" text-orange-600">12 This Week</span>
-                </div>
-              </div>
-            </div>
+    <div className="flex items-center justify-between p-1.5 bg-orange-50 rounded-lg">
+      <div className="flex items-center space-x-2.5">
+        <Phone className="text-orange-600" size={15} />
+        <span className="text-xs sm:text-sm font-medium text-gray-700">Contact Requests</span>
+      </div>
+      <span className="text-orange-600 text-xs sm:text-sm font-medium">12 This Week</span>
+    </div>
+  </div>
+</div>
 
             {/* Property Highlights */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden ring-1 ring-gray-100">
@@ -2574,7 +2526,53 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
 
           </div>
         </div>
+     
+     <div className="bg-white lg:hidden  rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 mt-2 ring-gray-100 order-last lg:order-none">              <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Customer Reviews</h2>
+
+              <div className="flex items-center mb-3 sm:mb-4">
+                <div className="flex items-center space-x-0.5 sm:space-x-1 mr-2 sm:mr-3">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star key={star} size={14} className="sm:w-4 sm:h-4 text-yellow-400 fill-current" />
+                  ))}
+                </div>
+                <span className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 leading-none">4.8</span>
+                <span className="text-gray-600 ml-1.5 sm:ml-2 text-xs sm:text-sm leading-none">(24 reviews)</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+                {[
+                  { name: 'Rajesh Kumar', rating: 5, comment: 'Excellent property with great amenities. Highly recommended!', date: '2 days ago' },
+                  { name: 'Priya Sharma', rating: 4, comment: 'Beautiful location and well-maintained property.', date: '1 week ago' },
+                  { name: 'Amit Patel', rating: 5, comment: 'Perfect for families. Great connectivity and facilities.', date: '2 weeks ago' }
+                ].map((review, index) => (
+                  <div key={index} className="border border-gray-100 rounded-lg p-2.5 sm:p-3 bg-white shadow-sm hover:shadow ring-1 ring-gray-100/70 transition">
+                    <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+                      <div className="flex items-center space-x-1.5 sm:space-x-2">
+                        <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User size={12} className="sm:w-3.5 sm:h-3.5 text-blue-600" />
+                        </div>
+                        <span className="font-medium text-gray-900 text-xs sm:text-sm truncate">{review.name}</span>
+                      </div>
+                      <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+                        <div className="flex items-center">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              size={10}
+                              className={`sm:w-3 sm:h-3 ${star <= review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-gray-500">{review.date}</span>
+                      </div>
+                    </div>
+                    <p className="text-gray-700 text-xs sm:text-sm leading-snug">{review.comment}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
       </div>
+      
 
       {/* Contact Form Modal */}
       {showContactForm && (
@@ -2646,6 +2644,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                   onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#E6761D] focus:border-transparent text-sm"
                   required
+                  maxLength={10}
                 />
               </div>
 

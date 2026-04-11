@@ -198,7 +198,7 @@ const PublicSimilarProperties: React.FC<PublicSimilarPropertiesProps> = ({
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
           {!!tags.length && (
-            <div className="absolute top-2 left-2 z-10 flex gap-1 flex-wrap max-w-[85%]">
+            <div className="absolute top-2 left-2  flex gap-1 flex-wrap max-w-[85%]">
               {tags.slice(0, 2).map((t, i) => {
                 const tone = getTagStyle(t);
                 const Icon = tone.emoji;

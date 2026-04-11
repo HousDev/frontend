@@ -73,6 +73,7 @@ import AboutPageCMS from './pages/dashboard/AboutPageCMS';
 import ContactPageCMS from './pages/dashboard/ContactPageCMS';
 import FooterPagesCMS from './pages/dashboard/FooterPagesCMS';
 import ServicesPageCMS from './pages/dashboard/ServicesPageCMS';
+import SellPropertyPage from '@/pages/public/SellPropertyPage';
 
 // 🎯 Buyer Portal Components
 import StandaloneBuyerAccountPage from './components/buyers/StandaloneBuyerAccountPage';
@@ -82,7 +83,7 @@ import HomePageCMS from './pages/dashboard/HomePageCMS';
 import DigioSuccess from './pages/DigioSuccess';
 
 function App() {
-  useDynamicHead(); // ✅ Automatically set favicon + title
+  useDynamicHead(); 
   return (
     <>
       <Helmet>
@@ -129,11 +130,16 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+                  
 
                   <Route path="/digio/success" element={<DigioSuccess />} />
+
+
                   {/* Public Routes */}
                   <Route path='/' element={<PublicHeader />} >
                     <Route index element={<HomePage />} />
+                                      <Route path="/sell-property" element={<SellPropertyPage />} />
+
                     <Route path="properties" element={<PublicPropertiesPage />} />
                     <Route path="properties/:slug" element={<PublicPropertyDetailPage />} />
                     <Route path="about" element={<AboutPage />} />

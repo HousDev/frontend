@@ -110,8 +110,8 @@ export default function PropertyDescriptionSmart({
     }, [facts]);
 
     return (
-        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
-            <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">
+        <div className="">
+            <h2 className="font-bold text-black text-xl sm:xl mb-2 sm:mb-3">
                 Property Description
             </h2>
 
@@ -141,11 +141,24 @@ export default function PropertyDescriptionSmart({
             )} */}
 
             {/* Full paragraph with highlights + show more */}
-            <div className="text-xs sm:text-sm md:text-base text-gray-700 leading-relaxed">
-                {showFull
-                    ? <p>{highlightText(safeText, keywords)}</p>
-                    : <p>{highlightText(safeText.slice(0, 420) + (safeText.length > 420 ? "…" : ""), keywords)}</p>}
-            </div>
+<div className="text-xs sm:text-sm md:text-base text-gray-700 leading-relaxed">
+    {(showFull ? safeText : safeText.slice(0, 420) + (safeText.length > 420 ? "…" : ""))
+        .split(/\n+/)
+        .filter(line => line.trim().length > 0)
+        .map((line, idx) => {
+            const trimmed = line.trim();
+            const isBullet = /^[•\-✅→➡️🔹▪️▶️*]/.test(trimmed);
+            return (
+                <p
+                    key={idx}
+                    className={`mb-1 ${isBullet ? "pl-4" : ""}`}
+                >
+                    {highlightText(trimmed, keywords)}
+                </p>
+            );
+        })
+    }
+</div>
             <div>
                 📞 Call now to schedule a site visit and make this beautiful home yours!
             </div>

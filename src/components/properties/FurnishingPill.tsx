@@ -197,8 +197,8 @@ export type FurnishingPillProps = {
 
 export default function FurnishingPill({
   name,
-  size = 14,
-  compact = false,
+  size = 12,  // Changed from 14 to 8 (smaller icon)
+  compact = true,  // Changed from false to true (compact by default)
   className = "",
 }: FurnishingPillProps) {
   const { Icon, label, bg, fg } = resolve(name);
@@ -206,15 +206,15 @@ export default function FurnishingPill({
   return (
     <div
       className={[
-        "inline-flex items-center gap-2 rounded-lg",
+        "inline-flex items-center gap-1 rounded-md",  // Changed gap-2 to gap-1, rounded-lg to rounded-md
         bg,
-        compact ? "px-2 py-1" : "p-2",
+        compact ? "px-1.5 py-0.5" : "px-2 py-1",  // Smaller padding for compact
         className,
       ].join(" ")}
       title={label}
     >
-      <Icon size={size} className={fg} />
-      <span className={["truncate", compact ? "text-xs" : "text-sm", fg].join(" ")}>
+      <Icon size={size} className={`${fg} shrink-0`} />
+      <span className={[compact ? "text-[10px]" : "text-xs", fg].join(" ")}>
         {label}
       </span>
     </div>
