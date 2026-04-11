@@ -163,7 +163,9 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   //   else setIsSellerModalOpen(true);
   // };
   const handleSellPropertyClick = () => {
-  navigate('/sell-property');
+    setIsMobileMenuOpen(false);
+    navigate('/sell-property');
+    
 };
 
   // const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
