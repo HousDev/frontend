@@ -81,6 +81,7 @@ import StandaloneSellerAccountPage from './components/sellers/StandaloneSellerAc
 import VariableCenter from './pages/settings/VariableCenter';
 import HomePageCMS from './pages/dashboard/HomePageCMS';
 import DigioSuccess from './pages/DigioSuccess';
+import WhatsAppCRM from './pages/WhatsAppCRM/WhatsAppCRM';
 
 function App() {
   useDynamicHead(); 
@@ -216,6 +217,8 @@ function App() {
 
                     {/* Communication */}
                     <Route path="communication" element={<CommunicationHubPage />} />
+                    <Route path="whatsapp-crm" element={<WhatsAppCRM />} />
+
 
                     {/* Settings */}
                     <Route path="settings" element={<SettingsPage />} />
