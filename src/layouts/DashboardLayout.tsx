@@ -3382,7 +3382,7 @@ const DashboardLayout = () => {
 
         {/* Compact Navigation with Orange Active State */}
         <nav
-          className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto custom-scrollbar"
+          className="flex-1 px-2 py-3 space-y-2.5 overflow-y-auto custom-scrollbar"
           role="navigation"
           aria-label="Main sidebar navigation"
         >
