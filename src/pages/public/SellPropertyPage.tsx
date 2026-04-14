@@ -455,8 +455,7 @@ const SellPropertyPage: React.FC = () => {
           <div className="flex flex-col lg:flex-row items-start lg:gap-16">
 
             {/* ── LEFT: Copy ── */}
-            <div className="flex-1 pt-2 sm:pt-19 lg:pt-16">
-
+<div className="flex-1 pt-2 sm:pt-19 lg:pt-16 order-2 lg:order-1">
               {/* Eyebrow — Navy */}
               <div
                 className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-[11px] sm:text-[12px] font-bold mb-5 sm:mb-7 border mt-9 md:mt-0"
@@ -508,8 +507,7 @@ const SellPropertyPage: React.FC = () => {
             </div>
 
             {/* ── RIGHT: Step-1 Form Card ── */}
-            <div ref={formRef} className="w-full lg:w-[500px] flex-shrink-0 mt-8 sm:mt-12 lg:mt-14">
-              <div
+<div ref={formRef} className="w-full lg:w-[500px] flex-shrink-0 mt-12 sm:mt-16 lg:mt-14 order-1 lg:order-2">              <div
                 className="bg-white rounded-2xl sm:rounded-3xl"
                 style={{
                   border: '1.5px solid #e2e8f0',

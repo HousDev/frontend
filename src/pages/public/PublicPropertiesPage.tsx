@@ -1916,7 +1916,205 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                 })}
               </div>
             ) : (
-              <div className="space-y-3">
+//               <div className="space-y-3">
+//   {paginatedProperties.map((property) => {
+//     const composedTitle = composeHeaderTitle(property);
+//     const { locationPart, cityPart } = splitLocationCity(property);
+//     const parkingCount = Number.isFinite(Number(property.parking)) ? Number(property.parking) : 0;
+//     const amenities = Array.isArray(property.amenities) ? property.amenities : [];
+//     const showAmenities = amenities.slice(0, 3);
+
+//     const pricePerSqFt = property.price && (property.area || property.square_feet)
+//       ? Math.round(property.price / (Number(property.area || property.square_feet) || 1))
+//       : null;
+
+//     // ✅ Dynamic floor - jaisa detail page mein hai
+    
+
+//     const getFloorSuffix = (floor: number) => {
+//       if (floor === 1) return 'st';
+//       if (floor === 2) return 'nd';
+//       if (floor === 3) return 'rd';
+//       return 'th';
+//     };
+
+//     return (
+//       <div
+//         key={property.id}
+//         className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-gray-300 transition-all group cursor-pointer"
+//         onClick={() => {
+//           if (property.slug) { handleNavigateToProperty(property); return; }
+//           setCurrentPropertyView(property);
+//           if (onPropertyView) onPropertyView(property);
+//         }}
+//       >
+//         <div className="flex h-[220px]">
+
+//           {/* LEFT: Image */}
+//           <div className="w-[380px] min-w-[380px] relative overflow-hidden">
+//             <img
+//               src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
+//               alt={String(property.title)}
+//               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+//             />
+//             {(property.tags || []).length > 0 && (
+//               <div className="absolute top-2 left-2">
+//                 <PropertyTags tags={(property.tags || []).slice(0, 1)} />
+//               </div>
+//             )}
+//             <div className="absolute bottom-2 left-2 bg-black/55 text-white px-2 py-0.5 rounded-full text-[10px] flex items-center gap-1">
+//               <Eye size={9} />
+//               <span>{property.total_views || property.views || 0}</span>
+//             </div>
+//             {/* ✅ Image Counter */}
+//             <div className="absolute bottom-2 right-2 bg-black/55 text-white px-2 py-0.5 rounded-full text-[10px]">
+//               {(property.images || []).length || 1} photos
+//             </div>
+//           </div>
+
+//           {/* RIGHT: Body */}
+//           <div className="flex-1 flex flex-col justify-between px-4 py-3 min-w-0 gap-2">
+
+//             {/* Row 1: Title + Location */}
+//             <div>
+//               <h3 className="font-medium text-[#0b3856] text-sm leading-tight truncate group-hover:text-[#E6761D] transition-colors">
+//                 {composedTitle}
+//               </h3>
+//               <div className="flex items-center text-gray-400 text-xs mt-0.5 gap-1">
+//                 <MapPin size={11} className="shrink-0" />
+//                 <span className="truncate">
+//                   {locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}
+//                 </span>
+//               </div>
+//             </div>
+
+//             {/* Row 2: Metrics */}
+//             <div className="grid grid-cols-3 gap-2">
+//               <div className="bg-gray-50 rounded-lg p-2">
+//                 <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Price</div>
+//                 <div className="text-sm font-medium text-green-700">{formatCurrency(property.price)}</div>
+//                 {pricePerSqFt && (
+//                   <div className="text-[10px] text-gray-400">₹{pricePerSqFt.toLocaleString('en-IN')}/sq ft</div>
+//                 )}
+//               </div>
+//               <div className="bg-gray-50 rounded-lg p-2">
+//                 <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Area</div>
+//                 <div className="text-sm font-medium text-blue-700">{property.area || property.square_feet} sq.ft</div>
+//                 <div className="text-[10px] text-gray-400">{property.furnishing || 'Semi-Furnished'}</div>
+//               </div>
+//               <div className="bg-gray-50 rounded-lg p-2">
+//                 <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Investment</div>
+//                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+//                   <span className="text-[10px] font-medium bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full">
+//                     {property.investmentGrade || 'A'} Grade
+//                   </span>
+//                   <span className="text-[10px] font-medium bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded-full">
+//                     {property.priceGrowth || '+12%'}
+//                   </span>
+//                 </div>
+//                 <div className="text-[10px] text-gray-400 mt-0.5">Projected growth</div>
+//               </div>
+//             </div>
+
+//             {/* Row 3: Specs with colored backgrounds - ✅ Dynamic Floor */}
+//             <div className="flex items-center gap-2 flex-wrap">
+//               <div className="flex items-center gap-1 text-[11px] font-medium text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1">
+//                 <Bed size={11} className="text-orange-500" />
+//                 {property.bedrooms} Bedroom
+//               </div>
+//               <div className="flex items-center gap-1 text-[11px] font-medium text-cyan-700 bg-cyan-50 border border-cyan-100 rounded-lg px-2 py-1">
+//                 <Building size={11} className="text-cyan-500" />
+//                 {property.bathrooms} Bathroom
+//               </div>
+//               <div className="flex items-center gap-1 text-[11px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1">
+//                 <Car size={11} className="text-indigo-500" />
+//                 {parkingCount} Parking
+//               </div>
+              
+              
+//             </div>
+
+//             {/* Row 4: Amenities + Actions */}
+//             <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+//               <div className="flex items-center gap-1.5 flex-wrap">
+//                 {showAmenities.map((amenity: string, idx: number) => (
+//                   <span key={idx} className="text-[10px] text-blue-600 bg-blue-50 rounded-full px-2 py-0.5 truncate max-w-[90px]">
+//                     {amenity}
+//                   </span>
+//                 ))}
+//                 {amenities.length > 3 && (
+//                   <span className="text-[10px] text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+//                     +{amenities.length - 3}
+//                   </span>
+//                 )}
+//               </div>
+              
+//               {/* ✅ Action Buttons - Heart icon View Details ke LEFT mein */}
+//               <div className="flex items-center gap-1.5 flex-shrink-0">
+//                 <button
+//                   onClick={(e) => {
+//                     e.stopPropagation();
+//                     const phone = property.executiveTo?.phone || "919999999999";
+//                     if (phone && phone !== "Not Available") window.open(`tel:${phone}`);
+//                   }}
+//                   className="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+//                 >
+//                   <Phone size={12} className="text-blue-500" />
+//                 </button>
+                
+//                 <button
+//                   onClick={(e) => {
+//                     e.stopPropagation();
+//                     e.preventDefault();
+//                     const phone = property?.executiveTo?.phone?.replace(/\D/g, "") || "9637009639";
+//                     const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+//                     const title = property?.title || [property?.type].filter(Boolean).join(" ") || "a property";
+//                     const loc = property?.location || property?.city || "your listed property location";
+//                     const priceText = !isNaN(Number(property?.price || 0)) ? `₹${Number(property?.price || 0).toLocaleString("en-IN")}` : "Price on request";
+//                     const link = property?.slug ? `${window.location.origin}/properties/${encodeURIComponent(String(property.slug))}` : `${window.location.origin}/properties`;
+//                     const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
+//                     window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+//                   }}
+//                   className="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+//                 >
+//                   <FaWhatsapp size={13} className="text-[#16a34a]" />
+//                 </button>
+                
+//                 {/* ✅ Heart (Like) Button - View Details ke LEFT mein */}
+//                 <button
+//                   onClick={(e) => {
+//                     e.stopPropagation();
+//                     setLikedProperties((prev) =>
+//                       prev.includes(property.id.toString())
+//                         ? prev.filter((id) => id !== property.id.toString())
+//                         : [...prev, property.id.toString()]
+//                     );
+//                   }}
+//                   className="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+//                 >
+//                   <Heart 
+//                     size={12} 
+//                     className={likedProperties.includes(property.id.toString()) ? 'text-red-500 fill-current' : 'text-gray-500'} 
+//                   />
+//                 </button>
+                
+//                 {/* View Details Button */}
+//                 <button
+//                   onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }}
+//                   className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white text-xs font-medium px-4 py-1.5 rounded-lg transition"
+//                 >
+//                   View Details
+//                 </button>
+//               </div>
+//             </div>
+
+//           </div>
+//         </div>
+//       </div>
+//     );
+//   })}
+// </div>
+<div className="space-y-3">
   {paginatedProperties.map((property) => {
     const composedTitle = composeHeaderTitle(property);
     const { locationPart, cityPart } = splitLocationCity(property);
@@ -1927,9 +2125,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     const pricePerSqFt = property.price && (property.area || property.square_feet)
       ? Math.round(property.price / (Number(property.area || property.square_feet) || 1))
       : null;
-
-    // ✅ Dynamic floor - jaisa detail page mein hai
-    
 
     const getFloorSuffix = (floor: number) => {
       if (floor === 1) return 'st';
@@ -1948,10 +2143,11 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           if (onPropertyView) onPropertyView(property);
         }}
       >
-        <div className="flex h-[220px]">
+        {/* ── Card inner: horizontal on BOTH mobile and desktop ── */}
+        <div className="flex h-[160px] sm:h-[220px]">
 
-          {/* LEFT: Image */}
-          <div className="w-[380px] min-w-[380px] relative overflow-hidden">
+          {/* LEFT: Image — narrower on mobile, fixed 380px on desktop */}
+          <div className="w-[140px] min-w-[140px] sm:w-[380px] sm:min-w-[380px] relative overflow-hidden">
             <img
               src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
               alt={String(property.title)}
@@ -1966,43 +2162,44 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
               <Eye size={9} />
               <span>{property.total_views || property.views || 0}</span>
             </div>
-            {/* ✅ Image Counter */}
-            <div className="absolute bottom-2 right-2 bg-black/55 text-white px-2 py-0.5 rounded-full text-[10px]">
+            {/* Image Counter — hidden on mobile to save space */}
+            <div className="hidden sm:block absolute bottom-2 right-2 bg-black/55 text-white px-2 py-0.5 rounded-full text-[10px]">
               {(property.images || []).length || 1} photos
             </div>
           </div>
 
           {/* RIGHT: Body */}
-          <div className="flex-1 flex flex-col justify-between px-4 py-3 min-w-0 gap-2">
+          <div className="flex-1 flex flex-col justify-between px-2 py-2 sm:px-4 sm:py-3 min-w-0 gap-1 sm:gap-2 overflow-hidden">
 
             {/* Row 1: Title + Location */}
             <div>
-              <h3 className="font-medium text-[#0b3856] text-sm leading-tight truncate group-hover:text-[#E6761D] transition-colors">
+              <h3 className="font-medium text-[#0b3856] text-xs sm:text-sm leading-tight truncate group-hover:text-[#E6761D] transition-colors">
                 {composedTitle}
               </h3>
-              <div className="flex items-center text-gray-400 text-xs mt-0.5 gap-1">
-                <MapPin size={11} className="shrink-0" />
+              <div className="flex items-center text-gray-400 text-[10px] sm:text-xs mt-0.5 gap-1">
+                <MapPin size={10} className="shrink-0" />
                 <span className="truncate">
                   {locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}
                 </span>
               </div>
             </div>
 
-            {/* Row 2: Metrics */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-gray-50 rounded-lg p-2">
-                <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Price</div>
-                <div className="text-sm font-medium text-green-700">{formatCurrency(property.price)}</div>
+            {/* Row 2: Metrics — simplified on mobile (price + area only), full 3-col on desktop */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
+              <div className="bg-gray-50 rounded-lg p-1.5 sm:p-2">
+                <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Price</div>
+                <div className="text-xs sm:text-sm font-medium text-green-700">{formatCurrency(property.price)}</div>
                 {pricePerSqFt && (
-                  <div className="text-[10px] text-gray-400">₹{pricePerSqFt.toLocaleString('en-IN')}/sq ft</div>
+                  <div className="hidden sm:block text-[10px] text-gray-400">₹{pricePerSqFt.toLocaleString('en-IN')}/sq ft</div>
                 )}
               </div>
-              <div className="bg-gray-50 rounded-lg p-2">
-                <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Area</div>
-                <div className="text-sm font-medium text-blue-700">{property.area || property.square_feet} sq.ft</div>
-                <div className="text-[10px] text-gray-400">{property.furnishing || 'Semi-Furnished'}</div>
+              <div className="bg-gray-50 rounded-lg p-1.5 sm:p-2">
+                <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Area</div>
+                <div className="text-xs sm:text-sm font-medium text-blue-700">{property.area || property.square_feet} <span className="text-[9px]">sq.ft</span></div>
+                <div className="hidden sm:block text-[10px] text-gray-400">{property.furnishing || 'Semi-Furnished'}</div>
               </div>
-              <div className="bg-gray-50 rounded-lg p-2">
+              {/* Investment grade — desktop only */}
+              <div className="hidden sm:block bg-gray-50 rounded-lg p-2">
                 <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Investment</div>
                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                   <span className="text-[10px] font-medium bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full">
@@ -2016,8 +2213,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
               </div>
             </div>
 
-            {/* Row 3: Specs with colored backgrounds - ✅ Dynamic Floor */}
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* Row 3: Specs — desktop only (too cramped on mobile) */}
+            <div className="hidden sm:flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1 text-[11px] font-medium text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1">
                 <Bed size={11} className="text-orange-500" />
                 {property.bedrooms} Bedroom
@@ -2030,13 +2227,21 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                 <Car size={11} className="text-indigo-500" />
                 {parkingCount} Parking
               </div>
-              
-              
+            </div>
+
+            {/* Row 3 mobile: compact specs inline */}
+            <div className="flex sm:hidden items-center gap-1.5 text-[10px] text-gray-500">
+              <span className="flex items-center gap-0.5"><Bed size={10} className="text-orange-400" />{property.bedrooms}bd</span>
+              <span className="text-gray-300">·</span>
+              <span className="flex items-center gap-0.5"><Building size={10} className="text-cyan-400" />{property.bathrooms}ba</span>
+              <span className="text-gray-300">·</span>
+              <span className="flex items-center gap-0.5"><Car size={10} className="text-indigo-400" />{parkingCount}pk</span>
             </div>
 
             {/* Row 4: Amenities + Actions */}
-            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-              <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center justify-between pt-1.5 sm:pt-2 border-t border-gray-100">
+              {/* Amenities — desktop only */}
+              <div className="hidden sm:flex items-center gap-1.5 flex-wrap">
                 {showAmenities.map((amenity: string, idx: number) => (
                   <span key={idx} className="text-[10px] text-blue-600 bg-blue-50 rounded-full px-2 py-0.5 truncate max-w-[90px]">
                     {amenity}
@@ -2048,20 +2253,20 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                   </span>
                 )}
               </div>
-              
-              {/* ✅ Action Buttons - Heart icon View Details ke LEFT mein */}
-              <div className="flex items-center gap-1.5 flex-shrink-0">
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 ml-auto sm:ml-0">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     const phone = property.executiveTo?.phone || "919999999999";
                     if (phone && phone !== "Not Available") window.open(`tel:${phone}`);
                   }}
-                  className="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+                  className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
                 >
-                  <Phone size={12} className="text-blue-500" />
+                  <Phone size={11} className="text-blue-500" />
                 </button>
-                
+
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2075,12 +2280,11 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                     const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
                     window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
                   }}
-                  className="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+                  className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
                 >
-                  <FaWhatsapp size={13} className="text-[#16a34a]" />
+                  <FaWhatsapp size={12} className="text-[#16a34a]" />
                 </button>
-                
-                {/* ✅ Heart (Like) Button - View Details ke LEFT mein */}
+
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2090,18 +2294,18 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         : [...prev, property.id.toString()]
                     );
                   }}
-                  className="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+                  className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
                 >
-                  <Heart 
-                    size={12} 
-                    className={likedProperties.includes(property.id.toString()) ? 'text-red-500 fill-current' : 'text-gray-500'} 
+                  <Heart
+                    size={11}
+                    className={likedProperties.includes(property.id.toString()) ? 'text-red-500 fill-current' : 'text-gray-500'}
                   />
                 </button>
-                
+
                 {/* View Details Button */}
                 <button
                   onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }}
-                  className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white text-xs font-medium px-4 py-1.5 rounded-lg transition"
+                  className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white text-[10px] sm:text-xs font-medium px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-lg transition whitespace-nowrap"
                 >
                   View Details
                 </button>
