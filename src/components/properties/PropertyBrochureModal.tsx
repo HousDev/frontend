@@ -1512,7 +1512,6 @@ const ContentOptionsDropdown: React.FC<ContentDropdownProps> = ({ customizations
                         className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-all ${isSelected ? 'ring-1' : ''}`}
                         style={{
                           background: isSelected ? `${O}08` : 'transparent',
-                          ringColor: O
                         }}
                       >
                         <input

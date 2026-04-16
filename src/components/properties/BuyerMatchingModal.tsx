@@ -270,10 +270,9 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
               <div 
                 key={buyer.id} 
                 className={`rounded-lg p-2 transition-all hover:shadow-sm ${selectedBuyers.includes(buyer.id) ? 'ring-1' : ''}`} 
-                style={{ 
-                  border: `1px solid ${BD}`, 
-                  background: selectedBuyers.includes(buyer.id) ? `${O}05` : BG,
-                  ringColor: O
+                style={{
+                  border: `1px solid ${BD}`,
+                  background: selectedBuyers.includes(buyer.id) ? `${O}05` : BG
                 }}
               >
                 <div className="flex items-start gap-2">
