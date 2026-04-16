@@ -243,6 +243,7 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
             <StatCard icon={UserPlus} label="Total" value={filteredBuyers.length} color="#8b5cf6" />
           </div>
 
+          
           {/* Buyers List Header */}
           <div className="flex items-center justify-between">
             <h3 className="text-[11px] font-semibold" style={{ color: N }}>Matched Buyers</h3>
