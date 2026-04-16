@@ -7,7 +7,6 @@ bower_components/
 # ---------------------------
 # Build outputs (Generated files)
 # ---------------------------
-dist/
 build/
 .next/
 .nuxt/
