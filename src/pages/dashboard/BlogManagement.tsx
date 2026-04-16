@@ -52,8 +52,8 @@ const BD = "#e2e8f0";   // Border color
 const MU = "#5a7184";   // Muted text
 
 // Custom scrollbar styles
-const scrollbarStyles = {
-  scrollbarWidth: 'thin',
+const scrollbarStyles: React.CSSProperties = {
+  scrollbarWidth: 'thin' as any,
   scrollbarColor: `${BD} ${BG}`,
   WebkitOverflowScrolling: 'touch',
 };
