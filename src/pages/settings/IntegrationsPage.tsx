@@ -126,19 +126,23 @@ const CARD_META: CardMeta[] = [
     tab: "email", label: "SMTP / Email", subLabel: "Email API", description: "Send and receive emails via SMTP or Mailgun.",
     icon: <Mail className="h-5 w-5" />, category: "email",
     previewKeys: [
-      { key: "driver",         label: "Driver" },
-      { key: "provider_name",  label: "Provider" },
-      { key: "host",           label: "Host" },
+      { key: "host",         label: "SMTP Host" },
+      { key: "port",  label: "Port" },
+      { key: "username",           label: "Username" },
+      { key: "password",   label: "Password" },
       { key: "from_address",   label: "From Email" },
+      { key: "from_name",   label: "From Name" },
     ],
   },
   {
     tab: "sms", label: "SMS Integration", subLabel: "MSG91 / Twilio", description: "Send SMS messages through your provider.",
     icon: <MessageSquare className="h-5 w-5" />, category: "communication",
     previewKeys: [
-      { key: "sms_provider", label: "Provider" },
-      { key: "sender_id",    label: "Sender ID" },
-      { key: "sms_route",    label: "Route" },
+      { key: "sms_provider", label: "API Provider" },
+       { key: "api_key",      label: "ID/Key"},
+      { key: "token",        label: "Token / Secret"},
+       { key: "sms_number",   label: "SMS Number"},
+       { key: "sms_from",     label: "SMS From"},
     ],
   },
   {
@@ -147,6 +151,8 @@ const CARD_META: CardMeta[] = [
     previewKeys: [
       { key: "phone_number_id", label: "Phone Number ID" },
       { key: "waba_id",         label: "WABA ID" },
+      { key: "access_token",    label: "Access Token"},
+      { key: "webhook_url",     label: "Webhook URL"},
     ],
   },
   {
@@ -154,7 +160,8 @@ const CARD_META: CardMeta[] = [
     icon: <IndianRupee className="h-5 w-5" />, category: "payment",
     previewKeys: [
       { key: "key_id",      label: "Key ID" },
-      { key: "webhook_url", label: "Webhook" },
+      { key: "key_secret",     label: "Key Secret"},
+      { key: "webhook_secret", label: "Webhook Secret"},
     ],
   },
   {
@@ -162,6 +169,8 @@ const CARD_META: CardMeta[] = [
     icon: <IndianRupee className="h-5 w-5" />, category: "payment",
     previewKeys: [
       { key: "publishable_key", label: "Publishable Key" },
+      { key: "secret_key",      label: "Secret Key "},
+      { key: "webhook_secret",  label: "Webhook Signing Secret"},
       { key: "webhook_url",     label: "Webhook" },
     ],
   },
@@ -169,6 +178,7 @@ const CARD_META: CardMeta[] = [
     tab: "chatgpt", label: "ChatGPT / OpenAI", subLabel: "OpenAI", description: "Use OpenAI models to automate support workflows.",
     icon: <Brain className="h-5 w-5" />, category: "ai",
     previewKeys: [
+      { key: "api_key", label: "OpenAI API Key"},
       { key: "model",   label: "Model" },
     ],
   },
@@ -568,14 +578,14 @@ const IntegrationsPage: React.FC = () => {
   );
 
   if (loading) return (
-    <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+    <div className="flex justify-center py-2"><LoadingSpinner size="lg" /></div>
   );
 
   return (
-    <div className="p-4 sm:p-6 space-y-5 min-h-full" style={{ background: BG }}>
+<div className="flex flex-col p-5 sm:p-4 gap-5" style={{ background: BG,  overflow: "hidden" }}>
 
       {/* Header - responsive */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: N }}>
@@ -586,20 +596,12 @@ const IntegrationsPage: React.FC = () => {
           <p className="text-sm mt-0.5" style={{ color: MU }}>Configure platform settings and preferences</p>
         </div>
 
-        <button
-          onClick={() => fetchAll(true)}
-          disabled={refreshing}
-          className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all hover:shadow-sm"
-          style={{ borderColor: BD, color: N, background: "white" }}
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
+       
       </div>
 
       {/* Tab Filter Bar - responsive scroll */}
       <div
-        className="flex items-center gap-1 p-1.5 rounded-2xl overflow-x-auto"
+        className="flex items-center gap-1 p-1.5 rounded-2xl overflow-x-auto shrink-0"
         style={{ background: "white", border: `1px solid ${BD}` }}
       >
         {TAB_FILTERS.map(t => {
@@ -623,8 +625,19 @@ const IntegrationsPage: React.FC = () => {
       </div>
 
       {/* Cards Grid - responsive columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {visibleCards.map(meta => (
+<div
+  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 cards-grid "
+  style={{
+    maxHeight: "calc(100vh - 250px)",   
+    overflowY: "auto",
+    paddingRight: "4px", 
+    paddingBottom:"3px",          
+    scrollbarWidth: "thin",        
+    scrollbarColor: "#cbd5e1 transparent", 
+    alignContent: "start",       
+  }}
+>   
+    {visibleCards.map(meta => (
           <IntegrationCard
             key={meta.tab}
             meta={meta}

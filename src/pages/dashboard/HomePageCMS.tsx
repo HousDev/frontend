@@ -1039,18 +1039,9 @@ export default function HomePageManagement() {
                <div className="sticky top-0 z-10 ">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: N }}>
-                                <Layout className="h-5 w-5" style={{ color: O }} />
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-bold" style={{ color: N }}>Home Page Management</h1>
-                                <p className="text-xs" style={{ color: MU }}>Manage hero sections and banners</p>
-                            </div>
-                        </div>
+                         
 
-                       <div className="flex flex-col sm:flex-row gap-3">
-    
+<div className="flex flex-col sm:flex-row gap-3 md:ml-auto">    
     {/* Top Row (Mobile: only button right side) */}
     <div className="flex justify-end sm:hidden">
         <button

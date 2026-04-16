@@ -466,34 +466,31 @@ const AdminDashboard: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-5" style={{ background: NAVY_LIGHT, minHeight: "100%" }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: ORANGE }}>
-              <Shield className="h-4 w-4" style={{ color: "white" }} />
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: NAVY }}>Admin Dashboard</h1>
-          </div>
-          <p className="text-sm" style={{ color: "#7a95a8" }}>System overview and management controls</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/dashboard/settings/roles-permissions">
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
-              style={{ background: ORANGE }}>
-              <Shield className="h-4 w-4" />
-              <span>Manage Roles</span>
-            </button>
-          </Link>
-          <Link to="/dashboard/settings">
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-all hover:shadow-sm"
-              style={{ borderColor: NAVY, color: NAVY, background: "white" }}>
-              <Settings className="h-4 w-4" />
-              <span>System Settings</span>
-            </button>
-          </Link>
-        </div>
-      </div>
+     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+  
+  <div className="flex flex-wrap gap-2 ml-auto">
+    <Link to="/dashboard/settings/roles-permissions">
+      <button
+        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
+        style={{ background: ORANGE }}
+      >
+        <Shield className="h-4 w-4" />
+        <span>Manage Roles</span>
+      </button>
+    </Link>
 
+    <Link to="/dashboard/settings">
+      <button
+        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-all hover:shadow-sm"
+        style={{ borderColor: NAVY, color: NAVY, background: "white" }}
+      >
+        <Settings className="h-4 w-4" />
+        <span>System Settings</span>
+      </button>
+    </Link>
+  </div>
+
+</div>
       {/* ── Stats Grid ─────────────────────────────────────────────────────── */}
      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
   <StatCard icon={<Users className="h-4 w-4 text-white" />} label="Total Users" value={stats.total_users} sub={`${stats.active_users} active`} accent={NAVY} cardBg="#e8eef5" />

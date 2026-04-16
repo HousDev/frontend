@@ -60,3 +60,13 @@ img {
   border-radius: 9999px;
 }
   
+
+.cards-grid::-webkit-scrollbar        { width: 4px; }
+.cards-grid::-webkit-scrollbar-track  { background: transparent; }
+.cards-grid::-webkit-scrollbar-thumb  {
+  background: #cbd5e1;
+  border-radius: 99px;
+}
+.cards-grid::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

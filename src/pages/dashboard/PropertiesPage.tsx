@@ -29,6 +29,14 @@ import viewsAPI from '@/lib/viewAPI';
 import { useAuth } from '@/contexts/AuthContext';
 import { can } from '@/utils/permission';
 
+
+const theme = {
+  navy: '#0f2b3d',
+  orange: '#e67e22',
+  bg: '#f8fafc',
+  border: '#e2e8f0',
+  muted: '#5a7184',
+};
 /* ---------------------- Types ---------------------- */
 interface UIProperty {
   id: number | string;
@@ -113,6 +121,7 @@ interface UIProperty {
   maintenanceReport?: any;
   lastStatusUpdate?: string;
   lastUpdated?: string;
+   is_new_listing?: boolean | number;
 }
 
 /* ---------------------- Assignment Types ---------------------- */
@@ -146,6 +155,66 @@ const getDisplayName = (u: any): string => {
 };
 
 /* ---------------------- Multi-select Tag Picker ---------------------- */
+// const TagPickerRow: React.FC<{
+//   label: "Add" | "Remove";
+//   knownTags: string[];
+//   selectedPropertyIds: (number | string)[];
+//   propTags: Record<string, string[]>;
+//   onApply: (tags: string[]) => void;
+//   isOpen: boolean;
+//   onToggle: () => void;
+//   onClose: () => void;
+// }> = ({ label, knownTags, selectedPropertyIds, propTags, onApply, isOpen, onToggle, onClose }) => {
+//   const [selected, setSelected] = useState<string[]>([]);
+
+//   const currentTags = useMemo(() => {
+//     const allTags = new Set<string>();
+//     selectedPropertyIds.forEach(id => {
+//       const tags = propTags[String(id)] || [];
+//       tags.forEach(tag => allTags.add(tag));
+//     });
+//     return Array.from(allTags);
+//   }, [selectedPropertyIds, propTags]);
+
+//   const options = useMemo(() => {
+//     const base = (knownTags?.length ? knownTags : Object.keys(DEFAULT_TAG_STYLE))
+//       .map(t => String(t).trim())
+//       .filter(Boolean);
+//     const uniq = Array.from(new Map(base.map(t => [t.toLowerCase(), t])).values());
+//     return uniq.sort((a, b) => a.localeCompare(b));
+//   }, [knownTags]);
+
+//   useEffect(() => {
+//     if (label === "Remove" && isOpen) {
+//       setSelected(currentTags.filter(tag => options.includes(tag)));
+//     } else if (label === "Add" && isOpen) {
+//       setSelected([]);
+//     }
+//   }, [isOpen, label, currentTags, options]);
+
+//   const toggle = (t: string) => {
+//     setSelected(prev => (prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]));
+//   };
+
+//   const selectAll = () => setSelected(options);
+//   const clearAll = () => setSelected([]);
+
+//   const apply = () => {
+//     if (!selected.length) {
+//       toast.warn(`Please select at least one tag to ${label.toLowerCase()}`);
+//       return;
+//     }
+//     onApply(selected);
+//     onClose();
+//   };
+
+const N = "#0f2b3d";
+const O = "#e67e22";
+const BG = "#f8fafc";
+const BD = "#e2e8f0";
+const MU = "#5a7184";
+
+// Updated TagPickerRow Component
 const TagPickerRow: React.FC<{
   label: "Add" | "Remove";
   knownTags: string[];
@@ -200,52 +269,62 @@ const TagPickerRow: React.FC<{
   };
 
   return (
-    <div className="mb-2 relative">
+    <div className="mb-1.5 relative">
+      {/* Button */}
       <button
-        className="w-full text-left text-xs px-2 py-1 rounded hover:bg-gray-50 font-medium border border-transparent hover:border-gray-200 transition-colors"
+        className="w-full text-left text-[10px] px-2 py-1 rounded-lg font-medium transition-all duration-200 flex items-center justify-between group"
+        style={{ 
+          background: `${N}05`, 
+          border: `1px solid ${BD}`,
+          color: N
+        }}
         onClick={(e) => {
           e.stopPropagation();
           onToggle();
         }}
         type="button"
       >
-        {label} tags
+        <span className="flex items-center gap-1">
+          <span className={`w-1.5 h-1.5 rounded-full ${label === 'Add' ? 'bg-green-500' : 'bg-red-500'}`} />
+          {label} tags
+        </span>
         {selected.length > 0 && (
-          <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px]">
-            {selected.length} selected
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium" style={{ background: `${O}15`, color: O }}>
+            {selected.length}
           </span>
         )}
       </button>
 
+      {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-40 left-0 right-0 mt-1 border rounded-lg bg-white shadow-lg p-2 min-w-[250px]">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-[11px] text-gray-500">
-              {options.length} available tags
-              {label === "Remove" && currentTags.length > 0 && (
-                <span className="ml-1 text-blue-600">
-                  ({currentTags.length} currently applied)
-                </span>
-              )}
+        <>
+          {/* Backdrop for mobile */}
+          <div className="fixed inset-0 z-40 md:hidden" onClick={onClose} />
+          
+          <div className="absolute z-50 left-0 right-0 mt-1 rounded-lg shadow-xl overflow-hidden animate-fade-in" style={{ 
+            background: 'white', 
+            border: `1px solid ${BD}`,
+            minWidth: '190px',
+            width: '100%'
+          }}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-2 py-1.5" style={{ background: `${N}05`, borderBottom: `1px solid ${BD}` }}>
+              <div className="text-[9px] font-medium" style={{ color: MU }}>
+                {options.length} tags
+                {label === "Remove" && currentTags.length > 0 && (
+                  <span className="ml-1" style={{ color: O }}>
+                    ({currentTags.length} applied)
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-1">
+                <button onClick={selectAll} className="text-[9px] px-1.5 py-0.5 rounded transition-colors hover:bg-gray-100" style={{ color: N }}>All</button>
+                <button onClick={clearAll} className="text-[9px] px-1.5 py-0.5 rounded transition-colors hover:bg-gray-100" style={{ color: MU }}>Clear</button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={selectAll}
-                className="text-[11px] px-2 py-1 border rounded hover:bg-gray-50 transition-colors"
-              >
-                Select all
-              </button>
-              <button
-                onClick={clearAll}
-                className="text-[11px] px-2 py-1 border rounded hover:bg-gray-50 transition-colors"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
 
-          <div className="max-h-32   overflow-auto">
-            <ul className="grid grid-cols-1 gap-2">
+            {/* Tags List */}
+            <div className="max-h-48 overflow-y-auto p-1.5 space-y-1" style={{ scrollbarWidth: 'thin' }}>
               {options.map(t => {
                 const active = selected.includes(t);
                 const tone = getTagStyle(t);
@@ -254,62 +333,50 @@ const TagPickerRow: React.FC<{
                 return (
                   <li
                     key={t}
-                    className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${active
-                      ? "border-blue-400 bg-blue-50/40 shadow-sm"
-                      : "border-gray-200 hover:border-gray-300"
-                      } ${label === "Remove" && isCurrentlyApplied ? "ring-1 ring-green-200 bg-green-50/30" : ""}`}
+                    className={`flex items-center gap-1.5 p-1.5 rounded-lg cursor-pointer transition-all duration-150 ${active ? 'shadow-sm' : ''}`}
+                    style={{
+                      background: active ? `${O}08` : 'transparent',
+                      border: active ? `1px solid ${O}30` : `1px solid transparent`
+                    }}
                     onClick={() => toggle(t)}
                   >
                     <input
                       type="checkbox"
                       checked={active}
                       onChange={() => toggle(t)}
-                      className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="h-3 w-3 rounded focus:ring-1 cursor-pointer"
+                      style={{ accentColor: O }}
                       onClick={(e) => e.stopPropagation()}
                     />
-                    <div
-                      className={`flex items-center gap-1 px-2 py-1 rounded-full ring-1 ${tone.bg} ${tone.text} ${tone.ring} flex-1`}
-                      title={t}
-                    >
-                      <Emoji emoji={tone.emoji} size={12} className="text-xs mr-1" />
-                      <span className="text-[11px] leading-none capitalize">{t}</span>
+                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium flex-1 ${tone.bg} ${tone.text} ${tone.ring}`} title={t}>
+                      <Emoji emoji={tone.emoji} size={10} />
+                      <span className="leading-none capitalize">{t}</span>
                     </div>
                     {label === "Remove" && isCurrentlyApplied && (
-                      <span className="text-[10px] text-green-600 font-medium px-1.5 py-0.5 bg-green-100 rounded">
-                        Applied
-                      </span>
+                      <span className="text-[8px] font-medium px-1 py-0.5 rounded whitespace-nowrap" style={{ background: `${O}10`, color: O }}>Applied</span>
                     )}
                   </li>
                 );
               })}
-            </ul>
-          </div>
+            </div>
 
-          <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-200">
-            <div className="text-[11px] text-gray-500">
-              {selected.length} tag{selected.length !== 1 ? 's' : ''} selected
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onClose}
-                className="px-3 py-1.5 border rounded text-xs hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={apply}
-                className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={selected.length === 0}
-              >
-                {label} {selected.length} Tag{selected.length !== 1 ? 's' : ''}
-              </button>
+            {/* Footer */}
+            <div className="flex items-center justify-between px-2 py-1.5 border-t" style={{ borderColor: BD, background: BG }}>
+              <div className="text-[9px] font-medium" style={{ color: selected.length > 0 ? O : MU }}>
+                {selected.length} tag{selected.length !== 1 ? 's' : ''}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button onClick={onClose} className="px-2 py-0.5 text-[9px] rounded transition-colors hover:bg-gray-100" style={{ color: MU }}>Cancel</button>
+                <button onClick={apply} disabled={selected.length === 0} className="px-2 py-0.5 text-[9px] font-medium rounded transition-all hover:opacity-80 disabled:opacity-40" style={{ background: O, color: 'white' }}>{label} {selected.length}</button>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 };
+
 /* ---------------------- Executive Assignment Modal ---------------------- */
 const AssignExecutiveModal: React.FC<{
   isOpen: boolean;
@@ -577,16 +644,16 @@ const ImageWithDebug: React.FC<{
     setFailed(false);
   }, [srcCandidate]);
 
-  if (!resolved || failed) {
-    return (
-      <div
-        className={`bg-gray-200 text-gray-500 flex items-center justify-center ${className}`}
-        style={{ objectFit: fitCover ? 'cover' : undefined }}
-      >
-        <span className="text-xs">Image not available</span>
-      </div>
-    );
-  }
+ if (!resolved || failed) {
+  return (
+    <div
+      className={`bg-gray-200 text-gray-500 font-normal flex items-center justify-center text-center ${className}`}
+      style={{ objectFit: fitCover ? 'cover' : undefined }}
+    >
+      <span className="text-[8px] px-1 leading-tight">No Image</span>
+    </div>
+  );
+}
 
   return (
     <img
@@ -783,6 +850,7 @@ function normalizeProperty(r: any, idx: number): UIProperty {
     ownershipDocUrl: r.ownership_doc_path || r.ownershipDocUrl || r.ownership_document || '',
     ownershipDocName: r.ownership_doc_name || r.ownershipDocName || r.ownership_document_name || '',
     ownershipDocId: r.ownership_doc_id || r.ownershipDocId || r.ownership_document_id || '',
+    is_new_listing: r.is_new_listing === 1 || r.is_new_listing === true,
   };
 }
 
@@ -844,12 +912,12 @@ const buildInitialData = (p: UIProperty) => {
 
 /* ---------------------- Tailwind Color Helpers ---------------------- */
 const TAB_STYLES: Record<string, { badge: string; btn: string; btnActive: string; countActive: string }> = {
-  blue: { badge: 'bg-blue-200', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-blue-100 text-blue-700 border border-blue-200', countActive: 'bg-blue-200' },
-  green: { badge: 'bg-green-200', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-green-100 text-green-700 border border-green-200', countActive: 'bg-green-200' },
-  purple: { badge: 'bg-purple-200', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-purple-100 text-purple-700 border border-purple-200', countActive: 'bg-purple-200' },
-  orange: { badge: 'bg-orange-200', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-orange-100 text-orange-700 border border-orange-200', countActive: 'bg-orange-200' },
-  indigo: { badge: 'bg-indigo-200', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-indigo-100 text-indigo-700 border border-indigo-200', countActive: 'bg-indigo-200' },
-  red: { badge: 'bg-red-200', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-red-100 text-red-700 border border-red-200', countActive: 'bg-red-200' },
+  blue: { badge: 'bg-orange-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-orange-50 text-orange-600 border border-orange-200', countActive: 'bg-orange-200 text-orange-700' },
+  green: { badge: 'bg-green-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-green-50 text-green-600 border border-green-200', countActive: 'bg-green-200 text-green-700' },
+  purple: { badge: 'bg-purple-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-purple-50 text-purple-600 border border-purple-200', countActive: 'bg-purple-200 text-purple-700' },
+  orange: { badge: 'bg-orange-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-orange-50 text-orange-600 border border-orange-200', countActive: 'bg-orange-200 text-orange-700' },
+  indigo: { badge: 'bg-indigo-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-indigo-50 text-indigo-600 border border-indigo-200', countActive: 'bg-indigo-200 text-indigo-700' },
+  red: { badge: 'bg-red-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-red-50 text-red-600 border border-red-200', countActive: 'bg-red-200 text-red-700' },
 };
 
 function tabBtnClass(active: boolean, color: string) {
@@ -1301,6 +1369,15 @@ const PropertiesPage = () => {
       { id: 'negotiation', label: 'Under Negotiation', count: properties.filter(p => p.status === 'Under Negotiation').length, color: 'orange' },
       { id: 'public', label: 'Public Listings', count: properties.filter(p => p.isPublic).length, color: 'indigo' },
       { id: 'hot', label: 'Hot Properties', count: properties.filter(p => (Number(p.hotLeads) || 0) > 2).length, color: 'red' },
+      { 
+      id: 'new_listing', 
+      label: 'New Listings', 
+count: properties.filter(p => {
+  const ls = p.leadSource || '';
+  return ls === 'seller_portal' || ls.includes('seller_portal');
+}).length,
+      color: 'orange' 
+    },
     ],
     [properties]
   );
@@ -1320,9 +1397,9 @@ const PropertiesPage = () => {
         (activeTab === 'sold' && p.status === 'Sold') ||
         (activeTab === 'negotiation' && p.status === 'Under Negotiation') ||
         (activeTab === 'public' && p.isPublic) ||
-        (activeTab === 'hot' && (Number(p.hotLeads) || 0) > 2);
-
-      const matchesExecutive =
+        (activeTab === 'hot' && (Number(p.hotLeads) || 0) > 2) ||
+(activeTab === 'new_listing' && (p.leadSource === 'seller_portal' || (p.leadSource || '').includes('seller_portal')));
+ const matchesExecutive =
         filters.assignedExecutive === 'all' ||
         (filters.assignedExecutive === '__unassigned__' && !p.assignedTo?.id) ||
         (p.assignedTo?.id != null && String(p.assignedTo.id) === String(filters.assignedExecutive));
@@ -2026,26 +2103,25 @@ const PropertiesPage = () => {
   };
 
   return (
-    <div className="h-[90vh] flex flex-col bg-gray-50 overflow-hidden">
+    <>
+    
+<style>{`
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in { animation: fade-in 0.15s ease-out; }
+`}</style>
+    <div className="h-[91.7vh] flex flex-col bg-gray-50 overflow-hidden">
       {/* Header */}
       {/* <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4"> */}
       <div className="sticky top-0  bg-gray-50">
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center space-x-4">
-            <div className="p-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
-              <Home className="text-white" size={20} />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">Property Management</h1>
-              <p className="text-gray-600 text-xs">
-                Complete property lifecycle management with buyer matching
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
+<div className=" bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4">    
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      
+          <div className="flex items-center space-x-2 ml-auto">
             {/* Import Button - Conditional */}
             {canImport && (
               <button
@@ -2061,8 +2137,8 @@ const PropertiesPage = () => {
             {canCreate && (
               <button
                 onClick={handleAddProperty}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md hover:from-blue-600 hover:to-indigo-700 transition-all text-xs"
-              >
+className="flex items-center space-x-1.5 px-3 py-1.5 text-white rounded-md hover:opacity-90 transition-all text-xs"
+style={{ background: theme.navy }}              >
                 <Plus size={14} />
                 <span>Add</span>
               </button>
@@ -2072,8 +2148,8 @@ const PropertiesPage = () => {
             {canExport && (
               <button
                 onClick={handlebrochureDownloadsy}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md hover:from-blue-600 hover:to-indigo-700 transition-all text-xs"
-              >
+className="flex items-center space-x-1.5 px-3 py-1.5 text-white rounded-md hover:opacity-90 transition-all text-xs"
+style={{ background: theme.orange }}              >
                 <Download size={14} />
                 <span>brochureDownloads</span>
               </button>
@@ -2086,66 +2162,99 @@ const PropertiesPage = () => {
           onClose={() => setBulkModalOpen(false)}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-3 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-xs">Total Properties</p>
-                <p className="text-lg font-bold">{properties.length}</p>
-              </div>
-              <Home size={18} className="text-blue-200" />
-            </div>
-          </div>
+       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-5 sm:gap-2 mt-2 sm:mt-3">
+  {/* Total Properties Card */}
+  <div className="rounded-lg p-1.5 sm:p-2 transition-all hover:shadow-sm" style={{ background: '#eff6ff', border: '1px solid #3b82f620' }}>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[7px] sm:text-[8px] font-medium uppercase tracking-wider" style={{ color: '#3b82f6' }}>Total</p>
+        <p className="text-sm sm:text-base font-bold mt-0.5" style={{ color: '#0f2b3d' }}>{properties.length}</p>
+      </div>
+      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center" style={{ background: '#3b82f620' }}>
+        <Home size={10} className="sm:hidden" style={{ color: '#3b82f6' }} />
+        <Home size={12} className="hidden sm:block" style={{ color: '#3b82f6' }} />
+      </div>
+    </div>
+  </div>
 
-          {/* ✅ NEW CARD: All Views Count */}
-          <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg p-3 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-indigo-100 text-xs">Total Views</p>
-                <p className="text-lg font-bold">{totalViews}</p>
-                <p className="text-xs text-indigo-200">Unique: {totalUniqueViews}</p>
-              </div>
-              <Eye size={18} className="text-indigo-300" />
-            </div>
-          </div>
+  {/* Total Views Card */}
+  <div className="rounded-lg p-1.5 sm:p-2 transition-all hover:shadow-sm" style={{ background: '#8b5cf610', border: '1px solid #8b5cf620' }}>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[7px] sm:text-[8px] font-medium uppercase tracking-wider" style={{ color: '#8b5cf6' }}>Views</p>
+        <p className="text-sm sm:text-base font-bold mt-0.5" style={{ color: '#0f2b3d' }}>{totalViews}</p>
+        <p className="text-[6px] sm:text-[7px] mt-0.5 hidden sm:block" style={{ color: '#8b5cf6' }}>Unique: {totalUniqueViews}</p>
+      </div>
+      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center" style={{ background: '#8b5cf620' }}>
+        <Eye size={10} className="sm:hidden" style={{ color: '#8b5cf6' }} />
+        <Eye size={12} className="hidden sm:block" style={{ color: '#8b5cf6' }} />
+      </div>
+    </div>
+  </div>
 
-          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-3 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-xs">Available</p>
-                <p className="text-lg font-bold">
-                  {properties.filter((p) => p.status === "Available").length}
-                </p>
-              </div>
-              <CheckCircle size={18} className="text-green-200" />
-            </div>
-          </div>
+  {/* Available Properties Card */}
+  <div className="rounded-lg p-1.5 sm:p-2 transition-all hover:shadow-sm" style={{ background: '#10b98110', border: '1px solid #10b98120' }}>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[7px] sm:text-[8px] font-medium uppercase tracking-wider" style={{ color: '#10b981' }}>Avail</p>
+        <p className="text-sm sm:text-base font-bold mt-0.5" style={{ color: '#0f2b3d' }}>
+          {properties.filter((p) => p.status === "Available").length}
+        </p>
+      </div>
+      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center" style={{ background: '#10b98120' }}>
+        <CheckCircle size={10} className="sm:hidden" style={{ color: '#10b981' }} />
+        <CheckCircle size={12} className="hidden sm:block" style={{ color: '#10b981' }} />
+      </div>
+    </div>
+  </div>
 
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-3 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-xs">Sold</p>
-                <p className="text-lg font-bold">
-                  {properties.filter((p) => p.status === "Sold").length}
-                </p>
-              </div>
-              <Award size={18} className="text-purple-200" />
-            </div>
-          </div>
+  {/* Sold Properties Card */}
+  <div className="rounded-lg p-1.5 sm:p-2 transition-all hover:shadow-sm" style={{ background: '#f59e0b10', border: '1px solid #f59e0b20' }}>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[7px] sm:text-[8px] font-medium uppercase tracking-wider" style={{ color: '#f59e0b' }}>Sold</p>
+        <p className="text-sm sm:text-base font-bold mt-0.5" style={{ color: '#0f2b3d' }}>
+          {properties.filter((p) => p.status === "Sold").length}
+        </p>
+      </div>
+      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center" style={{ background: '#f59e0b20' }}>
+        <Award size={10} className="sm:hidden" style={{ color: '#f59e0b' }} />
+        <Award size={12} className="hidden sm:block" style={{ color: '#f59e0b' }} />
+      </div>
+    </div>
+  </div>
 
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-3 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-orange-100 text-xs">Assigned</p>
-                <p className="text-lg font-bold">
-                  {properties.filter((p) => p.assignedTo).length}
-                </p>
-              </div>
-              <UserCheck size={18} className="text-orange-200" />
-            </div>
-          </div>
-        </div>
+  {/* Assigned Properties Card - Hidden on mobile (2 cols), visible from sm */}
+  <div className="hidden sm:block rounded-lg p-1.5 sm:p-2 transition-all hover:shadow-sm col-span-2 sm:col-span-1" style={{ background: '#e67e2210', border: '1px solid #e67e2220' }}>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[7px] sm:text-[8px] font-medium uppercase tracking-wider" style={{ color: '#e67e22' }}>Assigned</p>
+        <p className="text-sm sm:text-base font-bold mt-0.5" style={{ color: '#0f2b3d' }}>
+          {properties.filter((p) => p.assignedTo).length}
+        </p>
+      </div>
+      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center" style={{ background: '#e67e2220' }}>
+        <UserCheck size={10} className="sm:hidden" style={{ color: '#e67e22' }} />
+        <UserCheck size={12} className="hidden sm:block" style={{ color: '#e67e22' }} />
+      </div>
+    </div>
+  </div>
 
+  {/* Mobile Assigned Card - Shows only on mobile, full width */}
+  <div className="sm:hidden rounded-lg p-1.5 transition-all hover:shadow-sm col-span-2" style={{ background: '#e67e2210', border: '1px solid #e67e2220' }}>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[7px] font-medium uppercase tracking-wider" style={{ color: '#e67e22' }}>Assigned</p>
+        <p className="text-sm font-bold mt-0.5" style={{ color: '#0f2b3d' }}>
+          {properties.filter((p) => p.assignedTo).length}
+        </p>
+      </div>
+      <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ background: '#e67e2220' }}>
+        <UserCheck size={10} style={{ color: '#e67e22' }} />
+      </div>
+    </div>
+  </div>
+</div>
 
         <div className="mt-4">
           <div className="flex space-x-1 overflow-x-auto pb-1">
@@ -2167,233 +2276,264 @@ const PropertiesPage = () => {
 
       {/* Top bar */}
       {/* Top bar */}
-      <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3">
+<div className="bg-white border-b border-gray-200 px-2 sm:px-4 lg:px-4 py-2 sm:py-3 mx-2 sm:mx-6 mt-2 rounded-md overflow-visible">
 
-        <div className="flex flex-col lg:flex-row gap-3">
-          <div className="flex-1 flex items-center space-x-2">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
-              <input
-                type="text"
-                placeholder="Search properties..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
-              />
-            </div>
-            <button
-              onClick={() => setShowFilters(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-xs"
-            >
-              <Filter size={14} />
-              <span>Filters</span>
-            </button>
+  <div className="flex flex-col lg:flex-row gap-2 sm:gap-3">
+    
+    <div className="flex-1 flex items-center gap-1.5 sm:space-x-2">
+      
+      <div className="relative flex-1 max-w-full sm:max-w-md">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+        <input
+          type="text"
+          placeholder="Search properties..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-7 pr-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 text-[11px] sm:text-xs"
+        />
+      </div>
 
-            <div className="flex items-center space-x-1">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400'}`}
-              >
-                <Grid size={14} />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400'}`}
-              >
-                <List size={14} />
-              </button>
-            </div>
-          </div>
+      <button
+        onClick={() => setShowFilters(true)}
+        className="flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-[11px] sm:text-xs"
+      >
+        <Filter size={12} />
+        <span className="hidden sm:inline">Filters</span>
+      </button>
 
-          <div className="flex items-center space-x-2">
-            <select
-              value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(Number(e.target.value))}
-              className="px-2 py-1.5 border border-gray-300 rounded-md text-xs"
-            >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            {/* Export Button - Conditional */}
-            {canExport && (
-              <button
-                onClick={handleBulkExport}
-                disabled={bulkLoading}
-                className="flex items-center space-x-1.5 px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-xs disabled:opacity-50"
-              >
-                <Download size={14} />
-                <span>Export</span>
-              </button>
-            )}
-          </div>
-        </div>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => setViewMode('grid')}
+          className={`p-1 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400'}`}
+        >
+          <Grid size={12} />
+        </button>
+        <button
+          onClick={() => setViewMode('list')}
+          className={`p-1 rounded ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400'}`}
+        >
+          <List size={12} />
+        </button>
+      </div>
+    </div>
+
+    <div className="flex items-center justify-between lg:justify-end gap-1.5 sm:space-x-2">
+      
+      <select
+        value={itemsPerPage}
+        onChange={(e) => setItemsPerPage(Number(e.target.value))}
+        className="px-1.5 py-1 border border-gray-300 rounded-md text-[11px] sm:text-xs"
+      >
+        <option value={25}>25</option>
+        <option value={50}>50</option>
+        <option value={100}>100</option>
+      </select>
+
+      {canExport && (
+        <button
+          onClick={handleBulkExport}
+          disabled={bulkLoading}
+          className="flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-[11px] sm:text-xs disabled:opacity-50"
+        >
+          <Download size={12} />
+          <span className="hidden sm:inline">Export</span>
+        </button>
+      )}
+    </div>
+  </div>
 
         {selectedProperties.length > 0 && (canUpdate || canAssign || canBulkDelete || canExport) && (
-          <div className="bg-blue-50 border-b border-blue-200 px-4 mt-2 lg:px-6 py-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-blue-700">
-                  {selectedProperties.length} selected
-                </span>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {canUpdate && (
-                    <>
-                      <button
-                        onClick={() => handleBulkStatusChange('Available')}
-                        disabled={bulkLoading}
-                        className="px-2.5 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-50"
-                      >
-                        Mark Available
-                      </button>
-                      <button
-                        onClick={() => handleBulkStatusChange('Sold')}
-                        disabled={bulkLoading}
-                        className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        Mark Sold
-                      </button>
-                    </>
-                  )}
-                  {canAssign && (
-                    <>
-                      <button
-                        onClick={handleBulkAssignExecutive}
-                        disabled={bulkLoading || executivesLoading}
-                        className="px-2.5 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 disabled:opacity-50 flex items-center space-x-1"
-                      >
-                        <UserPlus size={12} />
-                        <span>Assign Executive</span>
-                      </button>
-                      <button
-                        onClick={handleBulkUnassign}
-                        disabled={bulkLoading}
-                        className="px-2.5 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-1"
-                      >
-                        <UserX size={12} />
-                        <span>Unassign Executive</span>
-                      </button>
-                    </>
-                  )}
-                  {canUpdate && (
-                    <>
-                      <button
-                        onClick={() => handleBulkMakePublic()}
-                        disabled={bulkLoading}
-                        className="px-2.5 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 disabled:opacity-50"
-                      >
-                        Mark Public
-                      </button>
-                      <button
-                        onClick={() => handleBulkMakePrivate()}
-                        disabled={bulkLoading}
-                        className="px-2.5 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 disabled:opacity-50"
-                      >
-                        Mark Private
-                      </button>
-                    </>
-                  )}
-                  {/* Export - Conditional */}
-                  {canExport && (
-                    <button
-                      onClick={handleBulkExport}
-                      disabled={bulkLoading}
-                      className="px-2.5 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 disabled:opacity-50"
-                    >
-                      Export
-                    </button>
-                  )}
-                  {/* Delete - Conditional */}
-                  {canBulkDelete && (
-                    <button
-                      onClick={handleBulkDelete}
-                      disabled={bulkLoading}
-                      className="px-2.5 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
-                  )}
-                </div>
+  <div className="bg-blue-50 border border-blue-200 rounded-lg mt-2 overflow-visible">
+    {/* Responsive Bulk Actions Bar */}
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:px-4 sm:py-2.5 gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Selected count and Clear button - Same row on mobile */}
+         <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto">
+        <span className="text-xs font-medium text-blue-700 whitespace-nowrap">
+          {selectedProperties.length} selected
+        </span>
+        {/* Mobile Cross Icon - Right side */}
+        <button
+          onClick={() => setSelectedProperties([])}
+          className="text-blue-600 hover:text-blue-800 transition-colors sm:hidden"
+          title="Clear selection"
+        >
+          <X size={14} />
+        </button>
+      </div>
 
-                {/* Bulk Tags Menu - FIXED */}
-                {/* Bulk Tags Menu - COMPLETELY FIXED */}
-                {(canUpdate || canAssign) && (
-                  <div className="relative bulk-tags-menu">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setBulkTagsMenuOpen(!bulkTagsMenuOpen);
-                        setActiveTagPicker(null); // Reset active tag picker when opening main menu
-                      }}
-                      className="px-2.5 py-1 bg-gray-800 text-white rounded text-xs hover:bg-gray-900 transition-colors"
-                    >
-                      Tags
-                    </button>
-
-                    {bulkTagsMenuOpen && (
-                      <div className="absolute z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[230px] right-0">
-                        <div className="p-3">
-                          <div className="text-xs font-medium text-gray-700 mb-2">Bulk Tag Operations</div>
-                          <div className="tag-picker-container">
-                            <TagPickerRow
-                              label="Add"
-                              knownTags={knownTagsAll}
-                              selectedPropertyIds={selectedProperties}
-                              propTags={propTags}
-                              onApply={(tags) => {
-                                handleBulkAddTags(tags);
-                                setBulkTagsMenuOpen(false);
-                                setActiveTagPicker(null);
-                              }}
-                              isOpen={activeTagPicker === 'add'}
-                              onToggle={() => {
-                                // Agar koi dusra tag picker open hai to use close karo
-                                if (activeTagPicker && activeTagPicker !== 'add') {
-                                  setActiveTagPicker('add');
-                                } else {
-                                  setActiveTagPicker(activeTagPicker === 'add' ? null : 'add');
-                                }
-                              }}
-                              onClose={() => setActiveTagPicker(null)}
-                            />
-                            <TagPickerRow
-                              label="Remove"
-                              knownTags={knownTagsAll}
-                              selectedPropertyIds={selectedProperties}
-                              propTags={propTags}
-                              onApply={(tags) => {
-                                handleBulkRemoveTags(tags);
-                                setBulkTagsMenuOpen(false);
-                                setActiveTagPicker(null);
-                              }}
-                              isOpen={activeTagPicker === 'remove'}
-                              onToggle={() => {
-                                // Agar koi dusra tag picker open hai to use close karo
-                                if (activeTagPicker && activeTagPicker !== 'remove') {
-                                  setActiveTagPicker('remove');
-                                } else {
-                                  setActiveTagPicker(activeTagPicker === 'remove' ? null : 'remove');
-                                }
-                              }}
-                              onClose={() => setActiveTagPicker(null)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {canUpdate && (
+            <>
               <button
-                onClick={() => setSelectedProperties([])}
-                className="text-blue-600 hover:text-blue-800 transition-colors"
-                title="Clear selection"
+                onClick={() => handleBulkStatusChange('Available')}
+                disabled={bulkLoading}
+                className="px-2 sm:px-2.5 py-1 bg-green-600 text-white rounded text-[10px] sm:text-xs hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
               >
-                <X size={14} />
+                <span className="sm:hidden">Available</span>
+                <span className="hidden sm:inline">Mark Available</span>
               </button>
+              <button
+                onClick={() => handleBulkStatusChange('Sold')}
+                disabled={bulkLoading}
+                className="px-2 sm:px-2.5 py-1 bg-blue-600 text-white rounded text-[10px] sm:text-xs hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+              >
+                <span className="sm:hidden">Sold</span>
+                <span className="hidden sm:inline">Mark Sold</span>
+              </button>
+            </>
+          )}
+          {canAssign && (
+            <>
+              <button
+                onClick={handleBulkAssignExecutive}
+                disabled={bulkLoading || executivesLoading}
+                className="px-2 sm:px-2.5 py-1 bg-indigo-600 text-white rounded text-[10px] sm:text-xs hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
+              >
+                <UserPlus size={10} className="sm:hidden" />
+                <UserPlus size={12} className="hidden sm:block" />
+                <span className="sm:hidden">Assign</span>
+                <span className="hidden sm:inline">Assign Executive</span>
+              </button>
+              <button
+                onClick={handleBulkUnassign}
+                disabled={bulkLoading}
+                className="px-2 sm:px-2.5 py-1 bg-gray-600 text-white rounded text-[10px] sm:text-xs hover:bg-gray-700 disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
+              >
+                <UserX size={10} className="sm:hidden" />
+                <UserX size={12} className="hidden sm:block" />
+                <span className="sm:hidden">Unassign</span>
+                <span className="hidden sm:inline">Unassign Executive</span>
+              </button>
+            </>
+          )}
+          {canUpdate && (
+            <>
+              <button
+                onClick={() => handleBulkMakePublic()}
+                disabled={bulkLoading}
+                className="px-2 sm:px-2.5 py-1 bg-indigo-600 text-white rounded text-[10px] sm:text-xs hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
+              >
+                <span className="sm:hidden">Public</span>
+                <span className="hidden sm:inline">Mark Public</span>
+              </button>
+              <button
+                onClick={() => handleBulkMakePrivate()}
+                disabled={bulkLoading}
+                className="px-2 sm:px-2.5 py-1 bg-gray-600 text-white rounded text-[10px] sm:text-xs hover:bg-gray-700 disabled:opacity-50 whitespace-nowrap"
+              >
+                <span className="sm:hidden">Private</span>
+                <span className="hidden sm:inline">Mark Private</span>
+              </button>
+            </>
+          )}
+          {canExport && (
+            <button
+              onClick={handleBulkExport}
+              disabled={bulkLoading}
+              className="px-2 sm:px-2.5 py-1 bg-purple-600 text-white rounded text-[10px] sm:text-xs hover:bg-purple-700 disabled:opacity-50 whitespace-nowrap"
+            >
+              Export
+            </button>
+          )}
+          {canBulkDelete && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkLoading}
+              className="px-2 sm:px-2.5 py-1 bg-red-600 text-white rounded text-[10px] sm:text-xs hover:bg-red-700 disabled:opacity-50 whitespace-nowrap"
+            >
+              Delete
+            </button>
+          )}
+
+          {/* Tags Button with Dropdown */}
+          {(canUpdate || canAssign) && (
+            <div className="relative inline-block">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setBulkTagsMenuOpen(!bulkTagsMenuOpen);
+                  setActiveTagPicker(null);
+                }}
+                className="px-2 sm:px-2.5 py-1 bg-gray-800 text-white rounded text-[10px] sm:text-xs hover:bg-gray-900 transition-colors whitespace-nowrap"
+              >
+                Tags
+              </button>
+
+              {bulkTagsMenuOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => {
+                      setBulkTagsMenuOpen(false);
+                      setActiveTagPicker(null);
+                    }}
+                  />
+                  <div className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[220px] sm:min-w-[230px] left-0 sm:right-0 sm:left-auto">
+                    <div className="p-2 sm:p-3">
+                      <div className="text-[10px] sm:text-xs font-medium text-gray-700 mb-1.5 sm:mb-2">Bulk Tag Operations</div>
+                      <div className="tag-picker-container">
+                        <TagPickerRow
+                          label="Add"
+                          knownTags={knownTagsAll}
+                          selectedPropertyIds={selectedProperties}
+                          propTags={propTags}
+                          onApply={(tags) => {
+                            handleBulkAddTags(tags);
+                            setBulkTagsMenuOpen(false);
+                            setActiveTagPicker(null);
+                          }}
+                          isOpen={activeTagPicker === 'add'}
+                          onToggle={() => {
+                            if (activeTagPicker && activeTagPicker !== 'add') {
+                              setActiveTagPicker('add');
+                            } else {
+                              setActiveTagPicker(activeTagPicker === 'add' ? null : 'add');
+                            }
+                          }}
+                          onClose={() => setActiveTagPicker(null)}
+                        />
+                        <TagPickerRow
+                          label="Remove"
+                          knownTags={knownTagsAll}
+                          selectedPropertyIds={selectedProperties}
+                          propTags={propTags}
+                          onApply={(tags) => {
+                            handleBulkRemoveTags(tags);
+                            setBulkTagsMenuOpen(false);
+                            setActiveTagPicker(null);
+                          }}
+                          isOpen={activeTagPicker === 'remove'}
+                          onToggle={() => {
+                            if (activeTagPicker && activeTagPicker !== 'remove') {
+                              setActiveTagPicker('remove');
+                            } else {
+                              setActiveTagPicker(activeTagPicker === 'remove' ? null : 'remove');
+                            }
+                          }}
+                          onClose={() => setActiveTagPicker(null)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      </div>
+      
+      {/* Desktop Clear button - hidden on mobile */}
+      <button
+        onClick={() => setSelectedProperties([])}
+        className="hidden sm:block text-blue-600 hover:text-blue-800 transition-colors"
+        title="Clear selection"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  </div>
+)}
 
         <PropertyFilterModal
           isOpen={showFilters}
@@ -2452,497 +2592,443 @@ const PropertiesPage = () => {
       )}
 
       {/* Properties */}
-      {!loading && !error && filteredProperties.length > 0 && (
-        <div className="flex-1 overflow-hidden">
-          {viewMode === 'grid' ? (
-            <div className="p-6  h-full overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {paginatedProperties.map((property) => (
-                  <div key={property.id} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all group">
-                    <div
-                      className="relative overflow-hidden rounded-t-xl cursor-pointer group"
-                      role="button"
-                      tabIndex={0}
-                      aria-label="Open property details"
-                      onClick={() => handleViewProperty(property)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') handleViewProperty(property);
-                      }}
-                    >
-                      <ImageWithDebug
-                        srcCandidate={Array.isArray(property.photos) && property.photos.length > 0 ? property.photos[0] : ''}
-                        alt={dash(property.title)}
-                        className="w-full h-48 rounded-t-xl transition-transform duration-300 ease-out group-hover:scale-105"
-                        propertyCtx={{ title: property.title, propertyId: property.propertyId }}
-                      />
+  {!loading && !error && filteredProperties.length > 0 && (
+  <div className="flex-1 overflow-hidden">
+    {viewMode === 'grid' ? (
+      <div className="p-2 sm:p-3 h-full overflow-y-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+          {paginatedProperties.map((property) => (
+            <div key={property.id} className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all group overflow-visible flex flex-col h-full" style={{ border: `1px solid #e2e8f0` }}>
+              {/* Image Section */}
+              <div
+                className="relative overflow-hidden cursor-pointer flex-shrink-0"
+                role="button"
+                tabIndex={0}
+                aria-label="Open property details"
+                onClick={() => handleViewProperty(property)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') handleViewProperty(property);
+                }}
+              >
+                <ImageWithDebug
+                  srcCandidate={Array.isArray(property.photos) && property.photos.length > 0 ? property.photos[0] : ''}
+                  alt={dash(property.title)}
+                  className="w-full h-32 sm:h-36 rounded-t-lg transition-transform duration-300 ease-out group-hover:scale-105 object-cover"
+                  propertyCtx={{ title: property.title, propertyId: property.propertyId }}
+                />
 
-                      {(canUpdate || canDelete || canAssign || canBulkDelete) && (
-                        <div className="absolute top-3 left-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedProperties.includes(property.id)}
-                            onChange={() => handlePropertySelection(property.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                        </div>
-                      )}
+                {/* Checkbox */}
+                {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                  <div className="absolute top-2 left-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedProperties.includes(property.id)}
+                      onChange={() => handlePropertySelection(property.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 focus:ring-orange-500"
+                      style={{ accentColor: '#e67e22' }}
+                    />
+                  </div>
+                )}
 
-                      <div className="absolute top-3 right-3 flex max-w-[78%] flex-wrap gap-1 justify-end">
-                        <PropertyTags
-                          tags={propTags[String(property.id)] || []}
-                          onClickTag={handleClickTag}
-                        />
+                {/* Tags and Badges */}
+                <div className="absolute top-2 right-2 flex max-w-[70%] flex-wrap gap-1 justify-end">
+                  <PropertyTags
+                    tags={propTags[String(property.id)] || []}
+                    onClickTag={handleClickTag}
+                  />
+                  {property.isPublic ? (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-green-50 text-green-700 ring-1 ring-green-200">
+                      PUBLIC
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-red-50 text-red-700 ring-1 ring-red-200">
+                      PRIVATE
+                    </span>
+                  )}
+                </div>
 
-                        {property.isPublic ? (
-                          <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 ring-1 ring-green-200 shadow-sm">
-                            PUBLIC
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 ring-1 ring-red-200 shadow-sm">
-                            PRIVATE
-                          </span>
-                        )}
+                {/* Status Badge */}
+                <div className="absolute bottom-2 left-2">
+                  {getStatusBadge(property.status)}
+                </div>
+              </div>
 
-                      </div>
-                      <div className="absolute bottom-3 left-3">
-                        {getStatusBadge(property.status)}
-                      </div>
+              {/* Content Section */}
+              <div className="p-2 sm:p-3 flex flex-col flex-1">
+                {/* Title and Property ID */}
+                <div className="flex items-start justify-between mb-1">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[11px] font-semibold truncate" style={{ color: '#0f2b3d' }}>
+                      {(property.type && property.type !== ' - ') && <span className="mr-1">{property.type}</span>}
+                      {(property.unitType && property.unitType !== ' - ') && <span className="mr-1">{property.unitType}</span>}
+                      {(property.subtype && property.subtype !== ' - ') && <span className="mr-1">{property.subtype}</span>}
                     </div>
+                  </div>
+                  <div className="text-[9px] text-gray-400 ml-1">{dash(property.propertyId)}</div>
+                </div>
 
-                    <div className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <div className=" text-xs font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                            {(property.type && property.type !== ' - ') && <span className="mr-2">{property.type}</span>}
-                            {(property.unitType && property.unitType !== ' - ') && <span className="mr-2"> {property.unitType}</span>}
-                            {(property.subtype && property.subtype !== ' - ') && <span className="mr-2"> {property.subtype}</span>}
-                          </div>
-                        </div>
-                        <div className="text-xs text-gray-500">{dash(property.propertyId)}</div>
-                      </div>
+                {/* Price */}
+                <div className="text-base font-bold mb-1" style={{ color: '#e67e22' }}>
+                  {formatCurrency(property.budget)}
+                </div>
 
-                      <div className="text-xl font-bold text-green-600 mb-2">
-                        {formatCurrency(property.budget)}
-                      </div>
+                {/* Executive Badge */}
+                {property.assignedTo && (
+                  <div className="mb-1">
+                    <ExecutiveBadge assignedTo={property.assignedTo} />
+                  </div>
+                )}
 
-                      {/* Executive Assignment Badge */}
-                      {property.assignedTo && (
-                        <div className="mb-2">
-                          <ExecutiveBadge assignedTo={property.assignedTo} />
-                        </div>
-                      )}
+                {/* Details */}
+                <div className="space-y-0.5 mb-2">
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                    <Building size={10} />
+                    <span className="truncate">
+                      {property.unitType && property.unitType !== ' - ' ? `${property.unitType}` : 'Unit'}
+                      {property.carpetArea ? ` • ${dash(property.carpetArea)} sq ft` : ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                    <MapPin size={10} />
+                    <span className="truncate">{[property.location, property.city].filter(Boolean).join(', ') || ' - '}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                    <User size={10} />
+                    <span className="truncate">{dash(property.seller?.name)}</span>
+                  </div>
+                </div>
 
-                      <div className="space-y-1 mb-3">
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <Building size={12} />
-                          <span>
-                            {property.unitType && property.unitType !== ' - ' ? `${property.unitType}` : 'Unit'}
-                            {property.carpetArea ? ` • ${dash(property.carpetArea)} sq ft` : ''}
-                          </span>
-                        </div>
+                {/* Stage and Visits */}
+                <div className="flex items-center justify-between mb-2">
+                  {getStageBadge(property.stage)}
+                  <div className="flex items-center gap-1 text-[9px] text-gray-400">
+                    <Eye size={9} />
+                    <span>{Number(property.visits) || 0} views</span>
+                  </div>
+                </div>
 
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <MapPin size={12} />
-                          <span>{[property.location, property.city].filter(Boolean).join(', ') || ' - '}</span>
-                        </div>
+                {/* Action Buttons */}
+                <div className="flex items-center gap-1.5 mt-auto relative">
+                  <button
+                    onClick={() => handleViewProperty(property)}
+                    className="flex-1 py-1.5 text-[10px] font-medium rounded transition-all hover:opacity-90"
+                    style={{ background: O, color: 'white' }}
+                  >
+                    View Details
+                  </button>
+                  <button
+                    onClick={() => handleBuyerMatching(property)}
+                    className="p-1.5 rounded transition-colors"
+                    style={{ background: '#e67e2210', color: '#e67e22' }}
+                    title="Match Buyers"
+                  >
+                    <Users size={12} />
+                  </button>
 
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <User size={12} />
-                          <span>{dash(property.seller?.name)}</span>
-                        </div>
-                      </div>
+                  {/* More Options Dropdown - NO BACKDROP, allows scrolling */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenDropdownId(openDropdownId === property.id ? null : property.id);
+                      }}
+                      className="p-1.5 rounded transition-colors"
+                      style={{ background: '#f1f5f9', color: '#64748b' }}
+                    >
+                      <MoreHorizontal size={12} />
+                    </button>
 
-                      <div className="flex items-center justify-between mb-3">
-                        {getStageBadge(property.stage)}
-                        <div className="flex items-center space-x-1 text-xs text-gray-500">
-                          <Eye size={10} />
-                          <span>{Number(property.visits) || 0} visits</span>
-                        </div>
-                      </div>
-
-                      {/* Grid View में Actions Section - FIXED */}
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleViewProperty(property)}
-                          className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                        >
-                          View Details
-                        </button>
-                        <button
-                          onClick={() => handleBuyerMatching(property)}
-                          className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
-                          title="Match Buyers"
-                        >
-                          <Users size={16} />
-                        </button>
-
-                        {/* FIXED: MoreHorizontal Dropdown */}
-                        <div className="relative">
+                    {openDropdownId === property.id && (
+                      // Dropdown - opens UPWARD, NO backdrop
+<div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[150px]">                        <div className="py-1">
+                          {property.assignedTo ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUnassignExecutive(property.id);
+                                setOpenDropdownId(null);
+                              }}
+                              className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-red-600 hover:bg-red-50 w-full text-left"
+                            >
+                              <UserX size={10} />
+                              <span>Unassign</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAssignExecutive(property);
+                                setOpenDropdownId(null);
+                              }}
+                              className="flex items-center gap-2 px-3 py-1.5 text-[10px] hover:bg-gray-50 w-full text-left"
+                              style={{ color: '#0f2b3d' }}
+                            >
+                              <UserPlus size={10} />
+                              <span>Assign</span>
+                            </button>
+                          )}
+                          {canUpdate && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditProperty(property);
+                                setOpenDropdownId(null);
+                              }}
+                              className="flex items-center gap-2 px-3 py-1.5 text-[10px] hover:bg-gray-50 w-full text-left"
+                              style={{ color: '#0f2b3d' }}
+                            >
+                              <Edit size={10} />
+                              <span>Edit</span>
+                            </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setOpenDropdownId(openDropdownId === property.id ? null : property.id);
+                              handleTogglePublic(property.id);
+                              setOpenDropdownId(null);
                             }}
-                            className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                            className="flex items-center gap-2 px-3 py-1.5 text-[10px] hover:bg-gray-50 w-full text-left"
+                            style={{ color: '#0f2b3d' }}
                           >
-                            <MoreHorizontal size={16} />
+                            <Globe size={10} />
+                            <span>{property.isPublic ? 'Make Private' : 'Make Public'}</span>
                           </button>
-
-                          {openDropdownId === property.id && (
-                            <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
-                              <div className="p-1">
-                                {property.assignedTo ? (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleUnassignExecutive(property.id);
-                                      setOpenDropdownId(null);
-                                    }}
-                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-                                  >
-                                    <UserX size={12} />
-                                    <span>Unassign Executive</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleAssignExecutive(property);
-                                      setOpenDropdownId(null);
-                                    }}
-                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-100 rounded w-full text-left"
-                                  >
-                                    <UserPlus size={12} />
-                                    <span>Assign Executive</span>
-                                  </button>
-                                )}
-                                {/* Edit - Conditional */}
-                                {canUpdate && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEditProperty(property);
-                                      setOpenDropdownId(null);
-                                    }}
-                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-                                  >
-                                    <Edit size={12} />
-                                    <span>Edit</span>
-                                  </button>
-                                )}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleTogglePublic(property.id);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-                                >
-                                  <Globe size={12} />
-                                  <span>{property.isPublic ? 'Make Private' : 'Make Public'}</span>
-                                </button>
-                                {/* Delete - Conditional */}
-                                {canDelete && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteProperty(property.id);
-                                      setOpenDropdownId(null);
-                                    }}
-                                    className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-                                  >
-                                    <Trash2 size={12} />
-                                    <span>Delete</span>
-                                  </button>
-                                )}
-                              </div>
-                            </div>
+                          {canDelete && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteProperty(property.id);
+                                setOpenDropdownId(null);
+                              }}
+                              className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-red-600 hover:bg-red-50 w-full text-left"
+                            >
+                              <Trash2 size={10} />
+                              <span>Delete</span>
+                            </button>
                           )}
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
-          ) : (
-              <div className="bg-white h-full overflow-y-auto">
-              <table className="w-full text-sm">
-                  <thead className="bg-gray-50 sticky top-0 z-20">
-                  <tr>
-                    {/* Selection Checkbox - Conditional */}
-                    {(canUpdate || canDelete || canAssign || canBulkDelete) && (
-                      <th className="px-4 py-3 text-left w-8">
-                        <input
-                          type="checkbox"
-                          checked={selectedProperties.length === paginatedProperties.length && paginatedProperties.length > 0}
-                          onChange={handleSelectAll}
-                          className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                      </th>
-                    )}
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Property Details</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location & Seller</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Specifications</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status & Stage</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
-                    {/* Actions Column - Conditional */}
-                    {(canUpdate || canDelete || canAssign) && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {paginatedProperties.map((p) => (
-                    <tr key={p.id} className="group hover:bg-gray-50 transition-colors">
-                      {/* Selection Checkbox - Conditional */}
-                      {(canUpdate || canDelete || canAssign || canBulkDelete) && (
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedProperties.includes(p.id)}
-                            onChange={() => handlePropertySelection(p.id)}
-                            className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                        </td>
+          ))}
+        </div>
+      </div>
+    ) : (
+      // List View
+      <div className="bg-white h-full overflow-y-auto mx-5">
+        <table className="w-full bg-white text-sm">
+<thead className="bg-gray-50 sticky top-0 z-0">
+    <tr>
+              {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                <th className="px-4 py-3 text-left w-8">
+                  <input
+                    type="checkbox"
+                    checked={selectedProperties.length === paginatedProperties.length && paginatedProperties.length > 0}
+                    onChange={handleSelectAll}
+                    className="h-4 w-4 cursor-pointer rounded border-gray-300 focus:ring-orange-500"
+                    style={{ accentColor: '#e67e22' }}
+                  />
+                </th>
+              )}
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Property Details</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location & Seller</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Specifications</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status & Stage</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
+              {(canUpdate || canDelete || canAssign) && (
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              )}
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-100">
+            {paginatedProperties.map((p) => (
+              <tr key={p.id} className="group hover:bg-gray-50 transition-colors">
+                {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedProperties.includes(p.id)}
+                      onChange={() => handlePropertySelection(p.id)}
+                      className="h-4 w-4 cursor-pointer rounded border-gray-300 focus:ring-orange-500"
+                      style={{ accentColor: '#e67e22' }}
+                    />
+                  </td>
+                )}
+                <td className="px-4 py-3">
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      className="relative"
+                      onClick={() => handleViewProperty(p)}
+                      aria-label="Open property details"
+                    >
+                     <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+  <ImageWithDebug
+    srcCandidate={Array.isArray(p.photos) && p.photos.length > 0 ? p.photos[0] : ''}
+    alt={dash(p.title)}
+    className="w-full h-full object-cover"
+    propertyCtx={{ title: p.title, propertyId: p.propertyId }}
+  />
+</div>
+                    </button>
+                    <div>
+                      <div className="font-semibold text-[11px] truncate" style={{ color: '#0f2b3d' }}>
+  {(p.type && p.type !== ' - ') && <span className="mr-1">{p.type}</span>}
+  {(p.unitType && p.unitType !== ' - ') && <span className="mr-1">{p.unitType}</span>}
+</div>
+<div className="text-[9px] text-gray-400 truncate">{dash(p.propertyId)}</div>
+<div className="text-[10px] font-semibold truncate" style={{ color: '#e67e22' }}>{formatCurrency(p.budget)}</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+        <div className="text-[11px] font-medium truncate" style={{ color: '#0f2b3d' }}>{[p.location, p.city].filter(Boolean).join(', ') || ' - '}</div>
+<div className="text-[9px] text-gray-500 truncate">{dash(p.society)}</div>
+<div className="text-[9px] text-gray-500 truncate">Seller: {dash(p.seller?.name)}</div>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="space-y-0.5 text-[10px] text-gray-600">
+                    <div>{dash(p.unitType)} • {dash(p.carpetArea)} sq ft</div>
+                    <div>Floor {dash(p.floor)} of {dash(p.totalFloors)}</div>
+                    <PropertyTags tags={propTags[String(p.id)] || []} className="mt-1" />
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="space-y-1">
+                    {getStatusBadge(p.status)}
+                    {getStageBadge(p.stage)}
+                    <div className="w-full bg-gray-200 rounded-full h-1">
+                      <div
+                        className="h-1 rounded-full"
+                        style={{ width: `${Number(p.stageProgress) || 0}%`, background: '#e67e22' }}
+                      />
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  {p.assignedTo ? (
+                    <ExecutiveBadge assignedTo={p.assignedTo} />
+                  ) : (
+                    <button
+                      onClick={() => handleAssignExecutive(p)}
+                      className="flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border transition-colors"
+                      style={{ color: '#0f2b3d', borderColor: '#e2e8f0' }}
+                    >
+                      <UserPlus size={10} />
+                      <span>Assign</span>
+                    </button>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="space-y-0.5 text-[10px] text-gray-500">
+                    <div className="flex items-center gap-1"><Eye size={9} />{Number(p.visits) || 0} visits</div>
+                    <div className="flex items-center gap-1"><Users size={9} />{Number(p.interestedBuyers) || 0} buyers</div>
+                  </div>
+                </td>
+                {(canUpdate || canDelete || canAssign) && (
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => handleViewProperty(p)} className="p-1 rounded hover:bg-gray-100"><Eye size={12} style={{ color: '#0f2b3d' }} /></button>
+                      <button onClick={() => handleBuyerMatching(p)} className="p-1 rounded hover:bg-gray-100"><Users size={12} style={{ color: '#e67e22' }} /></button>
+                      {p.assignedTo ? (
+                        <button onClick={() => handleUnassignExecutive(p.id)} className="p-1 rounded hover:bg-red-50"><UserX size={12} style={{ color: '#ef4444' }} /></button>
+                      ) : (
+                        <button onClick={() => handleAssignExecutive(p)} className="p-1 rounded hover:bg-gray-100"><UserPlus size={12} style={{ color: '#0f2b3d' }} /></button>
                       )}
-
-                      <td className="px-4 py-3">
-                        <div className="flex items-center space-x-3">
-                          <button
-                            type="button"
-                            className="relative"
-                            onClick={() => handleViewProperty(p)}
-                            aria-label="Open property details"
-                          >
-                            <ImageWithDebug
-                              srcCandidate={Array.isArray(p.photos) && p.photos.length > 0 ? p.photos[0] : ''}
-                              alt={dash(p.title)}
-                              className="w-12 h-12 rounded-lg transition-transform duration-300 ease-out group-hover:scale-110"
-                              propertyCtx={{ title: p.title, propertyId: p.propertyId }}
-                            />
-                          </button>
-
-                          <div>
-                            <div className="font-bold text-gray-900 text-lg">
-                              {(p.type && p.type !== ' - ') && <span className="mr-2">{p.type}</span>}
-                              {(p.unitType && p.unitType !== ' - ') && <span className="mr-2"> {p.unitType}</span>}
-                              {(p.subtype && p.subtype !== ' - ') && <span className="mr-2"> {p.subtype}</span>}
-                            </div>
-                            <div className="text-xs text-gray-500">{dash(p.propertyId)}</div>
-                            <div className="text-sm font-bold text-green-600">{formatCurrency(p.budget)}</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium">{[p.location, p.city].filter(Boolean).join(', ') || ' - '}</div>
-                          <div className="text-xs text-gray-600">{dash(p.society)}</div>
-                          <div className="text-xs text-gray-600">Seller: {dash(p.seller?.name)}</div>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="space-y-1 text-xs">
-                          <div>{dash(p.unitType)} • {dash(p.carpetArea)} sq ft</div>
-                          <div>{dash(p.floor)} of {dash(p.totalFloors)}</div>
-                          <div>{dash(p.furnishing)}</div>
-                          <div>Parking: {dash(p.parkingQty)} {dash(p.parkingType)}</div>
-                          <PropertyTags tags={propTags[String(p.id)] || []} className="mt-2" />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="space-y-2">
-                          {getStatusBadge(p.status)}
-                          {getStageBadge(p.stage)}
-                          <div className="w-full bg-gray-200 rounded-full h-1">
-                            <div
-                              className="bg-gradient-to-r from-blue-500 to-green-500 h-1 rounded-full"
-                              style={{ width: `${Number(p.stageProgress) || 0}%` } as CSSProperties}
-                            ></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {p.assignedTo ? (
-                          <div className="flex items-center gap-2">
-                            <ExecutiveBadge assignedTo={p.assignedTo} />
-
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleAssignExecutive(p)}
-                            className="flex items-center space-x-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200 transition-colors"
-                          >
-                            <UserPlus size={10} />
-                            <span>Assign</span>
-                          </button>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="space-y-1 text-xs">
-                          <div className="flex items-center space-x-1">
-                            <Eye size={10} className="text-blue-500" />
-                            <span>{Number(p.visits) || 0} visits</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Users size={10} className="text-green-500" />
-                            <span>{Number(p.interestedBuyers) || 0} buyers</span>
-                          </div>
-                          {p.isPublic && (
-                            <div className="flex items-center space-x-1">
-                              <Globe size={10} className="text-purple-500" />
-                              <span>{Number(p.publicViews) || 0} views</span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      {/* List View में Actions Section - FIXED */}
-                      {(canUpdate || canDelete || canAssign) && (
-                        <td className="px-4 py-3">
-                          <div className="flex items-center space-x-1">
-                            <button
-                              onClick={() => handleViewProperty(p)}
-                              className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
-                              title="View Property"
-                            >
-                              <Eye size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleBuyerMatching(p)}
-                              className="p-1.5 text-green-600 hover:bg-green-100 rounded transition-colors"
-                              title="Match Buyers"
-                            >
-                              <Users size={14} />
-                            </button>
-                            {p.assignedTo ? (
-                              <button
-                                onClick={() => handleUnassignExecutive(p.id)}
-                                className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
-                                title="Unassign Executive"
-                              >
-                                <UserX size={14} />
+                      {canUpdate && (
+                        <button onClick={() => handleEditProperty(p)} className="p-1 rounded hover:bg-gray-100"><Edit size={12} style={{ color: '#e67e22' }} /></button>
+                      )}
+                      <div className="relative">
+                        <button onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }} className="p-1 rounded hover:bg-gray-100"><MoreHorizontal size={12} style={{ color: '#64748b' }} /></button>
+                      {openDropdownId === p.id && (
+  // Change THIS line
+  <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[140px]">
+                            <div className="py-1">
+                              <button onClick={() => { handleTogglePublic(p.id); setOpenDropdownId(null); }} className="flex items-center gap-2 px-3 py-1.5 text-[10px] hover:bg-gray-50 w-full text-left" style={{ color: '#0f2b3d' }}>
+                                <Globe size={10} />
+                                <span>{p.isPublic ? 'Make Private' : 'Make Public'}</span>
                               </button>
-                            ) : (
-                              <button
-                                onClick={() => handleAssignExecutive(p)}
-                                className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded transition-colors"
-                                title="Assign Executive"
-                              >
-                                <UserPlus size={14} />
-                              </button>
-                            )}
-                            {canUpdate && (
-                              <button
-                                onClick={() => handleEditProperty(p)}
-                                className="p-1.5 text-orange-600 hover:bg-orange-100 rounded transition-colors"
-                                title="Edit"
-                              >
-                                <Edit size={14} />
-                              </button>
-                            )}
-
-                            {/* FIXED: List View MoreHorizontal Dropdown */}
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenDropdownId(openDropdownId === p.id ? null : p.id);
-                                }}
-                                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                              >
-                                <MoreHorizontal size={14} />
-                              </button>
-
-                              {openDropdownId === p.id && (
-                                <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
-                                  <div className="p-1">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleTogglePublic(p.id);
-                                        setOpenDropdownId(null);
-                                      }}
-                                      className="flex items-center space-x-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full text-left"
-                                    >
-                                      <Globe size={12} />
-                                      <span>{p.isPublic ? 'Make Private' : 'Make Public'}</span>
-                                    </button>
-                                    {canDelete && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteProperty(p.id);
-                                          setOpenDropdownId(null);
-                                        }}
-                                        className="flex items-center space-x-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full text-left"
-                                      >
-                                        <Trash2 size={12} />
-                                        <span>Delete</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
+                              {canDelete && (
+                                <button onClick={() => { handleDeleteProperty(p.id); setOpenDropdownId(null); }} className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-red-600 hover:bg-red-50 w-full text-left">
+                                  <Trash2 size={10} />
+                                  <span>Delete</span>
+                                </button>
                               )}
                             </div>
                           </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+)}
 
       {/* Pagination */}
-      {!loading && !error && filteredProperties.length > 0 && (
-        <div className="bg-white border-t border-gray-200 px-4 lg:px-6 py-3 sticky bottom-0">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="text-sm text-gray-700">
-              Showing {filteredProperties.length ? startIndex + 1 : 0}-{Math.min(startIndex + itemsPerPage, filteredProperties.length)} of {filteredProperties.length}
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="p-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <div className="flex items-center space-x-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const page = i + 1;
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-2 py-1 rounded text-xs ${currentPage === page
-                        ? 'bg-blue-600 text-white'
-                        : 'border border-gray-300 hover:bg-gray-50'
-                        }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="p-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+     {!loading && !error && filteredProperties.length > 0 && (
+  <div className="bg-white border-t border-gray-200 px-2 sm:px-4 lg:px-6 py-2 sticky bottom-0 mx-4 rounded-md ">
+    
+    <div className="flex items-center justify-between gap-2">
+      
+      {/* Left Text */}
+      <div className="text-[11px] sm:text-sm text-gray-700 whitespace-nowrap">
+        Showing {filteredProperties.length ? startIndex + 1 : 0}-
+        {Math.min(startIndex + itemsPerPage, filteredProperties.length)} of {filteredProperties.length}
+      </div>
+
+      {/* Right Pagination */}
+      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+        
+        {/* Prev */}
+        <button
+          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="p-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
+        >
+          <ChevronLeft size={12} />
+        </button>
+
+        {/* Pages */}
+        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+          const page = i + 1;
+          return (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap ${
+                currentPage === page
+                  ? 'bg-blue-600 text-white'
+                  : 'border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {page}
+            </button>
+          );
+        })}
+
+        {/* Next */}
+        <button
+          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+          disabled={currentPage === totalPages}
+          className="p-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
+        >
+          <ChevronRight size={12} />
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Loading indicator for bulk operations */}
       {bulkLoading && (
@@ -3024,6 +3110,7 @@ const PropertiesPage = () => {
         />
       )}
     </div>
+    </>
   );
 };
 

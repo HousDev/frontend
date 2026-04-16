@@ -239,6 +239,8 @@ const DashboardLayout = () => {
     });
   }, []);
 
+  
+
   useEffect(() => {
     const currentPath = location.pathname;
     const menuMappings: Record<string, string[]> = {
@@ -607,6 +609,95 @@ const DashboardLayout = () => {
 
     return withPermissions;
   }, [hasRole, navTextClass, userCan]);
+
+
+  const moduleConfigs: Record<string, { title: string; subtitle: string }> = {
+    // Overview
+    "Overview": { title: "Dashboard Overview", subtitle: "Key metrics and performance indicators" },
+    
+    // CMS Module
+    "Home Manager": { title: "Home Page Management", subtitle: "Manage hero sections and banners" },
+    "Blog Manager": { title: "Blog Management", subtitle: "Create, edit and manage blog posts" },
+    "CMS": { title: "Content Management", subtitle: "Manage your website content" },
+    
+    // CRM Module
+    "Leads": { title: "Lead Management", subtitle: "Track and manage potential clients" },
+    "Buyers": { title: "Buyer Management", subtitle: "Manage buyer profiles and requirements" },
+    "Sellers": { title: "Seller Management", subtitle: "Manage seller profiles and properties" },
+    "Properties": { title: "Property Management", subtitle: "Manage all property listings" },
+    "Contact Messages": { title: "Contact Messages", subtitle: "View and respond to inquiries" },
+    "CRM": { title: "Customer Relationship Management", subtitle: "Manage clients and properties" },
+    
+    // Administrator Module
+    "Document Center": { title: "Document Center", subtitle: "Manage and organize documents" },
+    "Template Center": { title: "Template Center", subtitle: "Manage email and document templates" },
+    "Accounts": { title: "Accounts Management", subtitle: "Track payments and invoices" },
+    "Administrator": { title: "Administrator Panel", subtitle: "System administration tools" },
+    
+    // Communication
+    "Communication": { title: "Communication Center", subtitle: "Manage messages and communications" },
+    
+    // Tools Module
+    "Vendors": { title: "Vendor Management", subtitle: "Manage vendor partnerships" },
+    "AI Training": { title: "AI Training Center", subtitle: "Configure and train AI models" },
+    "Tools": { title: "Tools & Utilities", subtitle: "Additional tools and features" },
+    
+    // Reports Module
+    "Activities": { title: "Activity Reports", subtitle: "Track user activities and logs" },
+    "Analytics": { title: "Analytics Dashboard", subtitle: "View insights and analytics" },
+    "Reports": { title: "Reports Center", subtitle: "Generate and view reports" },
+    
+    // Settings Module
+    "General Settings": { title: "General Settings", subtitle: "Configure system preferences" },
+    "Roles & Permissions": { title: "Roles & Permissions", subtitle: "Manage user roles and access" },
+    "Integrations": { title: "Integrations", subtitle: "Connect third-party services" },
+    "AI Settings": { title: "AI Configuration", subtitle: "Configure AI features" },
+    "Master Data": { title: "Master Data Management", subtitle: "Manage master data entries" },
+    "Variable Center": { title: "Variable Center", subtitle: "Manage system variables" },
+    "Import/Export": { title: "Import/Export Data", subtitle: "Bulk data operations" },
+    "Settings": { title: "System Settings", subtitle: "Configure application settings" },
+    
+    // Users
+    "Users": { title: "User Management", subtitle: "Manage system users" },
+    
+    // Admin/Manager/Agent Dashboards
+    "Admin Dashboard": { title: "Admin Dashboard", subtitle: "System administration overview" },
+    "Manager Dashboard": { title: "Manager Dashboard", subtitle: "Team performance overview" },
+    "Agent Dashboard": { title: "Agent Dashboard", subtitle: "Your performance metrics" },
+  };
+
+  // Helper function to get current module info
+const getCurrentModuleInfo = useCallback((pathname: string) => {
+  for (const item of navigationStructure) {
+    if (item.type === "single") {
+      // FIXED: use exact match for exact routes
+      const matches = item.exact 
+        ? pathname === item.href 
+        : pathname.startsWith(item.href);
+      
+      if (matches) {
+        const config = moduleConfigs[item.name];
+        return {
+          title: config?.title || item.name,
+          subtitle: config?.subtitle || "Manage and configure settings",
+        };
+      }
+    }
+    if (item.type === "dropdown") {
+      for (const sub of item.submenu) {
+        if (pathname.startsWith(sub.href)) {
+          const config = moduleConfigs[sub.name];
+          return {
+            title: config?.title || sub.name,
+            subtitle: config?.subtitle || "Manage and configure settings",
+            parent: item.name,
+          };
+        }
+      }
+    }
+  }
+  return null;
+}, [navigationStructure]);
 
   const filteredNavigation = useMemo(() => {
     if (!searchQuery.trim()) return navigationStructure;
@@ -1228,28 +1319,78 @@ const DashboardLayout = () => {
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Modern header */}
         <header className="bg-white shadow-md border-b border-slate-200">
-          <div className="flex items-center justify-between h-14 px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14 px-4 sm:px-6 lg:px-4">
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="lg:hidden p-1.5 rounded-lg text-slate-600 hover:text-orange-600 hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all"
-                onClick={openSidebar}
-                aria-label="Open sidebar"
-              >
-                <Menu className="h-4 w-4" />
-              </button>
+  <button
+    type="button"
+    className="lg:hidden p-1.5 rounded-lg text-slate-600 hover:text-orange-600 hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+    onClick={openSidebar}
+    aria-label="Open sidebar"
+  >
+    <Menu className="h-4 w-4" />
+  </button>
 
-              <Link
-                to="/home"
-                title="Go back to website"
-                className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#1a2a6c] to-[#2a3a7c] text-white font-medium text-xs hover:shadow-lg hover:shadow-[#1a2a6c]/20 transition-all"
-              >
-                <FaEarthAsia className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Website</span>
-              </Link>
-            </div>
+ 
+
+  {/* Dynamic Module Header - Shows current module in header */}
+   {/* Dynamic Module Header - Shows current module title and subtitle */}
+ {(() => {
+  const moduleInfo = getCurrentModuleInfo(location.pathname);
+  if (!moduleInfo) return null;
+  
+  return (
+    <>
+      {/* Mobile View - Compact with title and subtitle */}
+      <div className="flex md:hidden flex-col -ml-2 max-w-[180px]">
+        <div className="flex items-center gap-1">
+          {/* {moduleInfo.parent && (
+            <span className="text-[9px] font-medium" style={{ color: '#e67e22' }}>
+              {moduleInfo.parent}
+            </span>
+          )} */}
+          {/* {moduleInfo.parent && (
+            <ChevronRight className="h-2.5 w-2.5" style={{ color: '#cbd5e1' }} />
+          )} */}
+          <h2 className="text-[11px] font-semibold truncate" style={{ color: '#e67e22' }}>
+            {moduleInfo.title}
+          </h2>
+        </div>
+        <p className="text-[9px] truncate" style={{ color: '#5a7184' }}>
+          {moduleInfo.subtitle}
+        </p>
+      </div>
+      
+      {/* Desktop View - Full with parent and subtitle */}
+      <div className="hidden md:flex flex-col ">
+        <div className="flex items-center gap-2">
+          {moduleInfo.parent && (
+            <>
+              <span className="text-xs text-[#e67e22]">{moduleInfo.parent}</span>
+              <ChevronRight className="h-3 w-3 text-slate-300" />
+            </>
+          )}
+          <h2 className="text-sm font-bold text-slate-800">
+            {moduleInfo.title}
+          </h2>
+        </div>
+        <p className="text-xs text-slate-500 mt-0.5">
+          {moduleInfo.subtitle}
+        </p>
+      </div>
+    </>
+  );
+})()}
+</div>
 
             <div className="flex items-center space-x-2 sm:space-x-3">
+               <Link
+    to="/home"
+    title="Go back to website"
+    className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#1a2a6c] to-[#2a3a7c] text-white font-medium text-xs hover:shadow-lg hover:shadow-[#1a2a6c]/20 transition-all"
+  >
+    <FaEarthAsia className="h-3.5 w-3.5" />
+    <span className="hidden sm:inline"> Visit Website</span>
+  </Link>
               {/* Desktop timer buttons - compact */}
               <div className="hidden lg:flex items-center space-x-1.5">
                 <button

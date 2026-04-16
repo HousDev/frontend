@@ -74,7 +74,8 @@ import ContactPageCMS from './pages/dashboard/ContactPageCMS';
 import FooterPagesCMS from './pages/dashboard/FooterPagesCMS';
 import ServicesPageCMS from './pages/dashboard/ServicesPageCMS';
 import SellPropertyPage from '@/pages/public/SellPropertyPage';
-
+import PrivacyPolicyPage from '@/pages/public/PrivacyPolicyPage';
+import TermsConditionsPage from '@/pages/public/TermsConditionsPage';
 // 🎯 Buyer Portal Components
 import StandaloneBuyerAccountPage from './components/buyers/StandaloneBuyerAccountPage';
 import StandaloneSellerAccountPage from './components/sellers/StandaloneSellerAccountPage';
@@ -148,7 +149,10 @@ function App() {
                     <Route path="/blogs/:slug" element={<BlogsPage />} />
                     <Route path="services" element={<ServicesPage />} />
                     <Route path="contact" element={<ContactUsPage />} />
+                    
                   </Route>
+                  <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
+  <Route path="terms-conditions" element={<TermsConditionsPage />} />
 
                   {/* Auth Routes */}
                   <Route
