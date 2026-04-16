@@ -806,3 +806,5 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
 };
 
 export default BuyerMatchingModal;
+
+

@@ -1221,3 +1221,5 @@ const PropertyStatusUpdateModal: React.FC<Props> = ({ isOpen, onClose, property,
 };
 
 export default PropertyStatusUpdateModal;
+
+
