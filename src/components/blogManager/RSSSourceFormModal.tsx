@@ -690,7 +690,7 @@ interface RSSSourceFormModalProps {
     onAddPredefined: (item: PredefinedItem) => void | Promise<void>;
 }
 
-const scrollbarStyles: React.CSSProperties = {
+const scrollbarStyles:any = {
   scrollbarWidth: 'thin',
   scrollbarColor: `${BD} ${BG}`,
   WebkitOverflowScrolling: 'touch',

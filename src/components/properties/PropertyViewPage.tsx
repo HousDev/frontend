@@ -1,4 +1,4 @@
-// import React, { useState, useEffect, useRef, CSSProperties } from 'react';
+// import React, { useState, useEffect, useRef } from 'react';
 // import type { LucideProps } from "lucide-react";
 // type IconComponent = React.ComponentType<Partial<LucideProps>>;
 // type Meta = {
@@ -1935,7 +1935,7 @@
 
 // export default PropertyViewPage;
 
-import React, { useState, useEffect, useRef, CSSProperties } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { LucideProps } from "lucide-react";
 type IconComponent = React.ComponentType<Partial<LucideProps>>;
 type Meta = {
@@ -3174,9 +3174,9 @@ const OverviewTab = ({ property, onUpdate }: any) => {
   <div className="relative">
     <Swiper
       modules={[Navigation]}
-      onBeforeInit={(swiper) => {
-        (swiper.params.navigation as any).prevEl = prevRef.current;
-        (swiper.params.navigation as any).nextEl = nextRef.current;
+      onBeforeInit={(swiper:any) => {
+        swiper.params.navigation.prevEl = prevRef.current;
+        swiper.params.navigation.nextEl = nextRef.current;
       }}
       navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
       className="mySwiper w-full"

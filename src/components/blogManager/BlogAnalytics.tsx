@@ -391,7 +391,7 @@ const BlogAnalytics: React.FC<BlogAnalyticsProps> = ({ posts }) => {
 };
 
 // Scrollbar styles
-const scrollbarStyles: React.CSSProperties = {
+const scrollbarStyles: any= {
   scrollbarWidth: 'thin',
   scrollbarColor: `${BD} ${BG}`,
   WebkitOverflowScrolling: 'touch',

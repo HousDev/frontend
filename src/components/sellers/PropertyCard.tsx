@@ -1,5 +1,5 @@
 // src/components/sellers/PropertyCard.tsx
-import React, { CSSProperties, useEffect, useMemo, useState } from "react";
+import React, {  useEffect, useMemo, useState } from "react";
 import {
   MapPin,
   Eye,
@@ -690,7 +690,7 @@ const PropertyCard: React.FC<{ property: any }> = ({ property }) => {
                 className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-500"
                 style={{
                   width: `${Math.max(0, Math.min(100, Number(property?.stageProgress ?? 0)))}%`,
-                } as CSSProperties}
+                } as any}
               />
             </div>
           </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, CSSProperties } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Home, Plus, Search, Filter, Eye, Edit, Trash2, Download, Upload,
   Grid, List, MapPin, Building, Users, MoreHorizontal, X,

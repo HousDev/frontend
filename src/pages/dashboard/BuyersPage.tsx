@@ -2094,7 +2094,7 @@ const BuyersPage = () => {
                           <div className="w-full bg-gray-200 rounded-full h-1.5">
                             <div
                               className="bg-gradient-to-r from-purple-500 to-pink-500 h-1.5 rounded-full transition-all"
-                              style={{ width: `${buyer.stageProgress || 0}%` } as React.CSSProperties}
+                              style={{ width: `${buyer.stageProgress || 0}%` } as any}
                             />
                           </div>
                           <div className="text-xs text-gray-500">

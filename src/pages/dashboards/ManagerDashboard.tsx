@@ -1,5 +1,5 @@
 // // src/pages/dashboard/ManagerDashboard.tsx
-// import React, { CSSProperties, useEffect, useState } from "react";
+// import React, {  useEffect, useState } from "react";
 // import { Link } from "react-router-dom";
 // import {
 //   Users,
@@ -372,7 +372,7 @@
 //                     stats?.monthly_targets?.leads_achieved ?? 0,
 //                     stats?.monthly_targets?.leads_target ?? 1
 //                   )}%`,
-//                 } as CSSProperties}
+//                 } as any}
 //               />
 //             </div>
 //             <p className="text-xs text-gray-500 mt-1">
@@ -512,7 +512,7 @@
 
 
 // src/pages/dashboard/ManagerDashboard.tsx
-import React, { CSSProperties, useEffect, useState } from "react";
+import React, {  useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Users, Building, Target, TrendingUp, Calendar, Award, ArrowRight,

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback, CSSProperties } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Search,
   Filter,
@@ -829,7 +829,7 @@ const checkDigioStatusAndOpenModal = async (doc: Document) => {
     const color = stageColors[key] || 'bg-gray-400';
     return (
       <div className="w-full bg-gray-200 rounded-full h-2">
-        <div className={`${color} h-2 rounded-full transition-all duration-500`} style={{ width: `${progress}%` } as CSSProperties} />
+        <div className={`${color} h-2 rounded-full transition-all duration-500`} style={{ width: `${progress}%` } as any} />
       </div>
 
     );
