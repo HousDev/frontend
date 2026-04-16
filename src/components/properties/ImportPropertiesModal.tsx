@@ -1,5 +1,5 @@
 // src/components/properties/ImportPropertiesModal.tsx
-import React, { CSSProperties, useMemo, useRef, useState } from "react";
+import React, {  useMemo, useRef, useState } from "react";
 import { X, Upload, Download, AlertCircle, Home, Play, Pause, RotateCw, CheckCircle } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
@@ -959,7 +959,7 @@ const ImportPropertiesModal = ({
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-green-600 h-2 rounded-full transition-all"
-                  style={{ width: progress.total ? `${(progress.done / progress.total) * 100}%` : "0%" } as CSSProperties}
+                  style={{ width: progress.total ? `${(progress.done / progress.total) * 100}%` : "0%" } as any}
                 />
               </div>
               <div className="mt-2 text-xs text-gray-600">

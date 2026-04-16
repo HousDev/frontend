@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   X, ShieldCheck, RefreshCw, FileText, Plus, Trash2, Copy as CopyIcon, Upload, MapPin, Download
 } from "lucide-react";
@@ -834,7 +834,7 @@ export default function EsignAadhaarModal({
                       />
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-2">
-                          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: c } as CSSProperties} />
+                          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: c } as any} />
                           <span className="text-sm font-medium">{displayRole}</span>
                         </div>
 
@@ -1132,7 +1132,7 @@ function Overlay({
     return () => ro.disconnect();
   }, [page, onOverlaySize]);
 
-  const overlayStyle: CSSProperties = {
+  const overlayStyle: any = {
     zIndex: 20,
     pointerEvents: "auto",
     cursor: isMarkingMode ? "crosshair" : "default",
@@ -1152,7 +1152,7 @@ function Overlay({
           const signer = signers.find(s => s.id === sid);
           const displayRole = signer?.customRole || signer?.role || "Signer";
 
-          const boxStyle: CSSProperties = {
+          const boxStyle: any = {
             left: m.x,
             top: m.y,
             width: m.width,
@@ -1164,7 +1164,7 @@ function Overlay({
             position: "absolute",
             borderStyle: "solid",
             borderWidth: 2,
-          } as CSSProperties;
+          } as any;
 
           return (
             <div
@@ -1173,7 +1173,7 @@ function Overlay({
               style={boxStyle}
             >
               {/* label */}
-              <div className="text-xs font-bold px-1 absolute -top-5 left-0 whitespace-nowrap" style={{ color: c } as CSSProperties}>
+              <div className="text-xs font-bold px-1 absolute -top-5 left-0 whitespace-nowrap" style={{ color: c } as any}>
                 {displayRole}
               </div>
 
@@ -1199,13 +1199,13 @@ function Overlay({
                       ...(corner === "bottom-left" && { top: "auto", bottom: "-0.25rem", left: "-0.25rem" }),
                       ...(corner === "bottom-right" && { top: "auto", left: "auto", bottom: "-0.25rem", right: "-0.25rem" }),
                       cursor: corner === "top-left" || corner === "bottom-right" ? "nwse-resize" : "nesw-resize",
-                    } as CSSProperties)
+                    } as any)
                   }
                 />
               ))}
 
               {/* center text */}
-              <div className="w-full h-full flex items-center justify-center text-[12px] font-medium" style={{ color: "#1f2937" } as CSSProperties}>
+              <div className="w-full h-full flex items-center justify-center text-[12px] font-medium" style={{ color: "#1f2937" } as any}>
                 {signer?.name || displayRole}
               </div>
             </div>
@@ -1221,7 +1221,7 @@ function Overlay({
               top: dragRect.y,
               width: dragRect.width,
               height: dragRect.height,
-            } as CSSProperties
+            } as any
           }
         />
       )}

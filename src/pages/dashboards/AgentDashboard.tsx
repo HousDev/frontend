@@ -1,5 +1,5 @@
 // // src/pages/dashboard/AgentDashboard.tsx
-// import React, { CSSProperties, useEffect, useState } from "react";
+// import React, {  useEffect, useState } from "react";
 // import { Link } from "react-router-dom";
 // import {
 //   Users,
@@ -433,7 +433,7 @@
 //                     stats?.monthly_targets?.leads_achieved ?? 0,
 //                     stats?.monthly_targets?.leads_target ?? 1
 //                   )}%`,
-//                 } as CSSProperties}
+//                 } as any}
 //               />
 //             </div>
 //           </div>
@@ -454,7 +454,7 @@
 //                     stats?.monthly_targets?.sales_achieved ?? 0,
 //                     stats?.monthly_targets?.sales_target ?? 1
 //                   )}%`,
-//                 } as CSSProperties}
+//                 } as any}
 //               />
 //             </div>
 //           </div>
@@ -638,7 +638,7 @@
 
 
 // src/pages/dashboard/AgentDashboard.tsx
-import React, { CSSProperties, useEffect, useState } from "react";
+import React, {  useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Users,

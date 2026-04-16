@@ -1,4 +1,4 @@
-import React, { CSSProperties, useState } from 'react';
+import React, {  useState } from 'react';
 import { Activity, CheckCircle, RefreshCw } from 'lucide-react';
 
 interface Stage {
@@ -129,7 +129,7 @@ const StagesTab: React.FC<StagesTabProps> = ({
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div
                   className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-500"
-                  style={{ width: `${currentStage.progress}%` } as CSSProperties}
+                  style={{ width: `${currentStage.progress}%` } as any}
                 />
               </div>
             </div>

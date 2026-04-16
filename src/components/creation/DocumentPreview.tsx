@@ -1,5 +1,5 @@
 // DocumentPreview.tsx
-import React, { useMemo, useRef, useState, useEffect, CSSProperties } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import DOMPurify from "dompurify";
 import { Eye, Download, Maximize2, Minimize2, Code, Printer } from "lucide-react";
 import { documentsGeneratedAPI } from "@/lib/documentsGeneratedAPI";
@@ -248,7 +248,7 @@ export default function DocumentPreview({
           <iframe
             ref={iframeRef}
             title={template?.name ?? "Document Preview"}
-            style={{ width: "100%", height: iframeHeight, border: "0", background: "#eee" } as CSSProperties}
+            style={{ width: "100%", height: iframeHeight, border: "0", background: "#eee" } as any}
             srcDoc={fullDoc}
           />
         </div>

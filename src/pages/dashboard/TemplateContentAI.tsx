@@ -31,7 +31,7 @@ export default function TemplateContentAI<T extends WithContent>({ formData, set
     const panelRef = useRef<HTMLDivElement | null>(null);
 
     // panel positioning state (for non-small screens)
-    const [panelStyle, setPanelStyle] = useState<React.CSSProperties | null>(null);
+    const [panelStyle, setPanelStyle] = useState<any>(null);
     const [isSmallScreen, setIsSmallScreen] = useState<boolean>(typeof window !== "undefined" ? window.innerWidth < 640 : false);
 
     // Keep localContent in sync when parent updates (e.g. initial edit load)

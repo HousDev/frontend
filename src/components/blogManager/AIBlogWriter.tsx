@@ -2287,7 +2287,7 @@ const sanitizeLTR = (html: string) =>
     .replace(/direction\s*:\s*rtl\s*;?/gi, 'direction:ltr;')
     .replace(/unicode-bidi\s*:\s*(?:bidi-override|plaintext|isolate-override)\s*;?/gi, 'unicode-bidi:isolate;');
 
-const scrollbarStyles: React.CSSProperties = {
+const scrollbarStyles: any = {
   scrollbarWidth: 'thin',
   scrollbarColor: `${BD} ${BG}`,
   WebkitOverflowScrolling: 'touch',

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { X, RefreshCw, FileText, Copy as CopyIcon, Download, Plus, MapPin, Trash2, CheckCircle } from "lucide-react";
 import { Document as PdfDocument, Page as PdfPage, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -570,7 +570,7 @@ function PageOverlay({
     return () => ro.disconnect();
   }, [page, onOverlaySize]);
 
-  const overlayStyle: CSSProperties = { position: "absolute", inset: 0, zIndex: 20, cursor: "default" };
+  const overlayStyle: any = { position: "absolute", inset: 0, zIndex: 20, cursor: "default" };
 
   return (
     <div
@@ -584,7 +584,7 @@ function PageOverlay({
         <div
           key={t.id}
           className="absolute group"
-          style={{ left: t.x, top: t.y, width: t.size, height: t.size, pointerEvents: "auto" } as CSSProperties}
+          style={{ left: t.x, top: t.y, width: t.size, height: t.size, pointerEvents: "auto" } as any}
         >
           {/* tick svg */}
           <div className="w-full h-full flex items-center justify-center">

@@ -140,7 +140,7 @@ const MultiSelectDropdown: React.FC<{
   const isModalPortal = typeof document !== 'undefined' && !!document.getElementById('modal-portal');
   const Z = isModalPortal ? 1050 : 9999999;
 
-  const popupStyle: React.CSSProperties = rect
+  const popupStyle: any = rect
     ? { position: 'fixed', zIndex: Z, top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, minWidth: rect.width, maxHeight: '40vh', overflow: 'hidden', pointerEvents: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.10)' }
     : { position: 'fixed', zIndex: Z, top: 0, left: 0, minWidth: 200, pointerEvents: 'auto' };
 
