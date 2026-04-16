@@ -643,7 +643,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
     {/* Recent Posts Section */}
     <div className="bg-white rounded-xl shadow-sm p-3 sm:p-4" style={{ border: `1px solid ${BD}` }}>
       <h3 className="text-xs sm:text-sm font-bold mb-2 sm:mb-3" style={{ color: N }}>Recent Posts</h3>
-      <div className="space-y-2 max-h-36 md:max-h-44  overflow-y-auto" style={scrollbarStyles}>
+      <div className="space-y-2 max-h-52 md:max-h-96 overflow-y-auto" style={scrollbarStyles}>
         {postsArray.slice(0, 5).map((post) => (
           <div key={post.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-all" style={{ border: `1px solid ${BD}` }}>
             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -838,7 +838,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
           </div>
 
 <div
-  className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-450px)] sm:max-h-[calc(100vh-450px)]"
+  className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-420px)] sm:max-h-[calc(100vh-360px)]"
   style={{ ...scrollbarStyles }}
 >
               <table className="w-full text-sm">
@@ -1023,7 +1023,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
   </div>
 </div>
           
-          <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 450px)', overflowY: 'auto', ...scrollbarStyles }}>
+          <div className="overflow-x-auto  max-h-[calc(100vh-420px)] sm:max-h-[calc(100vh-360px)]" style={{ overflowY: 'auto', ...scrollbarStyles }}>
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white z-10">
                 <tr className="border-b" style={{ borderColor: BD }}>
@@ -1148,13 +1148,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
    
     <div className="" style={{ background: BG }}>
       <div className="max-w-9xl mx-auto px-3 sm:px-2 lg:px-3 py-2 sm:py-2">
-        <div className="mb-2 sm:mb-6">
-          <div className="flex items-center gap-2 mb-1 sticky top-0 z-10">
-            <div className="w-6 h-6 rounded-lg flex items-center justify-center " style={{ background: N }}><Layout size={14} style={{ color: O }} /></div>
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: N }}>Blog Management</h1>
-          </div>
-          <p className="text-xs sm:text-sm" style={{ color: MU }}>Manage content with AI-powered tools</p>
-        </div>
+        
 
         {/* Compact Tabs */}
  {/* Compact Tabs with Custom Scrollbar */}
