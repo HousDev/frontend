@@ -4265,7 +4265,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
         payload.append('seller_id', String(sellerId)); 
         payload.append('seller_name', sellerName || formData.ownerName);
       }
-      
+payload.append('leadSource', 'seller_portal');      
       try {
         result = await propertiesAPI.createProperty(payload);
         if (sellerId) result = { ...result, seller_id: sellerId, seller_name: sellerName || formData.ownerName };

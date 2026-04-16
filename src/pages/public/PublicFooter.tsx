@@ -288,8 +288,8 @@ import { Link, useLocation, matchPath, useNavigate } from 'react-router-dom';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import AIChatbot from '@/components/ai/AIChatbot';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
-import PrivacyPolicyModal from './PrivacyPolicyModal';
-import TermsConditionsModal from './TermsConditionsModal';
+// import PrivacyPolicyModal from './PrivacyPolicyModal';
+// import TermsConditionsModal from './TermsConditionsModal';
 
 const PublicFooter = ({ onPageChange }: any) => {
   const location = useLocation();
@@ -302,8 +302,8 @@ const PublicFooter = ({ onPageChange }: any) => {
   const currentYear = new Date().getFullYear();
   const [masterLoading, setMasterLoading] = useState(true);
 
-  const [showPrivacy, setShowPrivacy] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
+  // const [showPrivacy, setShowPrivacy] = useState(false);
+  // const [showTerms, setShowTerms] = useState(false);
 
   // ✅ Direct routes for navigation
   const quickLinks = [
@@ -396,45 +396,41 @@ const PublicFooter = ({ onPageChange }: any) => {
           </div>
 
           {/* Quick Links */}
-          <div>
-            <h4 className="text-lg font-semibold mb-6">Quick Links</h4>
-            <ul className="space-y-3">
-              {quickLinks.map((link) => (
-                <li key={link.id}>
-                  <Link
-                    to={link.to}
-                    className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
-                    onClick={() => {
-                      // optional backward-compat:
-                      // onPageChange?.(link.id);
-                    }}
-                  >
-                    <span className="w-1 h-1 bg-blue-500 rounded-full" />
-                    <span>{link.label}</span>
-                  </Link>
-                </li>
-              ))}
-              <li>
-                <button
-                  onClick={() => setShowPrivacy(true)}
-                  className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
-                >
-                  <span className="w-1 h-1 bg-blue-500 rounded-full" />
-                  <span>Privacy Policy</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setShowTerms(true)}
-                  className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
-                >
-                  <span className="w-1 h-1 bg-blue-500 rounded-full" />
-                  <span>Terms & Conditions</span>
-                </button>
-              </li>
-
-            </ul>
-          </div>
+        {/* Quick Links - Update this section */}
+<div>
+  <h4 className="text-lg font-semibold mb-6">Quick Links</h4>
+  <ul className="space-y-3">
+    {quickLinks.map((link) => (
+      <li key={link.id}>
+        <Link
+          to={link.to}
+          className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+        >
+          <span className="w-1 h-1 bg-blue-500 rounded-full" />
+          <span>{link.label}</span>
+        </Link>
+      </li>
+    ))}
+    <li>
+      <Link
+        to="/privacy-policy"
+        className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+      >
+        <span className="w-1 h-1 bg-blue-500 rounded-full" />
+        <span>Privacy Policy</span>
+      </Link>
+    </li>
+    <li>
+      <Link
+        to="/terms-conditions"
+        className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+      >
+        <span className="w-1 h-1 bg-blue-500 rounded-full" />
+        <span>Terms & Conditions</span>
+      </Link>
+    </li>
+  </ul>
+</div>
 
           {/* Services */}
           <div>
@@ -551,8 +547,8 @@ const PublicFooter = ({ onPageChange }: any) => {
       </div>
 
       {/* Add these modals near end of component JSX */}
-              <PrivacyPolicyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
-              <TermsConditionsModal open={showTerms} onClose={() => setShowTerms(false)} />
+              {/* <PrivacyPolicyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
+              <TermsConditionsModal open={showTerms} onClose={() => setShowTerms(false)} /> */}
       {/* AI Chatbot */}
       <AIChatbot isPropertyDetail={isPropertyDetail} />
     </footer>

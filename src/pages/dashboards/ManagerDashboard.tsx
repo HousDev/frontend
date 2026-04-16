@@ -646,16 +646,9 @@ const ManagerDashboard: React.FC = () => {
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: ORANGE }}>
-              <Users className="h-4 w-4" style={{ color: "white" }} />
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: NAVY }}>Manager Dashboard</h1>
-          </div>
-          <p className="text-sm" style={{ color: "#7a95a8" }}>Team performance and management overview</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+        
+         
+        <div className="flex flex-wrap gap-2 ml-auto">
           <Link to="/dashboard/users">
             <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
               style={{ background: ORANGE }}>
