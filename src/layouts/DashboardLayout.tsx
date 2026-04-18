@@ -1327,7 +1327,7 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
     onClick={openSidebar}
     aria-label="Open sidebar"
   >
-    <Menu className="h-4 w-4" />
+    <Menu className="h-6 w-6" />
   </button>
 
  
@@ -1341,24 +1341,20 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
   return (
     <>
       {/* Mobile View - Compact with title and subtitle */}
-      <div className="flex md:hidden flex-col -ml-2 max-w-[180px]">
-        <div className="flex items-center gap-1">
-          {/* {moduleInfo.parent && (
-            <span className="text-[9px] font-medium" style={{ color: '#e67e22' }}>
-              {moduleInfo.parent}
-            </span>
-          )} */}
-          {/* {moduleInfo.parent && (
-            <ChevronRight className="h-2.5 w-2.5" style={{ color: '#cbd5e1' }} />
-          )} */}
-          <h2 className="text-[11px] font-semibold truncate" style={{ color: '#e67e22' }}>
-            {moduleInfo.title}
-          </h2>
-        </div>
-        <p className="text-[9px] truncate" style={{ color: '#5a7184' }}>
-          {moduleInfo.subtitle}
-        </p>
-      </div>
+     <div className="flex md:hidden flex-col -ml-2 max-w-[180px]">
+  <div className="flex items-center gap-1">
+    <h2 className="text-[11px] font-semibold truncate" style={{ color: '#e67e22' }}>
+      {moduleInfo.title}
+    </h2>
+  </div>
+
+  <p
+    className="text-[9px] line-clamp-2 leading-tight"
+    style={{ color: '#5a7184' }}
+  >
+    {moduleInfo.subtitle}
+  </p>
+</div>
       
       {/* Desktop View - Full with parent and subtitle */}
       <div className="hidden md:flex flex-col ">

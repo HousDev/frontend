@@ -425,6 +425,8 @@
 
 // export default PropertyNegotiationModal;
 
+
+
 import React, { useState } from 'react';
 import { X, Save, Target, DollarSign, User, Calendar, MessageCircle, Phone, Mail, TrendingUp, TrendingDown } from 'lucide-react';
 

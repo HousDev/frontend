@@ -2818,160 +2818,211 @@ style={{ background: theme.orange }}              >
         </div>
       </div>
     ) : (
-      // List View
-      <div className="bg-white h-full overflow-y-auto mx-5">
-        <table className="w-full bg-white text-sm">
-<thead className="bg-gray-50 sticky top-0 z-0">
-    <tr>
+  // List View - Made responsive with horizontal scroll on mobile
+  <div className="bg-white h-full overflow-x-auto overflow-y-auto px-5">
+    <div className="min-w-[800px] md:min-w-full">
+      <table className="w-full bg-white text-sm">
+        <thead className="bg-gray-50 sticky top-0 z-10">
+          <tr>
+            {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+              <th className="px-3 py-3 text-left w-8">
+                <input
+                  type="checkbox"
+                  checked={selectedProperties.length === paginatedProperties.length && paginatedProperties.length > 0}
+                  onChange={handleSelectAll}
+                  className="h-4 w-4 cursor-pointer rounded border-gray-300 focus:ring-orange-500"
+                  style={{ accentColor: '#e67e22' }}
+                />
+              </th>
+            )}
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Property Details</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Location & Seller</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Specifications</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status & Stage</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Assigned To</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Performance</th>
+            {(canUpdate || canDelete || canAssign) && (
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
+            )}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-100">
+          {paginatedProperties.map((p) => (
+            <tr key={p.id} className="group hover:bg-gray-50 transition-colors">
               {(canUpdate || canDelete || canAssign || canBulkDelete) && (
-                <th className="px-4 py-3 text-left w-8">
+                <td className="px-3 py-3">
                   <input
                     type="checkbox"
-                    checked={selectedProperties.length === paginatedProperties.length && paginatedProperties.length > 0}
-                    onChange={handleSelectAll}
+                    checked={selectedProperties.includes(p.id)}
+                    onChange={() => handlePropertySelection(p.id)}
                     className="h-4 w-4 cursor-pointer rounded border-gray-300 focus:ring-orange-500"
                     style={{ accentColor: '#e67e22' }}
                   />
-                </th>
+                </td>
               )}
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Property Details</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location & Seller</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Specifications</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status & Stage</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
-              {(canUpdate || canDelete || canAssign) && (
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-              )}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
-            {paginatedProperties.map((p) => (
-              <tr key={p.id} className="group hover:bg-gray-50 transition-colors">
-                {(canUpdate || canDelete || canAssign || canBulkDelete) && (
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedProperties.includes(p.id)}
-                      onChange={() => handlePropertySelection(p.id)}
-                      className="h-4 w-4 cursor-pointer rounded border-gray-300 focus:ring-orange-500"
-                      style={{ accentColor: '#e67e22' }}
-                    />
-                  </td>
-                )}
-                <td className="px-4 py-3">
-                  <div className="flex items-center space-x-3">
-                    <button
-                      type="button"
-                      className="relative"
-                      onClick={() => handleViewProperty(p)}
-                      aria-label="Open property details"
-                    >
-                     <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-  <ImageWithDebug
-    srcCandidate={Array.isArray(p.photos) && p.photos.length > 0 ? p.photos[0] : ''}
-    alt={dash(p.title)}
-    className="w-full h-full object-cover"
-    propertyCtx={{ title: p.title, propertyId: p.propertyId }}
-  />
-</div>
-                    </button>
-                    <div>
-                      <div className="font-semibold text-[11px] truncate" style={{ color: '#0f2b3d' }}>
-  {(p.type && p.type !== ' - ') && <span className="mr-1">{p.type}</span>}
-  {(p.unitType && p.unitType !== ' - ') && <span className="mr-1">{p.unitType}</span>}
-</div>
-<div className="text-[9px] text-gray-400 truncate">{dash(p.propertyId)}</div>
-<div className="text-[10px] font-semibold truncate" style={{ color: '#e67e22' }}>{formatCurrency(p.budget)}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-        <div className="text-[11px] font-medium truncate" style={{ color: '#0f2b3d' }}>{[p.location, p.city].filter(Boolean).join(', ') || ' - '}</div>
-<div className="text-[9px] text-gray-500 truncate">{dash(p.society)}</div>
-<div className="text-[9px] text-gray-500 truncate">Seller: {dash(p.seller?.name)}</div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="space-y-0.5 text-[10px] text-gray-600">
-                    <div>{dash(p.unitType)} • {dash(p.carpetArea)} sq ft</div>
-                    <div>Floor {dash(p.floor)} of {dash(p.totalFloors)}</div>
-                    <PropertyTags tags={propTags[String(p.id)] || []} className="mt-1" />
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="space-y-1">
-                    {getStatusBadge(p.status)}
-                    {getStageBadge(p.stage)}
-                    <div className="w-full bg-gray-200 rounded-full h-1">
-                      <div
-                        className="h-1 rounded-full"
-                        style={{ width: `${Number(p.stageProgress) || 0}%`, background: '#e67e22' }}
+              <td className="px-3 py-3">
+                <div className="flex items-center space-x-3">
+                  <button
+                    type="button"
+                    className="relative flex-shrink-0"
+                    onClick={() => handleViewProperty(p)}
+                    aria-label="Open property details"
+                  >
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                      <ImageWithDebug
+                        srcCandidate={Array.isArray(p.photos) && p.photos.length > 0 ? p.photos[0] : ''}
+                        alt={dash(p.title)}
+                        className="w-full h-full object-cover"
+                        propertyCtx={{ title: p.title, propertyId: p.propertyId }}
                       />
                     </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  {p.assignedTo ? (
-                    <ExecutiveBadge assignedTo={p.assignedTo} />
-                  ) : (
-                    <button
-                      onClick={() => handleAssignExecutive(p)}
-                      className="flex items-center gap-1 px-2 py-0.5 text-[10px] rounded border transition-colors"
-                      style={{ color: '#0f2b3d', borderColor: '#e2e8f0' }}
-                    >
-                      <UserPlus size={10} />
-                      <span>Assign</span>
-                    </button>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="space-y-0.5 text-[10px] text-gray-500">
-                    <div className="flex items-center gap-1"><Eye size={9} />{Number(p.visits) || 0} visits</div>
-                    <div className="flex items-center gap-1"><Users size={9} />{Number(p.interestedBuyers) || 0} buyers</div>
-                  </div>
-                </td>
-                {(canUpdate || canDelete || canAssign) && (
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => handleViewProperty(p)} className="p-1 rounded hover:bg-gray-100"><Eye size={12} style={{ color: '#0f2b3d' }} /></button>
-                      <button onClick={() => handleBuyerMatching(p)} className="p-1 rounded hover:bg-gray-100"><Users size={12} style={{ color: '#e67e22' }} /></button>
-                      {p.assignedTo ? (
-                        <button onClick={() => handleUnassignExecutive(p.id)} className="p-1 rounded hover:bg-red-50"><UserX size={12} style={{ color: '#ef4444' }} /></button>
-                      ) : (
-                        <button onClick={() => handleAssignExecutive(p)} className="p-1 rounded hover:bg-gray-100"><UserPlus size={12} style={{ color: '#0f2b3d' }} /></button>
-                      )}
-                      {canUpdate && (
-                        <button onClick={() => handleEditProperty(p)} className="p-1 rounded hover:bg-gray-100"><Edit size={12} style={{ color: '#e67e22' }} /></button>
-                      )}
-                      <div className="relative">
-                        <button onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }} className="p-1 rounded hover:bg-gray-100"><MoreHorizontal size={12} style={{ color: '#64748b' }} /></button>
-                      {openDropdownId === p.id && (
-  // Change THIS line
-  <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[140px]">
-                            <div className="py-1">
-                              <button onClick={() => { handleTogglePublic(p.id); setOpenDropdownId(null); }} className="flex items-center gap-2 px-3 py-1.5 text-[10px] hover:bg-gray-50 w-full text-left" style={{ color: '#0f2b3d' }}>
-                                <Globe size={10} />
-                                <span>{p.isPublic ? 'Make Private' : 'Make Public'}</span>
-                              </button>
-                              {canDelete && (
-                                <button onClick={() => { handleDeleteProperty(p.id); setOpenDropdownId(null); }} className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-red-600 hover:bg-red-50 w-full text-left">
-                                  <Trash2 size={10} />
-                                  <span>Delete</span>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                  </button>
+                  <div>
+                    <div className="font-semibold text-[11px] truncate max-w-[100px]" style={{ color: '#0f2b3d' }}>
+                      {(p.type && p.type !== ' - ') && <span className="mr-1">{p.type}</span>}
+                      {(p.unitType && p.unitType !== ' - ') && <span className="mr-1">{p.unitType}</span>}
                     </div>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    <div className="text-[9px] text-gray-400">{dash(p.propertyId)}</div>
+                    <div className="text-[10px] font-semibold" style={{ color: '#e67e22' }}>{formatCurrency(p.budget)}</div>
+                  </div>
+                </div>
+              </td>
+              <td className="px-3 py-3">
+                <div className="min-w-[140px]">
+                  <div className="text-[11px] font-medium truncate max-w-[150px]" style={{ color: '#0f2b3d' }}>{[p.location, p.city].filter(Boolean).join(', ') || ' - '}</div>
+                  <div className="text-[9px] text-gray-500 truncate max-w-[150px]">{dash(p.society)}</div>
+                  <div className="text-[9px] text-gray-500 truncate max-w-[150px]">Seller: {dash(p.seller?.name)}</div>
+                </div>
+              </td>
+              <td className="px-3 py-3">
+                <div className="space-y-0.5 text-[10px] text-gray-600 min-w-[130px]">
+                  <div>{dash(p.unitType)} • {dash(p.carpetArea)} sq ft</div>
+                  <div>Floor {dash(p.floor)} of {dash(p.totalFloors)}</div>
+                  <PropertyTags tags={propTags[String(p.id)] || []} className="mt-1" />
+                </div>
+              </td>
+          <td className="px-2 sm:px-3 py-2">
+  <div className="space-y-0.5 min-w-[80px] sm:min-w-[120px]">
+    <div className="flex items-center gap-0.5 sm:gap-1 flex-wrap">
+      {/* Use responsive compact - compact on mobile, full on desktop */}
+      <span className="sm:hidden">
+        {getStatusBadge(p.status, true)}
+        {getStageBadge(p.stage, true)}
+      </span>
+      <span className="hidden sm:inline-flex sm:flex-wrap sm:gap-1">
+        {getStatusBadge(p.status, false)}
+        {getStageBadge(p.stage, false)}
+      </span>
+    </div>
+    <div className="w-full bg-gray-200 rounded-full h-0.5 sm:h-1">
+      <div
+        className="h-0.5 sm:h-1 rounded-full"
+        style={{ width: `${Number(p.stageProgress) || 0}%`, background: '#e67e22' }}
+      />
+    </div>
+  </div>
+</td>
+              <td className="px-2 sm:px-3 py-2">
+  <div className="min-w-[80px] sm:min-w-[100px]">
+    {p.assignedTo && p.assignedTo.name && p.assignedTo.name.trim() !== "" ? (
+      <div className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-50 text-blue-700 rounded-md text-[9px] sm:text-[10px] whitespace-nowrap">
+        <UserCheck size={8} className="sm:hidden" />
+        <UserCheck size={10} className="hidden sm:block" />
+        <span className="font-medium truncate max-w-[70px] sm:max-w-[100px]">{p.assignedTo.name}</span>
       </div>
+    ) : (
+      <button
+        onClick={() => handleAssignExecutive(p)}
+        className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[10px] rounded border transition-colors whitespace-nowrap"
+        style={{ color: '#0f2b3d', borderColor: '#e2e8f0' }}
+      >
+        <UserPlus size={8} className="sm:hidden" />
+        <UserPlus size={10} className="hidden sm:block" />
+        <span>Assign</span>
+      </button>
     )}
+  </div>
+</td>
+              <td className="px-3 py-3">
+                <div className="space-y-0.5 text-[10px] text-gray-500 whitespace-nowrap">
+                  <div className="flex items-center gap-1"><Eye size={9} />{Number(p.visits) || 0} visits</div>
+                  <div className="flex items-center gap-1"><Users size={9} />{Number(p.interestedBuyers) || 0} buyers</div>
+                </div>
+              </td>
+              {(canUpdate || canDelete || canAssign) && (
+                <td className="px-3 py-3">
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleViewProperty(p)} className="p-1 rounded hover:bg-gray-100" title="View">
+                      <Eye size={12} style={{ color: '#0f2b3d' }} />
+                    </button>
+                    <button onClick={() => handleBuyerMatching(p)} className="p-1 rounded hover:bg-gray-100" title="Match Buyers">
+                      <Users size={12} style={{ color: '#e67e22' }} />
+                    </button>
+                    {p.assignedTo && p.assignedTo.name ? (
+                      <button onClick={() => handleUnassignExecutive(p.id)} className="p-1 rounded hover:bg-red-50" title="Unassign">
+                        <UserX size={12} style={{ color: '#ef4444' }} />
+                      </button>
+                    ) : (
+                      <button onClick={() => handleAssignExecutive(p)} className="p-1 rounded hover:bg-gray-100" title="Assign">
+                        <UserPlus size={12} style={{ color: '#0f2b3d' }} />
+                      </button>
+                    )}
+                    {canUpdate && (
+                      <button onClick={() => handleEditProperty(p)} className="p-1 rounded hover:bg-gray-100" title="Edit">
+                        <Edit size={12} style={{ color: '#e67e22' }} />
+                      </button>
+                    )}
+                    <div className="relative">
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setOpenDropdownId(openDropdownId === p.id ? null : p.id); 
+                        }} 
+                        className="p-1 rounded hover:bg-gray-100"
+                        title="More"
+                      >
+                        <MoreHorizontal size={12} style={{ color: '#64748b' }} />
+                      </button>
+                      {openDropdownId === p.id && (
+                        <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[140px]">
+                          <div className="py-1">
+                            <button 
+                              onClick={() => { 
+                                handleTogglePublic(p.id); 
+                                setOpenDropdownId(null); 
+                              }} 
+                              className="flex items-center gap-2 px-3 py-1.5 text-[10px] hover:bg-gray-50 w-full text-left" 
+                              style={{ color: '#0f2b3d' }}
+                            >
+                              <Globe size={10} />
+                              <span>{p.isPublic ? 'Make Private' : 'Make Public'}</span>
+                            </button>
+                            {canDelete && (
+                              <button 
+                                onClick={() => { 
+                                  handleDeleteProperty(p.id); 
+                                  setOpenDropdownId(null); 
+                                }} 
+                                className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-red-600 hover:bg-red-50 w-full text-left"
+                              >
+                                <Trash2 size={10} />
+                                <span>Delete</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
   </div>
 )}
 
@@ -3115,32 +3166,57 @@ style={{ background: theme.orange }}              >
 };
 
 /* ---------------------- Badges ---------------------- */
-function getStatusBadge(status: string) {
+function getStatusBadge(status: string, compact: boolean = false) {
   const cfg: any = {
-    'Available': { bg: 'bg-green-100', text: 'text-green-700', label: 'Available', icon: '🟢' },
-    'Sold': { bg: 'bg-red-100', text: 'text-red-600', label: 'Sold', icon: '🔴' },
-    'Under Negotiation': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Under Negotiation', icon: '🟡' },
-    'On Hold': { bg: 'bg-gray-100', text: 'text-gray-700', label: 'On Hold', icon: '⚫' },
-    'Finalization': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Finalization', icon: '🟣' },
-    ' - ': { bg: 'bg-gray-100', text: 'text-gray-700', label: ' - ', icon: '•' },
-  }[status] || { bg: 'bg-gray-100', text: 'text-gray-700', label: dash(status), icon: '•' };
+    'Available': { bg: 'bg-green-100', text: 'text-green-700', label: 'Available', compactLabel: 'Avail', icon: compact ? '●' : '🟢' },
+    'Sold': { bg: 'bg-red-100', text: 'text-red-600', label: 'Sold', compactLabel: 'Sold', icon: compact ? '●' : '🔴' },
+    'Under Negotiation': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Under Negotiation', compactLabel: 'Negot.', icon: compact ? '●' : '🟡' },
+    'On Hold': { bg: 'bg-gray-100', text: 'text-gray-700', label: 'On Hold', compactLabel: 'Hold', icon: compact ? '●' : '⚫' },
+    'Finalization': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Finalization', compactLabel: 'Final', icon: compact ? '●' : '🟣' },
+    ' - ': { bg: 'bg-gray-100', text: 'text-gray-700', label: ' - ', compactLabel: ' - ', icon: compact ? '●' : '•' },
+  }[status] || { bg: 'bg-gray-100', text: 'text-gray-700', label: dash(status), compactLabel: dash(status), icon: compact ? '●' : '•' };
+
+  const displayLabel = compact ? cfg.compactLabel : cfg.label;
+
+  if (compact) {
+    return (
+      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${cfg.bg} ${cfg.text}`}>
+        <span className="mr-0.5 text-[6px] sm:text-[8px]">{cfg.icon}</span> {displayLabel}
+      </span>
+    );
+  }
 
   return (
-    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>
-      {cfg.icon} {cfg.label}
+    <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] sm:text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+      {cfg.icon} {displayLabel}
     </span>
   );
 }
 
-function getStageBadge(stage: string) {
+function getStageBadge(stage: string, compact: boolean = false) {
   const cfg: any = {
-    'initial_contact': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Initial Contact', icon: '📞' },
-    'property_collection': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Property Collection', icon: '🏠' },
-    'mandate_signed': { bg: 'bg-green-100', text: 'text-green-700', label: 'Mandate Signed', icon: '✅' },
-    'selling_process': { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Selling Process', icon: '🔄' },
-    'deal_closure': { bg: 'bg-pink-100', text: 'text-pink-700', label: 'Deal Closure', icon: '📋' },
-  }[stage] || { bg: 'bg-gray-100', text: 'text-gray-700', label: dash(stage), icon: '•' };
-  return <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>{cfg.icon} {cfg.label}</span>;
+    'initial_contact': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Initial Contact', compactLabel: 'Contact', icon: '📞' },
+    'property_collection': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Property Collection', compactLabel: 'Collect', icon: '🏠' },
+    'mandate_signed': { bg: 'bg-green-100', text: 'text-green-700', label: 'Mandate Signed', compactLabel: 'Signed', icon: '✅' },
+    'selling_process': { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Selling Process', compactLabel: 'Selling', icon: '🔄' },
+    'deal_closure': { bg: 'bg-pink-100', text: 'text-pink-700', label: 'Deal Closure', compactLabel: 'Closure', icon: '📋' },
+  }[stage] || { bg: 'bg-gray-100', text: 'text-gray-700', label: dash(stage), compactLabel: dash(stage), icon: '•' };
+
+  const displayLabel = compact ? cfg.compactLabel : cfg.label;
+
+  if (compact) {
+    return (
+      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${cfg.bg} ${cfg.text}`}>
+        <span className="mr-0.5 text-[6px] sm:text-[8px]">{cfg.icon}</span> {displayLabel}
+      </span>
+    );
+  }
+
+  return (
+    <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] sm:text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+      {cfg.icon} {displayLabel}
+    </span>
+  );
 }
 
 export default PropertiesPage; 

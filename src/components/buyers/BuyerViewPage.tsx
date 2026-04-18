@@ -1200,9 +1200,6 @@
 //   );
 // };
 
-
-// export default BuyerViewPage;
-
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ArrowLeft,
@@ -1285,6 +1282,11 @@ const BuyerViewPage = ({
     { id: 'documents', label: 'Documents', icon: FileText },
     { id: 'financial', label: 'Financial', icon: CreditCard }
   ];
+  const N = "#0f2b3d";
+const O = "#e67e22";
+const BG = "#f8fafc";
+const BD = "#e2e8f0";
+const MU = "#5a7184";
 
   // ---- Auth & Permissions ----
   const { user } = useAuth() as { user: any | null };
@@ -1542,95 +1544,211 @@ ResaleExpert Team`;
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 md:py-4 sticky top-0 z-50 text-xs">
-        <div className="flex flex-wrap md:flex-nowrap items-center justify-between">
-          <div className="flex flex-wrap md:flex-nowrap items-center space-x-2 md:space-x-4 mb-2 md:mb-0">
-            <button
-              onClick={onBack}
-              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div className="flex items-center space-x-2 md:space-x-4">
-              <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white text-lg md:text-xl font-bold">
-                {buyer.name.charAt(0)}
-              </div>
-              <div>
-                <h1 className="text-base md:text-xl font-bold text-gray-900">
-                  {buyer.salutation} {buyer.name}
-                </h1>
-                <div className="flex text-xs flex-wrap items-center space-x-1 md:space-x-3 mt-1">
-                  {getStatusBadge(buyer.status)}
-                  {getStageBadge(buyer.stage)}
-                  {getPriorityBadge(buyer.priority)}
-                  {getLeadScore(buyer.leadScore)}
-                </div>
-              </div>
-            </div>
-          </div>
+<>
+  {/* ================= MOBILE VIEW ================= */}
+ <div className="block md:hidden">
 
-          <div className="flex flex-wrap md:flex-nowrap items-center space-x-1 md:space-x-3">
-            <div className="text-[8px] text-gray-500 mb-1 md:mb-0">
-              {currentIndex + 1} of {totalBuyers}
-            </div>
-            <button
-              onClick={onPrevious}
-              disabled={currentIndex === 0}
-              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              onClick={onNext}
-              disabled={currentIndex === totalBuyers - 1}
-              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronRight size={16} />
-            </button>
-            <button
-              onClick={() => onAccount(buyer)}
-              className="flex items-center space-x-1 md:space-x-2 px-3 md:px-4 py-1 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <UserCheck size={16} />
-              <span>Buyer Account</span>
-            </button>
-            <button
-              onClick={() => {
-                if (!canUpdateBuyer) {
-                  toast.error("You do not have permission to edit buyer");
-                  return;
-                }
-                onEdit(buyer);
-              }}
-              className="flex items-center space-x-1 md:space-x-2 px-3 md:px-4 py-1 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Edit size={16} />
-              <span>Edit</span>
-            </button>
-          </div>
+  {/* ROW 1 → Arrow + Avatar + Name */}
+  <div className="flex items-center gap-2">
+    <button
+      onClick={onBack}
+      className="p-2 rounded-lg bg-gray-100 text-[#0f2b3d] flex-shrink-0"
+    >
+      <ArrowLeft size={20} />
+    </button>
+
+    <div
+      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+      style={{ background: 'linear-gradient(135deg, #e67e22, #f39c12)' }}
+    >
+      {buyer.name.charAt(0)}
+    </div>
+
+    <h1 className="text-sm font-bold truncate">
+      {buyer.salutation} {buyer.name}
+    </h1>
+  </div>
+
+  {/* ROW 2 → Badges (UNCHANGED) */}
+  <div className="flex overflow-x-auto gap-2 mt-2 no-scrollbar">
+    <div className="whitespace-nowrap flex-shrink-0">
+      {getStatusBadge(buyer.status)}
+    </div>
+    <div className="whitespace-nowrap flex-shrink-0">
+      {getStageBadge(buyer.stage)}
+    </div>
+    <div className="whitespace-nowrap flex-shrink-0">
+      {getPriorityBadge(buyer.priority)}
+    </div>
+    <div className="whitespace-nowrap flex-shrink-0">
+      {getLeadScore(buyer.leadScore)}
+    </div>
+  </div>
+
+  {/* ✅ ROW 3 → Newly Added */}
+  <div className="flex items-center justify-between mt-2">
+
+    {/* LEFT → count + navigation */}
+    <div className="flex items-center gap-1">
+      <div className="text-[10px] text-gray-500">
+        {currentIndex + 1} of {totalBuyers}
+      </div>
+
+      <button
+        onClick={onPrevious}
+        disabled={currentIndex === 0}
+        className="p-1.5 rounded-lg bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-[#0f2b3d]"
+      >
+        <ChevronLeft size={14} />
+      </button>
+
+      <button
+        onClick={onNext}
+        disabled={currentIndex === totalBuyers - 1}
+        className="p-1.5 rounded-lg bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-[#0f2b3d]"
+      >
+        <ChevronRight size={14} />
+      </button>
+    </div>
+
+    {/* RIGHT → actions */}
+    <div className="flex items-center gap-2">
+
+      <button
+        onClick={() => onAccount(buyer)}
+        className="flex items-center gap-1 px-2 py-1 rounded-lg text-white text-[11px]"
+        style={{ background: '#e67e22' }}
+      >
+        <UserCheck size={14} />
+        <span>Account</span>
+      </button>
+
+      <button
+        onClick={() => {
+          if (!canUpdateBuyer) {
+            toast.error("You do not have permission to edit buyer");
+            return;
+          }
+          onEdit(buyer);
+        }}
+        className="flex items-center gap-1 px-2 py-1 rounded-lg text-white text-[11px]"
+        style={{ background: '#0f2b3d' }}
+      >
+        <Edit size={14} />
+        <span>Edit</span>
+      </button>
+
+    </div>
+  </div>
+
+</div>
+
+  {/* ================= DESKTOP VIEW (UNCHANGED) ================= */}
+  <div className="hidden md:flex flex-wrap md:flex-nowrap items-center justify-between">
+
+    <div className="flex flex-wrap md:flex-nowrap items-center space-x-2 md:space-x-4 mb-2 md:mb-0">
+      <button
+        onClick={onBack}
+        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-[#0f2b3d]"
+      >
+        <ArrowLeft size={20} />
+      </button>
+
+      <div className="flex items-center space-x-2 md:space-x-4">
+        <div
+          className="w-12 h-12 md:w-12 md:h-12 rounded-full flex items-center justify-center text-white text-lg md:text-xl font-bold"
+          style={{ background: 'linear-gradient(135deg, #e67e22, #f39c12)' }}
+        >
+          {buyer.name.charAt(0)}
         </div>
 
-        {/* Tab Navigation */}
-        <div className="mt-3 md:mt-4">
-          <nav className="flex space-x-1 overflow-x-auto pb-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-1 md:space-x-2 px-3 py-1 md:px-4 md:py-2 rounded-lg transition-colors whitespace-nowrap text-xs ${activeTab === tab.id
-                    ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                    : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                >
-                  <Icon size={16} />
-                  <span className="font-medium">{tab.label}</span>
-                </button>
-              );
-            })}
-          </nav>
+        <div>
+          <h1 className="text-base md:text-xl font-bold" style={{ color: '#0f2b3d' }}>
+            {buyer.salutation} {buyer.name}
+          </h1>
+
+          <div className="flex text-xs flex-wrap items-center space-x-1 md:space-x-3 mt-1">
+            {getStatusBadge(buyer.status)}
+            {getStageBadge(buyer.stage)}
+            {getPriorityBadge(buyer.priority)}
+            {getLeadScore(buyer.leadScore)}
+          </div>
         </div>
       </div>
+    </div>
+
+    <div className="flex flex-wrap md:flex-nowrap items-center space-x-1 md:space-x-3">
+      <div className="text-[8px] text-gray-500 mb-1 md:mb-0">
+        {currentIndex + 1} of {totalBuyers}
+      </div>
+
+      <button
+        onClick={onPrevious}
+        disabled={currentIndex === 0}
+        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-[#0f2b3d]"
+      >
+        <ChevronLeft size={16} />
+      </button>
+
+      <button
+        onClick={onNext}
+        disabled={currentIndex === totalBuyers - 1}
+        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-[#0f2b3d]"
+      >
+        <ChevronRight size={16} />
+      </button>
+
+      <button
+        onClick={() => onAccount(buyer)}
+        className="flex items-center space-x-1 md:space-x-2 px-3 md:px-4 py-1 md:py-2 text-white rounded-lg transition-colors"
+        style={{ background: '#e67e22' }}
+      >
+        <UserCheck size={16} />
+        <span>Buyer Account</span>
+      </button>
+
+      <button
+        onClick={() => {
+          if (!canUpdateBuyer) {
+            toast.error("You do not have permission to edit buyer");
+            return;
+          }
+          onEdit(buyer);
+        }}
+        className="flex items-center space-x-1 md:space-x-2 px-3 md:px-4 py-1 md:py-2 text-white rounded-lg transition-colors"
+        style={{ background: '#0f2b3d' }}
+      >
+        <Edit size={16} />
+        <span>Edit</span>
+      </button>
+    </div>
+
+  </div>
+</>
+
+  {/* Tab Navigation */}
+  <div className="mt-3 md:mt-4">
+    <nav className="flex space-x-1 overflow-x-auto pb-1">
+      {tabs.map((tab) => {
+        const Icon = tab.icon;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center space-x-1 md:space-x-2 px-3 py-1 md:px-4 md:py-2 rounded-lg transition-colors whitespace-nowrap text-xs ${
+              activeTab === tab.id
+                ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Icon size={16} />
+            <span className="font-medium">{tab.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  </div>
+</div>
 
       {/* Tab Content */}
       <div className="flex-1 overflow-auto p-6 pt-2 ">
@@ -1664,81 +1782,152 @@ ResaleExpert Team`;
             onShowLoanApplication={() => setShowLoanApplication(true)}
           />
         )}
-      </div>
+         {activeTab === 'visit-schedule' && (
+    <VisitScheduleTab
+      buyer={buyer}
+      onAddVisit={handleAddVisit}
+      onEditVisit={handleEditVisit}
+      onDeleteVisit={handleDeleteVisit}
+    />
+  )}
+</div>
 
       {/* Quick Actions Bar */}
-      <div className="
-  bg-white border-t border-gray-200 
-  px-2 sm:px-3 md:px-3 lg:px-4 
-  py-2 sm:py-2.5 md:py-3 lg:py-4 
-  fixed bottom-0 left-0 
-  w-full 
-  lg:w-[calc(100%-335px)] lg:ml-[288px] 
-  z-50 shadow-lg
-">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-[8px] sm:text-[10px] md:text-[10px] lg:text-xs">
-          <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 flex-wrap md:flex-wrap lg:flex-nowrap overflow-x-auto md:overflow-x-auto lg:overflow-visible whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]">
-            <style>{`.quickbar::-webkit-scrollbar{display:none}`}</style>
-            <button
-              onClick={handleWhatsApp}
-              className="flex items-center gap-1 px-2 md:px-2.5 lg:px-3 py-1.5 md:py-1.5 lg:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <MessageCircle size={14} className="md:size-[15px] lg:size-[16px]" />
-              <span>WhatsApp</span>
-            </button>
+   <div className="sticky bottom-0 left-0 right-0 z-50 bg-white shadow-lg border-t" style={{ borderTopColor: BD }}>
+  <div className="px-2 sm:px-3 py-2">
 
-            <button
-              onClick={handleEmail}
-              className="flex items-center gap-1 px-2 md:px-2.5 lg:px-3 py-1.5 md:py-1.5 lg:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Mail size={14} className="md:size-[15px] lg:size-[16px]" />
-              <span>Email</span>
-            </button>
+    {/* ================= MOBILE VIEW ================= */}
+    <div className="flex flex-col gap-2 sm:hidden">
 
-            <button
-              onClick={() => window.open(`tel:${buyer.phone}`)}
-              className="flex items-center gap-1 px-2 md:px-2.5 lg:px-3 py-1.5 md:py-1.5 lg:py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-            >
-              <Phone size={14} className="md:size-[15px] lg:size-[16px]" />
-              <span>Call</span>
-            </button>
-          </div>
+      {/* ROW 1 → Communication buttons */}
+      <div className="flex justify-center items-center gap-2 flex-wrap">
+        
+        <button
+          onClick={handleWhatsApp}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white text-[11px] font-medium whitespace-nowrap"
+          style={{ background: '#25D366' }}
+        >
+          <MessageCircle size={12} />
+          <span>WhatsApp</span>
+        </button>
 
-          <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 flex-wrap md:flex-wrap lg:flex-nowrap overflow-x-auto md:overflow-x-auto lg:overflow-visible whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]">
-            <button
-              onClick={handleAddVisit}
-              className="flex items-center gap-1 px-2 md:px-2.5 lg:px-3 py-1.5 md:py-1.5 lg:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <Calendar size={14} className="md:size-[15px] lg:size-[16px]" />
-              <span>Schedule Visit</span>
-            </button>
+        <button
+          onClick={handleEmail}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white text-[11px] font-medium whitespace-nowrap"
+          style={{ background: '#3b82f6' }}
+        >
+          <Mail size={12} />
+          <span>Email</span>
+        </button>
 
-            <button
-              onClick={handleAddActivity}
-              className="flex items-center gap-1 px-2 md:px-2.5 lg:px-3 py-1.5 md:py-1.5 lg:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              <Plus size={14} className="md:size-[15px] lg:size-[16px]" />
-              <span>Add Activity</span>
-            </button>
+        <button
+          onClick={() => window.open(`tel:${buyer.phone}`)}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white text-[11px] font-medium whitespace-nowrap"
+          style={{ background: O }}
+        >
+          <Phone size={12} />
+          <span>Call</span>
+        </button>
 
-            <button
-              onClick={handleAddFollowup}
-              className="flex items-center gap-1 px-2 md:px-2.5 lg:px-3 py-1.5 md:py-1.5 lg:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <Calendar size={14} className="md:size-[15px] lg:size-[16px]" />
-              <span>Schedule Follow-up</span>
-            </button>
-
-            <button
-              onClick={() => setShowPropertySuggestions(true)}
-              className="flex items-center gap-1 px-2 md:px-2.5 lg:px-3 py-1.5 md:py-1.5 lg:py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all"
-            >
-              <Bot size={14} className="md:size-[15px] lg:size-[16px]" />
-              <span>AI Suggestions</span>
-            </button>
-          </div>
-        </div>
       </div>
+
+      {/* ROW 2 → Action buttons */}
+      <div className="flex overflow-x-auto gap-2 no-scrollbar">
+
+        <button
+          onClick={handleAddVisit}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg whitespace-nowrap bg-green-600 text-white flex-shrink-0"
+        >
+          <Calendar size={12} />
+          <span className="text-[11px]">Schedule Visit</span>
+        </button>
+
+        <button
+          onClick={handleAddActivity}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg whitespace-nowrap bg-blue-500 text-white flex-shrink-0"
+        >
+          <Plus size={12} />
+          <span className="text-[11px]">Add Activity</span>
+        </button>
+
+        <button
+          onClick={handleAddFollowup}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg whitespace-nowrap bg-orange-500 text-white flex-shrink-0"
+        >
+          <Bell size={12} />
+          <span className="text-[11px]">Schedule Follow-up</span>
+        </button>
+
+        <button
+          onClick={() => setShowPropertySuggestions(true)}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg whitespace-nowrap bg-violet-600 text-white flex-shrink-0"
+        >
+          <Bot size={12} />
+          <span className="text-[11px]">AI Suggestions</span>
+        </button>
+
+      </div>
+
+    </div>
+
+    {/* ================= DESKTOP VIEW (UNCHANGED) ================= */}
+    <div className="hidden sm:flex flex-nowrap items-center justify-between gap-1 overflow-x-auto sm:overflow-visible">
+
+      {/* LEFT */}
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        <button onClick={handleWhatsApp}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-white text-[10px] sm:text-xs whitespace-nowrap"
+          style={{ background: '#25D366' }}>
+          <MessageCircle size={12} />
+          <span>WhatsApp</span>
+        </button>
+
+        <button onClick={handleEmail}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-white text-[10px] sm:text-xs whitespace-nowrap"
+          style={{ background: '#3b82f6' }}>
+          <Mail size={12} />
+          <span>Email</span>
+        </button>
+
+        <button onClick={() => window.open(`tel:${buyer.phone}`)}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-white text-[10px] sm:text-xs whitespace-nowrap"
+          style={{ background: O }}>
+          <Phone size={12} />
+          <span>Call</span>
+        </button>
+      </div>
+
+      {/* RIGHT */}
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        <button onClick={handleAddVisit}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-600 text-white whitespace-nowrap">
+          <Calendar size={12} />
+          <span className="text-[10px] sm:text-xs">Schedule Visit</span>
+        </button>
+
+        <button onClick={handleAddActivity}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-blue-500 text-white whitespace-nowrap">
+          <Plus size={12} />
+          <span className="text-[10px] sm:text-xs">Add Activity</span>
+        </button>
+
+        <button onClick={handleAddFollowup}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-orange-500 text-white whitespace-nowrap">
+          <Bell size={12} />
+          <span className="text-[10px] sm:text-xs">Schedule Follow-up</span>
+        </button>
+
+        <button onClick={() => setShowPropertySuggestions(true)}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-violet-600 text-white whitespace-nowrap">
+          <Bot size={12} />
+          <span className="text-[10px] sm:text-xs">AI Suggestions</span>
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+</div>
 
       {/* Modals */}
       {showActivityModal && (
@@ -1804,14 +1993,14 @@ ResaleExpert Team`;
           onUpdateBuyer={onUpdateBuyer}
         />
       )}
-      {activeTab === 'visit-schedule' && (
+      {/* {activeTab === 'visit-schedule' && (
         <VisitScheduleTab
           buyer={buyer}
           onAddVisit={handleAddVisit}
           onEditVisit={handleEditVisit}
           onDeleteVisit={handleDeleteVisit}
         />
-      )}
+      )} */}
     </div>
   );
 };

@@ -641,7 +641,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
     {/* Recent Posts Section */}
     <div className="bg-white rounded-xl shadow-sm p-3 sm:p-4" style={{ border: `1px solid ${BD}` }}>
       <h3 className="text-xs sm:text-sm font-bold mb-2 sm:mb-3" style={{ color: N }}>Recent Posts</h3>
-      <div className="space-y-2 max-h-52 md:max-h-96 overflow-y-auto" style={scrollbarStyles}>
+      <div className="space-y-2 max-h-48 md:max-h-96 overflow-y-auto" style={scrollbarStyles}>
         {postsArray.slice(0, 5).map((post) => (
           <div key={post.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-all" style={{ border: `1px solid ${BD}` }}>
             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -836,7 +836,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
           </div>
 
 <div
-  className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-420px)] sm:max-h-[calc(100vh-360px)]"
+  className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-440px)] sm:max-h-[calc(100vh-360px)]"
   style={{ ...scrollbarStyles }}
 >
               <table className="w-full text-sm">
@@ -1021,7 +1021,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
   </div>
 </div>
           
-          <div className="overflow-x-auto  max-h-[calc(100vh-420px)] sm:max-h-[calc(100vh-360px)]" style={{ overflowY: 'auto', ...scrollbarStyles }}>
+          <div className="overflow-x-auto  max-h-[calc(100vh-430px)] sm:max-h-[calc(100vh-360px)]" style={{ overflowY: 'auto', ...scrollbarStyles }}>
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white z-10">
                 <tr className="border-b" style={{ borderColor: BD }}>
