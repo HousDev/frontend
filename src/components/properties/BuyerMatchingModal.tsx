@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Users, Target, Search, Filter, Star, Phone, MessageCircle, Mail, MapPin, DollarSign, Calendar, Eye, Send, UserPlus, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Users, Target, Search, Filter, Star, Phone, MessageCircle, Mail, MapPin, DollarSign, Calendar, Eye, Send, UserPlus, ChevronDown, ChevronUp, IndianRupeeIcon } from 'lucide-react';
 
 // Theme Colors
 const N = "#0f2b3d";
@@ -315,7 +315,7 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
 
                     {/* Row 2: Budget and Contact - Always visible */}
                     <div className="flex flex-wrap items-center gap-2 text-[9px] mb-1" style={{ color: MU }}>
-                      <span className="flex items-center gap-0.5"><DollarSign size={8} />{formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}</span>
+                      <span className="flex items-center gap-0.5"><IndianRupeeIcon size={8} />{formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}</span>
                       <span className="flex items-center gap-0.5"><Phone size={8} />{buyer.phone}</span>
                     </div>
 

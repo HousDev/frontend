@@ -488,6 +488,15 @@ interface User {
   seller_id?: string | number | null;
 }
 
+const RESALE = {
+  navy: '#0f2b3d',
+  navyLight: '#1a3a4f',
+  navyDark: '#091e2c',
+  orange: '#e67e22',
+  orangeLight: '#f39c12',
+  orangeDark: '#d35400',
+};
+
 const UsersPage: React.FC = () => {
   const { user } = useAuth();
   const [showUserModal, setShowUserModal] = useState(false);
@@ -808,58 +817,52 @@ const UsersPage: React.FC = () => {
   };
 
   return (
-    <div className="">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        {/* Title + subtitle */}
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600 mt-1 text-xs sm:text-sm">
-            Manage users, roles, and permissions
-          </p>
-        </div>
+    <div className="py-2 px-3">
+<div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 px-4 mt-3">
+  
+  <div className="flex flex-nowrap gap-1 sm:gap-3 w-full sm:w-auto">
+    
+    <Button
+      variant="outline"
+      onClick={exportUsers}
+      className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3"
+    >
+      <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+      <span className="truncate">Export</span>
+    </Button>
 
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
-          <Button
-            variant="outline"
-            onClick={exportUsers}
-            className="flex-1 sm:flex-none flex items-center justify-center space-x-2"
-          >
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-          </Button>
+    <Button
+      variant="outline"
+      className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3"
+    >
+      <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
+      <span className="truncate">Import</span>
+    </Button>
 
-          <Button
-            variant="outline"
-            className="flex-1 sm:flex-none flex items-center justify-center space-x-2"
-          >
-            <Upload className="h-4 w-4" />
-            <span>Import</span>
-          </Button>
+    <Link to="/dashboard/settings/roles-permissions" className="flex-1 sm:flex-none">
+      <Button
+        variant="outline"
+        className="w-full flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3"
+      >
+        <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
+        <span className="truncate">Roles</span>
+      </Button>
+    </Link>
 
-          <Link to="/dashboard/settings/roles-permissions" className="flex-1 sm:flex-none">
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto flex items-center justify-center space-x-2"
-            >
-              <Shield className="h-4 w-4" />
-              <span>Manage Roles</span>
-            </Button>
-          </Link>
+    <Button
+      onClick={() => {
+        resetForm();
+        setShowUserModal(true);
+      }}
+      className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3 text-white bg-[#0f2b3d]"
+      disabled={masterLoading}
+    >
+      <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+      <span className="truncate">Add User</span>
+    </Button>
 
-          <Button
-            onClick={() => {
-              resetForm();
-              setShowUserModal(true);
-            }}
-            className="flex-1 sm:flex-none flex items-center justify-center space-x-2"
-            disabled={masterLoading}
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add User</span>
-          </Button>
-        </div>
-      </div>
+  </div>
+</div>
 
 
       {/* UsersManagement */}
