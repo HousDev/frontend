@@ -1,22 +1,1674 @@
-import { useState, useEffect, useRef, useCallback, useReducer } from "react";
-import {
-    MessageSquare, Megaphone, BarChart3, Bot, FileText,
-    Settings, Phone, DollarSign, ChevronDown, Bell, X,
-    Users, ShoppingBag, Home, Building2, Plus, Trash2,
-    CheckCircle, XCircle, Clock, AlertTriangle, Send, Eye,
-    Search, RefreshCw, BarChart2, Play, Pause,
-    Save, User, AlertCircle, Wifi, WifiOff, Brain,
-    Copy, Shield, Tag as LucideTag, UserCheck, TrendingUp, Hash,
-    ArrowRight, ChevronUp, ToggleLeft, ToggleRight, Zap,
-    SlidersHorizontal, Calendar, ArrowLeft, Activity,
-    BotMessageSquare, Check, CheckCheck, Paperclip,
-    Image, Video, Type, MapPin, Mail, UserPlus, StickyNote,
-    Lightbulb, Smartphone, FileText as FileDoc, Variable,
-    EyeOff, HelpCircle, List, CreditCard as Edit2,
-} from "lucide-react";
-import { whatsappAPI } from "@/lib/whatsappApi";
+// import { useState, useEffect, useRef, useCallback } from "react";
 
-// ─── OLD DESIGN COLOR PALETTE & STYLES ────────────────────────────────────────
+// const COLORS = {
+//     blue: { bg: '#E6F1FB', border: '#185FA5', text: '#0C447C' },
+//     green: { bg: '#EAF3DE', border: '#639922', text: '#27500A' },
+//     amber: { bg: '#FAEEDA', border: '#EF9F27', text: '#633806' },
+//     coral: { bg: '#FAECE7', border: '#D85A30', text: '#712B13' },
+//     purple: { bg: '#EEEDFE', border: '#7F77DD', text: '#3C3489' },
+//     teal: { bg: '#E1F5EE', border: '#1D9E75', text: '#085041' },
+// };
+
+// const INITIAL_CONVOS = [
+//     { id: 1, name: 'Rahul Sharma', phone: '+91 98200 11234', tag: 'hot', stage: 'Qualified', assigned: 'Priya', unread: 2, lastMsg: 'Yes I am interested, please send pricing', time: '2m', sessionExpiry: false, color: 'blue', initials: 'RS', messages: [{ dir: 'in', text: 'Hi, saw your ad on Instagram. Is this still available?', time: '10:14 AM' }, { dir: 'bot', text: 'Hello Rahul! Thanks for reaching out. Are you looking for our Basic, Pro, or Enterprise plan?', time: '10:14 AM' }, { dir: 'in', text: 'Pro plan. What are the features?', time: '10:16 AM' }, { dir: 'bot', text: 'Pro plan includes: unlimited contacts, 3 agents, broadcast campaigns, and CRM integration. Would you like to talk to our sales team?', time: '10:16 AM' }, { dir: 'in', text: 'Yes I am interested, please send pricing', time: '10:18 AM' }], notes: ['Called on 12 Apr, very interested in Pro plan', 'Budget confirmed Rs 5000/mo', 'Decision by end of month'], pipeline: [{ stage: 'Enquiry', done: true, date: 'Apr 10' }, { stage: 'Qualified', done: true, date: 'Apr 12' }, { stage: 'Proposal', done: false, date: '-' }, { stage: 'Negotiation', done: false, date: '-' }, { stage: 'Closed', done: false, date: '-' }] },
+//     { id: 2, name: 'Sneha Patel', phone: '+91 97350 22345', tag: 'new', stage: 'Enquiry', assigned: 'Bot', unread: 0, lastMsg: 'Can you tell me more about your service?', time: '14m', sessionExpiry: false, color: 'green', initials: 'SP', messages: [{ dir: 'in', text: 'Hello, I found you on Google.', time: '9:52 AM' }, { dir: 'bot', text: 'Hi Sneha! Welcome. Can you tell me what you are looking for today?', time: '9:52 AM' }, { dir: 'in', text: 'Can you tell me more about your service?', time: '10:04 AM' }], notes: ['Came from Google Ads'], pipeline: [{ stage: 'Enquiry', done: true, date: 'Apr 14' }, { stage: 'Qualified', done: false, date: '-' }, { stage: 'Proposal', done: false, date: '-' }, { stage: 'Negotiation', done: false, date: '-' }, { stage: 'Closed', done: false, date: '-' }] },
+//     { id: 3, name: 'Amit Verma', phone: '+91 99870 33456', tag: 'conv', stage: 'Closed Won', assigned: 'Rohan', unread: 0, lastMsg: 'Payment done! When do we start?', time: '1h', sessionExpiry: true, color: 'purple', initials: 'AV', messages: [{ dir: 'out', text: "Hi Amit! Following up on our demo call. Ready to get started?", time: '8:30 AM' }, { dir: 'in', text: "Yes, let's do it! What's next?", time: '8:45 AM' }, { dir: 'out', text: 'Great! Please complete the payment here: pay.example.com/amit', time: '8:47 AM' }, { dir: 'in', text: 'Payment done! When do we start?', time: '9:10 AM' }], notes: ['Enterprise deal — Rs 15,000/mo', 'Onboarding scheduled April 18'], pipeline: [{ stage: 'Enquiry', done: true, date: 'Apr 5' }, { stage: 'Qualified', done: true, date: 'Apr 7' }, { stage: 'Proposal', done: true, date: 'Apr 9' }, { stage: 'Negotiation', done: true, date: 'Apr 12' }, { stage: 'Closed', done: true, date: 'Apr 14' }] },
+//     { id: 4, name: 'Meera Joshi', phone: '+91 98760 44567', tag: 'new', stage: 'New', assigned: 'Unassigned', unread: 1, lastMsg: 'Ek baar call kar sakte ho?', time: '32m', sessionExpiry: false, color: 'coral', initials: 'MJ', messages: [{ dir: 'in', text: 'Namaste! Mujhe CRM ke baare mein jaanna hai.', time: '9:33 AM' }, { dir: 'bot', text: 'Namaste Meera! Hum aapki help kar sakte hain. Aap kaunsa plan dekhna chahte hain?', time: '9:33 AM' }, { dir: 'in', text: 'Ek baar call kar sakte ho?', time: '9:40 AM' }], notes: [], pipeline: [{ stage: 'Enquiry', done: true, date: 'Apr 14' }, { stage: 'Qualified', done: false, date: '-' }, { stage: 'Proposal', done: false, date: '-' }, { stage: 'Negotiation', done: false, date: '-' }, { stage: 'Closed', done: false, date: '-' }] },
+//     { id: 5, name: 'Karan Mehta', phone: '+91 91230 55678', tag: 'hot', stage: 'Proposal', assigned: 'Priya', unread: 0, lastMsg: 'Send the proposal on email too please', time: '3h', sessionExpiry: false, color: 'teal', initials: 'KM', messages: [{ dir: 'out', text: 'Hi Karan, here is your customized proposal for 10 agents!', time: '7:00 AM' }, { dir: 'in', text: 'Looks good. Can you give a 10% discount?', time: '7:20 AM' }, { dir: 'out', text: 'Let me check with management and get back to you within the hour.', time: '7:22 AM' }, { dir: 'in', text: 'Send the proposal on email too please', time: '7:30 AM' }], notes: ['Negotiating 10% discount — approved up to 8%', 'Follow up by 5 PM today'], pipeline: [{ stage: 'Enquiry', done: true, date: 'Apr 10' }, { stage: 'Qualified', done: true, date: 'Apr 11' }, { stage: 'Proposal', done: true, date: 'Apr 14' }, { stage: 'Negotiation', done: false, date: '-' }, { stage: 'Closed', done: false, date: '-' }] },
+// ];
+
+// const TEMPLATES = [
+//     { id: 't1', name: 'welcome_message', label: 'Welcome Message', status: 'approved', category: 'UTILITY', language: 'en', body: 'Hi {{1}}! Welcome to our platform. How can we help you today?', variables: ['Customer Name'], usageCount: 342, lastUsed: '2h ago' },
+//     { id: 't2', name: 'follow_up', label: 'Follow Up', status: 'approved', category: 'MARKETING', language: 'en', body: 'Hi {{1}}, just following up on our last conversation. Are you ready to move forward?', variables: ['Customer Name'], usageCount: 215, lastUsed: '5h ago' },
+//     { id: 't3', name: 'send_pricing', label: 'Send Pricing', status: 'approved', category: 'MARKETING', language: 'en', body: 'Hi {{1}}! Here are our latest pricing plans:\n• Basic: Rs 999/mo\n• Pro: Rs 2499/mo\n• Enterprise: Rs 9999/mo\n\nWhich plan interests you?', variables: ['Customer Name'], usageCount: 189, lastUsed: '1d ago' },
+//     { id: 't4', name: 'schedule_demo', label: 'Schedule Demo', status: 'pending', category: 'UTILITY', language: 'en', body: 'Hi {{1}}, would you like to schedule a free 30-min demo? Pick a slot: calendly.com/demo', variables: ['Customer Name'], usageCount: 0, lastUsed: 'Never' },
+//     { id: 't5', name: 'payment_link', label: 'Payment Link', status: 'approved', category: 'UTILITY', language: 'en', body: 'Hi {{1}}, your payment link is ready: pay.example.com/{{2}}. Valid for 24 hours.', variables: ['Customer Name', 'Payment ID'], usageCount: 98, lastUsed: '30m ago' },
+//     { id: 't6', name: 'reengagement', label: 'Re-engagement', status: 'rejected', category: 'MARKETING', language: 'en', body: 'We miss you {{1}}! Come back and get 20% off your first month.', variables: ['Customer Name'], usageCount: 0, lastUsed: 'Never', rejectionReason: 'Promotional content requires explicit opt-in documentation' },
+// ];
+
+// const INITIAL_BROADCASTS = [
+//     { id: 'b1', name: 'April Pricing Offer', template: 'send_pricing', segment: 'Hot Leads', sent: 142, delivered: 138, read: 89, replied: 23, status: 'completed', date: 'Apr 12', time: '10:00 AM' },
+//     { id: 'b2', name: 'Follow-up Blast', template: 'follow_up', segment: 'Qualified', sent: 67, delivered: 65, read: 41, replied: 12, status: 'completed', date: 'Apr 13', time: '2:00 PM' },
+//     { id: 'b3', name: 'Demo Invite Campaign', template: 'schedule_demo', segment: 'All Contacts', sent: 0, delivered: 0, read: 0, replied: 0, status: 'scheduled', date: 'Apr 16', time: '9:00 AM' },
+// ];
+
+// const INITIAL_RULES = [
+//     { id: 'r1', icon: '⚡', title: 'New lead greeting', trigger: 'New contact first message', action: 'Send welcome_message template', on: true, color: 'amber', execCount: 1203 },
+//     { id: 'r2', icon: '🕐', title: '24hr window alert', trigger: '1hr before session expiry', action: 'Notify assigned agent via email', on: true, color: 'blue', execCount: 89 },
+//     { id: 'r3', icon: '🤖', title: 'Bot qualification flow', trigger: 'New contact any message', action: 'Run qualification bot script', on: true, color: 'green', execCount: 567 },
+//     { id: 'r4', icon: '📋', title: 'Auto-assign by keyword', trigger: 'Message contains "pricing"', action: 'Assign to Sales Team', on: true, color: 'purple', execCount: 234 },
+//     { id: 'r5', icon: '⏰', title: 'Follow-up reminder', trigger: '24hr of no agent reply', action: 'Send follow_up template', on: false, color: 'coral', execCount: 0 },
+//     { id: 'r6', icon: '📊', title: 'Stage auto-update', trigger: 'Bot collects name + budget', action: 'Move to Qualified stage', on: true, color: 'teal', execCount: 312 },
+// ];
+
+// const PIPELINE_STAGES = ['New', 'Enquiry', 'Qualified', 'Proposal', 'Negotiation', 'Closed Won'];
+
+// const QUICK_REPLIES = [
+//     'Sure, let me check that for you!',
+//     'Our team will call you shortly.',
+//     'Here is the pricing: Basic Rs 999, Pro Rs 2499',
+//     'Thanks for your interest! Can I know your budget?',
+//     'Please share your email so I can send the details.',
+// ];
+
+// // ─── Tag badge component
+// const Tag = ({ tag, stage }) => {
+//     const map = { hot: { label: 'Hot', c: 'coral' }, conv: { label: 'Converted', c: 'purple' }, new: { label: 'New', c: 'blue' }, qual: { label: 'Qualified', c: 'green' } };
+//     const info = map[tag] || map['new'];
+//     const col = COLORS[info.c];
+//     return <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 10, fontWeight: 600, background: col.bg, color: col.text, border: `1px solid ${col.border}22` }}>{stage || info.label}</span>;
+// };
+
+// // ─── Avatar
+// const Avatar = ({ initials, color = 'blue', size = 38 }) => {
+//     const col = COLORS[color] || COLORS.blue;
+//     return <div style={{ width: size, height: size, borderRadius: '50%', background: col.bg, color: col.text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.34, fontWeight: 700, flexShrink: 0, border: `1.5px solid ${col.border}44`, fontFamily: 'Georgia, serif' }}>{initials}</div>;
+// };
+
+// // ─── Status badge for templates
+// const StatusBadge = ({ status }) => {
+//     const map = { approved: { bg: '#EAF3DE', color: '#27500A', label: 'Approved' }, pending: { bg: '#FAEEDA', color: '#633806', label: 'Pending' }, rejected: { bg: '#FAECE7', color: '#712B13', label: 'Rejected' } };
+//     const s = map[status] || map.pending;
+//     return <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 8, fontWeight: 600, background: s.bg, color: s.color }}>{s.label}</span>;
+// };
+
+// // ─── Toggle
+// const Toggle = ({ on, onChange }) => (
+//     <button onClick={onChange} style={{ width: 34, height: 20, borderRadius: 10, background: on ? '#1D9E75' : '#ccc', border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0, transition: 'background .2s' }}>
+//         <span style={{ position: 'absolute', width: 14, height: 14, background: '#fff', borderRadius: '50%', top: 3, left: on ? 17 : 3, transition: 'left .2s' }} />
+//     </button>
+// );
+
+// // ─── Main App
+// export default function App() {
+//     const [view, setView] = useState('inbox'); // inbox | pipeline | broadcast | templates | automation | analytics
+//     const [convos, setConvos] = useState(INITIAL_CONVOS);
+//     const [activeId, setActiveId] = useState(1);
+//     const [filter, setFilter] = useState('all');
+//     const [search, setSearch] = useState('');
+//     const [rpTab, setRpTab] = useState('contact');
+//     const [mode, setMode] = useState('text');
+//     const [compose, setCompose] = useState('');
+//     const [noteText, setNoteText] = useState('');
+//     const [rules, setRules] = useState(INITIAL_RULES);
+//     const [broadcasts, setBroadcasts] = useState(INITIAL_BROADCASTS);
+//     const [templates, setTemplates] = useState(TEMPLATES);
+//     const [aiLoading, setAiLoading] = useState(false);
+//     const [showNewBroadcast, setShowNewBroadcast] = useState(false);
+//     const [showNewRule, setShowNewRule] = useState(false);
+//     const [showNewTemplate, setShowNewTemplate] = useState(false);
+//     const [newTpl, setNewTpl] = useState({ label: '', body: '', category: 'UTILITY', language: 'en' });
+//     const [newBroadcast, setNewBroadcast] = useState({ name: '', template: '', segment: 'All Contacts', date: '', time: '' });
+//     const messagesEnd = useRef(null);
+
+//     const activeConv = convos.find(c => c.id === activeId) || convos[0];
+
+//     useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior: 'smooth' }); }, [activeConv?.messages, activeId]);
+
+//     const updateConv = (id, fn) => setConvos(prev => prev.map(c => c.id === id ? fn(c) : c));
+
+//     const selectConv = (id) => { setActiveId(id); updateConv(id, c => ({ ...c, unread: 0 })); };
+
+//     const now = () => { const d = new Date(); return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`; };
+
+//     const sendMessage = () => {
+//         if (!compose.trim()) return;
+//         const isNote = mode === 'note';
+//         updateConv(activeConv.id, c => ({ ...c, messages: [...c.messages, { dir: isNote ? 'note' : 'out', text: compose, time: now() }], lastMsg: compose.substring(0, 45), time: 'now', stage: (!isNote && c.stage === 'New') ? 'Enquiry' : c.stage }));
+//         setCompose('');
+//     };
+
+//     const aiReply = async () => {
+//         setAiLoading(true);
+//         const history = activeConv.messages.slice(-6).map(m => `${m.dir === 'in' ? 'Customer' : 'Agent'}: ${m.text}`).join('\n');
+//         try {
+//             const res = await fetch('https://api.anthropic.com/v1/messages', {
+//                 method: 'POST',
+//                 headers: { 'Content-Type': 'application/json' },
+//                 body: JSON.stringify({
+//                     model: 'claude-sonnet-4-20250514',
+//                     max_tokens: 200,
+//                     system: `You are a helpful WhatsApp CRM sales agent for a SaaS platform. Customer: ${activeConv.name}. Stage: ${activeConv.stage}. Keep replies short (1-3 sentences), friendly, professional. Don't use markdown.`,
+//                     messages: [{ role: 'user', content: `Based on this conversation, write a short agent reply:\n${history}\n\nWrite only the reply text, nothing else.` }]
+//                 })
+//             });
+//             const data = await res.json();
+//             const text = data.content?.[0]?.text || 'I will get back to you shortly!';
+//             setCompose(text);
+//         } catch { setCompose('Thank you for reaching out! Our team will connect with you shortly.'); }
+//         setAiLoading(false);
+//     };
+
+//     const takeOver = () => updateConv(activeConv.id, c => ({ ...c, assigned: 'You', messages: [...c.messages, { dir: 'system', text: 'Agent took over from bot', time: now() }] }));
+//     const resolveConv = () => updateConv(activeConv.id, c => ({ ...c, stage: 'Resolved', tag: 'conv', messages: [...c.messages, { dir: 'system', text: 'Conversation resolved', time: now() }] }));
+//     const transferConv = () => { const a = ['Priya', 'Rohan', 'Sales Team'][Math.floor(Math.random() * 3)]; updateConv(activeConv.id, c => ({ ...c, assigned: a, messages: [...c.messages, { dir: 'system', text: `Transferred to ${a}`, time: now() }] })); };
+//     const advanceStage = () => updateConv(activeConv.id, c => { const pipe = c.pipeline.map(s => ({ ...s })); const ni = pipe.findIndex(s => !s.done); if (ni !== -1) { pipe[ni].done = true; pipe[ni].date = 'Apr 15'; return { ...c, pipeline: pipe, stage: pipe[ni].stage, tag: pipe[ni].stage === 'Closed' ? 'conv' : (pipe[ni].stage === 'Qualified' || pipe[ni].stage === 'Proposal') ? 'qual' : c.tag }; } return c; });
+//     const addNote = () => { if (!noteText.trim()) return; updateConv(activeConv.id, c => ({ ...c, notes: [noteText, ...c.notes] })); setNoteText(''); };
+//     const assignAgent = () => { const a = ['Priya', 'Rohan', 'Sales Team'][Math.floor(Math.random() * 3)]; updateConv(activeConv.id, c => ({ ...c, assigned: a })); };
+//     const submitTemplate = () => {
+//         if (!newTpl.label || !newTpl.body) return;
+//         setTemplates(prev => [...prev, { id: `t${Date.now()}`, name: newTpl.label.toLowerCase().replace(/\s+/g, '_'), label: newTpl.label, status: 'pending', category: newTpl.category, language: newTpl.language, body: newTpl.body, variables: [], usageCount: 0, lastUsed: 'Never' }]);
+//         setNewTpl({ label: '', body: '', category: 'UTILITY', language: 'en' });
+//         setShowNewTemplate(false);
+//     };
+//     const submitBroadcast = () => {
+//         if (!newBroadcast.name || !newBroadcast.template) return;
+//         setBroadcasts(prev => [...prev, { id: `b${Date.now()}`, ...newBroadcast, sent: 0, delivered: 0, read: 0, replied: 0, status: 'scheduled' }]);
+//         setNewBroadcast({ name: '', template: '', segment: 'All Contacts', date: '', time: '' });
+//         setShowNewBroadcast(false);
+//     };
+
+//     const filtered = convos.filter(c => {
+//         if (filter === 'mine' && c.assigned !== 'Priya' && c.assigned !== 'Rohan') return false;
+//         if (filter === 'bot' && c.assigned !== 'Bot') return false;
+//         if (filter === 'unread' && !c.unread) return false;
+//         if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.phone.includes(search)) return false;
+//         return true;
+//     });
+
+//     // ─── Sidebar icons
+//     const sideIcons = [
+//         { id: 'inbox', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>, badge: convos.reduce((s, c) => s + c.unread, 0) },
+//         { id: 'pipeline', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></svg> },
+//         { id: 'broadcast', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" /></svg> },
+//         { id: 'templates', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>, badge: templates.filter(t => t.status === 'pending').length },
+//         { id: 'automation', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 2 13 9 20 9" /><path d="M20 14.5v3.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8" /><polyline points="10 16 12 18 16 14" /></svg> },
+//         { id: 'analytics', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg> },
+//     ];
+
+//     const S = { // shared styles shorthand
+//         card: { background: '#fff', border: '0.5px solid #e0e0e0', borderRadius: 12, padding: '14px 16px' },
+//         btn: (primary) => ({ background: primary ? '#185FA5' : '#f5f5f5', color: primary ? '#fff' : '#333', border: primary ? 'none' : '0.5px solid #ddd', borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }),
+//         input: { width: '100%', border: '0.5px solid #ddd', borderRadius: 8, padding: '8px 12px', fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fafafa' },
+//         label: { fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'block' },
+//     };
+
+//     // ═══════════════════════════════════════════
+//     // VIEWS
+//     // ═══════════════════════════════════════════
+
+//     const renderPipelineView = () => {
+//         const byStage = PIPELINE_STAGES.reduce((acc, s) => { acc[s] = convos.filter(c => c.stage === s || (s === 'Closed Won' && c.stage === 'Closed Won')); return acc; }, {});
+//         const stageColors = { 'New': 'gray', 'Enquiry': 'blue', 'Qualified': 'green', 'Proposal': 'amber', 'Negotiation': 'coral', 'Closed Won': 'teal' };
+//         return (
+//             <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+//                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+//                     <div>
+//                         <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Sales Pipeline</h2>
+//                         <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>{convos.length} contacts across {PIPELINE_STAGES.length} stages</p>
+//                     </div>
+//                     <div style={{ display: 'flex', gap: 8 }}>
+//                         <div style={{ background: '#EAF3DE', color: '#27500A', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600 }}>Total Pipeline: Rs 2,40,000</div>
+//                     </div>
+//                 </div>
+//                 <div style={{ display: 'flex', gap: 12, minWidth: 900 }}>
+//                     {PIPELINE_STAGES.map(stage => {
+//                         const contacts = byStage[stage] || [];
+//                         const col = COLORS[stageColors[stage]] || COLORS.blue;
+//                         return (
+//                             <div key={stage} style={{ flex: 1, minWidth: 140 }}>
+//                                 <div style={{ background: col.bg, borderRadius: '8px 8px 0 0', padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: `1px solid ${col.border}33` }}>
+//                                     <span style={{ fontSize: 11, fontWeight: 700, color: col.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{stage}</span>
+//                                     <span style={{ fontSize: 11, background: '#fff', color: col.text, borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>{contacts.length}</span>
+//                                 </div>
+//                                 <div style={{ background: '#f8f8f8', borderRadius: '0 0 8px 8px', minHeight: 400, padding: 8, display: 'flex', flexDirection: 'column', gap: 8, border: '0.5px solid #e0e0e0', borderTop: 'none' }}>
+//                                     {contacts.map(c => (
+//                                         <div key={c.id} onClick={() => { setView('inbox'); selectConv(c.id); }} style={{ background: '#fff', borderRadius: 8, padding: 10, cursor: 'pointer', border: '0.5px solid #e8e8e8', transition: 'box-shadow .15s' }}
+//                                             onMouseOver={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'}
+//                                             onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}>
+//                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+//                                                 <Avatar initials={c.initials} color={c.color} size={26} />
+//                                                 <div>
+//                                                     <div style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>{c.name}</div>
+//                                                     <div style={{ fontSize: 10, color: '#888' }}>{c.assigned}</div>
+//                                                 </div>
+//                                             </div>
+//                                             <div style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.lastMsg}</div>
+//                                             <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>{c.time}</div>
+//                                         </div>
+//                                     ))}
+//                                     {contacts.length === 0 && <div style={{ fontSize: 11, color: '#bbb', textAlign: 'center', paddingTop: 20 }}>No contacts</div>}
+//                                 </div>
+//                             </div>
+//                         );
+//                     })}
+//                 </div>
+//             </div>
+//         );
+//     };
+
+//     const renderBroadcastView = () => (
+//         <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+//             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+//                 <div>
+//                     <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Broadcast Campaigns</h2>
+//                     <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>Send bulk WhatsApp messages to segments</p>
+//                 </div>
+//                 <button onClick={() => setShowNewBroadcast(true)} style={S.btn(true)}>+ New Campaign</button>
+//             </div>
+
+//             {/* Stats row */}
+//             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+//                 {[{ label: 'Total Sent', value: '209', color: 'blue' }, { label: 'Delivered', value: '203', color: 'green' }, { label: 'Read', value: '130', color: 'amber' }, { label: 'Replied', value: '35', color: 'teal' }].map(s => (
+//                     <div key={s.label} style={{ ...S.card, textAlign: 'center' }}>
+//                         <div style={{ fontSize: 24, fontWeight: 700, color: COLORS[s.color].text }}>{s.value}</div>
+//                         <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{s.label}</div>
+//                     </div>
+//                 ))}
+//             </div>
+
+//             {/* Campaigns table */}
+//             <div style={S.card}>
+//                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+//                     <thead>
+//                         <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+//                             {['Campaign', 'Template', 'Segment', 'Sent', 'Delivered', 'Read', 'Replied', 'Status', 'Scheduled'].map(h => (
+//                                 <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+//                             ))}
+//                         </tr>
+//                     </thead>
+//                     <tbody>
+//                         {broadcasts.map(b => (
+//                             <tr key={b.id} style={{ borderBottom: '0.5px solid #f5f5f5' }}>
+//                                 <td style={{ padding: '10px 10px', fontWeight: 600, color: '#111' }}>{b.name}</td>
+//                                 <td style={{ padding: '10px 10px', color: '#555', fontFamily: 'monospace', fontSize: 12 }}>{b.template}</td>
+//                                 <td style={{ padding: '10px 10px' }}><span style={{ background: '#E6F1FB', color: '#0C447C', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>{b.segment}</span></td>
+//                                 <td style={{ padding: '10px 10px', color: '#333' }}>{b.sent}</td>
+//                                 <td style={{ padding: '10px 10px', color: '#27500A' }}>{b.delivered}</td>
+//                                 <td style={{ padding: '10px 10px', color: '#633806' }}>{b.read}</td>
+//                                 <td style={{ padding: '10px 10px', color: '#3c3489' }}>{b.replied}</td>
+//                                 <td style={{ padding: '10px 10px' }}><StatusBadge status={b.status === 'completed' ? 'approved' : b.status === 'scheduled' ? 'pending' : 'pending'} /></td>
+//                                 <td style={{ padding: '10px 10px', color: '#888', fontSize: 12 }}>{b.date} {b.time}</td>
+//                             </tr>
+//                         ))}
+//                     </tbody>
+//                 </table>
+//             </div>
+
+//             {/* New broadcast modal */}
+//             {showNewBroadcast && (
+//                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+//                     <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440, boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
+//                         <h3 style={{ margin: '0 0 18px', fontSize: 16, fontWeight: 600 }}>Create New Campaign</h3>
+//                         <label style={S.label}>Campaign Name</label>
+//                         <input style={{ ...S.input, marginBottom: 14 }} value={newBroadcast.name} onChange={e => setNewBroadcast(p => ({ ...p, name: e.target.value }))} placeholder="e.g. April Promo Blast" />
+//                         <label style={S.label}>Template</label>
+//                         <select style={{ ...S.input, marginBottom: 14 }} value={newBroadcast.template} onChange={e => setNewBroadcast(p => ({ ...p, template: e.target.value }))}>
+//                             <option value="">Select approved template...</option>
+//                             {templates.filter(t => t.status === 'approved').map(t => <option key={t.id} value={t.name}>{t.label}</option>)}
+//                         </select>
+//                         <label style={S.label}>Target Segment</label>
+//                         <select style={{ ...S.input, marginBottom: 14 }} value={newBroadcast.segment} onChange={e => setNewBroadcast(p => ({ ...p, segment: e.target.value }))}>
+//                             {['All Contacts', 'Hot Leads', 'Qualified', 'New', 'Unassigned'].map(s => <option key={s}>{s}</option>)}
+//                         </select>
+//                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+//                             <div><label style={S.label}>Date</label><input type="date" style={S.input} value={newBroadcast.date} onChange={e => setNewBroadcast(p => ({ ...p, date: e.target.value }))} /></div>
+//                             <div><label style={S.label}>Time</label><input type="time" style={S.input} value={newBroadcast.time} onChange={e => setNewBroadcast(p => ({ ...p, time: e.target.value }))} /></div>
+//                         </div>
+//                         <div style={{ display: 'flex', gap: 10 }}>
+//                             <button onClick={submitBroadcast} style={{ ...S.btn(true), flex: 1, textAlign: 'center' }}>Schedule Campaign</button>
+//                             <button onClick={() => setShowNewBroadcast(false)} style={{ ...S.btn(false), flex: 1, textAlign: 'center' }}>Cancel</button>
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+//         </div>
+//     );
+
+//     const renderTemplatesView = () => (
+//         <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+//             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+//                 <div>
+//                     <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Message Templates</h2>
+//                     <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>Meta-approved WhatsApp Business templates</p>
+//                 </div>
+//                 <button onClick={() => setShowNewTemplate(true)} style={S.btn(true)}>+ Submit Template</button>
+//             </div>
+
+//             {/* Stats */}
+//             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+//                 {[{ label: 'Approved', value: templates.filter(t => t.status === 'approved').length, color: 'green' }, { label: 'Pending Review', value: templates.filter(t => t.status === 'pending').length, color: 'amber' }, { label: 'Rejected', value: templates.filter(t => t.status === 'rejected').length, color: 'coral' }].map(s => (
+//                     <div key={s.label} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 12 }}>
+//                         <div style={{ fontSize: 28, fontWeight: 700, color: COLORS[s.color].text }}>{s.value}</div>
+//                         <div style={{ fontSize: 12, color: '#888' }}>{s.label}</div>
+//                     </div>
+//                 ))}
+//             </div>
+
+//             {/* Templates list */}
+//             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+//                 {templates.map(t => (
+//                     <div key={t.id} style={{ ...S.card, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+//                         <div style={{ flex: 1 }}>
+//                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+//                                 <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{t.label}</span>
+//                                 <StatusBadge status={t.status} />
+//                                 <span style={{ fontSize: 10, background: '#f0f0f0', color: '#555', borderRadius: 6, padding: '2px 7px', fontWeight: 600 }}>{t.category}</span>
+//                                 <span style={{ fontSize: 10, color: '#aaa', fontFamily: 'monospace' }}>{t.name}</span>
+//                             </div>
+//                             <div style={{ fontSize: 13, color: '#444', background: '#f8f9fa', borderRadius: 8, padding: '10px 12px', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontFamily: 'Georgia, serif' }}>{t.body}</div>
+//                             {t.rejectionReason && <div style={{ fontSize: 12, color: '#712B13', background: '#FAECE7', borderRadius: 8, padding: '8px 12px', marginTop: 8 }}>Rejection reason: {t.rejectionReason}</div>}
+//                             <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+//                                 <span style={{ fontSize: 11, color: '#aaa' }}>Used {t.usageCount} times</span>
+//                                 <span style={{ fontSize: 11, color: '#aaa' }}>Last used: {t.lastUsed}</span>
+//                                 <span style={{ fontSize: 11, color: '#aaa' }}>Lang: {t.language}</span>
+//                             </div>
+//                         </div>
+//                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+//                             {t.status === 'approved' && <button style={S.btn(true)} onClick={() => { setView('inbox'); setMode('template'); }}>Use</button>}
+//                             {t.status === 'rejected' && <button style={S.btn(false)} onClick={() => setTemplates(prev => prev.map(tt => tt.id === t.id ? { ...tt, status: 'pending', rejectionReason: undefined } : tt))}>Resubmit</button>}
+//                             {t.status === 'pending' && <div style={{ fontSize: 11, color: '#BA7517', background: '#FAEEDA', borderRadius: 8, padding: '6px 10px', textAlign: 'center' }}>Under review<br /><span style={{ color: '#aaa' }}>24-48 hrs</span></div>}
+//                         </div>
+//                     </div>
+//                 ))}
+//             </div>
+
+//             {/* Submit template modal */}
+//             {showNewTemplate && (
+//                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+//                     <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
+//                         <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 600 }}>Submit New Template to Meta</h3>
+//                         <p style={{ fontSize: 12, color: '#888', margin: '0 0 18px' }}>Templates require Meta approval before use (24-48 hrs)</p>
+//                         <label style={S.label}>Template Name</label>
+//                         <input style={{ ...S.input, marginBottom: 14 }} value={newTpl.label} onChange={e => setNewTpl(p => ({ ...p, label: e.target.value }))} placeholder="e.g. Welcome Message" />
+//                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+//                             <div>
+//                                 <label style={S.label}>Category</label>
+//                                 <select style={S.input} value={newTpl.category} onChange={e => setNewTpl(p => ({ ...p, category: e.target.value }))}>
+//                                     <option value="UTILITY">Utility</option>
+//                                     <option value="MARKETING">Marketing</option>
+//                                     <option value="AUTHENTICATION">Authentication</option>
+//                                 </select>
+//                             </div>
+//                             <div>
+//                                 <label style={S.label}>Language</label>
+//                                 <select style={S.input} value={newTpl.language} onChange={e => setNewTpl(p => ({ ...p, language: e.target.value }))}>
+//                                     <option value="en">English</option>
+//                                     <option value="hi">Hindi</option>
+//                                     <option value="en_IN">English (India)</option>
+//                                 </select>
+//                             </div>
+//                         </div>
+//                         <label style={S.label}>Message Body</label>
+//                         <textarea style={{ ...S.input, resize: 'vertical', marginBottom: 6, minHeight: 100 }} value={newTpl.body} onChange={e => setNewTpl(p => ({ ...p, body: e.target.value }))} placeholder="Use {{1}} for customer name, {{2}} for second variable..." rows={4} />
+//                         <p style={{ fontSize: 11, color: '#aaa', margin: '0 0 18px' }}>Tip: Use {'{{1}}'}, {'{{2}}'} for dynamic variables. Avoid promotional language in Utility templates.</p>
+//                         <div style={{ display: 'flex', gap: 10 }}>
+//                             <button onClick={submitTemplate} style={{ ...S.btn(true), flex: 1, textAlign: 'center' }}>Submit to Meta</button>
+//                             <button onClick={() => setShowNewTemplate(false)} style={{ ...S.btn(false), flex: 1, textAlign: 'center' }}>Cancel</button>
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+//         </div>
+//     );
+
+//     const renderAutomationView = () => (
+//         <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+//             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+//                 <div>
+//                     <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Automation Rules</h2>
+//                     <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>{rules.filter(r => r.on).length} active rules · {rules.reduce((s, r) => s + r.execCount, 0).toLocaleString()} total executions</p>
+//                 </div>
+//                 <button onClick={() => setShowNewRule(true)} style={S.btn(true)}>+ Add Rule</button>
+//             </div>
+
+//             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+//                 {rules.map((r, i) => {
+//                     const col = COLORS[r.color] || COLORS.blue;
+//                     return (
+//                         <div key={r.id} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, opacity: r.on ? 1 : 0.6 }}>
+//                             <div style={{ width: 40, height: 40, borderRadius: 10, background: col.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{r.icon}</div>
+//                             <div style={{ flex: 1 }}>
+//                                 <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 2 }}>{r.title}</div>
+//                                 <div style={{ fontSize: 12, color: '#888', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+//                                     <span style={{ background: '#f0f0f0', borderRadius: 6, padding: '2px 8px', fontSize: 11 }}>WHEN: {r.trigger}</span>
+//                                     <span style={{ color: '#ccc' }}>→</span>
+//                                     <span style={{ background: col.bg, color: col.text, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>DO: {r.action}</span>
+//                                 </div>
+//                             </div>
+//                             <div style={{ textAlign: 'right', flexShrink: 0 }}>
+//                                 <div style={{ fontSize: 11, color: '#aaa', marginBottom: 6 }}>{r.execCount.toLocaleString()} runs</div>
+//                                 <Toggle on={r.on} onChange={() => setRules(prev => prev.map((rr, ii) => ii === i ? { ...rr, on: !rr.on } : rr))} />
+//                             </div>
+//                         </div>
+//                     );
+//                 })}
+//             </div>
+
+//             {showNewRule && (
+//                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+//                     <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440, boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
+//                         <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 600 }}>Add Automation Rule</h3>
+//                         <p style={{ fontSize: 12, color: '#888', margin: '0 0 18px' }}>Rules run automatically based on triggers</p>
+//                         <label style={S.label}>Trigger Event</label>
+//                         <select style={{ ...S.input, marginBottom: 14 }}>
+//                             <option>New contact first message</option>
+//                             <option>Message contains keyword</option>
+//                             <option>1hr before session expiry</option>
+//                             <option>24hr of no agent reply</option>
+//                             <option>Contact enters stage</option>
+//                             <option>Contact assigned</option>
+//                         </select>
+//                         <label style={S.label}>Action</label>
+//                         <select style={{ ...S.input, marginBottom: 14 }}>
+//                             <option>Send approved template</option>
+//                             <option>Assign to agent</option>
+//                             <option>Move to stage</option>
+//                             <option>Notify agent via email</option>
+//                             <option>Add tag</option>
+//                             <option>Run bot flow</option>
+//                         </select>
+//                         <label style={S.label}>Rule Name</label>
+//                         <input style={{ ...S.input, marginBottom: 20 }} placeholder="e.g. Keyword routing" />
+//                         <div style={{ display: 'flex', gap: 10 }}>
+//                             <button onClick={() => { setRules(prev => [...prev, { id: `r${Date.now()}`, icon: '⚙️', title: 'New Rule', trigger: 'Custom trigger', action: 'Custom action', on: true, color: 'blue', execCount: 0 }]); setShowNewRule(false); }} style={{ ...S.btn(true), flex: 1, textAlign: 'center' }}>Create Rule</button>
+//                             <button onClick={() => setShowNewRule(false)} style={{ ...S.btn(false), flex: 1, textAlign: 'center' }}>Cancel</button>
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+//         </div>
+//     );
+
+//     const renderAnalyticsView = () => {
+//         const bars = [{ l: 'Mon', v: 34 }, { l: 'Tue', v: 67 }, { l: 'Wed', v: 45 }, { l: 'Thu', v: 89 }, { l: 'Fri', v: 123 }, { l: 'Sat', v: 56 }, { l: 'Sun', v: 28 }];
+//         const max = Math.max(...bars.map(b => b.v));
+//         return (
+//             <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+//                 <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 16px' }}>Analytics</h2>
+//                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+//                     {[{ label: 'New Contacts', value: '142', delta: '+12%', color: 'blue' }, { label: 'Conversations', value: '89', delta: '+5%', color: 'green' }, { label: 'Conversion Rate', value: '23%', delta: '+2%', color: 'teal' }, { label: 'Avg Response Time', value: '4.2m', delta: '-18%', color: 'amber' }].map(s => (
+//                         <div key={s.label} style={S.card}>
+//                             <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{s.label}</div>
+//                             <div style={{ fontSize: 26, fontWeight: 700, color: COLORS[s.color].text }}>{s.value}</div>
+//                             <div style={{ fontSize: 11, color: '#27500A', marginTop: 4 }}>{s.delta} this week</div>
+//                         </div>
+//                     ))}
+//                 </div>
+
+//                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
+//                     <div style={S.card}>
+//                         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>Messages This Week</div>
+//                         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 140 }}>
+//                             {bars.map(b => (
+//                                 <div key={b.l} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+//                                     <div style={{ width: '100%', background: '#E6F1FB', borderRadius: '4px 4px 0 0', height: `${(b.v / max) * 120}px`, position: 'relative' }}>
+//                                         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#185FA5', borderRadius: '4px 4px 0 0', height: `${(b.v / max) * 100}%` }} />
+//                                     </div>
+//                                     <div style={{ fontSize: 10, color: '#888' }}>{b.l}</div>
+//                                     <div style={{ fontSize: 10, fontWeight: 600, color: '#185FA5' }}>{b.v}</div>
+//                                 </div>
+//                             ))}
+//                         </div>
+//                     </div>
+//                     <div style={S.card}>
+//                         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Stage Distribution</div>
+//                         {PIPELINE_STAGES.map(stage => {
+//                             const count = convos.filter(c => c.stage === stage).length;
+//                             const pct = Math.round((count / convos.length) * 100);
+//                             const col = COLORS[{ 'New': 'blue', 'Enquiry': 'blue', 'Qualified': 'green', 'Proposal': 'amber', 'Negotiation': 'coral', 'Closed Won': 'teal' }[stage]] || COLORS.blue;
+//                             return (
+//                                 <div key={stage} style={{ marginBottom: 10 }}>
+//                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+//                                         <span style={{ color: '#555' }}>{stage}</span>
+//                                         <span style={{ fontWeight: 600, color: col.text }}>{count}</span>
+//                                     </div>
+//                                     <div style={{ height: 6, background: '#f0f0f0', borderRadius: 4 }}>
+//                                         <div style={{ width: `${pct}%`, height: '100%', background: col.border, borderRadius: 4, minWidth: count > 0 ? 4 : 0 }} />
+//                                     </div>
+//                                 </div>
+//                             );
+//                         })}
+//                     </div>
+//                 </div>
+
+//                 <div style={{ ...S.card, marginTop: 16 }}>
+//                     <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Agent Performance</div>
+//                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+//                         <thead><tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+//                             {['Agent', 'Assigned', 'Resolved', 'Avg Response', 'Satisfaction'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 10px', fontSize: 11, color: '#888', fontWeight: 600 }}>{h}</th>)}
+//                         </tr></thead>
+//                         <tbody>
+//                             {[{ name: 'Priya', assigned: 2, resolved: 8, response: '3.1m', sat: '4.8/5' }, { name: 'Rohan', assigned: 1, resolved: 5, response: '5.2m', sat: '4.5/5' }, { name: 'Bot', assigned: 1, resolved: 14, response: '0.1m', sat: '4.1/5' }].map(a => (
+//                                 <tr key={a.name} style={{ borderBottom: '0.5px solid #f5f5f5' }}>
+//                                     <td style={{ padding: '10px 10px', fontWeight: 600 }}>{a.name}</td>
+//                                     <td style={{ padding: '10px 10px', color: '#185FA5' }}>{a.assigned}</td>
+//                                     <td style={{ padding: '10px 10px', color: '#27500A' }}>{a.resolved}</td>
+//                                     <td style={{ padding: '10px 10px', color: '#555' }}>{a.response}</td>
+//                                     <td style={{ padding: '10px 10px', color: '#633806', fontWeight: 600 }}>{a.sat}</td>
+//                                 </tr>
+//                             ))}
+//                         </tbody>
+//                     </table>
+//                 </div>
+//             </div>
+//         );
+//     };
+
+//     // ─── Right panel
+//     const renderRightPanel = () => {
+//         if (rpTab === 'contact') return (
+//             <>
+//                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+//                     <Avatar initials={activeConv.initials} color={activeConv.color} size={44} />
+//                     <div><div style={{ fontSize: 14, fontWeight: 600 }}>{activeConv.name}</div><div style={{ fontSize: 12, color: '#888' }}>{activeConv.phone}</div></div>
+//                 </div>
+//                 {[{ label: 'Stage', val: <Tag tag={activeConv.tag} stage={activeConv.stage} /> }, { label: 'Assigned to', val: activeConv.assigned }, { label: 'Source', val: 'WhatsApp inbound' }, { label: 'Last contact', val: activeConv.time + ' ago' }].map(f => (
+//                     <div key={f.label} style={{ marginBottom: 12 }}>
+//                         <div style={S.label}>{f.label}</div>
+//                         {typeof f.val === 'string' ? <div style={{ fontSize: 13, color: '#333' }}>{f.val}</div> : f.val}
+//                     </div>
+//                 ))}
+//                 <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+//                     <button style={{ ...S.btn(false), textAlign: 'left' }} onClick={() => { setRpTab('pipeline'); setTimeout(advanceStage, 200); }}>Move to next stage →</button>
+//                     <button style={{ ...S.btn(false), textAlign: 'left' }} onClick={assignAgent}>Reassign agent →</button>
+//                     <button style={{ ...S.btn(false), textAlign: 'left' }} onClick={() => setRpTab('pipeline')}>View pipeline →</button>
+//                 </div>
+//             </>
+//         );
+//         if (rpTab === 'pipeline') {
+//             const done = activeConv.pipeline.filter(s => s.done).length;
+//             return (
+//                 <>
+//                     <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>{done} of {activeConv.pipeline.length} stages complete</div>
+//                     <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+//                         {activeConv.pipeline.map((s, i) => <div key={i} style={{ flex: 1, height: 5, borderRadius: 3, background: s.done ? '#185FA5' : '#e0e0e0' }} />)}
+//                     </div>
+//                     {activeConv.pipeline.map((s, i) => {
+//                         const isCurrent = !s.done && (i === 0 || activeConv.pipeline[i - 1].done);
+//                         return (
+//                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '0.5px solid #f5f5f5' }}>
+//                                 <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: s.done ? '#1D9E75' : isCurrent ? '#185FA5' : '#ccc' }} />
+//                                 <div style={{ flex: 1 }}>
+//                                     <div style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>{s.stage}</div>
+//                                     <div style={{ fontSize: 11, color: '#aaa' }}>{s.date}</div>
+//                                 </div>
+//                                 {s.done ? <span style={{ fontSize: 10, background: '#EAF3DE', color: '#27500A', borderRadius: 6, padding: '2px 7px', fontWeight: 600 }}>Done</span> : isCurrent ? <span style={{ fontSize: 10, background: '#E6F1FB', color: '#0C447C', borderRadius: 6, padding: '2px 7px', fontWeight: 600 }}>Current</span> : null}
+//                             </div>
+//                         );
+//                     })}
+//                     <button onClick={advanceStage} style={{ ...S.btn(true), width: '100%', textAlign: 'center', marginTop: 12 }}>Move to next stage</button>
+//                 </>
+//             );
+//         }
+//         if (rpTab === 'notes') return (
+//             <>
+//                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+//                     {activeConv.notes.length ? activeConv.notes.map((n, i) => <div key={i} style={{ background: '#f8f9fa', borderRadius: 8, padding: 10, fontSize: 12, color: '#444', lineHeight: 1.6, borderLeft: '3px solid #185FA5' }}>{n}</div>) : <div style={{ fontSize: 13, color: '#bbb' }}>No notes yet.</div>}
+//                 </div>
+//                 <textarea rows={3} style={{ ...S.input, resize: 'none', marginBottom: 8 }} placeholder="Add a note..." value={noteText} onChange={e => setNoteText(e.target.value)} />
+//                 <button onClick={addNote} style={{ ...S.btn(true), width: '100%', textAlign: 'center' }}>Save note</button>
+//             </>
+//         );
+//         if (rpTab === 'auto') return (
+//             <>
+//                 <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Active automations</div>
+//                 {rules.map((r, i) => {
+//                     const col = COLORS[r.color] || COLORS.blue;
+//                     return (
+//                         <div key={r.id} style={{ background: '#f8f9fa', borderRadius: 8, padding: 10, marginBottom: 8, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+//                             <div style={{ width: 28, height: 28, borderRadius: 7, background: col.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>{r.icon}</div>
+//                             <div style={{ flex: 1 }}>
+//                                 <div style={{ fontSize: 12, fontWeight: 600 }}>{r.title}</div>
+//                                 <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>{r.trigger}</div>
+//                             </div>
+//                             <Toggle on={r.on} onChange={() => setRules(prev => prev.map((rr, ii) => ii === i ? { ...rr, on: !rr.on } : rr))} />
+//                         </div>
+//                     );
+//                 })}
+//             </>
+//         );
+//     };
+
+//     // ─── Inbox (main 3-col layout)
+//     const renderInbox = () => (
+//         <>
+//             {/* Left panel */}
+//             <div style={{ width: 270, borderRight: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+//                 <div style={{ padding: '10px 12px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', gap: 8 }}>
+//                     <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ ...S.input, flex: 1 }} />
+//                     <button onClick={() => {
+//                         const name = prompt('Contact name:'); if (!name) return;
+//                         const phone = prompt('Phone:'); if (!phone) return;
+//                         const initials = name.trim().split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+//                         const colorKeys = Object.keys(COLORS);
+//                         const newC = { id: Date.now(), name, phone, tag: 'new', stage: 'New', assigned: 'Unassigned', unread: 0, lastMsg: 'New contact', time: 'now', sessionExpiry: false, color: colorKeys[convos.length % colorKeys.length], initials, messages: [], notes: [], pipeline: [{ stage: 'Enquiry', done: false, date: '-' }, { stage: 'Qualified', done: false, date: '-' }, { stage: 'Proposal', done: false, date: '-' }, { stage: 'Negotiation', done: false, date: '-' }, { stage: 'Closed', done: false, date: '-' }] };
+//                         setConvos(prev => [newC, ...prev]); setActiveId(newC.id);
+//                     }} style={S.btn(true)}>+</button>
+//                 </div>
+//                 <div style={{ display: 'flex', padding: '6px 10px', gap: 4, borderBottom: '0.5px solid #e8e8e8', flexShrink: 0 }}>
+//                     {['all', 'mine', 'bot', 'unread'].map(f => (
+//                         <button key={f} onClick={() => setFilter(f)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, cursor: 'pointer', border: 'none', background: filter === f ? '#E6F1FB' : 'transparent', color: filter === f ? '#0C447C' : '#888', fontWeight: filter === f ? 700 : 400, fontFamily: 'inherit' }}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
+//                     ))}
+//                 </div>
+//                 <div style={{ overflowY: 'auto', flex: 1 }}>
+//                     {filtered.map(c => (
+//                         <div key={c.id} onClick={() => selectConv(c.id)} style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '0.5px solid #f0f0f0', display: 'flex', gap: 10, background: c.id === activeId ? '#EDF4FC' : 'transparent', transition: 'background .1s' }}>
+//                             <Avatar initials={c.initials} color={c.color} size={38} />
+//                             <div style={{ flex: 1, minWidth: 0 }}>
+//                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+//                                     <span style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{c.name}</span>
+//                                     <span style={{ fontSize: 10, color: '#aaa' }}>{c.time}</span>
+//                                 </div>
+//                                 <div style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>{c.lastMsg}</div>
+//                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 }}>
+//                                     <Tag tag={c.tag} stage={c.stage} />
+//                                     {c.unread > 0 && <span style={{ background: '#E24B4A', color: '#fff', fontSize: 10, borderRadius: 8, padding: '1px 5px', fontWeight: 700 }}>{c.unread}</span>}
+//                                 </div>
+//                             </div>
+//                         </div>
+//                     ))}
+//                 </div>
+//             </div>
+
+//             {/* Chat area */}
+//             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+//                 {/* Header */}
+//                 <div style={{ padding: '10px 14px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+//                     <Avatar initials={activeConv.initials} color={activeConv.color} size={36} />
+//                     <div style={{ flex: 1 }}>
+//                         <div style={{ fontSize: 14, fontWeight: 600 }}>{activeConv.name}</div>
+//                         <div style={{ fontSize: 12, color: '#888' }}>{activeConv.phone} · {activeConv.assigned === 'Bot' ? <span style={{ color: '#BA7517' }}>Bot handling</span> : `Agent: ${activeConv.assigned}`}</div>
+//                     </div>
+//                     <div style={{ display: 'flex', gap: 6 }}>
+//                         {[{ label: 'Take over', fn: takeOver }, { label: 'Resolve', fn: resolveConv }, { label: 'Transfer', fn: transferConv }].map(btn => (
+//                             <button key={btn.label} onClick={btn.fn} style={{ ...S.btn(false), fontSize: 12 }}>{btn.label}</button>
+//                         ))}
+//                     </div>
+//                 </div>
+
+//                 {/* Messages */}
+//                 <div style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 8, background: '#f5f7f9' }}>
+//                     <div style={{ textAlign: 'center', fontSize: 11, color: '#aaa' }}>Conversation started · {activeConv.time} ago</div>
+//                     {activeConv.messages.map((msg, idx) => {
+//                         if (msg.dir === 'system') return <div key={idx} style={{ textAlign: 'center', fontSize: 11, color: '#aaa', background: '#e8e8e8', borderRadius: 8, padding: '4px 12px', alignSelf: 'center' }}>{msg.text}</div>;
+//                         if (msg.dir === 'bot') return (
+//                             <div key={idx} style={{ alignSelf: 'flex-start', maxWidth: '72%' }}>
+//                                 <span style={{ fontSize: 10, background: '#FAEEDA', color: '#633806', padding: '2px 8px', borderRadius: 8, fontWeight: 700, marginBottom: 3, display: 'inline-block' }}>Bot</span>
+//                                 <div style={{ background: '#FAEEDA', borderRadius: '12px 12px 12px 4px', padding: '8px 12px', fontSize: 13, lineHeight: 1.55, color: '#412402' }}>{msg.text}</div>
+//                                 <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>{msg.time}</div>
+//                             </div>
+//                         );
+//                         if (msg.dir === 'in') return (
+//                             <div key={idx} style={{ alignSelf: 'flex-start', maxWidth: '72%' }}>
+//                                 <div style={{ background: '#fff', borderRadius: '12px 12px 12px 4px', padding: '8px 12px', fontSize: 13, lineHeight: 1.55, border: '0.5px solid #e0e0e0' }}>{msg.text}</div>
+//                                 <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>{msg.time}</div>
+//                             </div>
+//                         );
+//                         if (msg.dir === 'note') return (
+//                             <div key={idx} style={{ alignSelf: 'flex-end', maxWidth: '72%' }}>
+//                                 <div style={{ background: '#FFFBEA', borderRadius: '12px 12px 4px 12px', padding: '8px 12px', fontSize: 13, lineHeight: 1.55, fontStyle: 'italic', color: '#633806', border: '0.5px solid #FAC775' }}>[Note] {msg.text}</div>
+//                                 <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, textAlign: 'right' }}>{msg.time}</div>
+//                             </div>
+//                         );
+//                         return (
+//                             <div key={idx} style={{ alignSelf: 'flex-end', maxWidth: '72%' }}>
+//                                 <div style={{ background: '#DCF8C6', borderRadius: '12px 12px 4px 12px', padding: '8px 12px', fontSize: 13, lineHeight: 1.55, color: '#1a3a1a' }}>{msg.text}</div>
+//                                 <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, textAlign: 'right' }}>{msg.time} · <span style={{ color: '#1D9E75' }}>Read</span></div>
+//                             </div>
+//                         );
+//                     })}
+//                     <div ref={messagesEnd} />
+//                 </div>
+
+//                 {/* Session expiry warning */}
+//                 {activeConv.sessionExpiry && (
+//                     <div style={{ background: '#FAEEDA', padding: '8px 14px', fontSize: 12, color: '#633806', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #FAC775', flexShrink: 0 }}>
+//                         <span>24hr session expired — use an approved template to re-open</span>
+//                         <button onClick={() => setMode('template')} style={{ fontSize: 11, background: '#EF9F27', color: '#412402', border: 'none', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Send template</button>
+//                     </div>
+//                 )}
+
+//                 {/* Compose */}
+//                 <div style={{ padding: '10px 14px', borderTop: '0.5px solid #e8e8e8', background: '#fff', flexShrink: 0 }}>
+//                     <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+//                         {['text', 'template', 'quick', 'note'].map(m => (
+//                             <button key={m} onClick={() => setMode(m)} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 8, cursor: 'pointer', border: 'none', background: mode === m ? '#E6F1FB' : 'transparent', color: mode === m ? '#0C447C' : '#888', fontWeight: mode === m ? 700 : 400, fontFamily: 'inherit' }}>
+//                                 {m === 'text' ? 'Text' : m === 'template' ? 'Template' : m === 'quick' ? 'Quick reply' : 'Note'}
+//                             </button>
+//                         ))}
+//                         <button onClick={aiReply} disabled={aiLoading} style={{ marginLeft: 'auto', fontSize: 12, padding: '4px 12px', borderRadius: 8, cursor: 'pointer', border: 'none', background: aiLoading ? '#f0f0f0' : '#E6F1FB', color: aiLoading ? '#aaa' : '#0C447C', fontWeight: 700, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>
+//                             {aiLoading ? '...' : '✦ AI Reply'}
+//                         </button>
+//                     </div>
+
+//                     {mode === 'template' && (
+//                         <div style={{ marginBottom: 8, maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+//                             {templates.filter(t => t.status === 'approved').map((t, i) => (
+//                                 <div key={t.id} onClick={() => { const f = t.body.replace(/{{1}}/g, activeConv.name.split(' ')[0]).replace(/{{2}}/g, activeConv.name.split(' ')[0].toLowerCase()); setCompose(f); }} style={{ padding: '8px 10px', borderRadius: 8, border: '0.5px solid #ddd', cursor: 'pointer', background: '#fafafa' }}>
+//                                     <div style={{ fontSize: 12, fontWeight: 600 }}>{t.label}</div>
+//                                     <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{t.body.substring(0, 70)}...</div>
+//                                 </div>
+//                             ))}
+//                         </div>
+//                     )}
+
+//                     {mode === 'quick' && (
+//                         <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+//                             {QUICK_REPLIES.map((q, i) => (
+//                                 <button key={i} onClick={() => setCompose(q)} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 10, border: '0.5px solid #ddd', cursor: 'pointer', background: '#f8f9fa', color: '#555', fontFamily: 'inherit' }}>{q.substring(0, 28)}{q.length > 28 ? '…' : ''}</button>
+//                             ))}
+//                         </div>
+//                     )}
+
+//                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+//                         <textarea rows={1} value={compose} onChange={e => setCompose(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={mode === 'note' ? 'Internal note — not sent to customer...' : 'Type a message...'} style={{ flex: 1, border: '0.5px solid #ddd', borderRadius: 8, padding: '8px 12px', fontSize: 13, resize: 'none', fontFamily: 'inherit', outline: 'none', background: mode === 'note' ? '#FFFBEA' : '#fafafa', minHeight: 38 }} />
+//                         <button onClick={sendMessage} style={{ width: 38, height: 38, borderRadius: '50%', background: '#185FA5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+//                             <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+//                         </button>
+//                     </div>
+//                 </div>
+//             </div>
+
+//             {/* Right panel */}
+//             <div style={{ width: 290, borderLeft: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+//                 <div style={{ display: 'flex', borderBottom: '0.5px solid #e8e8e8', flexShrink: 0 }}>
+//                     {['contact', 'pipeline', 'notes', 'auto'].map(t => (
+//                         <button key={t} onClick={() => setRpTab(t)} style={{ flex: 1, padding: '10px 0', fontSize: 12, textAlign: 'center', cursor: 'pointer', border: 'none', background: 'none', fontFamily: 'inherit', color: rpTab === t ? '#185FA5' : '#888', fontWeight: rpTab === t ? 700 : 400, borderBottom: rpTab === t ? '2px solid #185FA5' : '2px solid transparent' }}>
+//                             {t.charAt(0).toUpperCase() + t.slice(1)}
+//                         </button>
+//                     ))}
+//                 </div>
+//                 <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>{renderRightPanel()}</div>
+//             </div>
+//         </>
+//     );
+
+//     return (
+//         <div style={{ display: 'flex', height: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', background: '#f5f5f5', fontSize: 13, color: '#111' }}>
+//             {/* Sidebar */}
+//             <div style={{ width: 52, background: '#fff', borderRight: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0', gap: 4, flexShrink: 0 }}>
+//                 <div style={{ width: 32, height: 32, background: '#185FA5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+//                     <svg viewBox="0 0 24 24" width={16} height={16} fill="#fff"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+//                 </div>
+//                 {sideIcons.map(icon => (
+//                     <div key={icon.id} onClick={() => setView(icon.id)} style={{ position: 'relative', width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: view === icon.id ? '#E6F1FB' : 'transparent', color: view === icon.id ? '#185FA5' : '#888', transition: 'all .15s' }}
+//                         onMouseOver={e => { if (view !== icon.id) e.currentTarget.style.background = '#f5f5f5'; }}
+//                         onMouseOut={e => { if (view !== icon.id) e.currentTarget.style.background = 'transparent'; }}>
+//                         <div style={{ width: 18, height: 18 }}>{icon.svg}</div>
+//                         {icon.badge > 0 && <div style={{ position: 'absolute', top: -2, right: -2, background: '#E24B4A', color: '#fff', fontSize: 9, fontWeight: 700, borderRadius: 8, padding: '1px 4px', lineHeight: 1.4 }}>{icon.badge}</div>}
+//                     </div>
+//                 ))}
+//                 <div style={{ flex: 1 }} />
+//                 <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#E6F1FB', color: '#185FA5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>P</div>
+//             </div>
+
+//             {/* Main content */}
+//             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+//                 {view === 'inbox' && renderInbox()}
+//                 {view === 'pipeline' && renderPipelineView()}
+//                 {view === 'broadcast' && renderBroadcastView()}
+//                 {view === 'templates' && renderTemplatesView()}
+//                 {view === 'automation' && renderAutomationView()}
+//                 {view === 'analytics' && renderAnalyticsView()}
+//             </div>
+//         </div>
+//     );
+// }
+// import { useState, useEffect, useRef } from "react";
+// import { whatsappAPI } from "../../lib/whatsappApi";
+
+// const COLORS = {
+//     blue: { bg: '#E6F1FB', border: '#185FA5', text: '#0C447C' },
+//     green: { bg: '#EAF3DE', border: '#639922', text: '#27500A' },
+//     amber: { bg: '#FAEEDA', border: '#EF9F27', text: '#633806' },
+//     coral: { bg: '#FAECE7', border: '#D85A30', text: '#712B13' },
+//     purple: { bg: '#EEEDFE', border: '#7F77DD', text: '#3C3489' },
+//     teal: { bg: '#E1F5EE', border: '#1D9E75', text: '#085041' },
+// };
+
+// const PIPELINE_STAGES = ['New', 'Enquiry', 'Qualified', 'Proposal', 'Negotiation', 'Closed Won'];
+
+// const QUICK_REPLIES = [
+//     'Sure, let me check that for you!',
+//     'Our team will call you shortly.',
+//     'Here is the pricing: Basic Rs 999, Pro Rs 2499',
+//     'Thanks for your interest! Can I know your budget?',
+//     'Please share your email so I can send the details.',
+// ];
+
+// // ---------- Helper Components (unchanged) ----------
+// const Tag = ({ tag, stage }) => {
+//     const map = { hot: { label: 'Hot', c: 'coral' }, conv: { label: 'Converted', c: 'purple' }, new: { label: 'New', c: 'blue' }, qual: { label: 'Qualified', c: 'green' } };
+//     const info = map[tag] || map['new'];
+//     const col = COLORS[info.c];
+//     return <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 10, fontWeight: 600, background: col.bg, color: col.text, border: `1px solid ${col.border}22` }}>{stage || info.label}</span>;
+// };
+
+// const Avatar = ({ initials, color = 'blue', size = 38 }) => {
+//     const col = COLORS[color] || COLORS.blue;
+//     return <div style={{ width: size, height: size, borderRadius: '50%', background: col.bg, color: col.text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.34, fontWeight: 700, flexShrink: 0, border: `1.5px solid ${col.border}44`, fontFamily: 'Georgia, serif' }}>{initials}</div>;
+// };
+
+// const StatusBadge = ({ status }) => {
+//     const map = { approved: { bg: '#EAF3DE', color: '#27500A', label: 'Approved' }, pending: { bg: '#FAEEDA', color: '#633806', label: 'Pending' }, rejected: { bg: '#FAECE7', color: '#712B13', label: 'Rejected' } };
+//     const s = map[status] || map.pending;
+//     return <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 8, fontWeight: 600, background: s.bg, color: s.color }}>{s.label}</span>;
+// };
+
+// const Toggle = ({ on, onChange }) => (
+//     <button onClick={onChange} style={{ width: 34, height: 20, borderRadius: 10, background: on ? '#1D9E75' : '#ccc', border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0, transition: 'background .2s' }}>
+//         <span style={{ position: 'absolute', width: 14, height: 14, background: '#fff', borderRadius: '50%', top: 3, left: on ? 17 : 3, transition: 'left .2s' }} />
+//     </button>
+// );
+
+// // ---------- Main App ----------
+// export default function App() {
+//     const [view, setView] = useState('inbox');
+//     const [convos, setConvos] = useState([]);
+//     const [activeId, setActiveId] = useState(null);
+//     const [filter, setFilter] = useState('all');
+//     const [search, setSearch] = useState('');
+//     const [rpTab, setRpTab] = useState('contact');
+//     const [mode, setMode] = useState('text');
+//     const [compose, setCompose] = useState('');
+//     const [noteText, setNoteText] = useState('');
+//     const [rules, setRules] = useState([]);
+//     const [broadcasts, setBroadcasts] = useState([]);
+//     const [templates, setTemplates] = useState([]);
+//     const [aiLoading, setAiLoading] = useState(false);
+//     const [showNewBroadcast, setShowNewBroadcast] = useState(false);
+//     const [showNewRule, setShowNewRule] = useState(false);
+//     const [showNewTemplate, setShowNewTemplate] = useState(false);
+//     const [newTpl, setNewTpl] = useState({ label: '', body: '', category: 'UTILITY', language: 'en' });
+//     const [newBroadcast, setNewBroadcast] = useState({ name: '', template: '', segment: 'All Contacts', date: '', time: '' });
+//     const [loading, setLoading] = useState(true);
+//     const [analytics, setAnalytics] = useState(null);
+//     const messagesEnd = useRef(null);
+
+//     const activeConv = convos.find(c => c.id === activeId) || null;
+
+//     // Load all data on mount
+//     useEffect(() => {
+//         loadAllData();
+//     }, []);
+
+//     useEffect(() => {
+//         if (activeConv?.messages) {
+//             messagesEnd.current?.scrollIntoView({ behavior: 'smooth' });
+//         }
+//     }, [activeConv?.messages, activeId]);
+
+//     useEffect(() => {
+//         if (view === 'analytics') {
+//             whatsappAPI.getAnalytics().then(setAnalytics).catch(console.error);
+//         }
+//     }, [view]);
+
+//     const loadAllData = async () => {
+//         setLoading(true);
+//         try {
+//             const [contacts, templatesData, broadcastsData, rulesData] = await Promise.all([
+//                 whatsappAPI.getContacts(),
+//                 whatsappAPI.getTemplates(),
+//                 whatsappAPI.getBroadcasts(),
+//                 whatsappAPI.getRules()
+//             ]);
+//             // Transform contacts to match UI expectations
+//             const enrichedContacts = contacts.map(c => ({
+//                 ...c,
+//                 unread: 0, // backend can later provide unread count
+//                 lastMsg: c.last_message || '',
+//                 time: c.last_contact_time ? new Date(c.last_contact_time).toLocaleTimeString() : '',
+//                 tag: c.tag,
+//                 stage: c.stage,
+//                 assigned: c.assigned_to,
+//                 color: c.color || 'blue',
+//                 initials: c.initials || c.name.slice(0, 2).toUpperCase(),
+//                 messages: c.messages || [],
+//                 notes: c.notes || [],
+//                 pipeline: c.pipeline || PIPELINE_STAGES.map(s => ({ stage: s, done: false, date: '-' }))
+//             }));
+//             setConvos(enrichedContacts);
+//             setTemplates(templatesData);
+//             setBroadcasts(broadcastsData);
+//             setRules(rulesData.map(r => ({ ...r, on: r.is_active, execCount: r.execution_count })));
+//             if (enrichedContacts.length && !activeId) setActiveId(enrichedContacts[0].id);
+//         } catch (err) {
+//             console.error(err);
+//         } finally {
+//             setLoading(false);
+//         }
+//     };
+
+//     const selectConv = async (id) => {
+//         setActiveId(id);
+//         try {
+//             const contact = await whatsappAPI.getContactById(id);
+//             setConvos(prev => prev.map(c => c.id === id ? { ...c, ...contact, messages: contact.messages || [], notes: contact.notes || [], pipeline: contact.pipeline || [] } : c));
+//         } catch (err) {
+//             console.error(err);
+//         }
+//     };
+
+//     const sendMessage = async () => {
+//         if (!compose.trim() || !activeConv) return;
+//         const isNote = mode === 'note';
+//         try {
+//             if (!isNote) {
+//                 await whatsappAPI.sendMessage({
+//                     contact_id: activeConv.id,
+//                     text: compose,
+//                     is_note: false,
+//                     template_id: mode === 'template' ? templates.find(t => t.name === compose.split(' ')[0])?.id : undefined
+//                 });
+//             } else {
+//                 await whatsappAPI.addNote(activeConv.id, compose);
+//             }
+//             const updated = await whatsappAPI.getContactById(activeConv.id);
+//             setConvos(prev => prev.map(c => c.id === activeConv.id ? { ...c, ...updated, messages: updated.messages || [], notes: updated.notes || [], pipeline: updated.pipeline || [] } : c));
+//             setCompose('');
+//         } catch (err) {
+//             alert(err.response?.data?.error || 'Failed to send');
+//         }
+//     };
+
+//     const aiReply = async () => {
+//         if (!activeConv) return;
+//         setAiLoading(true);
+//         const history = activeConv.messages.slice(-6).map(m => `${m.direction === 'in' ? 'Customer' : 'Agent'}: ${m.text}`).join('\n');
+//         try {
+//             const res = await fetch('https://api.anthropic.com/v1/messages', {
+//                 method: 'POST',
+//                 headers: { 'Content-Type': 'application/json' },
+//                 body: JSON.stringify({
+//                     model: 'claude-sonnet-4-20250514',
+//                     max_tokens: 200,
+//                     system: `You are a helpful WhatsApp CRM sales agent for a SaaS platform. Customer: ${activeConv.name}. Stage: ${activeConv.stage}. Keep replies short (1-3 sentences), friendly, professional. Don't use markdown.`,
+//                     messages: [{ role: 'user', content: `Based on this conversation, write a short agent reply:\n${history}\n\nWrite only the reply text, nothing else.` }]
+//                 })
+//             });
+//             const data = await res.json();
+//             const text = data.content?.[0]?.text || 'I will get back to you shortly!';
+//             setCompose(text);
+//         } catch { setCompose('Thank you for reaching out! Our team will connect with you shortly.'); }
+//         setAiLoading(false);
+//     };
+
+//     const takeOver = async () => {
+//         if (!activeConv) return;
+//         await whatsappAPI.updateContact(activeConv.id, { assigned_to: 'You' });
+//         loadAllData();
+//     };
+//     const resolveConv = async () => {
+//         if (!activeConv) return;
+//         await whatsappAPI.updateContact(activeConv.id, { stage: 'Closed Won', tag: 'conv' });
+//         loadAllData();
+//     };
+//     const transferConv = async () => {
+//         if (!activeConv) return;
+//         const agents = ['Priya', 'Rohan', 'Sales Team'];
+//         const randomAgent = agents[Math.floor(Math.random() * agents.length)];
+//         await whatsappAPI.updateContact(activeConv.id, { assigned_to: randomAgent });
+//         loadAllData();
+//     };
+//     const advanceStage = async () => {
+//         if (!activeConv) return;
+//         const nextStage = activeConv.pipeline?.find(s => !s.done);
+//         if (nextStage) {
+//             await whatsappAPI.updatePipeline(activeConv.id, nextStage.stage_name, true, new Date().toISOString().slice(0, 10));
+//             const updated = await whatsappAPI.getContactById(activeConv.id);
+//             setConvos(prev => prev.map(c => c.id === activeConv.id ? { ...c, ...updated } : c));
+//         }
+//     };
+//     const addNote = async () => {
+//         if (!noteText.trim() || !activeConv) return;
+//         await whatsappAPI.addNote(activeConv.id, noteText);
+//         const updated = await whatsappAPI.getContactById(activeConv.id);
+//         setConvos(prev => prev.map(c => c.id === activeConv.id ? { ...c, notes: updated.notes } : c));
+//         setNoteText('');
+//     };
+//     const assignAgent = async () => {
+//         if (!activeConv) return;
+//         const agents = ['Priya', 'Rohan', 'Sales Team'];
+//         const randomAgent = agents[Math.floor(Math.random() * agents.length)];
+//         await whatsappAPI.updateContact(activeConv.id, { assigned_to: randomAgent });
+//         loadAllData();
+//     };
+//     const submitTemplate = async () => {
+//         if (!newTpl.label || !newTpl.body) return;
+//         try {
+//             await whatsappAPI.createTemplate({
+//                 name: newTpl.label.toLowerCase().replace(/\s+/g, '_'),
+//                 label: newTpl.label,
+//                 category: newTpl.category,
+//                 language: newTpl.language,
+//                 body: newTpl.body,
+//                 variables: []
+//             });
+//             await loadAllData();
+//             setShowNewTemplate(false);
+//             setNewTpl({ label: '', body: '', category: 'UTILITY', language: 'en' });
+//         } catch (err) {
+//             alert(err.response?.data?.error);
+//         }
+//     };
+//     const submitBroadcast = async () => {
+//         if (!newBroadcast.name || !newBroadcast.template) return;
+//         const template = templates.find(t => t.name === newBroadcast.template);
+//         if (!template) return;
+//         try {
+//             await whatsappAPI.createBroadcast({
+//                 name: newBroadcast.name,
+//                 template_id: template.id,
+//                 segment: newBroadcast.segment,
+//                 scheduled_date: newBroadcast.date,
+//                 scheduled_time: newBroadcast.time
+//             });
+//             await loadAllData();
+//             setShowNewBroadcast(false);
+//             setNewBroadcast({ name: '', template: '', segment: 'All Contacts', date: '', time: '' });
+//         } catch (err) {
+//             alert(err.response?.data?.error);
+//         }
+//     };
+//     const toggleRule = async (id, currentState) => {
+//         await whatsappAPI.updateRule(id, !currentState);
+//         loadAllData();
+//     };
+
+//     const filtered = convos.filter(c => {
+//         if (filter === 'mine' && c.assigned !== 'Priya' && c.assigned !== 'Rohan') return false;
+//         if (filter === 'bot' && c.assigned !== 'Bot') return false;
+//         if (filter === 'unread' && !c.unread) return false;
+//         if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.phone.includes(search)) return false;
+//         return true;
+//     });
+
+//     // Shared styles
+//     const S = {
+//         card: { background: '#fff', border: '0.5px solid #e0e0e0', borderRadius: 12, padding: '14px 16px' },
+//         btn: (primary) => ({ background: primary ? '#185FA5' : '#f5f5f5', color: primary ? '#fff' : '#333', border: primary ? 'none' : '0.5px solid #ddd', borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }),
+//         input: { width: '100%', border: '0.5px solid #ddd', borderRadius: 8, padding: '8px 12px', fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fafafa' },
+//         label: { fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'block' },
+//     };
+
+//     // ---------- Render Pipeline View ----------
+//     const renderPipelineView = () => {
+//         const byStage = PIPELINE_STAGES.reduce((acc, s) => { acc[s] = convos.filter(c => c.stage === s); return acc; }, {});
+//         const stageColors = { 'New': 'blue', 'Enquiry': 'blue', 'Qualified': 'green', 'Proposal': 'amber', 'Negotiation': 'coral', 'Closed Won': 'teal' };
+//         return (
+//             <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+//                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+//                     <div>
+//                         <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Sales Pipeline</h2>
+//                         <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>{convos.length} contacts across {PIPELINE_STAGES.length} stages</p>
+//                     </div>
+//                 </div>
+//                 <div style={{ display: 'flex', gap: 12, minWidth: 900 }}>
+//                     {PIPELINE_STAGES.map(stage => {
+//                         const contacts = byStage[stage] || [];
+//                         const col = COLORS[stageColors[stage]] || COLORS.blue;
+//                         return (
+//                             <div key={stage} style={{ flex: 1, minWidth: 140 }}>
+//                                 <div style={{ background: col.bg, borderRadius: '8px 8px 0 0', padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: `1px solid ${col.border}33` }}>
+//                                     <span style={{ fontSize: 11, fontWeight: 700, color: col.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{stage}</span>
+//                                     <span style={{ fontSize: 11, background: '#fff', color: col.text, borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>{contacts.length}</span>
+//                                 </div>
+//                                 <div style={{ background: '#f8f8f8', borderRadius: '0 0 8px 8px', minHeight: 400, padding: 8, display: 'flex', flexDirection: 'column', gap: 8, border: '0.5px solid #e0e0e0', borderTop: 'none' }}>
+//                                     {contacts.map(c => (
+//                                         <div key={c.id} onClick={() => { setView('inbox'); selectConv(c.id); }} style={{ background: '#fff', borderRadius: 8, padding: 10, cursor: 'pointer', border: '0.5px solid #e8e8e8' }}>
+//                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+//                                                 <Avatar initials={c.initials} color={c.color} size={26} />
+//                                                 <div>
+//                                                     <div style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>{c.name}</div>
+//                                                     <div style={{ fontSize: 10, color: '#888' }}>{c.assigned}</div>
+//                                                 </div>
+//                                             </div>
+//                                             <div style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.lastMsg}</div>
+//                                             <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>{c.time}</div>
+//                                         </div>
+//                                     ))}
+//                                     {contacts.length === 0 && <div style={{ fontSize: 11, color: '#bbb', textAlign: 'center', paddingTop: 20 }}>No contacts</div>}
+//                                 </div>
+//                             </div>
+//                         );
+//                     })}
+//                 </div>
+//             </div>
+//         );
+//     };
+
+//     // ---------- Render Broadcast View ----------
+//     const renderBroadcastView = () => (
+//         <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+//             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+//                 <div>
+//                     <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Broadcast Campaigns</h2>
+//                     <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>Send bulk WhatsApp messages to segments</p>
+//                 </div>
+//                 <button onClick={() => setShowNewBroadcast(true)} style={S.btn(true)}>+ New Campaign</button>
+//             </div>
+//             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+//                 {[
+//                     { label: 'Total Sent', value: broadcasts.reduce((s, b) => s + b.sent_count, 0), color: 'blue' },
+//                     { label: 'Delivered', value: broadcasts.reduce((s, b) => s + b.delivered_count, 0), color: 'green' },
+//                     { label: 'Read', value: broadcasts.reduce((s, b) => s + b.read_count, 0), color: 'amber' },
+//                     { label: 'Replied', value: broadcasts.reduce((s, b) => s + b.replied_count, 0), color: 'teal' }
+//                 ].map(s => (
+//                     <div key={s.label} style={{ ...S.card, textAlign: 'center' }}>
+//                         <div style={{ fontSize: 24, fontWeight: 700, color: COLORS[s.color].text }}>{s.value}</div>
+//                         <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{s.label}</div>
+//                     </div>
+//                 ))}
+//             </div>
+//             <div style={S.card}>
+//                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+//                     <thead><tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+//                         {['Campaign', 'Template', 'Segment', 'Sent', 'Delivered', 'Read', 'Replied', 'Status', 'Scheduled'].map(h => <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, color: '#888', fontWeight: 600 }}>{h}</th>)}
+//                     </tr></thead>
+//                     <tbody>
+//                         {broadcasts.map(b => (
+//                             <tr key={b.id} style={{ borderBottom: '0.5px solid #f5f5f5' }}>
+//                                 <td style={{ padding: '10px 10px', fontWeight: 600 }}>{b.name}</td>
+//                                 <td style={{ padding: '10px 10px', fontFamily: 'monospace', fontSize: 12 }}>{b.template_name}</td>
+//                                 <td style={{ padding: '10px 10px' }}><span style={{ background: '#E6F1FB', color: '#0C447C', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>{b.segment}</span></td>
+//                                 <td style={{ padding: '10px 10px' }}>{b.sent_count}</td>
+//                                 <td style={{ padding: '10px 10px' }}>{b.delivered_count}</td>
+//                                 <td style={{ padding: '10px 10px' }}>{b.read_count}</td>
+//                                 <td style={{ padding: '10px 10px' }}>{b.replied_count}</td>
+//                                 <td style={{ padding: '10px 10px' }}><StatusBadge status={b.status === 'completed' ? 'approved' : 'pending'} /></td>
+//                                 <td style={{ padding: '10px 10px', color: '#888', fontSize: 12 }}>{b.scheduled_date} {b.scheduled_time}</td>
+//                             </tr>
+//                         ))}
+//                     </tbody>
+//                 </table>
+//             </div>
+//             {showNewBroadcast && (
+//                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+//                     <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440 }}>
+//                         <h3 style={{ margin: '0 0 18px', fontSize: 16, fontWeight: 600 }}>Create New Campaign</h3>
+//                         <label style={S.label}>Campaign Name</label>
+//                         <input style={{ ...S.input, marginBottom: 14 }} value={newBroadcast.name} onChange={e => setNewBroadcast(p => ({ ...p, name: e.target.value }))} />
+//                         <label style={S.label}>Template</label>
+//                         <select style={{ ...S.input, marginBottom: 14 }} value={newBroadcast.template} onChange={e => setNewBroadcast(p => ({ ...p, template: e.target.value }))}>
+//                             <option value="">Select approved template...</option>
+//                             {templates.filter(t => t.status === 'approved').map(t => <option key={t.id} value={t.name}>{t.label}</option>)}
+//                         </select>
+//                         <label style={S.label}>Target Segment</label>
+//                         <select style={{ ...S.input, marginBottom: 14 }} value={newBroadcast.segment} onChange={e => setNewBroadcast(p => ({ ...p, segment: e.target.value }))}>
+//                             {['All Contacts', 'Hot Leads', 'Qualified', 'New', 'Unassigned'].map(s => <option key={s}>{s}</option>)}
+//                         </select>
+//                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+//                             <div><label style={S.label}>Date</label><input type="date" style={S.input} value={newBroadcast.date} onChange={e => setNewBroadcast(p => ({ ...p, date: e.target.value }))} /></div>
+//                             <div><label style={S.label}>Time</label><input type="time" style={S.input} value={newBroadcast.time} onChange={e => setNewBroadcast(p => ({ ...p, time: e.target.value }))} /></div>
+//                         </div>
+//                         <div style={{ display: 'flex', gap: 10 }}>
+//                             <button onClick={submitBroadcast} style={{ ...S.btn(true), flex: 1 }}>Schedule Campaign</button>
+//                             <button onClick={() => setShowNewBroadcast(false)} style={{ ...S.btn(false), flex: 1 }}>Cancel</button>
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+//         </div>
+//     );
+
+//     // ---------- Render Templates View ----------
+//     const renderTemplatesView = () => (
+//         <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+//             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+//                 <div>
+//                     <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Message Templates</h2>
+//                     <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>Meta-approved WhatsApp Business templates</p>
+//                 </div>
+//                 <button onClick={() => setShowNewTemplate(true)} style={S.btn(true)}>+ Submit Template</button>
+//             </div>
+//             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+//                 {[
+//                     { label: 'Approved', value: templates.filter(t => t.status === 'approved').length, color: 'green' },
+//                     { label: 'Pending Review', value: templates.filter(t => t.status === 'pending').length, color: 'amber' },
+//                     { label: 'Rejected', value: templates.filter(t => t.status === 'rejected').length, color: 'coral' }
+//                 ].map(s => (
+//                     <div key={s.label} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 12 }}>
+//                         <div style={{ fontSize: 28, fontWeight: 700, color: COLORS[s.color].text }}>{s.value}</div>
+//                         <div style={{ fontSize: 12, color: '#888' }}>{s.label}</div>
+//                     </div>
+//                 ))}
+//             </div>
+//             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+//                 {templates.map(t => (
+//                     <div key={t.id} style={{ ...S.card, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+//                         <div style={{ flex: 1 }}>
+//                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+//                                 <span style={{ fontSize: 14, fontWeight: 700 }}>{t.label}</span>
+//                                 <StatusBadge status={t.status} />
+//                                 <span style={{ fontSize: 10, background: '#f0f0f0', borderRadius: 6, padding: '2px 7px' }}>{t.category}</span>
+//                                 <span style={{ fontSize: 10, color: '#aaa', fontFamily: 'monospace' }}>{t.name}</span>
+//                             </div>
+//                             <div style={{ fontSize: 13, color: '#444', background: '#f8f9fa', borderRadius: 8, padding: '10px 12px', whiteSpace: 'pre-wrap' }}>{t.body}</div>
+//                             {t.rejection_reason && <div style={{ fontSize: 12, color: '#712B13', background: '#FAECE7', borderRadius: 8, padding: '8px 12px', marginTop: 8 }}>Rejection reason: {t.rejection_reason}</div>}
+//                             <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+//                                 <span style={{ fontSize: 11, color: '#aaa' }}>Used {t.usage_count} times</span>
+//                                 <span style={{ fontSize: 11, color: '#aaa' }}>Last used: {t.last_used || 'Never'}</span>
+//                                 <span style={{ fontSize: 11, color: '#aaa' }}>Lang: {t.language}</span>
+//                             </div>
+//                         </div>
+//                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+//                             {t.status === 'approved' && <button style={S.btn(true)} onClick={() => { setView('inbox'); setMode('template'); setCompose(t.body); }}>Use</button>}
+//                             {t.status === 'rejected' && <button style={S.btn(false)} onClick={() => { /* resubmit logic can call API again */ alert('Resubmit via API') }}>Resubmit</button>}
+//                             {t.status === 'pending' && <div style={{ fontSize: 11, color: '#BA7517', background: '#FAEEDA', borderRadius: 8, padding: '6px 10px', textAlign: 'center' }}>Under review<br /><span style={{ color: '#aaa' }}>24-48 hrs</span></div>}
+//                         </div>
+//                     </div>
+//                 ))}
+//             </div>
+//             {showNewTemplate && (
+//                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+//                     <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 480 }}>
+//                         <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 600 }}>Submit New Template to Meta</h3>
+//                         <p style={{ fontSize: 12, color: '#888', margin: '0 0 18px' }}>Templates require Meta approval before use (24-48 hrs)</p>
+//                         <label style={S.label}>Template Name</label>
+//                         <input style={{ ...S.input, marginBottom: 14 }} value={newTpl.label} onChange={e => setNewTpl(p => ({ ...p, label: e.target.value }))} />
+//                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+//                             <div><label style={S.label}>Category</label><select style={S.input} value={newTpl.category} onChange={e => setNewTpl(p => ({ ...p, category: e.target.value }))}>
+//                                 <option value="UTILITY">Utility</option><option value="MARKETING">Marketing</option><option value="AUTHENTICATION">Authentication</option>
+//                             </select></div>
+//                             <div><label style={S.label}>Language</label><select style={S.input} value={newTpl.language} onChange={e => setNewTpl(p => ({ ...p, language: e.target.value }))}>
+//                                 <option value="en">English</option><option value="hi">Hindi</option><option value="en_IN">English (India)</option>
+//                             </select></div>
+//                         </div>
+//                         <label style={S.label}>Message Body</label>
+//                         <textarea style={{ ...S.input, minHeight: 100 }} value={newTpl.body} onChange={e => setNewTpl(p => ({ ...p, body: e.target.value }))} rows={4} />
+//                         <p style={{ fontSize: 11, color: '#aaa', margin: '6px 0 18px' }}>Use {'{{1}}'}, {'{{2}}'} for dynamic variables.</p>
+//                         <div style={{ display: 'flex', gap: 10 }}>
+//                             <button onClick={submitTemplate} style={{ ...S.btn(true), flex: 1 }}>Submit to Meta</button>
+//                             <button onClick={() => setShowNewTemplate(false)} style={{ ...S.btn(false), flex: 1 }}>Cancel</button>
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+//         </div>
+//     );
+
+//     // ---------- Render Automation View ----------
+//     const renderAutomationView = () => (
+//         <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+//             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+//                 <div>
+//                     <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Automation Rules</h2>
+//                     <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>{rules.filter(r => r.on).length} active rules · {rules.reduce((s, r) => s + r.execCount, 0).toLocaleString()} total executions</p>
+//                 </div>
+//                 <button onClick={() => setShowNewRule(true)} style={S.btn(true)}>+ Add Rule</button>
+//             </div>
+//             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+//                 {rules.map((r, i) => {
+//                     const col = COLORS[r.color] || COLORS.blue;
+//                     return (
+//                         <div key={r.id} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, opacity: r.on ? 1 : 0.6 }}>
+//                             <div style={{ width: 40, height: 40, borderRadius: 10, background: col.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{r.icon}</div>
+//                             <div style={{ flex: 1 }}>
+//                                 <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 2 }}>{r.title}</div>
+//                                 <div style={{ fontSize: 12, color: '#888', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+//                                     <span style={{ background: '#f0f0f0', borderRadius: 6, padding: '2px 8px', fontSize: 11 }}>WHEN: {r.trigger_event}</span>
+//                                     <span style={{ color: '#ccc' }}>→</span>
+//                                     <span style={{ background: col.bg, color: col.text, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>DO: {r.action_type}</span>
+//                                 </div>
+//                             </div>
+//                             <div style={{ textAlign: 'right', flexShrink: 0 }}>
+//                                 <div style={{ fontSize: 11, color: '#aaa', marginBottom: 6 }}>{r.execCount.toLocaleString()} runs</div>
+//                                 <Toggle on={r.on} onChange={() => toggleRule(r.id, r.on)} />
+//                             </div>
+//                         </div>
+//                     );
+//                 })}
+//             </div>
+//             {showNewRule && (
+//                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+//                     <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440 }}>
+//                         <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 600 }}>Add Automation Rule</h3>
+//                         <p style={{ fontSize: 12, color: '#888', margin: '0 0 18px' }}>Rules run automatically based on triggers</p>
+//                         <label style={S.label}>Trigger Event</label>
+//                         <select style={{ ...S.input, marginBottom: 14 }}><option>New contact first message</option><option>Message contains keyword</option></select>
+//                         <label style={S.label}>Action</label>
+//                         <select style={{ ...S.input, marginBottom: 14 }}><option>Send approved template</option><option>Assign to agent</option></select>
+//                         <label style={S.label}>Rule Name</label>
+//                         <input style={{ ...S.input, marginBottom: 20 }} placeholder="e.g. Keyword routing" />
+//                         <div style={{ display: 'flex', gap: 10 }}>
+//                             <button onClick={() => { setShowNewRule(false); loadAllData(); }} style={{ ...S.btn(true), flex: 1 }}>Create Rule</button>
+//                             <button onClick={() => setShowNewRule(false)} style={{ ...S.btn(false), flex: 1 }}>Cancel</button>
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+//         </div>
+//     );
+
+//     // ---------- Render Analytics View (with real data) ----------
+//     const renderAnalyticsView = () => {
+//         if (!analytics) return <div style={{ flex: 1, padding: 20 }}>Loading analytics...</div>;
+//         const { totalContacts, newContacts, conversionRate, stageDistribution, weeklyMessages } = analytics;
+//         const bars = weeklyMessages.map(w => ({ l: w.date.slice(5), v: w.count }));
+//         const max = Math.max(...bars.map(b => b.v), 1);
+//         return (
+//             <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+//                 <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 16px' }}>Analytics</h2>
+//                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+//                     {[
+//                         { label: 'New Contacts', value: newContacts, delta: '+12%', color: 'blue' },
+//                         { label: 'Conversations', value: totalContacts, delta: '+5%', color: 'green' },
+//                         { label: 'Conversion Rate', value: `${conversionRate}%`, delta: '+2%', color: 'teal' },
+//                         { label: 'Avg Response Time', value: '4.2m', delta: '-18%', color: 'amber' }
+//                     ].map(s => (
+//                         <div key={s.label} style={S.card}>
+//                             <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{s.label}</div>
+//                             <div style={{ fontSize: 26, fontWeight: 700, color: COLORS[s.color].text }}>{s.value}</div>
+//                             <div style={{ fontSize: 11, color: '#27500A', marginTop: 4 }}>{s.delta} this week</div>
+//                         </div>
+//                     ))}
+//                 </div>
+//                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
+//                     <div style={S.card}>
+//                         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>Messages This Week</div>
+//                         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 140 }}>
+//                             {bars.map(b => (
+//                                 <div key={b.l} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+//                                     <div style={{ width: '100%', background: '#E6F1FB', borderRadius: '4px 4px 0 0', height: `${(b.v / max) * 120}px`, position: 'relative' }}>
+//                                         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#185FA5', borderRadius: '4px 4px 0 0', height: `${(b.v / max) * 100}%` }} />
+//                                     </div>
+//                                     <div style={{ fontSize: 10, color: '#888' }}>{b.l}</div>
+//                                     <div style={{ fontSize: 10, fontWeight: 600, color: '#185FA5' }}>{b.v}</div>
+//                                 </div>
+//                             ))}
+//                         </div>
+//                     </div>
+//                     <div style={S.card}>
+//                         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Stage Distribution</div>
+//                         {stageDistribution.map(s => {
+//                             const col = COLORS[{ 'New': 'blue', 'Enquiry': 'blue', 'Qualified': 'green', 'Proposal': 'amber', 'Negotiation': 'coral', 'Closed Won': 'teal' }[s.stage]] || COLORS.blue;
+//                             const pct = Math.round((s.count / totalContacts) * 100);
+//                             return (
+//                                 <div key={s.stage} style={{ marginBottom: 10 }}>
+//                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+//                                         <span style={{ color: '#555' }}>{s.stage}</span>
+//                                         <span style={{ fontWeight: 600, color: col.text }}>{s.count}</span>
+//                                     </div>
+//                                     <div style={{ height: 6, background: '#f0f0f0', borderRadius: 4 }}>
+//                                         <div style={{ width: `${pct}%`, height: '100%', background: col.border, borderRadius: 4 }} />
+//                                     </div>
+//                                 </div>
+//                             );
+//                         })}
+//                     </div>
+//                 </div>
+//                 <div style={{ ...S.card, marginTop: 16 }}>
+//                     <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Agent Performance</div>
+//                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+//                         <thead><tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+//                             {['Agent', 'Assigned', 'Resolved', 'Avg Response', 'Satisfaction'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 10px', fontSize: 11, color: '#888', fontWeight: 600 }}>{h}</th>)}
+//                         </tr></thead>
+//                         <tbody>
+//                             {analytics.agentPerformance.map(a => (
+//                                 <tr key={a.agent} style={{ borderBottom: '0.5px solid #f5f5f5' }}>
+//                                     <td style={{ padding: '10px 10px', fontWeight: 600 }}>{a.agent}</td>
+//                                     <td style={{ padding: '10px 10px', color: '#185FA5' }}>{a.assigned}</td>
+//                                     <td style={{ padding: '10px 10px', color: '#27500A' }}>{a.resolved}</td>
+//                                     <td style={{ padding: '10px 10px', color: '#555' }}>—</td>
+//                                     <td style={{ padding: '10px 10px', color: '#633806', fontWeight: 600 }}>—</td>
+//                                 </tr>
+//                             ))}
+//                         </tbody>
+//                     </table>
+//                 </div>
+//             </div>
+//         );
+//     };
+
+//     // ---------- Right Panel ----------
+//     const renderRightPanel = () => {
+//         if (!activeConv) return <div>Select a conversation</div>;
+//         if (rpTab === 'contact') return (
+//             <>
+//                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+//                     <Avatar initials={activeConv.initials} color={activeConv.color} size={44} />
+//                     <div><div style={{ fontSize: 14, fontWeight: 600 }}>{activeConv.name}</div><div style={{ fontSize: 12, color: '#888' }}>{activeConv.phone}</div></div>
+//                 </div>
+//                 {[
+//                     { label: 'Stage', val: <Tag tag={activeConv.tag} stage={activeConv.stage} /> },
+//                     { label: 'Assigned to', val: activeConv.assigned },
+//                     { label: 'Source', val: 'WhatsApp inbound' },
+//                     { label: 'Last contact', val: activeConv.time + ' ago' }
+//                 ].map(f => (
+//                     <div key={f.label} style={{ marginBottom: 12 }}>
+//                         <div style={S.label}>{f.label}</div>
+//                         {typeof f.val === 'string' ? <div style={{ fontSize: 13, color: '#333' }}>{f.val}</div> : f.val}
+//                     </div>
+//                 ))}
+//                 <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+//                     <button style={{ ...S.btn(false), textAlign: 'left' }} onClick={() => { setRpTab('pipeline'); setTimeout(advanceStage, 200); }}>Move to next stage →</button>
+//                     <button style={{ ...S.btn(false), textAlign: 'left' }} onClick={assignAgent}>Reassign agent →</button>
+//                     <button style={{ ...S.btn(false), textAlign: 'left' }} onClick={() => setRpTab('pipeline')}>View pipeline →</button>
+//                 </div>
+//             </>
+//         );
+//         if (rpTab === 'pipeline') {
+//             const done = activeConv.pipeline?.filter(s => s.done).length || 0;
+//             return (
+//                 <>
+//                     <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>{done} of {activeConv.pipeline?.length || 0} stages complete</div>
+//                     <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+//                         {activeConv.pipeline?.map((s, i) => <div key={i} style={{ flex: 1, height: 5, borderRadius: 3, background: s.done ? '#185FA5' : '#e0e0e0' }} />)}
+//                     </div>
+//                     {activeConv.pipeline?.map((s, i) => {
+//                         const isCurrent = !s.done && (i === 0 || activeConv.pipeline[i - 1].done);
+//                         return (
+//                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '0.5px solid #f5f5f5' }}>
+//                                 <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: s.done ? '#1D9E75' : isCurrent ? '#185FA5' : '#ccc' }} />
+//                                 <div style={{ flex: 1 }}>
+//                                     <div style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>{s.stage}</div>
+//                                     <div style={{ fontSize: 11, color: '#aaa' }}>{s.completed_date || '-'}</div>
+//                                 </div>
+//                                 {s.done ? <span style={{ fontSize: 10, background: '#EAF3DE', color: '#27500A', borderRadius: 6, padding: '2px 7px', fontWeight: 600 }}>Done</span> : isCurrent ? <span style={{ fontSize: 10, background: '#E6F1FB', color: '#0C447C', borderRadius: 6, padding: '2px 7px', fontWeight: 600 }}>Current</span> : null}
+//                             </div>
+//                         );
+//                     })}
+//                     <button onClick={advanceStage} style={{ ...S.btn(true), width: '100%', textAlign: 'center', marginTop: 12 }}>Move to next stage</button>
+//                 </>
+//             );
+//         }
+//         if (rpTab === 'notes') return (
+//             <>
+//                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+//                     {activeConv.notes?.length ? activeConv.notes.map((n, i) => <div key={i} style={{ background: '#f8f9fa', borderRadius: 8, padding: 10, fontSize: 12, color: '#444', lineHeight: 1.6, borderLeft: '3px solid #185FA5' }}>{n.note || n}</div>) : <div style={{ fontSize: 13, color: '#bbb' }}>No notes yet.</div>}
+//                 </div>
+//                 <textarea rows={3} style={{ ...S.input, resize: 'none', marginBottom: 8 }} placeholder="Add a note..." value={noteText} onChange={e => setNoteText(e.target.value)} />
+//                 <button onClick={addNote} style={{ ...S.btn(true), width: '100%', textAlign: 'center' }}>Save note</button>
+//             </>
+//         );
+//         if (rpTab === 'auto') return (
+//             <>
+//                 <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Active automations</div>
+//                 {rules.map((r, i) => {
+//                     const col = COLORS[r.color] || COLORS.blue;
+//                     return (
+//                         <div key={r.id} style={{ background: '#f8f9fa', borderRadius: 8, padding: 10, marginBottom: 8, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+//                             <div style={{ width: 28, height: 28, borderRadius: 7, background: col.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{r.icon}</div>
+//                             <div style={{ flex: 1 }}>
+//                                 <div style={{ fontSize: 12, fontWeight: 600 }}>{r.title}</div>
+//                                 <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>{r.trigger_event}</div>
+//                             </div>
+//                             <Toggle on={r.on} onChange={() => toggleRule(r.id, r.on)} />
+//                         </div>
+//                     );
+//                 })}
+//             </>
+//         );
+//     };
+
+//     // ---------- Inbox View ----------
+//     const renderInbox = () => (
+//         <>
+//             <div style={{ width: 270, borderRight: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+//                 <div style={{ padding: '10px 12px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', gap: 8 }}>
+//                     <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ ...S.input, flex: 1 }} />
+//                     <button onClick={async () => {
+//                         const name = prompt('Contact name:'); if (!name) return;
+//                         const phone = prompt('Phone:'); if (!phone) return;
+//                         const initials = name.trim().split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+//                         await whatsappAPI.createContact({ name, phone, tag: 'new', stage: 'New', assigned_to: 'Unassigned', color: 'blue', initials });
+//                         loadAllData();
+//                     }} style={S.btn(true)}>+</button>
+//                 </div>
+//                 <div style={{ display: 'flex', padding: '6px 10px', gap: 4, borderBottom: '0.5px solid #e8e8e8', flexShrink: 0 }}>
+//                     {['all', 'mine', 'bot', 'unread'].map(f => (
+//                         <button key={f} onClick={() => setFilter(f)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, cursor: 'pointer', border: 'none', background: filter === f ? '#E6F1FB' : 'transparent', color: filter === f ? '#0C447C' : '#888', fontWeight: filter === f ? 700 : 400 }}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
+//                     ))}
+//                 </div>
+//                 <div style={{ overflowY: 'auto', flex: 1 }}>
+//                     {filtered.map(c => (
+//                         <div key={c.id} onClick={() => selectConv(c.id)} style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '0.5px solid #f0f0f0', display: 'flex', gap: 10, background: c.id === activeId ? '#EDF4FC' : 'transparent' }}>
+//                             <Avatar initials={c.initials} color={c.color} size={38} />
+//                             <div style={{ flex: 1, minWidth: 0 }}>
+//                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+//                                     <span style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</span>
+//                                     <span style={{ fontSize: 10, color: '#aaa' }}>{c.time}</span>
+//                                 </div>
+//                                 <div style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>{c.lastMsg}</div>
+//                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 }}>
+//                                     <Tag tag={c.tag} stage={c.stage} />
+//                                     {c.unread > 0 && <span style={{ background: '#E24B4A', color: '#fff', fontSize: 10, borderRadius: 8, padding: '1px 5px', fontWeight: 700 }}>{c.unread}</span>}
+//                                 </div>
+//                             </div>
+//                         </div>
+//                     ))}
+//                 </div>
+//             </div>
+//             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+//                 <div style={{ padding: '10px 14px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+//                     {activeConv && <Avatar initials={activeConv.initials} color={activeConv.color} size={36} />}
+//                     <div style={{ flex: 1 }}>
+//                         <div style={{ fontSize: 14, fontWeight: 600 }}>{activeConv?.name || 'Select a conversation'}</div>
+//                         <div style={{ fontSize: 12, color: '#888' }}>{activeConv?.phone} · {activeConv?.assigned === 'Bot' ? <span style={{ color: '#BA7517' }}>Bot handling</span> : `Agent: ${activeConv?.assigned}`}</div>
+//                     </div>
+//                     {activeConv && <div style={{ display: 'flex', gap: 6 }}>
+//                         <button onClick={takeOver} style={S.btn(false)}>Take over</button>
+//                         <button onClick={resolveConv} style={S.btn(false)}>Resolve</button>
+//                         <button onClick={transferConv} style={S.btn(false)}>Transfer</button>
+//                     </div>}
+//                 </div>
+//                 <div style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 8, background: '#f5f7f9' }}>
+//                     {activeConv?.messages?.map((msg, idx) => {
+//                         if (msg.direction === 'system') return <div key={idx} style={{ textAlign: 'center', fontSize: 11, color: '#aaa', background: '#e8e8e8', borderRadius: 8, padding: '4px 12px', alignSelf: 'center' }}>{msg.text}</div>;
+//                         if (msg.direction === 'bot') return (
+//                             <div key={idx} style={{ alignSelf: 'flex-start', maxWidth: '72%' }}>
+//                                 <span style={{ fontSize: 10, background: '#FAEEDA', color: '#633806', padding: '2px 8px', borderRadius: 8, fontWeight: 700, display: 'inline-block', marginBottom: 3 }}>Bot</span>
+//                                 <div style={{ background: '#FAEEDA', borderRadius: '12px 12px 12px 4px', padding: '8px 12px', fontSize: 13, lineHeight: 1.55, color: '#412402' }}>{msg.text}</div>
+//                                 <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>{new Date(msg.time_sent).toLocaleTimeString()}</div>
+//                             </div>
+//                         );
+//                         if (msg.direction === 'in') return (
+//                             <div key={idx} style={{ alignSelf: 'flex-start', maxWidth: '72%' }}>
+//                                 <div style={{ background: '#fff', borderRadius: '12px 12px 12px 4px', padding: '8px 12px', fontSize: 13, border: '0.5px solid #e0e0e0' }}>{msg.text}</div>
+//                                 <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>{new Date(msg.time_sent).toLocaleTimeString()}</div>
+//                             </div>
+//                         );
+//                         if (msg.direction === 'note') return (
+//                             <div key={idx} style={{ alignSelf: 'flex-end', maxWidth: '72%' }}>
+//                                 <div style={{ background: '#FFFBEA', borderRadius: '12px 12px 4px 12px', padding: '8px 12px', fontSize: 13, fontStyle: 'italic', color: '#633806', border: '0.5px solid #FAC775' }}>[Note] {msg.text}</div>
+//                                 <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, textAlign: 'right' }}>{new Date(msg.time_sent).toLocaleTimeString()}</div>
+//                             </div>
+//                         );
+//                         return (
+//                             <div key={idx} style={{ alignSelf: 'flex-end', maxWidth: '72%' }}>
+//                                 <div style={{ background: '#DCF8C6', borderRadius: '12px 12px 4px 12px', padding: '8px 12px', fontSize: 13, color: '#1a3a1a' }}>{msg.text}</div>
+//                                 <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, textAlign: 'right' }}>{new Date(msg.time_sent).toLocaleTimeString()} · <span style={{ color: '#1D9E75' }}>Read</span></div>
+//                             </div>
+//                         );
+//                     })}
+//                     <div ref={messagesEnd} />
+//                 </div>
+//                 {activeConv?.sessionExpiry && (
+//                     <div style={{ background: '#FAEEDA', padding: '8px 14px', fontSize: 12, color: '#633806', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #FAC775', flexShrink: 0 }}>
+//                         <span>24hr session expired — use an approved template to re-open</span>
+//                         <button onClick={() => setMode('template')} style={{ fontSize: 11, background: '#EF9F27', color: '#412402', border: 'none', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>Send template</button>
+//                     </div>
+//                 )}
+//                 <div style={{ padding: '10px 14px', borderTop: '0.5px solid #e8e8e8', background: '#fff', flexShrink: 0 }}>
+//                     <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+//                         {['text', 'template', 'quick', 'note'].map(m => (
+//                             <button key={m} onClick={() => setMode(m)} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 8, border: 'none', background: mode === m ? '#E6F1FB' : 'transparent', color: mode === m ? '#0C447C' : '#888', fontWeight: mode === m ? 700 : 400 }}>{m.charAt(0).toUpperCase() + m.slice(1)}</button>
+//                         ))}
+//                         <button onClick={aiReply} disabled={aiLoading} style={{ marginLeft: 'auto', fontSize: 12, padding: '4px 12px', borderRadius: 8, border: 'none', background: aiLoading ? '#f0f0f0' : '#E6F1FB', color: aiLoading ? '#aaa' : '#0C447C', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+//                             {aiLoading ? '...' : '✦ AI Reply'}
+//                         </button>
+//                     </div>
+//                     {mode === 'template' && (
+//                         <div style={{ marginBottom: 8, maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+//                             {templates.filter(t => t.status === 'approved').map(t => (
+//                                 <div key={t.id} onClick={() => { setCompose(t.body); }} style={{ padding: '8px 10px', borderRadius: 8, border: '0.5px solid #ddd', cursor: 'pointer', background: '#fafafa' }}>
+//                                     <div style={{ fontSize: 12, fontWeight: 600 }}>{t.label}</div>
+//                                     <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{t.body.substring(0, 70)}...</div>
+//                                 </div>
+//                             ))}
+//                         </div>
+//                     )}
+//                     {mode === 'quick' && (
+//                         <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+//                             {QUICK_REPLIES.map((q, i) => (
+//                                 <button key={i} onClick={() => setCompose(q)} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 10, border: '0.5px solid #ddd', background: '#f8f9fa', color: '#555' }}>{q.substring(0, 28)}{q.length > 28 ? '…' : ''}</button>
+//                             ))}
+//                         </div>
+//                     )}
+//                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+//                         <textarea rows={1} value={compose} onChange={e => setCompose(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={mode === 'note' ? 'Internal note — not sent to customer...' : 'Type a message...'} style={{ flex: 1, border: '0.5px solid #ddd', borderRadius: 8, padding: '8px 12px', fontSize: 13, resize: 'none', fontFamily: 'inherit', outline: 'none', background: mode === 'note' ? '#FFFBEA' : '#fafafa', minHeight: 38 }} />
+//                         <button onClick={sendMessage} style={{ width: 38, height: 38, borderRadius: '50%', background: '#185FA5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+//                             <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="#fff" strokeWidth={2}><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+//                         </button>
+//                     </div>
+//                 </div>
+//             </div>
+//             <div style={{ width: 290, borderLeft: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+//                 <div style={{ display: 'flex', borderBottom: '0.5px solid #e8e8e8', flexShrink: 0 }}>
+//                     {['contact', 'pipeline', 'notes', 'auto'].map(t => (
+//                         <button key={t} onClick={() => setRpTab(t)} style={{ flex: 1, padding: '10px 0', fontSize: 12, textAlign: 'center', cursor: 'pointer', border: 'none', background: 'none', color: rpTab === t ? '#185FA5' : '#888', fontWeight: rpTab === t ? 700 : 400, borderBottom: rpTab === t ? '2px solid #185FA5' : '2px solid transparent' }}>
+//                             {t.charAt(0).toUpperCase() + t.slice(1)}
+//                         </button>
+//                     ))}
+//                 </div>
+//                 <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>{renderRightPanel()}</div>
+//             </div>
+//         </>
+//     );
+
+//     if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading CRM...</div>;
+
+//     // ---------- Main Layout ----------
+//     const sideIcons = [
+//         { id: 'inbox', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>, badge: convos.reduce((s, c) => s + c.unread, 0) },
+//         { id: 'pipeline', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></svg> },
+//         { id: 'broadcast', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" /></svg> },
+//         { id: 'templates', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>, badge: templates.filter(t => t.status === 'pending').length },
+//         { id: 'automation', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="13 2 13 9 20 9" /><path d="M20 14.5v3.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8" /><polyline points="10 16 12 18 16 14" /></svg> },
+//         { id: 'analytics', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg> },
+//     ];
+
+//     return (
+//         <div style={{ display: 'flex', height: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', background: '#f5f5f5', fontSize: 13, color: '#111' }}>
+//             <div style={{ width: 52, background: '#fff', borderRight: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0', gap: 4, flexShrink: 0 }}>
+//                 <div style={{ width: 32, height: 32, background: '#185FA5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+//                     <svg viewBox="0 0 24 24" width={16} height={16} fill="#fff"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+//                 </div>
+//                 {sideIcons.map(icon => (
+//                     <div key={icon.id} onClick={() => setView(icon.id)} style={{ position: 'relative', width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: view === icon.id ? '#E6F1FB' : 'transparent', color: view === icon.id ? '#185FA5' : '#888' }}>
+//                         <div style={{ width: 18, height: 18 }}>{icon.svg}</div>
+//                         {icon.badge > 0 && <div style={{ position: 'absolute', top: -2, right: -2, background: '#E24B4A', color: '#fff', fontSize: 9, fontWeight: 700, borderRadius: 8, padding: '1px 4px' }}>{icon.badge}</div>}
+//                     </div>
+//                 ))}
+//                 <div style={{ flex: 1 }} />
+//                 <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#E6F1FB', color: '#185FA5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>P</div>
+//             </div>
+//             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+//                 {view === 'inbox' && renderInbox()}
+//                 {view === 'pipeline' && renderPipelineView()}
+//                 {view === 'broadcast' && renderBroadcastView()}
+//                 {view === 'templates' && renderTemplatesView()}
+//                 {view === 'automation' && renderAutomationView()}
+//                 {view === 'analytics' && renderAnalyticsView()}
+//             </div>
+//         </div>
+//     );
+// }
+import { useState, useEffect, useRef } from "react";
+import { whatsappAPI } from "../../lib/whatsappApi";
+
 const COLORS = {
     blue: { bg: '#E6F1FB', border: '#185FA5', text: '#0C447C' },
     green: { bg: '#EAF3DE', border: '#639922', text: '#27500A' },
@@ -26,64 +1678,16 @@ const COLORS = {
     teal: { bg: '#E1F5EE', border: '#1D9E75', text: '#085041' },
 };
 
-const S: {
-    card: any;
-    btn: (primary: boolean, small?: boolean) => any;
-    input: any;
-    label: any;
-    badge: any;
-} = {
-    card: {
-        background: "#fff",
-        border: "0.5px solid #e0e0e0",
-        borderRadius: 12,
-        padding: "14px 16px",
-    },
-    btn: (primary, small = false) => ({
-        background: primary ? "#185FA5" : "#f5f5f5",
-        color: primary ? "#fff" : "#333",
-        border: primary ? "none" : "0.5px solid #ddd",
-        borderRadius: 8,
-        padding: small ? "4px 10px" : "7px 14px",
-        fontSize: small ? 11 : 12,
-        cursor: "pointer",
-        fontFamily: "inherit",
-        fontWeight: 500,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-    }),
-    input: {
-        width: "100%",
-        border: "0.5px solid #ddd",
-        borderRadius: 8,
-        padding: "8px 12px",
-        fontSize: 13,
-        fontFamily: "inherit",
-        outline: "none",
-        background: "#fafafa",
-    },
-    label: {
-        fontSize: 11,
-        color: "#888",
-        fontWeight: 600,
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-        marginBottom: 4,
-        display: "block",
-    },
-    badge: {
-        background: "#E24B4A",
-        color: "#fff",
-        fontSize: 10,
-        borderRadius: 8,
-        padding: "1px 5px",
-        fontWeight: 700,
-        lineHeight: 1.2,
-    },
-};
+const PIPELINE_STAGES = ['New', 'Enquiry', 'Qualified', 'Proposal', 'Negotiation', 'Closed Won'];
+const QUICK_REPLIES = [
+    'Sure, let me check that for you!',
+    'Our team will call you shortly.',
+    'Here is the pricing: Basic Rs 999, Pro Rs 2499',
+    'Thanks for your interest! Can I know your budget?',
+    'Please share your email so I can send the details.',
+];
 
-// ─── OLD DESIGN COMPONENTS ───────────────────────────────────────────────────
+// ---------- Helper Components ----------
 const Tag = ({ tag, stage }) => {
     const map = { hot: { label: 'Hot', c: 'coral' }, conv: { label: 'Converted', c: 'purple' }, new: { label: 'New', c: 'blue' }, qual: { label: 'Qualified', c: 'green' } };
     const info = map[tag] || map['new'];
@@ -108,2039 +1712,856 @@ const Toggle = ({ on, onChange }) => (
     </button>
 );
 
-// ─── Constants for Templates, Campaigns, Chatbot, etc. ───────────────────────
-const STATUS_CONFIG_TEMPLATE = {
-    APPROVED: { icon: CheckCircle, color: "text-emerald-700", bg: "bg-emerald-50", label: "Approved" },
-    PENDING: { icon: Clock, color: "text-amber-700", bg: "bg-amber-50", label: "Pending Review" },
-    REJECTED: { icon: XCircle, color: "text-red-700", bg: "bg-red-50", label: "Rejected" },
-    IN_APPEAL: { icon: AlertTriangle, color: "text-orange-700", bg: "bg-orange-50", label: "In Appeal" },
-};
+// ---------- Main App ----------
+export default function App() {
+    const [view, setView] = useState('inbox');
+    const [convos, setConvos] = useState([]);
+    const [activeId, setActiveId] = useState(null);
+    const [filter, setFilter] = useState('all');
+    const [search, setSearch] = useState('');
+    const [rpTab, setRpTab] = useState('contact');
+    const [mode, setMode] = useState('text');
+    const [compose, setCompose] = useState('');
+    const [noteText, setNoteText] = useState('');
+    const [rules, setRules] = useState([]);
+    const [broadcasts, setBroadcasts] = useState([]);
+    const [templates, setTemplates] = useState([]);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [showNewBroadcast, setShowNewBroadcast] = useState(false);
+    const [showNewRule, setShowNewRule] = useState(false);
+    const [showNewTemplate, setShowNewTemplate] = useState(false);
+    const [newTpl, setNewTpl] = useState<any>({ label: '', body: '', category: 'UTILITY', language: 'en' });
+    const [newBroadcast, setNewBroadcast] = useState({ name: '', template: '', segment: 'All Contacts', date: '', time: '' });
+    const [loading, setLoading] = useState(true);
+    const [analytics, setAnalytics] = useState(null);
+    const messagesEnd = useRef(null);
 
-const STATUS_CONFIG_CAMPAIGN = {
-    draft: { icon: Clock, color: "text-gray-600", bg: "bg-gray-100", label: "Draft" },
-    scheduled: { icon: Clock, color: "text-blue-600", bg: "bg-blue-50", label: "Scheduled" },
-    running: { icon: Play, color: "text-emerald-600", bg: "bg-emerald-50", label: "Running" },
-    completed: { icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50", label: "Completed" },
-    failed: { icon: XCircle, color: "text-red-600", bg: "bg-red-50", label: "Failed" },
-    paused: { icon: Pause, color: "text-yellow-600", bg: "bg-yellow-50", label: "Paused" },
-};
+    const activeConv = convos.find(c => c.id === activeId) || null;
 
-const CATEGORY_COLORS_TPL = {
-    MARKETING: "bg-blue-50 text-blue-700 border-blue-100",
-    UTILITY: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    AUTHENTICATION: "bg-orange-50 text-orange-700 border-orange-100",
-};
-
-const META_COST = { MARKETING: 0.0082, UTILITY: 0.0042, AUTHENTICATION: 0.0042 };
-
-const STAGE_COLORS = {
-    New: "bg-blue-100 text-blue-700", Contacted: "bg-yellow-100 text-yellow-700",
-    Qualified: "bg-emerald-100 text-emerald-700", "Site Visit": "bg-purple-100 text-purple-700",
-    Closed: "bg-gray-100 text-gray-700", Lost: "bg-red-100 text-red-700",
-};
-
-const STAGE_DOT = {
-    New: "bg-blue-500", Contacted: "bg-yellow-500", Qualified: "bg-emerald-500",
-    "Site Visit": "bg-orange-500", Closed: "bg-gray-400", Lost: "bg-red-500",
-};
-
-const STEP_TYPE_CONFIG = {
-    message: { label: "Send Message", icon: MessageSquare, color: "bg-blue-100 text-blue-700", description: "Send a text message" },
-    question: { label: "Ask Question", icon: HelpCircle, color: "bg-amber-100 text-amber-700", description: "Ask and save response" },
-    buttons: { label: "Button Choices", icon: List, color: "bg-emerald-100 text-emerald-700", description: "Show clickable buttons" },
-    tag: { label: "Apply Tag", icon: LucideTag, color: "bg-pink-100 text-pink-700", description: "Auto-tag contact" },
-    assign: { label: "Assign Agent", icon: UserCheck, color: "bg-sky-100 text-sky-700", description: "Assign to team member" },
-    stage: { label: "Update Stage", icon: TrendingUp, color: "bg-orange-100 text-orange-700", description: "Move pipeline stage" },
-    template: { label: "Send Template", icon: FileDoc, color: "bg-violet-100 text-violet-700", description: "Send WA template" },
-    condition: { label: "Condition", icon: Hash, color: "bg-gray-100 text-gray-700", description: "Branch on keyword" },
-    end: { label: "End Flow", icon: CheckCircle, color: "bg-red-100 text-red-700", description: "End automation" },
-};
-
-const TYPE_ICONS = {
-    message: MessageSquare, template: FileText, campaign: Megaphone,
-    lead: Bell, success: Bell, error: Bell, info: Bell,
-};
-const TYPE_COLORS_NOTIF = {
-    message: "text-blue-400", template: "text-amber-400", campaign: "text-emerald-400",
-    lead: "text-orange-400", success: "text-emerald-400", error: "text-red-400", info: "text-blue-400",
-};
-
-const TYPE_CONFIG_TOAST = {
-    message: { icon: MessageSquare, color: "#0C447C", bg: "#E6F1FB", border: "#185FA5" },
-    template: { icon: FileText, color: "#633806", bg: "#FAEEDA", border: "#EF9F27" },
-    campaign: { icon: Megaphone, color: "#085041", bg: "#E1F5EE", border: "#1D9E75" },
-    lead: { icon: User, color: "#712B13", bg: "#FAECE7", border: "#D85A30" },
-    success: { icon: CheckCircle, color: "#27500A", bg: "#EAF3DE", border: "#639922" },
-    error: { icon: X, color: "#712B13", bg: "#FAECE7", border: "#D85A30" },
-    info: { icon: Bell, color: "#0C447C", bg: "#E6F1FB", border: "#185FA5" },
-};
-
-// ─── Mock Data (same as your new code) ───────────────────────────────────────
-let mockNotifications = [];
-let notifListeners = [];
-let toastListeners = [];
-let notifIdSeq = 1;
-
-const notificationStore = {
-    subscribe: (cb) => {
-        notifListeners.push(cb);
-        cb([...mockNotifications]);
-        return () => { notifListeners = notifListeners.filter(l => l !== cb); };
-    },
-    subscribeToast: (cb) => {
-        toastListeners.push(cb);
-        return () => { toastListeners = toastListeners.filter(l => l !== cb); };
-    },
-    push: (type, title, body, action): any => {
-        const n = { id: String(notifIdSeq++), type, title, body, action, read: false, timestamp: new Date() };
-        mockNotifications = [n, ...mockNotifications].slice(0, 30);
-        notifListeners.forEach(l => l([...mockNotifications]));
-        toastListeners.forEach(l => l(n));
-    },
-    markAllRead: () => {
-        mockNotifications = mockNotifications.map(n => ({ ...n, read: true }));
-        notifListeners.forEach(l => l([...mockNotifications]));
-    },
-    clear: () => {
-        mockNotifications = [];
-        notifListeners.forEach(l => l([]));
-    },
-};
-
-const MOCK_CONTACTS = [
-    { id: "c1", name: "Rahul Sharma", phone: "+91 98765 43210", stage: "Qualified", email: "rahul@email.com", preferred_location: "Wakad, Pune", budget_min: 5000000, budget_max: 8000000, property_type: "Apartment", source: "WhatsApp", assigned_to: "u1", notes: "Interested in 2BHK", created_at: new Date(Date.now() - 86400000 * 3).toISOString(), tags: [{ id: "t1", name: "Hot Lead", color: "#EF4444" }, { id: "t2", name: "Buyer", color: "#3B82F6" }] },
-    { id: "c2", name: "Priya Mehta", phone: "+91 87654 32109", stage: "New", email: "priya@email.com", preferred_location: "Baner, Pune", budget_min: 3000000, budget_max: 5000000, property_type: "Villa", source: "Facebook", assigned_to: null, notes: "", created_at: new Date(Date.now() - 86400000 * 1).toISOString(), tags: [{ id: "t3", name: "Seller", color: "#10B981" }] },
-    { id: "c3", name: "Amit Patel", phone: "+91 76543 21098", stage: "Site Visit", email: "amit@email.com", preferred_location: "Hinjewadi, Pune", budget_min: 7000000, budget_max: 12000000, property_type: "Apartment", source: "Instagram", assigned_to: "u2", notes: "Needs parking", created_at: new Date(Date.now() - 86400000 * 7).toISOString(), tags: [{ id: "t2", name: "Buyer", color: "#3B82F6" }] },
-    { id: "c4", name: "Sneha Joshi", phone: "+91 65432 10987", stage: "Contacted", email: "", preferred_location: "Kothrud, Pune", budget_min: 4000000, budget_max: 6000000, property_type: "Plot", source: "WhatsApp", assigned_to: "u1", notes: "", created_at: new Date(Date.now() - 86400000 * 2).toISOString(), tags: [] },
-];
-
-const MOCK_CONVERSATIONS = [
-    { id: "conv1", contact_id: "c1", contact: MOCK_CONTACTS[0], status: "open", unread_count: 3, last_message: "When can we schedule a site visit?", last_message_at: new Date(Date.now() - 1800000).toISOString(), bot_active: false, flow_id: null, current_step_index: 0, assigned_to: "u1" },
-    { id: "conv2", contact_id: "c2", contact: MOCK_CONTACTS[1], status: "open", unread_count: 0, last_message: "Thank you for the information!", last_message_at: new Date(Date.now() - 3600000 * 2).toISOString(), bot_active: true, flow_id: "flow1", current_step_index: 1, assigned_to: null },
-    { id: "conv3", contact_id: "c3", contact: MOCK_CONTACTS[2], status: "open", unread_count: 1, last_message: "Can you share the brochure?", last_message_at: new Date(Date.now() - 3600000 * 5).toISOString(), bot_active: false, flow_id: null, current_step_index: 0, assigned_to: "u2" },
-    { id: "conv4", contact_id: "c4", contact: MOCK_CONTACTS[3], status: "resolved", unread_count: 0, last_message: "I will get back to you soon.", last_message_at: new Date(Date.now() - 86400000).toISOString(), bot_active: false, flow_id: null, current_step_index: 0, assigned_to: "u1" },
-];
-
-const MOCK_MESSAGES = {
-    conv1: [
-        { id: "m1", conversation_id: "conv1", direction: "inbound", message_type: "text", body: "Hi, I am interested in 2BHK apartments in Wakad.", status: "read", timestamp: new Date(Date.now() - 7200000).toISOString(), sender: null },
-        { id: "m2", conversation_id: "conv1", direction: "outbound", message_type: "text", body: "Hello Rahul! Great to hear from you. We have some excellent properties in Wakad within your budget.", status: "read", timestamp: new Date(Date.now() - 7000000).toISOString(), sender: { name: "Ravi" } },
-        { id: "m3", conversation_id: "conv1", direction: "inbound", message_type: "text", body: "What is the price range?", status: "read", timestamp: new Date(Date.now() - 3600000).toISOString(), sender: null },
-        { id: "m4", conversation_id: "conv1", direction: "outbound", message_type: "text", body: "We have options from ₹55L to ₹80L. All RERA approved projects.", status: "delivered", timestamp: new Date(Date.now() - 3500000).toISOString(), sender: { name: "Ravi" } },
-        { id: "m5", conversation_id: "conv1", direction: "inbound", message_type: "text", body: "When can we schedule a site visit?", status: "delivered", timestamp: new Date(Date.now() - 1800000).toISOString(), sender: null },
-    ],
-    conv2: [
-        { id: "m6", conversation_id: "conv2", direction: "inbound", message_type: "text", body: "Hello, I want to sell my villa in Baner.", status: "read", timestamp: new Date(Date.now() - 86400000).toISOString(), sender: null },
-        { id: "m7", conversation_id: "conv2", direction: "outbound", message_type: "template", body: "Hi Priya, Thank you for choosing us to sell your property! We have 10,000+ verified buyers actively looking in Baner.", template_name: "seller_welcome", status: "read", timestamp: new Date(Date.now() - 86300000).toISOString(), sender: null },
-        { id: "m8", conversation_id: "conv2", direction: "inbound", message_type: "text", body: "Thank you for the information!", status: "read", timestamp: new Date(Date.now() - 7200000).toISOString(), sender: null },
-    ],
-    conv3: [
-        { id: "m9", conversation_id: "conv3", direction: "inbound", message_type: "text", body: "I am looking for 3BHK in Hinjewadi.", status: "read", timestamp: new Date(Date.now() - 86400000 * 2).toISOString(), sender: null },
-        { id: "m10", conversation_id: "conv3", direction: "outbound", message_type: "text", body: "Hi Amit! We have great options in Hinjewadi IT Park area.", status: "read", timestamp: new Date(Date.now() - 86400000 * 2 + 3600000).toISOString(), sender: { name: "Neha" } },
-        { id: "m11", conversation_id: "conv3", direction: "inbound", message_type: "text", body: "Can you share the brochure?", status: "delivered", timestamp: new Date(Date.now() - 3600000 * 5).toISOString(), sender: null },
-    ],
-    conv4: [
-        { id: "m12", conversation_id: "conv4", direction: "inbound", message_type: "text", body: "Looking for a plot in Kothrud.", status: "read", timestamp: new Date(Date.now() - 86400000 * 3).toISOString(), sender: null },
-        { id: "m13", conversation_id: "conv4", direction: "outbound", message_type: "text", body: "We have several plot options in Kothrud. Let me share details.", status: "read", timestamp: new Date(Date.now() - 86400000 * 3 + 1800000).toISOString(), sender: { name: "Ravi" } },
-        { id: "m14", conversation_id: "conv4", direction: "inbound", message_type: "text", body: "I will get back to you soon.", status: "read", timestamp: new Date(Date.now() - 86400000).toISOString(), sender: null },
-    ],
-};
-
-const MOCK_TEMPLATES = [
-    { id: "tpl1", name: "buyer_welcome", category: "MARKETING", language: "en", status: "APPROVED", header_type: "TEXT", header_text: "Welcome, Property Seeker!", body: "Hi {{1}},\n\nThank you for your interest in buying a property with us!\n\nWe have hundreds of verified properties across {{2}} matching your needs.", footer: "", buttons: [{ type: "QUICK_REPLY", text: "View Properties" }, { type: "QUICK_REPLY", text: "Talk to Agent" }], variables: ["name", "city"], created_at: new Date(Date.now() - 86400000 * 10).toISOString() },
-    { id: "tpl2", name: "seller_welcome", category: "UTILITY", language: "en", status: "APPROVED", header_type: "TEXT", header_text: "Sell Your Property Fast!", body: "Hi {{1}},\n\nThank you for choosing us to sell your property!\n\nWe have 10,000+ verified buyers actively looking in {{2}}.", footer: "", buttons: [{ type: "QUICK_REPLY", text: "List My Property" }], variables: ["name", "city"], created_at: new Date(Date.now() - 86400000 * 8).toISOString() },
-    { id: "tpl3", name: "site_visit_confirmation", category: "UTILITY", language: "en", status: "PENDING", header_type: "TEXT", header_text: "Site Visit Confirmed!", body: "Hi {{1}},\n\nYour site visit has been confirmed!\n\n🏠 Property: {{2}}\n📅 Date: {{3}}\n⏰ Time: {{4}}", footer: "Reply CANCEL to cancel", buttons: [{ type: "QUICK_REPLY", text: "Confirm" }, { type: "QUICK_REPLY", text: "Reschedule" }], variables: [], created_at: new Date(Date.now() - 86400000 * 2).toISOString() },
-    { id: "tpl4", name: "otp_verification", category: "AUTHENTICATION", language: "en", status: "REJECTED", header_type: null, header_text: null, body: "{{1}} is your verification code for {{2}}.\n\nThis code expires in 10 minutes.", footer: null, buttons: [], variables: [], rejection_reason: "Template does not follow authentication guidelines.", created_at: new Date(Date.now() - 86400000 * 5).toISOString() },
-];
-
-const MOCK_CAMPAIGNS = [
-    { id: "camp1", name: "Wakad Property Blast - June", template: { id: "tpl1", name: "buyer_welcome", body: "Hi {{1}}, we have properties in {{2}}..." }, template_id: "tpl1", status: "completed", total_contacts: 245, sent_count: 245, delivered_count: 238, read_count: 187, failed_count: 7, scheduled_at: null, filters: { stage: ["New", "Contacted"] }, created_at: new Date(Date.now() - 86400000 * 5).toISOString() },
-    { id: "camp2", name: "Seller Outreach - Baner", template: { id: "tpl2", name: "seller_welcome", body: "Hi {{1}}, sell your property fast..." }, template_id: "tpl2", status: "running", total_contacts: 120, sent_count: 87, delivered_count: 81, read_count: 54, failed_count: 6, scheduled_at: null, filters: {}, created_at: new Date(Date.now() - 86400000).toISOString() },
-    { id: "camp3", name: "New Project Launch Q3", template: { id: "tpl1", name: "buyer_welcome", body: "Hi {{1}}..." }, template_id: "tpl1", status: "draft", total_contacts: 0, sent_count: 0, delivered_count: 0, read_count: 0, failed_count: 0, scheduled_at: new Date(Date.now() + 86400000 * 3).toISOString(), filters: {}, created_at: new Date(Date.now() - 3600000).toISOString() },
-];
-
-const MOCK_FLOWS = [
-    { id: "flow1", name: "Welcome Flow", description: "Greets new leads and qualifies them", is_active: true, is_default: true, trigger_keyword: "", steps: [{ id: "fs1", step_type: "message", message_text: "Welcome! How can we help you today?", buttons: null, save_response_as: null }, { id: "fs2", step_type: "question", message_text: "What type of property are you looking for?", save_response_as: "notes", buttons: null }, { id: "fs3", step_type: "stage", stage: "Contacted", message_text: "", buttons: null }] },
-    { id: "flow2", name: "Buyer Qualification", description: "Qualifies buyer leads with key questions", is_active: true, is_default: false, trigger_keyword: "buy", steps: [{ id: "fs4", step_type: "message", message_text: "Great! Tell me about your budget.", buttons: null, save_response_as: null }, { id: "fs5", step_type: "buttons", message_text: "What is your preferred location?", buttons: [{ id: "b1", title: "Wakad" }, { id: "b2", title: "Baner" }, { id: "b3", title: "Hinjewadi" }] }] },
-    { id: "flow3", name: "Site Visit Follow-up", description: "", is_active: false, is_default: false, trigger_keyword: "visit", steps: [] },
-];
-
-const MOCK_USERS = [
-    { id: "u1", name: "Ravi Patil", email: "ravi@company.com", role: "admin", is_active: true },
-    { id: "u2", name: "Neha Kulkarni", email: "neha@company.com", role: "sales", is_active: true },
-    { id: "u3", name: "Suresh Deshpande", email: "suresh@company.com", role: "pre_sales", is_active: false },
-];
-
-const MOCK_TAGS = [
-    { id: "t1", name: "Hot Lead", color: "#EF4444" },
-    { id: "t2", name: "Buyer", color: "#3B82F6" },
-    { id: "t3", name: "Seller", color: "#10B981" },
-    { id: "t4", name: "Investor", color: "#8B5CF6" },
-    { id: "t5", name: "VIP", color: "#F59E0B" },
-];
-
-const MOCK_ANALYTICS = {
-    total_contacts: 1247,
-    new_leads_today: 12,
-    new_leads_week: 87,
-    open_conversations: 34,
-    messages_sent_today: 156,
-    messages_received_today: 203,
-    response_rate: 77,
-    active_campaigns: 2,
-};
-
-const MOCK_MESSAGE_VOLUME = [
-    { date: "Apr 14", inbound: 45, outbound: 38 },
-    { date: "Apr 15", inbound: 62, outbound: 51 },
-    { date: "Apr 16", inbound: 38, outbound: 29 },
-    { date: "Apr 17", inbound: 71, outbound: 63 },
-    { date: "Apr 18", inbound: 55, outbound: 44 },
-    { date: "Apr 19", inbound: 89, outbound: 76 },
-    { date: "Apr 20", inbound: 67, outbound: 55 },
-];
-
-const MOCK_CAMPAIGN_STATS = [
-    { name: "buyer_welcome", sent: 245, delivered: 238, read: 187, failed: 7 },
-    { name: "seller_welcome", sent: 87, delivered: 81, read: 54, failed: 6 },
-];
-
-// ─── Formatters ───────────────────────────────────────────────────────────────
-function formatRelativeTime(dateStr) {
-    if (!dateStr) return "";
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h`;
-    return `${Math.floor(hrs / 24)}d`;
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    const today = new Date();
-    if (d.toDateString() === today.toDateString()) return "Today";
-    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-    if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-}
-
-function formatTime(dateStr) {
-    if (!dateStr) return "";
-    return new Date(dateStr).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatCurrency(val) {
-    if (!val) return "₹0";
-    if (val >= 10000000) return `₹${(val / 10000000).toFixed(1)}Cr`;
-    if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
-    return `₹${val.toLocaleString("en-IN")}`;
-}
-
-function getInitials(name) {
-    if (!name) return "?";
-    return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
-}
-
-function truncate(str, len) {
-    if (!str) return "";
-    return str.length > len ? str.slice(0, len) + "…" : str;
-}
-
-// ─── Toast Container (restyled) ──────────────────────────────────────────────
-function ToastContainer({ onNavigate }) {
-    const [toasts, setToasts] = useState([]);
+    // Load all data on mount
     useEffect(() => {
-        const unsub = notificationStore.subscribeToast((n) => {
-            const item = { ...n, removing: false };
-            setToasts(prev => [...prev, item].slice(-4));
-            setTimeout(() => {
-                setToasts(prev => prev.map(t => t.id === item.id ? { ...t, removing: true } : t));
-                setTimeout(() => setToasts(prev => prev.filter(t => t.id !== item.id)), 300);
-            }, 4000);
-        });
-        return unsub;
+        loadAllData();
     }, []);
-    if (toasts.length === 0) return null;
-    return (
-        <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
-            {toasts.map(t => {
-                const cfg = TYPE_CONFIG_TOAST[t.type] || TYPE_CONFIG_TOAST.info;
-                const Icon = cfg.icon;
-                return (
-                    <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 16px', borderRadius: 12, border: `1px solid ${cfg.border}`, background: cfg.bg, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', pointerEvents: 'auto', transition: 'all 0.2s', opacity: t.removing ? 0 : 1, transform: t.removing ? 'translateY(8px)' : 'none', maxWidth: 320 }}>
-                        <Icon size={16} style={{ color: cfg.color, marginTop: 2, flexShrink: 0 }} />
-                        <div style={{ flex: 1 }}>
-                            <p style={{ fontSize: 12, fontWeight: 600, color: cfg.color, marginBottom: 2 }}>{t.title}</p>
-                            <p style={{ fontSize: 11, color: '#555', lineHeight: 1.4 }}>{t.body}</p>
-                            {t.action && onNavigate && (
-                                <button onClick={() => { onNavigate(t.action.page); setToasts(prev => prev.filter(x => x.id !== t.id)); }} style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: cfg.color, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}>{t.action.label}</button>
-                            )}
-                        </div>
-                        <button onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: 0 }}><X size={12} /></button>
-                    </div>
-                );
-            })}
-        </div>
-    );
-}
 
-// ─── Sidebar (old design: vertical icon bar) ─────────────────────────────────
-function Sidebar({ activePage, onNavigate, unreadCount, pendingTemplatesCount }) {
-    const [bellOpen, setBellOpen] = useState(false);
-    const [notifications, setNotifications] = useState([]);
-    const [notifUnread, setNotifUnread] = useState(0);
-
-    useEffect(() => notificationStore.subscribe(all => { setNotifications(all); setNotifUnread(all.filter(n => !n.read).length); }), []);
-
-    const handleBellClick = () => { setBellOpen(v => !v); if (!bellOpen) notificationStore.markAllRead(); };
-    const handleNotifClick = (n) => { if (n.action) onNavigate(n.action.page); setBellOpen(false); };
-
-    const sideIcons = [
-        { id: 'inbox', label: 'Inbox', icon: <MessageSquare size={18} />, badge: unreadCount },
-        { id: 'leads', label: 'Leads', icon: <Users size={18} />, badge: 0 },
-        { id: 'buyers', label: 'Buyers', icon: <ShoppingBag size={18} />, badge: 0 },
-        { id: 'sellers', label: 'Sellers', icon: <Home size={18} />, badge: 0 },
-        { id: 'properties', label: 'Properties', icon: <Building2 size={18} />, badge: 0 },
-        { id: 'templates', label: 'Templates', icon: <FileText size={18} />, badge: pendingTemplatesCount },
-        { id: 'campaigns', label: 'Campaigns', icon: <Megaphone size={18} />, badge: 0 },
-        { id: 'chatbot', label: 'Chatbot', icon: <Bot size={18} />, badge: 0 },
-        { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={18} />, badge: 0 },
-        { id: 'meta-spend', label: 'Meta Spend', icon: <DollarSign size={18} />, badge: 0 },
-        { id: 'settings', label: 'Settings', icon: <Settings size={18} />, badge: 0 },
-    ];
-
-    return (
-        <div style={{ width: 52, background: '#fff', borderRight: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0', gap: 4, flexShrink: 0, position: 'relative' }}>
-            <div style={{ width: 32, height: 32, background: '#185FA5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8, cursor: 'pointer' }} onClick={() => onNavigate('inbox')}>
-                <Phone size={16} fill="#fff" color="#fff" />
-            </div>
-            {sideIcons.map(icon => (
-                <div key={icon.id} onClick={() => onNavigate(icon.id)} style={{ position: 'relative', width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: activePage === icon.id ? '#E6F1FB' : 'transparent', color: activePage === icon.id ? '#185FA5' : '#888' }}>
-                    <div style={{ width: 18, height: 18 }}>{icon.icon}</div>
-                    {icon.badge > 0 && <div style={{ position: 'absolute', top: -2, right: -2, background: '#E24B4A', color: '#fff', fontSize: 9, fontWeight: 700, borderRadius: 8, padding: '1px 4px' }}>{icon.badge}</div>}
-                </div>
-            ))}
-            <div style={{ flex: 1 }} />
-            <div style={{ position: 'relative' }}>
-                <button onClick={handleBellClick} style={{ width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'transparent', color: '#888', border: 'none' }}>
-                    <Bell size={18} />
-                    {notifUnread > 0 && <span style={{ position: 'absolute', top: -2, right: -2, background: '#E24B4A', color: '#fff', fontSize: 9, fontWeight: 700, borderRadius: 8, padding: '1px 4px' }}>{notifUnread > 9 ? '9+' : notifUnread}</span>}
-                </button>
-                {bellOpen && (
-                    <div style={{ position: 'absolute', bottom: 40, left: 0, width: 280, background: '#fff', border: '0.5px solid #e0e0e0', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 50, overflow: 'hidden' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: '0.5px solid #e8e8e8' }}>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>Notifications</span>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                {notifications.length > 0 && <button onClick={() => notificationStore.clear()} style={{ fontSize: 10, color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}>Clear all</button>}
-                                <button onClick={() => setBellOpen(false)} style={{ color: '#aaa', background: 'none', border: 'none', cursor: 'pointer' }}><X size={12} /></button>
-                            </div>
-                        </div>
-                        <div style={{ maxHeight: 320, overflowY: 'auto' }}>
-                            {notifications.length === 0 ? (
-                                <div style={{ padding: 20, textAlign: 'center', color: '#aaa', fontSize: 12 }}>No notifications</div>
-                            ) : notifications.slice(0, 15).map(n => {
-                                const Icon = TYPE_CONFIG_TOAST[n.type]?.icon || Bell;
-                                const color = TYPE_CONFIG_TOAST[n.type]?.color || '#888';
-                                return (
-                                    <button key={n.id} onClick={() => handleNotifClick(n)} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderBottom: '0.5px solid #f0f0f0', background: n.read ? '#fff' : '#E6F1FB', cursor: 'pointer', display: 'flex', gap: 10 }}>
-                                        <Icon size={13} style={{ color, marginTop: 2, flexShrink: 0 }} />
-                                        <div style={{ flex: 1 }}>
-                                            <p style={{ fontSize: 12, fontWeight: 600, color: '#111', marginBottom: 2 }}>{n.title}</p>
-                                            <p style={{ fontSize: 11, color: '#555', lineHeight: 1.3 }}>{n.body}</p>
-                                            <p style={{ fontSize: 9, color: '#aaa', marginTop: 4 }}>{n.timestamp.toLocaleTimeString()}</p>
-                                        </div>
-                                        {!n.read && <span style={{ width: 6, height: 6, background: '#185FA5', borderRadius: '50%', marginTop: 6 }} />}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-            </div>
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#E6F1FB', color: '#185FA5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginTop: 8 }}>P</div>
-        </div>
-    );
-}
-
-// ─── Inbox Page (restyled with old design) ───────────────────────────────────
-function MessageBubble({ message, showDateSeparator, dateSeparatorLabel }) {
-    const isOutbound = message.direction === "out";
-    return (
-        <>
-            {showDateSeparator && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
-                    <div style={{ flex: 1, height: 1, background: '#e0e0e0' }} />
-                    <span style={{ fontSize: 11, color: '#aaa', fontWeight: 500 }}>{dateSeparatorLabel}</span>
-                    <div style={{ flex: 1, height: 1, background: '#e0e0e0' }} />
-                </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: isOutbound ? 'flex-end' : 'flex-start', marginBottom: 6 }}>
-                <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', alignItems: isOutbound ? 'flex-end' : 'flex-start' }}>
-                    {/* {(
-                        <div style={{ background: isOutbound ? '#185FA5' : '#fff', border: isOutbound ? 'none' : '0.5px solid #e0e0e0', borderRadius: 12, padding: '8px 12px', marginBottom: 2 }}>
-                            <p style={{ fontSize: 10, fontWeight: 600, marginBottom: 4, color: isOutbound ? '#E6F1FB' : '#185FA5' }}>Template: {message.template_name}</p>
-                            <p style={{ fontSize: 13, color: isOutbound ? '#fff' : '#111', whiteSpace: 'pre-wrap' }}>{message.text}</p>
-                        </div>
-                    )} */}
-                    {message.text && (
-                        <div style={{ background: isOutbound ? '#DCF8C6' : '#fff', border: isOutbound ? 'none' : '0.5px solid #e0e0e0', borderRadius: 12, borderTopRightRadius: isOutbound ? 4 : 12, borderTopLeftRadius: isOutbound ? 12 : 4, padding: '8px 12px' }}>
-                            <p style={{ fontSize: 13, color: '#111', whiteSpace: 'pre-wrap' }}>{message.text}</p>
-                        </div>
-                    )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2, fontSize: 10, color: '#aaa' }}>
-                        <span>{formatTime(message.timestamp)}</span>
-                        {isOutbound && <span>{message.status === 'read' ? <CheckCheck size={12} color="#1D9E75" /> : <Check size={12} />}</span>}
-                        {message.sender && <span>{message.sender.name}</span>}
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-}
-
-function ChatInput({ templates, onSendText, disabled }) {
-    const [text, setText] = useState("");
-    const [showTemplates, setShowTemplates] = useState(false);
-    const [sending, setSending] = useState(false);
-    const textareaRef = useRef(null);
-    const approvedTemplates = templates.filter(t => t.status === "APPROVED");
-
-    const handleSend = async () => {
-        if (!text.trim() || sending || disabled) return;
-        setSending(true);
-        await onSendText(text.trim());
-        setText(""); setSending(false);
-        textareaRef.current?.focus();
-    };
-
-    return (
-        <div style={{ borderTop: '0.5px solid #e8e8e8', background: '#fff', position: 'relative' }}>
-            {showTemplates && approvedTemplates.length > 0 && (
-                <div style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, background: '#fff', border: '0.5px solid #e0e0e0', borderRadius: '12px 12px 0 0', boxShadow: '0 -2px 8px rgba(0,0,0,0.05)', maxHeight: 200, overflowY: 'auto', zIndex: 10 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '0.5px solid #eee' }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>Quick Templates</span>
-                        <button onClick={() => setShowTemplates(false)} style={{ fontSize: 11, color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}>Close</button>
-                    </div>
-                    {approvedTemplates.map(t => (
-                        <button key={t.id} onClick={() => { setShowTemplates(false); onSendText(t.body); }} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderBottom: '0.5px solid #f0f0f0', background: '#fff', cursor: 'pointer' }}>
-                            <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{t.name}</p>
-                            <p style={{ fontSize: 11, color: '#888' }}>{truncate(t.body, 80)}</p>
-                        </button>
-                    ))}
-                </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '10px 14px' }}>
-                <button onClick={() => setShowTemplates(v => !v)} disabled={disabled} style={{ padding: 6, borderRadius: 8, background: showTemplates ? '#E6F1FB' : 'transparent', color: showTemplates ? '#185FA5' : '#888', border: 'none', cursor: 'pointer' }}><FileText size={16} /></button>
-                <textarea ref={textareaRef} value={text} onChange={e => { setText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'; }} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }} placeholder={disabled ? "Conversation closed" : "Type a message… (Enter to send)"} disabled={disabled || sending} rows={1} style={{ flex: 1, border: '0.5px solid #ddd', borderRadius: 8, padding: '8px 12px', fontSize: 13, resize: 'none', fontFamily: 'inherit', outline: 'none', background: disabled ? '#f5f5f5' : '#fafafa', minHeight: 38, maxHeight: 100 }} />
-                <button onClick={handleSend} disabled={!text.trim() || sending || disabled} style={{ width: 36, height: 36, borderRadius: '50%', background: '#185FA5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: (!text.trim() || sending || disabled) ? 0.5 : 1 }}>
-                    {sending ? <div style={{ width: 14, height: 14, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /> : <Send size={14} color="#fff" />}
-                </button>
-            </div>
-        </div>
-    );
-}
-
-function ContactInfo({ contact, users, allTags, onUpdateStage, onAssign, onAddTag, onRemoveTag, conversationNotes, onAddNote }) {
-    const [showTagPicker, setShowTagPicker] = useState(false);
-    const [tagSearch, setTagSearch] = useState("");
-    const [noteText, setNoteText] = useState("");
-    const [notesExpanded, setNotesExpanded] = useState(true);
-    const [detailsExpanded, setDetailsExpanded] = useState(true);
-    const [leadCreated, setLeadCreated] = useState(false);
-
-    if (!contact) return <div style={{ padding: 20, textAlign: 'center', color: '#aaa' }}>Select a conversation</div>;
-
-    const contactTags = contact.tags || [];
-    const filteredAvailableTags = allTags.filter(t => !contactTags.some(ct => ct.id === t.id)).filter(t => !tagSearch || t.name.toLowerCase().includes(tagSearch.toLowerCase()));
-
-    const handleCreateLead = () => {
-        notificationStore.push("lead", "Lead Created", `${contact.name} · ${contact.phone} is now a lead in your CRM.`, { label: "View Inbox", page: "inbox" });
-        setLeadCreated(true);
-        setTimeout(() => setLeadCreated(false), 4000);
-    };
-
-    const STAGE_OPTIONS = ["New", "Contacted", "Qualified", "Site Visit", "Closed", "Lost"];
-    const stageColorMap = {
-        New: COLORS.blue, Contacted: COLORS.amber, Qualified: COLORS.green,
-        "Site Visit": COLORS.coral, Closed: COLORS.teal, Lost: COLORS.coral
-    };
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', fontSize: 13 }}>
-            <div style={{ padding: '16px', borderBottom: '0.5px solid #e8e8e8', textAlign: 'center' }}>
-                <Avatar initials={getInitials(contact.name)} color={contact.color || 'blue'} size={48} />
-                <h3 style={{ fontWeight: 600, margin: '8px 0 2px', fontSize: 14 }}>{contact.name}</h3>
-                <p style={{ fontSize: 12, color: '#888' }}>{contact.phone}</p>
-                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                    <select value={contact.stage} onChange={e => onUpdateStage(e.target.value)} style={{ fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 20, border: 'none', background: (stageColorMap[contact.stage] || COLORS.blue).bg, color: (stageColorMap[contact.stage] || COLORS.blue).text, cursor: 'pointer', outline: 'none' }}>
-                        {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <button onClick={handleCreateLead} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 20, background: leadCreated ? '#EAF3DE' : '#185FA5', color: leadCreated ? '#27500A' : '#fff', border: 'none', cursor: 'pointer' }}>
-                        {leadCreated ? <CheckCircle size={12} /> : <UserPlus size={12} />}
-                        {leadCreated ? "Lead Created!" : "Create Lead"}
-                    </button>
-                </div>
-            </div>
-
-            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #e8e8e8' }}>
-                <button onClick={() => setDetailsExpanded(v => !v)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                    <span style={S.label}>Contact Details</span>
-                    {detailsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
-                {detailsExpanded && (
-                    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {[
-                            [<Phone size={13} />, contact.phone],
-                            contact.email && [<Mail size={13} />, contact.email],
-                            contact.preferred_location && [<MapPin size={13} />, contact.preferred_location],
-                            contact.budget_max > 0 && [<DollarSign size={13} />, `${formatCurrency(contact.budget_min)} – ${formatCurrency(contact.budget_max)}`],
-                            contact.property_type && [<Building2 size={13} />, contact.property_type],
-                            [<AlertCircle size={13} />, `Source: ${contact.source}`],
-                            [<User size={13} />, `Joined: ${formatRelativeTime(contact.created_at)}`],
-                        ].filter(Boolean).map((row, i) => (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#555' }}>
-                                <span style={{ color: '#aaa', width: 18 }}>{row[0]}</span>
-                                <span>{row[1]}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #e8e8e8' }}>
-                <p style={S.label}>Assigned To</p>
-                <select value={contact.assigned_to || ""} onChange={e => onAssign(e.target.value)} style={{ ...S.input, marginTop: 4 }}>
-                    <option value="">Unassigned</option>
-                    {users.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
-                </select>
-            </div>
-
-            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #e8e8e8' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={S.label}>Tags</span>
-                    <button onClick={() => { setShowTagPicker(v => !v); setTagSearch(""); }} style={{ ...S.btn(false, true), padding: '4px' }}><Plus size={12} /></button>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                    {contactTags.map(tag => (
-                        <span key={tag.id} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 600, background: tag.color + '22', color: tag.color, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            {tag.name}
-                            <button onClick={() => onRemoveTag(tag.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}><X size={9} /></button>
-                        </span>
-                    ))}
-                    {contactTags.length === 0 && <button onClick={() => setShowTagPicker(true)} style={{ fontSize: 11, color: '#185FA5', background: 'none', border: 'none', cursor: 'pointer' }}>+ Add tags</button>}
-                </div>
-                {showTagPicker && (
-                    <div style={{ background: '#fff', border: '0.5px solid #ddd', borderRadius: 8, overflow: 'hidden', marginTop: 4 }}>
-                        <div style={{ padding: 6 }}>
-                            <input value={tagSearch} onChange={e => setTagSearch(e.target.value)} placeholder="Search tags..." style={{ ...S.input, fontSize: 12, padding: '6px 8px' }} autoFocus />
-                        </div>
-                        <div style={{ padding: 6, maxHeight: 100, overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                            {filteredAvailableTags.length === 0 ? <span style={{ fontSize: 11, color: '#aaa' }}>No tags</span> : filteredAvailableTags.map(tag => (
-                                <button key={tag.id} onClick={() => { onAddTag(tag.id); setShowTagPicker(false); setTagSearch(""); }} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 600, background: tag.color + '22', color: tag.color, border: 'none', cursor: 'pointer' }}>{tag.name}</button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            <div style={{ padding: '12px 16px' }}>
-                <button onClick={() => setNotesExpanded(v => !v)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 8 }}>
-                    <span style={S.label}>Internal Notes ({conversationNotes.length})</span>
-                    {notesExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
-                {notesExpanded && (
-                    <>
-                        <div style={{ marginBottom: 10, maxHeight: 140, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {conversationNotes.length === 0 ? <p style={{ fontSize: 12, color: '#aaa', fontStyle: 'italic' }}>No notes yet</p> : conversationNotes.map(note => (
-                                <div key={note.id} style={{ background: '#FAEEDA', borderRadius: 8, padding: '8px 10px', borderLeft: `3px solid ${COLORS.amber.border}` }}>
-                                    <p style={{ fontSize: 12, color: '#633806', marginBottom: 4 }}>{note.body}</p>
-                                    <p style={{ fontSize: 10, color: '#aaa' }}>{note.author?.name || "You"} · {formatRelativeTime(note.created_at)}</p>
-                                </div>
-                            ))}
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add internal note…" rows={2} style={{ ...S.input, fontSize: 12, resize: 'none' }} />
-                            <button onClick={() => { if (noteText.trim()) { onAddNote(noteText.trim()); setNoteText(""); } }} disabled={!noteText.trim()} style={{ ...S.btn(true), alignSelf: 'flex-end', padding: '6px 12px' }}><StickyNote size={14} /></button>
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
-}
-
-function ChatWindow({ conversation, contact, users, allTags, onUpdateStage, onAssign, onAddTag, onRemoveTag, onClose, conversations, setConversations }) {
-    const [messages, setMessages] = useState(Array.isArray(conversation) ? conversation : []);
-    const [notes, setNotes] = useState([]);
-    const endRef = useRef(null);
-    console.log(contact, conversation)
     useEffect(() => {
-        if (conversation) { setMessages(MOCK_MESSAGES[conversation.id] || []); setNotes([]); }
-    }, [conversation?.id]);
-
-    useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-
-    if (!conversation || !contact) return (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f7f9', color: '#aaa', flexDirection: 'column' }}>
-            <Phone size={32} style={{ marginBottom: 12, opacity: 0.3 }} />
-            <p style={{ fontSize: 14 }}>Select a conversation</p>
-        </div>
-    );
-
-    const handleSendText = async (text) => {
-        // const newMsg = { id: `m${Date.now()}`, conversation_id: conversation.id, direction: "outbound", message_type: "text", body: text, status: "sent", timestamp: new Date().toISOString(), sender: { name: "You" } };
-        const newMsg = await whatsappAPI.sendMessage({ contact_id: contact.id, text })
-        console.log(newMsg, "new msg from input")
-        setMessages(prev => [...prev, newMsg]);
-        notificationStore.push("message", "Message Sent", `Sent to ${contact.name}`, () => { });
-    };
-
-    const toggleBotActive = () => {
-        if (setConversations) setConversations(prev => prev.map(c => c.id === conversation.id ? { ...c, bot_active: !c.bot_active } : c));
-    };
-
-    const toggleResolved = () => {
-        if (setConversations) setConversations(prev => prev.map(c => c.id === conversation.id ? { ...c, status: c.status === "resolved" ? "open" : "resolved" } : c));
-    };
-
-    let lastDate = "";
-    const messagesWithSeparators = conversation.map(msg => {
-        const msgDate = formatDate(msg.time_sent);
-        const showSeparator = msgDate !== lastDate;
-        lastDate = msgDate;
-        return { msg, showSeparator, dateLabel: msgDate };
-    });
-
-    return (
-        <div style={{ display: 'flex', flex: 1, minWidth: 0, height: '100%' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, height: '100%' }}>
-                <div style={{ padding: '10px 14px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', alignItems: 'center', gap: 10, background: '#fff', flexShrink: 0 }}>
-                    {onClose && <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6, color: '#888' }}><ArrowLeft size={18} /></button>}
-                    <Avatar initials={getInitials(contact.name)} color={contact.color || 'blue'} size={36} />
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>{contact.name}</div>
-                        <div style={{ fontSize: 12, color: '#888' }}>{contact.phone}</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={toggleBotActive} style={{ ...S.btn(false), display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 11, background: conversation.bot_active ? '#E6F1FB' : '#f5f5f5', color: conversation.bot_active ? '#0C447C' : '#666' }}>
-                            <Bot size={14} /> {conversation.bot_active ? "Bot On" : "Bot Off"}
-                        </button>
-                        <button onClick={toggleResolved} style={{ ...S.btn(false), display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 11, background: conversation.status === "resolved" ? '#EAF3DE' : '#f5f5f5', color: conversation.status === "resolved" ? '#27500A' : '#666' }}>
-                            {conversation.status === "resolved" ? <Clock size={14} /> : <CheckCircle size={14} />} {conversation.status === "resolved" ? "Reopen" : "Resolve"}
-                        </button>
-                    </div>
-                </div>
-
-                <div style={{ padding: '12px 14px', background: '#f5f7f9', display: 'flex', flexDirection: 'column', gap: 2, height: "78vh", overflowY: "auto" }} className="overflow-y-scroll h-[300px]">
-                    {messagesWithSeparators.map(({ msg, showSeparator, dateLabel }: any) => (
-                        <MessageBubble key={msg} message={msg} showDateSeparator={showSeparator} dateSeparatorLabel={dateLabel} />
-                    ))}
-                    <div ref={endRef} />
-                </div>
-
-                <ChatInput templates={MOCK_TEMPLATES} onSendText={handleSendText} disabled={conversation.status === "resolved"} />
-            </div>
-
-            <div style={{ width: 280, borderLeft: '0.5px solid #e8e8e8', background: '#fff', overflowY: 'auto', flexShrink: 0 }}>
-                <ContactInfo contact={contact} users={users} allTags={allTags} onUpdateStage={onUpdateStage} onAssign={onAssign} onAddTag={onAddTag} onRemoveTag={onRemoveTag} conversationNotes={notes} onAddNote={(body) => setNotes(prev => [...prev, { id: String(Date.now()), body, author: { name: "You" }, created_at: new Date().toISOString() }])} />
-            </div>
-        </div>
-    );
-}
-
-// --- ConversationList with advanced filter modal ---
-const FILTER_TABS = [
-    { id: 'all', label: 'All' },
-    { id: 'unread', label: 'Unread' },
-    { id: 'assigned', label: 'Assigned' },
-    { id: 'resolved', label: 'Resolved' },
-];
-
-type DatePreset = 'Today' | 'This Week' | 'This Month';
-interface AdvancedFilter {
-    datePreset: DatePreset | null;
-    dateFrom: string;
-    dateTo: string;
-    stages: string[];
-    hasUnread: boolean | null;
-    tagSearch: string;
-}
-const emptyAdvanced: AdvancedFilter = {
-    datePreset: null, dateFrom: '', dateTo: '', stages: [], hasUnread: null, tagSearch: '',
-};
-const STAGES_LIST = ['New', 'Contacted', 'Qualified', 'Site Visit', 'Closed', 'Lost'];
-const DATE_PRESETS: DatePreset[] = ['Today', 'This Week', 'This Month'];
-
-function ConversationList({ conversations, loading, selectedId, filter, search, onSelect, onFilterChange, onSearchChange, onRefresh }) {
-    const [showFilter, setShowFilter] = useState(false);
-    const [advanced, setAdvanced] = useState<AdvancedFilter>(emptyAdvanced);
-    const [pendingFilter, setPendingFilter] = useState<AdvancedFilter>(emptyAdvanced);
-    const hasActiveFilter = advanced.datePreset !== null || advanced.dateFrom || advanced.dateTo
-        || advanced.stages.length > 0 || advanced.hasUnread !== null || advanced.tagSearch;
-
-    const applyAdvanced = (f: AdvancedFilter) => {
-        setAdvanced(f);
-        setShowFilter(false);
-    };
-
-    const filteredConversations = conversations.filter((conv) => {
-        // Stage filter
-        if (advanced.stages.length > 0) {
-            const stage = conv.contact?.stage || 'New';
-            if (!advanced.stages.includes(stage)) return false;
+        if (activeConv?.messages) {
+            messagesEnd.current?.scrollIntoView({ behavior: 'smooth' });
         }
-        // Read status filter
-        if (advanced.hasUnread === true && !conv.unread_count) return false;
-        if (advanced.hasUnread === false && conv.unread_count > 0) return false;
-        // Tag search
-        if (advanced.tagSearch) {
-            const tags = conv.contact?.tags || [];
-            const match = tags.some((t) => t.name.toLowerCase().includes(advanced.tagSearch.toLowerCase()));
-            if (!match) return false;
+    }, [activeConv?.messages, activeId]);
+
+    useEffect(() => {
+        if (view === 'analytics') {
+            whatsappAPI.getAnalytics().then(setAnalytics).catch(console.error);
         }
-        // Date filters
-        if (advanced.datePreset || advanced.dateFrom || advanced.dateTo) {
-            const msgDate = conv.last_message_at ? new Date(conv.last_message_at) : null;
-            if (!msgDate) return false;
-            const now = new Date();
-            if (advanced.datePreset === 'Today') {
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                if (msgDate < today) return false;
-            } else if (advanced.datePreset === 'This Week') {
-                const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
-                if (msgDate < weekAgo) return false;
-            } else if (advanced.datePreset === 'This Month') {
-                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                if (msgDate < monthStart) return false;
+    }, [view]);
+
+    const loadAllData = async () => {
+        setLoading(true);
+        try {
+            const [contacts, templatesData, broadcastsData, rulesData] = await Promise.all([
+                whatsappAPI.getContacts(),
+                whatsappAPI.getTemplates(),
+                whatsappAPI.getBroadcasts(),
+                whatsappAPI.getRules()
+            ]);
+            const enrichedContacts = contacts.map(c => ({
+                ...c,
+                unread: 0,
+                lastMsg: c.last_message || '',
+                time: c.last_contact_time ? new Date(c.last_contact_time).toLocaleTimeString() : '',
+                tag: c.tag,
+                stage: c.stage,
+                assigned: c.assigned_to,
+                color: c.color || 'blue',
+                initials: c.initials || c.name.slice(0, 2).toUpperCase(),
+                messages: c.messages || [],
+                notes: c.notes || [],
+                pipeline: c.pipeline || PIPELINE_STAGES.map(s => ({ stage: s, done: false, date: '-' }))
+            }));
+            setConvos(enrichedContacts);
+            setTemplates(templatesData);
+            setBroadcasts(broadcastsData);
+            setRules(rulesData.map(r => ({ ...r, on: r.is_active, execCount: r.execution_count })));
+            if (enrichedContacts.length && !activeId) setActiveId(enrichedContacts[0].id);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const selectConv = async (id) => {
+        setActiveId(id);
+        try {
+            const contact = await whatsappAPI.getContactById(id);
+            setConvos(prev => prev.map(c => c.id === id ? { ...c, ...contact, messages: contact.messages || [], notes: contact.notes || [], pipeline: contact.pipeline || [] } : c));
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const sendMessage = async () => {
+        if (!compose.trim() || !activeConv) return;
+        const isNote = mode === 'note';
+        try {
+            if (!isNote) {
+                await whatsappAPI.sendMessage({
+                    contact_id: activeConv.id,
+                    text: compose,
+                    is_note: false,
+                    template_id: mode === 'template' ? templates.find(t => t.label === compose.split('\n')[0])?.id : undefined
+                });
+            } else {
+                await whatsappAPI.addNote(activeConv.id, compose);
             }
-            if (advanced.dateFrom && msgDate < new Date(advanced.dateFrom)) return false;
-            if (advanced.dateTo) {
-                const to = new Date(advanced.dateTo); to.setDate(to.getDate() + 1);
-                if (msgDate > to) return false;
-            }
+            const updated = await whatsappAPI.getContactById(activeConv.id);
+            setConvos(prev => prev.map(c => c.id === activeConv.id ? { ...c, ...updated, messages: updated.messages || [], notes: updated.notes || [], pipeline: updated.pipeline || [] } : c));
+            setCompose('');
+        } catch (err) {
+            alert(err.response?.data?.error || 'Failed to send');
         }
+    };
+
+    const aiReply = async () => {
+        if (!activeConv) return;
+        setAiLoading(true);
+        const history = activeConv.messages.slice(-6).map(m => `${m.direction === 'in' ? 'Customer' : 'Agent'}: ${m.text}`).join('\n');
+        try {
+            const res = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'claude-sonnet-4-20250514',
+                    max_tokens: 200,
+                    system: `You are a helpful WhatsApp CRM sales agent for a SaaS platform. Customer: ${activeConv.name}. Stage: ${activeConv.stage}. Keep replies short (1-3 sentences), friendly, professional. Don't use markdown.`,
+                    messages: [{ role: 'user', content: `Based on this conversation, write a short agent reply:\n${history}\n\nWrite only the reply text, nothing else.` }]
+                })
+            });
+            const data = await res.json();
+            const text = data.content?.[0]?.text || 'I will get back to you shortly!';
+            setCompose(text);
+        } catch { setCompose('Thank you for reaching out! Our team will connect with you shortly.'); }
+        setAiLoading(false);
+    };
+
+    const takeOver = async () => {
+        if (!activeConv) return;
+        await whatsappAPI.updateContact(activeConv.id, { assigned_to: 'You' });
+        loadAllData();
+    };
+    const resolveConv = async () => {
+        if (!activeConv) return;
+        await whatsappAPI.updateContact(activeConv.id, { stage: 'Closed Won', tag: 'conv' });
+        loadAllData();
+    };
+    const transferConv = async () => {
+        if (!activeConv) return;
+        const agents = ['Priya', 'Rohan', 'Sales Team'];
+        const randomAgent = agents[Math.floor(Math.random() * agents.length)];
+        await whatsappAPI.updateContact(activeConv.id, { assigned_to: randomAgent });
+        loadAllData();
+    };
+    const advanceStage = async () => {
+        if (!activeConv) return;
+        const nextStage = activeConv.pipeline?.find(s => !s.done);
+        if (nextStage) {
+            await whatsappAPI.updatePipeline(activeConv.id, nextStage.stage_name, true, new Date().toISOString().slice(0, 10));
+            const updated = await whatsappAPI.getContactById(activeConv.id);
+            setConvos(prev => prev.map(c => c.id === activeConv.id ? { ...c, ...updated } : c));
+        }
+    };
+    const addNote = async () => {
+        if (!noteText.trim() || !activeConv) return;
+        await whatsappAPI.addNote(activeConv.id, noteText);
+        const updated = await whatsappAPI.getContactById(activeConv.id);
+        setConvos(prev => prev.map(c => c.id === activeConv.id ? { ...c, notes: updated.notes } : c));
+        setNoteText('');
+    };
+    const assignAgent = async () => {
+        if (!activeConv) return;
+        const agents = ['Priya', 'Rohan', 'Sales Team'];
+        const randomAgent = agents[Math.floor(Math.random() * agents.length)];
+        await whatsappAPI.updateContact(activeConv.id, { assigned_to: randomAgent });
+        loadAllData();
+    };
+    const submitTemplate = async () => {
+        if (!newTpl.label || !newTpl.body) return;
+        try {
+            await whatsappAPI.createTemplate({
+                name: newTpl.label.toLowerCase().replace(/\s+/g, '_'),
+                label: newTpl.label,
+                category: newTpl.category,
+                language: newTpl.language,
+                body: newTpl.body,
+                variables: []
+            });
+            await loadAllData();
+            setShowNewTemplate(false);
+            setNewTpl({ label: '', body: '', category: 'UTILITY', language: 'en' });
+        } catch (err) {
+            alert(err.response?.data?.error);
+        }
+    };
+    const submitBroadcast = async () => {
+        if (!newBroadcast.name || !newBroadcast.template) return;
+        const template = templates.find(t => t.name === newBroadcast.template);
+        if (!template) return;
+        try {
+            await whatsappAPI.createBroadcast({
+                name: newBroadcast.name,
+                template_id: template.id,
+                segment: newBroadcast.segment,
+                scheduled_date: newBroadcast.date,
+                scheduled_time: newBroadcast.time
+            });
+            await loadAllData();
+            setShowNewBroadcast(false);
+            setNewBroadcast({ name: '', template: '', segment: 'All Contacts', date: '', time: '' });
+        } catch (err) {
+            alert(err.response?.data?.error);
+        }
+    };
+    const toggleRule = async (id, currentState) => {
+        await whatsappAPI.updateRule(id, !currentState);
+        loadAllData();
+    };
+
+    const filtered = convos.filter(c => {
+        if (filter === 'mine' && c.assigned !== 'Priya' && c.assigned !== 'Rohan') return false;
+        if (filter === 'bot' && c.assigned !== 'Bot') return false;
+        if (filter === 'unread' && !c.unread) return false;
+        if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.phone.includes(search)) return false;
         return true;
     });
 
-    const openFilter = () => {
-        setPendingFilter({ ...advanced });
-        setShowFilter(true);
+    // Shared styles
+    const S: {
+        card: any;
+        btn: (primary: boolean) => any;
+        input: any;
+        label: any;
+    } = {
+        card: {
+            background: "#fff",
+            border: "0.5px solid #e0e0e0",
+            borderRadius: 12,
+            padding: "14px 16px",
+        },
+
+        btn: (primary) => ({
+            background: primary ? "#185FA5" : "#f5f5f5",
+            color: primary ? "#fff" : "#333",
+            border: primary ? "none" : "0.5px solid #ddd",
+            borderRadius: 8,
+            padding: "7px 14px",
+            fontSize: 12,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            fontWeight: 500,
+        }),
+
+        input: {
+            width: "100%",
+            border: "0.5px solid #ddd",
+            borderRadius: 8,
+            padding: "8px 12px",
+            fontSize: 13,
+            fontFamily: "inherit",
+            outline: "none",
+            background: "#fafafa",
+        },
+
+        label: {
+            fontSize: 11,
+            color: "#888",
+            fontWeight: 600,
+            textTransform: "uppercase", // ✅ now valid
+            letterSpacing: "0.05em",
+            marginBottom: 4,
+            display: "block",
+        },
     };
 
-    const STAGE_DOT = {
-        New: "#185FA5", Contacted: "#EF9F27", Qualified: "#639922",
-        "Site Visit": "#D85A30", Closed: "#1D9E75", Lost: "#D85A30",
-    };
-
-    return (
-        <div style={{ width: 280, borderRight: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, background: '#fff', position: 'relative' }}>
-            <div style={{ padding: '10px 12px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', gap: 8 }}>
-                <input value={search} onChange={e => onSearchChange(e.target.value)} placeholder="Search name or phone..." style={{ ...S.input, flex: 1 }} />
-                <button onClick={openFilter} style={{ position: 'relative', ...S.btn(false), padding: '6px 10px' }}>
-                    <SlidersHorizontal size={14} />
-                    {hasActiveFilter && <span style={{ position: 'absolute', top: -2, right: -2, width: 6, height: 6, background: '#1D9E75', borderRadius: '50%' }} />}
-                </button>
-                <button onClick={onRefresh} style={{ ...S.btn(false), padding: '6px 10px' }}><RefreshCw size={14} className={loading ? "spin" : ""} /></button>
+    // ---------- Render Pipeline View ----------
+    const renderPipelineView = () => {
+        const byStage = PIPELINE_STAGES.reduce((acc, s) => { acc[s] = convos.filter(c => c.stage === s); return acc; }, {});
+        const stageColors = { 'New': 'blue', 'Enquiry': 'blue', 'Qualified': 'green', 'Proposal': 'amber', 'Negotiation': 'coral', 'Closed Won': 'teal' };
+        return (
+            <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <div>
+                        <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Sales Pipeline</h2>
+                        <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>{convos.length} contacts across {PIPELINE_STAGES.length} stages</p>
+                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: 12, minWidth: 900 }}>
+                    {PIPELINE_STAGES.map(stage => {
+                        const contacts = byStage[stage] || [];
+                        const col = COLORS[stageColors[stage]] || COLORS.blue;
+                        return (
+                            <div key={stage} style={{ flex: 1, minWidth: 140 }}>
+                                <div style={{ background: col.bg, borderRadius: '8px 8px 0 0', padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: `1px solid ${col.border}33` }}>
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: col.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{stage}</span>
+                                    <span style={{ fontSize: 11, background: '#fff', color: col.text, borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>{contacts.length}</span>
+                                </div>
+                                <div style={{ background: '#f8f8f8', borderRadius: '0 0 8px 8px', minHeight: 400, padding: 8, display: 'flex', flexDirection: 'column', gap: 8, border: '0.5px solid #e0e0e0', borderTop: 'none' }}>
+                                    {contacts.map(c => (
+                                        <div key={c.id} onClick={() => { setView('inbox'); selectConv(c.id); }} style={{ background: '#fff', borderRadius: 8, padding: 10, cursor: 'pointer', border: '0.5px solid #e8e8e8' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                                <Avatar initials={c.initials} color={c.color} size={26} />
+                                                <div>
+                                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>{c.name}</div>
+                                                    <div style={{ fontSize: 10, color: '#888' }}>{c.assigned}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: 11, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.lastMsg}</div>
+                                            <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>{c.time}</div>
+                                        </div>
+                                    ))}
+                                    {contacts.length === 0 && <div style={{ fontSize: 11, color: '#bbb', textAlign: 'center', paddingTop: 20 }}>No contacts</div>}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
-            <div style={{ display: 'flex', padding: '6px 10px', gap: 4, borderBottom: '0.5px solid #e8e8e8', flexShrink: 0 }}>
-                {FILTER_TABS.map(f => (
-                    <button key={f.id} onClick={() => onFilterChange(f.id)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, cursor: 'pointer', border: 'none', background: filter === f.id ? '#E6F1FB' : 'transparent', color: filter === f.id ? '#0C447C' : '#888', fontWeight: filter === f.id ? 700 : 400 }}>{f.label}</button>
+        );
+    };
+
+    // ---------- Render Broadcast View ----------
+    const renderBroadcastView = () => (
+        <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div>
+                    <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Broadcast Campaigns</h2>
+                    <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>Send bulk WhatsApp messages to segments</p>
+                </div>
+                <button onClick={() => setShowNewBroadcast(true)} style={S.btn(true)}>+ New Campaign</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+                {[
+                    { label: 'Total Sent', value: broadcasts.reduce((s, b) => s + b.sent_count, 0), color: 'blue' },
+                    { label: 'Delivered', value: broadcasts.reduce((s, b) => s + b.delivered_count, 0), color: 'green' },
+                    { label: 'Read', value: broadcasts.reduce((s, b) => s + b.read_count, 0), color: 'amber' },
+                    { label: 'Replied', value: broadcasts.reduce((s, b) => s + b.replied_count, 0), color: 'teal' }
+                ].map(s => (
+                    <div key={s.label} style={{ ...S.card, textAlign: 'center' }}>
+                        <div style={{ fontSize: 24, fontWeight: 700, color: COLORS[s.color].text }}>{s.value}</div>
+                        <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{s.label}</div>
+                    </div>
                 ))}
             </div>
-            {hasActiveFilter && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 10px', background: '#E6F1FB', fontSize: 10, color: '#0C447C' }}>
-                    <span>Filters active</span>
-                    <button onClick={() => setAdvanced(emptyAdvanced)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#D85A30', display: 'flex', alignItems: 'center', gap: 2 }}><X size={10} /> Clear</button>
+            <div style={S.card}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead><tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                        {['Campaign', 'Template', 'Segment', 'Sent', 'Delivered', 'Read', 'Replied', 'Status', 'Scheduled'].map(h => <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, color: '#888', fontWeight: 600 }}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                        {broadcasts.map(b => (
+                            <tr key={b.id} style={{ borderBottom: '0.5px solid #f5f5f5' }}>
+                                <td style={{ padding: '10px 10px', fontWeight: 600 }}>{b.name}</td>
+                                <td style={{ padding: '10px 10px', fontFamily: 'monospace', fontSize: 12 }}>{b.template_name}</td>
+                                <td style={{ padding: '10px 10px' }}><span style={{ background: '#E6F1FB', color: '#0C447C', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>{b.segment}</span></td>
+                                <td style={{ padding: '10px 10px' }}>{b.sent_count}</td>
+                                <td style={{ padding: '10px 10px' }}>{b.delivered_count}</td>
+                                <td style={{ padding: '10px 10px' }}>{b.read_count}</td>
+                                <td style={{ padding: '10px 10px' }}>{b.replied_count}</td>
+                                <td style={{ padding: '10px 10px' }}><StatusBadge status={b.status === 'completed' ? 'approved' : 'pending'} /></td>
+                                <td style={{ padding: '10px 10px', color: '#888', fontSize: 12 }}>{b.scheduled_date} {b.scheduled_time}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {showNewBroadcast && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+                    <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440 }}>
+                        <h3 style={{ margin: '0 0 18px', fontSize: 16, fontWeight: 600 }}>Create New Campaign</h3>
+                        <label style={S.label}>Campaign Name</label>
+                        <input style={{ ...S.input, marginBottom: 14 }} value={newBroadcast.name} onChange={e => setNewBroadcast(p => ({ ...p, name: e.target.value }))} />
+                        <label style={S.label}>Template</label>
+                        <select style={{ ...S.input, marginBottom: 14 }} value={newBroadcast.template} onChange={e => setNewBroadcast(p => ({ ...p, template: e.target.value }))}>
+                            <option value="">Select approved template...</option>
+                            {templates.filter(t => t.status === 'approved').map(t => <option key={t.id} value={t.name}>{t.label}</option>)}
+                        </select>
+                        <label style={S.label}>Target Segment</label>
+                        <select style={{ ...S.input, marginBottom: 14 }} value={newBroadcast.segment} onChange={e => setNewBroadcast(p => ({ ...p, segment: e.target.value }))}>
+                            {['All Contacts', 'Hot Leads', 'Qualified', 'New', 'Unassigned'].map(s => <option key={s}>{s}</option>)}
+                        </select>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                            <div><label style={S.label}>Date</label><input type="date" style={S.input} value={newBroadcast.date} onChange={e => setNewBroadcast(p => ({ ...p, date: e.target.value }))} /></div>
+                            <div><label style={S.label}>Time</label><input type="time" style={S.input} value={newBroadcast.time} onChange={e => setNewBroadcast(p => ({ ...p, time: e.target.value }))} /></div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <button onClick={submitBroadcast} style={{ ...S.btn(true), flex: 1 }}>Schedule Campaign</button>
+                            <button onClick={() => setShowNewBroadcast(false)} style={{ ...S.btn(false), flex: 1 }}>Cancel</button>
+                        </div>
+                    </div>
                 </div>
             )}
-            <div style={{ overflowY: 'auto', flex: 1 }}>
-                {loading && filteredConversations.length === 0 ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div style={{ width: 20, height: 20, border: '2px solid #185FA5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /></div>
-                ) : filteredConversations.length === 0 ? (
-                    <div style={{ padding: 40, textAlign: 'center', color: '#aaa', fontSize: 12 }}>No conversations</div>
-                ) : (
-                    filteredConversations.map(conv => {
-                        const contact = conv.contact;
-                        const isSelected = conv.id === selectedId;
-                        const hasUnread = conv.unread_count > 0;
-                        const stage = conv?.stage || "New";
-                        const tags = conv?.tags || [];
-                        const displayName = conv?.name || contact?.phone || "Unknown";
-                        const initials = getInitials(displayName);
-                        const priorityTags = ['Buyer', 'Seller', 'Investor', 'Hot Lead', 'VIP'];
-                        const priorityTag = tags.find(t => priorityTags.includes(t.name));
-                        const otherTags = tags.filter(t => !priorityTags.includes(t.name)).slice(0, 1);
+        </div>
+    );
+
+    // ---------- Render Templates View ----------
+    const renderTemplatesView = () => (
+        <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div>
+                    <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Message Templates</h2>
+                    <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>Meta-approved WhatsApp Business templates</p>
+                </div>
+                <button onClick={() => setShowNewTemplate(true)} style={S.btn(true)}>+ Submit Template</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+                {[
+                    { label: 'Approved', value: templates.filter(t => t.status === 'approved').length, color: 'green' },
+                    { label: 'Pending Review', value: templates.filter(t => t.status === 'pending').length, color: 'amber' },
+                    { label: 'Rejected', value: templates.filter(t => t.status === 'rejected').length, color: 'coral' }
+                ].map(s => (
+                    <div key={s.label} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: COLORS[s.color].text }}>{s.value}</div>
+                        <div style={{ fontSize: 12, color: '#888' }}>{s.label}</div>
+                    </div>
+                ))}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {templates.map(t => (
+                    <div key={t.id} style={{ ...S.card, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                                <span style={{ fontSize: 14, fontWeight: 700 }}>{t.label}</span>
+                                <StatusBadge status={t.status} />
+                                <span style={{ fontSize: 10, background: '#f0f0f0', borderRadius: 6, padding: '2px 7px' }}>{t.category}</span>
+                                <span style={{ fontSize: 10, color: '#aaa', fontFamily: 'monospace' }}>{t.name}</span>
+                            </div>
+                            <div style={{ fontSize: 13, color: '#444', background: '#f8f9fa', borderRadius: 8, padding: '10px 12px', whiteSpace: 'pre-wrap' }}>{t.body}</div>
+                            {t.rejection_reason && <div style={{ fontSize: 12, color: '#712B13', background: '#FAECE7', borderRadius: 8, padding: '8px 12px', marginTop: 8 }}>Rejection reason: {t.rejection_reason}</div>}
+                            <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                                <span style={{ fontSize: 11, color: '#aaa' }}>Used {t.usage_count} times</span>
+                                <span style={{ fontSize: 11, color: '#aaa' }}>Last used: {t.last_used || 'Never'}</span>
+                                <span style={{ fontSize: 11, color: '#aaa' }}>Lang: {t.language}</span>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {t.status === 'approved' && <button style={S.btn(true)} onClick={() => { setView('inbox'); setMode('template'); setCompose(t.body); }}>Use</button>}
+                            {t.status === 'rejected' && <button style={S.btn(false)} onClick={() => alert('Resubmit via API')}>Resubmit</button>}
+                            {t.status === 'pending' && <div style={{ fontSize: 11, color: '#BA7517', background: '#FAEEDA', borderRadius: 8, padding: '6px 10px', textAlign: 'center' }}>Under review<br /><span style={{ color: '#aaa' }}>24-48 hrs</span></div>}
+                        </div>
+                    </div>
+                ))}
+            </div>
+            {showNewTemplate && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+                    <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 480 }}>
+                        <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 600 }}>Submit New Template to Meta</h3>
+                        <p style={{ fontSize: 12, color: '#888', margin: '0 0 18px' }}>Templates require Meta approval before use (24-48 hrs)</p>
+                        <label style={S.label}>Template Name</label>
+                        <input style={{ ...S.input, marginBottom: 14 }} value={newTpl.label} onChange={e => setNewTpl(p => ({ ...p, label: e.target.value }))} />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                            <div><label style={S.label}>Category</label><select style={S.input} value={newTpl.category} onChange={e => setNewTpl(p => ({ ...p, category: e.target.value }))}>
+                                <option value="UTILITY">Utility</option><option value="MARKETING">Marketing</option><option value="AUTHENTICATION">Authentication</option>
+                            </select></div>
+                            <div><label style={S.label}>Language</label><select style={S.input} value={newTpl.language} onChange={e => setNewTpl(p => ({ ...p, language: e.target.value }))}>
+                                <option value="en">English</option><option value="hi">Hindi</option><option value="en_IN">English (India)</option>
+                            </select></div>
+                        </div>
+                        <label style={S.label}>Message Body</label>
+                        <textarea style={{ ...S.input, minHeight: 100 }} value={newTpl.body} onChange={e => setNewTpl(p => ({ ...p, body: e.target.value }))} rows={4} />
+                        <p style={{ fontSize: 11, color: '#aaa', margin: '6px 0 18px' }}>Use {'{{1}}'}, {'{{2}}'} for dynamic variables.</p>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <button onClick={submitTemplate} style={{ ...S.btn(true), flex: 1 }}>Submit to Meta</button>
+                            <button onClick={() => setShowNewTemplate(false)} style={{ ...S.btn(false), flex: 1 }}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
+    // ---------- Render Automation View ----------
+    const renderAutomationView = () => (
+        <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div>
+                    <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Automation Rules</h2>
+                    <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>{rules.filter(r => r.on).length} active rules · {rules.reduce((s, r) => s + r.execCount, 0).toLocaleString()} total executions</p>
+                </div>
+                <button onClick={() => setShowNewRule(true)} style={S.btn(true)}>+ Add Rule</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {rules.map((r, i) => {
+                    const col = COLORS[r.color] || COLORS.blue;
+                    return (
+                        <div key={r.id} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, opacity: r.on ? 1 : 0.6 }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 10, background: col.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{r.icon}</div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 2 }}>{r.title}</div>
+                                <div style={{ fontSize: 12, color: '#888', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                    <span style={{ background: '#f0f0f0', borderRadius: 6, padding: '2px 8px', fontSize: 11 }}>WHEN: {r.trigger_event}</span>
+                                    <span style={{ color: '#ccc' }}>→</span>
+                                    <span style={{ background: col.bg, color: col.text, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>DO: {r.action_type}</span>
+                                </div>
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                <div style={{ fontSize: 11, color: '#aaa', marginBottom: 6 }}>{r.execCount.toLocaleString()} runs</div>
+                                <Toggle on={r.on} onChange={() => toggleRule(r.id, r.on)} />
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            {showNewRule && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+                    <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440 }}>
+                        <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 600 }}>Add Automation Rule</h3>
+                        <p style={{ fontSize: 12, color: '#888', margin: '0 0 18px' }}>Rules run automatically based on triggers</p>
+                        <label style={S.label}>Trigger Event</label>
+                        <select style={{ ...S.input, marginBottom: 14 }}><option>New contact first message</option><option>Message contains keyword</option></select>
+                        <label style={S.label}>Action</label>
+                        <select style={{ ...S.input, marginBottom: 14 }}><option>Send approved template</option><option>Assign to agent</option></select>
+                        <label style={S.label}>Rule Name</label>
+                        <input style={{ ...S.input, marginBottom: 20 }} placeholder="e.g. Keyword routing" />
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <button onClick={() => { setShowNewRule(false); loadAllData(); }} style={{ ...S.btn(true), flex: 1 }}>Create Rule</button>
+                            <button onClick={() => setShowNewRule(false)} style={{ ...S.btn(false), flex: 1 }}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
+    // ---------- Render Analytics View ----------
+    const renderAnalyticsView = () => {
+        if (!analytics) return <div style={{ flex: 1, padding: 20 }}>Loading analytics...</div>;
+        const { totalContacts, newContacts, conversionRate, stageDistribution, weeklyMessages } = analytics;
+        const bars = weeklyMessages.map(w => ({ l: w.date.slice(5), v: w.count }));
+        const max = Math.max(...bars.map(b => b.v), 1);
+        return (
+            <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 16px' }}>Analytics</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+                    {[
+                        { label: 'New Contacts', value: newContacts, delta: '+12%', color: 'blue' },
+                        { label: 'Conversations', value: totalContacts, delta: '+5%', color: 'green' },
+                        { label: 'Conversion Rate', value: `${conversionRate}%`, delta: '+2%', color: 'teal' },
+                        { label: 'Avg Response Time', value: '4.2m', delta: '-18%', color: 'amber' }
+                    ].map(s => (
+                        <div key={s.label} style={S.card}>
+                            <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{s.label}</div>
+                            <div style={{ fontSize: 26, fontWeight: 700, color: COLORS[s.color].text }}>{s.value}</div>
+                            <div style={{ fontSize: 11, color: '#27500A', marginTop: 4 }}>{s.delta} this week</div>
+                        </div>
+                    ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
+                    <div style={S.card}>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>Messages This Week</div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 140 }}>
+                            {bars.map(b => (
+                                <div key={b.l} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                    <div style={{ width: '100%', background: '#E6F1FB', borderRadius: '4px 4px 0 0', height: `${(b.v / max) * 120}px`, position: 'relative' }}>
+                                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#185FA5', borderRadius: '4px 4px 0 0', height: `${(b.v / max) * 100}%` }} />
+                                    </div>
+                                    <div style={{ fontSize: 10, color: '#888' }}>{b.l}</div>
+                                    <div style={{ fontSize: 10, fontWeight: 600, color: '#185FA5' }}>{b.v}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div style={S.card}>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Stage Distribution</div>
+                        {stageDistribution.map(s => {
+                            const col = COLORS[{ 'New': 'blue', 'Enquiry': 'blue', 'Qualified': 'green', 'Proposal': 'amber', 'Negotiation': 'coral', 'Closed Won': 'teal' }[s.stage]] || COLORS.blue;
+                            const pct = Math.round((s.count / totalContacts) * 100);
+                            return (
+                                <div key={s.stage} style={{ marginBottom: 10 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+                                        <span style={{ color: '#555' }}>{s.stage}</span>
+                                        <span style={{ fontWeight: 600, color: col.text }}>{s.count}</span>
+                                    </div>
+                                    <div style={{ height: 6, background: '#f0f0f0', borderRadius: 4 }}>
+                                        <div style={{ width: `${pct}%`, height: '100%', background: col.border, borderRadius: 4 }} />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+                <div style={{ ...S.card, marginTop: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Agent Performance</div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead><tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                            {['Agent', 'Assigned', 'Resolved', 'Avg Response', 'Satisfaction'].map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 10px', fontSize: 11, color: '#888', fontWeight: 600 }}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>
+                            {analytics.agentPerformance.map(a => (
+                                <tr key={a.agent} style={{ borderBottom: '0.5px solid #f5f5f5' }}>
+                                    <td style={{ padding: '10px 10px', fontWeight: 600 }}>{a.agent}</td>
+                                    <td style={{ padding: '10px 10px', color: '#185FA5' }}>{a.assigned}</td>
+                                    <td style={{ padding: '10px 10px', color: '#27500A' }}>{a.resolved}</td>
+                                    <td style={{ padding: '10px 10px', color: '#555' }}>—</td>
+                                    <td style={{ padding: '10px 10px', color: '#633806', fontWeight: 600 }}>—</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
+    // ---------- Right Panel ----------
+    const renderRightPanel = () => {
+        if (!activeConv) return <div>Select a conversation</div>;
+        if (rpTab === 'contact') return (
+            <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                    <Avatar initials={activeConv.initials} color={activeConv.color} size={44} />
+                    <div><div style={{ fontSize: 14, fontWeight: 600 }}>{activeConv.name}</div><div style={{ fontSize: 12, color: '#888' }}>{activeConv.phone}</div></div>
+                </div>
+                {[
+                    { label: 'Stage', val: <Tag tag={activeConv.tag} stage={activeConv.stage} /> },
+                    { label: 'Assigned to', val: activeConv.assigned },
+                    { label: 'Source', val: 'WhatsApp inbound' },
+                    { label: 'Last contact', val: activeConv.time + ' ago' }
+                ].map(f => (
+                    <div key={f.label} style={{ marginBottom: 12 }}>
+                        <div style={S.label}>{f.label}</div>
+                        {typeof f.val === 'string' ? <div style={{ fontSize: 13, color: '#333' }}>{f.val}</div> : f.val}
+                    </div>
+                ))}
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <button style={{ ...S.btn(false), textAlign: 'left' }} onClick={() => { setRpTab('pipeline'); setTimeout(advanceStage, 200); }}>Move to next stage →</button>
+                    <button style={{ ...S.btn(false), textAlign: 'left' }} onClick={assignAgent}>Reassign agent →</button>
+                    <button style={{ ...S.btn(false), textAlign: 'left' }} onClick={() => setRpTab('pipeline')}>View pipeline →</button>
+                </div>
+            </>
+        );
+        if (rpTab === 'pipeline') {
+            const done = activeConv.pipeline?.filter(s => s.done).length || 0;
+            return (
+                <>
+                    <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>{done} of {activeConv.pipeline?.length || 0} stages complete</div>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+                        {activeConv.pipeline?.map((s, i) => <div key={i} style={{ flex: 1, height: 5, borderRadius: 3, background: s.done ? '#185FA5' : '#e0e0e0' }} />)}
+                    </div>
+                    {activeConv.pipeline?.map((s, i) => {
+                        const isCurrent = !s.done && (i === 0 || activeConv.pipeline[i - 1].done);
                         return (
-                            <button key={conv.id} onClick={() => onSelect(conv)} style={{ width: '100%', padding: '10px 12px', cursor: 'pointer', borderBottom: '0.5px solid #f0f0f0', display: 'flex', gap: 10, background: isSelected ? '#EDF4FC' : 'transparent', textAlign: 'left', borderLeft: isSelected ? `2px solid ${COLORS.blue.border}` : '2px solid transparent' }}>
-                                <div style={{ position: 'relative' }}>
-                                    <Avatar initials={initials} color={contact?.color || 'blue'} size={38} />
-                                    <span style={{ position: 'absolute', bottom: -2, right: -2, width: 10, height: 10, borderRadius: '50%', background: STAGE_DOT[stage] || '#aaa', border: '2px solid white' }} />
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '0.5px solid #f5f5f5' }}>
+                                <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: s.done ? '#1D9E75' : isCurrent ? '#185FA5' : '#ccc' }} />
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>{s.stage}</div>
+                                    <div style={{ fontSize: 11, color: '#aaa' }}>{s.completed_date || '-'}</div>
                                 </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: 13, fontWeight: hasUnread ? 700 : 500, color: '#111' }}>{displayName}</span>
-                                        <span style={{ fontSize: 10, color: '#aaa' }}>{formatRelativeTime(conv.last_message_at)}</span>
-                                    </div>
-                                    <div style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>{truncate(conv.last_message || "No messages yet", 40)}</div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                            {priorityTag && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 8, background: priorityTag.color + '22', color: priorityTag.color, fontWeight: 600 }}>{priorityTag.name}</span>}
-                                            {otherTags.map(tag => <span key={tag.id} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 8, background: tag.color + '22', color: tag.color }}>{tag.name}</span>)}
-                                        </div>
-                                        {hasUnread && <span style={{ background: '#E24B4A', color: '#fff', fontSize: 10, borderRadius: 8, padding: '1px 5px', fontWeight: 700 }}>{conv.unread_count}</span>}
-                                    </div>
-                                </div>
-                            </button>
+                                {s.done ? <span style={{ fontSize: 10, background: '#EAF3DE', color: '#27500A', borderRadius: 6, padding: '2px 7px', fontWeight: 600 }}>Done</span> : isCurrent ? <span style={{ fontSize: 10, background: '#E6F1FB', color: '#0C447C', borderRadius: 6, padding: '2px 7px', fontWeight: 600 }}>Current</span> : null}
+                            </div>
                         );
-                    })
+                    })}
+                    <button onClick={advanceStage} style={{ ...S.btn(true), width: '100%', textAlign: 'center', marginTop: 12 }}>Move to next stage</button>
+                </>
+            );
+        }
+        if (rpTab === 'notes') return (
+            <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                    {activeConv.notes?.length ? activeConv.notes.map((n, i) => <div key={i} style={{ background: '#f8f9fa', borderRadius: 8, padding: 10, fontSize: 12, color: '#444', lineHeight: 1.6, borderLeft: '3px solid #185FA5' }}>{n.note || n}</div>) : <div style={{ fontSize: 13, color: '#bbb' }}>No notes yet.</div>}
+                </div>
+                <textarea rows={3} style={{ ...S.input, resize: 'none', marginBottom: 8 }} placeholder="Add a note..." value={noteText} onChange={e => setNoteText(e.target.value)} />
+                <button onClick={addNote} style={{ ...S.btn(true), width: '100%', textAlign: 'center' }}>Save note</button>
+            </>
+        );
+        if (rpTab === 'auto') return (
+            <>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Active automations</div>
+                {rules.map((r, i) => {
+                    const col = COLORS[r.color] || COLORS.blue;
+                    return (
+                        <div key={r.id} style={{ background: '#f8f9fa', borderRadius: 8, padding: 10, marginBottom: 8, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 7, background: col.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{r.icon}</div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600 }}>{r.title}</div>
+                                <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>{r.trigger_event}</div>
+                            </div>
+                            <Toggle on={r.on} onChange={() => toggleRule(r.id, r.on)} />
+                        </div>
+                    );
+                })}
+            </>
+        );
+    };
+
+    // ---------- Inbox View ----------
+    const renderInbox = () => (
+        <>
+            <div style={{ width: 270, borderRight: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+                <div style={{ padding: '10px 12px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', gap: 8 }}>
+                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ ...S.input, flex: 1 }} />
+                    <button onClick={async () => {
+                        const name = prompt('Contact name:'); if (!name) return;
+                        const phone = prompt('Phone:'); if (!phone) return;
+                        const initials = name.trim().split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+                        await whatsappAPI.createContact({ name, phone, tag: 'new', stage: 'New', assigned_to: 'Unassigned', color: 'blue', initials });
+                        loadAllData();
+                    }} style={S.btn(true)}>+</button>
+                </div>
+                <div style={{ display: 'flex', padding: '6px 10px', gap: 4, borderBottom: '0.5px solid #e8e8e8', flexShrink: 0 }}>
+                    {['all', 'mine', 'bot', 'unread'].map(f => (
+                        <button key={f} onClick={() => setFilter(f)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, cursor: 'pointer', border: 'none', background: filter === f ? '#E6F1FB' : 'transparent', color: filter === f ? '#0C447C' : '#888', fontWeight: filter === f ? 700 : 400 }}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
+                    ))}
+                </div>
+                <div style={{ overflowY: 'auto', flex: 1 }}>
+                    {filtered.map(c => (
+                        <div key={c.id} onClick={() => selectConv(c.id)} style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '0.5px solid #f0f0f0', display: 'flex', gap: 10, background: c.id === activeId ? '#EDF4FC' : 'transparent' }}>
+                            <Avatar initials={c.initials} color={c.color} size={38} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</span>
+                                    <span style={{ fontSize: 10, color: '#aaa' }}>{c.time}</span>
+                                </div>
+                                <div style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>{c.lastMsg}</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 }}>
+                                    <Tag tag={c.tag} stage={c.stage} />
+                                    {c.unread > 0 && <span style={{ background: '#E24B4A', color: '#fff', fontSize: 10, borderRadius: 8, padding: '1px 5px', fontWeight: 700 }}>{c.unread}</span>}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '10px 14px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    {activeConv && <Avatar initials={activeConv.initials} color={activeConv.color} size={36} />}
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600 }}>{activeConv?.name || 'Select a conversation'}</div>
+                        <div style={{ fontSize: 12, color: '#888' }}>{activeConv?.phone} · {activeConv?.assigned === 'Bot' ? <span style={{ color: '#BA7517' }}>Bot handling</span> : `Agent: ${activeConv?.assigned}`}</div>
+                    </div>
+                    {activeConv && <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={takeOver} style={S.btn(false)}>Take over</button>
+                        <button onClick={resolveConv} style={S.btn(false)}>Resolve</button>
+                        <button onClick={transferConv} style={S.btn(false)}>Transfer</button>
+                    </div>}
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 8, background: '#f5f7f9' }}>
+                    {activeConv?.messages?.map((msg, idx) => {
+                        if (msg.direction === 'system') return <div key={idx} style={{ textAlign: 'center', fontSize: 11, color: '#aaa', background: '#e8e8e8', borderRadius: 8, padding: '4px 12px', alignSelf: 'center' }}>{msg.text}</div>;
+                        if (msg.direction === 'bot') return (
+                            <div key={idx} style={{ alignSelf: 'flex-start', maxWidth: '72%' }}>
+                                <span style={{ fontSize: 10, background: '#FAEEDA', color: '#633806', padding: '2px 8px', borderRadius: 8, fontWeight: 700, display: 'inline-block', marginBottom: 3 }}>Bot</span>
+                                <div style={{ background: '#FAEEDA', borderRadius: '12px 12px 12px 4px', padding: '8px 12px', fontSize: 13, lineHeight: 1.55, color: '#412402' }}>{msg.text}</div>
+                                <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>{new Date(msg.time_sent).toLocaleTimeString()}</div>
+                            </div>
+                        );
+                        if (msg.direction === 'in') return (
+                            <div key={idx} style={{ alignSelf: 'flex-start', maxWidth: '72%' }}>
+                                <div style={{ background: '#fff', borderRadius: '12px 12px 12px 4px', padding: '8px 12px', fontSize: 13, border: '0.5px solid #e0e0e0' }}>{msg.text}</div>
+                                <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>{new Date(msg.time_sent).toLocaleTimeString()}</div>
+                            </div>
+                        );
+                        if (msg.direction === 'note') return (
+                            <div key={idx} style={{ alignSelf: 'flex-end', maxWidth: '72%' }}>
+                                <div style={{ background: '#FFFBEA', borderRadius: '12px 12px 4px 12px', padding: '8px 12px', fontSize: 13, fontStyle: 'italic', color: '#633806', border: '0.5px solid #FAC775' }}>[Note] {msg.text}</div>
+                                <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, textAlign: 'right' }}>{new Date(msg.time_sent).toLocaleTimeString()}</div>
+                            </div>
+                        );
+                        return (
+                            <div key={idx} style={{ alignSelf: 'flex-end', maxWidth: '72%' }}>
+                                <div style={{ background: '#DCF8C6', borderRadius: '12px 12px 4px 12px', padding: '8px 12px', fontSize: 13, color: '#1a3a1a' }}>{msg.text}</div>
+                                <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, textAlign: 'right' }}>{new Date(msg.time_sent).toLocaleTimeString()} · <span style={{ color: '#1D9E75' }}>Read</span></div>
+                            </div>
+                        );
+                    })}
+                    <div ref={messagesEnd} />
+                </div>
+                {activeConv?.sessionExpiry && (
+                    <div style={{ background: '#FAEEDA', padding: '8px 14px', fontSize: 12, color: '#633806', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #FAC775', flexShrink: 0 }}>
+                        <span>24hr session expired — use an approved template to re-open</span>
+                        <button onClick={() => setMode('template')} style={{ fontSize: 11, background: '#EF9F27', color: '#412402', border: 'none', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>Send template</button>
+                    </div>
                 )}
-            </div>
-            {showFilter && (
-                <FilterModal
-                    value={pendingFilter}
-                    onChange={setPendingFilter}
-                    onApply={() => applyAdvanced(pendingFilter)}
-                    onClear={() => { setPendingFilter(emptyAdvanced); applyAdvanced(emptyAdvanced); }}
-                    onClose={() => setShowFilter(false)}
-                />
-            )}
-        </div>
-    );
-}
-
-function FilterModal({ value, onChange, onApply, onClear, onClose }) {
-    const toggleStage = (s) => {
-        onChange({
-            ...value,
-            stages: value.stages.includes(s) ? value.stages.filter(x => x !== s) : [...value.stages, s],
-        });
-    };
-
-    return (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: '#fff', borderRight: '0.5px solid #e8e8e8' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '0.5px solid #e8e8e8' }}>
-                <div>
-                    <h3 style={{ fontSize: 14, fontWeight: 700 }}>Filter Conversations</h3>
-                    <p style={{ fontSize: 10, color: '#888', marginTop: 2 }}>Narrow down your inbox view</p>
-                </div>
-                <button onClick={onClose} style={{ padding: 6, borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#aaa' }}><X size={16} /></button>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-                {/* Date Section */}
-                <div>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: '#555', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}><Calendar size={12} color="#888" /> Date</p>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                        {DATE_PRESETS.map(p => (
-                            <button key={p} onClick={() => onChange({ ...value, datePreset: value.datePreset === p ? null : p, dateFrom: '', dateTo: '' })} style={{ ...S.btn(value.datePreset === p, true), fontSize: 11 }}>
-                                {p}
-                            </button>
+                <div style={{ padding: '10px 14px', borderTop: '0.5px solid #e8e8e8', background: '#fff', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                        {['text', 'template', 'quick', 'note'].map(m => (
+                            <button key={m} onClick={() => setMode(m)} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 8, border: 'none', background: mode === m ? '#E6F1FB' : 'transparent', color: mode === m ? '#0C447C' : '#888', fontWeight: mode === m ? 700 : 400 }}>{m.charAt(0).toUpperCase() + m.slice(1)}</button>
                         ))}
+                        <button onClick={aiReply} disabled={aiLoading} style={{ marginLeft: 'auto', fontSize: 12, padding: '4px 12px', borderRadius: 8, border: 'none', background: aiLoading ? '#f0f0f0' : '#E6F1FB', color: aiLoading ? '#aaa' : '#0C447C', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            {aiLoading ? '...' : '✦ AI Reply'}
+                        </button>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <div><label style={S.label}>From</label><input type="date" value={value.dateFrom} onChange={e => onChange({ ...value, dateFrom: e.target.value, datePreset: null })} style={S.input} /></div>
-                        <div><label style={S.label}>To</label><input type="date" value={value.dateTo} onChange={e => onChange({ ...value, dateTo: e.target.value, datePreset: null })} style={S.input} /></div>
-                    </div>
-                </div>
-
-                {/* Pipeline Stage */}
-                <div>
-                    <p style={S.label}>Pipeline Stage</p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {STAGES_LIST.map(s => (
-                            <button key={s} onClick={() => toggleStage(s)} style={{ ...S.btn(value.stages.includes(s), true), fontSize: 11 }}>
-                                {s}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Read Status */}
-                <div>
-                    <p style={S.label}>Read Status</p>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        {[
-                            { label: 'All', val: null },
-                            { label: 'Unread only', val: true },
-                            { label: 'Read only', val: false },
-                        ].map(opt => (
-                            <button key={String(opt.val)} onClick={() => onChange({ ...value, hasUnread: opt.val })} style={{ ...S.btn(value.hasUnread === opt.val, true), flex: 1, fontSize: 11 }}>
-                                {opt.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Filter by Tag */}
-                <div>
-                    <p style={S.label}>Filter by Tag</p>
-                    <div style={{ position: 'relative' }}>
-                        <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
-                        <input type="text" value={value.tagSearch} onChange={e => onChange({ ...value, tagSearch: e.target.value })} placeholder="e.g. Buyer, Hot Lead..." style={{ ...S.input, paddingLeft: 26 }} />
-                    </div>
-                </div>
-            </div>
-
-            <div style={{ padding: '12px 16px', borderTop: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <button onClick={onApply} style={{ ...S.btn(true), width: '100%', justifyContent: 'center', gap: 6 }}><CheckCircle size={14} /> Apply Filters</button>
-                <button onClick={onClear} style={{ ...S.btn(false), width: '100%', justifyContent: 'center' }}>Clear All</button>
-            </div>
-        </div>
-    );
-}
-
-// --- InboxPage (unchanged, uses updated ConversationList) ---
-function InboxPage() {
-    const [conversations, setConversations] = useState(MOCK_CONVERSATIONS);
-    const [selectedConvId, setSelectedConvId] = useState(null);
-    const [filter, setFilter] = useState("all");
-    const [search, setSearch] = useState("");
-    const [contacts, setContacts] = useState<any>(MOCK_CONTACTS);
-    const [selectedContact, setSelectedContact] = useState(null)
-
-    const selectedConv = conversations.find(c => c.id === selectedConvId) || null;
-    // const selectedContact = selectedConv ? contacts.find(c => c.id === selectedConv.contact_id) || selectedConv.contact : null;
-    const loadContacts = async () => {
-        try {
-            const whatsappRes = await whatsappAPI.getContacts();
-            // console.log("res of whatsapp : ", whatsappRes)
-            setContacts(Array.isArray(whatsappRes) ? whatsappRes : [])
-        } catch (error) {
-            console.log(error)
-        }
-    }
-
-
-
-
-    useEffect(() => {
-        loadContacts()
-    }, [contacts])
-    const handleSelectConversation = async (conv) => {
-        try {
-            const waMessagesRes: any = await whatsappAPI.getMessages(conv.id)
-            setConversations(Array.isArray(waMessagesRes) ? waMessagesRes : [])
-            console.log("wa  messae", waMessagesRes)
-            setSelectedConvId(conv.id);
-            setSelectedContact(conv)
-            setConversations(waMessagesRes);
-        } catch (error) {
-            console.log(error)
-        }
-    };
-
-    const handleUpdateStage = (stage) => {
-        if (!selectedContact) return;
-        setContacts(prev => prev.map(c => c.id === selectedContact.id ? { ...c, stage } : c));
-        setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, contact: { ...c.contact, stage } } : c));
-    };
-
-    const handleAssign = (userId) => {
-        if (!selectedContact) return;
-        setContacts(prev => prev.map(c => c.id === selectedContact.id ? { ...c, assigned_to: userId } : c));
-    };
-
-    const handleAddTag = (tagId) => {
-        if (!selectedContact) return;
-        const tag = MOCK_TAGS.find(t => t.id === tagId);
-        if (!tag) return;
-        setContacts(prev => prev.map(c => c.id === selectedContact.id ? { ...c, tags: [...(c.tags || []), tag] } : c));
-        setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, contact: { ...c.contact, tags: [...(c.contact?.tags || []), tag] } } : c));
-    };
-
-    const handleRemoveTag = (tagId) => {
-        if (!selectedContact) return;
-        setContacts(prev => prev.map(c => c.id === selectedContact.id ? { ...c, tags: (c.tags || []).filter(t => t.id !== tagId) } : c));
-        setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, contact: { ...c.contact, tags: (c.contact?.tags || []).filter(t => t.id !== tagId) } } : c));
-    };
-
-    const enrichedConvs = conversations.map(conv => ({ ...conv, contact: contacts.find(c => c.id === conv.contact_id) || conv.contact }));
-    const enrichedContact = selectedContact ? contacts.find(c => c.id === selectedContact.id) || selectedContact : null;
-
-
-    return (
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', background: '#fff' }}>
-            <ConversationList conversations={contacts} loading={false} selectedId={selectedConvId} filter={filter} search={search} onSelect={handleSelectConversation} onFilterChange={setFilter} onSearchChange={setSearch} onRefresh={() => { }} />
-            <ChatWindow onClose={() => { }} conversation={conversations} contact={selectedContact} users={MOCK_USERS} allTags={MOCK_TAGS} onUpdateStage={handleUpdateStage} onAssign={handleAssign} onAddTag={handleAddTag} onRemoveTag={handleRemoveTag} conversations={conversations} setConversations={setConversations} />
-        </div>
-    );
-}
-
-// ─── Templates Page (restyled) ───────────────────────────────────────────────
-function PhonePreview({ form, cat, compact = false }) {
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ background: '#e5ddd5', borderRadius: 16, padding: compact ? 12 : 20, width: compact ? '100%' : 280, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.05)' }}>
-                <div style={{ fontSize: 9, textAlign: 'center', color: '#888', marginBottom: 8, background: 'rgba(255,255,255,0.6)', borderRadius: 12, padding: '2px 8px', width: 'fit-content', margin: '0 auto 8px' }}>Today</div>
-                <div style={{ background: '#fff', borderRadius: 12, borderTopLeftRadius: 4, boxShadow: '0 1px 2px rgba(0,0,0,0.1)', overflow: 'hidden', maxWidth: '90%', margin: '0 auto' }}>
-                    {form.header_type === "TEXT" && form.header_text && <div style={{ padding: '8px 10px 4px' }}><p style={{ fontWeight: 700, fontSize: compact ? 11 : 13, margin: 0 }}>{form.header_text}</p></div>}
-                    {form.header_type === "IMAGE" && <div style={{ background: '#f0f0f0', height: compact ? 60 : 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image size={compact ? 16 : 24} color="#aaa" /></div>}
-                    <div style={{ padding: '8px 10px' }}>
-                        <p style={{ fontSize: compact ? 11 : 13, color: '#111', whiteSpace: 'pre-wrap' }}>{form.body.replace(/\{\{(\d+)\}\}/g, (_, n) => `[var ${n}]`) || <span style={{ color: '#aaa' }}>Message body...</span>}</p>
-                        {form.footer && <p style={{ fontSize: compact ? 9 : 10, color: '#aaa', marginTop: 6, fontStyle: 'italic' }}>{form.footer}</p>}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}><span style={{ fontSize: 9, color: '#aaa' }}>10:30</span></div>
-                    </div>
-                    {form.buttons.length > 0 && (
-                        <div style={{ borderTop: '0.5px solid #eee' }}>
-                            {form.buttons.map((btn, i) => (
-                                <div key={i} style={{ textAlign: 'center', padding: '8px 0', fontSize: compact ? 10 : 12, fontWeight: 600, color: '#185FA5', borderTop: i > 0 ? '0.5px solid #eee' : 'none' }}>{btn.text}</div>
+                    {mode === 'template' && (
+                        <div style={{ marginBottom: 8, maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {templates.filter(t => t.status === 'approved').map(t => (
+                                <div key={t.id} onClick={() => setCompose(t.body)} style={{ padding: '8px 10px', borderRadius: 8, border: '0.5px solid #ddd', cursor: 'pointer', background: '#fafafa' }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600 }}>{t.label}</div>
+                                    <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{t.body.substring(0, 70)}...</div>
+                                </div>
                             ))}
                         </div>
                     )}
+                    {mode === 'quick' && (
+                        <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {QUICK_REPLIES.map((q, i) => (
+                                <button key={i} onClick={() => setCompose(q)} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 10, border: '0.5px solid #ddd', background: '#f8f9fa', color: '#555' }}>{q.substring(0, 28)}{q.length > 28 ? '…' : ''}</button>
+                            ))}
+                        </div>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                        <textarea rows={1} value={compose} onChange={e => setCompose(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder={mode === 'note' ? 'Internal note — not sent to customer...' : 'Type a message...'} style={{ flex: 1, border: '0.5px solid #ddd', borderRadius: 8, padding: '8px 12px', fontSize: 13, resize: 'none', fontFamily: 'inherit', outline: 'none', background: mode === 'note' ? '#FFFBEA' : '#fafafa', minHeight: 38 }} />
+                        <button onClick={sendMessage} style={{ width: 38, height: 38, borderRadius: '50%', background: '#185FA5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="#fff" strokeWidth={2}><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
-    );
-}
-
-function TemplateForm({ template, onSubmit, onClose }) {
-    const CATEGORIES = [
-        { value: "MARKETING", label: "Marketing", desc: "Promotions & offers" },
-        { value: "UTILITY", label: "Utility", desc: "Updates & alerts" },
-        { value: "AUTHENTICATION", label: "Auth", desc: "OTPs & verification" },
-    ];
-    const HEADER_TYPES = [
-        { value: "", label: "None", icon: X }, { value: "TEXT", label: "Text", icon: Type },
-        { value: "IMAGE", label: "Image", icon: Image }, { value: "DOCUMENT", label: "Doc", icon: FileDoc }, { value: "VIDEO", label: "Video", icon: Video },
-    ];
-
-    const emptyForm = { name: "", category: "MARKETING", language: "en", header_type: "", header_text: "", body: "", footer: "", buttons: [] };
-    const [form, setForm] = useState(template ? { name: template.name, category: template.category, language: template.language, header_type: template.header_type || "", header_text: template.header_text || "", body: template.body, footer: template.footer || "", buttons: template.buttons || [] } : emptyForm);
-    const [saving, setSaving] = useState(false);
-    const [activeTab, setActiveTab] = useState(template ? "edit" : "edit");
-
-    const cat = CATEGORIES.find(c => c.value === form.category);
-    const variableCount = (form.body.match(/\{\{(\d+)\}\}/g) || []).length;
-
-    const handleSubmit = async () => {
-        if (!form.name.trim() || !form.body.trim()) return;
-        setSaving(true);
-        await onSubmit({ ...form, name: form.name.toLowerCase().replace(/[^a-z0-9_]/g, "_"), header_type: form.header_type || null, header_text: form.header_type === "TEXT" ? form.header_text : null, footer: form.footer || null, buttons: form.buttons.length > 0 ? form.buttons : null, status: "PENDING" });
-        setSaving(false);
-    };
-
-    return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', padding: 16 }}>
-            <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 1000, maxHeight: '96vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 35px rgba(0,0,0,0.2)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '0.5px solid #e8e8e8' }}>
-                    <div><h2 style={{ fontSize: 16, fontWeight: 700 }}>{template ? "Edit Template" : "New Template"}</h2><p style={{ fontSize: 11, color: '#888', marginTop: 2 }}>WhatsApp Business Message Template</p></div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#aaa' }}><X size={18} /></button>
-                </div>
-
-                <div style={{ display: 'flex', borderBottom: '0.5px solid #e8e8e8', padding: '0 20px', gap: 20 }}>
-                    {(["edit", "preview"]).map(tab => (
-                        <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '12px 0', fontSize: 13, fontWeight: 600, borderBottom: activeTab === tab ? '2px solid #185FA5' : '2px solid transparent', color: activeTab === tab ? '#185FA5' : '#888', background: 'none', cursor: 'pointer' }}>
-                            {tab === "edit" ? "Edit" : "Preview"}
+            <div style={{ width: 290, borderLeft: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+                <div style={{ display: 'flex', borderBottom: '0.5px solid #e8e8e8', flexShrink: 0 }}>
+                    {['contact', 'pipeline', 'notes', 'auto'].map(t => (
+                        <button key={t} onClick={() => setRpTab(t)} style={{ flex: 1, padding: '10px 0', fontSize: 12, textAlign: 'center', cursor: 'pointer', border: 'none', background: 'none', color: rpTab === t ? '#185FA5' : '#888', fontWeight: rpTab === t ? 700 : 400, borderBottom: rpTab === t ? '2px solid #185FA5' : '2px solid transparent' }}>
+                            {t.charAt(0).toUpperCase() + t.slice(1)}
                         </button>
                     ))}
                 </div>
-
-                <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-                    {activeTab === "edit" && (
-                        <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
-                            <div style={{ marginBottom: 16 }}>
-                                <label style={S.label}>Template Name *</label>
-                                <input style={S.input} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. buyer_welcome" />
-                            </div>
-                            <div style={{ marginBottom: 16 }}>
-                                <label style={S.label}>Category *</label>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    {CATEGORIES.map(c => (
-                                        <button key={c.value} onClick={() => setForm(p => ({ ...p, category: c.value }))} style={{ flex: 1, padding: '8px', borderRadius: 8, border: `1.5px solid ${form.category === c.value ? '#185FA5' : '#ddd'}`, background: form.category === c.value ? '#E6F1FB' : '#fff', cursor: 'pointer' }}>
-                                            <div style={{ fontSize: 12, fontWeight: 600 }}>{c.label}</div>
-                                            <div style={{ fontSize: 10, color: '#888' }}>{c.desc}</div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div style={{ marginBottom: 16 }}>
-                                <label style={S.label}>Header Type</label>
-                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                    {HEADER_TYPES.map(h => {
-                                        const Icon = h.icon;
-                                        return (
-                                            <button key={h.value} onClick={() => setForm(p => ({ ...p, header_type: h.value, header_text: "" }))} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, border: `1px solid ${form.header_type === h.value ? '#185FA5' : '#ddd'}`, background: form.header_type === h.value ? '#E6F1FB' : '#fff', fontSize: 11, cursor: 'pointer' }}>
-                                                <Icon size={12} /> {h.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                            {form.header_type === "TEXT" && (
-                                <div style={{ marginBottom: 16 }}>
-                                    <label style={S.label}>Header Text</label>
-                                    <input style={S.input} value={form.header_text} onChange={e => setForm(p => ({ ...p, header_text: e.target.value }))} maxLength={60} />
-                                </div>
-                            )}
-                            <div style={{ marginBottom: 16 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <label style={S.label}>Message Body *</label>
-                                    <span style={{ fontSize: 10, color: '#aaa' }}>{form.body.length}/1024 {variableCount > 0 && `· ${variableCount} var${variableCount > 1 ? 's' : ''}`}</span>
-                                </div>
-                                <textarea rows={6} value={form.body} onChange={e => setForm(p => ({ ...p, body: e.target.value }))} style={{ ...S.input, resize: 'vertical' }} placeholder="Hello {{1}}, we have a property for you in {{2}}." maxLength={1024} />
-                                <div style={{ marginTop: 6, display: 'flex', gap: 6 }}>
-                                    {["{{1}}", "{{2}}", "{{3}}", "{{4}}"].map(v => (
-                                        <button key={v} onClick={() => setForm(p => ({ ...p, body: p.body + v }))} style={{ fontSize: 10, padding: '2px 6px', background: '#f0f0f0', border: 'none', borderRadius: 4, cursor: 'pointer' }}>{v}</button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div style={{ marginBottom: 16 }}>
-                                <label style={S.label}>Footer (optional)</label>
-                                <input style={S.input} value={form.footer} onChange={e => setForm(p => ({ ...p, footer: e.target.value }))} maxLength={60} />
-                            </div>
-                            <div style={{ marginBottom: 16 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                    <label style={S.label}>Buttons (max 3)</label>
-                                    <button onClick={() => { if (form.buttons.length < 3) setForm(p => ({ ...p, buttons: [...p.buttons, { type: "QUICK_REPLY", text: "" }] })); }} disabled={form.buttons.length >= 3} style={{ ...S.btn(false, true) }}><Plus size={12} /> Add</button>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {form.buttons.map((btn, i) => (
-                                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                            <select value={btn.type} onChange={e => setForm(p => ({ ...p, buttons: p.buttons.map((b, idx) => idx === i ? { ...b, type: e.target.value } : b) }))} style={{ ...S.input, width: 'auto' }}>
-                                                <option value="QUICK_REPLY">Quick Reply</option>
-                                                <option value="URL">URL Link</option>
-                                            </select>
-                                            <input placeholder="Button label" value={btn.text} maxLength={25} onChange={e => setForm(p => ({ ...p, buttons: p.buttons.map((b, idx) => idx === i ? { ...b, text: e.target.value } : b) }))} style={{ ...S.input }} />
-                                            <button onClick={() => setForm(p => ({ ...p, buttons: p.buttons.filter((_, idx) => idx !== i) }))} style={{ ...S.btn(false, true), color: '#D85A30' }}><Trash2 size={12} /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {activeTab === "preview" && (
-                        <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', justifyContent: 'center' }}>
-                            <PhonePreview form={form} cat={cat} />
-                        </div>
-                    )}
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, padding: '16px 20px', borderTop: '0.5px solid #e8e8e8', background: '#fafafa' }}>
-                    <button onClick={onClose} style={S.btn(false)}>Cancel</button>
-                    <button onClick={handleSubmit} disabled={saving || !form.name.trim() || !form.body.trim()} style={{ ...S.btn(true), opacity: (saving || !form.name.trim() || !form.body.trim()) ? 0.6 : 1 }}>
-                        {saving ? "Saving..." : template ? "Update Template" : "Submit for Review"}
-                    </button>
-                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>{renderRightPanel()}</div>
             </div>
-        </div>
+        </>
     );
-}
 
-function TemplatesPage() {
-    const [templates, setTemplates] = useState(MOCK_TEMPLATES);
-    const [showForm, setShowForm] = useState(false);
-    const [editing, setEditing] = useState(null);
-    const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState("ALL");
-    const [confirmDelete, setConfirmDelete] = useState(null);
-    const [previewTemplate, setPreviewTemplate] = useState(null);
+    if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading CRM...</div>;
 
-    const filtered = templates.filter(t => {
-        const matchSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.body.toLowerCase().includes(search.toLowerCase());
-        const matchStatus = statusFilter === "ALL" || t.status === statusFilter;
-        return matchSearch && matchStatus;
-    });
-
-    const statusCounts = { ALL: templates.length, APPROVED: templates.filter(t => t.status === "APPROVED").length, PENDING: templates.filter(t => t.status === "PENDING").length, REJECTED: templates.filter(t => t.status === "REJECTED").length, IN_APPEAL: templates.filter(t => t.status === "IN_APPEAL").length };
-
-    const handleSubmit = async (data) => {
-        if (editing) {
-            setTemplates(prev => prev.map(t => t.id === editing.id ? { ...t, ...data, updated_at: new Date().toISOString() } : t));
-        } else {
-            setTemplates(prev => [{ id: `tpl${Date.now()}`, created_at: new Date().toISOString(), ...data }, ...prev]);
-        }
-        setShowForm(false); setEditing(null);
-        notificationStore.push("template", "Template Saved", `Template "${data.name}" submitted for review.`, () => { });
-    };
-
-    const handleDelete = (id) => { setTemplates(prev => prev.filter(t => t.id !== id)); setConfirmDelete(null); };
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f5f7f9', overflow: 'auto' }}>
-            <div style={{ background: '#fff', borderBottom: '0.5px solid #e8e8e8', padding: '16px 20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <div><h1 style={{ fontSize: 20, fontWeight: 700 }}>Templates</h1><p style={{ fontSize: 12, color: '#888' }}>WhatsApp message templates — Meta reviewed</p></div>
-                    <button onClick={() => { setEditing(null); setShowForm(true); }} style={{ ...S.btn(true), gap: 6 }}><Plus size={16} /> New Template</button>
-                </div>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, maxWidth: 300, position: 'relative' }}>
-                        <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
-                        <input type="text" placeholder="Search templates..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...S.input, paddingLeft: 30 }} />
-                    </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                        {["ALL", "APPROVED", "PENDING", "REJECTED", "IN_APPEAL"].map(s => (
-                            <button key={s} onClick={() => setStatusFilter(s)} style={{ ...S.btn(statusFilter === s, true), fontSize: 11 }}>
-                                {s.replace("_", " ")} <span style={{ marginLeft: 4, opacity: 0.7 }}>({statusCounts[s]})</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-                {statusCounts["PENDING"] > 0 && (
-                    <div style={{ marginTop: 12, background: '#FAEEDA', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#633806' }}>
-                        <Clock size={14} /> <strong>{statusCounts["PENDING"]}</strong> template{statusCounts["PENDING"] > 1 ? 's' : ''} pending Meta review.
-                    </div>
-                )}
-            </div>
-
-            <div style={{ padding: 20, flex: 1, overflow: 'auto' }}>
-                {filtered.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 60, color: '#aaa' }}>No templates found</div>
-                ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
-                        {filtered.map(template => {
-                            const status = STATUS_CONFIG_TEMPLATE[template.status] || { label: template.status, color: '#888', bg: '#f0f0f0', icon: Clock };
-                            const StatusIcon = status.icon;
-                            const varCount = (template.variables?.length || 0) || (template.body.match(/\{\{\d+\}\}/g) || []).length;
-                            const cost = META_COST[template.category] || 0;
-                            const catColor = template.category === 'MARKETING' ? 'coral' : template.category === 'UTILITY' ? 'green' : 'blue';
-                            return (
-                                <div key={template.id} style={{ ...S.card, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div>
-                                            <h3 style={{ fontSize: 14, fontWeight: 600 }}>{template.name}</h3>
-                                            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                                                <Tag tag={catColor} stage={template.category} />
-                                                <span style={{ fontSize: 10, background: '#f0f0f0', padding: '2px 6px', borderRadius: 6 }}>{template.language.toUpperCase()}</span>
-                                                {varCount > 0 && <span style={{ fontSize: 10, background: '#E6F1FB', color: '#0C447C', padding: '2px 6px', borderRadius: 6 }}>{varCount} var{varCount > 1 ? 's' : ''}</span>}
-                                            </div>
-                                        </div>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, background: status.bg, padding: '2px 8px', borderRadius: 12, color: status.color }}><StatusIcon size={11} /> {status.label}</span>
-                                    </div>
-                                    {template.header_text && <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{template.header_text}</p>}
-                                    <p style={{ fontSize: 13, color: '#444', lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>{truncate(template.body.replace(/\{\{(\d+)\}\}/g, (_, n) => `[var${n}]`), 120)}</p>
-                                    {template.footer && <p style={{ fontSize: 11, color: '#888', fontStyle: 'italic' }}>{template.footer}</p>}
-                                    {template.buttons && template.buttons.length > 0 && (
-                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                            {template.buttons.map((btn, i) => <span key={i} style={{ fontSize: 10, background: '#f0f0f0', padding: '2px 6px', borderRadius: 12 }}>{btn.text}</span>)}
-                                        </div>
-                                    )}
-                                    {template.rejection_reason && (
-                                        <div style={{ background: '#FAECE7', padding: 8, borderRadius: 8, fontSize: 11, color: '#712B13' }}>
-                                            <strong>Rejection:</strong> {template.rejection_reason}
-                                        </div>
-                                    )}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, borderTop: '0.5px solid #eee', paddingTop: 10 }}>
-                                        <div style={{ fontSize: 11, color: '#888' }}><DollarSign size={12} style={{ display: 'inline', marginRight: 2 }} />{cost === 0 ? 'Free' : `$${cost.toFixed(4)}/conv`}</div>
-                                        <div style={{ display: 'flex', gap: 6 }}>
-                                            <button onClick={() => setPreviewTemplate(template)} style={S.btn(false, true)}><Eye size={12} /> Preview</button>
-                                            <button onClick={() => { setEditing(template); setShowForm(true); }} style={S.btn(false, true)}><Edit2 size={12} /> Edit</button>
-                                            {template.status !== "APPROVED" && (
-                                                <button onClick={() => { setTemplates(prev => prev.map(t => t.id === template.id ? { ...t, status: "PENDING" } : t)); }} style={{ ...S.btn(true, true) }}><Send size={12} /> Submit</button>
-                                            )}
-                                            <button onClick={() => setConfirmDelete(template.id)} style={{ ...S.btn(false, true), color: '#D85A30' }}><Trash2 size={12} /></button>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-
-            {(showForm || editing) && <TemplateForm template={editing} onSubmit={handleSubmit} onClose={() => { setShowForm(false); setEditing(null); }} />}
-            {previewTemplate && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
-                    <div style={{ background: '#fff', borderRadius: 20, width: 400, maxWidth: '90%', overflow: 'hidden' }}>
-                        <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ fontSize: 14, fontWeight: 600 }}>Preview — {previewTemplate.name}</h3>
-                            <button onClick={() => setPreviewTemplate(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={16} /></button>
-                        </div>
-                        <div style={{ padding: 20, background: '#e5ddd5' }}>
-                            <div style={{ background: '#fff', borderRadius: 12, borderTopLeftRadius: 4, maxWidth: '90%', margin: '0 auto', overflow: 'hidden' }}>
-                                {previewTemplate.header_text && <div style={{ padding: '8px 10px 2px' }}><p style={{ fontWeight: 700, fontSize: 13 }}>{previewTemplate.header_text}</p></div>}
-                                <div style={{ padding: '8px 10px' }}>
-                                    <p style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{previewTemplate.body.replace(/\{\{(\d+)\}\}/g, (_, n) => `[var ${n}]`)}</p>
-                                    {previewTemplate.footer && <p style={{ fontSize: 10, color: '#aaa', marginTop: 6 }}>{previewTemplate.footer}</p>}
-                                </div>
-                                {previewTemplate.buttons && previewTemplate.buttons.length > 0 && (
-                                    <div style={{ borderTop: '0.5px solid #eee' }}>
-                                        {previewTemplate.buttons.map((btn, i) => (
-                                            <div key={i} style={{ padding: '8px 0', textAlign: 'center', fontSize: 12, fontWeight: 600, color: '#185FA5', borderTop: i > 0 ? '0.5px solid #eee' : 'none' }}>{btn.text}</div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {confirmDelete && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
-                    <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: 320 }}>
-                        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Delete Template?</h3>
-                        <p style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>This action cannot be undone.</p>
-                        <div style={{ display: 'flex', gap: 12 }}>
-                            <button onClick={() => setConfirmDelete(null)} style={{ ...S.btn(false), flex: 1 }}>Cancel</button>
-                            <button onClick={() => handleDelete(confirmDelete)} style={{ ...S.btn(true), background: '#D85A30', flex: 1 }}>Delete</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ─── Campaigns Page (restyled) ───────────────────────────────────────────────
-function ProgressBar({ value, total, color }) {
-    const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ flex: 1, background: '#f0f0f0', borderRadius: 10, height: 6, overflow: 'hidden' }}>
-                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 10 }} />
-            </div>
-            <span style={{ fontSize: 11, color: '#888', width: 36, textAlign: 'right' }}>{pct}%</span>
-        </div>
-    );
-}
-
-function CampaignDetailModal({ campaign, onClose, onLaunch }) {
-    const stats = [
-        { label: "Total", value: campaign.total_contacts, color: "#333" },
-        { label: "Sent", value: campaign.sent_count, color: "#185FA5" },
-        { label: "Delivered", value: campaign.delivered_count, color: "#27500A" },
-        { label: "Read", value: campaign.read_count, color: "#633806" },
-        { label: "Failed", value: campaign.failed_count, color: "#D85A30" },
-    ];
-    return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-            <div style={{ background: '#fff', borderRadius: 20, width: 500, maxWidth: '90%', maxHeight: '90vh', overflow: 'auto' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div><h3 style={{ fontSize: 16, fontWeight: 600 }}>{campaign.name}</h3><p style={{ fontSize: 12, color: '#888' }}>Template: {campaign.template?.name}</p></div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
-                </div>
-                <div style={{ padding: 20 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
-                        {stats.map(s => (
-                            <div key={s.label} style={{ textAlign: 'center' }}>
-                                <p style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</p>
-                                <p style={{ fontSize: 10, color: '#888' }}>{s.label}</p>
-                            </div>
-                        ))}
-                    </div>
-                    {(campaign.status === "draft" || campaign.status === "paused") && (
-                        <button onClick={onLaunch} style={{ ...S.btn(true), width: '100%', justifyContent: 'center' }}><Send size={14} /> Launch Campaign Now</button>
-                    )}
-                </div>
-                <div style={{ padding: '12px 20px', borderTop: '0.5px solid #e8e8e8', textAlign: 'right' }}>
-                    <button onClick={onClose} style={S.btn(false)}>Close</button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function CampaignsPage() {
-    const [campaigns, setCampaigns] = useState(MOCK_CAMPAIGNS);
-    const [showForm, setShowForm] = useState(false);
-    const [detailCampaign, setDetailCampaign] = useState(null);
-    const [newName, setNewName] = useState("");
-    const [newTemplateId, setNewTemplateId] = useState("");
-
-    const approvedTemplates = MOCK_TEMPLATES.filter(t => t.status === "APPROVED");
-
-    const handleCreate = () => {
-        if (!newName.trim() || !newTemplateId) return;
-        const tpl = approvedTemplates.find(t => t.id === newTemplateId);
-        const newCamp = { id: `camp${Date.now()}`, name: newName, template: tpl, template_id: newTemplateId, status: "draft", total_contacts: 0, sent_count: 0, delivered_count: 0, read_count: 0, failed_count: 0, scheduled_at: null, filters: {}, created_at: new Date().toISOString() };
-        setCampaigns(prev => [newCamp, ...prev]);
-        setShowForm(false); setNewName(""); setNewTemplateId("");
-        notificationStore.push("campaign", "Campaign Created", `"${newName}" saved as draft.`, () => { });
-    };
-
-    const handleLaunch = (id) => {
-        setCampaigns(prev => prev.map(c => c.id === id ? { ...c, status: "running" } : c));
-        setDetailCampaign(null);
-        notificationStore.push("campaign", "Campaign Launched", "Campaign is now running.", () => { });
-    };
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f5f7f9', overflow: 'auto' }}>
-            <div style={{ background: '#fff', borderBottom: '0.5px solid #e8e8e8', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div><h1 style={{ fontSize: 20, fontWeight: 700 }}>Campaigns</h1><p style={{ fontSize: 12, color: '#888' }}>Bulk WhatsApp message campaigns</p></div>
-                <button onClick={() => setShowForm(true)} style={{ ...S.btn(true), gap: 6 }}><Plus size={16} /> New Campaign</button>
-            </div>
-
-            <div style={{ padding: 20, flex: 1, overflow: 'auto' }}>
-                {campaigns.map(campaign => {
-                    const status = STATUS_CONFIG_CAMPAIGN[campaign.status] || { label: campaign.status, color: '#666', bg: '#f0f0f0', icon: Clock };
-                    const StatusIcon = status.icon;
-                    const canLaunch = campaign.status === "draft" || campaign.status === "paused";
-                    return (
-                        <div key={campaign.id} style={{ ...S.card, marginBottom: 16 }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                                <div style={{ width: 40, height: 40, borderRadius: 10, background: status.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: status.color }}><StatusIcon size={20} /></div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                                        <div>
-                                            <h3 style={{ fontSize: 15, fontWeight: 600 }}>{campaign.name}</h3>
-                                            <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-                                                <span style={{ fontSize: 11, fontWeight: 500, color: status.color, background: status.bg, padding: '2px 8px', borderRadius: 12 }}>{status.label}</span>
-                                                {campaign.template && <span style={{ fontSize: 11, color: '#888' }}>Template: {campaign.template.name}</span>}
-                                                {campaign.scheduled_at && <span style={{ fontSize: 11, color: '#888' }}>Scheduled: {new Date(campaign.scheduled_at).toLocaleString()}</span>}
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: 8 }}>
-                                            <button onClick={() => setDetailCampaign(campaign)} style={S.btn(false, true)}><Eye size={12} /> Details</button>
-                                            {canLaunch && <button onClick={() => handleLaunch(campaign.id)} style={{ ...S.btn(true, true) }}><Send size={12} /> Launch</button>}
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 12 }}>
-                                        {[
-                                            { label: "Total", value: campaign.total_contacts, color: "#333" },
-                                            { label: "Sent", value: campaign.sent_count, color: "#185FA5" },
-                                            { label: "Delivered", value: campaign.delivered_count, color: "#27500A" },
-                                            { label: "Read", value: campaign.read_count, color: "#633806" },
-                                        ].map(m => (
-                                            <div key={m.label} style={{ textAlign: 'center' }}>
-                                                <p style={{ fontSize: 18, fontWeight: 700, color: m.color }}>{m.value}</p>
-                                                <p style={{ fontSize: 10, color: '#888' }}>{m.label}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    {campaign.total_contacts > 0 && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                            <ProgressBar value={campaign.sent_count} total={campaign.total_contacts} color="#185FA5" />
-                                            <ProgressBar value={campaign.delivered_count} total={campaign.total_contacts} color="#1D9E75" />
-                                            <ProgressBar value={campaign.read_count} total={campaign.total_contacts} color="#EF9F27" />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {showForm && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-                    <div style={{ background: '#fff', borderRadius: 20, padding: 24, width: 400 }}>
-                        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Create Campaign</h3>
-                        <div style={{ marginBottom: 16 }}>
-                            <label style={S.label}>Campaign Name *</label>
-                            <input style={S.input} value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Wakad Property Blast" />
-                        </div>
-                        <div style={{ marginBottom: 20 }}>
-                            <label style={S.label}>Template *</label>
-                            <select style={S.input} value={newTemplateId} onChange={e => setNewTemplateId(e.target.value)}>
-                                <option value="">Select template...</option>
-                                {approvedTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
-                        </div>
-                        <div style={{ display: 'flex', gap: 12 }}>
-                            <button onClick={() => setShowForm(false)} style={{ ...S.btn(false), flex: 1 }}>Cancel</button>
-                            <button onClick={handleCreate} disabled={!newName.trim() || !newTemplateId} style={{ ...S.btn(true), flex: 1, opacity: (!newName.trim() || !newTemplateId) ? 0.5 : 1 }}>Save as Draft</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {detailCampaign && <CampaignDetailModal campaign={detailCampaign} onClose={() => setDetailCampaign(null)} onLaunch={() => handleLaunch(detailCampaign.id)} />}
-        </div>
-    );
-}
-
-// ─── Analytics Page (restyled) ───────────────────────────────────────────────
-function AnalyticsPage() {
-    const overview = MOCK_ANALYTICS;
-    const metrics = [
-        { label: "Total Contacts", value: overview.total_contacts.toLocaleString(), sub: `+${overview.new_leads_today} today`, color: COLORS.blue.text },
-        { label: "New Leads (Week)", value: overview.new_leads_week, sub: `+${overview.new_leads_today} today`, color: COLORS.green.text },
-        { label: "Open Conversations", value: overview.open_conversations, sub: "active chats", color: COLORS.teal.text },
-        { label: "Messages Sent Today", value: overview.messages_sent_today, sub: `${overview.messages_received_today} received`, color: COLORS.purple.text },
-        { label: "Response Rate", value: `${overview.response_rate}%`, sub: "today", color: COLORS.amber.text },
-        { label: "Active Campaigns", value: overview.active_campaigns, sub: "running now", color: COLORS.green.text },
+    // ---------- Main Layout ----------
+    const sideIcons = [
+        { id: 'inbox', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>, badge: convos.reduce((s, c) => s + c.unread, 0) },
+        { id: 'pipeline', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></svg> },
+        { id: 'broadcast', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" /></svg> },
+        { id: 'templates', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>, badge: templates.filter(t => t.status === 'pending').length },
+        { id: 'automation', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="13 2 13 9 20 9" /><path d="M20 14.5v3.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8" /><polyline points="10 16 12 18 16 14" /></svg> },
+        { id: 'analytics', svg: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg> },
     ];
 
-    const maxVol = Math.max(...MOCK_MESSAGE_VOLUME.map(d => Math.max(d.inbound, d.outbound)));
-
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f5f7f9', overflow: 'auto' }}>
-            <div style={{ background: '#fff', borderBottom: '0.5px solid #e8e8e8', padding: '16px 20px' }}>
-                <h1 style={{ fontSize: 20, fontWeight: 700 }}>Analytics Overview</h1>
-                <p style={{ fontSize: 12, color: '#888' }}>Real-time WhatsApp CRM performance</p>
-            </div>
-
-            <div style={{ padding: 20 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
-                    {metrics.map(m => (
-                        <div key={m.label} style={{ ...S.card, textAlign: 'center' }}>
-                            <p style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{m.label}</p>
-                            <p style={{ fontSize: 28, fontWeight: 700, color: m.color }}>{m.value}</p>
-                            <p style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>{m.sub}</p>
-                        </div>
-                    ))}
+        <div style={{ display: 'flex', height: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', background: '#f5f5f5', fontSize: 13, color: '#111' }}>
+            <div style={{ width: 52, background: '#fff', borderRight: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0', gap: 4, flexShrink: 0 }}>
+                <div style={{ width: 32, height: 32, background: '#185FA5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                    <svg viewBox="0 0 24 24" width={16} height={16} fill="#fff"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
                 </div>
-
-                <div style={{ ...S.card, marginBottom: 24 }}>
-                    <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Message Volume (7 days)</h3>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 150 }}>
-                        {MOCK_MESSAGE_VOLUME.map(d => (
-                            <div key={d.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                                <div style={{ width: '100%', display: 'flex', gap: 2, alignItems: 'flex-end', height: 120 }}>
-                                    <div style={{ flex: 1, background: '#1D9E75', borderRadius: '4px 4px 0 0', height: `${(d.outbound / maxVol) * 100}%` }} />
-                                    <div style={{ flex: 1, background: '#185FA5', borderRadius: '4px 4px 0 0', height: `${(d.inbound / maxVol) * 100}%` }} />
-                                </div>
-                                <span style={{ fontSize: 10, color: '#888' }}>{d.date.split(' ')[1]}</span>
-                            </div>
-                        ))}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 12 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 12, height: 12, background: '#1D9E75', borderRadius: 2 }} /><span style={{ fontSize: 11, color: '#555' }}>Outbound</span></div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 12, height: 12, background: '#185FA5', borderRadius: 2 }} /><span style={{ fontSize: 11, color: '#555' }}>Inbound</span></div>
-                    </div>
-                </div>
-
-                <div style={S.card}>
-                    <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Top Campaign Performance</h3>
-                    {MOCK_CAMPAIGN_STATS.map(c => (
-                        <div key={c.name} style={{ marginBottom: 16 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                <span style={{ fontSize: 13, fontWeight: 500 }}>{c.name}</span>
-                                <span style={{ fontSize: 11, color: '#888' }}>{c.sent} sent</span>
-                            </div>
-                            <ProgressBar value={c.delivered} total={c.sent} color="#1D9E75" />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                                <span style={{ fontSize: 11, color: '#888' }}>Delivered: {c.delivered}</span>
-                                <span style={{ fontSize: 11, color: '#888' }}>Read: {c.read}</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ─── Chatbot Page (restyled) ─────────────────────────────────────────────────
-function FlowBuilder({ flow, onClose, onSave }) {
-    const [name, setName] = useState(flow?.name || "");
-    const [description, setDescription] = useState(flow?.description || "");
-    const [triggerKeyword, setTriggerKeyword] = useState(flow?.trigger_keyword || "");
-    const [isDefault, setIsDefault] = useState(flow?.is_default || false);
-    const [steps, setSteps] = useState(flow?.steps || []);
-    const [expanded, setExpanded] = useState(0);
-    const [saving, setSaving] = useState(false);
-
-    const addStep = () => {
-        const newStep = { id: `local_${Math.random().toString(36).slice(2)}`, flow_id: flow?.id || "", step_index: steps.length, step_type: "message", message_text: "", buttons: null, save_response_as: null, tag_id: null, assign_to: null, stage: null, template_id: null, next_step_index: null, conditions: null };
-        const updated = [...steps, newStep];
-        setSteps(updated); setExpanded(updated.length - 1);
-    };
-
-    const removeStep = (idx) => { setSteps(steps.filter((_, i) => i !== idx).map((s, i) => ({ ...s, step_index: i }))); setExpanded(null); };
-    const updateStep = (idx, patch) => { const updated = [...steps]; updated[idx] = { ...updated[idx], ...patch }; setSteps(updated); };
-
-    const handleSave = async () => {
-        if (!name.trim()) return;
-        setSaving(true);
-        await new Promise(r => setTimeout(r, 400));
-        onSave({ id: flow?.id || `flow${Date.now()}`, name, description, trigger_keyword: triggerKeyword, is_default: isDefault, is_active: true, steps });
-        setSaving(false);
-    };
-
-    return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, overflowY: 'auto', padding: 20 }}>
-            <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 700, maxHeight: '90vh', overflow: 'auto' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 600 }}>{flow ? "Edit Flow" : "Create Flow"}</h3>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
-                </div>
-                <div style={{ padding: 20 }}>
-                    <div style={{ marginBottom: 16 }}>
-                        <label style={S.label}>Flow Name *</label>
-                        <input style={S.input} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Welcome Flow" />
-                    </div>
-                    <div style={{ marginBottom: 16 }}>
-                        <label style={S.label}>Trigger Keyword</label>
-                        <input style={S.input} value={triggerKeyword} onChange={e => setTriggerKeyword(e.target.value)} placeholder="e.g. buy, property" />
-                    </div>
-                    <div style={{ marginBottom: 16 }}>
-                        <label style={S.label}>Description</label>
-                        <input style={S.input} value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief description" />
-                    </div>
-                    <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12, background: '#E6F1FB', padding: '8px 12px', borderRadius: 8 }}>
-                        <input type="checkbox" id="is_default" checked={isDefault} onChange={e => setIsDefault(e.target.checked)} style={{ width: 16, height: 16 }} />
-                        <label htmlFor="is_default" style={{ fontSize: 13, color: '#0C447C' }}>Set as default flow (runs for all new contacts)</label>
-                    </div>
-
-                    <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                            <span style={S.label}>Flow Steps ({steps.length})</span>
-                            <button onClick={addStep} style={S.btn(false, true)}><Plus size={12} /> Add Step</button>
-                        </div>
-                        {steps.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: 30, border: '1px dashed #ddd', borderRadius: 12, color: '#aaa' }}>No steps yet. Click "Add Step" to start.</div>
-                        ) : steps.map((step, idx) => {
-                            const config = STEP_TYPE_CONFIG[step.step_type] || STEP_TYPE_CONFIG.message;
-                            const Icon = config.icon;
-                            const isExpanded = expanded === idx;
-                            return (
-                                <div key={step.id} style={{ border: '0.5px solid #e0e0e0', borderRadius: 10, marginBottom: 8, overflow: 'hidden' }}>
-                                    <button onClick={() => setExpanded(isExpanded ? null : idx)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: '#fafafa', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                                        <span style={{ fontSize: 11, fontWeight: 600, color: '#aaa', width: 24 }}>{idx + 1}</span>
-                                        <div style={{ width: 28, height: 28, borderRadius: 8, background: config.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><Icon size={14} /></div>
-                                        <div style={{ flex: 1 }}><span style={{ fontSize: 13, fontWeight: 500 }}>{config.label}</span>{step.message_text && <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>— {truncate(step.message_text, 40)}</span>}</div>
-                                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                    </button>
-                                    {isExpanded && (
-                                        <div style={{ padding: 12, borderTop: '0.5px solid #eee', background: '#fff' }}>
-                                            <div style={{ marginBottom: 12 }}>
-                                                <label style={S.label}>Step Type</label>
-                                                <select value={step.step_type} onChange={e => updateStep(idx, { step_type: e.target.value })} style={S.input}>
-                                                    {Object.entries(STEP_TYPE_CONFIG).map(([type, cfg]) => <option key={type} value={type}>{cfg.label}</option>)}
-                                                </select>
-                                            </div>
-                                            {["message", "question", "buttons", "end"].includes(step.step_type) && (
-                                                <div style={{ marginBottom: 12 }}>
-                                                    <label style={S.label}>Message Text</label>
-                                                    <textarea rows={3} value={step.message_text || ""} onChange={e => updateStep(idx, { message_text: e.target.value })} style={{ ...S.input, resize: 'vertical' }} placeholder="Enter message..." />
-                                                </div>
-                                            )}
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                                <button onClick={() => removeStep(idx)} style={{ ...S.btn(false, true), color: '#D85A30' }}><Trash2 size={12} /> Remove</button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, padding: '16px 20px', borderTop: '0.5px solid #e8e8e8', background: '#fafafa' }}>
-                    <button onClick={onClose} style={S.btn(false)}>Cancel</button>
-                    <button onClick={handleSave} disabled={saving || !name.trim()} style={{ ...S.btn(true), opacity: (saving || !name.trim()) ? 0.6 : 1 }}>{saving ? "Saving..." : "Save Flow"}</button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function ChatbotPage() {
-    const [flows, setFlows] = useState(MOCK_FLOWS);
-    const [showBuilder, setShowBuilder] = useState(false);
-    const [editingFlow, setEditingFlow] = useState(null);
-    const [previewFlow, setPreviewFlow] = useState(null);
-
-    const handleToggleActive = (flow) => setFlows(prev => prev.map(f => f.id === flow.id ? { ...f, is_active: !f.is_active } : f));
-    const handleDelete = (id) => { if (!confirm("Delete this flow?")) return; setFlows(prev => prev.filter(f => f.id !== id)); };
-    const handleEdit = (flow) => { setEditingFlow(flow); setShowBuilder(true); };
-    const handleCreate = () => { setEditingFlow(null); setShowBuilder(true); };
-    const handleSaved = (savedFlow) => {
-        if (editingFlow) setFlows(prev => prev.map(f => f.id === savedFlow.id ? { ...f, ...savedFlow } : f));
-        else setFlows(prev => [savedFlow, ...prev]);
-        setShowBuilder(false); setEditingFlow(null);
-        notificationStore.push("success", "Flow Saved", `"${savedFlow.name}" has been saved.`, () => { });
-    };
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f5f7f9', overflow: 'auto' }}>
-            <div style={{ background: '#fff', borderBottom: '0.5px solid #e8e8e8', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div><h1 style={{ fontSize: 20, fontWeight: 700 }}>Chatbot Flows</h1><p style={{ fontSize: 12, color: '#888' }}>Automate WhatsApp conversations</p></div>
-                <button onClick={handleCreate} style={{ ...S.btn(true), gap: 6 }}><Plus size={16} /> New Flow</button>
-            </div>
-
-            <div style={{ padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-                {flows.map(flow => (
-                    <div key={flow.id} style={{ ...S.card, padding: 16 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                            <div><h3 style={{ fontSize: 15, fontWeight: 600 }}>{flow.name}</h3>{flow.description && <p style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{flow.description}</p>}</div>
-                            <Toggle on={flow.is_active} onChange={() => handleToggleActive(flow)} />
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                            <span style={{ fontSize: 10, background: flow.is_active ? '#EAF3DE' : '#f0f0f0', padding: '2px 8px', borderRadius: 12, color: flow.is_active ? '#27500A' : '#666' }}>{flow.is_active ? "Active" : "Inactive"}</span>
-                            {flow.is_default && <span style={{ fontSize: 10, background: '#E6F1FB', color: '#0C447C', padding: '2px 8px', borderRadius: 12 }}>Default</span>}
-                            {flow.trigger_keyword && <span style={{ fontSize: 10, background: '#FAEEDA', color: '#633806', padding: '2px 8px', borderRadius: 12 }}><Zap size={10} style={{ marginRight: 2 }} />{flow.trigger_keyword}</span>}
-                            <span style={{ fontSize: 10, background: '#f0f0f0', color: '#666', padding: '2px 8px', borderRadius: 12 }}>{flow.steps?.length || 0} steps</span>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={() => setPreviewFlow(flow)} style={{ ...S.btn(false, true), flex: 1 }}><Eye size={12} /> Preview</button>
-                            <button onClick={() => handleEdit(flow)} style={{ ...S.btn(false, true), flex: 1 }}><Edit2 size={12} /> Edit</button>
-                            <button onClick={() => handleDelete(flow.id)} style={{ ...S.btn(false, true), color: '#D85A30', flex: 0 }}><Trash2 size={12} /></button>
-                        </div>
+                {sideIcons.map(icon => (
+                    <div key={icon.id} onClick={() => setView(icon.id)} style={{ position: 'relative', width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: view === icon.id ? '#E6F1FB' : 'transparent', color: view === icon.id ? '#185FA5' : '#888' }}>
+                        <div style={{ width: 18, height: 18 }}>{icon.svg}</div>
+                        {icon.badge > 0 && <div style={{ position: 'absolute', top: -2, right: -2, background: '#E24B4A', color: '#fff', fontSize: 9, fontWeight: 700, borderRadius: 8, padding: '1px 4px' }}>{icon.badge}</div>}
                     </div>
                 ))}
+                <div style={{ flex: 1 }} />
+                <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#E6F1FB', color: '#185FA5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>P</div>
             </div>
-
-            {showBuilder && <FlowBuilder flow={editingFlow} onClose={() => { setShowBuilder(false); setEditingFlow(null); }} onSave={handleSaved} />}
-            {previewFlow && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-                    <div style={{ background: '#fff', borderRadius: 20, width: 480, maxWidth: '90%', maxHeight: '80vh', overflow: 'auto' }}>
-                        <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #e8e8e8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ fontSize: 16, fontWeight: 600 }}>{previewFlow.name}</h3>
-                            <button onClick={() => setPreviewFlow(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={16} /></button>
-                        </div>
-                        <div style={{ padding: 20 }}>
-                            {(previewFlow.steps || []).length === 0 ? <p style={{ color: '#aaa', textAlign: 'center' }}>No steps in this flow</p> : previewFlow.steps.map((step, idx) => {
-                                const config = STEP_TYPE_CONFIG[step.step_type] || STEP_TYPE_CONFIG.message;
-                                const Icon = config.icon;
-                                return (
-                                    <div key={step.id || idx} style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-                                        <div style={{ width: 32, height: 32, borderRadius: 8, background: config.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><Icon size={14} /></div>
-                                        <div style={{ flex: 1 }}>
-                                            <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Step {idx + 1}: {config.label}</p>
-                                            {step.message_text && <p style={{ fontSize: 13, color: '#444', background: '#f5f7f9', padding: 8, borderRadius: 8 }}>{step.message_text}</p>}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ─── Settings Page (restyled) ────────────────────────────────────────────────
-function SettingsPage() {
-    const [activeTab, setActiveTab] = useState("api");
-    const [saved, setSaved] = useState(false);
-    const [waPhoneNumberId, setWaPhoneNumberId] = useState("716207418232909");
-    const [waWabaId, setWaWabaId] = useState("1730918317820007");
-    const [waAccessToken, setWaAccessToken] = useState("");
-    const [waVerifyToken, setWaVerifyToken] = useState("whatsapp_verify_token");
-    const [showAccessToken, setShowAccessToken] = useState(false);
-    const [aiEnabled, setAiEnabled] = useState(false);
-    const [aiSystemPrompt, setAiSystemPrompt] = useState("You are a helpful assistant. Keep replies concise and professional.");
-    const [welcomeMessage, setWelcomeMessage] = useState("Hi! Thank you for contacting us. How can we help you today?");
-    const [outsideHoursMessage, setOutsideHoursMessage] = useState("We're currently closed. Our hours are 9AM-6PM.");
-    const [hoursStart, setHoursStart] = useState("09:00");
-    const [hoursEnd, setHoursEnd] = useState("18:00");
-    const [autoReplyEnabled, setAutoReplyEnabled] = useState(true);
-    const [users, setUsers] = useState(MOCK_USERS);
-
-    const TABS = [
-        { id: "api", label: "API Config", icon: Phone }, { id: "bot", label: "Bot & Auto-Reply", icon: Bot },
-        { id: "hours", label: "Business Hours", icon: Clock }, { id: "team", label: "Team", icon: Users },
-        { id: "webhook", label: "Webhook", icon: Shield },
-    ];
-
-    const handleSave = () => {
-        setSaved(true);
-        notificationStore.push("success", "Settings Saved", "Your configuration has been saved.", () => { });
-        setTimeout(() => setSaved(false), 3000);
-    };
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f5f7f9', overflow: 'auto' }}>
-            <div style={{ background: '#fff', borderBottom: '0.5px solid #e8e8e8', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div><h1 style={{ fontSize: 20, fontWeight: 700 }}>Settings & Config</h1><p style={{ fontSize: 12, color: '#888' }}>Configure your WhatsApp Business integration</p></div>
-                {activeTab !== "team" && activeTab !== "webhook" && (
-                    <button onClick={handleSave} style={{ ...S.btn(true), background: saved ? '#1D9E75' : '#185FA5' }}>{saved ? <CheckCircle size={14} /> : <Save size={14} />}{saved ? " Saved!" : " Save Changes"}</button>
-                )}
+            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+                {view === 'inbox' && renderInbox()}
+                {view === 'pipeline' && renderPipelineView()}
+                {view === 'broadcast' && renderBroadcastView()}
+                {view === 'templates' && renderTemplatesView()}
+                {view === 'automation' && renderAutomationView()}
+                {view === 'analytics' && renderAnalyticsView()}
             </div>
-
-            <div style={{ display: 'flex', gap: 20, borderBottom: '0.5px solid #e8e8e8', background: '#fff', padding: '0 20px' }}>
-                {TABS.map(tab => {
-                    const Icon = tab.icon;
-                    return (
-                        <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ padding: '12px 0', fontSize: 13, fontWeight: 600, borderBottom: activeTab === tab.id ? '2px solid #185FA5' : '2px solid transparent', color: activeTab === tab.id ? '#185FA5' : '#888', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Icon size={14} /> {tab.label}
-                        </button>
-                    );
-                })}
-            </div>
-
-            <div style={{ padding: 20, maxWidth: 600 }}>
-                {activeTab === "api" && (
-                    <>
-                        <div style={{ ...S.card, marginBottom: 20 }}>
-                            <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>WhatsApp Business API</h3>
-                            <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, background: '#EAF3DE', padding: '8px 12px', borderRadius: 8, fontSize: 12, color: '#27500A' }}><Wifi size={14} /> Connected — Phone ID: ...{waPhoneNumberId.slice(-6)}</div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={S.label}>Phone Number ID *</label>
-                                <input style={S.input} value={waPhoneNumberId} onChange={e => setWaPhoneNumberId(e.target.value)} />
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={S.label}>WABA ID *</label>
-                                <input style={S.input} value={waWabaId} onChange={e => setWaWabaId(e.target.value)} />
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                                <label style={S.label}>Access Token *</label>
-                                <div style={{ display: 'flex', gap: 6 }}>
-                                    <input type={showAccessToken ? "text" : "password"} style={{ ...S.input, flex: 1 }} value={waAccessToken} onChange={e => setWaAccessToken(e.target.value)} />
-                                    <button onClick={() => setShowAccessToken(v => !v)} style={S.btn(false)}>{showAccessToken ? <EyeOff size={14} /> : <Eye size={14} />}</button>
-                                </div>
-                            </div>
-                            <div>
-                                <label style={S.label}>Verify Token</label>
-                                <input style={S.input} value={waVerifyToken} onChange={e => setWaVerifyToken(e.target.value)} />
-                            </div>
-                        </div>
-                        <div style={S.card}>
-                            <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>AI Auto-Reply</h3>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                <span>Enable AI Replies</span>
-                                <Toggle on={aiEnabled} onChange={() => setAiEnabled(v => !v)} />
-                            </div>
-                            {aiEnabled && (
-                                <div>
-                                    <label style={S.label}>AI System Prompt</label>
-                                    <textarea rows={4} style={S.input} value={aiSystemPrompt} onChange={e => setAiSystemPrompt(e.target.value)} />
-                                </div>
-                            )}
-                        </div>
-                    </>
-                )}
-
-                {activeTab === "bot" && (
-                    <div style={S.card}>
-                        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Auto-Reply Settings</h3>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                            <span>Enable Auto-Reply</span>
-                            <Toggle on={autoReplyEnabled} onChange={() => setAutoReplyEnabled(v => !v)} />
-                        </div>
-                        <div>
-                            <label style={S.label}>Welcome Message</label>
-                            <textarea rows={4} style={S.input} value={welcomeMessage} onChange={e => setWelcomeMessage(e.target.value)} />
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === "hours" && (
-                    <div style={S.card}>
-                        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Business Hours</h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                            <div><label style={S.label}>Opens At</label><input type="time" style={S.input} value={hoursStart} onChange={e => setHoursStart(e.target.value)} /></div>
-                            <div><label style={S.label}>Closes At</label><input type="time" style={S.input} value={hoursEnd} onChange={e => setHoursEnd(e.target.value)} /></div>
-                        </div>
-                        <div style={{ marginBottom: 16, background: '#f0f0f0', padding: 8, borderRadius: 8, fontSize: 13 }}>{hoursStart} — {hoursEnd} (local time)</div>
-                        <div>
-                            <label style={S.label}>Outside Hours Message</label>
-                            <textarea rows={3} style={S.input} value={outsideHoursMessage} onChange={e => setOutsideHoursMessage(e.target.value)} />
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === "team" && (
-                    <div style={S.card}>
-                        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Team Members</h3>
-                        {users.map(u => (
-                            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '0.5px solid #eee' }}>
-                                <Avatar initials={getInitials(u.name)} size={36} />
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: 600 }}>{u.name}</div>
-                                    <div style={{ fontSize: 11, color: '#888' }}>{u.email} · {u.role}</div>
-                                </div>
-                                <Toggle on={u.is_active} onChange={() => setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: !x.is_active } : x))} />
-                            </div>
-                        ))}
-                        <button style={{ ...S.btn(false), width: '100%', marginTop: 12, justifyContent: 'center' }}><Plus size={12} /> Add Team Member</button>
-                    </div>
-                )}
-
-                {activeTab === "webhook" && (
-                    <div style={S.card}>
-                        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Webhook Configuration</h3>
-                        {[
-                            ["Webhook URL", "https://your-project.supabase.co/functions/v1/whatsapp-webhook"],
-                            ["Verify Token", waVerifyToken || "whatsapp_verify_token"],
-                            ["API Version", "Graph API v19.0"]
-                        ].map(([label, value]) => (
-                            <div key={label} style={{ marginBottom: 12 }}>
-                                <label style={S.label}>{label}</label>
-                                <div style={{ display: 'flex', gap: 6 }}>
-                                    <code style={{ flex: 1, background: '#f5f5f5', padding: '8px 12px', borderRadius: 8, fontSize: 12, wordBreak: 'break-all' }}>{value}</code>
-                                    <button onClick={() => navigator.clipboard?.writeText(value)} style={S.btn(false)}><Copy size={14} /></button>
-                                </div>
-                            </div>
-                        ))}
-                        <div style={{ marginTop: 16, background: '#FAEEDA', padding: 12, borderRadius: 8, fontSize: 12, color: '#633806' }}>
-                            <strong><Shield size={12} style={{ marginRight: 4 }} /> Required Edge Function Secrets</strong>
-                            <ul style={{ marginTop: 8, marginLeft: 20 }}>
-                                <li>WHATSAPP_ACCESS_TOKEN</li>
-                                <li>WHATSAPP_PHONE_NUMBER_ID</li>
-                                <li>WHATSAPP_VERIFY_TOKEN</li>
-                                <li>OPENAI_API_KEY (if AI enabled)</li>
-                            </ul>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-// ─── Leads CRM Pages (restyled) ──────────────────────────────────────────────
-function LeadsPage({ filter }) {
-    const [contacts, setContacts] = useState(MOCK_CONTACTS);
-    const [search, setSearch] = useState("");
-    const [stageFilter, setStageFilter] = useState("All");
-
-    const filtered = contacts.filter(c => {
-        const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search);
-        const matchStage = stageFilter === "All" || c.stage === stageFilter;
-        const matchFilter = !filter || filter === "leads" || (filter === "buyers" && (c.property_type === "Apartment" || c.property_type === "Villa")) || (filter === "sellers" && c.tags?.some(t => t.name === "Seller")) || filter === "properties";
-        return matchSearch && matchStage && matchFilter;
-    });
-
-    const stages = ["All", "New", "Contacted", "Qualified", "Site Visit", "Closed", "Lost"];
-    const STAGE_COLORS_OBJ = {
-        New: COLORS.blue, Contacted: COLORS.amber, Qualified: COLORS.green,
-        "Site Visit": COLORS.coral, Closed: COLORS.teal, Lost: COLORS.coral,
-    };
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f5f7f9', overflow: 'auto' }}>
-            <div style={{ background: '#fff', borderBottom: '0.5px solid #e8e8e8', padding: '16px 20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <div><h1 style={{ fontSize: 20, fontWeight: 700 }}>{filter === "buyers" ? "Buyers" : filter === "sellers" ? "Sellers" : filter === "properties" ? "Properties" : "All Leads"}</h1><p style={{ fontSize: 12, color: '#888' }}>{filtered.length} contacts</p></div>
-                    <button style={{ ...S.btn(true), gap: 6 }}><Plus size={16} /> Add Contact</button>
-                </div>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <div style={{ flex: 1, maxWidth: 300, position: 'relative' }}>
-                        <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
-                        <input type="text" placeholder="Search contacts..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...S.input, paddingLeft: 30 }} />
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {stages.map(s => (
-                            <button key={s} onClick={() => setStageFilter(s)} style={{ ...S.btn(stageFilter === s, true), fontSize: 11 }}>{s}</button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            <div style={{ padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-                {filtered.map(contact => (
-                    <div key={contact.id} style={{ ...S.card, padding: 16 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                            <Avatar initials={getInitials(contact.name)} size={40} />
-                            <div>
-                                <h3 style={{ fontSize: 14, fontWeight: 600 }}>{contact.name}</h3>
-                                <p style={{ fontSize: 11, color: '#888' }}>{contact.phone}</p>
-                            </div>
-                            <div style={{ marginLeft: 'auto' }}>
-                                <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 12, background: (STAGE_COLORS_OBJ[contact.stage] || COLORS.blue).bg, color: (STAGE_COLORS_OBJ[contact.stage] || COLORS.blue).text }}>{contact.stage}</span>
-                            </div>
-                        </div>
-                        <div style={{ marginBottom: 12, fontSize: 12, color: '#555', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {contact.preferred_location && <div><MapPin size={12} style={{ marginRight: 6, color: '#aaa' }} />{contact.preferred_location}</div>}
-                            {contact.budget_max > 0 && <div><DollarSign size={12} style={{ marginRight: 6, color: '#aaa' }} />{formatCurrency(contact.budget_min)} – {formatCurrency(contact.budget_max)}</div>}
-                            {contact.property_type && <div><Building2 size={12} style={{ marginRight: 6, color: '#aaa' }} />{contact.property_type}</div>}
-                        </div>
-                        {contact.tags && contact.tags.length > 0 && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
-                                {contact.tags.map(tag => <span key={tag.id} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 8, background: tag.color + '22', color: tag.color }}>{tag.name}</span>)}
-                            </div>
-                        )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '0.5px solid #eee', paddingTop: 10 }}>
-                            <span style={{ fontSize: 10, color: '#888' }}>Source: {contact.source}</span>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                                <button style={S.btn(false, true)}><MessageSquare size={12} /></button>
-                                <button style={S.btn(false, true)}><Eye size={12} /></button>
-                                <button style={{ ...S.btn(false, true), color: '#D85A30' }}><Trash2 size={12} /></button>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-                {filtered.length === 0 && <div style={{ textAlign: 'center', padding: 60, color: '#aaa' }}>No contacts found</div>}
-            </div>
-        </div>
-    );
-}
-
-// ─── Meta Spend Page (restyled) ──────────────────────────────────────────────
-function MetaSpendPage() {
-    const spendData = [
-        { month: "Jan", spend: 12400, conversations: 1520, cpm: 8.16 },
-        { month: "Feb", spend: 15800, conversations: 1890, cpm: 8.36 },
-        { month: "Mar", spend: 18200, conversations: 2230, cpm: 8.16 },
-        { month: "Apr", spend: 14600, conversations: 1780, cpm: 8.20 },
-    ];
-    const totalSpend = spendData.reduce((a, b) => a + b.spend, 0);
-    const totalConvs = spendData.reduce((a, b) => a + b.conversations, 0);
-    const maxSpend = Math.max(...spendData.map(d => d.spend));
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f5f7f9', overflow: 'auto' }}>
-            <div style={{ background: '#fff', borderBottom: '0.5px solid #e8e8e8', padding: '16px 20px' }}>
-                <h1 style={{ fontSize: 20, fontWeight: 700 }}>Meta Ad Spend</h1>
-                <p style={{ fontSize: 12, color: '#888' }}>WhatsApp conversation costs from Meta</p>
-            </div>
-
-            <div style={{ padding: 20 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-                    {[
-                        { label: "Total Spend (2024)", value: `₹${(totalSpend / 1000).toFixed(1)}K`, color: COLORS.blue.text },
-                        { label: "Total Conversations", value: totalConvs.toLocaleString(), color: COLORS.green.text },
-                        { label: "Avg Cost / Conv", value: `₹${(totalSpend / totalConvs).toFixed(2)}`, color: COLORS.teal.text },
-                    ].map(m => (
-                        <div key={m.label} style={{ ...S.card, textAlign: 'center' }}>
-                            <p style={{ fontSize: 11, color: '#888' }}>{m.label}</p>
-                            <p style={{ fontSize: 28, fontWeight: 700, color: m.color }}>{m.value}</p>
-                        </div>
-                    ))}
-                </div>
-
-                <div style={S.card}>
-                    <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Monthly Spend Breakdown</h3>
-                    {spendData.map(d => (
-                        <div key={d.month} style={{ marginBottom: 12 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span style={{ fontSize: 13 }}>{d.month} 2024</span>
-                                <span style={{ fontSize: 13, fontWeight: 600 }}>₹{d.spend.toLocaleString()}</span>
-                            </div>
-                            <div style={{ background: '#f0f0f0', borderRadius: 10, height: 6, overflow: 'hidden' }}>
-                                <div style={{ width: `${(d.spend / maxSpend) * 100}%`, height: '100%', background: '#185FA5', borderRadius: 10 }} />
-                            </div>
-                            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{d.conversations} conversations</div>
-                        </div>
-                    ))}
-                </div>
-
-                <div style={{ ...S.card, marginTop: 20 }}>
-                    <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Cost per Category</h3>
-                    {[
-                        { cat: "Marketing Templates", cost: "₹0.68/conv", color: COLORS.coral },
-                        { cat: "Utility Templates", cost: "₹0.35/conv", color: COLORS.blue },
-                        { cat: "Authentication", cost: "₹0.35/conv", color: COLORS.green },
-                    ].map(item => (
-                        <div key={item.cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '0.5px solid #eee' }}>
-                            <span style={{ fontSize: 13 }}>{item.cat}</span>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: item.color.text }}>{item.cost}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ─── Main App ─────────────────────────────────────────────────────────────────
-export default function WhatsAppCRM() {
-    const [activePage, setActivePage] = useState("inbox");
-    const [conversations] = useState(MOCK_CONVERSATIONS);
-    const unreadCount = conversations.reduce((sum, c) => sum + (c.status !== "resolved" ? c.unread_count : 0), 0);
-    const pendingTemplatesCount = MOCK_TEMPLATES.filter(t => t.status === "PENDING").length;
-
-    const renderPage = () => {
-        switch (activePage) {
-            case "inbox": return <InboxPage />;
-            case "leads": return <LeadsPage filter="leads" />;
-            case "buyers": return <LeadsPage filter="buyers" />;
-            case "sellers": return <LeadsPage filter="sellers" />;
-            case "properties": return <LeadsPage filter="properties" />;
-            case "templates": return <TemplatesPage />;
-            case "campaigns": return <CampaignsPage />;
-            case "analytics": return <AnalyticsPage />;
-            case "chatbot": return <ChatbotPage />;
-            case "settings": return <SettingsPage />;
-            case "meta-spend": return <MetaSpendPage />;
-            default: return <InboxPage />;
-        }
-    };
-
-    return (
-        <div style={{ display: 'flex', height: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', background: '#f5f5f5', fontSize: 13, color: '#111', overflow: 'hidden' }}>
-            <Sidebar activePage={activePage} onNavigate={setActivePage} unreadCount={unreadCount} pendingTemplatesCount={pendingTemplatesCount} />
-            <main style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>{renderPage()}</main>
-            <ToastContainer onNavigate={setActivePage} />
-            <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spin { animation: spin 0.6s linear infinite; }
-      `}</style>
         </div>
     );
 }
