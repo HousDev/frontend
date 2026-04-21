@@ -308,7 +308,7 @@ export const whatsappAPI = {
     const resp = await api.post("/contacts", data);
     return resp.data;
   },
-  updateContact: async (id: string | number, patch: Partial<Contact>) => {
+  updateContact: async (id: string | number, patch: any) => {
     const resp = await api.put(`/contacts/${id}`, patch);
     return resp.data;
   },
@@ -316,7 +316,7 @@ export const whatsappAPI = {
     const resp = await api.delete(`/contacts/${id}`);
     return resp.data;
   },
-  addNote: async (contact_id: number, note: string) => {
+  addNote: async (contact_id: string|number, note: string) => {
     const resp = await api.post("/contacts/note", { contact_id, note });
     return resp.data;
   },
@@ -326,11 +326,11 @@ export const whatsappAPI = {
   },
 
   // ---------- Messages ----------
-  sendMessage: async (data: { contact_id: number; text: string; is_note?: boolean; template_id?: number }) => {
+  sendMessage: async (data: { contact_id: string|number; text: string; is_note?: boolean; template_id?: number }) => {
     const resp = await api.post("/messages", data);
     return resp.data;
   },
-  getMessages: async (contact_id: number): Promise<Message[]> => {
+  getMessages: async (contact_id: string): Promise<Message[]> => {
     const resp = await api.get(`/messages/${contact_id}`);
     return resp.data;
   },
