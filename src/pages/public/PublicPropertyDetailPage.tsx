@@ -1438,89 +1438,50 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               </div>
 
               {/* Property Details Grid - Fully Responsive */}
-              <div className="bg-white/95 backdrop-blur rounded-xl sm:rounded-2xl border  shadow-sm hover:shadow-sm transition-all mb-2 ">
-                <div className="px-3 sm:px-4 md:px-5 pt-3 sm:pt-4">
-                  <h3 className="font-bold text-black text-lg sm:text-xl mb-3 sm:mb-4">
-                    Property Details
-                  </h3>
-                </div>
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm mb-2">
+  <div className="px-3 sm:px-4 md:px-5 pt-3 sm:pt-4">
+    <h3 className="font-bold text-black text-lg sm:text-xl mb-3 sm:mb-4">
+      Property Details
+    </h3>
+  </div>
 
-                <div className="px-3 sm:px-4 md:px-5 pb-3 sm:pb-4 md:pb-5">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
-                    <div>
-                      <span className="font-semibold text-gray-800">Property type:</span>
-                      <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.type)}</span>
-                    </div>
-
-                    <div>
-                      <span className="font-semibold text-gray-800">Unit Type:</span>
-                      <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.unitType)}</span>
-                    </div>
-
-                    <div>
-                      <span className="font-semibold text-gray-800">Subtype:</span>
-                      <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.subtype)}</span>
-                    </div>
-
-                    {/* ✅ FIXED: Parking Type */}
-                    <div>
-                      <span className="font-semibold text-gray-800">Parking Type:</span>
-                      <span className="text-gray-600 ml-1 break-words">
-                        {displayOrDash(property?.parkingType)}
-                      </span>
-                    </div>
-                    {/* ✅ FIXED: Floor */}
-                    <div>
-                      <span className="font-semibold text-gray-800">Floor:</span>
-                      <span className="text-gray-600 ml-1 break-words">
-                        {property?.floor && property?.totalFloors
-                          ? `${property.floor} / ${property.totalFloors}`
-                          : displayOrDash(property?.floor)
-                        }
-                      </span>
-                    </div>
-
-                    {property?.square_feet && (
-                      <div>
-                        <span className="font-semibold text-gray-800">Carpet Area:</span>
-                        <span className="text-gray-600 ml-1">
-                          {displayOrDash(property.square_feet)} Sq.ft.
-                        </span>
-                      </div>
-                    )}
-
-                    {/* ✅ FIXED: Status */}
-                    <div>
-                      <span className="font-semibold text-gray-800">Status:</span>
-                      <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.status)}</span>
-                    </div>
-
-                    <div>
-                      <span className="font-semibold text-gray-800">Price:</span>
-                      <span className="text-gray-600 ml-1">
-                        {formatCurrency(property?.price)}({displayOrDash(property?.priceType)})
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="font-semibold text-gray-800">Furnishing:</span>
-                      <span className="text-gray-600 ml-1 break-words">{displayOrDash(property?.furnishing)}</span>
-                    </div>
-
-                    {(property?.possessionMonth || property?.possessionYear) && (
-                      <div>
-                        <span className="font-semibold text-gray-800">Property Age:</span>
-                        <span className="text-gray-600 ml-1">
-                          {[
-                            getMonthName(property?.possessionMonth),
-                            property?.possessionYear
-                          ].filter(Boolean).join(' ')}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+  <div className="px-3 sm:px-4 md:px-5 pb-3 sm:pb-4 md:pb-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2">
+      {[
+        { icon: <Building size={16} className="text-gray-400" />, label: "Property Type", value: displayOrDash(property?.type) },
+        { icon: <Home size={16} className="text-gray-400" />, label: "Unit Type", value: displayOrDash(property?.unitType) },
+        { icon: <Grid size={16} className="text-gray-400" />, label: "Subtype", value: displayOrDash(property?.subtype) },
+        { icon: <Car size={16} className="text-gray-400" />, label: "Parking Type", value: displayOrDash(property?.parkingType) },
+        { icon: <Building2 size={16} className="text-gray-400" />, label: "Floor", value: property?.floor && property?.totalFloors ? `${property.floor}st Floor / ${property.totalFloors}th Floor` : displayOrDash(property?.floor) },
+        ...(property?.square_feet ? [{ icon: <Ruler size={16} className="text-gray-400" />, label: "Carpet Area", value: `${displayOrDash(property.square_feet)} Sq.ft.` }] : []),
+        { icon: <CheckCircle size={16} className="text-gray-400" />, label: "Status", value: displayOrDash(property?.status) },
+        { icon: <IndianRupee size={16} className="text-gray-400" />, label: "Price", value: `${formatCurrency(property?.price)} (${displayOrDash(property?.priceType)})` },
+        { icon: <Home size={16} className="text-gray-400" />, label: "Furnishing", value: displayOrDash(property?.furnishing) },
+        ...((property?.possessionMonth || property?.possessionYear) ? [{
+          icon: <Calendar size={16} className="text-gray-400" />,
+          label: "Property Age",
+          value: [getMonthName(property?.possessionMonth), property?.possessionYear].filter(Boolean).join(' ')
+        }] : []),
+      ].map((item, idx) => (
+        <div
+          key={idx}
+          className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-100
+            ${idx % 2 === 0 ? 'sm:border-r sm:border-gray-100' : ''}`}
+        >
+          <div className="w-7 h-7 flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg shrink-0">
+            {item.icon}
+          </div>
+          <span className="text-xs text-gray-500 w-24 sm:w-28 shrink-0">
+            {item.label}
+          </span>
+          <span className="text-xs font-bold text-gray-900 break-words">
+            {item.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
 
               {/* Amenities & Furnishing - Responsive Grid */}
            {/* Amenities & Furnishing - Responsive Grid */}

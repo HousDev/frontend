@@ -45,6 +45,11 @@
 // import PropertyFormModal from '@/pages/dashboard/components/PropertyFormModal';
 // import { sellerFollowupAPI } from '@/lib/sellerFollowupAPI';
 // import SellerFollowupModal, { SellerFollowupPayload } from './SellerFollowupModal';
+// import { toast } from 'react-toastify';
+
+// // ---- Permission helpers (adjust import paths to match your project) ----
+// import { useAuth } from '@/contexts/AuthContext';
+// import { can } from '@/utils/permission';
 
 // /* ------------------------------------------------------------------ */
 // /* Types                                                              */
@@ -53,16 +58,15 @@
 
 // /** 🔄 MERGED Followup type (supports seller snake_case + buyer camelCase) */
 // export type Followup = {
-//   // base (existing)
 //   id: string | number;
 //   seller_id?: string | number;
-//   followup_date?: string;              // "YYYY-MM-DD"
-//   followup_time?: string;              // "HH:mm:ss" or "HH:mm"
+//   followup_date?: string;
+//   followup_time?: string;
 //   followup_type?: string;
 //   status?: string | null;
 //   priority?: string | null;
 //   assigned_to?: string | number | null;
-//   reminder?: number | 0;
+//   reminder?: number | 0 | 1;
 //   notes?: string | null;
 //   created_at?: string | null;
 //   updated_at?: string | null;
@@ -73,37 +77,35 @@
 //   transferred_from_lead?: boolean | 0 | 1 | '0' | '1';
 //   category?: 'sales' | 'presales';
 
-//   // buyer-style (camelCase) — also supported in seller UI
+//   // camelCase UI fields
 //   description?: string | null;
 //   date?: string | null;
 //   time?: string | null;
-//   assignedTo?: string | null;               // UI display (will become name)
+//   assignedTo?: string | null;
 //   type?: string | null;
 //   remark?: string | null;
 //   reminderBool?: boolean | null;
 //   raw?: any;
 //   transferredFromLead?: boolean | 0 | 1 | '0' | '1';
 
-//   buyerLeadStage?: string | null;           // (seller stage label in UI)
-//   buyerLeadStatus?: string | null;          // (seller status label in UI)
+//   buyerLeadStage?: string | null;
+//   buyerLeadStatus?: string | null;
 //   customRemark?: string | null;
 //   followupType?: string | null;
 //   nextAction?: string | null;
-//   scheduleDate?: string | null;             // may be ISO datetime from API
-//   scheduleTime?: string | null;             // "HH:mm:ss" optional
+//   scheduleDate?: string | null;
+//   scheduleTime?: string | null;
 //   transferredAt?: string | null;
 
-//   createdAt?: string | null;                // may be ISO
-//   updatedAt?: string | null;                // may be ISO
-//   createdBy?: string | null;                // UI display (name)
-//   updatedBy?: string | null;                // UI display (name)
+//   createdAt?: string | null;
+//   updatedAt?: string | null;
+//   createdBy?: string | null;
+//   updatedBy?: string | null;
 
-//   /* ⭐ Prefer names from backend */
 //   createdByName?: string | null;
 //   updatedByName?: string | null;
 //   assignedExecutiveName?: string | null;
 
-//   /* Also allow your new camelCase ids straight from API */
 //   sellerId?: string | number | null;
 //   assignedExecutive?: string | number | null;
 //   completedDate?: string | null;
@@ -119,12 +121,10 @@
 //   if (!val) return null;
 //   const s = val.trim();
 
-//   // ISO-like `YYYY-MM-DDTHH:mm:ss.sssZ` (or without Z)
 //   if (/\d{4}-\d{2}-\d{2}T/.test(s)) {
 //     const d = new Date(s);
 //     return isNaN(d.getTime()) ? null : d;
 //   }
-//   // "YYYY-MM-DD HH:mm[:ss]"
 //   if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(s)) {
 //     const [datePart, timePart] = s.split(/\s+/);
 //     const [y, m, d] = datePart.split('-').map(Number);
@@ -132,12 +132,10 @@
 //     const ss = Number.isFinite(ssRaw) ? ssRaw : 0;
 //     return new Date(y, m - 1, d, hh, mm, ss);
 //   }
-//   // "YYYY-MM-DD"
 //   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
 //     const [y, m, d] = s.split('-').map(Number);
 //     return new Date(y, m - 1, d, 0, 0, 0);
 //   }
-//   // "HH:mm[:ss]" (time only) — normalize with today (local)
 //   if (/^\d{2}:\d{2}(:\d{2})?$/.test(s)) {
 //     const [hh, mm, ssRaw] = s.split(':').map(Number);
 //     const now = new Date();
@@ -162,10 +160,6 @@
 //   return `${dd}/${mm}/${yyyy}`;
 // }
 
-// /** Formats:
-//  * - date only -> dd/mm/yyyy
-//  * - date + time -> dd/mm/yyyy, h:mm am/pm
-//  */
 // function fmtDateTimeHuman(val?: string | null): string | null {
 //   const d = parseSqlish(val);
 //   if (!d) return null;
@@ -180,7 +174,6 @@
 //   return `${dateStr}, ${to12h(d.getHours(), d.getMinutes())}`;
 // }
 
-// /** Accepts "HH:mm[:ss]" and returns 12h */
 // function fmtTime12h(t?: string | null): string {
 //   if (!t) return '—';
 //   const m = t.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
@@ -210,7 +203,6 @@
 //   negotiation: { bg: 'bg-violet-100', text: 'text-violet-700', label: 'Negotiation', icon: '💼' },
 //   closed: { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Closed', icon: '🔐' },
 
-//   // legacy mapping (Done/Planned/Missed)
 //   done: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Done', icon: '✅' },
 //   planned: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Planned', icon: '📅' },
 //   missed: { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Missed', icon: '⚠️' },
@@ -224,13 +216,11 @@
 //   low: { border: 'border-l-green-500', bg: 'bg-green-50', text: 'text-green-700', badge: 'bg-green-100' },
 //   minimal: { border: 'border-l-gray-400', bg: 'bg-gray-50', text: 'text-gray-700', badge: 'bg-gray-100' },
 
-//   // legacy mapping (High/Medium/Low)
 //   high_legacy: { border: 'border-l-red-500', bg: 'bg-red-50', text: 'text-red-700', badge: 'bg-red-100' },
 //   medium_legacy: { border: 'border-l-yellow-500', bg: 'bg-yellow-50', text: 'text-yellow-700', badge: 'bg-yellow-100' },
 //   low_legacy: { border: 'border-l-green-500', bg: 'bg-green-50', text: 'text-green-700', badge: 'bg-green-100' },
 // });
 
-// /** SELLER wording */
 // const getFieldConfig = () => ({
 //   buyerLeadStage: { label: 'Seller Stage', icon: Layers, color: 'bg-indigo-100 text-indigo-700', priority: 1 },
 //   buyerLeadStatus: { label: 'Seller Status', icon: TrendingUp, color: 'bg-blue-100 text-blue-700', priority: 2 },
@@ -306,43 +296,22 @@
 
 // const normalize = (f: Followup) => {
 //   const isPreSales =
-//     truthyFlag(f.transferred_from_lead) || truthyFlag(f.transferredFromLead);
+//     truthyFlag((f as any).transferred_from_lead) || truthyFlag(f.transferredFromLead) || truthyFlag(f.transferred_from_lead);
 
-//   // Prefer unified/camel first
 //   const type = f.followupType || f.followup_type || f.type || null;
 
-//   // Prefer scheduleDate from backend (can be ISO datetime)
 //   const scheduleDate =
-//     f.scheduleDate ??
-//     (f as any).schedule_date ??
-//     f.followup_date ??
-//     f.date ??
-//     null;
+//     f.scheduleDate ?? (f as any).schedule_date ?? f.followup_date ?? f.date ?? null;
 
 //   const scheduleTime =
-//     f.scheduleTime ??
-//     (f as any).schedule_time ??
-//     f.followup_time ??
-//     f.time ??
-//     null;
+//     f.scheduleTime ?? (f as any).schedule_time ?? f.followup_time ?? f.time ?? null;
 
-//   // ⭐ Prefer backend-provided display names; fallback to IDs or existing camel
-//   const createdByDisplay = pickDisplay(
-//     f.createdByName,
-//     f.created_by,
-//     f.createdBy
-//   );
+//   const createdByDisplay = pickDisplay(f.createdByName, (f as any).created_by, f.createdBy);
+//   const updatedByDisplay = pickDisplay(f.updatedByName, (f as any).updated_by, f.updatedBy);
 
-//   const updatedByDisplay = pickDisplay(
-//     f.updatedByName,
-//     f.updated_by,
-//     f.updatedBy
-//   );
-
-//   // assignedExecutiveName > assigned_to > assignedExecutive > assignedTo
 //   const assignedToDisplay = pickDisplay(
-//     f.assignedExecutiveName,
-//     f.assigned_to,
+//     (f as any).assignedExecutiveName ?? f.assignedExecutiveName,
+//     (f as any).assigned_to,
 //     f.assignedExecutive ?? f.assignedTo
 //   );
 
@@ -353,22 +322,20 @@
 //     id: String(f.id),
 //     category: isPreSales ? 'presales' : 'sales',
 
-//     // unified fields for UI
 //     followupType: type ?? null,
 //     scheduleDate: scheduleDate ?? null,
 //     scheduleTime: scheduleTime ?? null,
 
-//     // ⭐ set display strings to NAMES (not numeric IDs)
 //     assignedTo: assignedToDisplay ?? null,
 //     createdBy: createdByDisplay ?? null,
 //     updatedBy: updatedByDisplay ?? null,
 
 //     customRemark: remarks,
 
-//     createdAt: f.createdAt ?? f.created_at ?? null,
-//     updatedAt: f.updatedAt ?? f.updated_at ?? null,
+//     createdAt: f.createdAt ?? (f as any).created_at ?? null,
+//     updatedAt: f.updatedAt ?? (f as any).updated_at ?? null,
 
-//     nextAction: f.nextAction ?? f.next_action ?? null,
+//     nextAction: f.nextAction ?? (f as any).next_action ?? null,
 //     transferredAt: f.transferredAt ?? null,
 //   } as Followup;
 // };
@@ -392,8 +359,8 @@
 
 // const followupTimestamp = (f: Followup): number => {
 //   const dt1 = toDateTime(
-//     f.followup_date || f.date || null,
-//     f.followup_time || f.time || null
+//     (f as any).followup_date || f.date || null,
+//     (f as any).followup_time || f.time || null
 //   );
 //   if (dt1) return dt1.getTime();
 
@@ -403,9 +370,9 @@
 //   );
 //   if (dt2) return dt2.getTime();
 
-//   const upd = parseSqlish(f.updatedAt || f.updated_at || null);
+//   const upd = parseSqlish(f.updatedAt || (f as any).updated_at || null);
 //   if (upd) return upd.getTime();
-//   const cre = parseSqlish(f.createdAt || f.created_at || null);
+//   const cre = parseSqlish(f.createdAt || (f as any).created_at || null);
 //   if (cre) return cre.getTime();
 
 //   return 0;
@@ -427,7 +394,7 @@
 
 //       if (k === 'scheduleDate' && value) {
 //         const d = parseSqlish(value);
-//         value = d ? fmtDateDDMMYYYY(d) : value; // show only date
+//         value = d ? fmtDateDDMMYYYY(d) : value;
 //       }
 //       if ((k === 'createdAt' || k === 'updatedAt' || k === 'transferredAt') && value) {
 //         value = fmtDateTimeHuman(value);
@@ -461,6 +428,9 @@
 //   onAddFollowup: () => void;
 //   onEditFollowup: (f: Followup) => void;
 //   onDeleteFollowup: (f: Followup) => void;
+//   canCreate?: boolean;
+//   canUpdate?: boolean;
+//   canDelete?: boolean;
 // }
 
 // const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
@@ -468,21 +438,20 @@
 //   onAddFollowup,
 //   onEditFollowup,
 //   onDeleteFollowup,
+//   canCreate = true,
+//   canUpdate = true,
+//   canDelete = true
 // }) => {
 //   const [activeTab, setActiveTab] = React.useState<'sales' | 'presales'>('sales');
 
-//   React.useEffect(() => {
-    
-//   }, [followups]);
+//   React.useEffect(() => { }, [followups]);
 
 //   const normalizedFollowups = React.useMemo(
 //     () => (followups || []).map(normalize),
 //     [followups]
 //   );
 
-//   React.useEffect(() => {
-   
-//   }, [normalizedFollowups]);
+//   React.useEffect(() => { }, [normalizedFollowups]);
 
 //   const sortedFollowups = React.useMemo(
 //     () => [...normalizedFollowups].sort((a, b) => followupTimestamp(b) - followupTimestamp(a)),
@@ -494,9 +463,7 @@
 
 //   const filteredFollowups = sortedFollowups.filter((f) => f.category === activeTab);
 
-//   React.useEffect(() => {
-   
-//   }, [activeTab, filteredFollowups]);
+//   React.useEffect(() => { }, [activeTab, filteredFollowups]);
 
 //   const cardBorder = (p?: string | null) => {
 //     const cfg = getPriorityConfig();
@@ -517,25 +484,30 @@
 //         <div className="flex items-center space-x-2">
 //           <button
 //             onClick={() => setActiveTab('sales')}
-//             className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 text-sm ${
-//               activeTab === 'sales' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-//             }`}
+//             className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 text-sm ${activeTab === 'sales' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+//               }`}
 //           >
 //             Seller Follow-ups {salesCount > 0 && `(${salesCount})`}
 //           </button>
 //           <button
 //             onClick={() => setActiveTab('presales')}
-//             className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 text-sm ${
-//               activeTab === 'presales' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-//             }`}
+//             className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 text-sm ${activeTab === 'presales' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+//               }`}
 //           >
 //             Pre-Sales (Seller History) {presalesCount > 0 && `(${presalesCount})`}
 //           </button>
 //         </div>
 
 //         <button
-//           onClick={onAddFollowup}
-//           className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+//           onClick={() => {
+//             if (!canCreate) {
+//               toast.error('You do not have permission to create seller follow-ups');
+//               return;
+//             }
+//             onAddFollowup();
+//           }}
+//           className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${canCreate ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+//           title={!canCreate ? 'No permission to create follow-ups' : 'Add Seller Follow-up'}
 //         >
 //           <Plus size={16} />
 //           <span>Add Seller Follow-up</span>
@@ -589,18 +561,30 @@
 //                     {/* Actions */}
 //                     <div className="flex items-start gap-2">
 //                       <button
-//                         onClick={() => onEditFollowup(f)}
-//                         disabled={f.category === 'presales'}
+//                         onClick={() => {
+//                           if (!canUpdate) {
+//                             toast.error('You do not have permission to edit follow-ups');
+//                             return;
+//                           }
+//                           onEditFollowup(f);
+//                         }}
+//                         disabled={!canUpdate || f.category === 'presales'}
 //                         className="p-2 rounded hover:bg-gray-100 disabled:text-gray-300 disabled:cursor-not-allowed"
-//                         title={f.category === 'presales' ? 'Pre-sales history cannot be edited' : 'Edit seller follow-up'}
+//                         title={f.category === 'presales' ? 'Pre-sales history cannot be edited' : (!canUpdate ? 'No permission' : 'Edit seller follow-up')}
 //                       >
 //                         <Pencil size={16} />
 //                       </button>
 //                       <button
-//                         onClick={() => onDeleteFollowup(f)}
-//                         disabled={f.category === 'presales'}
+//                         onClick={() => {
+//                           if (!canDelete) {
+//                             toast.error('You do not have permission to delete follow-ups');
+//                             return;
+//                           }
+//                           onDeleteFollowup(f);
+//                         }}
+//                         disabled={!canDelete || f.category === 'presales'}
 //                         className="p-2 rounded hover:bg-rose-50 text-rose-600 disabled:text-gray-300 disabled:cursor-not-allowed"
-//                         title={f.category === 'presales' ? 'Pre-sales history cannot be deleted' : 'Delete seller follow-up'}
+//                         title={f.category === 'presales' ? 'Pre-sales history cannot be deleted' : (!canDelete ? 'No permission' : 'Delete seller follow-up')}
 //                       >
 //                         <Trash2 size={16} />
 //                       </button>
@@ -624,8 +608,14 @@
 //           </p>
 //           {activeTab === 'sales' && (
 //             <button
-//               onClick={onAddFollowup}
-//               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+//               onClick={() => {
+//                 if (!canCreate) {
+//                   toast.error('You do not have permission to create seller follow-ups');
+//                   return;
+//                 }
+//                 onAddFollowup();
+//               }}
+//               className={`px-4 py-2 rounded-lg transition-colors ${canCreate ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
 //             >
 //               Add Seller Follow-up
 //             </button>
@@ -664,6 +654,18 @@
 //   onUpdateSeller = () => { },
 //   sellerId,
 // }) => {
+//   // ---- Auth & permissions
+//   const { user } = useAuth() as { user: any | null };
+
+//   // seller edit permission
+//   const canUpdateSeller = can(user, 'seller.update');
+
+//   // followup permissions
+//   const canViewFollowups = can(user, 'followup.read');
+//   const canCreateFollowups = can(user, 'followup.create');
+//   const canUpdateFollowups = can(user, 'followup.update');
+//   const canDeleteFollowups = can(user, 'followup.delete');
+
 //   const [activeTab, setActiveTab] = useState<string>('overview');
 //   const [showStageUpdateModal, setShowStageUpdateModal] = useState(false);
 //   const [showSharingModal, setShowSharingModal] = useState(false);
@@ -712,24 +714,21 @@
 //     if (!t) return undefined;
 //     const [hh = '00', mm = '00', ss = '00'] = t.split(':');
 //     return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
-//     };
+//   };
 
-//   // Map API row (supports snake_case or camelCase) -> Followup item for UI
 //   const normalizeFromApi = (row: any): Followup => {
 //     const id = row?.id ?? row?.followup_id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 //     const followupType = row?.followup_type ?? row?.followupType;
 //     const sellerLeadStatus = row?.seller_lead_status ?? row?.sellerLeadStatus ?? row?.status;
 
-//     // ⭐ Capture name fields from backend when present
-//    // ⭐ capture *all* possible name keys
-// const createdByName = row?.created_by_name ?? row?.createdByName ?? null;
-// const updatedByName = row?.updated_by_name ?? row?.updatedByName ?? null;
-// const assignedExecutiveName =
-//   row?.assigned_executive_name ?? row?.assignedExecutiveName ?? null;
-// const assignedToName =
-//   row?.assigned_to_name ?? row?.assignedToName ?? null;
-// const transferredByName =
-//   row?.transferred_by_name ?? row?.transferredByName ?? null;
+//     const createdByName = row?.created_by_name ?? row?.createdByName ?? null;
+//     const updatedByName = row?.updated_by_name ?? row?.updatedByName ?? null;
+//     const assignedExecutiveName =
+//       row?.assigned_executive_name ?? row?.assignedExecutiveName ?? null;
+//     const assignedToName =
+//       row?.assigned_to_name ?? row?.assignedToName ?? null;
+//     const transferredByName =
+//       row?.transferred_by_name ?? row?.transferredByName ?? null;
 
 //     const assignedExec = row?.assigned_executive ?? row?.assignedExecutive ?? row?.assigned_to;
 
@@ -751,12 +750,10 @@
 //       created_by: row?.created_by ?? row?.createdBy,
 //       updated_by: row?.updated_by ?? row?.updatedBy,
 
-//       // ⭐ Names preferred by UI
-//           createdByName,
-//           updatedByName,
-//           assignedExecutiveName,
-         
-          
+//       createdByName,
+//       updatedByName,
+//       assignedExecutiveName,
+
 //       transferred_from_lead:
 //         row?.transferred_from_lead === true ||
 //         row?.transferred_from_lead === 1 ||
@@ -786,7 +783,7 @@
 //         limit: 200
 //       });
 //       const rows = (res && typeof res === 'object' && 'data' in res) ? res.data : res;
-    
+
 //       pushFollowupsIntoSeller(Array.isArray(rows) ? rows : []);
 //     } catch (e: any) {
 //       console.error("Failed to load seller followups:", e);
@@ -801,6 +798,7 @@
 //     if (sellerId) {
 //       fetchFollowups();
 //     }
+//     // eslint-disable-next-line react-hooks/exhaustive-deps
 //   }, [sellerId]);
 
 //   // ----------------------- Stage, Activity, Visit, Property --------------
@@ -1020,6 +1018,15 @@
 //       alert("Missing seller id.");
 //       return;
 //     }
+//     if (!canCreateFollowups && !editingFollowup) {
+//       toast.error('You do not have permission to create follow-ups');
+//       return;
+//     }
+//     if (editingFollowup && !canUpdateFollowups) {
+//       toast.error('You do not have permission to update follow-ups');
+//       return;
+//     }
+
 //     try {
 //       setFuError(null);
 //       setFuLoading(true);
@@ -1051,11 +1058,17 @@
 
 //   // ------------------------------ API: Delete --------------------------------
 //   const handleDeleteFollowup = async (f: Followup) => {
+//     if (!canDeleteFollowups) {
+//       toast.error('You do not have permission to delete follow-ups');
+//       return;
+//     }
+//     if (!confirm('Are you sure you want to delete this follow-up?')) return;
 //     try {
 //       setFuError(null);
 //       setFuLoading(true);
 //       await sellerFollowupAPI.remove(f.id);
 //       handleDeleteFollowupLocal(f);
+//       toast.success('Follow-up deleted');
 //     } catch (e: any) {
 //       console.error("Delete seller follow-up failed:", e);
 //       setFuError(e?.message || "Failed to delete follow-up");
@@ -1076,7 +1089,6 @@
 //             </div>
 //             <div className="flex-1">
 //               <h2 className="text-2xl font-bold">{(seller as any).salutation} {(seller as any).name}</h2>
-//               {/* 🔁 Removed visible numeric ID */}
 //               <p className="text-blue-100 text-lg">{(seller as any).location ?? '—'}, {(seller as any).city ?? '—'}</p>
 //               <div className="flex items-center space-x-4 mt-2">
 //                 <span className="text-blue-100">{(seller as any).source ?? '—'} Lead</span>
@@ -1512,7 +1524,7 @@
 //   return (
 //     <div className="h-full flex flex-col bg-gray-50 text-xs">
 //       {/* TOP BAR */}
-//       <div className="bg-white border-b border-gray-200 px-6 py-4">
+//       <div className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-50">
 //         <div className="flex items-center justify-between">
 //           <div className="flex items-center space-x-4">
 //             <button onClick={onBack} className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
@@ -1524,7 +1536,6 @@
 //               </div>
 //               <div>
 //                 <h1 className="text-xl font-bold text-gray-900">{(seller as any).salutation} {(seller as any).name}</h1>
-//                 {/* 🔁 Removed visible numeric ID here */}
 //                 <div className="flex items-center space-x-3 text-sm text-gray-600">
 //                   <span>{(seller as any).location ?? '—'}, {(seller as any).city ?? '—'}</span>
 //                   <span>•</span>
@@ -1577,8 +1588,19 @@
 //             >
 //               <Mail size={20} />
 //             </button>
-
-//             <button onClick={() => onEdit(seller)} className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors" title="Edit">
+//             <button
+//               onClick={() => {
+//                 if (!canUpdateSeller) {
+//                   toast.error('You do not have permission to edit seller');
+//                   return;
+//                 }
+//                 // ✅ Call parent's onEdit function
+//                 onEdit(seller);
+//               }}
+//               className={`p-2 rounded-lg ${canUpdateSeller ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+//               title={!canUpdateSeller ? 'No permission to edit' : 'Edit'}
+//               disabled={!canUpdateSeller}
+//             >
 //               <Edit size={20} />
 //             </button>
 //           </div>
@@ -1624,18 +1646,37 @@
 //         {activeTab === 'activities' && renderActivitiesTab()}
 
 //         {activeTab === 'followups' && (
-//           <SellerFollowupsTab
-//             followups={(((seller as any).followups as Followup[]) || [])}
-//             onAddFollowup={() => {
-//               setEditingFollowup(null);
-//               setShowFollowupModal(true);
-//             }}
-//             onEditFollowup={(f) => {
-//               setEditingFollowup(f);
-//               setShowFollowupModal(true);
-//             }}
-//             onDeleteFollowup={handleDeleteFollowup}
-//           />
+//           <>
+//             {!canViewFollowups ? (
+//               <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+//                 <p className="text-sm text-gray-600">You do not have permission to view follow-ups.</p>
+//               </div>
+//             ) : (
+//               <SellerFollowupsTab
+//                 followups={(((seller as any).followups as Followup[]) || [])}
+//                 onAddFollowup={() => {
+//                   if (!canCreateFollowups) {
+//                     toast.error('You do not have permission to create follow-ups');
+//                     return;
+//                   }
+//                   setEditingFollowup(null);
+//                   setShowFollowupModal(true);
+//                 }}
+//                 onEditFollowup={(f) => {
+//                   if (!canUpdateFollowups) {
+//                     toast.error('You do not have permission to edit follow-ups');
+//                     return;
+//                   }
+//                   setEditingFollowup(f);
+//                   setShowFollowupModal(true);
+//                 }}
+//                 onDeleteFollowup={handleDeleteFollowup}
+//                 canCreate={canCreateFollowups}
+//                 canUpdate={canUpdateFollowups}
+//                 canDelete={canDeleteFollowups}
+//               />
+//             )}
+//           </>
 //         )}
 
 //         {activeTab === 'documents' && renderDocumentsTab()}
@@ -1643,7 +1684,7 @@
 //       </div>
 
 //       {/* FOOTER ACTIONS */}
-//       <div className="bg-white border-t border-gray-200 px-6 py-4">
+//       <div className="bg-white border-t border-gray-200 px-6 py-4 sticky bottom-0 z-50">
 //         <div className="flex items-center justify-between">
 //           <div className="flex items-center space-x-3">
 //             <button onClick={() => setShowStageUpdateModal(true)} className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
@@ -1661,7 +1702,16 @@
 //           </div>
 
 //           <div className="flex items-center space-x-3">
-//             <button onClick={() => setShowFollowupModal(true)} className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+//             <button
+//               onClick={() => {
+//                 if (!canCreateFollowups) {
+//                   toast.error('You do not have permission to create follow-ups');
+//                   return;
+//                 }
+//                 setShowFollowupModal(true);
+//               }}
+//               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${canCreateFollowups ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+//             >
 //               <CalendarIcon size={16} />
 //               <span>Follow-ups</span>
 //             </button>
@@ -1777,7 +1827,8 @@
 //   return [value];
 // }
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   ArrowLeft,
   Phone,
@@ -1814,28 +1865,49 @@ import {
   User,
   Layers,
   Play,
-  Flag
-} from 'lucide-react';
+  Flag,
+  Heart,
+  Home,
+  DollarSign,
+  PhoneCall,
+  MessageSquare,
+  Mail as MailIcon,
+  MoreVertical,
+} from "lucide-react";
 
-import SellerStageUpdateModal from './SellerStageUpdateModal';
-import SellerSharingModal from './SellerSharingModal';
-import ActivityModal from '../buyers/ActivityModal';
-import VisitModal from '../buyers/VisitModal';
-import PropertyFormModal from '@/pages/dashboard/components/PropertyFormModal';
-import { sellerFollowupAPI } from '@/lib/sellerFollowupAPI';
-import SellerFollowupModal, { SellerFollowupPayload } from './SellerFollowupModal';
-import { toast } from 'react-toastify';
+import SellerStageUpdateModal from "./SellerStageUpdateModal";
+import SellerSharingModal from "./SellerSharingModal";
+import ActivityModal from "../buyers/ActivityModal";
+import VisitModal from "../buyers/VisitModal";
+import PropertyFormModal from "@/pages/dashboard/components/PropertyFormModal";
+import { sellerFollowupAPI } from "@/lib/sellerFollowupAPI";
+import SellerFollowupModal, {
+  SellerFollowupPayload,
+} from "./SellerFollowupModal";
+import { toast } from "react-toastify";
 
-// ---- Permission helpers (adjust import paths to match your project) ----
-import { useAuth } from '@/contexts/AuthContext';
-import { can } from '@/utils/permission';
+// Modern Color Scheme
+const N = "#0f2b3d"; // Navy - used sparingly for headers
+const O = "#e67e22"; // Orange - used for primary accents only
+const BG = "#f8fafc";
+const BD = "#e2e8f0";
+const MU = "#5a7184";
+const SUCCESS = "#10b981";
+const WARNING = "#f59e0b";
+const DANGER = "#ef4444";
+const INFO = "#3b82f6";
+const WHITE = "#ffffff";
+const DARK = "#1e293b";
+
+// ---- Permission helpers ----
+import { useAuth } from "@/contexts/AuthContext";
+import { can } from "@/utils/permission";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                              */
 /* ------------------------------------------------------------------ */
 export type AnyObj = Record<string, any>;
 
-/** 🔄 MERGED Followup type (supports seller snake_case + buyer camelCase) */
 export type Followup = {
   id: string | number;
   seller_id?: string | number;
@@ -1853,10 +1925,8 @@ export type Followup = {
   updated_by?: string | number | null;
   next_action?: string | null;
   outcome?: string | null;
-  transferred_from_lead?: boolean | 0 | 1 | '0' | '1';
-  category?: 'sales' | 'presales';
-
-  // camelCase UI fields
+  transferred_from_lead?: boolean | 0 | 1 | "0" | "1";
+  category?: "sales" | "presales";
   description?: string | null;
   date?: string | null;
   time?: string | null;
@@ -1865,8 +1935,7 @@ export type Followup = {
   remark?: string | null;
   reminderBool?: boolean | null;
   raw?: any;
-  transferredFromLead?: boolean | 0 | 1 | '0' | '1';
-
+  transferredFromLead?: boolean | 0 | 1 | "0" | "1";
   buyerLeadStage?: string | null;
   buyerLeadStatus?: string | null;
   customRemark?: string | null;
@@ -1875,16 +1944,13 @@ export type Followup = {
   scheduleDate?: string | null;
   scheduleTime?: string | null;
   transferredAt?: string | null;
-
   createdAt?: string | null;
   updatedAt?: string | null;
   createdBy?: string | null;
   updatedBy?: string | null;
-
   createdByName?: string | null;
   updatedByName?: string | null;
   assignedExecutiveName?: string | null;
-
   sellerId?: string | number | null;
   assignedExecutive?: string | number | null;
   completedDate?: string | null;
@@ -1893,48 +1959,54 @@ export type Followup = {
 /* ------------------------------------------------------------------ */
 /* Utils                                                              */
 /* ------------------------------------------------------------------ */
-const safeString = (v: any) => (v === undefined || v === null ? '' : String(v));
-const toSlug = (s?: string | null) => safeString(s).toLowerCase().replace(/\s+/g, '').trim();
+const safeString = (v: any) => (v === undefined || v === null ? "" : String(v));
+const toSlug = (s?: string | null) =>
+  safeString(s).toLowerCase().replace(/\s+/g, "").trim();
 
 function parseSqlish(val?: string | null): Date | null {
   if (!val) return null;
   const s = val.trim();
-
   if (/\d{4}-\d{2}-\d{2}T/.test(s)) {
     const d = new Date(s);
     return isNaN(d.getTime()) ? null : d;
   }
   if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(s)) {
     const [datePart, timePart] = s.split(/\s+/);
-    const [y, m, d] = datePart.split('-').map(Number);
-    const [hh, mm, ssRaw] = timePart.split(':').map(Number);
+    const [y, m, d] = datePart.split("-").map(Number);
+    const [hh, mm, ssRaw] = timePart.split(":").map(Number);
     const ss = Number.isFinite(ssRaw) ? ssRaw : 0;
     return new Date(y, m - 1, d, hh, mm, ss);
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const [y, m, d] = s.split('-').map(Number);
+    const [y, m, d] = s.split("-").map(Number);
     return new Date(y, m - 1, d, 0, 0, 0);
   }
   if (/^\d{2}:\d{2}(:\d{2})?$/.test(s)) {
-    const [hh, mm, ssRaw] = s.split(':').map(Number);
+    const [hh, mm, ssRaw] = s.split(":").map(Number);
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, Number.isFinite(ssRaw) ? ssRaw : 0);
+    return new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      hh,
+      mm,
+      Number.isFinite(ssRaw) ? ssRaw : 0,
+    );
   }
-
   const d = new Date(s);
   return isNaN(d.getTime()) ? null : d;
 }
 
 function to12h(hh: number, mm: number) {
-  const period = hh >= 12 ? 'pm' : 'am';
+  const period = hh >= 12 ? "pm" : "am";
   const h12 = hh % 12 || 12;
-  const mmStr = String(mm).padStart(2, '0');
+  const mmStr = String(mm).padStart(2, "0");
   return `${h12}:${mmStr} ${period}`;
 }
 
 function fmtDateDDMMYYYY(d: Date): string {
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
 }
@@ -1942,19 +2014,16 @@ function fmtDateDDMMYYYY(d: Date): string {
 function fmtDateTimeHuman(val?: string | null): string | null {
   const d = parseSqlish(val);
   if (!d) return null;
-
   const hasTime =
-    /T\d{2}:\d{2}/.test(val || '') ||
-    /\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(val || '');
-
+    /T\d{2}:\d{2}/.test(val || "") ||
+    /\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(val || "");
   const dateStr = fmtDateDDMMYYYY(d);
   if (!hasTime) return dateStr;
-
   return `${dateStr}, ${to12h(d.getHours(), d.getMinutes())}`;
 }
 
 function fmtTime12h(t?: string | null): string {
-  if (!t) return '—';
+  if (!t) return "—";
   const m = t.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (!m) return t;
   const hh = Number(m[1]);
@@ -1963,85 +2032,263 @@ function fmtTime12h(t?: string | null): string {
   return to12h(hh, mm);
 }
 
-/* ------------------------------------------------------------------ */
-/* UI Configs                                                         */
-/* ------------------------------------------------------------------ */
 const getStatusConfig = () => ({
-  pending: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Pending', icon: '⏳' },
-  scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Scheduled', icon: '📅' },
-  completed: { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed', icon: '✅' },
-  cancelled: { bg: 'bg-red-100', text: 'text-red-700', label: 'Cancelled', icon: '❌' },
-  inprogress: { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'In Progress', icon: '🔄' },
-  onhold: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'On Hold', icon: '⏸️' },
-  followup: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Follow Up', icon: '📞' },
-  interested: { bg: 'bg-green-100', text: 'text-green-700', label: 'Interested', icon: '👍' },
-  notinterested: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Not Interested', icon: '👎' },
-  contacted: { bg: 'bg-teal-100', text: 'text-teal-700', label: 'Contacted', icon: '📧' },
-  meeting: { bg: 'bg-pink-100', text: 'text-pink-700', label: 'Meeting', icon: '🤝' },
-  proposal: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Proposal', icon: '📋' },
-  negotiation: { bg: 'bg-violet-100', text: 'text-violet-700', label: 'Negotiation', icon: '💼' },
-  closed: { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Closed', icon: '🔐' },
-
-  done: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Done', icon: '✅' },
-  planned: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Planned', icon: '📅' },
-  missed: { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Missed', icon: '⚠️' },
+  pending: {
+    bg: "bg-amber-100",
+    text: "text-amber-700",
+    label: "Pending",
+    icon: "⏳",
+  },
+  scheduled: {
+    bg: "bg-blue-100",
+    text: "text-blue-700",
+    label: "Scheduled",
+    icon: "📅",
+  },
+  completed: {
+    bg: "bg-green-100",
+    text: "text-green-700",
+    label: "Completed",
+    icon: "✅",
+  },
+  cancelled: {
+    bg: "bg-red-100",
+    text: "text-red-700",
+    label: "Cancelled",
+    icon: "❌",
+  },
+  inprogress: {
+    bg: "bg-indigo-100",
+    text: "text-indigo-700",
+    label: "In Progress",
+    icon: "🔄",
+  },
+  onhold: {
+    bg: "bg-yellow-100",
+    text: "text-yellow-700",
+    label: "On Hold",
+    icon: "⏸️",
+  },
+  followup: {
+    bg: "bg-purple-100",
+    text: "text-purple-700",
+    label: "Follow Up",
+    icon: "📞",
+  },
+  interested: {
+    bg: "bg-green-100",
+    text: "text-green-700",
+    label: "Interested",
+    icon: "👍",
+  },
+  notinterested: {
+    bg: "bg-gray-100",
+    text: "text-gray-700",
+    label: "Not Interested",
+    icon: "👎",
+  },
+  contacted: {
+    bg: "bg-teal-100",
+    text: "text-teal-700",
+    label: "Contacted",
+    icon: "📧",
+  },
+  meeting: {
+    bg: "bg-pink-100",
+    text: "text-pink-700",
+    label: "Meeting",
+    icon: "🤝",
+  },
+  proposal: {
+    bg: "bg-amber-100",
+    text: "text-amber-700",
+    label: "Proposal",
+    icon: "📋",
+  },
+  negotiation: {
+    bg: "bg-violet-100",
+    text: "text-violet-700",
+    label: "Negotiation",
+    icon: "💼",
+  },
+  closed: {
+    bg: "bg-slate-100",
+    text: "text-slate-700",
+    label: "Closed",
+    icon: "🔐",
+  },
+  done: {
+    bg: "bg-emerald-100",
+    text: "text-emerald-700",
+    label: "Done",
+    icon: "✅",
+  },
+  planned: {
+    bg: "bg-blue-100",
+    text: "text-blue-700",
+    label: "Planned",
+    icon: "📅",
+  },
+  missed: {
+    bg: "bg-rose-100",
+    text: "text-rose-700",
+    label: "Missed",
+    icon: "⚠️",
+  },
 });
 
 const getPriorityConfig = () => ({
-  urgent: { border: 'border-l-red-600', bg: 'bg-red-50', text: 'text-red-700', badge: 'bg-red-100' },
-  high: { border: 'border-l-red-500', bg: 'bg-red-50', text: 'text-red-700', badge: 'bg-red-100' },
-  medium: { border: 'border-l-yellow-500', bg: 'bg-yellow-50', text: 'text-yellow-700', badge: 'bg-yellow-100' },
-  normal: { border: 'border-l-blue-500', bg: 'bg-blue-50', text: 'text-blue-700', badge: 'bg-blue-100' },
-  low: { border: 'border-l-green-500', bg: 'bg-green-50', text: 'text-green-700', badge: 'bg-green-100' },
-  minimal: { border: 'border-l-gray-400', bg: 'bg-gray-50', text: 'text-gray-700', badge: 'bg-gray-100' },
-
-  high_legacy: { border: 'border-l-red-500', bg: 'bg-red-50', text: 'text-red-700', badge: 'bg-red-100' },
-  medium_legacy: { border: 'border-l-yellow-500', bg: 'bg-yellow-50', text: 'text-yellow-700', badge: 'bg-yellow-100' },
-  low_legacy: { border: 'border-l-green-500', bg: 'bg-green-50', text: 'text-green-700', badge: 'bg-green-100' },
+  urgent: {
+    border: "border-l-red-600",
+    bg: "bg-red-50",
+    text: "text-red-700",
+    badge: "bg-red-100",
+  },
+  high: {
+    border: "border-l-red-500",
+    bg: "bg-red-50",
+    text: "text-red-700",
+    badge: "bg-red-100",
+  },
+  medium: {
+    border: "border-l-yellow-500",
+    bg: "bg-yellow-50",
+    text: "text-yellow-700",
+    badge: "bg-yellow-100",
+  },
+  normal: {
+    border: "border-l-blue-500",
+    bg: "bg-blue-50",
+    text: "text-blue-700",
+    badge: "bg-blue-100",
+  },
+  low: {
+    border: "border-l-green-500",
+    bg: "bg-green-50",
+    text: "text-green-700",
+    badge: "bg-green-100",
+  },
+  minimal: {
+    border: "border-l-gray-400",
+    bg: "bg-gray-50",
+    text: "text-gray-700",
+    badge: "bg-gray-100",
+  },
 });
 
 const getFieldConfig = () => ({
-  buyerLeadStage: { label: 'Seller Stage', icon: Layers, color: 'bg-indigo-100 text-indigo-700', priority: 1 },
-  buyerLeadStatus: { label: 'Seller Status', icon: TrendingUp, color: 'bg-blue-100 text-blue-700', priority: 2 },
-  followupType: { label: 'Follow-up Type', icon: Tag, color: 'bg-purple-100 text-purple-700', priority: 3 },
-  customRemark: { label: 'Remarks', icon: AlertCircle, color: 'bg-pink-100 text-pink-700', priority: 5 },
-  nextAction: { label: 'Next Action', icon: Play, color: 'bg-yellow-100 text-yellow-700', priority: 4 },
-  scheduleDate: { label: 'Scheduled', icon: CalendarIcon, color: 'bg-green-100 text-green-700', priority: 6 },
-  transferredAt: { label: 'Transferred', icon: CheckCircle2, color: 'bg-orange-100 text-orange-700', priority: 7 },
-  assignedTo: { label: 'Assigned Executive', icon: UserIcon, color: 'bg-teal-100 text-teal-700', priority: 8 },
-  type: { label: 'Type', icon: Clock, color: 'bg-gray-100 text-gray-700', priority: 9 },
-  priority: { label: 'Priority', icon: Flag, color: 'bg-gray-100 text-gray-700', priority: 11 },
-  createdAt: { label: 'Created', icon: CalendarIcon, color: 'bg-gray-50 text-gray-700', priority: 90 },
-  updatedAt: { label: 'Updated', icon: CalendarIcon, color: 'bg-gray-50 text-gray-700', priority: 91 },
-  createdBy: { label: 'Created By', icon: UserIcon, color: 'bg-gray-50 text-gray-700', priority: 92 },
-  updatedBy: { label: 'Updated By', icon: UserIcon, color: 'bg-gray-50 text-gray-700', priority: 93 },
+  buyerLeadStage: {
+    label: "Seller Stage",
+    icon: Layers,
+    color: "bg-indigo-100 text-indigo-700",
+    priority: 1,
+  },
+  buyerLeadStatus: {
+    label: "Seller Status",
+    icon: TrendingUp,
+    color: "bg-blue-100 text-blue-700",
+    priority: 2,
+  },
+  followupType: {
+    label: "Follow-up Type",
+    icon: Tag,
+    color: "bg-purple-100 text-purple-700",
+    priority: 3,
+  },
+  customRemark: {
+    label: "Remarks",
+    icon: AlertCircle,
+    color: "bg-pink-100 text-pink-700",
+    priority: 5,
+  },
+  nextAction: {
+    label: "Next Action",
+    icon: Play,
+    color: "bg-yellow-100 text-yellow-700",
+    priority: 4,
+  },
+  scheduleDate: {
+    label: "Scheduled",
+    icon: CalendarIcon,
+    color: "bg-green-100 text-green-700",
+    priority: 6,
+  },
+  transferredAt: {
+    label: "Transferred",
+    icon: CheckCircle2,
+    color: "bg-orange-100 text-orange-700",
+    priority: 7,
+  },
+  assignedTo: {
+    label: "Assigned Executive",
+    icon: UserIcon,
+    color: "bg-teal-100 text-teal-700",
+    priority: 8,
+  },
+  type: {
+    label: "Type",
+    icon: Clock,
+    color: "bg-gray-100 text-gray-700",
+    priority: 9,
+  },
+  priority: {
+    label: "Priority",
+    icon: Flag,
+    color: "bg-gray-100 text-gray-700",
+    priority: 11,
+  },
+  createdAt: {
+    label: "Created",
+    icon: CalendarIcon,
+    color: "bg-gray-50 text-gray-700",
+    priority: 90,
+  },
+  updatedAt: {
+    label: "Updated",
+    icon: CalendarIcon,
+    color: "bg-gray-50 text-gray-700",
+    priority: 91,
+  },
+  createdBy: {
+    label: "Created By",
+    icon: UserIcon,
+    color: "bg-gray-50 text-gray-700",
+    priority: 92,
+  },
+  updatedBy: {
+    label: "Updated By",
+    icon: UserIcon,
+    color: "bg-gray-50 text-gray-700",
+    priority: 93,
+  },
 });
 
-/* ------------------------------------------------------------------ */
-/* Small UI bits                                                      */
-/* ------------------------------------------------------------------ */
 const typeIcon = (t?: string | null) => {
   switch (t) {
-    case 'Phone Call':
-      return <Phone size={14} className="text-blue-600" />;
-    case 'WhatsApp':
-      return <MessageCircle size={14} className="text-green-600" />;
-    case 'Email':
-      return <Mail size={14} className="text-indigo-600" />;
+    case "Phone Call":
+      return <Phone size={12} className="text-blue-600" />;
+    case "WhatsApp":
+      return <MessageCircle size={12} className="text-green-600" />;
+    case "Email":
+      return <Mail size={12} className="text-indigo-600" />;
     default:
-      return <Tag size={14} className="text-gray-500" />;
+      return <Tag size={12} className="text-gray-500" />;
   }
 };
 
 const statusBadge = (s?: string | null) => {
   const cfg = getStatusConfig();
   const slug = toSlug(s);
-  const meta = (cfg as any)[slug] || (cfg as any)['planned'];
-  const label = meta?.label || (s ?? '—');
-  const classes = meta ? `${meta.bg} ${meta.text}` : 'bg-gray-100 text-gray-700';
+  const meta = (cfg as any)[slug] || (cfg as any)["planned"];
+  const label = meta?.label || (s ?? "—");
+  const classes = meta
+    ? `${meta.bg} ${meta.text}`
+    : "bg-gray-100 text-gray-700";
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium inline-flex items-center gap-1 ${classes}`}>
-      <span>{meta?.icon ?? '•'}</span>
+    <span
+      className={`px-2 py-0.5 rounded-full text-[10px] font-medium inline-flex items-center gap-1 ${classes}`}
+    >
+      <span>{meta?.icon ?? "•"}</span>
       {label}
     </span>
   );
@@ -2052,86 +2299,89 @@ const priorityBadge = (p?: string | null) => {
   const slug = toSlug(p);
   const meta =
     (cfg as any)[slug] ||
-    (slug === 'high' && (cfg as any).high_legacy) ||
-    (slug === 'medium' && (cfg as any).medium_legacy) ||
-    (slug === 'low' && (cfg as any).low_legacy);
-  const text = p ?? '—';
-  const classes = meta ? `${meta.badge} ${meta.text}` : 'bg-gray-100 text-gray-700';
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${classes}`}>{text}</span>;
+    (slug === "high" && (cfg as any).high_legacy) ||
+    (slug === "medium" && (cfg as any).medium_legacy) ||
+    (slug === "low" && (cfg as any).low_legacy);
+  const text = p ?? "—";
+  const classes = meta
+    ? `${meta.badge} ${meta.text}`
+    : "bg-gray-100 text-gray-700";
+  return (
+    <span
+      className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${classes}`}
+    >
+      {text}
+    </span>
+  );
 };
 
-/* ------------------------------------------------------------------ */
-/* Normalizer (⭐ make NAMES show instead of IDs)                      */
-/* ------------------------------------------------------------------ */
 const truthyFlag = (v: any) =>
-  v === true || v === 1 || v === '1' || v === 'true' || v === 'yes';
-
+  v === true || v === 1 || v === "1" || v === "true" || v === "yes";
 const pickDisplay = (name?: any, idMaybe?: any, fallback?: any) => {
   const n = name ?? null;
-  if (n !== null && n !== undefined && String(n).trim() !== '') return String(n);
+  if (n !== null && n !== undefined && String(n).trim() !== "")
+    return String(n);
   const id = idMaybe ?? fallback;
   return id != null ? String(id) : null;
 };
 
 const normalize = (f: Followup) => {
   const isPreSales =
-    truthyFlag((f as any).transferred_from_lead) || truthyFlag(f.transferredFromLead) || truthyFlag(f.transferred_from_lead);
-
+    truthyFlag((f as any).transferred_from_lead) ||
+    truthyFlag(f.transferredFromLead);
   const type = f.followupType || f.followup_type || f.type || null;
-
   const scheduleDate =
-    f.scheduleDate ?? (f as any).schedule_date ?? f.followup_date ?? f.date ?? null;
-
+    f.scheduleDate ??
+    (f as any).schedule_date ??
+    f.followup_date ??
+    f.date ??
+    null;
   const scheduleTime =
-    f.scheduleTime ?? (f as any).schedule_time ?? f.followup_time ?? f.time ?? null;
-
-  const createdByDisplay = pickDisplay(f.createdByName, (f as any).created_by, f.createdBy);
-  const updatedByDisplay = pickDisplay(f.updatedByName, (f as any).updated_by, f.updatedBy);
-
+    f.scheduleTime ??
+    (f as any).schedule_time ??
+    f.followup_time ??
+    f.time ??
+    null;
+  const createdByDisplay = pickDisplay(
+    f.createdByName,
+    (f as any).created_by,
+    f.createdBy,
+  );
+  const updatedByDisplay = pickDisplay(
+    f.updatedByName,
+    (f as any).updated_by,
+    f.updatedBy,
+  );
   const assignedToDisplay = pickDisplay(
     (f as any).assignedExecutiveName ?? f.assignedExecutiveName,
     (f as any).assigned_to,
-    f.assignedExecutive ?? f.assignedTo
+    f.assignedExecutive ?? f.assignedTo,
   );
-
   const remarks = f.customRemark ?? f.remark ?? f.notes ?? null;
-
   return {
     ...f,
     id: String(f.id),
-    category: isPreSales ? 'presales' : 'sales',
-
+    category: isPreSales ? "presales" : "sales",
     followupType: type ?? null,
     scheduleDate: scheduleDate ?? null,
     scheduleTime: scheduleTime ?? null,
-
     assignedTo: assignedToDisplay ?? null,
     createdBy: createdByDisplay ?? null,
     updatedBy: updatedByDisplay ?? null,
-
     customRemark: remarks,
-
     createdAt: f.createdAt ?? (f as any).created_at ?? null,
     updatedAt: f.updatedAt ?? (f as any).updated_at ?? null,
-
     nextAction: f.nextAction ?? (f as any).next_action ?? null,
     transferredAt: f.transferredAt ?? null,
   } as Followup;
 };
 
-/* ------------------------------------------------------------------ */
-/* Sorting: latest first                                              */
-/* ------------------------------------------------------------------ */
 const toDateTime = (dateStr?: string | null, timeStr?: string | null) => {
   if (!dateStr && !timeStr) return null;
-
-  const dStr = (dateStr ?? '').trim();
-  if (dStr && /\d{4}-\d{2}-\d{2}T/.test(dStr)) {
-    return parseSqlish(dStr);
-  }
-
-  const tRaw = (timeStr ?? '').trim();
-  const t = tRaw ? (tRaw.length === 5 ? `${tRaw}:00` : tRaw) : '00:00:00';
+  const dStr = (dateStr ?? "").trim();
+  if (dStr && /\d{4}-\d{2}-\d{2}T/.test(dStr)) return parseSqlish(dStr);
+  const tRaw = (timeStr ?? "").trim();
+  const t = tRaw ? (tRaw.length === 5 ? `${tRaw}:00` : tRaw) : "00:00:00";
   const dtStr = dStr ? `${dStr} ${t}` : t;
   return parseSqlish(dtStr);
 };
@@ -2139,68 +2389,59 @@ const toDateTime = (dateStr?: string | null, timeStr?: string | null) => {
 const followupTimestamp = (f: Followup): number => {
   const dt1 = toDateTime(
     (f as any).followup_date || f.date || null,
-    (f as any).followup_time || f.time || null
+    (f as any).followup_time || f.time || null,
   );
   if (dt1) return dt1.getTime();
-
   const dt2 = toDateTime(
     (f as any).schedule_date || f.scheduleDate || null,
-    (f as any).schedule_time || f.scheduleTime || null
+    (f as any).schedule_time || f.scheduleTime || null,
   );
   if (dt2) return dt2.getTime();
-
   const upd = parseSqlish(f.updatedAt || (f as any).updated_at || null);
   if (upd) return upd.getTime();
   const cre = parseSqlish(f.createdAt || (f as any).created_at || null);
   if (cre) return cre.getTime();
-
   return 0;
 };
 
-/* ------------------------------------------------------------------ */
-/* Chips for seller fields                                            */
-/* ------------------------------------------------------------------ */
 const FieldChips: React.FC<{ f: Followup }> = ({ f }) => {
   const cfg = getFieldConfig();
   type Key = keyof ReturnType<typeof getFieldConfig>;
   const keys: Key[] = Object.keys(cfg) as Key[];
-
   const sorted = keys.sort((a, b) => cfg[a].priority - cfg[b].priority);
-
   const chips = sorted
     .map((k) => {
       let value: any = (f as any)[k];
-
-      if (k === 'scheduleDate' && value) {
+      if (k === "scheduleDate" && value) {
         const d = parseSqlish(value);
         value = d ? fmtDateDDMMYYYY(d) : value;
       }
-      if ((k === 'createdAt' || k === 'updatedAt' || k === 'transferredAt') && value) {
+      if (
+        (k === "createdAt" || k === "updatedAt" || k === "transferredAt") &&
+        value
+      )
         value = fmtDateTimeHuman(value);
-      }
-
-      if (!value || String(value).trim() === '') return null;
+      if (!value || String(value).trim() === "") return null;
       const Icon = cfg[k].icon;
       return (
         <span
           key={k}
-          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium ${cfg[k].color}`}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium ${cfg[k].color}`}
           title={cfg[k].label}
         >
-          <Icon size={12} />
+          <Icon size={10} />
           <span>{cfg[k].label}:</span>
-          <span className="font-semibold break-words">{String(value)}</span>
+          <span className="font-semibold">{String(value).slice(0, 30)}</span>
         </span>
       );
     })
     .filter(Boolean);
-
   if (chips.length === 0) return null;
-  return <div className="mt-2 grid grid-cols-2 gap-2">{chips}</div>;
+  return <div className="mt-2 flex flex-wrap gap-1">{chips}</div>;
 };
 
 /* ------------------------------------------------------------------ */
-/* Component                                                          */
+/* SellerFollowupsTab Component */
 /* ------------------------------------------------------------------ */
 interface SellerFollowupsTabProps {
   followups: Followup[];
@@ -2219,153 +2460,160 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
   onDeleteFollowup,
   canCreate = true,
   canUpdate = true,
-  canDelete = true
+  canDelete = true,
 }) => {
-  const [activeTab, setActiveTab] = React.useState<'sales' | 'presales'>('sales');
-
-  React.useEffect(() => { }, [followups]);
-
+  const [activeTab, setActiveTab] = React.useState<"sales" | "presales">(
+    "sales",
+  );
   const normalizedFollowups = React.useMemo(
     () => (followups || []).map(normalize),
-    [followups]
+    [followups],
   );
-
-  React.useEffect(() => { }, [normalizedFollowups]);
-
   const sortedFollowups = React.useMemo(
-    () => [...normalizedFollowups].sort((a, b) => followupTimestamp(b) - followupTimestamp(a)),
-    [normalizedFollowups]
+    () =>
+      [...normalizedFollowups].sort(
+        (a, b) => followupTimestamp(b) - followupTimestamp(a),
+      ),
+    [normalizedFollowups],
   );
-
-  const salesCount = sortedFollowups.filter((f) => f.category === 'sales').length;
-  const presalesCount = sortedFollowups.filter((f) => f.category === 'presales').length;
-
-  const filteredFollowups = sortedFollowups.filter((f) => f.category === activeTab);
-
-  React.useEffect(() => { }, [activeTab, filteredFollowups]);
-
+  const salesCount = sortedFollowups.filter(
+    (f) => f.category === "sales",
+  ).length;
+  const presalesCount = sortedFollowups.filter(
+    (f) => f.category === "presales",
+  ).length;
+  const filteredFollowups = sortedFollowups.filter(
+    (f) => f.category === activeTab,
+  );
   const cardBorder = (p?: string | null) => {
     const cfg = getPriorityConfig();
     const slug = toSlug(p);
     const meta =
       (cfg as any)[slug] ||
-      (slug === 'high' && (cfg as any).high_legacy) ||
-      (slug === 'medium' && (cfg as any).medium_legacy) ||
-      (slug === 'low' && (cfg as any).low_legacy) ||
+      (slug === "high" && (cfg as any).high_legacy) ||
+      (slug === "medium" && (cfg as any).medium_legacy) ||
+      (slug === "low" && (cfg as any).low_legacy) ||
       null;
-    return meta ? `${meta.border} ${meta.bg}` : 'border-l-gray-400 bg-gray-50';
+    return meta ? `${meta.border} ${meta.bg}` : "border-l-gray-400 bg-gray-50";
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-1.5">
           <button
-            onClick={() => setActiveTab('sales')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 text-sm ${activeTab === 'sales' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+            onClick={() => setActiveTab("sales")}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all text-[11px] ${activeTab === "sales" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
           >
             Seller Follow-ups {salesCount > 0 && `(${salesCount})`}
           </button>
           <button
-            onClick={() => setActiveTab('presales')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 text-sm ${activeTab === 'presales' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+            onClick={() => setActiveTab("presales")}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all text-[11px] ${activeTab === "presales" ? "bg-purple-600 text-white shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
           >
-            Pre-Sales (Seller History) {presalesCount > 0 && `(${presalesCount})`}
+            Pre-Sales History {presalesCount > 0 && `(${presalesCount})`}
           </button>
         </div>
-
         <button
           onClick={() => {
             if (!canCreate) {
-              toast.error('You do not have permission to create seller follow-ups');
+              toast.error("No permission to create");
               return;
             }
             onAddFollowup();
           }}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${canCreate ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-          title={!canCreate ? 'No permission to create follow-ups' : 'Add Seller Follow-up'}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${canCreate ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
         >
-          <Plus size={16} />
-          <span>Add Seller Follow-up</span>
+          <Plus size={12} />
+          <span>Add Follow-up</span>
         </button>
       </div>
 
       {filteredFollowups.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {filteredFollowups.map((f, i) => {
-            const idKey = (f.id ?? `f-${i}-${toSlug(f.followupType || f.type || 'followup')}`).toString();
+            const idKey = (f.id ?? `f-${i}`).toString();
             return (
               <div key={idKey} className="h-full">
                 <div
-                  className={`h-full bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow border-l-4 ${cardBorder(f.priority ?? undefined)}`}
+                  className={`h-full bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-shadow border-l-4 ${cardBorder(f.priority ?? undefined)}`}
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-gray-100 rounded-lg">
-                      {typeIcon(f.followupType || f.followup_type || f.type || undefined)}
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 bg-gray-100 rounded-lg">
+                      {typeIcon(
+                        f.followupType ||
+                          f.followup_type ||
+                          f.type ||
+                          undefined,
+                      )}
                     </div>
-
                     <div className="flex-1 min-w-0">
-                      {/* title + status/priority */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        {f.category === 'presales' && (
-                          <span className="px-2 py-0.5 text-[10px] rounded-full bg-indigo-100 text-indigo-700 font-medium">
-                            Pre-Sales History
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                        {f.category === "presales" && (
+                          <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-purple-100 text-purple-700 font-medium">
+                            Pre-Sales
                           </span>
                         )}
-                        {f.category === 'sales' && (
-                          <span className="px-2 py-0.5 text-[10px] rounded-full bg-indigo-100 text-indigo-700 font-medium">
-                            Sales History
+                        {f.category === "sales" && (
+                          <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-blue-100 text-blue-700 font-medium">
+                            Sales
                           </span>
                         )}
                         {statusBadge(f.status ?? undefined)}
                         {priorityBadge(f.priority ?? undefined)}
                       </div>
-
-                      {/* SELLER chips */}
                       <FieldChips f={f} />
-
-                      {/* Optional: human time under chips */}
-                      {f.scheduleDate && (
-                        <div className="mt-2 text-xs text-gray-600">
-                          <span className="font-medium">When:</span>{' '}
-                          {fmtDateTimeHuman(f.scheduleDate) || fmtDateDDMMYYYY(parseSqlish(f.scheduleDate) as Date)}
-                          {f.scheduleTime ? ` • ${fmtTime12h(f.scheduleTime)}` : ''}
-                        </div>
-                      )}
+                      <div className="mt-1.5 text-[10px] text-gray-500">
+                        {f.scheduleDate && (
+                          <>
+                            <span className="font-medium">When:</span>{" "}
+                            {fmtDateTimeHuman(f.scheduleDate) ||
+                              fmtDateDDMMYYYY(
+                                parseSqlish(f.scheduleDate) as Date,
+                              )}
+                            {f.scheduleTime
+                              ? ` • ${fmtTime12h(f.scheduleTime)}`
+                              : ""}
+                          </>
+                        )}
+                      </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-1">
                       <button
                         onClick={() => {
                           if (!canUpdate) {
-                            toast.error('You do not have permission to edit follow-ups');
+                            toast.error("No permission to edit");
                             return;
                           }
                           onEditFollowup(f);
                         }}
-                        disabled={!canUpdate || f.category === 'presales'}
-                        className="p-2 rounded hover:bg-gray-100 disabled:text-gray-300 disabled:cursor-not-allowed"
-                        title={f.category === 'presales' ? 'Pre-sales history cannot be edited' : (!canUpdate ? 'No permission' : 'Edit seller follow-up')}
+                        disabled={!canUpdate || f.category === "presales"}
+                        className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-40"
+                        title={
+                          f.category === "presales"
+                            ? "Cannot edit pre-sales"
+                            : "Edit"
+                        }
                       >
-                        <Pencil size={16} />
+                        <Pencil size={12} className="text-gray-500" />
                       </button>
                       <button
                         onClick={() => {
                           if (!canDelete) {
-                            toast.error('You do not have permission to delete follow-ups');
+                            toast.error("No permission to delete");
                             return;
                           }
                           onDeleteFollowup(f);
                         }}
-                        disabled={!canDelete || f.category === 'presales'}
-                        className="p-2 rounded hover:bg-rose-50 text-rose-600 disabled:text-gray-300 disabled:cursor-not-allowed"
-                        title={f.category === 'presales' ? 'Pre-sales history cannot be deleted' : (!canDelete ? 'No permission' : 'Delete seller follow-up')}
+                        disabled={!canDelete || f.category === "presales"}
+                        className="p-1.5 rounded hover:bg-red-50 disabled:opacity-40"
+                        title={
+                          f.category === "presales"
+                            ? "Cannot delete pre-sales"
+                            : "Delete"
+                        }
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={12} className="text-red-500" />
                       </button>
                     </div>
                   </div>
@@ -2375,28 +2623,28 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
           })}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <CalendarIcon className="mx-auto text-gray-300 mb-4" size={48} />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No {activeTab === 'sales' ? 'Seller' : 'Pre-Sales (Seller)'} follow-ups yet
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+          <CalendarIcon size={36} className="mx-auto mb-3 text-gray-300" />
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">
+            No {activeTab === "sales" ? "Seller" : "Pre-Sales"} follow-ups yet
           </h3>
-          <p className="text-gray-500 mb-4">
-            {activeTab === 'sales'
-              ? 'Plan your first seller follow-up for this seller'
-              : 'This section shows seller follow-ups transferred from the lead stage.'}
+          <p className="text-[11px] text-gray-500 mb-3">
+            {activeTab === "sales"
+              ? "Plan your first seller follow-up"
+              : "Transferred follow-ups appear here"}
           </p>
-          {activeTab === 'sales' && (
+          {activeTab === "sales" && (
             <button
               onClick={() => {
                 if (!canCreate) {
-                  toast.error('You do not have permission to create seller follow-ups');
+                  toast.error("No permission");
                   return;
                 }
                 onAddFollowup();
               }}
-              className={`px-4 py-2 rounded-lg transition-colors ${canCreate ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+              className="px-3 py-1.5 text-[11px] rounded-lg bg-blue-600 text-white hover:bg-blue-700"
             >
-              Add Seller Follow-up
+              Add Follow-up
             </button>
           )}
         </div>
@@ -2406,7 +2654,7 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
 };
 
 /* ------------------------------------------------------------------ */
-/* SellerViewPage                                                     */
+/* Main SellerViewPage Component */
 /* ------------------------------------------------------------------ */
 export interface SellerViewPageProps {
   seller?: AnyObj;
@@ -2423,29 +2671,24 @@ export interface SellerViewPageProps {
 
 const SellerViewPage: React.FC<SellerViewPageProps> = ({
   seller = {},
-  onBack = () => { },
-  onEdit = (..._args: any[]) => { },
-  onAccount = (..._args: any[]) => { },
-  onNext = () => { },
-  onPrevious = () => { },
+  onBack = () => {},
+  onEdit = (..._args: any[]) => {},
+  onAccount = (..._args: any[]) => {},
+  onNext = () => {},
+  onPrevious = () => {},
   currentIndex = 0,
   totalSellers = 1,
-  onUpdateSeller = () => { },
+  onUpdateSeller = () => {},
   sellerId,
 }) => {
-  // ---- Auth & permissions
   const { user } = useAuth() as { user: any | null };
+  const canUpdateSeller = can(user, "seller.update");
+  const canViewFollowups = can(user, "followup.read");
+  const canCreateFollowups = can(user, "followup.create");
+  const canUpdateFollowups = can(user, "followup.update");
+  const canDeleteFollowups = can(user, "followup.delete");
 
-  // seller edit permission
-  const canUpdateSeller = can(user, 'seller.update');
-
-  // followup permissions
-  const canViewFollowups = can(user, 'followup.read');
-  const canCreateFollowups = can(user, 'followup.create');
-  const canUpdateFollowups = can(user, 'followup.update');
-  const canDeleteFollowups = can(user, 'followup.delete');
-
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [activeTab, setActiveTab] = useState<string>("overview");
   const [showStageUpdateModal, setShowStageUpdateModal] = useState(false);
   const [showSharingModal, setShowSharingModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
@@ -2453,104 +2696,165 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
   const [showPropertyForm, setShowPropertyForm] = useState(false);
   const [editingActivity, setEditingActivity] = useState<any>(null);
   const [editingProperty, setEditingProperty] = useState<any>(null);
-
   const [showFollowupModal, setShowFollowupModal] = useState(false);
   const [editingFollowup, setEditingFollowup] = useState<Followup | null>(null);
-
   const [fuLoading, setFuLoading] = useState(false);
   const [fuError, setFuError] = useState<string | null>(null);
-
+const sellerRef = React.useRef(seller);
+useEffect(() => { sellerRef.current = seller; }, [seller]);
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: UserIcon, count: null },
-    { id: 'details', label: 'Details', icon: FileText, count: null },
-    { id: 'buyers', label: 'Buyers', icon: Users, count: (seller as any).interestedBuyers || 0 },
-    { id: 'activities', label: 'Activities', icon: Activity, count: (seller as any).activities?.length || 0 },
-    { id: 'followups', label: 'Follow-ups', icon: CalendarIcon, count: ((seller as any).followups as Followup[] | undefined)?.length || 0 },
-    { id: 'documents', label: 'Documents', icon: FileText, count: (seller as any).documents?.length || 0 },
-    { id: 'visits', label: 'Visits', icon: Eye, count: (seller as any).visits || 0 },
-    { id: 'deal', label: 'Deal', icon: Target, count: null },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, count: null }
+    { id: "overview", label: "Overview", icon: UserIcon },
+    { id: "details", label: "Details", icon: FileText },
+    {
+      id: "buyers",
+      label: "Buyers",
+      icon: Users,
+      count: (seller as any).interestedBuyers || 0,
+    },
+    {
+      id: "activities",
+      label: "Activities",
+      icon: Activity,
+      count: (seller as any).activities?.length || 0,
+    },
+    {
+      id: "followups",
+      label: "Follow-ups",
+      icon: CalendarIcon,
+      count: ((seller as any).followups as Followup[] | undefined)?.length || 0,
+    },
+    {
+      id: "documents",
+      label: "Documents",
+      icon: FileText,
+      count: (seller as any).documents?.length || 0,
+    },
+    {
+      id: "visits",
+      label: "Visits",
+      icon: Eye,
+      count: (seller as any).visits || 0,
+    },
+    { id: "deal", label: "Deal", icon: Target },
+    { id: "analytics", label: "Analytics", icon: BarChart3 },
   ];
 
   const sellerStages = [
-    { id: 'initial_contact', label: 'Initial Contact', progress: 10, color: 'blue' },
-    { id: 'property_collection', label: 'Property Collection', progress: 25, color: 'purple' },
-    { id: 'mandate_discussion', label: 'Mandate Discussion', progress: 40, color: 'orange' },
-    { id: 'mandate_signed', label: 'Mandate Signed', progress: 60, color: 'green' },
-    { id: 'selling_process', label: 'Selling Process', progress: 75, color: 'indigo' },
-    { id: 'deal_negotiation', label: 'Deal Negotiation', progress: 85, color: 'yellow' },
-    { id: 'deal_closure', label: 'Deal Closure', progress: 95, color: 'pink' },
-    { id: 'completed', label: 'Completed', progress: 100, color: 'emerald' }
+    {
+      id: "initial_contact",
+      label: "Initial Contact",
+      progress: 10,
+      color: "blue",
+    },
+    {
+      id: "property_collection",
+      label: "Property Collection",
+      progress: 25,
+      color: "purple",
+    },
+    {
+      id: "mandate_discussion",
+      label: "Mandate Discussion",
+      progress: 40,
+      color: "orange",
+    },
+    {
+      id: "mandate_signed",
+      label: "Mandate Signed",
+      progress: 60,
+      color: "green",
+    },
+    {
+      id: "selling_process",
+      label: "Selling Process",
+      progress: 75,
+      color: "indigo",
+    },
+    {
+      id: "deal_negotiation",
+      label: "Deal Negotiation",
+      progress: 85,
+      color: "yellow",
+    },
+    { id: "deal_closure", label: "Deal Closure", progress: 95, color: "pink" },
+    { id: "completed", label: "Completed", progress: 100, color: "emerald" },
   ];
 
-  const currentStage = sellerStages.find(stage => stage.id === (seller as any).stage) || sellerStages[0];
-
-  // ----------------------- API: helpers & mapping -----------------------
+  const currentStage =
+    sellerStages.find((stage) => stage.id === (seller as any).stage) ||
+    sellerStages[0];
   const sellerIdVal: string | number | undefined =
     sellerId ?? (seller as any)?.id ?? (seller as any)?.sellerId ?? undefined;
-
   const ensureTime = (t?: string) => {
     if (!t) return undefined;
-    const [hh = '00', mm = '00', ss = '00'] = t.split(':');
-    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+    const [hh = "00", mm = "00", ss = "00"] = t.split(":");
+    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
   };
 
   const normalizeFromApi = (row: any): Followup => {
-    const id = row?.id ?? row?.followup_id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const followupType = row?.followup_type ?? row?.followupType;
-    const sellerLeadStatus = row?.seller_lead_status ?? row?.sellerLeadStatus ?? row?.status;
-
-    const createdByName = row?.created_by_name ?? row?.createdByName ?? null;
-    const updatedByName = row?.updated_by_name ?? row?.updatedByName ?? null;
-    const assignedExecutiveName =
-      row?.assigned_executive_name ?? row?.assignedExecutiveName ?? null;
-    const assignedToName =
-      row?.assigned_to_name ?? row?.assignedToName ?? null;
-    const transferredByName =
-      row?.transferred_by_name ?? row?.transferredByName ?? null;
-
-    const assignedExec = row?.assigned_executive ?? row?.assignedExecutive ?? row?.assigned_to;
-
+    const id =
+      row?.id ??
+      row?.followup_id ??
+      `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     return {
       id: String(id),
       seller_id: row?.seller_id ?? row?.sellerId,
-      followup_date: row?.schedule_date ?? row?.followup_date ?? row?.scheduleDate ?? undefined,
-      followup_time: ensureTime(row?.schedule_time ?? row?.followup_time ?? row?.scheduleTime ?? undefined),
-      followup_type: followupType,
-      status: sellerLeadStatus,
-      priority: row?.priority ?? '',
-      notes: row?.custom_remark ?? row?.customRemark ?? row?.remark ?? row?.notes ?? undefined,
+      followup_date:
+        row?.schedule_date ??
+        row?.followup_date ??
+        row?.scheduleDate ??
+        undefined,
+      followup_time: ensureTime(
+        row?.schedule_time ??
+          row?.followup_time ??
+          row?.scheduleTime ??
+          undefined,
+      ),
+      followup_type: row?.followup_type ?? row?.followupType,
+      status: row?.seller_lead_status ?? row?.sellerLeadStatus ?? row?.status,
+      priority: row?.priority ?? "",
+      notes:
+        row?.custom_remark ??
+        row?.customRemark ??
+        row?.remark ??
+        row?.notes ??
+        undefined,
       next_action: row?.next_action ?? row?.nextAction ?? undefined,
-      assigned_to: assignedExec,
+      assigned_to:
+        row?.assigned_executive ?? row?.assignedExecutive ?? row?.assigned_to,
       reminder: Number(row?.reminder ?? 0) as 0 | 1,
-
       created_at: row?.created_at ?? row?.createdAt,
       updated_at: row?.updated_at ?? row?.updatedAt,
       created_by: row?.created_by ?? row?.createdBy,
       updated_by: row?.updated_by ?? row?.updatedBy,
-
-      createdByName,
-      updatedByName,
-      assignedExecutiveName,
-
+      createdByName: row?.created_by_name ?? row?.createdByName,
+      updatedByName: row?.updated_by_name ?? row?.updatedByName,
+      assignedExecutiveName:
+        row?.assigned_executive_name ?? row?.assignedExecutiveName,
       transferred_from_lead:
         row?.transferred_from_lead === true ||
         row?.transferred_from_lead === 1 ||
         row?.transferredFromLead === true ||
         row?.transferredFromLead === 1 ||
         false,
-
       category:
-        (row?.transferred_from_lead || row?.transferredFromLead) ? 'presales' : 'sales',
+        row?.transferred_from_lead || row?.transferredFromLead
+          ? "presales"
+          : "sales",
     };
   };
 
-  const pushFollowupsIntoSeller = useCallback((rows: any[]) => {
+ const pushFollowupsIntoSeller = useCallback(
+  (rows: any[]) => {
     const mapped = (rows || []).map(normalizeFromApi);
-    const updatedSeller: AnyObj = { ...(seller as AnyObj), followups: mapped };
+    const updatedSeller: AnyObj = {
+      ...sellerRef.current,  // ← seller ki jagah sellerRef.current
+      followups: mapped,
+    };
     onUpdateSeller(updatedSeller);
-  }, [seller, onUpdateSeller]);
-
+  },
+  [onUpdateSeller],  // ← seller dependency hata do
+);
   const fetchFollowups = useCallback(async () => {
     if (!sellerIdVal) return;
     try {
@@ -2559,10 +2863,10 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       const res = await sellerFollowupAPI.getAll({
         sellerId: sellerIdVal as any,
         page: 1,
-        limit: 200
+        limit: 200,
       });
-      const rows = (res && typeof res === 'object' && 'data' in res) ? res.data : res;
-
+      const rows =
+        res && typeof res === "object" && "data" in res ? res.data : res;
       pushFollowupsIntoSeller(Array.isArray(rows) ? rows : []);
     } catch (e: any) {
       console.error("Failed to load seller followups:", e);
@@ -2574,205 +2878,274 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
   }, [sellerIdVal, pushFollowupsIntoSeller]);
 
   useEffect(() => {
-    if (sellerId) {
-      fetchFollowups();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (sellerId) fetchFollowups();
   }, [sellerId]);
 
-  // ----------------------- Stage, Activity, Visit, Property --------------
   const mapPropertyToInitialData = (property: AnyObj | null) => {
     if (!property) return null;
-
     const mappedPhotos = Array.isArray(property.photos)
       ? property.photos
-        .map((p: any, idx: number) => {
-          if (!p) return null;
-          if (typeof p === 'string') return { id: `${property.id ?? 'p'}-${idx}`, url: p, name: `photo-${idx + 1}` };
-          return { id: p.id ?? `${property.id ?? 'p'}-${idx}`, url: p.url ?? p.path ?? '', name: p.name ?? `photo-${idx + 1}` };
-        })
-        .filter(Boolean)
+          .map((p: any, idx: number) => {
+            if (!p) return null;
+            if (typeof p === "string")
+              return {
+                id: `${property.id ?? "p"}-${idx}`,
+                url: p,
+                name: `photo-${idx + 1}`,
+              };
+            return {
+              id: p.id ?? `${property.id ?? "p"}-${idx}`,
+              url: p.url ?? p.path ?? "",
+              name: p.name ?? `photo-${idx + 1}`,
+            };
+          })
+          .filter(Boolean)
       : Array.isArray(property.photoUrls)
-        ? property.photoUrls.map((u: string, idx: number) => ({ id: `${property.id ?? 'p'}-${idx}`, url: u, name: `photo-${idx + 1}` }))
+        ? property.photoUrls.map((u: string, idx: number) => ({
+            id: `${property.id ?? "p"}-${idx}`,
+            url: u,
+            name: `photo-${idx + 1}`,
+          }))
         : [];
-
     const mappedNearby = Array.isArray(property.nearby_places)
       ? property.nearby_places.map((n: any) => ({
-        name: n.name ?? n.place ?? '',
-        type: n.type ?? n.category ?? '',
-        distance: n.distance ?? '',
-        unit: n.unit ?? ''
-      }))
+          name: n.name ?? n.place ?? "",
+          type: n.type ?? n.category ?? "",
+          distance: n.distance ?? "",
+          unit: n.unit ?? "",
+        }))
       : [];
-
     return {
       id: property.id ?? property._id,
-      salutation: property.salutation ?? property.ownerSalutation ?? 'Mr',
-      ownerName: property.ownerName ?? property.owner_name ?? property.contactName ?? property.seller_name ?? '',
-      ownerPhone: property.ownerPhone ?? property.owner_phone ?? property.contactPhone ?? property.phone ?? '',
-      ownerWhatsapp: property.ownerWhatsapp ?? property.owner_whatsapp ?? property.contactWhatsapp ?? '',
+      salutation: property.salutation ?? property.ownerSalutation ?? "Mr",
+      ownerName:
+        property.ownerName ??
+        property.owner_name ??
+        property.contactName ??
+        property.seller_name ??
+        "",
+      ownerPhone:
+        property.ownerPhone ??
+        property.owner_phone ??
+        property.contactPhone ??
+        property.phone ??
+        "",
+      ownerWhatsapp:
+        property.ownerWhatsapp ??
+        property.owner_whatsapp ??
+        property.contactWhatsapp ??
+        "",
       sameAsPhone: !!(
-        (property.ownerWhatsapp && property.ownerPhone && property.ownerWhatsapp === property.ownerPhone) ||
+        (property.ownerWhatsapp &&
+          property.ownerPhone &&
+          property.ownerWhatsapp === property.ownerPhone) ||
         (property.ownerWhatsapp && property.ownerWhatsapp === property.phone)
       ),
-      ownerEmail: property.ownerEmail ?? property.owner_email ?? property.contactEmail ?? property.email ?? '',
-      ownerType: property.ownerType ?? property.owner_type ?? 'individual',
-      seller: property.seller ?? property.seller_name ?? `${safeString((seller as any)?.salutation ? (seller as any).salutation + ' ' : '')}${safeString((seller as any)?.name)}`,
-      propertyType: property.propertyType ?? property.type ?? property.property_type_name ?? '',
-      propertySubtype: property.propertySubtype ?? property.subtype ?? property.property_subtype_name ?? '',
-      unitType: property.unitType ?? property.unit_type ?? safeString(property.unit_type_name) ?? '',
-      wing: property.wing ?? property.block ?? '',
-      unitNo: property.unitNo ?? property.unit_no ?? property.unit ?? '',
-      furnishing: property.furnishing ?? '',
-      parkingType: property.parkingType ?? property.parking_type ?? '',
+      ownerEmail:
+        property.ownerEmail ??
+        property.owner_email ??
+        property.contactEmail ??
+        property.email ??
+        "",
+      ownerType: property.ownerType ?? property.owner_type ?? "individual",
+      seller:
+        property.seller ??
+        property.seller_name ??
+        `${safeString((seller as any)?.salutation ? (seller as any).salutation + " " : "")}${safeString((seller as any)?.name)}`,
+      propertyType:
+        property.propertyType ??
+        property.type ??
+        property.property_type_name ??
+        "",
+      propertySubtype:
+        property.propertySubtype ??
+        property.subtype ??
+        property.property_subtype_name ??
+        "",
+      unitType:
+        property.unitType ??
+        property.unit_type ??
+        safeString(property.unit_type_name) ??
+        "",
+      wing: property.wing ?? property.block ?? "",
+      unitNo: property.unitNo ?? property.unit_no ?? property.unit ?? "",
+      furnishing: property.furnishing ?? "",
+      parkingType: property.parkingType ?? property.parking_type ?? "",
       parkingQty: safeNumber(property.parkingQty ?? property.parking_qty),
-      city: property.city ?? property.city_name ?? (seller as any)?.city ?? '',
-      location: property.location ?? property.location_name ?? '',
-      society: property.society ?? property.society_name ?? '',
-      floor: property.floor ?? '',
-      totalFloors: property.totalFloors ?? property.total_floors ?? '',
-      carpetArea: safeNumber(property.carpetArea ?? property.carpet_area ?? property.area),
+      city: property.city ?? property.city_name ?? (seller as any)?.city ?? "",
+      location: property.location ?? property.location_name ?? "",
+      society: property.society ?? property.society_name ?? "",
+      floor: property.floor ?? "",
+      totalFloors: property.totalFloors ?? property.total_floors ?? "",
+      carpetArea: safeNumber(
+        property.carpetArea ?? property.carpet_area ?? property.area,
+      ),
       builtupArea: safeNumber(property.builtupArea ?? property.builtup_area),
-      budget: safeNumber(property.budget ?? property.price ?? property.expectedPrice),
-      address: property.address ?? property.displayAddress ?? property.full_address ?? '',
-      status: property.status ?? '',
-      leadSource: property.leadSource ?? property.lead_source ?? property.source ?? (seller as any)?.source ?? 'Website',
-      possessionMonth: property.possessionMonth ?? property.possession_month ?? '',
-      possessionYear: property.possessionYear ?? property.possession_year ?? '',
-      purchaseMonth: property.purchaseMonth ?? property.purchase_month ?? '',
-      purchaseYear: property.purchaseYear ?? property.purchase_year ?? '',
-      sellingRights: property.sellingRights ?? property.selling_rights ?? '',
-      amenities: ensureArray(property.amenities ?? property.amenities_list ?? []),
-      furnishingItems: ensureArray(property.furnishingItems ?? property.furnishing_items ?? []),
-      description: property.description ?? property.longDescription ?? property.desc ?? '',
+      budget: safeNumber(
+        property.budget ?? property.price ?? property.expectedPrice,
+      ),
+      address:
+        property.address ??
+        property.displayAddress ??
+        property.full_address ??
+        "",
+      status: property.status ?? "",
+      leadSource:
+        property.leadSource ??
+        property.lead_source ??
+        property.source ??
+        (seller as any)?.source ??
+        "Website",
+      possessionMonth:
+        property.possessionMonth ?? property.possession_month ?? "",
+      possessionYear: property.possessionYear ?? property.possession_year ?? "",
+      purchaseMonth: property.purchaseMonth ?? property.purchase_month ?? "",
+      purchaseYear: property.purchaseYear ?? property.purchase_year ?? "",
+      sellingRights: property.sellingRights ?? property.selling_rights ?? "",
+      amenities: ensureArray(
+        property.amenities ?? property.amenities_list ?? [],
+      ),
+      furnishingItems: ensureArray(
+        property.furnishingItems ?? property.furnishing_items ?? [],
+      ),
+      description:
+        property.description ?? property.longDescription ?? property.desc ?? "",
       nearby_places: mappedNearby,
-      existingOwnershipDocUrl: property.ownership_doc_path ?? property.ownershipDocUrl ?? '',
-      existingOwnershipDocName: property.ownership_doc_name ?? '',
-      existingOwnershipDocId: property.ownership_doc_id ?? '',
+      existingOwnershipDocUrl:
+        property.ownership_doc_path ?? property.ownershipDocUrl ?? "",
+      existingOwnershipDocName: property.ownership_doc_name ?? "",
+      existingOwnershipDocId: property.ownership_doc_id ?? "",
       existingPhotos: mappedPhotos,
-      public_inquiries: property.public_inquiries ?? property.publicInquiries ?? 0,
+      public_inquiries:
+        property.public_inquiries ?? property.publicInquiries ?? 0,
       public_views: property.public_views ?? property.publicViews ?? 0,
-      publication_date: property.publication_date ?? property.publicationDate ?? null
+      publication_date:
+        property.publication_date ?? property.publicationDate ?? null,
     };
   };
 
   const openPropertyFormForEdit = (property: AnyObj) => {
-    const mapped = mapPropertyToInitialData(property);
-    setEditingProperty(mapped);
+    setEditingProperty(mapPropertyToInitialData(property));
     setShowPropertyForm(true);
   };
-
   const openPropertyFormForCreate = () => {
-    const prefill = {
-      seller: `${(seller as any)?.salutation ? (seller as any).salutation + ' ' : ''}${(seller as any)?.name ?? ''}`,
-      city: (seller as any)?.city ?? '',
-      location: (seller as any)?.location ?? '',
-      leadSource: (seller as any)?.source ?? 'Website'
-    };
-    setEditingProperty(prefill);
+    setEditingProperty({
+      seller: `${(seller as any)?.salutation ? (seller as any).salutation + " " : ""}${(seller as any)?.name ?? ""}`,
+      city: (seller as any)?.city ?? "",
+      location: (seller as any)?.location ?? "",
+      leadSource: (seller as any)?.source ?? "Website",
+    });
     setShowPropertyForm(true);
   };
-
-  const handleStageUpdate = (newStage: string, remarks: string, nextAction: string) => {
+  const handleStageUpdate = (
+    newStage: string,
+    remarks: string,
+    nextAction: string,
+  ) => {
     const updatedSeller = {
       ...(seller as AnyObj),
       stage: newStage,
-      stageProgress: sellerStages.find(s => s.id === newStage)?.progress ?? 0,
-      lastActivity: new Date().toISOString().split('T')[0],
+      stageProgress: sellerStages.find((s) => s.id === newStage)?.progress ?? 0,
+      lastActivity: new Date().toISOString().split("T")[0],
       activities: [
         ...((seller as AnyObj).activities || []),
         {
           id: Date.now(),
-          type: 'stage_update',
-          description: `Stage updated to ${sellerStages.find(s => s.id === newStage)?.label ?? newStage}`,
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          type: "stage_update",
+          description: `Stage updated to ${sellerStages.find((s) => s.id === newStage)?.label ?? newStage}`,
+          date: new Date().toISOString().split("T")[0],
+          time: new Date().toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
           stage: newStage,
           outcome: remarks,
           nextAction,
-          executedBy: 'Admin User',
-          remarks
-        }
-      ]
+          executedBy: "Admin User",
+          remarks,
+        },
+      ],
     };
     onUpdateSeller(updatedSeller);
     setShowStageUpdateModal(false);
   };
-
   const handleAddActivity = (activityData: AnyObj) => {
     const updatedSeller = {
       ...(seller as AnyObj),
       activities: [...((seller as AnyObj).activities || []), activityData],
-      lastActivity: new Date().toISOString().split('T')[0]
+      lastActivity: new Date().toISOString().split("T")[0],
     };
     onUpdateSeller(updatedSeller);
     setShowActivityModal(false);
     setEditingActivity(null);
   };
-
-  // Local upsert helper (just updates parent state)
   const upsertFollowupLocal = (followupData: Followup) => {
     const updatedSeller = {
       ...(seller as AnyObj),
       followups: ((seller as AnyObj).followups as Followup[] | undefined)
-        ? ((seller as AnyObj).followups as Followup[]).some((f) => f.id === followupData.id)
-          ? ((seller as AnyObj).followups as Followup[]).map((f) => (f.id === followupData.id ? followupData : f))
-          : [...(((seller as AnyObj).followups as Followup[])), followupData]
-        : [followupData]
+        ? ((seller as AnyObj).followups as Followup[]).some(
+            (f) => f.id === followupData.id,
+          )
+          ? ((seller as AnyObj).followups as Followup[]).map((f) =>
+              f.id === followupData.id ? followupData : f,
+            )
+          : [...((seller as AnyObj).followups as Followup[]), followupData]
+        : [followupData],
     };
     onUpdateSeller(updatedSeller);
   };
-
   const handleDeleteFollowupLocal = (f: Followup) => {
     const updatedSeller = {
       ...(seller as AnyObj),
-      followups: (((seller as AnyObj).followups as Followup[]) || []).filter((x) => x.id !== f.id)
+      followups: (((seller as AnyObj).followups as Followup[]) || []).filter(
+        (x) => x.id !== f.id,
+      ),
     };
     onUpdateSeller(updatedSeller);
   };
-
   const handleAddVisit = (visitData: AnyObj) => {
     const updatedSeller = {
       ...(seller as AnyObj),
       visits: ((seller as AnyObj).visits || 0) + 1,
       totalVisits: ((seller as AnyObj).totalVisits || 0) + 1,
-      lastActivity: new Date().toISOString().split('T')[0],
+      lastActivity: new Date().toISOString().split("T")[0],
       activities: [
         ...((seller as AnyObj).activities || []),
         {
           id: Date.now(),
-          type: 'visit',
+          type: "visit",
           description: `Property visit scheduled for ${visitData.property}`,
           date: visitData.date,
           time: visitData.time,
           stage: (seller as AnyObj).stage,
-          outcome: visitData.feedback || 'Visit scheduled',
-          nextAction: visitData.nextAction || 'Follow up after visit',
-          executedBy: 'Admin User',
-          remarks: visitData.remarks || ''
-        }
-      ]
+          outcome: visitData.feedback || "Visit scheduled",
+          nextAction: visitData.nextAction || "Follow up after visit",
+          executedBy: "Admin User",
+          remarks: visitData.remarks || "",
+        },
+      ],
     };
     onUpdateSeller(updatedSeller);
     setShowVisitModal(false);
   };
-
   const handleAddProperty = (propertyData: AnyObj) => {
     const updatedSeller = {
       ...(seller as AnyObj),
-      properties: [...((seller as AnyObj).properties || []), propertyData]
+      properties: [...((seller as AnyObj).properties || []), propertyData],
     };
     onUpdateSeller(updatedSeller);
     setShowPropertyForm(false);
     setEditingProperty(null);
   };
-
-  /* ---------- MAP from modal payload -> API + local Followup item ---------- */
   const normalizeToFollowup = (data: SellerFollowupPayload): Followup => {
-    const mkId = () => (data.id ? String(data.id) : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    const mkId = () =>
+      data.id
+        ? String(data.id)
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     return {
       id: mkId(),
-      seller_id: data.seller_id ?? ((seller as any)?.id ?? (seller as any)?.sellerId),
+      seller_id:
+        data.seller_id ?? (seller as any)?.id ?? (seller as any)?.sellerId,
       followup_date: data.scheduleDate || undefined,
       followup_time: ensureTime(data.scheduleTime),
       followup_type: data.followupType || undefined,
@@ -2787,232 +3160,264 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       created_by: data.created_by,
       updated_by: data.updated_by,
       transferred_from_lead: false,
-      category: 'sales',
+      category: "sales",
     };
   };
-
-  // --------------------------- API: Create / Update ---------------------------
   const handleModalSave = async (payload: SellerFollowupPayload) => {
     if (!sellerIdVal) {
       alert("Missing seller id.");
       return;
     }
     if (!canCreateFollowups && !editingFollowup) {
-      toast.error('You do not have permission to create follow-ups');
+      toast.error("No permission to create");
       return;
     }
     if (editingFollowup && !canUpdateFollowups) {
-      toast.error('You do not have permission to update follow-ups');
+      toast.error("No permission to update");
       return;
     }
-
     try {
       setFuError(null);
       setFuLoading(true);
-
-      const apiPayload = { ...payload, seller_id: payload.seller_id ?? sellerIdVal };
-
+      const apiPayload = {
+        ...payload,
+        seller_id: payload.seller_id ?? sellerIdVal,
+      };
       if (editingFollowup?.id) {
-        const res = await sellerFollowupAPI.update(editingFollowup.id, apiPayload);
-        const updatedRow = res;
-        const normalized = normalizeFromApi(updatedRow ?? apiPayload);
+        const res = await sellerFollowupAPI.update(
+          editingFollowup.id,
+          apiPayload,
+        );
+        const normalized = normalizeFromApi(res ?? apiPayload);
         upsertFollowupLocal(normalized);
       } else {
         const res = await sellerFollowupAPI.create(apiPayload);
-        const createdRow = res;
-        const normalized = normalizeFromApi(createdRow ?? apiPayload);
+        const normalized = normalizeFromApi(res ?? apiPayload);
         upsertFollowupLocal(normalized);
       }
-
       setShowFollowupModal(false);
       setEditingFollowup(null);
     } catch (e: any) {
-      console.error("Save seller follow-up failed:", e);
-      setFuError(e?.message || "Failed to save follow-up");
-      alert(e?.message || "Failed to save follow-up");
+      console.error("Save failed:", e);
+      setFuError(e?.message || "Failed to save");
+      alert(e?.message || "Failed to save");
     } finally {
       setFuLoading(false);
     }
   };
-
-  // ------------------------------ API: Delete --------------------------------
   const handleDeleteFollowup = async (f: Followup) => {
     if (!canDeleteFollowups) {
-      toast.error('You do not have permission to delete follow-ups');
+      toast.error("No permission to delete");
       return;
     }
-    if (!confirm('Are you sure you want to delete this follow-up?')) return;
+    if (!confirm("Delete this follow-up?")) return;
     try {
       setFuError(null);
       setFuLoading(true);
       await sellerFollowupAPI.remove(f.id);
       handleDeleteFollowupLocal(f);
-      toast.success('Follow-up deleted');
+      toast.success("Deleted");
     } catch (e: any) {
-      console.error("Delete seller follow-up failed:", e);
-      setFuError(e?.message || "Failed to delete follow-up");
-      alert(e?.message || "Failed to delete follow-up");
+      console.error("Delete failed:", e);
+      setFuError(e?.message || "Failed to delete");
+      alert(e?.message || "Failed to delete");
     } finally {
       setFuLoading(false);
     }
   };
 
-  /* ----------------- Tabs Renderers (UI) ----------------- */
   const renderOverviewTab = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white">
-          <div className="flex items-center space-x-4">
-            <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-2xl font-bold">
-              {safeString((seller as any).name).charAt(0) || ''}
+    <div className="space-y-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white rounded-xl border border-gray-200 p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[9px] font-medium text-gray-500 uppercase">
+                Visits
+              </p>
+              <p className="text-lg font-bold text-gray-900">
+                {(seller as any).visits ?? 0}
+              </p>
             </div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold">{(seller as any).salutation} {(seller as any).name}</h2>
-              <p className="text-blue-100 text-lg">{(seller as any).location ?? '—'}, {(seller as any).city ?? '—'}</p>
-              <div className="flex items-center space-x-4 mt-2">
-                <span className="text-blue-100">{(seller as any).source ?? '—'} Lead</span>
-                <div className="flex items-center space-x-1">
-                  <Star className="text-yellow-300 fill-current" size={16} />
-                  <span className="text-white font-medium">{(seller as any).leadScore ?? 0}/100</span>
-                </div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold">{(seller as any).stageProgress ?? 0}%</div>
-              <div className="text-blue-100">Progress</div>
+            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Eye size={14} className="text-blue-600" />
             </div>
           </div>
         </div>
-
-        <div className="p-4 bg-gray-50">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Stage Progress:</span>
-            <div className="flex items-center space-x-2">
-              <span className="px-3 py-1 rounded-full text-sm font-medium">{currentStage.label}</span>
-              <span className="text-sm font-bold text-blue-600">{(seller as any).stageProgress ?? 0}%</span>
+        <div className="bg-white rounded-xl border border-gray-200 p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[9px] font-medium text-gray-500 uppercase">
+                Buyers
+              </p>
+              <p className="text-lg font-bold text-gray-900">
+                {(seller as any).interestedBuyers ?? 0}
+              </p>
             </div>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div
-              className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-500"
-              style={{ width: `${(seller as any).stageProgress ?? 0}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-            <span>Initial Contact</span>
-            <span>Completed</span>
+            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Users size={14} className="text-purple-600" />
+            </div>
           </div>
         </div>
-
-        <div className="p-6 border-t border-gray-100">
-          <div className="grid grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="flex items-center justify-center space-x-1 text-blue-600 mb-1">
-                <Eye size={16} />
-                <span className="text-xl font-bold">{(seller as any).visits ?? 0}</span>
-              </div>
-              <div className="text-xs text-gray-500">visits</div>
+        <div className="bg-white rounded-xl border border-gray-200 p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[9px] font-medium text-gray-500 uppercase">
+                Properties
+              </p>
+              <p className="text-lg font-bold text-gray-900">
+                {((seller as any).properties || []).length}
+              </p>
             </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center space-x-1 text-green-600 mb-1">
-                <Users size={16} />
-                <span className="text-xl font-bold">{(seller as any).interestedBuyers ?? 0}</span>
-              </div>
-              <div className="text-xs text-gray-500">buyers</div>
+            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+              <Building size={14} className="text-green-600" />
             </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center space-x-1 text-purple-600 mb-1">
-                <Building size={16} />
-                <span className="text-xl font-bold">{((seller as any).properties || []).length}</span>
-              </div>
-              <div className="text-xs text-gray-500">properties</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[9px] font-medium text-gray-500 uppercase">
+                Activities
+              </p>
+              <p className="text-lg font-bold text-gray-900">
+                {((seller as any).activities || []).length}
+              </p>
             </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center space-x-1 text-orange-600 mb-1">
-                <Activity size={16} />
-                <span className="text-xl font-bold">{((seller as any).activities || []).length}</span>
-              </div>
-              <div className="text-xs text-gray-500">activities</div>
+            <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+              <Activity size={14} className="text-orange-600" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Property Images</h3>
-          <button className="flex items-center space-x-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
-            <Camera size={16} />
+      {/* Stage Progress */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-gray-500">
+            Stage Progress
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">
+              {currentStage.label}
+            </span>
+            <span className="text-xs font-bold text-blue-600">
+              {(seller as any).stageProgress ?? 0}%
+            </span>
+          </div>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all bg-blue-600"
+            style={{ width: `${(seller as any).stageProgress ?? 0}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Property Images */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-gray-900">
+            Property Images
+          </h3>
+          <button className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 hover:bg-gray-200">
+            <Camera size={12} />
             <span>Add Photos</span>
           </button>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {(((seller as any).properties?.[0]?.photos ?? []) as string[]).slice(0, 3).map((photo: string, index: number) => (
-            <div key={index} className="relative group">
-              <img src={photo} alt={`Property ${index + 1}`} className="w-full h-32 object-cover rounded-xl" />
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded-xl flex items-center justify-center">
-                <Eye className="text-white opacity-0 group-hover:opacity-100 transition-all" size={24} />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {(((seller as any).properties?.[0]?.photos ?? []) as string[])
+            .slice(0, 3)
+            .map((photo: string, index: number) => (
+              <div
+                key={index}
+                className="relative group aspect-video bg-gray-100 rounded-lg overflow-hidden"
+              >
+                <img
+                  src={photo}
+                  alt={`Property ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                  <Eye
+                    size={16}
+                    className="text-white opacity-0 group-hover:opacity-100"
+                  />
+                </div>
               </div>
-            </div>
-          ))}
-          <div className="border-2 border-dashed border-gray-300 rounded-xl h-32 flex items-center justify-center hover:border-blue-400 transition-colors cursor-pointer">
+            ))}
+          <div className="border-2 border-dashed border-gray-300 rounded-lg aspect-video flex items-center justify-center cursor-pointer hover:border-blue-400 transition-colors">
             <div className="text-center">
-              <Camera className="mx-auto text-gray-400 mb-2" size={24} />
-              <span className="text-sm text-gray-500">Add Photo</span>
+              <Camera size={20} className="mx-auto mb-1 text-gray-400" />
+              <span className="text-[10px] text-gray-500">Add Photo</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Property Details</h3>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-sm text-gray-500">Type:</div>
-                <div className="font-semibold text-gray-900 text-lg">{(seller as any).properties?.[0]?.unit_type || (seller as any).properties?.[0]?.property_type || '—'}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Carpet Area:</div>
-                <div className="font-semibold text-gray-900 text-lg">{(seller as any).properties?.[0]?.carpet_area ?? '—'} sq ft</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Floor:</div>
-                <div className="font-semibold text-gray-900 text-lg">{(seller as any).properties?.[0]?.floor ?? '—'}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Parking:</div>
-                <div className="font-semibold text-gray-900 text-lg">
-                  {(seller as any).properties?.[0]?.parking_type ? `${(seller as any).properties?.[0]?.parking_qty || ''} ${(seller as any).properties?.[0]?.parking_type}` : '—'}
-                </div>
-              </div>
+      {/* Property Details & Seller Info */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 className="text-xs font-semibold text-gray-900 mb-3">
+            Property Details
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] text-gray-500">Type</p>
+              <p className="text-xs font-semibold text-gray-900">
+                {(seller as any).properties?.[0]?.unit_type ||
+                  (seller as any).properties?.[0]?.property_type ||
+                  "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500">Carpet Area</p>
+              <p className="text-xs font-semibold text-gray-900">
+                {(seller as any).properties?.[0]?.carpet_area ?? "—"} sq ft
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500">Floor</p>
+              <p className="text-xs font-semibold text-gray-900">
+                {(seller as any).properties?.[0]?.floor ?? "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500">Parking</p>
+              <p className="text-xs font-semibold text-gray-900">
+                {(seller as any).properties?.[0]?.parking_type
+                  ? `${(seller as any).properties?.[0]?.parking_qty || ""} ${(seller as any).properties?.[0]?.parking_type}`
+                  : "—"}
+              </p>
             </div>
           </div>
         </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Seller Information</h3>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <UserIcon className="text-blue-600" size={20} />
-              </div>
-              <div>
-                <div className="font-semibold text-gray-900">{(seller as any).name ?? '—'}</div>
-                <div className="text-sm text-gray-600">{(seller as any).phone ?? '—'}</div>
-              </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 className="text-xs font-semibold text-gray-900 mb-3">
+            Seller Information
+          </h3>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+              <UserIcon size={16} className="text-gray-600" />
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2 text-sm">
-                <Mail size={14} className="text-gray-400" />
-                <span>Email: {(seller as any).email ?? '—'}</span>
-              </div>
-              <div className="flex items-center space-x-2 text-sm">
-                <MapPin size={14} className="text-gray-400" />
-                <span>Lead Source: {(seller as any).source ?? '—'}</span>
-              </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-900">
+                {(seller as any).name ?? "—"}
+              </p>
+              <p className="text-[10px] text-gray-500">
+                {(seller as any).phone ?? "—"}
+              </p>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 text-[10px] text-gray-500">
+              <Mail size={10} />
+              <span>{(seller as any).email ?? "—"}</span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-gray-500">
+              <MapPin size={10} />
+              <span>Lead Source: {(seller as any).source ?? "—"}</span>
             </div>
           </div>
         </div>
@@ -3021,95 +3426,126 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
   );
 
   const renderDetailsTab = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
+    <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <h3 className="text-xs font-semibold text-gray-900 mb-3">
+          Personal Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium text-gray-500">Full Name</label>
-              <div className="text-lg font-semibold text-gray-900">{(seller as any).salutation} {(seller as any).name}</div>
+              <p className="text-[10px] font-medium text-gray-500">Full Name</p>
+              <p className="text-sm font-semibold text-gray-900">
+                {(seller as any).salutation} {(seller as any).name}
+              </p>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-500">Phone Number</label>
-              <div className="text-lg font-semibold text-gray-900">{(seller as any).phone}</div>
+              <p className="text-[10px] font-medium text-gray-500">
+                Phone Number
+              </p>
+              <p className="text-sm font-semibold text-gray-900">
+                {(seller as any).phone}
+              </p>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-500">Email Address</label>
-              <div className="text-lg font-semibold text-gray-900">{(seller as any).email}</div>
+              <p className="text-[10px] font-medium text-gray-500">
+                Email Address
+              </p>
+              <p className="text-sm font-semibold text-gray-900">
+                {(seller as any).email}
+              </p>
             </div>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium text-gray-500">Location</label>
-              <div className="text-lg font-semibold text-gray-900">{(seller as any).location}, {(seller as any).city}</div>
+              <p className="text-[10px] font-medium text-gray-500">Location</p>
+              <p className="text-sm font-semibold text-gray-900">
+                {(seller as any).location}, {(seller as any).city}
+              </p>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-500">Lead Source</label>
-              <div className="text-lg font-semibold text-gray-900">{(seller as any).source}</div>
+              <p className="text-[10px] font-medium text-gray-500">
+                Lead Source
+              </p>
+              <p className="text-sm font-semibold text-gray-900">
+                {(seller as any).source}
+              </p>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-500">Status</label>
-              <div className="mt-1">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-700">
-                  {(seller as any).status ?? 'Active'}
-                </span>
-              </div>
+              <p className="text-[10px] font-medium text-gray-500">Status</p>
+              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
+                {(seller as any).status ?? "Active"}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Properties Portfolio</h3>
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-gray-900">
+            Properties Portfolio
+          </h3>
           <button
             onClick={openPropertyFormForCreate}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] bg-blue-600 text-white hover:bg-blue-700"
           >
-            <Plus size={16} />
+            <Plus size={12} />
             <span>Add Property</span>
           </button>
         </div>
-
         {(seller as any).properties && (seller as any).properties.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {((seller as AnyObj).properties as AnyObj[]).map((property: AnyObj, index: number) => (
-              <div key={index} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start space-x-3">
-                  <img
-                    src={property.photos?.[0] ?? 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=200'}
-                    alt={property.title ?? 'property'}
-                    className="w-16 h-12 object-cover rounded-lg"
-                  />
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900">
-                      {property.title ?? property.slug ?? (property.unit_type || property.property_subtype_name || 'Untitled')}
-                    </h4>
-                    <p className="text-sm text-gray-600">{property.address ?? property.location_name ?? property.location}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-sm font-medium text-green-600">{property.price ?? property.budget ?? ''}</span>
-                      <span className="text-xs text-gray-500">{property.area ?? property.carpet_area ?? ''}</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {(seller as any).properties.map(
+              (property: AnyObj, index: number) => (
+                <div
+                  key={index}
+                  className="border border-gray-200 rounded-lg p-2 hover:shadow-sm transition-shadow"
+                >
+                  <div className="flex gap-2">
+                    <img
+                      src={
+                        property.photos?.[0] ?? "https://placehold.co/200x150"
+                      }
+                      alt="property"
+                      className="w-14 h-12 object-cover rounded-md"
+                    />
+                    <div className="flex-1">
+                      <h4 className="text-[10px] font-semibold truncate text-gray-900">
+                        {property.title ??
+                          property.slug ??
+                          (property.unit_type || "Untitled")}
+                      </h4>
+                      <p className="text-[9px] truncate text-gray-500">
+                        {property.address ?? property.location}
+                      </p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[9px] font-medium text-green-600">
+                          {property.price ?? property.budget ?? ""}
+                        </span>
+                        <button
+                          onClick={() => openPropertyFormForEdit(property)}
+                          className="p-0.5 rounded hover:bg-gray-100"
+                        >
+                          <Edit size={10} className="text-gray-500" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-start space-x-2">
-                    <button
-                      onClick={() => openPropertyFormForEdit(property)}
-                      className="p-1 rounded hover:bg-gray-100"
-                      title="Edit property"
-                    >
-                      <Edit size={16} />
-                    </button>
-                  </div>
                 </div>
-              </div>
-            ))}
+              ),
+            )}
           </div>
         ) : (
-          <div className="text-center py-8">
-            <Building className="mx-auto text-gray-300 mb-3" size={48} />
-            <p className="text-gray-500 mb-4">No properties added yet</p>
-            <button onClick={openPropertyFormForCreate} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          <div className="text-center py-6">
+            <Building size={28} className="mx-auto mb-2 text-gray-300" />
+            <p className="text-[10px] text-gray-500 mb-2">
+              No properties added
+            </p>
+            <button
+              onClick={openPropertyFormForCreate}
+              className="px-2 py-1 text-[9px] rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+            >
               Add First Property
             </button>
           </div>
@@ -3117,180 +3553,284 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       </div>
     </div>
   );
+const renderActivitiesTab = () => (
+  <div className="space-y-3 p-3">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h3 className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: N }}>
+        Activity Timeline
+      </h3>
+      <button
+        onClick={() => setShowActivityModal(true)}
+        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-medium text-white transition-all hover:opacity-80"
+        style={{ background: O }}
+      >
+        <Plus size={10} />
+        <span>Add Activity</span>
+      </button>
+    </div>
 
-  const renderActivitiesTab = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Activity Timeline</h3>
-        <button onClick={() => setShowActivityModal(true)} className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-          <Plus size={16} />
-          <span>Add Activity</span>
-        </button>
-      </div>
-
-      {(seller as any).activities && (seller as any).activities.length > 0 ? (
-        <div className="space-y-4">
-          {((seller as AnyObj).activities as AnyObj[]).map((activity: any, index: number) => (
-            <div key={index} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-start space-x-4">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Activity className="text-blue-600" size={16} />
+    {(seller as any).activities && (seller as any).activities.length > 0 ? (
+      <div className="space-y-2">
+        {(seller as any).activities.map((activity: any, index: number) => (
+          <div
+            key={index}
+            className="rounded-lg p-2.5 transition-all hover:shadow-sm"
+            style={{ background: 'white', border: `1px solid ${BD}` }}
+          >
+            <div className="flex items-start gap-2.5">
+              <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: `${O}10` }}>
+                <Activity size={11} style={{ color: O }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-start justify-between gap-1">
+                  <h4 className="text-[9px] font-semibold" style={{ color: N }}>
+                    {activity.description}
+                  </h4>
+                  <span className="text-[8px]" style={{ color: MU }}>
+                    {activity.date}
+                  </span>
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-gray-900">{activity.description}</h4>
-                    <span className="text-sm text-gray-500">{activity.date}</span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
-                    <div>Stage: {activity.stage}</div>
-                    <div>Duration: {activity.duration}</div>
-                    <div>By: {activity.executedBy}</div>
-                  </div>
-                  {activity.outcome && <div className="mt-2 text-sm text-gray-700"><span className="font-medium">Outcome:</span> {activity.outcome}</div>}
-                  {activity.nextAction && <div className="text-sm text-blue-600"><span className="font-medium">Next:</span> {activity.nextAction}</div>}
+                <div className="flex flex-wrap gap-2 mt-1 text-[8px]" style={{ color: MU }}>
+                  <span>Stage: {activity.stage}</span>
+                  <span>By: {activity.executedBy}</span>
                 </div>
+                {activity.outcome && (
+                  <p className="text-[8px] mt-1" style={{ color: MU }}>
+                    <span className="font-medium" style={{ color: N }}>Outcome:</span> {activity.outcome}
+                  </p>
+                )}
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <Activity className="mx-auto text-gray-300 mb-4" size={48} />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No activities recorded</h3>
-          <p className="text-gray-500 mb-4">Start tracking seller interactions</p>
-          <button onClick={() => setShowActivityModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Add First Activity</button>
-        </div>
-      )}
-    </div>
-  );
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="rounded-xl p-6 text-center" style={{ background: 'white', border: `1px solid ${BD}` }}>
+        <Activity size={28} className="mx-auto mb-2" style={{ color: MU }} />
+        <p className="text-[9px]" style={{ color: MU }}>No activities recorded</p>
+        <button
+          onClick={() => setShowActivityModal(true)}
+          className="mt-2 px-3 py-1 text-[8px] font-medium rounded-lg text-white transition-all hover:opacity-80"
+          style={{ background: O }}
+        >
+          Add First Activity
+        </button>
+      </div>
+    )}
+  </div>
+);
 
   const renderDocumentsTab = () => (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Documents</h3>
-        <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-          <Plus size={16} />
+        <h3 className="text-xs font-semibold text-gray-900">Documents</h3>
+        <button className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] bg-blue-600 text-white hover:bg-blue-700">
+          <Plus size={12} />
           <span>Create Document</span>
         </button>
       </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h4 className="font-semibold text-gray-900 mb-4">Document Workflow</h4>
-        <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <h4 className="text-[10px] font-semibold text-gray-900 mb-3">
+          Document Workflow
+        </h4>
+        <div className="space-y-2">
           {[
-            { stage: 'creation', label: 'Document Creation', status: 'completed', icon: FileText },
-            { stage: 'sharing', label: 'Sharing with Seller', status: 'completed', icon: Send },
-            { stage: 'otp', label: 'OTP Verification', status: 'pending', icon: Shield },
-            { stage: 'esign', label: 'E-Signature', status: 'pending', icon: Award },
-            { stage: 'completion', label: 'Document Completion', status: 'pending', icon: CheckCircle }
+            {
+              stage: "creation",
+              label: "Document Creation",
+              status: "completed",
+              icon: FileText,
+            },
+            {
+              stage: "sharing",
+              label: "Sharing with Seller",
+              status: "completed",
+              icon: Send,
+            },
+            {
+              stage: "otp",
+              label: "OTP Verification",
+              status: "pending",
+              icon: Shield,
+            },
+            {
+              stage: "esign",
+              label: "E-Signature",
+              status: "pending",
+              icon: Award,
+            },
+            {
+              stage: "completion",
+              label: "Document Completion",
+              status: "pending",
+              icon: CheckCircle,
+            },
           ].map((step, idx) => (
-            <div key={idx} className="flex items-center space-x-4">
-              <div className={`p-2 rounded-lg ${step.status === 'completed' ? 'bg-green-100' : step.status === 'pending' ? 'bg-orange-100' : 'bg-gray-100'}`}>
-                <step.icon className={step.status === 'completed' ? 'text-green-600' : step.status === 'pending' ? 'text-orange-600' : 'text-gray-600'} size={16} />
+            <div key={idx} className="flex items-center gap-3">
+              <div
+                className={`p-1.5 rounded-lg ${step.status === "completed" ? "bg-green-100" : step.status === "pending" ? "bg-amber-100" : "bg-gray-100"}`}
+              >
+                <step.icon
+                  size={12}
+                  className={
+                    step.status === "completed"
+                      ? "text-green-600"
+                      : step.status === "pending"
+                        ? "text-amber-600"
+                        : "text-gray-500"
+                  }
+                />
               </div>
               <div className="flex-1">
-                <div className="font-medium text-gray-900">{step.label}</div>
-                <div className={`text-sm ${step.status === 'completed' ? 'text-green-600' : step.status === 'pending' ? 'text-orange-600' : 'text-gray-500'}`}>
-                  {step.status === 'completed' ? 'Completed' : step.status === 'pending' ? 'Pending' : 'Not Started'}
-                </div>
+                <p className="text-[9px] font-medium text-gray-900">
+                  {step.label}
+                </p>
+                <p
+                  className={`text-[8px] ${step.status === "completed" ? "text-green-600" : step.status === "pending" ? "text-amber-600" : "text-gray-500"}`}
+                >
+                  {step.status === "completed"
+                    ? "Completed"
+                    : step.status === "pending"
+                      ? "Pending"
+                      : "Not Started"}
+                </p>
               </div>
-              {step.status === 'pending' && (
-                <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
-                  {step.stage === 'otp' ? 'Send OTP' : step.stage === 'esign' ? 'Initiate E-Sign' : 'Process'}
+              {step.status === "pending" && (
+                <button className="px-2 py-0.5 text-[8px] rounded bg-blue-600 text-white hover:bg-blue-700">
+                  {step.stage === "otp"
+                    ? "Send OTP"
+                    : step.stage === "esign"
+                      ? "Initiate E-Sign"
+                      : "Process"}
                 </button>
               )}
             </div>
           ))}
         </div>
       </div>
-
       {(seller as any).documents && (seller as any).documents.length > 0 ? (
-        <div className="space-y-4">
-          {((seller as AnyObj).documents as AnyObj[]).map((doc: any, index: number) => (
-            <div key={index} className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <FileText className="text-blue-600" size={20} />
-                  <div>
-                    <div className="font-semibold text-gray-900">{doc.name}</div>
-                    <div className="text-sm text-gray-600">{doc.category} • {doc.date}</div>
-                  </div>
+        <div className="space-y-2">
+          {(seller as any).documents.map((doc: any, index: number) => (
+            <div
+              key={index}
+              className="bg-white rounded-lg border border-gray-200 p-2 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <FileText size={14} className="text-blue-600" />
+                <div>
+                  <p className="text-[9px] font-semibold text-gray-900">
+                    {doc.name}
+                  </p>
+                  <p className="text-[8px] text-gray-500">
+                    {doc.category} • {doc.date}
+                  </p>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${doc.status === 'completed' ? 'bg-green-100 text-green-700' : doc.status === 'pending' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-700'}`}>
-                    {doc.status}
-                  </span>
-                  <button className="p-1 text-gray-600 hover:bg-gray-100 rounded">
-                    <Eye size={16} />
-                  </button>
-                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[8px] font-medium ${doc.status === "completed" ? "bg-green-100 text-green-700" : doc.status === "pending" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}
+                >
+                  {doc.status}
+                </span>
+                <button className="p-1 rounded hover:bg-gray-100">
+                  <Eye size={10} className="text-gray-500" />
+                </button>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <FileText className="mx-auto text-gray-300 mb-4" size={48} />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No documents created</h3>
-          <p className="text-gray-500">Create documents for this seller</p>
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+          <FileText size={32} className="mx-auto mb-2 text-gray-300" />
+          <p className="text-[10px] text-gray-500">No documents created</p>
         </div>
       )}
     </div>
   );
 
   const renderAnalyticsTab = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white">
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-blue-600 rounded-xl p-3 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm">Response Rate</p>
-              <p className="text-2xl font-bold">{(seller as any).responseRate ?? '—'}%</p>
+              <p className="text-[9px] text-blue-100">Response Rate</p>
+              <p className="text-lg font-bold">
+                {(seller as any).responseRate ?? "—"}%
+              </p>
             </div>
-            <TrendingUp size={24} className="text-blue-200" />
+            <TrendingUp size={16} className="text-blue-200" />
           </div>
         </div>
-        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 text-white">
+        <div className="bg-purple-600 rounded-xl p-3 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm">Deal Potential</p>
-              <p className="text-2xl font-bold capitalize">{(seller as any).dealPotential ?? '—'}</p>
+              <p className="text-[9px] text-purple-100">Deal Potential</p>
+              <p className="text-lg font-bold capitalize">
+                {(seller as any).dealPotential ?? "—"}
+              </p>
             </div>
-            <Target size={24} className="text-green-200" />
+            <Target size={16} className="text-purple-200" />
           </div>
         </div>
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+        <div className="bg-green-600 rounded-xl p-3 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm">Avg Response</p>
-              <p className="text-2xl font-bold">{(seller as any).avgResponseTime ?? '—'}</p>
+              <p className="text-[9px] text-green-100">Avg Response</p>
+              <p className="text-lg font-bold">
+                {(seller as any).avgResponseTime ?? "—"}
+              </p>
             </div>
-            <Clock size={24} className="text-purple-200" />
+            <Clock size={16} className="text-green-200" />
           </div>
         </div>
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-4 text-white">
+        <div className="bg-orange-600 rounded-xl p-3 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100 text-sm">Total Visits</p>
-              <p className="text-2xl font-bold">{(seller as any).totalVisits ?? 0}</p>
+              <p className="text-[9px] text-orange-100">Total Visits</p>
+              <p className="text-lg font-bold">
+                {(seller as any).totalVisits ?? 0}
+              </p>
             </div>
-            <Eye size={24} className="text-orange-200" />
+            <Eye size={16} className="text-orange-200" />
           </div>
         </div>
       </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Stage Progress</h3>
-        <div className="space-y-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <h3 className="text-xs font-semibold text-gray-900 mb-3">
+          Stage Progress
+        </h3>
+        <div className="space-y-2">
           {sellerStages.map((stage, index) => (
-            <div key={stage.id} className="flex items-center space-x-4">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${(seller as any).stage === stage.id ? 'bg-blue-500 text-white' : sellerStages.findIndex(s => s.id === (seller as any).stage) > index ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                {sellerStages.findIndex(s => s.id === (seller as any).stage) > index ? <CheckCircle size={16} /> : index + 1}
+            <div key={stage.id} className="flex items-center gap-3">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium ${(seller as any).stage === stage.id ? "bg-blue-600 text-white" : sellerStages.findIndex((s) => s.id === (seller as any).stage) > index ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500"}`}
+              >
+                {sellerStages.findIndex((s) => s.id === (seller as any).stage) >
+                index ? (
+                  <CheckCircle size={12} />
+                ) : (
+                  index + 1
+                )}
               </div>
               <div className="flex-1">
-                <div className="font-medium text-gray-900">{stage.label}</div>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                  <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: (seller as any).stage === stage.id ? `${(seller as any).stageProgress ?? 0}%` : sellerStages.findIndex(s => s.id === (seller as any).stage) > index ? '100%' : '0%' }} />
+                <p className="text-[9px] font-medium text-gray-900">
+                  {stage.label}
+                </p>
+                <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all bg-blue-600"
+                    style={{
+                      width:
+                        (seller as any).stage === stage.id
+                          ? `${(seller as any).stageProgress ?? 0}%`
+                          : sellerStages.findIndex(
+                                (s) => s.id === (seller as any).stage,
+                              ) > index
+                            ? "100%"
+                            : "0%",
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -3299,292 +3839,462 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       </div>
     </div>
   );
+  const getTabColor = (tabId: string) => {
+  const colors: Record<string, string> = {
+    overview: 'bg-blue-600 text-white',
+    details: 'bg-indigo-600 text-white',
+    buyers: 'bg-purple-600 text-white',
+    activities: 'bg-green-600 text-white',
+    followups: 'bg-orange-600 text-white',
+    documents: 'bg-cyan-600 text-white',
+    visits: 'bg-pink-600 text-white',
+    deal: 'bg-amber-600 text-white',
+    analytics: 'bg-teal-600 text-white',
+  };
+  return colors[tabId] || 'bg-blue-600 text-white';
+};
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 text-xs">
-      {/* TOP BAR */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button onClick={onBack} className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
-              <ArrowLeft size={20} />
-            </button>
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                {safeString((seller as any).name).charAt(0) || ''}
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">{(seller as any).salutation} {(seller as any).name}</h1>
-                <div className="flex items-center space-x-3 text-sm text-gray-600">
-                  <span>{(seller as any).location ?? '—'}, {(seller as any).city ?? '—'}</span>
-                  <span>•</span>
-                  <span>{(seller as any).source ?? '—'} Lead</span>
+    <div className=" flex flex-col bg-gray-50 h-screen  ">
+      {/* Top Bar */}
+      <div className="sticky top-0 z-20 bg-white border-b border-gray-200">
+        <div className="px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onBack}
+                className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <ArrowLeft size={18} className="text-gray-500" />
+              </button>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  {safeString((seller as any).name).charAt(0) || ""}
+                </div>
+                <div>
+                  <h1 className="text-sm font-bold text-gray-900">
+                    {(seller as any).salutation} {(seller as any).name}
+                  </h1>
+                  <div className="flex items-center gap-2 text-[9px] text-gray-500">
+                    <span>
+                      {(seller as any).location ?? "—"},{" "}
+                      {(seller as any).city ?? "—"}
+                    </span>
+                    <span>•</span>
+                    <span>{(seller as any).source ?? "—"} Lead</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <span>{currentIndex + 1} of {totalSellers}</span>
-              <div className="flex space-x-1">
-                <button onClick={onPrevious} disabled={currentIndex === 0} className="p-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <ChevronRight size={16} className="rotate-180" />
-                </button>
-                <button onClick={onNext} disabled={currentIndex === totalSellers - 1} className="p-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <ChevronRight size={16} />
-                </button>
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                <span>
+                  {currentIndex + 1} of {totalSellers}
+                </span>
+                <div className="flex">
+                  <button
+                    onClick={onPrevious}
+                    disabled={currentIndex === 0}
+                    className="p-0.5 rounded hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    <ChevronRight size={14} className="rotate-180" />
+                  </button>
+                  <button
+                    onClick={onNext}
+                    disabled={currentIndex === totalSellers - 1}
+                    className="p-0.5 rounded hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
               </div>
+              <button
+                onClick={() =>
+                  window.open(
+                    `tel:${((seller as any).phone || "").replace(/\D/g, "")}`,
+                  )
+                }
+                className="p-1.5 rounded-lg bg-green-100 text-green-600 hover:bg-green-200"
+              >
+                <Phone size={14} />
+              </button>
+              <button
+                onClick={() =>
+                  window.open(
+                    `https://wa.me/${((seller as any).phone || "").replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${(seller as any).name}, this is regarding your property inquiry.`)}`,
+                    "_blank",
+                  )
+                }
+                className="p-1.5 rounded-lg bg-green-100 text-green-600 hover:bg-green-200"
+              >
+                <MessageCircle size={14} />
+              </button>
+              <button
+                onClick={() =>
+                  window.open(
+                    `mailto:${(seller as any).email ?? ""}?subject=${encodeURIComponent(`Regarding Your Property`)}`,
+                    "_blank",
+                  )
+                }
+                className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200"
+              >
+                <Mail size={14} />
+              </button>
+              <button
+  onClick={() => {
+    if (!canUpdateSeller) {
+      toast.error("No permission to edit");
+      return;
+    }
+    onEdit(seller);
+  }}
+  disabled={!canUpdateSeller}
+  className={`p-1.5 rounded-lg ${canUpdateSeller ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
+>
+  <Edit size={14} />
+</button>
             </div>
-
-            <button
-              onClick={() => window.open(`tel:${((seller as any).phone || '').replace(/\D/g, '')}`)}
-              className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors"
-              title="Call"
-            >
-              <Phone size={20} />
-            </button>
-
-            <button
-              onClick={() => {
-                const message = `Hi ${(seller as any).name}, this is regarding your property inquiry. How can I assist you today?`;
-                window.open(`https://wa.me/${((seller as any).phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
-              }}
-              className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors"
-              title="WhatsApp"
-            >
-              <MessageCircle size={20} />
-            </button>
-
-            <button
-              onClick={() => {
-                const subject = `Regarding Your Property - ${(seller as any).name}`;
-                const body = `Dear ${(seller as any).name},\n\nI hope this email finds you well. I wanted to follow up regarding your property inquiry.\n\nBest regards,\nResaleExpert Team`;
-                window.open(`mailto:${(seller as any).email ?? ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-              }}
-              className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
-              title="Email"
-            >
-              <Mail size={20} />
-            </button>
-            <button
-              onClick={() => {
-                if (!canUpdateSeller) {
-                  toast.error('You do not have permission to edit seller');
-                  return;
-                }
-                // ✅ Call parent's onEdit function
-                onEdit(seller);
-              }}
-              className={`p-2 rounded-lg ${canUpdateSeller ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-              title={!canUpdateSeller ? 'No permission to edit' : 'Edit'}
-              disabled={!canUpdateSeller}
-            >
-              <Edit size={20} />
-            </button>
           </div>
-        </div>
+          {(fuLoading || fuError) && (
+            <div className="mt-2 text-[9px]">
+              {fuLoading && (
+                <span className="text-blue-600">Syncing follow-ups…</span>
+              )}
+              {fuError && <span className="text-red-500">• {fuError}</span>}
+            </div>
+          )}
 
-        {(fuLoading || fuError) && (
-          <div className="mt-3 text-xs">
-            {fuLoading && <span className="text-blue-600">Syncing follow-ups…</span>}
-            {fuError && <span className="text-rose-600">• {fuError}</span>}
-          </div>
-        )}
-
-        {/* TABS */}
-        <div className="mt-4">
-          <nav className="flex space-x-1">
-            {tabs.map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${isActive ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'text-gray-600 hover:bg-gray-100'}`}
-                >
-                  <Icon size={16} />
-                  <span className="font-medium">{tab.label}</span>
-                  {tab.count !== null && (
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${isActive ? 'bg-blue-200' : 'bg-gray-200'}`}>
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
+          {/* Tabs */}
+         {/* Tabs - With Background Colors */}
+<div className="mt-3 overflow-x-auto">
+  <div className="flex gap-2 min-w-max">
+    {tabs.map(tab => { 
+      const Icon = tab.icon; 
+      const isActive = activeTab === tab.id; 
+      
+      const getActiveStyles = (tabId: string) => {
+        const styles: Record<string, string> = {
+          overview: 'bg-blue-100 text-blue-700 border-blue-200',
+          details: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+          buyers: 'bg-purple-100 text-purple-700 border-purple-200',
+          activities: 'bg-green-100 text-green-700 border-green-200',
+          followups: 'bg-orange-100 text-orange-700 border-orange-200',
+          documents: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+          visits: 'bg-pink-100 text-pink-700 border-pink-200',
+          deal: 'bg-amber-100 text-amber-700 border-amber-200',
+          analytics: 'bg-teal-100 text-teal-700 border-teal-200',
+        };
+        return styles[tabId] || 'bg-blue-100 text-blue-700 border-blue-200';
+      };
+      
+      const getInactiveStyles = (tabId: string) => {
+        const styles: Record<string, string> = {
+          overview: 'hover:bg-blue-50 hover:text-blue-600',
+          details: 'hover:bg-indigo-50 hover:text-indigo-600',
+          buyers: 'hover:bg-purple-50 hover:text-purple-600',
+          activities: 'hover:bg-green-50 hover:text-green-600',
+          followups: 'hover:bg-orange-50 hover:text-orange-600',
+          documents: 'hover:bg-cyan-50 hover:text-cyan-600',
+          visits: 'hover:bg-pink-50 hover:text-pink-600',
+          deal: 'hover:bg-amber-50 hover:text-amber-600',
+          analytics: 'hover:bg-teal-50 hover:text-teal-600',
+        };
+        return styles[tabId] || 'hover:bg-blue-50 hover:text-blue-600';
+      };
+      
+      return (
+        <button 
+          key={tab.id} 
+          onClick={() => setActiveTab(tab.id)} 
+          className={`flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-all rounded-lg border ${
+            isActive 
+              ? getActiveStyles(tab.id)
+              : `text-gray-500 border-transparent ${getInactiveStyles(tab.id)}`
+          }`}
+        >
+          <Icon size={14} />
+          <span>{tab.label}</span>
+          {tab.count !== undefined && tab.count > 0 && (
+            <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+              isActive ? 'bg-white/50 text-inherit' : 'bg-gray-100 text-gray-600'
+            }`}>
+              {tab.count}
+            </span>
+          )}
+        </button>
+      );
+    })}
+  </div>
+</div>
         </div>
       </div>
 
-      {/* TAB CONTENT */}
-      <div className="flex-1 overflow-auto p-6">
-        {activeTab === 'overview' && renderOverviewTab()}
-        {activeTab === 'details' && renderDetailsTab()}
-        {activeTab === 'activities' && renderActivitiesTab()}
-
-        {activeTab === 'followups' && (
-          <>
-            {!canViewFollowups ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                <p className="text-sm text-gray-600">You do not have permission to view follow-ups.</p>
-              </div>
-            ) : (
-              <SellerFollowupsTab
-                followups={(((seller as any).followups as Followup[]) || [])}
-                onAddFollowup={() => {
-                  if (!canCreateFollowups) {
-                    toast.error('You do not have permission to create follow-ups');
-                    return;
-                  }
-                  setEditingFollowup(null);
-                  setShowFollowupModal(true);
-                }}
-                onEditFollowup={(f) => {
-                  if (!canUpdateFollowups) {
-                    toast.error('You do not have permission to edit follow-ups');
-                    return;
-                  }
-                  setEditingFollowup(f);
-                  setShowFollowupModal(true);
-                }}
-                onDeleteFollowup={handleDeleteFollowup}
-                canCreate={canCreateFollowups}
-                canUpdate={canUpdateFollowups}
-                canDelete={canDeleteFollowups}
-              />
-            )}
-          </>
-        )}
-
-        {activeTab === 'documents' && renderDocumentsTab()}
-        {activeTab === 'analytics' && renderAnalyticsTab()}
-      </div>
-
-      {/* FOOTER ACTIONS */}
-      <div className="bg-white border-t border-gray-200 px-6 py-4 sticky bottom-0 z-50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <button onClick={() => setShowStageUpdateModal(true)} className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-              <TrendingUp size={16} />
-              <span>Update Stage</span>
-            </button>
-            <button onClick={() => setShowSharingModal(true)} className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
-              <Share size={16} />
-              <span>Share</span>
-            </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-              <Eye size={16} />
-              <span>Track</span>
-            </button>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => {
+      {/* Content */}
+      <div className="flex-1 overflow-auto p-4">
+        {activeTab === "overview" && renderOverviewTab()}
+        {activeTab === "details" && renderDetailsTab()}
+        {activeTab === "activities" && renderActivitiesTab()}
+        {activeTab === "followups" &&
+          (!canViewFollowups ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+              <p className="text-xs text-gray-600">
+                No permission to view follow-ups
+              </p>
+            </div>
+          ) : (
+            <SellerFollowupsTab
+              followups={((seller as any).followups as Followup[]) || []}
+              onAddFollowup={() => {
                 if (!canCreateFollowups) {
-                  toast.error('You do not have permission to create follow-ups');
+                  toast.error("No permission");
                   return;
                 }
+                setEditingFollowup(null);
                 setShowFollowupModal(true);
               }}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${canCreateFollowups ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-            >
-              <CalendarIcon size={16} />
-              <span>Follow-ups</span>
-            </button>
-            <button onClick={() => { setEditingActivity(null); setShowActivityModal(true); }} className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              <Plus size={16} />
-              <span>Add Activity</span>
-            </button>
-            <button onClick={() => setShowVisitModal(true)} className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-              <CalendarIcon size={16} />
-              <span>Schedule Visit</span>
-            </button>
-          </div>
-        </div>
+              onEditFollowup={(f) => {
+                if (!canUpdateFollowups) {
+                  toast.error("No permission");
+                  return;
+                }
+                setEditingFollowup(f);
+                setShowFollowupModal(true);
+              }}
+              onDeleteFollowup={handleDeleteFollowup}
+              canCreate={canCreateFollowups}
+              canUpdate={canUpdateFollowups}
+              canDelete={canDeleteFollowups}
+            />
+          ))}
+        {activeTab === "documents" && renderDocumentsTab()}
+        {activeTab === "analytics" && renderAnalyticsTab()}
       </div>
 
-      {/* MODALS */}
+      {/* Bottom Actions */}
+     <div className="sticky bottom-0 z-20 bg-white border-t border-gray-200 mt-5">
+  <div className="px-4 py-2 sm:py-2.5">
+    
+    {/* DESKTOP VIEW - unchanged */}
+    <div className="hidden sm:flex flex-wrap items-center justify-between gap-2">
+      <div className="flex gap-1.5">
+        <button
+          onClick={() => setShowStageUpdateModal(true)}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-purple-600 text-white hover:bg-purple-700"
+        >
+          <TrendingUp size={12} />
+          <span>Update Stage</span>
+        </button>
+        <button
+          onClick={() => setShowSharingModal(true)}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-blue-600 text-white hover:bg-blue-700"
+        >
+          <Share size={12} />
+          <span>Share</span>
+        </button>
+        <button className="flex items-center space-x-2 px-4 py-1.5 text-[10px] bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+          <Eye size={12} />
+          <span>Track</span>
+        </button>
+      </div>
+      <div className="flex gap-1.5">
+        <button
+          onClick={() => {
+            if (!canCreateFollowups) {
+              toast.error("No permission");
+              return;
+            }
+            setShowFollowupModal(true);
+          }}
+          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium ${canCreateFollowups ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
+        >
+          <CalendarIcon size={12} />
+          <span>Follow-up</span>
+        </button>
+        <button
+          onClick={() => {
+            setEditingActivity(null);
+            setShowActivityModal(true);
+          }}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-green-600 text-white hover:bg-green-700"
+        >
+          <Plus size={12} />
+          <span>Add Activity</span>
+        </button>
+        <button
+          onClick={() => setShowVisitModal(true)}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-orange-600 text-white hover:bg-orange-700"
+        >
+          <CalendarIcon size={12} />
+          <span>Schedule Visit</span>
+        </button>
+      </div>
+    </div>
+
+    {/* MOBILE VIEW */}
+    <div className="flex flex-col gap-1.5 sm:hidden">
+      
+      {/* Row 1 - Left buttons centered */}
+      <div className="flex items-center justify-center gap-1.5">
+        <button
+          onClick={() => setShowStageUpdateModal(true)}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-purple-600 text-white"
+        >
+          <TrendingUp size={11} />
+          <span>Update Stage</span>
+        </button>
+        <button
+          onClick={() => setShowSharingModal(true)}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-blue-600 text-white"
+        >
+          <Share size={11} />
+          <span>Share</span>
+        </button>
+        <button className="flex items-center gap-1 px-2.5 py-1 text-[10px] bg-gray-600 text-white rounded-lg">
+          <Eye size={11} />
+          <span>Track</span>
+        </button>
+      </div>
+
+      {/* Row 2 - Right buttons full width */}
+      <div className="grid grid-cols-3 gap-1.5">
+        <button
+          onClick={() => {
+            if (!canCreateFollowups) {
+              toast.error("No permission");
+              return;
+            }
+            setShowFollowupModal(true);
+          }}
+          className={`flex items-center justify-center gap-1 px-1 py-1 rounded-lg text-[10px] font-medium ${canCreateFollowups ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
+        >
+          <CalendarIcon size={11} />
+          <span>Follow-up</span>
+        </button>
+        <button
+          onClick={() => {
+            setEditingActivity(null);
+            setShowActivityModal(true);
+          }}
+          className="flex items-center justify-center gap-1 px-1 py-1 rounded-lg text-[10px] font-medium bg-green-600 text-white"
+        >
+          <Plus size={11} />
+          <span>Add Activity</span>
+        </button>
+        <button
+          onClick={() => setShowVisitModal(true)}
+          className="flex items-center justify-center gap-1 px-1 py-1 rounded-lg text-[10px] font-medium bg-orange-600 text-white"
+        >
+          <CalendarIcon size={11} />
+          <span>Schedule Visit</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+      {/* Modals */}
       {showStageUpdateModal && (
-        <SellerStageUpdateModal isOpen={showStageUpdateModal} onClose={() => setShowStageUpdateModal(false)} seller={seller} onUpdateStage={handleStageUpdate} />
+        <SellerStageUpdateModal
+          isOpen={showStageUpdateModal}
+          onClose={() => setShowStageUpdateModal(false)}
+          seller={seller}
+          onUpdateStage={handleStageUpdate}
+        />
       )}
-
       {showSharingModal && (
-        <SellerSharingModal isOpen={showSharingModal} onClose={() => setShowSharingModal(false)} seller={seller} onShare={() => setShowSharingModal(false)} />
+        <SellerSharingModal
+          isOpen={showSharingModal}
+          onClose={() => setShowSharingModal(false)}
+          seller={seller}
+          onShare={() => setShowSharingModal(false)}
+        />
       )}
-
       {showFollowupModal && (
         <SellerFollowupModal
           isOpen={showFollowupModal}
-          onClose={() => { setShowFollowupModal(false); setEditingFollowup(null); }}
+          onClose={() => {
+            setShowFollowupModal(false);
+            setEditingFollowup(null);
+          }}
           onSave={handleModalSave}
           tabId="seller"
-          sellerId={(seller as any)?.id ?? (seller as any)?.sellerId ?? ''}
+          sellerId={(seller as any)?.id ?? (seller as any)?.sellerId ?? ""}
           initialForm={
             editingFollowup
               ? {
-                id: String(editingFollowup.id),
-                created_by: (editingFollowup as any).created_by,
-                created_at: editingFollowup.created_at,
-
-                followupType: editingFollowup.followup_type ?? "Phone Call",
-                followup_type: editingFollowup.followup_type ?? "Phone Call",
-
-                sellerLeadStatus: editingFollowup.status ?? "",
-                seller_lead_status: editingFollowup.status ?? "",
-
-                sellerLeadStage: (seller as any)?.stage_label ?? (seller as any)?.stage ?? "",
-                seller_lead_stage: (seller as any)?.stage_label ?? (seller as any)?.stage ?? "",
-
-                remark: editingFollowup.notes ?? "",
-                customRemark: editingFollowup.notes ?? "",
-                custom_remark: editingFollowup.notes ?? "",
-
-                nextAction: editingFollowup.next_action ?? "",
-                next_action: editingFollowup.next_action ?? "",
-
-                scheduleDate: editingFollowup.followup_date ?? "",
-                schedule_date: editingFollowup.followup_date ?? "",
-
-                scheduleTime: editingFollowup.followup_time?.slice(0, 5) ?? "",
-                schedule_time: editingFollowup.followup_time?.slice(0, 5) ?? "",
-
-                priority: editingFollowup.priority ?? "",
-              }
+                  id: String(editingFollowup.id),
+                  created_by: (editingFollowup as any).created_by,
+                  created_at: editingFollowup.created_at,
+                  followupType: editingFollowup.followup_type ?? "Phone Call",
+                  followup_type: editingFollowup.followup_type ?? "Phone Call",
+                  sellerLeadStatus: editingFollowup.status ?? "",
+                  seller_lead_status: editingFollowup.status ?? "",
+                  sellerLeadStage:
+                    (seller as any)?.stage_label ??
+                    (seller as any)?.stage ??
+                    "",
+                  seller_lead_stage:
+                    (seller as any)?.stage_label ??
+                    (seller as any)?.stage ??
+                    "",
+                  remark: editingFollowup.notes ?? "",
+                  customRemark: editingFollowup.notes ?? "",
+                  custom_remark: editingFollowup.notes ?? "",
+                  nextAction: editingFollowup.next_action ?? "",
+                  next_action: editingFollowup.next_action ?? "",
+                  scheduleDate: editingFollowup.followup_date ?? "",
+                  schedule_date: editingFollowup.followup_date ?? "",
+                  scheduleTime:
+                    editingFollowup.followup_time?.slice(0, 5) ?? "",
+                  schedule_time:
+                    editingFollowup.followup_time?.slice(0, 5) ?? "",
+                  priority: editingFollowup.priority ?? "",
+                }
               : undefined
           }
         />
       )}
-
       {showActivityModal && (
         <ActivityModal
           isOpen={showActivityModal}
-          onClose={() => { setShowActivityModal(false); setEditingActivity(null); }}
+          onClose={() => {
+            setShowActivityModal(false);
+            setEditingActivity(null);
+          }}
           activity={editingActivity}
           onSave={handleAddActivity}
         />
       )}
-
       {showVisitModal && (
         <VisitModal
           isOpen={showVisitModal}
           onClose={() => setShowVisitModal(false)}
           visit={null}
           onSave={handleAddVisit}
-          buyer={{ id: (seller as any).id ?? '', name: (seller as any).name ?? '' }}
+          buyer={{
+            id: (seller as any).id ?? "",
+            name: (seller as any).name ?? "",
+          }}
         />
       )}
-
       {showPropertyForm && (
         <PropertyFormModal
           isOpen={showPropertyForm}
-          onClose={() => { setShowPropertyForm(false); setEditingProperty(null); }}
+          onClose={() => {
+            setShowPropertyForm(false);
+            setEditingProperty(null);
+          }}
           onSubmit={handleAddProperty}
-          mode={editingProperty && (editingProperty as any).id ? 'edit' : 'create'}
+          mode={
+            editingProperty && (editingProperty as any).id ? "edit" : "create"
+          }
           propertyId={(editingProperty as any)?.id}
-          initialData={editingProperty ?? { seller: `${(seller as any)?.salutation ?? ''} ${(seller as any)?.name ?? ''}` }}
+          initialData={
+            editingProperty ?? {
+              seller: `${(seller as any)?.salutation ?? ""} ${(seller as any)?.name ?? ""}`,
+            }
+          }
         />
       )}
     </div>
@@ -3592,16 +4302,19 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
 };
 
 function safeNumber(value: any): number | undefined {
-  if (value === undefined || value === null || value === '') return undefined;
+  if (value === undefined || value === null || value === "") return undefined;
   const num = Number(value);
   return isNaN(num) ? undefined : num;
 }
-
-export default SellerViewPage;
-
 function ensureArray(value: any): any[] {
   if (value === undefined || value === null) return [];
   if (Array.isArray(value)) return value;
-  if (typeof value === 'string') return value.split(',').map(s => s.trim()).filter(Boolean);
+  if (typeof value === "string")
+    return value
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
   return [value];
 }
+
+export default SellerViewPage;

@@ -1391,7 +1391,7 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
                         style={{ background: `${O}10`, color: O }}
                       >
                         <Heart size={12} />
-                        <span>{shortlisted.has(property.id) ? 'Saved' : 'Save'}</span>
+                        <span>{shortlisted.has(property.id) ? 'Saved' : 'Shortlist'}</span>
                       </button>
                       {property.sellerPhone && (
                         <>
@@ -1409,7 +1409,7 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
                             style={{ background: '#25D366' }}
                           >
                             <MessageCircle size={12} />
-                            <span>WA</span>
+                            <span>Whatsapp</span>
                           </button>
                         </>
                       )}
@@ -1519,7 +1519,7 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
                             style={{ background: `${O}10`, color: O }}
                           >
                             <Heart size={10} />
-                            <span>{shortlisted.has(property.id) ? 'Saved' : 'Save'}</span>
+                            <span>{shortlisted.has(property.id) ? 'Saved' : 'Shortlist'}</span>
                           </button>
                           {property.sellerPhone && (
                             <>
@@ -1537,7 +1537,7 @@ const PropertiesTab: React.FC<PropertiesTabProps> = ({
                                 style={{ background: '#25D366' }}
                               >
                                 <MessageCircle size={10} />
-                                <span>WA</span>
+                                <span>Whatsapp</span>
                               </button>
                             </>
                           )}

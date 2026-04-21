@@ -46,22 +46,18 @@ const SellerAccountSidebar = ({ activeTab, onTabChange, seller, unreadCount }: a
     const CRORE = 10_000_000;
     const LAKH = 100_000;
 
-    // Crores → keep actual value (max 2 decimals, no rounding loss)
     if (n >= CRORE) {
       const cr = n / CRORE;
       return `₹${parseFloat(cr.toFixed(2))}Cr`;
     }
 
-    // Lakhs → whole lakhs only
     if (n >= LAKH) {
       const l = n / LAKH;
       return `₹${parseFloat(l.toFixed(0))}L`;
     }
 
-    // Rupees
     return `₹${n.toLocaleString('en-IN')}`;
   };
-
 
   const { logout } = useAuth();
 
@@ -69,12 +65,13 @@ const SellerAccountSidebar = ({ activeTab, onTabChange, seller, unreadCount }: a
   const firstLetter = sellerName?.[0]?.toUpperCase?.() || '?';
 
   return (
-    <div className="w-72 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div className=" md:flex w-64 bg-white border-r border-gray-200 flex-col h-full">
+      
       {/* Profile */}
-      <div className="p-3 border-b border-gray-100">
+      <div className="p-2 border-b border-gray-100 shrink-0">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-base">
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
               {firstLetter}
             </div>
             <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
@@ -105,21 +102,21 @@ const SellerAccountSidebar = ({ activeTab, onTabChange, seller, unreadCount }: a
         </div>
 
         {/* Quick Stats */}
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="bg-blue-50 rounded p-2 text-center">
-            <span className="text-sm font-semibold">{propertyCount}</span>
+        <div className="mt-2 grid grid-cols-2 gap-1.5">
+          <div className="bg-blue-50 rounded p-0.5 text-center">
+            <span className="text-xs font-semibold">{propertyCount}</span>
             <div className="text-[10px] text-blue-700">Properties</div>
           </div>
-          <div className="bg-green-50 rounded p-2 text-center">
-            <div className="text-sm font-bold text-green-600">24</div>
+          <div className="bg-green-50 rounded p-0.5 text-center">
+            <div className="text-xs font-bold text-green-600">24</div>
             <div className="text-[10px] text-green-700">Inquiries</div>
           </div>
         </div>
       </div>
 
-      {/* Menu (scrollable) */}
-      <nav className="flex-1 overflow-y-auto p-2">
-        <div className="space-y-1">
+      {/* ✅ Nav - flex-1 removed */}
+      <nav className="p-1">
+        <div className="space-y-0.5">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -128,22 +125,22 @@ const SellerAccountSidebar = ({ activeTab, onTabChange, seller, unreadCount }: a
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg transition-colors text-left group
+                className={`w-full flex items-center gap-2 px-1.5 py-[1px] rounded-lg transition-colors text-left group
                   ${isActive
                     ? 'bg-blue-50 text-blue-700 border border-blue-200'
                     : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                   }`}
               >
                 <div
-                  className={`p-1.5 rounded-md
+                  className={`p-1 rounded-md
                   ${isActive ? 'bg-blue-100' : 'bg-gray-100 group-hover:bg-gray-200'}`}
                 >
-                  <Icon size={15} />
+                  <Icon size={13} />
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{item.label}</div>
-                  <div className="text-[10px] opacity-75 truncate">{item.description}</div>
+                  <div className="text-[9px] opacity-75 truncate">{item.description}</div>
                 </div>
 
                 {item.id === 'activities' && unreadCount > 0 && (
@@ -157,17 +154,24 @@ const SellerAccountSidebar = ({ activeTab, onTabChange, seller, unreadCount }: a
         </div>
       </nav>
 
+      {/* ✅ Spacer - pushes bottom section up naturally */}
+      <div className="" />
+
       {/* Bottom */}
-      <div className="p-3 border-t border-gray-100">
-        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-md p-3 text-white mb-3">
+      <div className="p-2 border-t border-gray-100 shrink-0">
+        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-md px-2 py-1.5 text-white mb-2">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="font-semibold text-xs">Portfolio Value</h4>
-              <div className="text-lg font-bold leading-tight">{formatCurrency(67000000)}</div>
+              <h4 className="font-medium text-[10px] leading-none">Portfolio Value</h4>
+              <div className="text-xs font-semibold leading-tight">
+                {formatCurrency(67000000)}
+              </div>
             </div>
-            <TrendingUp size={18} className="text-green-100" />
+            <TrendingUp size={14} className="text-green-100" />
           </div>
-          <div className="text-[10px] text-green-100 mt-1">+12% from last month</div>
+          <div className="text-[9px] text-green-100 mt-0.5 leading-none">
+            +12% from last month
+          </div>
         </div>
 
         <div className="space-y-1">
@@ -188,6 +192,7 @@ const SellerAccountSidebar = ({ activeTab, onTabChange, seller, unreadCount }: a
           </button>
         </div>
       </div>
+
     </div>
   );
 };

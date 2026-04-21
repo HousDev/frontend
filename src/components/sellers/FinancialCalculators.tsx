@@ -189,7 +189,7 @@ const FinancialCalculators = ({ seller }: any) => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-6 pb-2 sm:pb-4 lg:pb-6 pt-0">
+    <div className="space-y-4 sm:space-y-6  pb-2 sm:pb-4 lg:pb-6 pt-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0">
         <div>
