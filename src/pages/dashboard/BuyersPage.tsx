@@ -3502,23 +3502,41 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => setShowFilters(true)} className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
-              <SlidersHorizontal size={14} /><span>Filters</span>
-            </button>
-            {canExport && <button onClick={() => exportToCSV('filtered')} className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50"><Download size={14} /><span>Export</span></button>}
-            {canImport && <button onClick={() => setShowImportBuyers(true)} className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50"><Upload size={14} /><span>Import</span></button>}
-            {canCreate && <button onClick={handleAddBuyer} className="flex items-center gap-1.5 px-3 py-2 text-sm text-white rounded-lg" style={{ backgroundColor: RESALE.orange }}><Plus size={14} /><span>Add Buyer</span></button>}
-          </div>
+  <button onClick={() => setShowFilters(true)} className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
+    <SlidersHorizontal size={14} /><span>Filters</span>
+  </button>
+  {canExport && (
+    <>
+      <button onClick={() => exportToCSV('filtered')} className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
+        <Download size={14} /><span>Export</span>
+      </button>
+      {selectedBuyers.length > 0 && (
+        <button onClick={() => exportToCSV('selected')} className="flex items-center gap-1.5 px-3 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">
+          <Download size={14} /><span>Export Selected ({selectedBuyers.length})</span>
+        </button>
+      )}
+    </>
+  )}
+  {canImport && <button onClick={() => setShowImportBuyers(true)} className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50"><Upload size={14} /><span>Import</span></button>}
+  {canCreate && <button onClick={handleAddBuyer} className="flex items-center gap-1.5 px-3 py-2 text-sm text-white rounded-lg bg-[#0f2b3d]" ><Plus size={14} /><span>Add Buyer</span></button>}
+</div>
         </div>
 
         {/* MOBILE TABS */}
         <div className="flex sm:hidden items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5 ml-auto mt-2">
-            <button onClick={() => setShowFilters(true)} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"><SlidersHorizontal size={13} /><span>Filters</span></button>
-            {canExport && <button onClick={() => exportToCSV('filtered')} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"><Download size={13} /><span>Export</span></button>}
-            {canImport && <button onClick={() => setShowImportBuyers(true)} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"><Upload size={13} /><span>Import</span></button>}
-            {canCreate && <button onClick={handleAddBuyer} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-white rounded-lg" style={{ backgroundColor: RESALE.orange }}><Plus size={13} /><span>Add Buyer</span></button>}
-          </div>
+  <button onClick={() => setShowFilters(true)} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"><SlidersHorizontal size={13} /><span>Filters</span></button>
+  {canExport && (
+    <>
+      <button onClick={() => exportToCSV('filtered')} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"><Download size={13} /><span>Export</span></button>
+      {selectedBuyers.length > 0 && (
+        <button onClick={() => exportToCSV('selected')} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-white bg-green-600 rounded-lg"><Download size={13} /><span>Exp Sel ({selectedBuyers.length})</span></button>
+      )}
+    </>
+  )}
+  {canImport && <button onClick={() => setShowImportBuyers(true)} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"><Upload size={13} /><span>Import</span></button>}
+  {canCreate && <button onClick={handleAddBuyer} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-white rounded-lg bg-[#0f2b3d]"><Plus size={13} /><span>Add Buyer</span></button>}
+</div>
         </div>
 
         <div className="flex sm:hidden items-center gap-2 mb-3">
@@ -3595,6 +3613,13 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
                   <button onClick={() => handleBulkUpdateLeadField('is_active', 0)} className="px-3 py-1 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700">Mark Inactive</button>
                 </>
               )}
+
+               {/* ADD THIS Export Selected Button */}
+  {canExport && (
+    <button onClick={() => exportToCSV('selected')} className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700">
+      Export ({selectedBuyers.length})
+    </button>
+  )}
               {canBulkDelete && <button onClick={handleBulkDelete} disabled={bulkLoading || selectedBuyers.length === 0} className="px-3 py-1 text-xs border border-red-300 text-red-600 rounded-lg hover:bg-red-50">Delete ({selectedBuyers.length})</button>}
               <button onClick={() => setSelectedBuyers([])} className="px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Clear</button>
             </div>
@@ -3632,7 +3657,8 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
                 </div>
               )}
 
-<div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 310px)', overflowX: 'auto' }}>   <table className="w-full text-sm" style={{ minWidth: '1200px' }}>   
+<div className="overflow-y-auto max-h-[calc(100vh-270px)] sm:max-h-[calc(100vh-300px)]" >   
+  <table className="w-full text-sm" style={{ minWidth: '1200px' }}>   
                   <thead className="bg-gray-50 sticky top-0 z-10">
                     <tr>
                       {(canUpdate || canDelete || canAssign || canBulkDelete) && <th className="px-3 py-3 text-left w-8"><input type="checkbox" checked={selectedBuyers.length === paginatedBuyers.length && paginatedBuyers.length > 0} onChange={handleSelectAll} className="rounded border-gray-300 text-orange-600 focus:ring-orange-500" /></th>}
@@ -3646,7 +3672,7 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
                       {shouldShowActionsColumn && <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">ACTIONS</th>}
                     </tr>
                     {/* Column Search Row */}
-                    <tr className="bg-gray-100">
+                    <tr className="bg-gray-100 text-gray-500">
                       {(canUpdate || canDelete || canAssign || canBulkDelete) && <th className="px-3 py-1.5"></th>}
                       <th className="px-2 py-1.5"><input type="text" placeholder="Search buyer..." value={colSearch.buyer} onChange={e => setColSearch(p => ({ ...p, buyer: e.target.value }))} className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white" /></th>
                       <th className="px-2 py-1.5"><input type="text" placeholder="Search contact..." value={colSearch.contact} onChange={e => setColSearch(p => ({ ...p, contact: e.target.value }))} className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white" /></th>

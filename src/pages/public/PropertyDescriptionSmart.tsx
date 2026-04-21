@@ -1,4 +1,5 @@
 // PropertyDescriptionSmart.tsx
+import { Phone } from "lucide-react";
 import React, { useMemo, useState } from "react";
 
 /** --- helpers ----------------------------------------------------------- */
@@ -141,7 +142,7 @@ export default function PropertyDescriptionSmart({
             )} */}
 
             {/* Full paragraph with highlights + show more */}
-<div className="text-xs sm:text-sm md:text-base text-gray-700 leading-relaxed">
+<div className="text-xs sm:text-sm md:text-[14px] font-medium text-gray-700 leading-relaxed">
     {(showFull ? safeText : safeText.slice(0, 420) + (safeText.length > 420 ? "…" : ""))
         .split(/\n+/)
         .filter(line => line.trim().length > 0)
@@ -159,9 +160,10 @@ export default function PropertyDescriptionSmart({
         })
     }
 </div>
-            <div>
-                📞 Call now to schedule a site visit and make this beautiful home yours!
-            </div>
+            <div className="flex items-center gap-1">
+  <Phone size={13} className="text-blue-600" aria-hidden="true" />
+  <span className="text-[14px] font-medium">Call now to schedule a site visit and make this beautiful home yours!</span>
+</div>
 
             {safeText.length > 420 && (
                 <button

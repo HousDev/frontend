@@ -7,50 +7,19 @@ import {
   Eye, 
   Download, 
   Share, 
-  Edit,
-  Trash2,
   Clock,
   CheckCircle,
   AlertCircle,
   Shield,
   Send,
-  MessageCircle,
-  Mail,
-  Phone,
   User,
   Building,
   Calendar,
-  Star,
   Award,
-  Target,
   TrendingUp,
   BarChart3,
-  Settings,
-  Bell,
-  RefreshCw,
-  ExternalLink,
-  Copy,
-  QrCode,
-  Globe,
-  Smartphone,
-  Tablet,
-  Monitor,
-  Printer,
   Upload,
-  Link,
-  Bookmark,
-  Heart,
-  Flag,
-  Tag,
-  Zap,
-  Crown,
-  Gem,
-  Sparkles,
-  Bot,
-  Brain,
-  Lightbulb,
-  X,
-  Menu
+  X
 } from 'lucide-react';
 
 const DocumentsManagement = ({ seller }: any) => {
@@ -200,7 +169,7 @@ const DocumentsManagement = ({ seller }: any) => {
   ];
 
   const documentTabs = [
-    { id: 'all', label: 'All Docs', count: documents.length },
+    { id: 'all', label: 'All', count: documents.length },
     { id: 'pending', label: 'Pending', count: documents.filter(d => d.status !== 'completed').length },
     { id: 'completed', label: 'Done', count: documents.filter(d => d.status === 'completed').length },
     { id: 'signatures', label: 'Sign', count: documents.filter(d => !d.esign_completed).length }
@@ -221,7 +190,7 @@ const DocumentsManagement = ({ seller }: any) => {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      'pending_signature': { bg: 'bg-orange-50', text: 'text-orange-600', label: 'Pending Sign', icon: Clock },
+      'pending_signature': { bg: 'bg-orange-50', text: 'text-orange-600', label: 'Pending', icon: Clock },
       'otp_verified': { bg: 'bg-blue-50', text: 'text-blue-600', label: 'OTP Done', icon: Shield },
       'shared': { bg: 'bg-purple-50', text: 'text-purple-600', label: 'Shared', icon: Send },
       'completed': { bg: 'bg-green-50', text: 'text-green-600', label: 'Complete', icon: CheckCircle },
@@ -231,8 +200,8 @@ const DocumentsManagement = ({ seller }: any) => {
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.shared;
     const Icon = config.icon;
     return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
-        <Icon size={10} className="mr-1" />
+      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${config.bg} ${config.text}`}>
+        <Icon size={8} className="mr-0.5 flex-shrink-0" />
         {config.label}
       </span>
     );
@@ -241,13 +210,13 @@ const DocumentsManagement = ({ seller }: any) => {
   const getPriorityBadge = (priority: string) => {
     const priorityConfig = {
       'high': { bg: 'bg-red-50', text: 'text-red-600', label: 'High' },
-      'medium': { bg: 'bg-yellow-50', text: 'text-yellow-600', label: 'Medium' },
+      'medium': { bg: 'bg-yellow-50', text: 'text-yellow-600', label: 'Med' },
       'low': { bg: 'bg-green-50', text: 'text-green-600', label: 'Low' }
     };
     
     const config = priorityConfig[priority as keyof typeof priorityConfig];
     return (
-      <span className={`px-2 py-1 rounded text-xs font-medium ${config.bg} ${config.text}`}>
+      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${config.bg} ${config.text}`}>
         {config.label}
       </span>
     );
@@ -270,16 +239,15 @@ const DocumentsManagement = ({ seller }: any) => {
         setShowESignModal(true);
         break;
       case 'download':
-        // Generate PDF download
-       const link = window.document.createElement('a');
+        const link = window.document.createElement('a');
         link.href = 'data:application/pdf;base64,JVBERi0xLjQKJdPr6eEKMSAwIG9iago8PAovVGl0bGUgKERvY3VtZW50KQo+PgplbmRvYmoKMiAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMyAwIFIKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFs0IDAgUl0KL0NvdW50IDEKPD4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAzIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQo+PgplbmRvYmoKeHJlZgowIDUKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNzQgMDAwMDAgbiAKMDAwMDAwMDEyMSAwMDAwMCBuIAowMDAwMDAwMTc4IDAwMDAwIG4gCnRyYWlsZXIKPDwKL1NpemUgNQovUm9vdCAyIDAgUgo+PgpzdGFydHhyZWYKMjczCiUlRU9GCg==';
         link.download = `${document.document_id}.pdf`;
         link.click();
         break;
       case 'share':
-        const shareMessage = `Document: ${document.title}\nDocument ID: ${document.document_id}\nStatus: ${document.status}\n\nView document: https://resaleexpert.com/document/${document.document_id}\n\nResaleExpert Team`;
+        const shareMessage = `Document: ${document.title}\nID: ${document.document_id}\nStatus: ${document.status}\n\nView: https://resaleexpert.com/document/${document.document_id}`;
         navigator.clipboard.writeText(shareMessage);
-        alert('Document link copied to clipboard!');
+        alert('Document link copied!');
         break;
       default:
         break;
@@ -290,21 +258,18 @@ const DocumentsManagement = ({ seller }: any) => {
     if (!selectedDocument) return;
     
     try {
-      // Simulate OTP sending
       await new Promise(resolve => setTimeout(resolve, 1000));
-      alert(`OTP sent to ${currentSeller.phone} for document verification`);
+      alert(`OTP sent to ${currentSeller.phone}`);
       
-      const otp = prompt('Enter OTP received on your phone:');
-      if (otp && otp === '123456') { // Simulate OTP verification
-        // Update document status
-        const updatedDoc = { ...selectedDocument, otp_verified: true, status: 'otp_verified' };
-        alert('OTP verified successfully! Document ready for e-signature.');
+      const otp = prompt('Enter OTP:');
+      if (otp && otp === '123456') {
+        alert('OTP verified successfully!');
         setShowOTPModal(false);
       } else if (otp) {
-        alert('Invalid OTP. Please try again.');
+        alert('Invalid OTP');
       }
     } catch (error) {
-      alert('OTP verification failed. Please try again.');
+      alert('OTP verification failed');
     }
   };
 
@@ -312,319 +277,295 @@ const DocumentsManagement = ({ seller }: any) => {
     if (!selectedDocument) return;
     
     try {
-      // Simulate e-signature process
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const confirmed = window.confirm('Proceed with digital signature using Aadhaar OTP?');
+      const confirmed = window.confirm('Proceed with digital signature?');
       if (confirmed) {
-        const aadhaarOTP = prompt('Enter Aadhaar OTP for digital signature:');
+        const aadhaarOTP = prompt('Enter Aadhaar OTP:');
         if (aadhaarOTP && aadhaarOTP === '654321') {
-          alert('Document signed successfully! Digital signature completed.');
+          alert('Document signed successfully!');
           setShowESignModal(false);
         } else if (aadhaarOTP) {
-          alert('Invalid Aadhaar OTP. Please try again.');
+          alert('Invalid OTP');
         }
       }
     } catch (error) {
-      alert('E-signature failed. Please try again.');
+      alert('E-signature failed');
     }
   };
 
   const approveDocument = async () => {
     if (!selectedDocument) return;
     
-    const confirmed = window.confirm('Approve this document for processing?');
+    const confirmed = window.confirm('Approve this document?');
     if (confirmed) {
-      alert('Document approved successfully!');
+      alert('Document approved!');
     }
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-6 pb-2 sm:pb-4 lg:pb-6 pt-0">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-        <div>
-          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Documents</h2>
-          <p className="text-xs text-gray-600 mt-1">Manage property documents</p>
-        </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-          <button className="flex items-center justify-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs">
-            <Upload size={14} />
-            <span>Upload</span>
-          </button>
-          <button className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs">
-            <Plus size={14} />
-            <span>Create</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Document Statistics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-3 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-xs">Total</p>
-              <p className="text-lg font-bold">{documents.length}</p>
-            </div>
-            <FileText size={16} className="text-blue-200" />
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="space-y-3 sm:space-y-4 px-0 sm:px-0 lg:px-0 pb-4 sm:pb-6 pt-0">
+        {/* Compact Header */}
+        <div className="flex flex-row items-center justify-between">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base sm:text-lg font-bold text-gray-900 truncate">Documents</h2>
+            <p className="text-[11px] text-gray-600">Manage property documents</p>
           </div>
-          <div className="text-blue-100 text-xs mt-1">All docs</div>
-        </div>
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-3 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-orange-100 text-xs">Pending</p>
-              <p className="text-lg font-bold">{documents.filter(d => d.status !== 'completed').length}</p>
-            </div>
-            <Clock size={16} className="text-orange-200" />
-          </div>
-          <div className="text-orange-100 text-xs mt-1">Need action</div>
-        </div>
-        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-3 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-xs">Done</p>
-              <p className="text-lg font-bold">{documents.filter(d => d.status === 'completed').length}</p>
-            </div>
-            <CheckCircle size={16} className="text-green-200" />
-          </div>
-          <div className="text-green-100 text-xs mt-1">Completed</div>
-        </div>
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-3 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-100 text-xs">This Month</p>
-              <p className="text-lg font-bold">{documents.filter(d => new Date(d.created_date).getMonth() === new Date().getMonth()).length}</p>
-            </div>
-            <TrendingUp size={16} className="text-purple-200" />
-          </div>
-          <div className="text-purple-100 text-xs mt-1">New docs</div>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="bg-white rounded-lg border border-gray-200 p-3">
-        <div className="flex flex-col space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
-            <input
-              type="text"
-              placeholder="Search documents..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
-            />
-          </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-            <button className="flex items-center justify-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs">
-              <Filter size={14} />
-              <span>Filters</span>
+          <div className="flex flex-row items-center space-x-2 flex-shrink-0">
+            <button className="flex items-center justify-center space-x-1 px-2.5 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-[11px] font-medium">
+              <Upload size={12} />
+              <span className="hidden sm:inline">Upload</span>
+              <span className="sm:hidden">Up</span>
             </button>
-            <button className="flex items-center justify-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs">
-              <Download size={14} />
-              <span>Export</span>
+            <button className="flex items-center justify-center space-x-1 px-2.5 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-[11px] font-medium">
+              <Plus size={12} />
+              <span className="hidden sm:inline">Create</span>
+              <span className="sm:hidden">New</span>
             </button>
           </div>
         </div>
 
-        {/* Document Tabs */}
-        <div className="mt-3">
-          <div className="flex space-x-1 overflow-x-auto pb-2">
-            {documentTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors whitespace-nowrap text-xs ${
-                  activeTab === tab.id
-                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <span className="font-medium">{tab.label}</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-xs ${
-                  activeTab === tab.id ? 'bg-blue-200' : 'bg-gray-200'
-                }`}>
-                  {tab.count}
-                </span>
+        {/* Compact Statistics Cards - Reduced Height */}
+        <div className="grid grid-cols-4 gap-2 sm:gap-3">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-2 text-white">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-blue-100 text-[10px] uppercase tracking-wide">Total</p>
+                <p className="text-base sm:text-lg font-bold">{documents.length}</p>
+              </div>
+              <FileText size={14} className="text-blue-200 flex-shrink-0 ml-1" />
+            </div>
+          </div>
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-2 text-white">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-orange-100 text-[10px] uppercase tracking-wide">Pending</p>
+                <p className="text-base sm:text-lg font-bold">{documents.filter(d => d.status !== 'completed').length}</p>
+              </div>
+              <Clock size={14} className="text-orange-200 flex-shrink-0 ml-1" />
+            </div>
+          </div>
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-2 text-white">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-green-100 text-[10px] uppercase tracking-wide">Done</p>
+                <p className="text-base sm:text-lg font-bold">{documents.filter(d => d.status === 'completed').length}</p>
+              </div>
+              <CheckCircle size={14} className="text-green-200 flex-shrink-0 ml-1" />
+            </div>
+          </div>
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-2 text-white">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-purple-100 text-[10px] uppercase tracking-wide">Month</p>
+                <p className="text-base sm:text-lg font-bold">{documents.filter(d => new Date(d.created_date).getMonth() === new Date().getMonth()).length}</p>
+              </div>
+              <TrendingUp size={14} className="text-purple-200 flex-shrink-0 ml-1" />
+            </div>
+          </div>
+        </div>
+
+        {/* Compact Search and Filters */}
+        <div className="bg-white rounded-lg border border-gray-200 p-2.5">
+          <div className="flex flex-col space-y-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" size={12} />
+              <input
+                type="text"
+                placeholder="Search documents..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+              />
+            </div>
+            <div className="flex flex-row items-center space-x-2">
+              <button className="flex items-center justify-center space-x-1.5 px-2.5 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-[11px] flex-1 sm:flex-none">
+                <Filter size={12} />
+                <span>Filter</span>
               </button>
-            ))}
+              <button className="flex items-center justify-center space-x-1.5 px-2.5 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-[11px] flex-1 sm:flex-none">
+                <Download size={12} />
+                <span>Export</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Compact Tabs */}
+          <div className="mt-2.5">
+            <div className="flex flex-wrap gap-1.5">
+              {documentTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg transition-colors text-[11px] font-medium ${
+                    activeTab === tab.id
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span className={`px-1 py-0 rounded-full text-[10px] ${
+                    activeTab === tab.id ? 'bg-blue-200' : 'bg-gray-200'
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Documents List */}
-      <div className="space-y-3">
-        {filteredDocuments.map((document) => (
-          <div key={document.id} className="bg-white rounded-lg border border-gray-200 shadow-sm">
-            <div className="p-3 sm:p-4">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
-                <div className="flex items-start space-x-3">
-                  <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
-                    <FileText className="text-blue-600" size={16} />
+        {/* Compact Documents List */}
+        <div className="space-y-2.5">
+          {filteredDocuments.map((document) => (
+            <div key={document.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+              <div className="p-2.5 sm:p-3">
+                {/* Compact Header */}
+                <div className="flex items-start space-x-2.5">
+                  <div className="p-1.5 bg-blue-100 rounded-lg flex-shrink-0">
+                    <FileText className="text-blue-600" size={12} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mb-2">
-                      <h3 className="font-semibold text-gray-900 text-xs sm:text-sm truncate">{document.title}</h3>
-                      <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-start gap-1.5 mb-1.5">
+                      <h3 className="font-semibold text-gray-900 text-xs sm:text-sm flex-1 min-w-0 break-words leading-tight">{document.title}</h3>
+                      <div className="flex flex-wrap items-center gap-1">
                         {getStatusBadge(document.status)}
                         {getPriorityBadge(document.priority)}
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs text-gray-600 mb-2">
-                      <div className="flex items-center space-x-1">
-                        <Building size={10} />
-                        <span className="truncate">{document.property}</span>
+                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-gray-600">
+                      <div className="flex items-center space-x-0.5">
+                        <Building size={9} className="flex-shrink-0" />
+                        <span className="truncate max-w-[120px] sm:max-w-none">{document.property}</span>
                       </div>
-                      <div className="flex items-center space-x-1">
-                        <Calendar size={10} />
+                      <div className="flex items-center space-x-0.5">
+                        <Calendar size={9} className="flex-shrink-0" />
                         <span>{document.created_date}</span>
                       </div>
-                      <div className="flex items-center space-x-1">
-                        <User size={10} />
-                        <span className="truncate">{document.created_by}</span>
+                      <div>
+                        <span className="font-medium">ID:</span> {document.document_id}
                       </div>
                     </div>
-                    <div className="text-xs text-gray-700 mb-1">
-                      <span className="font-medium">ID:</span> {document.document_id}
+                  </div>
+                </div>
+                
+                {/* Compact Progress */}
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="flex-1">
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                      <div 
+                        className="bg-blue-500 h-1.5 rounded-full transition-all"
+                        style={{ width: `${document.progress}%` }}
+                      ></div>
                     </div>
-                    <div className="text-xs text-gray-700">
-                      <span className="font-medium">Next:</span> {document.next_action}
+                  </div>
+                  <div className="text-[11px] font-bold text-blue-600 flex-shrink-0">{document.progress}%</div>
+                </div>
+
+                {/* Compact Details Row */}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="bg-gray-50 rounded px-2 py-1">
+                    <div className="text-[9px] text-gray-500 uppercase">Template</div>
+                    <div className="text-[10px] font-medium text-gray-900 truncate max-w-[100px]">{document.template}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded px-2 py-1">
+                    <div className="text-[9px] text-gray-500 uppercase">OTP</div>
+                    <div className="flex items-center space-x-0.5">
+                      {document.otp_verified ? (
+                        <CheckCircle className="text-green-500" size={10} />
+                      ) : (
+                        <Clock className="text-orange-500" size={10} />
+                      )}
+                      <span className="text-[10px] font-medium">{document.otp_verified ? 'Done' : 'Pending'}</span>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded px-2 py-1">
+                    <div className="text-[9px] text-gray-500 uppercase">Sign</div>
+                    <div className="flex items-center space-x-0.5">
+                      {document.esign_completed ? (
+                        <CheckCircle className="text-green-500" size={10} />
+                      ) : (
+                        <Clock className="text-orange-500" size={10} />
+                      )}
+                      <span className="text-[10px] font-medium">{document.esign_completed ? 'Done' : 'Pending'}</span>
                     </div>
                   </div>
                 </div>
-                <div className="text-center sm:text-right flex-shrink-0">
-                  <div className="text-lg font-bold text-blue-600">{document.progress}%</div>
-                  <div className="text-xs text-gray-500 mb-2">Progress</div>
-                  <div className="w-16 sm:w-20 bg-gray-200 rounded-full h-2 mx-auto sm:mx-0">
-                    <div 
-                      className="bg-blue-500 h-2 rounded-full transition-all"
-                      style={{ width: `${document.progress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Document Details */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3 mt-3">
-                <div className="bg-gray-50 rounded-lg p-2">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Template</div>
-                  <div className="font-medium text-gray-900 text-xs">{document.template}</div>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-2">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">OTP Status</div>
-                  <div className="flex items-center space-x-1">
-                    {document.otp_verified ? (
-                      <CheckCircle className="text-green-500" size={12} />
-                    ) : (
-                      <Clock className="text-orange-500" size={12} />
-                    )}
-                    <span className="text-xs font-medium">
-                      {document.otp_verified ? 'Verified' : 'Pending'}
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-2">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">E-Sign</div>
-                  <div className="flex items-center space-x-1">
-                    {document.esign_completed ? (
-                      <CheckCircle className="text-green-500" size={12} />
-                    ) : (
-                      <Clock className="text-orange-500" size={12} />
-                    )}
-                    <span className="text-xs font-medium">
-                      {document.esign_completed ? 'Done' : 'Pending'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Shared Channels */}
-              {document.shared_channels.length > 0 && (
-                <div className="mb-3">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Shared Via</div>
-                  <div className="flex flex-wrap gap-1">
-                    {document.shared_channels.map((channel: string, index: number) => (
-                      <span key={index} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                        {channel}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleDocumentAction('view', document)}
-                  className="flex items-center space-x-1 px-2 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
-                >
-                  <Eye size={12} />
-                  <span>View</span>
-                </button>
-                <button
-                  onClick={() => handleDocumentAction('track', document)}
-                  className="flex items-center space-x-1 px-2 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-xs"
-                >
-                  <BarChart3 size={12} />
-                  <span>Track</span>
-                </button>
-                {document.approval_required && (
+                {/* Compact Action Buttons */}
+                <div className="flex flex-wrap gap-1.5 mt-2.5">
                   <button
-                    onClick={approveDocument}
-                    className="flex items-center space-x-1 px-2 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs"
+                    onClick={() => handleDocumentAction('view', document)}
+                    className="flex items-center space-x-1 px-2 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-[10px] font-medium"
                   >
-                    <CheckCircle size={12} />
-                    <span>Approve</span>
+                    <Eye size={10} />
+                    <span>View</span>
                   </button>
-                )}
-                {!document.otp_verified && (
                   <button
-                    onClick={() => handleDocumentAction('otp', document)}
-                    className="flex items-center space-x-1 px-2 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-xs"
+                    onClick={() => handleDocumentAction('track', document)}
+                    className="flex items-center space-x-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 transition-colors text-[10px] font-medium"
                   >
-                    <Shield size={12} />
-                    <span>OTP</span>
+                    <BarChart3 size={10} />
+                    <span>Track</span>
                   </button>
-                )}
-                {document.otp_verified && !document.esign_completed && (
+                  {document.approval_required && (
+                    <button
+                      onClick={approveDocument}
+                      className="flex items-center space-x-1 px-2 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-[10px] font-medium"
+                    >
+                      <CheckCircle size={10} />
+                      <span>Approve</span>
+                    </button>
+                  )}
+                  {!document.otp_verified && (
+                    <button
+                      onClick={() => handleDocumentAction('otp', document)}
+                      className="flex items-center space-x-1 px-2 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-[10px] font-medium"
+                    >
+                      <Shield size={10} />
+                      <span>OTP</span>
+                    </button>
+                  )}
+                  {document.otp_verified && !document.esign_completed && (
+                    <button
+                      onClick={() => handleDocumentAction('esign', document)}
+                      className="flex items-center space-x-1 px-2 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-[10px] font-medium"
+                    >
+                      <Award size={10} />
+                      <span>Sign</span>
+                    </button>
+                  )}
                   <button
-                    onClick={() => handleDocumentAction('esign', document)}
-                    className="flex items-center space-x-1 px-2 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs"
+                    onClick={() => handleDocumentAction('download', document)}
+                    className="flex items-center space-x-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-[10px] font-medium"
                   >
-                    <Award size={12} />
-                    <span>Sign</span>
+                    <Download size={10} />
+                    <span>Get</span>
                   </button>
-                )}
-                <button
-                  onClick={() => handleDocumentAction('download', document)}
-                  className="flex items-center space-x-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs"
-                >
-                  <Download size={12} />
-                  <span>Get</span>
-                </button>
-                <button
-                  onClick={() => handleDocumentAction('share', document)}
-                  className="flex items-center space-x-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs"
-                >
-                  <Share size={12} />
-                  <span>Share</span>
-                </button>
+                  <button
+                    onClick={() => handleDocumentAction('share', document)}
+                    className="flex items-center space-x-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-[10px] font-medium"
+                  >
+                    <Share size={10} />
+                    <span>Share</span>
+                  </button>
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+
+        {filteredDocuments.length === 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+            <FileText className="mx-auto text-gray-300 mb-2" size={24} />
+            <h3 className="text-xs font-semibold text-gray-900 mb-1">No documents found</h3>
+            <p className="text-[10px] text-gray-500">Try adjusting your search</p>
           </div>
-        ))}
+        )}
       </div>
 
-      {filteredDocuments.length === 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-          <FileText className="mx-auto text-gray-300 mb-4" size={32} />
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">No documents found</h3>
-          <p className="text-xs text-gray-500">Try adjusting your search or filter criteria</p>
-        </div>
-      )}
-
-      {/* Document Viewer Modal */}
+      {/* Modals remain with compact styling */}
       {showDocumentViewer && selectedDocument && (
         <DocumentViewerModal 
           document={selectedDocument}
@@ -635,7 +576,6 @@ const DocumentsManagement = ({ seller }: any) => {
         />
       )}
 
-      {/* Tracking Modal */}
       {showTrackingModal && selectedDocument && (
         <DocumentTrackingModal 
           document={selectedDocument}
@@ -646,7 +586,6 @@ const DocumentsManagement = ({ seller }: any) => {
         />
       )}
 
-      {/* OTP Verification Modal */}
       {showOTPModal && selectedDocument && (
         <OTPVerificationModal 
           document={selectedDocument}
@@ -659,7 +598,6 @@ const DocumentsManagement = ({ seller }: any) => {
         />
       )}
 
-      {/* E-Sign Modal */}
       {showESignModal && selectedDocument && (
         <ESignModal 
           document={selectedDocument}
@@ -675,24 +613,24 @@ const DocumentsManagement = ({ seller }: any) => {
   );
 };
 
-// Document Viewer Modal
+// Compact Document Viewer Modal
 const DocumentViewerModal = ({ document, onClose }: any) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-3 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm sm:text-lg font-semibold text-gray-900 truncate pr-4">{document.title}</h3>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded flex-shrink-0">
-              <X size={16} />
+            <h3 className="text-sm font-semibold text-gray-900 break-words pr-4">{document.title}</h3>
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0">
+              <X size={14} />
             </button>
           </div>
         </div>
         
         <div className="p-4 max-h-[60vh] overflow-y-auto">
-          <div className="bg-gray-50 rounded-lg p-4 min-h-64">
+          <div className="bg-gray-50 rounded-lg p-4">
             <div className="text-center">
-              <FileText className="mx-auto text-gray-400 mb-4" size={48} />
+              <FileText className="mx-auto text-gray-400 mb-3" size={40} />
               <h3 className="text-sm font-semibold text-gray-900 mb-2">Document Preview</h3>
               <div className="space-y-1 text-xs text-gray-600">
                 <p><span className="font-medium">ID:</span> {document.document_id}</p>
@@ -703,15 +641,15 @@ const DocumentViewerModal = ({ document, onClose }: any) => {
           </div>
         </div>
         
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
+        <div className="p-3 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-xs"
+              className="px-3 py-1.5 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-xs"
             >
               Close
             </button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs">
+            <button className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs">
               Download PDF
             </button>
           </div>
@@ -721,16 +659,16 @@ const DocumentViewerModal = ({ document, onClose }: any) => {
   );
 };
 
-// Document Tracking Modal
+// Compact Document Tracking Modal
 const DocumentTrackingModal = ({ document, onClose }: any) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-3 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm sm:text-lg font-semibold text-gray-900">Document Tracking</h3>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
-              <X size={16} />
+            <h3 className="text-sm font-semibold text-gray-900">Tracking History</h3>
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0">
+              <X size={14} />
             </button>
           </div>
         </div>
@@ -738,34 +676,34 @@ const DocumentTrackingModal = ({ document, onClose }: any) => {
         <div className="p-4 max-h-[60vh] overflow-y-auto">
           <div className="space-y-3">
             {document.tracking_history.map((entry: any, index: number) => (
-              <div key={index} className="flex items-start space-x-3">
-                <div className={`p-2 rounded-full flex-shrink-0 ${
+              <div key={index} className="flex items-start space-x-2.5">
+                <div className={`p-1.5 rounded-full flex-shrink-0 ${
                   entry.status === 'completed' ? 'bg-green-100' :
                   entry.status === 'active' ? 'bg-blue-100' :
                   'bg-orange-100'
                 }`}>
                   {entry.status === 'completed' ? (
-                    <CheckCircle className="text-green-600" size={12} />
+                    <CheckCircle className="text-green-600" size={10} />
                   ) : entry.status === 'active' ? (
-                    <Clock className="text-blue-600" size={12} />
+                    <Clock className="text-blue-600" size={10} />
                   ) : (
-                    <AlertCircle className="text-orange-600" size={12} />
+                    <AlertCircle className="text-orange-600" size={10} />
                   )}
                 </div>
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900 text-xs">{entry.action}</div>
-                  <div className="text-xs text-gray-600">by {entry.user}</div>
-                  <div className="text-xs text-gray-500">{new Date(entry.timestamp).toLocaleString()}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 text-xs break-words">{entry.action}</div>
+                  <div className="text-[10px] text-gray-600">by {entry.user}</div>
+                  <div className="text-[10px] text-gray-500">{new Date(entry.timestamp).toLocaleString()}</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
         
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-3 border-t border-gray-200">
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
+            className="w-full px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
           >
             Close
           </button>
@@ -775,43 +713,41 @@ const DocumentTrackingModal = ({ document, onClose }: any) => {
   );
 };
 
-// OTP Verification Modal
+// Compact OTP Verification Modal
 const OTPVerificationModal = ({ document, seller, onVerify, onClose }: any) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-3 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">OTP Verification</h3>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
-              <X size={16} />
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0">
+              <X size={14} />
             </button>
           </div>
         </div>
         
         <div className="p-4">
-          <div className="text-center mb-4">
-            <div className="p-3 bg-orange-100 rounded-full w-12 h-12 mx-auto mb-3">
-              <Shield className="text-orange-600" size={24} />
+          <div className="text-center mb-3">
+            <div className="p-2 bg-orange-100 rounded-full w-10 h-10 mx-auto mb-2">
+              <Shield className="text-orange-600" size={20} />
             </div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Verify Identity</h3>
-            <p className="text-xs text-gray-600 mb-2">OTP will be sent to your phone</p>
-            <p className="text-xs text-gray-500">{seller.phone}</p>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Verify Identity</h3>
+            <p className="text-[11px] text-gray-600">OTP sent to {seller.phone}</p>
           </div>
           
           <div className="space-y-3">
-            <div className="bg-blue-50 rounded-lg p-3">
-              <h4 className="font-medium text-blue-900 mb-2 text-xs">Document Details</h4>
-              <div className="text-xs text-blue-800 space-y-1">
-                <div><span className="font-medium">Doc:</span> {document.title}</div>
+            <div className="bg-blue-50 rounded-lg p-2.5">
+              <h4 className="font-medium text-blue-900 mb-1 text-[11px]">Document Details</h4>
+              <div className="text-[10px] text-blue-800 space-y-0.5">
+                <div><span className="font-medium">Doc:</span> {document.title.substring(0, 40)}...</div>
                 <div><span className="font-medium">ID:</span> {document.document_id}</div>
-                <div><span className="font-medium">Property:</span> {document.property}</div>
               </div>
             </div>
             
             <button
               onClick={onVerify}
-              className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium text-xs"
+              className="w-full bg-orange-600 text-white py-2 px-3 rounded-lg hover:bg-orange-700 transition-colors font-medium text-xs"
             >
               Send OTP
             </button>
@@ -822,56 +758,42 @@ const OTPVerificationModal = ({ document, seller, onVerify, onClose }: any) => {
   );
 };
 
-// E-Sign Modal
+// Compact E-Sign Modal
 const ESignModal = ({ document, seller, onSign, onClose }: any) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-3 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">Digital Signature</h3>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
-              <X size={16} />
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0">
+              <X size={14} />
             </button>
           </div>
         </div>
         
         <div className="p-4">
-          <div className="text-center mb-4">
-            <div className="p-3 bg-purple-100 rounded-full w-12 h-12 mx-auto mb-3">
-              <Award className="text-purple-600" size={24} />
+          <div className="text-center mb-3">
+            <div className="p-2 bg-purple-100 rounded-full w-10 h-10 mx-auto mb-2">
+              <Award className="text-purple-600" size={20} />
             </div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Digital Signature</h3>
-            <p className="text-xs text-gray-600">Sign document digitally</p>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Digital Signature</h3>
+            <p className="text-[11px] text-gray-600">Sign document digitally</p>
           </div>
           
           <div className="space-y-3">
-            <div className="bg-purple-50 rounded-lg p-3">
-              <h4 className="font-medium text-purple-900 mb-2 text-xs">Signature Details</h4>
-              <div className="text-xs text-purple-800 space-y-1">
+            <div className="bg-purple-50 rounded-lg p-2.5">
+              <h4 className="font-medium text-purple-900 mb-1 text-[11px]">Signature Details</h4>
+              <div className="text-[10px] text-purple-800 space-y-0.5">
                 <div><span className="font-medium">Signer:</span> {seller.name}</div>
                 <div><span className="font-medium">Document:</span> {document.document_id}</div>
                 <div><span className="font-medium">Method:</span> Aadhaar OTP</div>
               </div>
             </div>
             
-            <div className="bg-yellow-50 rounded-lg p-3">
-              <div className="flex items-start space-x-2">
-                <AlertCircle className="text-yellow-600 mt-0.5 flex-shrink-0" size={12} />
-                <div className="text-xs text-yellow-800">
-                  <div className="font-medium mb-1">Important:</div>
-                  <ul className="space-y-0.5 list-disc list-inside">
-                    <li>Have Aadhaar card ready</li>
-                    <li>OTP sent to Aadhaar phone</li>
-                    <li>Legally binding signature</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            
             <button
               onClick={onSign}
-              className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium text-xs"
+              className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 transition-colors font-medium text-xs"
             >
               Proceed with E-Sign
             </button>

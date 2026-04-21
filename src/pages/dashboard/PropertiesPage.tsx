@@ -2119,7 +2119,7 @@ count: properties.filter(p => {
 
         {/* Header */}
 <div className=" bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4">    
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className=" md:hidden flex flex-col lg:flex-row lg:items-center justify-between gap-4">
       
           <div className="flex items-center space-x-2 ml-auto">
             {/* Import Button - Conditional */}
@@ -2256,20 +2256,61 @@ style={{ background: theme.orange }}              >
   </div>
 </div>
 
-        <div className="mt-4">
-          <div className="flex space-x-1 overflow-x-auto pb-1">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={tabBtnClass(activeTab === tab.id, tab.color)}
-              >
-                <span className="font-medium text-xs">{tab.label}</span>
-                <span className={tabCountClass(activeTab === tab.id, tab.color)}>{tab.count}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+       <div className="mt-4">
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    {/* Tabs - Scrollable on mobile */}
+    <div className="flex space-x-1 overflow-x-auto pb-1 flex-1">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          onClick={() => setActiveTab(tab.id)}
+          className={tabBtnClass(activeTab === tab.id, tab.color)}
+        >
+          <span className="font-medium text-xs whitespace-nowrap">{tab.label}</span>
+          <span className={tabCountClass(activeTab === tab.id, tab.color)}>{tab.count}</span>
+        </button>
+      ))}
+    </div>
+
+    {/* Desktop Buttons - Hidden on mobile, visible on desktop */}
+    <div className="hidden lg:flex items-center space-x-2">
+      {/* Import Button - Conditional */}
+      {canImport && (
+        <button
+          onClick={() => setShowImportProperties(true)}
+          className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-md hover:from-green-600 hover:to-emerald-700 transition-all text-xs whitespace-nowrap"
+        >
+          <Upload size={14} />
+          <span>Import</span>
+        </button>
+      )}
+
+      {/* Add Property Button - Conditional */}
+      {canCreate && (
+        <button
+          onClick={handleAddProperty}
+          className="flex items-center space-x-1.5 px-3 py-1.5 text-white rounded-md hover:opacity-90 transition-all text-xs whitespace-nowrap"
+          style={{ background: theme.navy }}
+        >
+          <Plus size={14} />
+          <span>Add</span>
+        </button>
+      )}
+
+      {/* Brochure Downloads Button - Conditional */}
+      {canExport && (
+        <button
+          onClick={handlebrochureDownloadsy}
+          className="flex items-center space-x-1.5 px-3 py-1.5 text-white rounded-md hover:opacity-90 transition-all text-xs whitespace-nowrap"
+          style={{ background: theme.orange }}
+        >
+          <Download size={14} />
+          <span>brochureDownloads</span>
+        </button>
+      )}
+    </div>
+  </div>
+</div>
       </div>
       </div>
       {/* ================= END STICKY TOP AREA ================= */}

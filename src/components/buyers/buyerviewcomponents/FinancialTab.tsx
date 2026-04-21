@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, TrendingUp, Award, CreditCard, Plus } from 'lucide-react';
+import { DollarSign, TrendingUp, Award, CreditCard, Plus, IndianRupeeIcon } from 'lucide-react';
 
 interface FinancialTabProps {
   buyer: any;
@@ -42,7 +42,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({ buyer, onShowLoanApplicatio
                 {formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}
               </p>
             </div>
-            <DollarSign size={20} className="text-green-200" />
+            <IndianRupeeIcon size={20} className="text-green-200" />
           </div>
         </div>
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white">

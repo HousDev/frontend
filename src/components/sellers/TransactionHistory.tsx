@@ -59,7 +59,7 @@ export interface Transaction {
   type: string;
   description: string;
   amount: number;
-  date: string; // ISO or yyyy-mm-dd
+  date: string;
   status: TransactionStatus;
   property?: string;
   buyer?: string;
@@ -79,10 +79,8 @@ export interface Transaction {
   expectedDate?: string;
 }
 
-// ---------- Helper utilities (module scope so modal can use them) ----------
 const formatCurrency = (amount: number) => {
   if (typeof amount !== "number" || isNaN(amount)) return "₹0";
-  // Using Indian number groups (lakh, crore)
   if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
   if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
   return `₹${amount.toLocaleString("en-IN")}`;
@@ -91,19 +89,19 @@ const formatCurrency = (amount: number) => {
 const getTransactionIcon = (type: string) => {
   switch (type) {
     case "brokerage_received":
-      return <Receipt className="text-green-600" size={16} />;
+      return <Receipt className="text-green-600" size={14} />;
     case "brokerage_pending":
-      return <Clock className="text-orange-600" size={16} />;
+      return <Clock className="text-orange-600" size={14} />;
     case "marketing_expense":
-      return <TrendingUp className="text-blue-600" size={16} />;
+      return <TrendingUp className="text-blue-600" size={14} />;
     case "legal_fee":
-      return <FileText className="text-purple-600" size={16} />;
+      return <FileText className="text-purple-600" size={14} />;
     case "maintenance":
-      return <Settings className="text-gray-600" size={16} />;
+      return <Settings className="text-gray-600" size={14} />;
     case "portal_listing":
-      return <Building className="text-indigo-600" size={16} />;
+      return <Building className="text-indigo-600" size={14} />;
     default:
-      return <CreditCard className="text-gray-600" size={16} />;
+      return <CreditCard className="text-gray-600" size={14} />;
   }
 };
 
@@ -120,14 +118,13 @@ const getStatusBadge = (status: TransactionStatus) => {
   const config = statusConfig[status] ?? statusConfig.pending;
   const Icon = config.icon;
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
-      <Icon size={10} className="mr-1" />
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium whitespace-nowrap ${config.bg} ${config.text}`}>
+      <Icon size={8} className="mr-0.5 flex-shrink-0" />
       {config.label}
     </span>
   );
 };
 
-// ---------- TransactionDetailModal Props ----------
 interface TransactionDetailModalProps {
   transaction: Transaction;
   onClose: () => void;
@@ -139,8 +136,8 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({ transaction, 
       <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
         <div className="p-3 sm:p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm sm:text-xl font-semibold text-gray-900">Transaction Details</h3>
-            <button onClick={onClose} className="p-1 sm:p-2 hover:bg-gray-100 rounded">
+            <h3 className="text-sm sm:text-xl font-semibold text-gray-900 break-words pr-4">Transaction Details</h3>
+            <button onClick={onClose} className="p-1 sm:p-2 hover:bg-gray-100 rounded flex-shrink-0">
               <X size={16} className="sm:size-5" />
             </button>
           </div>
@@ -148,40 +145,35 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({ transaction, 
 
         <div className="p-3 sm:p-6 max-h-[70vh] overflow-y-auto">
           <div className="space-y-4 sm:space-y-6">
-            {/* Transaction Summary */}
             <div className="bg-gray-50 rounded-lg sm:rounded-xl p-3 sm:p-4">
               <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3">Transaction Summary</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-1 sm:space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-xs text-gray-600">Amount:</span>
-                    <span className="text-xs sm:text-sm font-bold">{formatCurrency(transaction.amount)}</span>
+                  <div className="flex justify-between flex-wrap gap-1">
+                    <span className="text-[10px] sm:text-xs text-gray-600">Amount:</span>
+                    <span className="text-[11px] sm:text-sm font-bold break-words">{formatCurrency(transaction.amount)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-gray-600">Date:</span>
-                    <span className="text-xs font-medium">{transaction.date}</span>
+                  <div className="flex justify-between flex-wrap gap-1">
+                    <span className="text-[10px] sm:text-xs text-gray-600">Date:</span>
+                    <span className="text-[10px] sm:text-xs font-medium">{transaction.date}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-gray-600">Status:</span>
+                  <div className="flex justify-between flex-wrap gap-1">
+                    <span className="text-[10px] sm:text-xs text-gray-600">Status:</span>
                     <span>{getStatusBadge(transaction.status)}</span>
                   </div>
                 </div>
                 <div className="space-y-1 sm:space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-xs text-gray-600">Method:</span>
-                    <span className="text-xs font-medium">{transaction.paymentMethod ?? "—"}</span>
+                  <div className="flex justify-between flex-wrap gap-1">
+                    <span className="text-[10px] sm:text-xs text-gray-600">Method:</span>
+                    <span className="text-[10px] sm:text-xs font-medium break-words">{transaction.paymentMethod ?? "—"}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-gray-600">Transaction ID:</span>
-                    <span className="text-xs font-mono break-all">{transaction.transactionId ?? "—"}</span>
+                  <div className="flex justify-between flex-wrap gap-1">
+                    <span className="text-[10px] sm:text-xs text-gray-600">Transaction ID:</span>
+                    <span className="text-[10px] sm:text-xs font-mono break-all">{transaction.transactionId ?? "—"}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-gray-600">Category:</span>
-                    <span
-                      className={`text-xs font-medium capitalize ${
-                        transaction.category === "income" ? "text-green-600" : "text-red-600"
-                      }`}
-                    >
+                  <div className="flex justify-between flex-wrap gap-1">
+                    <span className="text-[10px] sm:text-xs text-gray-600">Category:</span>
+                    <span className={`text-[10px] sm:text-xs font-medium capitalize break-words ${transaction.category === "income" ? "text-green-600" : "text-red-600"}`}>
                       {transaction.category ?? "other"}
                     </span>
                   </div>
@@ -189,70 +181,68 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({ transaction, 
               </div>
             </div>
 
-            {/* Deal Information */}
             {transaction.dealValue !== undefined && (
               <div className="bg-green-50 rounded-lg sm:rounded-xl p-3 sm:p-4">
                 <h4 className="text-xs sm:text-sm font-semibold text-green-900 mb-2 sm:mb-3">Deal Information</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-green-700">Deal Value:</span>
-                    <span className="font-bold">{formatCurrency(transaction.dealValue!)}</span>
+                  <div className="flex justify-between flex-wrap gap-1">
+                    <span className="text-green-700 text-[10px] sm:text-xs">Deal Value:</span>
+                    <span className="font-bold text-[10px] sm:text-xs break-words">{formatCurrency(transaction.dealValue!)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-green-700">Brokerage Rate:</span>
-                    <span className="font-bold">{transaction.brokerageRate ?? "—"}%</span>
+                  <div className="flex justify-between flex-wrap gap-1">
+                    <span className="text-green-700 text-[10px] sm:text-xs">Brokerage Rate:</span>
+                    <span className="font-bold text-[10px] sm:text-xs">{transaction.brokerageRate ?? "—"}%</span>
                   </div>
                   {transaction.gstAmount !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-green-700">GST Amount:</span>
-                      <span className="font-bold">{formatCurrency(transaction.gstAmount!)}</span>
+                    <div className="flex justify-between flex-wrap gap-1">
+                      <span className="text-green-700 text-[10px] sm:text-xs">GST Amount:</span>
+                      <span className="font-bold text-[10px] sm:text-xs break-words">{formatCurrency(transaction.gstAmount!)}</span>
                     </div>
                   )}
                   {transaction.netAmount !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-green-700">Net Received:</span>
-                      <span className="font-bold">{formatCurrency(transaction.netAmount!)}</span>
+                    <div className="flex justify-between flex-wrap gap-1">
+                      <span className="text-green-700 text-[10px] sm:text-xs">Net Received:</span>
+                      <span className="font-bold text-[10px] sm:text-xs break-words">{formatCurrency(transaction.netAmount!)}</span>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Service Details */}
             {(transaction.features || transaction.services || transaction.workDetails) && (
               <div className="bg-blue-50 rounded-lg sm:rounded-xl p-3 sm:p-4">
                 <h4 className="text-xs sm:text-sm font-semibold text-blue-900 mb-2 sm:mb-3">Service Details</h4>
                 <div className="space-y-2">
-                  {transaction.features && (
+                  {transaction.features && transaction.features.length > 0 && (
                     <div>
-                      <span className="text-xs font-medium text-blue-700">Features:</span>
+                      <span className="text-[10px] sm:text-xs font-medium text-blue-700">Features:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {transaction.features.map((feature, index) => (
-                          <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
+                          <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-[9px] sm:text-xs break-words">
                             {feature}
                           </span>
                         ))}
                       </div>
                     </div>
                   )}
-                  {transaction.services && (
+                  {transaction.services && transaction.services.length > 0 && (
                     <div>
-                      <span className="text-xs font-medium text-blue-700">Services:</span>
+                      <span className="text-[10px] sm:text-xs font-medium text-blue-700">Services:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {transaction.services.map((service, index) => (
-                          <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
+                          <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-[9px] sm:text-xs break-words">
                             {service}
                           </span>
                         ))}
                       </div>
                     </div>
                   )}
-                  {transaction.workDetails && (
+                  {transaction.workDetails && transaction.workDetails.length > 0 && (
                     <div>
-                      <span className="text-xs font-medium text-blue-700">Work Done:</span>
+                      <span className="text-[10px] sm:text-xs font-medium text-blue-700">Work Done:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {transaction.workDetails.map((work, index) => (
-                          <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
+                          <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-[9px] sm:text-xs break-words">
                             {work}
                           </span>
                         ))}
@@ -266,12 +256,12 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({ transaction, 
         </div>
 
         <div className="p-3 sm:p-6 border-t border-gray-200">
-          <div className="flex justify-end space-x-2 sm:space-x-3">
-            <button onClick={onClose} className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-3 sm:space-x-reverse">
+            <button onClick={onClose} className="px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
               Close
             </button>
             {transaction.invoiceId && (
-              <button className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+              <button className="px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
                 Download Invoice
               </button>
             )}
@@ -282,10 +272,9 @@ const TransactionDetailModal: FC<TransactionDetailModalProps> = ({ transaction, 
   );
 };
 
-// ---------- Main component ----------
 interface TransactionHistoryProps {
   seller?: any;
-  initialTransactions?: Transaction[]; // optional prop for injection/testing
+  initialTransactions?: Transaction[];
 }
 
 const TransactionHistory: FC<TransactionHistoryProps> = ({ seller, initialTransactions }) => {
@@ -294,7 +283,6 @@ const TransactionHistory: FC<TransactionHistoryProps> = ({ seller, initialTransa
   const [selectedPeriod, setSelectedPeriod] = useState("all");
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
-  // use provided initialTransactions or fallback to demo dataset
   const transactions: Transaction[] = initialTransactions ?? [
     {
       id: 1,
@@ -388,9 +376,9 @@ const TransactionHistory: FC<TransactionHistoryProps> = ({ seller, initialTransa
   ];
 
   const transactionTabs = [
-    { id: "all", label: "All Transactions", count: transactions.length },
+    { id: "all", label: "All", count: transactions.length },
     { id: "income", label: "Income", count: transactions.filter((t) => t.category === "income").length },
-    { id: "expense", label: "Expenses", count: transactions.filter((t) => t.category === "expense").length },
+    { id: "expense", label: "Expense", count: transactions.filter((t) => t.category === "expense").length },
     { id: "pending", label: "Pending", count: transactions.filter((t) => t.status === "pending").length }
   ];
 
@@ -417,11 +405,9 @@ const TransactionHistory: FC<TransactionHistoryProps> = ({ seller, initialTransa
       (activeTab === "pending" && transaction.status === "pending") ||
       transaction.category === (activeTab as TransactionCategory);
 
-    // NOTE: selectedPeriod filtering is not implemented here (keeps original behavior)
     return matchesSearch && matchesTab;
   });
 
-  // Calculate totals
   const totalIncome = transactions
     .filter((t) => t.category === "income" && t.status === "completed")
     .reduce((sum, t) => sum + t.amount, 0);
@@ -434,353 +420,278 @@ const TransactionHistory: FC<TransactionHistoryProps> = ({ seller, initialTransa
   const netIncome = totalIncome - totalExpenses;
 
   const exportTransactions = () => {
-    const exportData = {
-      period: selectedPeriod,
-      transactions: filteredTransactions,
-      summary: {
-        totalIncome,
-        totalExpenses,
-        netIncome,
-        pendingIncome
-      },
-      exportedAt: new Date().toISOString()
-    };
     alert("Transaction report exported successfully!");
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-6 pb-2 sm:pb-4 lg:pb-6 pt-0">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-        <div>
-          <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Transaction History</h2>
-          <p className="text-xs sm:text-sm text-gray-600 mt-1">Complete financial transaction records and analysis</p>
-        </div>
-        <div className="flex items-center space-x-2 sm:space-x-3">
-          <button
-            onClick={exportTransactions}
-            className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs"
-          >
-            <Download size={14} className="sm:size-4" />
-            <span className="hidden sm:inline">Export Report</span>
-            <span className="sm:hidden">Export</span>
-          </button>
-          <button className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs">
-            <Plus size={14} className="sm:size-4" />
-            <span className="hidden sm:inline">Add Transaction</span>
-            <span className="sm:hidden">Add</span>
-          </button>
-        </div>
-      </div>
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="space-y-3 sm:space-y-4 pb-4 sm:pb-6 pt-0">
 
-      {/* Financial Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg sm:rounded-xl p-3 sm:p-4 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-xs">Total Income</p>
-              <p className="text-sm sm:text-lg lg:text-2xl font-bold">{formatCurrency(totalIncome)}</p>
-            </div>
-            <TrendingUp size={18} className="text-green-200 sm:size-6" />
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">Transaction History</h2>
+            <p className="text-[11px] sm:text-sm text-gray-600 mt-0.5 sm:mt-1">Complete financial transaction records and analysis</p>
           </div>
-          <div className="text-green-100 text-xs mt-1 sm:mt-2 hidden sm:block">From brokerage & commissions</div>
-        </div>
-        <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg sm:rounded-xl p-3 sm:p-4 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-red-100 text-xs">Total Expenses</p>
-              <p className="text-sm sm:text-lg lg:text-2xl font-bold">{formatCurrency(totalExpenses)}</p>
-            </div>
-            <TrendingDown size={18} className="text-red-200 sm:size-6" />
-          </div>
-          <div className="text-red-100 text-xs mt-1 sm:mt-2 hidden sm:block">Marketing & operational costs</div>
-        </div>
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg sm:rounded-xl p-3 sm:p-4 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-xs">Net Income</p>
-              <p className="text-sm sm:text-lg lg:text-2xl font-bold">{formatCurrency(netIncome)}</p>
-            </div>
-            <DollarSign size={18} className="text-blue-200 sm:size-6" />
-          </div>
-          <div className="text-blue-100 text-xs mt-1 sm:mt-2 hidden sm:block">After all expenses</div>
-        </div>
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg sm:rounded-xl p-3 sm:p-4 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-orange-100 text-xs">Pending Income</p>
-              <p className="text-sm sm:text-lg lg:text-2xl font-bold">{formatCurrency(pendingIncome)}</p>
-            </div>
-            <Clock size={18} className="text-orange-200 sm:size-6" />
-          </div>
-          <div className="text-orange-100 text-xs mt-1 sm:mt-2 hidden sm:block">Expected this month</div>
-        </div>
-      </div>
-
-      {/* Filters and Search */}
-      <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-3 sm:p-4">
-        <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:space-y-0 lg:space-x-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
-            <input
-              type="text"
-              placeholder="Search transactions..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-7 sm:pl-9 pr-3 sm:pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
-            />
-          </div>
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            <select
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={exportTransactions}
+              className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-[10px] sm:text-xs font-medium whitespace-nowrap"
             >
-              {periods.map((period) => (
-                <option key={period.value} value={period.value}>
-                  {period.label}
-                </option>
-              ))}
-            </select>
-            <button className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs">
-              <Filter size={12} className="sm:size-4" />
-              <span className="hidden sm:inline">More Filters</span>
-              <span className="sm:hidden">Filters</span>
+              <Download size={12} className="sm:size-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Export</span>
+              <span className="sm:hidden">Exp</span>
+            </button>
+            <button className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-[10px] sm:text-xs font-medium whitespace-nowrap">
+              <Plus size={12} className="sm:size-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Add</span>
+              <span className="sm:hidden">Add</span>
             </button>
           </div>
         </div>
 
-        {/* Transaction Tabs */}
-        <div className="mt-3 sm:mt-4">
-          <div className="flex space-x-1 overflow-x-auto scrollbar-hide">
-            {transactionTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-colors whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? "bg-blue-100 text-blue-700 border border-blue-200"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                <span className="text-xs font-medium">{tab.label}</span>
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-xs ${
-                    activeTab === tab.id ? "bg-blue-200" : "bg-gray-200"
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            ))}
+        {/* Summary Cards - Compact 2x2 grid */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-2 sm:p-3 text-white">
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-[8px] sm:text-[10px] text-green-100 truncate">Income</p>
+                <p className="text-[11px] sm:text-base lg:text-lg font-bold truncate">{formatCurrency(totalIncome)}</p>
+              </div>
+              <TrendingUp size={14} className="text-green-200 flex-shrink-0 hidden sm:block" />
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg p-2 sm:p-3 text-white">
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-[8px] sm:text-[10px] text-red-100 truncate">Expense</p>
+                <p className="text-[11px] sm:text-base lg:text-lg font-bold truncate">{formatCurrency(totalExpenses)}</p>
+              </div>
+              <TrendingDown size={14} className="text-red-200 flex-shrink-0 hidden sm:block" />
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-2 sm:p-3 text-white">
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-[8px] sm:text-[10px] text-blue-100 truncate">Net</p>
+                <p className="text-[11px] sm:text-base lg:text-lg font-bold truncate">{formatCurrency(netIncome)}</p>
+              </div>
+              <DollarSign size={14} className="text-blue-200 flex-shrink-0 hidden sm:block" />
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-2 sm:p-3 text-white">
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-[8px] sm:text-[10px] text-orange-100 truncate">Pending</p>
+                <p className="text-[11px] sm:text-base lg:text-lg font-bold truncate">{formatCurrency(pendingIncome)}</p>
+              </div>
+              <Clock size={14} className="text-orange-200 flex-shrink-0 hidden sm:block" />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Transactions List */}
-      <div className="space-y-3 sm:space-y-4">
-        {filteredTransactions.map((transaction) => (
-          <div
-            key={transaction.id}
-            className="bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all"
-          >
-            <div className="p-3 sm:p-6">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-start space-x-2 sm:space-x-4 flex-1">
-                  <div className="p-2 sm:p-3 bg-gray-50 rounded-lg sm:rounded-xl">{getTransactionIcon(transaction.type)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-3 mb-2">
-                      <h3 className="font-semibold text-gray-900 text-xs sm:text-sm lg:text-base truncate">{transaction.description}</h3>
+        {/* Search and Filters */}
+        <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-3">
+          <div className="flex flex-col gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" size={12} />
+              <input
+                type="text"
+                placeholder="Search transactions..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+              />
+            </div>
+            <div className="flex flex-row items-center gap-2">
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="flex-1 px-2.5 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+              >
+                {periods.map((period) => (
+                  <option key={period.value} value={period.value}>
+                    {period.label}
+                  </option>
+                ))}
+              </select>
+              <button className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs whitespace-nowrap">
+                <Filter size={11} />
+                <span className="hidden sm:inline">Filter</span>
+                <span className="sm:hidden">Filter</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Transaction Tabs - Wrap on mobile */}
+          <div className="mt-2.5">
+            <div className="flex flex-wrap gap-1.5">
+              {transactionTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-colors text-[11px] font-medium ${
+                    activeTab === tab.id
+                      ? "bg-blue-100 text-blue-700 border border-blue-200"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span className={`px-1 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? "bg-blue-200" : "bg-gray-200"}`}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Transactions List */}
+        <div className="space-y-2.5">
+          {filteredTransactions.map((transaction) => (
+            <div
+              key={transaction.id}
+              className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
+            >
+              <div className="p-2.5 sm:p-3">
+                <div className="flex flex-col gap-2">
+
+                  {/* Row 1: Title + Status */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="p-1.5 bg-gray-50 rounded-lg flex-shrink-0">
+                        {getTransactionIcon(transaction.type)}
+                      </div>
+                      <h3 className="font-semibold text-gray-900 text-[11px] sm:text-sm leading-tight flex-1 min-w-0 break-words">
+                        {transaction.description}
+                      </h3>
+                    </div>
+                    <div className="flex-shrink-0">
                       {getStatusBadge(transaction.status)}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 sm:gap-3 text-xs text-gray-600 mb-2 sm:mb-3">
-                      <div className="flex items-center space-x-1">
-                        <Calendar size={10} className="sm:size-3" />
-                        <span>{transaction.date}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Building size={10} className="sm:size-3" />
-                        <span className="truncate">{transaction.property}</span>
-                      </div>
-                      {transaction.buyer && (
-                        <div className="flex items-center space-x-1">
-                          <User size={10} className="sm:size-3" />
-                          <span className="truncate">{transaction.buyer}</span>
-                        </div>
-                      )}
-                      {transaction.vendor && (
-                        <div className="flex items-center space-x-1">
-                          <Users size={10} className="sm:size-3" />
-                          <span className="truncate">{transaction.vendor}</span>
-                        </div>
-                      )}
+                  </div>
+
+                  {/* Row 2: Details */}
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[9px] sm:text-xs text-gray-600">
+                    <div className="flex items-center gap-1 min-w-0">
+                      <Calendar size={8} className="flex-shrink-0" />
+                      <span className="truncate">{transaction.date}</span>
                     </div>
-
-                    {/* Transaction Details */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                      <div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Payment Details</div>
-                        <div className="space-y-0.5 sm:space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-xs text-gray-600">Method:</span>
-                            <span className="text-xs font-medium">{transaction.paymentMethod}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-xs text-gray-600">Transaction ID:</span>
-                            <span className="text-xs font-mono truncate ml-2">{transaction.transactionId}</span>
-                          </div>
-                          {transaction.invoiceId && (
-                            <div className="flex justify-between">
-                              <span className="text-xs text-gray-600">Invoice ID:</span>
-                              <span className="text-xs font-mono truncate ml-2">{transaction.invoiceId}</span>
-                            </div>
-                          )}
-                        </div>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <Building size={8} className="flex-shrink-0" />
+                      <span className="truncate">{transaction.property || "—"}</span>
+                    </div>
+                    {transaction.buyer && (
+                      <div className="flex items-center gap-1 min-w-0">
+                        <User size={8} className="flex-shrink-0" />
+                        <span className="truncate">{transaction.buyer}</span>
                       </div>
+                    )}
+                    {transaction.vendor && (
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Users size={8} className="flex-shrink-0" />
+                        <span className="truncate">{transaction.vendor}</span>
+                      </div>
+                    )}
+                  </div>
 
-                      {transaction.category === "income" && transaction.dealValue !== undefined && (
-                        <div>
-                          <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Deal Breakdown</div>
-                          <div className="space-y-0.5 sm:space-y-1">
-                            <div className="flex justify-between">
-                              <span className="text-xs text-gray-600">Deal Value:</span>
-                              <span className="text-xs font-medium">{formatCurrency(transaction.dealValue!)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-xs text-gray-600">Brokerage Rate:</span>
-                              <span className="text-xs font-medium">{transaction.brokerageRate}%</span>
-                            </div>
-                            {transaction.gstAmount !== undefined && (
-                              <div className="flex justify-between">
-                                <span className="text-xs text-gray-600">GST:</span>
-                                <span className="text-xs font-medium">{formatCurrency(transaction.gstAmount!)}</span>
-                              </div>
-                            )}
-                            {transaction.netAmount !== undefined && (
-                              <div className="flex justify-between border-t pt-0.5 sm:pt-1">
-                                <span className="text-xs text-gray-600">Net Amount:</span>
-                                <span className="text-xs font-bold text-green-600">{formatCurrency(transaction.netAmount!)}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                  {/* Row 3: Amount + Actions */}
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-sm sm:text-base font-bold truncate ${transaction.category === "income" ? "text-green-600" : "text-red-600"}`}>
+                        {transaction.category === "income" ? "+" : "-"}{formatCurrency(transaction.amount)}
+                      </div>
+                      <div className="text-[8px] sm:text-[9px] text-gray-500 capitalize">{transaction.category ?? "other"}</div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => setSelectedTransaction(transaction)}
+                        className="flex items-center gap-1 px-1.5 sm:px-2 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-[9px] sm:text-xs font-medium whitespace-nowrap"
+                      >
+                        <Eye size={9} className="flex-shrink-0" />
+                        <span>View</span>
+                      </button>
+                      {transaction.invoiceId && (
+                        <button className="flex items-center gap-1 px-1.5 sm:px-2 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors text-[9px] sm:text-xs">
+                          <Download size={9} className="flex-shrink-0" />
+                        </button>
                       )}
+                      <button className="flex items-center gap-1 px-1.5 sm:px-2 py-1 bg-purple-100 text-purple-700 rounded-md hover:bg-purple-200 transition-colors text-[9px] sm:text-xs">
+                        <Share size={9} className="flex-shrink-0" />
+                      </button>
                     </div>
                   </div>
-                </div>
-                <div className="text-right ml-2">
-                  <div
-                    className={`text-sm sm:text-lg lg:text-2xl font-bold ${
-                      transaction.category === "income" ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {transaction.category === "income" ? "+" : "-"}
-                    {formatCurrency(transaction.amount)}
-                  </div>
-                  <div className="text-xs text-gray-500 capitalize">{transaction.category ?? "other"}</div>
-                  {transaction.status === "pending" && transaction.expectedDate && (
-                    <div className="text-xs text-orange-600 mt-1">Expected: {transaction.expectedDate}</div>
-                  )}
+
                 </div>
               </div>
+            </div>
+          ))}
 
-              {/* Action Buttons */}
-              <div className="flex items-center space-x-1 sm:space-x-2 mt-3 sm:mt-4">
-                <button
-                  onClick={() => setSelectedTransaction(transaction)}
-                  className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs"
-                >
-                  <Eye size={12} className="sm:size-3.5" />
-                  <span className="hidden sm:inline">View Details</span>
-                  <span className="sm:hidden">View</span>
-                </button>
-                {transaction.invoiceId && (
-                  <button className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-xs">
-                    <Download size={12} className="sm:size-3.5" />
-                    <span className="hidden sm:inline">Download Invoice</span>
-                    <span className="sm:hidden">Download</span>
-                  </button>
-                )}
-                <button className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs">
-                  <Share size={12} className="sm:size-3.5" />
-                  <span className="hidden sm:inline">Share</span>
-                  <span className="sm:hidden">Share</span>
-                </button>
+          {filteredTransactions.length === 0 && (
+            <div className="bg-white rounded-lg border border-gray-200 p-6 sm:p-8 text-center">
+              <CreditCard className="mx-auto text-gray-300 mb-2" size={24} />
+              <h3 className="text-xs font-semibold text-gray-900 mb-1">No transactions found</h3>
+              <p className="text-[10px] text-gray-500">Try adjusting your search or filter criteria</p>
+            </div>
+          )}
+        </div>
+
+        {/* AI Financial Insights - Compact */}
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-2.5 sm:p-3">
+          <div className="flex items-center gap-2 mb-2.5">
+            <div className="p-1.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex-shrink-0">
+              <Brain className="text-white" size={12} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[11px] sm:text-xs font-bold text-gray-900">AI Insights</h3>
+              <p className="text-[8px] sm:text-[10px] text-gray-600">Smart analysis of your patterns</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="bg-white rounded-lg p-2 border border-purple-100">
+              <div className="flex items-center gap-1 mb-1">
+                <BarChart3 className="text-purple-600" size={10} />
+                <h4 className="text-[9px] sm:text-[10px] font-semibold text-purple-900">Expense Optimization</h4>
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-start gap-1">
+                  <Lightbulb className="text-purple-600 mt-0.5 flex-shrink-0" size={8} />
+                  <span className="text-[8px] sm:text-[9px] text-purple-800">Marketing expenses 12% below avg</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <Lightbulb className="text-purple-600 mt-0.5 flex-shrink-0" size={8} />
+                  <span className="text-[8px] sm:text-[9px] text-purple-800">Photography ROI: 340%</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg p-2 border border-purple-100">
+              <div className="flex items-center gap-1 mb-1">
+                <Target className="text-purple-600" size={10} />
+                <h4 className="text-[9px] sm:text-[10px] font-semibold text-purple-900">Revenue Insights</h4>
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-start gap-1">
+                  <Sparkles className="text-purple-600 mt-0.5 flex-shrink-0" size={8} />
+                  <span className="text-[8px] sm:text-[9px] text-purple-800">Deal closure: 28 days (18% faster)</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <Sparkles className="text-purple-600 mt-0.5 flex-shrink-0" size={8} />
+                  <span className="text-[8px] sm:text-[9px] text-purple-800">Brokerage rate: +0.5% possible</span>
+                </div>
               </div>
             </div>
           </div>
-        ))}
-
-        {filteredTransactions.length === 0 && (
-          <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-6 sm:p-12 text-center">
-            <CreditCard className="mx-auto text-gray-300 mb-4" size={32} />
-            <h3 className="text-sm sm:text-lg font-semibold text-gray-900 mb-2">No transactions found</h3>
-            <p className="text-xs sm:text-sm text-gray-500">Try adjusting your search or filter criteria</p>
-          </div>
-        )}
-      </div>
-
-      {/* AI Financial Insights */}
-      <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg sm:rounded-2xl border border-purple-200 p-4 sm:p-6">
-        <div className="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6">
-          <div className="p-2 sm:p-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg sm:rounded-xl">
-            <Brain className="text-white sm:size-6" size={16} />
-          </div>
-          <div>
-            <h3 className="text-sm sm:text-xl font-bold text-gray-900">AI Financial Insights</h3>
-            <p className="text-xs text-gray-600">Smart analysis of your transaction patterns</p>
-          </div>
         </div>
-<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-  <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 border border-purple-100">
-    <div className="flex items-center space-x-2 mb-2 sm:mb-3">
-      <BarChart3 className="text-purple-600 w-3 h-3 sm:w-4 sm:h-4" />
-      <h4 className="text-xs sm:text-sm font-semibold text-purple-900">Expense Optimization</h4>
-    </div>
-    <div className="space-y-1.5 sm:space-y-2">
-      <div className="flex items-start space-x-1.5 sm:space-x-2">
-        <Lightbulb className="text-purple-600 mt-0.5 flex-shrink-0 w-2.5 h-2.5 sm:w-3 sm:h-3" />
-        <span className="text-xs text-purple-800">Marketing expenses are 12% below industry average - consider increasing for better reach</span>
-      </div>
-      <div className="flex items-start space-x-1.5 sm:space-x-2">
-        <Lightbulb className="text-purple-600 mt-0.5 flex-shrink-0 w-2.5 h-2.5 sm:w-3 sm:h-3" />
-        <span className="text-xs text-purple-800">Professional photography ROI is 340% - excellent investment</span>
-      </div>
-      <div className="flex items-start space-x-1.5 sm:space-x-2">
-        <Lightbulb className="text-purple-600 mt-0.5 flex-shrink-0 w-2.5 h-2.5 sm:w-3 sm:h-3" />
-        <span className="text-xs text-purple-800">Consider bulk portal subscriptions for 25% cost savings</span>
-      </div>
-    </div>
-  </div>
 
-  <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 border border-purple-100">
-    <div className="flex items-center space-x-2 mb-2 sm:mb-3">
-      <Target className="text-purple-600 w-3 h-3 sm:w-4 sm:h-4" />
-      <h4 className="text-xs sm:text-sm font-semibold text-purple-900">Revenue Insights</h4>
-    </div>
-    <div className="space-y-1.5 sm:space-y-2">
-      <div className="flex items-start space-x-1.5 sm:space-x-2">
-        <Sparkles className="text-purple-600 mt-0.5 flex-shrink-0 w-2.5 h-2.5 sm:w-3 sm:h-3" />
-        <span className="text-xs text-purple-800">Average deal closure time: 28 days (18% faster than market)</span>
-      </div>
-      <div className="flex items-start space-x-1.5 sm:space-x-2">
-        <Sparkles className="text-purple-600 mt-0.5 flex-shrink-0 w-2.5 h-2.5 sm:w-3 sm:h-3" />
-        <span className="text-xs text-purple-800">Brokerage rate optimization opportunity: +0.5% possible</span>
-      </div>
-      <div className="flex items-start space-x-1.5 sm:space-x-2">
-        <Sparkles className="text-purple-600 mt-0.5 flex-shrink-0 w-2.5 h-2.5 sm:w-3 sm:h-3" />
-        <span className="text-xs text-purple-800">Q1 revenue projection: ₹12.5L based on current pipeline</span>
-      </div>
-    </div>
-  </div>
-</div>
+        {/* Transaction Detail Modal */}
+        {selectedTransaction && (
+          <TransactionDetailModal transaction={selectedTransaction} onClose={() => setSelectedTransaction(null)} />
+        )}
 
       </div>
-
-      {/* Transaction Detail Modal */}
-      {selectedTransaction && (
-        <TransactionDetailModal transaction={selectedTransaction} onClose={() => setSelectedTransaction(null)} />
-      )}
     </div>
   );
 };

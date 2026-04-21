@@ -208,6 +208,9 @@ const FilePreviewComponent: React.FC<{ preview: FilePreview; onRemove: () => voi
   </div>
 );
 
+const N = "#0f2b3d";  // Navy color for header background
+const O = "#e67e22";  // Orange color for accent
+const BD = "#e2e8f0";
 /* ---------- PossessionDropdown (compact) ---------- */
 const PossessionDropdown: React.FC<{
   possessionMonth: string; possessionYear: string;
@@ -366,9 +369,14 @@ interface PropertyFormModalProps {
 const RUPEE_PER_CRORE = 10_000_000;
 const RUPEE_PER_LAKH = 100_000;
 
-export function parseBudgetToRupees(text?: string): number {
-  const raw = (text || "").trim().toLowerCase();
+export function parseBudgetToRupees(text?: any): number {
+  // Handle null, undefined, numbers, and other non-string values
+  if (text === null || text === undefined) return 0;
+  
+  // Convert to string safely
+  const raw = String(text).trim().toLowerCase();
   if (!raw) return 0;
+  
   const cleaned = raw.replace(/₹/g, "").replace(/\s+/g, "");
   const digitsOnly = cleaned.replace(/,/g, "");
   if (/^\d+$/.test(digitsOnly)) return parseInt(digitsOnly, 10) || 0;
@@ -826,7 +834,28 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
   /* ---------- Render (single step, no step indicator, compact styling) ---------- */
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} width="max-w-[95vw] md:max-w-4xl lg:max-w-5xl">
+  <Modal
+    isOpen={isOpen}
+    onClose={onClose}
+    showHeader={false}      // Hide Modal's default header
+    showCloseButton={false} // Hide Modal's default close button
+    width="max-w-[95vw] md:max-w-4xl lg:max-w-5xl"
+  >
+    {/* Custom Header - Same style as Lead Form */}
+    <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 border-b rounded-t-lg" style={{ background: N, borderColor: BD }}>
+      <div className="flex items-center gap-2">
+        {mode === 'edit' ? (
+          <Edit size={16} style={{ color: O }} />
+        ) : (
+          <Plus size={16} style={{ color: O }} />
+        )}
+        <h2 className="text-sm font-bold text-white">{modalTitle}</h2>
+      </div>
+      <button onClick={onClose} className="p-1 rounded hover:bg-white/10 transition-colors">
+        <X size={16} style={{ color: 'white' }} />
+      </button>
+    </div>
+
       <div className="relative px-4 py-4">
         {loading && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-lg">

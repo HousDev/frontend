@@ -2348,7 +2348,6 @@ const LeadsPage: React.FC = () => {
     borderRadius: '5px',
     padding: '3px 7px',
     fontSize: '11px',
-    color: '#f3f4f6', // soft light gray text
     outline: 'none',
   };
 
@@ -2731,7 +2730,7 @@ const LeadsPage: React.FC = () => {
                     </tr>
 
                     {/* ---- Column-level search row ---- */}
-                    <tr  style={{ backgroundColor: RESALE.navyLight }}>
+                    <tr className='text-gray-500' style={{ backgroundColor: RESALE.navyLight }}>
                       <th className="px-3 py-1.5" />
                       <th className="px-2 py-1.5">
                         <input

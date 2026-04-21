@@ -2494,130 +2494,161 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
   const presalesCount = followups.filter(f => f.category === "presales").length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex space-x-2 text-xs">
-        <button
-          onClick={() => setActiveTab("sales")}
-          className={`px-3 py-1 rounded-lg font-medium transition-all duration-200 ${activeTab === "sales" ? "bg-purple-600 text-white shadow-md transform scale-105" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-        >
-          Sales Follow-ups {salesCount > 0 && `(${salesCount})`}
-        </button>
-        <button
-          onClick={() => setActiveTab("presales")}
-          className={`px-3 py-1 rounded-lg font-medium transition-all duration-200 ${activeTab === "presales" ? "bg-purple-600 text-white shadow-md transform scale-105" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-        >
-          Pre-Sales Follow-ups {presalesCount > 0 && `(${presalesCount})`}
-        </button>
-        <button
-          onClick={onAddFollowup}
-          className="ml-auto flex items-center space-x-1 px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 hover:shadow-md transform hover:scale-105"
-        >
-          <Plus size={12} />
-          <span>Schedule</span>
-        </button>
-      </div>
+   <div className="space-y-4">
+  <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0 text-xs">
+    <div className="flex space-x-2">
+      <button
+        onClick={() => setActiveTab("sales")}
+        className={`px-3 py-1 rounded-lg font-medium transition-all duration-200 flex-1 sm:flex-none ${
+          activeTab === "sales"
+            ? "bg-purple-600 text-white shadow-md transform scale-105"
+            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+        }`}
+      >
+        Sales Follow-ups {salesCount > 0 && `(${salesCount})`}
+      </button>
+      <button
+        onClick={() => setActiveTab("presales")}
+        className={`px-3 py-1 rounded-lg font-medium transition-all duration-200 flex-1 sm:flex-none ${
+          activeTab === "presales"
+            ? "bg-purple-600 text-white shadow-md transform scale-105"
+            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+        }`}
+      >
+        Pre-Sales Follow-ups {presalesCount > 0 && `(${presalesCount})`}
+      </button>
+    </div>
+    <button
+      onClick={onAddFollowup}
+      className="ml-auto flex items-center justify-center space-x-1 px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 hover:shadow-md transform hover:scale-105 w-full sm:w-auto"
+    >
+      <Plus size={12} />
+      <span>Schedule</span>
+    </button>
+  </div>
 
-      {/* show title for active tab like you requested */}
-      {activeTab === "presales" && <h3 className="text-sm font-semibold text-gray-800">Presales History</h3>}
-      {activeTab === "sales" && <h3 className="text-sm font-semibold text-gray-800">Sales History</h3>}
+  {/* show title for active tab like you requested */}
+  {activeTab === "presales" && (
+    <h3 className="text-sm font-semibold text-gray-800">Presales History</h3>
+  )}
+  {activeTab === "sales" && (
+    <h3 className="text-sm font-semibold text-gray-800">Sales History</h3>
+  )}
 
-      {loading ? (
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-600 border-t-transparent"></div>
-          <p className="text-xs text-gray-500 ml-2">Loading followups...</p>
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-xs text-red-700 flex items-center">
-          <span className="mr-2">⚠️</span>
-          Failed to load followups: {error}
-        </div>
-      ) : filteredFollowups.length > 0 ? (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredFollowups.map((followup, idx) => {
-              const key = followup.id ?? `${idx}-${(followup.description ?? "followup").slice(0, 20)}`;
-              const dynamicFields = renderDynamicFields(followup);
+  {loading ? (
+    <div className="flex items-center justify-center py-8">
+      <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-600 border-t-transparent"></div>
+      <p className="text-xs text-gray-500 ml-2">Loading followups...</p>
+    </div>
+  ) : error ? (
+    <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-xs text-red-700 flex items-center">
+      <span className="mr-2">⚠️</span>
+      Failed to load followups: {error}
+    </div>
+  ) : filteredFollowups.length > 0 ? (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filteredFollowups.map((followup, idx) => {
+          const key =
+            followup.id ?? `${idx}-${(followup.description ?? "followup").slice(0, 20)}`;
+          const dynamicFields = renderDynamicFields(followup);
 
-              return (
-                <div key={key} className={`border-l-4 rounded-lg p-4 transition-all duration-200 hover:shadow-md ${getPriorityColor(followup.priority)}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex justify-between items-center text-[11px]">
-                      {/* Badge: show Pre-Sales or Sales depending on category */}
-                      {followup.category === "presales" && (
-                        <span className="px-2 py-0.5 text-[10px] rounded-full bg-indigo-100 text-indigo-700 font-medium flex items-center">
-                          📋 <span className="ml-1">Pre-Sales</span>
-                        </span>
-                      )}
-                      {followup.category === "sales" && (
-                        <span className="px-2 py-0.5 text-[10px] rounded-full bg-amber-100 text-amber-700 font-medium flex items-center">
-                          💼 <span className="ml-1">Sales</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center space-x-2 ml-2">
-                      <span className="text-[10px] text-gray-500 whitespace-nowrap">
-                        {followup.transferredAt && (
-                          <span className="text-gray-500">
-                            Transferred Date:{" "}
-                            <span className="font-medium text-gray-700">
-                              {formatDate(followup.transferredAt)}
-                              {formatTime(followup.transferredAt) ? ` • ${formatTime(followup.transferredAt)}` : ""}
-                            </span>
-                          </span>
-                        )}
-                      </span>
-
-                      {followup.category !== "presales" && (
-                        <button
-                          onClick={() => {
-                            if (followup.transferredFromLead) return;
-                            onEditFollowup(followup.raw ?? followup);
-                          }}
-                          disabled={!!followup.transferredFromLead}
-                          className={`p-1.5 rounded-md transition-all duration-200 ${followup.transferredFromLead ? "text-gray-400 cursor-not-allowed" : "text-purple-600 hover:bg-purple-100 hover:scale-110"}`}
-                          title={followup.transferredFromLead ? "This follow-up was transferred (pre-sales) and cannot be edited." : "Edit follow-up"}
-                        >
-                          <Edit size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {dynamicFields}
-
-                  {followup.reminder && (
-                    <div className="mt-3 flex items-center space-x-1 text-[11px] bg-purple-50 rounded-md px-2 py-1">
-                      <Bell className="text-purple-600" size={12} />
-                      <span className="text-purple-700 font-medium">🔔 Reminder set</span>
-                    </div>
+          return (
+            <div
+              key={key}
+              className={`border-l-4 rounded-lg p-4 transition-all duration-200 hover:shadow-md ${getPriorityColor(
+                followup.priority
+              )}`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+                <div className="flex justify-between items-center text-[11px]">
+                  {/* Badge: show Pre-Sales or Sales depending on category */}
+                  {followup.category === "presales" && (
+                    <span className="px-2 py-0.5 text-[10px] rounded-full bg-indigo-100 text-indigo-700 font-medium flex items-center">
+                      📋 <span className="ml-1">Pre-Sales</span>
+                    </span>
+                  )}
+                  {followup.category === "sales" && (
+                    <span className="px-2 py-0.5 text-[10px] rounded-full bg-amber-100 text-amber-700 font-medium flex items-center">
+                      💼 <span className="ml-1">Sales</span>
+                    </span>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        </>
-      ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-          <CalendarIcon className="mx-auto text-gray-300 mb-4" size={48} />
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">
-            No {activeTab === "sales" ? "Sales" : "Pre-Sales"} Follow-ups Scheduled
-          </h3>
-          <p className="text-gray-500 text-xs mb-6">
-            {activeTab === "sales"
-              ? "Schedule follow-ups to maintain buyer engagement and close deals"
-              : "Track pre-sales activities and lead nurturing efforts"
-            }
-          </p>
-          <button
-            onClick={onAddFollowup}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-medium hover:shadow-md transform hover:scale-105"
-          >
-            Schedule First Follow-up
-          </button>
-        </div>
-      )}
+
+                <div className="flex items-center justify-between sm:justify-end space-x-2 w-full sm:w-auto">
+                  <span className="text-[10px] text-gray-500 whitespace-normal sm:whitespace-nowrap">
+                    {followup.transferredAt && (
+                      <span className="text-gray-500">
+                        Transferred Date:{" "}
+                        <span className="font-medium text-gray-700">
+                          {formatDate(followup.transferredAt)}
+                          {formatTime(followup.transferredAt)
+                            ? ` • ${formatTime(followup.transferredAt)}`
+                            : ""}
+                        </span>
+                      </span>
+                    )}
+                  </span>
+
+                  {followup.category !== "presales" && (
+                    <button
+                      onClick={() => {
+                        if (followup.transferredFromLead) return;
+                        onEditFollowup(followup.raw ?? followup);
+                      }}
+                      disabled={!!followup.transferredFromLead}
+                      className={`p-1.5 rounded-md transition-all duration-200 ${
+                        followup.transferredFromLead
+                          ? "text-gray-400 cursor-not-allowed"
+                          : "text-purple-600 hover:bg-purple-100 hover:scale-110"
+                      }`}
+                      title={
+                        followup.transferredFromLead
+                          ? "This follow-up was transferred (pre-sales) and cannot be edited."
+                          : "Edit follow-up"
+                      }
+                    >
+                      <Edit size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {dynamicFields}
+
+              {followup.reminder && (
+                <div className="mt-3 flex items-center space-x-1 text-[11px] bg-purple-50 rounded-md px-2 py-1">
+                  <Bell className="text-purple-600" size={12} />
+                  <span className="text-purple-700 font-medium">
+                    🔔 Reminder set
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  ) : (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+      <CalendarIcon className="mx-auto text-gray-300 mb-4" size={48} />
+      <h3 className="text-sm font-semibold text-gray-900 mb-2">
+        No {activeTab === "sales" ? "Sales" : "Pre-Sales"} Follow-ups Scheduled
+      </h3>
+      <p className="text-gray-500 text-xs mb-6">
+        {activeTab === "sales"
+          ? "Schedule follow-ups to maintain buyer engagement and close deals"
+          : "Track pre-sales activities and lead nurturing efforts"}
+      </p>
+      <button
+        onClick={onAddFollowup}
+        className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-medium hover:shadow-md transform hover:scale-105 w-full sm:w-auto"
+      >
+        Schedule First Follow-up
+      </button>
     </div>
+  )}
+</div>
   );
 };
 

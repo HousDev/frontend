@@ -2295,7 +2295,6 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
   borderRadius: '5px',
   padding: '3px 7px',
   fontSize: '11px',
-  color: '#f3f4f6',
   outline: 'none',
 };
 
@@ -2554,7 +2553,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
                     <th className="px-3 py-3 text-right text-xs font-medium text-Black uppercase tracking-wider">Actions</th>
                   </tr>
                   {/* Column Search Row */}
-                  <tr style={{ backgroundColor: RESALE.navyLight }}>
+                  <tr className='text-gray-500' style={{ backgroundColor: RESALE.navyLight }}>
                     {(activeTab !== 'buyers' && activeTab !== 'sellers') && <th className="px-2 py-1.5" />}
                     <th className="px-2 py-1.5">
                       <input type="text" placeholder="Search name..." value={colSearch.name} onChange={e => setColSearch(p => ({ ...p, name: e.target.value }))} style={colSearchInputStyle} />
