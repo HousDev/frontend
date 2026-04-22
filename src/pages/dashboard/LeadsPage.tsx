@@ -1491,7 +1491,7 @@ const LeadsPage: React.FC = () => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeTab, setActiveTab] = useState<TabID>('all');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
+const [searchTerm, setSearchTerm] = useState('');
   const [searchFilters, setSearchFilters] = useState({
     name: "",
     contact: "",
@@ -1748,6 +1748,15 @@ const LeadsPage: React.FC = () => {
     };
 
     let results = allLeads.filter((lead) => {
+
+      const globalSearch = searchTerm.toLowerCase();
+if (globalSearch && !(
+  (lead.name || '').toLowerCase().includes(globalSearch) ||
+  (lead.phone || '').toLowerCase().includes(globalSearch) ||
+  (lead.email || '').toLowerCase().includes(globalSearch) ||
+  (lead.city || '').toLowerCase().includes(globalSearch) ||
+  (lead.location || '').toLowerCase().includes(globalSearch)
+)) return false;
       // Sidebar filters
       if (f.status !== 'all' && normalize(lead.status) !== normalize(f.status)) return false;
       if (f.source !== 'all' && normalize(lead.lead_source) !== normalize(f.source)) return false;
@@ -1807,9 +1816,10 @@ const LeadsPage: React.FC = () => {
       if (f.sortOrder === 'asc') return dA - dB;
       return dB - dA;
     });
+    
 
     return results;
-  }, [allLeads, filters, searchFilters, colSearch, activeTab]);
+  }, [allLeads, filters, searchFilters, colSearch, activeTab,searchTerm]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -2673,7 +2683,23 @@ const LeadsPage: React.FC = () => {
       ))}
     </select>
   </div>
+
+
 )}
+
+{/* Search Bar */}
+<div className="mb-4">
+  <div className="relative max-w-md">
+    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+    <input
+      type="text"
+      placeholder="Search leads by name, phone, email, location..."
+      value={searchTerm}
+      onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
+    />
+  </div>
+</div>
 
        
 
@@ -2702,7 +2728,7 @@ const LeadsPage: React.FC = () => {
 
               {/* ---- Scrollable table wrapper with max-height ---- */}
              <div
-  className="overflow-y-auto overflow-x-auto flex-1 max-h-[calc(100vh-240px)] sm:max-h-[calc(100vh-270px)]"
+  className="overflow-y-auto overflow-x-auto flex-1 max-h-[calc(100vh-300px)] sm:max-h-[calc(100vh-300px)]"
 >
                 <table className="w-full" style={{ minWidth: '900px' }}>
                   {/* sticky thead */}

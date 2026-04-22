@@ -3657,7 +3657,7 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
                 </div>
               )}
 
-<div className="overflow-y-auto max-h-[calc(100vh-270px)] sm:max-h-[calc(100vh-300px)]" >   
+<div className="overflow-y-auto max-h-[calc(100vh-300px)] sm:max-h-[calc(100vh-300px)]" >   
   <table className="w-full text-sm" style={{ minWidth: '1200px' }}>   
                   <thead className="bg-gray-50 sticky top-0 z-10">
                     <tr>

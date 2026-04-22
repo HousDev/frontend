@@ -2095,6 +2095,10 @@
 
 // export default SellersPage;
 
+
+
+
+
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Users,
@@ -3692,6 +3696,20 @@ onEdit={(sellerData) => {
           </div>
         )}
 
+        {/* Search Bar */}
+<div className="mb-4">
+  <div className="relative max-w-md">
+    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+    <input
+      type="text"
+      placeholder="Search sellers by name, phone, email, location..."
+      value={searchTerm}
+      onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
+    />
+  </div>
+</div>
+
         {/* Table Card */}
         <div
           className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden"
@@ -3717,7 +3735,7 @@ onEdit={(sellerData) => {
                 </div>
               )}
 
-              <div className="overflow-y-auto overflow-x-auto flex-1 max-h-[calc(100vh-240px)] sm:max-h-[calc(100vh-270px)]">
+              <div className="overflow-y-auto overflow-x-auto flex-1 max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-290px)]">
                 <table className="w-full" style={{ minWidth: "1100px" }}>
                   <thead style={{ position: "sticky", top: 0 }}>
                     <tr style={{ backgroundColor: RESALE.navy }}>
