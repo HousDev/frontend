@@ -7,7 +7,7 @@ export function connectSocket(userId: number | string) {
   if (socket) return socket;
   socket = io(import.meta.env.VITE_API_URL || "https://resaleexpert.in", {
     path: "/socket.io",
-    transports: ["websocket"],
+    transports: ["websocket","polling"],
     query: { userId: String(userId) }, // dev-friendly; prod me JWT auth lagao
     withCredentials: true,
   });
