@@ -289,6 +289,7 @@ import type { InboxFilter } from '../../hooks/useInbox';
 import type { WhatsAppConversation } from '../../types';
 import ConversationList from './ConversationList';
 import ChatWindow from './ChatWindow';
+import { connectSocket } from "@/lib/socket";
 
 export default function InboxPage() {
     const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -297,7 +298,7 @@ export default function InboxPage() {
     const [users, setUsers] = useState<any[]>([]);
     const [allTags, setAllTags] = useState<any[]>([]);
 
-    const { conversations, loading, refresh, updateConversationLocally } = useConversations(filter, search);
+    const { conversations, loading, refresh, updateConversationLocally }: any = useConversations(filter, search);
     const { conversation: liveConversation } = useConversationDetail(selectedConvId);
     const selectedConv = liveConversation || conversations.find((c) => c.id === selectedConvId) || null;
     const { contact, setContact } = useContactDetail(selectedConv?.contact_id || null);
@@ -321,6 +322,47 @@ export default function InboxPage() {
         };
         loadData();
     }, []);
+
+    useEffect(() => {
+        const userId = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user"))?.id : null;
+
+        if (!userId) {
+            console.error("❌ No userId");
+            return;
+        }
+
+        const socket = connectSocket(userId);
+
+        socket.on("chat_update", (data) => {
+            console.log("🔥 REALTIME EVENT:", data);
+
+            const { contact_id, text } = data;
+
+            // ✅ 1. Update conversation list
+            updateConversationLocally(`conv_${contact_id}`, (prev: any) => {
+                if (!prev) return prev;
+
+                return {
+                    ...prev,
+                    last_message: text,
+                    last_contact_time: new Date(),
+                    unread_count:
+                        selectedConv?.contact_id === contact_id
+                            ? 0
+                            : (prev.unread_count || 0) + 1,
+                };
+            });
+
+            // ✅ 2. If current chat open → refresh messages
+            if (selectedConv?.contact_id === contact_id) {
+                refresh(); // or better: refetch messages only
+            }
+        });
+
+        return () => {
+            socket.off("chat_update");
+        };
+    }, [selectedConv, updateConversationLocally, refresh]);
 
     const handleSelectConversation = useCallback((conv: WhatsAppConversation) => {
         setSelectedConvId(conv.id);

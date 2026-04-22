@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ActivityProvider } from '@/contexts/ActivityContext';
@@ -83,7 +83,7 @@ import VariableCenter from './pages/settings/VariableCenter';
 import HomePageCMS from './pages/dashboard/HomePageCMS';
 import DigioSuccess from './pages/DigioSuccess';
 import WhatsAppCRM from './pages/WhatsAppCRM/WhatsAppCRM';
-
+import { connectSocket, getSocket } from "@/lib/socket";
 function App() {
   useDynamicHead(); 
   return (

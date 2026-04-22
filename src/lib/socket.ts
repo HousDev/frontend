@@ -5,7 +5,7 @@ let socket: Socket | null = null;
 
 export function connectSocket(userId: number | string) {
   if (socket) return socket;
-  socket = io(import.meta.env.VITE_API_BASE_URL || "http://localhost:3000", {
+  socket = io(import.meta.env.VITE_API_URL || "http://localhost:3000", {
     path: "/socket.io",
     transports: ["websocket"],
     query: { userId: String(userId) }, // dev-friendly; prod me JWT auth lagao
