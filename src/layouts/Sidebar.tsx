@@ -33,7 +33,7 @@ const NAV_ITEMS = [
     // { id: "buyers", label: "Buyers", icon: ShoppingBag },
     // { id: "sellers", label: "Sellers", icon: Home },
     // { id: "properties", label: "Properties", icon: Building2 },
-    // { id: "templates", label: "Templates", icon: FileText },
+    { id: "templates", label: "Templates", icon: FileText },
     { id: "campaigns", label: "Campaigns", icon: Megaphone },
     { id: "chatbot", label: "Chatbot Flows", icon: Bot },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
