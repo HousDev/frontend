@@ -16,7 +16,7 @@ export interface Tag {
   id: string;
   name: string;
   color: string;
-  created_at?: string;
+  created_at: string;
 }
 
 export type ContactStage = 'New' | 'Contacted' | 'Qualified' | 'Site Visit' | 'Closed' | 'Lost';
@@ -80,7 +80,8 @@ export interface WhatsAppMessage {
   wa_message_id: string | null;
   direction: MessageDirection;
   message_type: MessageType;
-  text: string | null;
+  body: string | null;
+  text?: string | null;
   media_url: string | null;
   media_mime_type: string | null;
   caption: string | null;
@@ -104,14 +105,24 @@ export interface ConversationNote {
 }
 
 export type TemplateCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
-export type TemplateStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_APPEAL';
+export type TemplateStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_APPEAL';
 export type TemplateHeaderType = 'TEXT' | 'IMAGE' | 'DOCUMENT' | 'VIDEO';
+export type TemplateType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT' | 'LOCATION' | 'CAROUSEL' | 'LIMITED_TIME_OFFER';
 
 export interface TemplateButton {
-  type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER';
+  type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER' | 'COPY_CODE';
   text: string;
   url?: string;
   phone_number?: string;
+  coupon_code?: string;
+  country_code?: string;
+}
+
+export interface CarouselCard {
+  header_type: 'IMAGE' | 'VIDEO';
+  header_url: string;
+  body: string;
+  buttons: TemplateButton[];
 }
 
 export interface Template {
@@ -119,12 +130,18 @@ export interface Template {
   name: string;
   category: TemplateCategory;
   language: string;
+  template_type: TemplateType;
   header_type: TemplateHeaderType | null;
   header_text: string | null;
+  header_media_url: string | null;
   body: string;
   footer: string | null;
   buttons: TemplateButton[] | null;
   variables: string[] | null;
+  carousel_cards: CarouselCard[] | null;
+  lto_expiration_time_ms: number | null;
+  lto_has_expiry: boolean;
+  lto_coupon_code: string | null;
   status: TemplateStatus;
   meta_template_id: string | null;
   rejection_reason: string | null;
@@ -142,6 +159,7 @@ export interface CampaignFilters {
   budget_min?: number;
   budget_max?: number;
   property_type?: string;
+  template_vars?: string[];
 }
 
 export interface Campaign {

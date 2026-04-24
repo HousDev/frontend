@@ -118,7 +118,7 @@ export default function ContactInfo({
             await new Promise(resolve => setTimeout(resolve, 300));
 
             // Create a new tag object
-            const newTag: TagType = {
+            const newTag: any = {
                 id: `tag_${Date.now()}`,
                 name: newTagName.trim(),
                 color: newTagColor,

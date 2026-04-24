@@ -295,8 +295,8 @@ export default function InboxPage() {
     const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
     const [filter, setFilter] = useState<InboxFilter>('all');
     const [search, setSearch] = useState('');
-    const [users, setUsers] = useState<any[]>([]);
-    const [allTags, setAllTags] = useState<any[]>([]);
+    const [users, setUsers] = useState<any>([]);
+    const [allTags, setAllTags] = useState<any>([]);
 
     const { conversations, loading, refresh, updateConversationLocally }: any = useConversations(filter, search);
     const { conversation: liveConversation } = useConversationDetail(selectedConvId);

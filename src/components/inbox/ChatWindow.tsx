@@ -753,7 +753,7 @@ export default function ChatWindow({
     const handleSendText = async (text: string) => {
         if (!conversation || !contact) return;
         try {
-            const newMsg = await whatsappAPI.sendMessage({ contact_id: contact.id, text });
+            const newMsg:any = await whatsappAPI.sendMessage({ contact_id: contact.id, text });
             const formattedMsg = {
                 id: newMsg.id || Date.now(),
                 direction: 'out',

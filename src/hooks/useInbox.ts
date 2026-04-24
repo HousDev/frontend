@@ -604,7 +604,7 @@ export function useSendMessage() {
   const sendTextMessage = useCallback(
     async (conversationId: string, contactId: string, phone: string, text: string) => {
       try {
-        const result = await whatsappAPI.sendMessage({ contact_id: contactId, text });
+        const result:any = await whatsappAPI.sendMessage({ contact_id: contactId, text });
         const newMessage: any = {
           id: result.id || `msg_${Date.now()}`,
           conversation_id: conversationId,

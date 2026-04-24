@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { WhatsAppContact, ContactStage, Tag, CrmUser } from '../types';
 
 // ---------- Mock Data ----------
-const mockTags: Tag[] = [
+const mockTags: any = [
   { id: 't1', name: 'Hot Lead', color: '#EF4444' },
   { id: 't2', name: 'Buyer', color: '#3B82F6' },
   { id: 't3', name: 'Seller', color: '#10B981' },
@@ -235,7 +235,7 @@ export function useTags() {
 
   const createTag = useCallback(async (name: string, color: string) => {
     await delay(300);
-    const newTag: Tag = {
+    const newTag: any = {
       id: `t${Date.now()}`,
       name,
       color,
