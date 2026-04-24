@@ -448,7 +448,7 @@ function TableView({
                                             </button>
                                             <button
                                                 onClick={() => onDelete(t.id)}
-                                                disabled={isApproved}
+                                                // disabled={isApproved}
                                                 title={isApproved ? 'Cannot delete approved template' : 'Delete'}
                                                 className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                             >
