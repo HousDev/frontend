@@ -412,6 +412,7 @@ import type {
   ConversationNote,
   WhatsAppContact,
 } from '../types';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type InboxFilter = 'all' | 'unread' | 'assigned' | 'resolved';
 
@@ -420,6 +421,7 @@ export function useConversations(filter: InboxFilter, search: string) {
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef<any>(null);
+  const { user } = useAuth()
 
   const fetchConversations = useCallback(async () => {
     setLoading(true);
@@ -568,6 +570,7 @@ export function useMessages(contactId: string | null) {
 // ---------- useNotes Hook ----------
 export function useNotes(conversationId: string | null) {
   const [notes, setNotes] = useState<ConversationNote[]>([]);
+  const { user } = useAuth()
 
   useEffect(() => {
     if (!conversationId) {
@@ -582,7 +585,7 @@ export function useNotes(conversationId: string | null) {
     if (!conversationId || !body.trim()) return;
     try {
       // Extract contact_id from conversationId (since conversationId = contactId in our setup)
-      await whatsappAPI.addNote(conversationId, body);
+      await whatsappAPI.addNote(conversationId, user.id, body);
       const newNote: any = {
         id: `note_${Date.now()}`,
         conversation_id: conversationId,

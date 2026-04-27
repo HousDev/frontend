@@ -661,6 +661,7 @@ import { notificationStore } from '../../lib/notifications';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import ContactInfo from './ContactInfo';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
     conversation: WhatsAppConversation | null;
@@ -693,6 +694,7 @@ export default function ChatWindow({
     const [templates, setTemplates] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const endRef = useRef<HTMLDivElement>(null);
+    const { user } = useAuth()
 
     // Sync conversation from props
     useEffect(() => {
@@ -790,10 +792,30 @@ export default function ChatWindow({
         onConversationUpdate?.(updated);
     };
 
-    const handleAddNote = async (body: string) => {
+    const fetchAllNotes = async () => {
+        console.log("firlksafjkdjflksdjflksjdflsjdflkst", contact)
         if (!contact) return;
         try {
-            await whatsappAPI.addNote(contact.id, body);
+            const notes: any = await whatsappAPI.getContactNotes(contact.id);
+            console.log("notes for contact : ", notes)
+            setNotes(notes);
+        } catch (err) {
+            console.error('Failed to fetch notes', err);
+        }
+    };
+
+
+
+    useEffect(() => {
+        fetchAllNotes()
+    }, [contact]);
+
+
+
+    const handleAddNote = async (body: any) => {
+        if (!contact) return;
+        try {
+            await whatsappAPI.addNote(contact.id, user.id, body);
             setNotes((prev:any) => [...prev, { id: Date.now(), body, created_at: new Date().toISOString() }]);
             notificationStore.push('success', 'Note Added', 'Internal note saved', { label: "", page: "" });
         } catch (err) {
@@ -922,6 +944,7 @@ export default function ChatWindow({
                     }}
                     conversationNotes={notes}
                     onAddNote={handleAddNote}
+                    fetchAllNotes={fetchAllNotes}
                 />
             </div>
         </div>

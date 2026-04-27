@@ -310,11 +310,12 @@ export default function InboxPage() {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [usersData, tagsData] = await Promise.all([
+                const [usersData, tagsData]: any = await Promise.all([
                     whatsappAPI.getUsers(),
                     whatsappAPI.getTags()
                 ]);
-                setUsers(usersData || []);
+                console.log("usre data for conata", usersData)
+                setUsers(usersData.data || []);
                 setAllTags(tagsData || []);
             } catch (err) {
                 console.error('Failed to load users/tags', err);
