@@ -62,9 +62,9 @@ const Modal: React.FC<ModalProps> = ({
     >
       <div
         className="absolute inset-0 bg-black bg-opacity-50"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose(); // Allow clicking backdrop to close
-        }}
+        // onClick={(e) => {
+        //   if (e.target === e.currentTarget) onClose(); // Allow clicking backdrop to close
+        // }}
         aria-hidden="true"
       />
 
