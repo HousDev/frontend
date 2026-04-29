@@ -917,8 +917,7 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                 )}
 
                 <div className="p-6">
-                    <div className="space-y-4">
-                        {/* Society Name Field */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">                        {/* Society Name Field */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Society Name <span className="text-red-500">*</span>

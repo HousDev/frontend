@@ -372,11 +372,11 @@
 // export function parseBudgetToRupees(text?: any): number {
 //   // Handle null, undefined, numbers, and other non-string values
 //   if (text === null || text === undefined) return 0;
-  
+
 //   // Convert to string safely
 //   const raw = String(text).trim().toLowerCase();
 //   if (!raw) return 0;
-  
+
 //   const cleaned = raw.replace(/₹/g, "").replace(/\s+/g, "");
 //   const digitsOnly = cleaned.replace(/,/g, "");
 //   if (/^\d+$/.test(digitsOnly)) return parseInt(digitsOnly, 10) || 0;
@@ -1538,7 +1538,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   const CURRENT_YEAR = now.getFullYear();
   const CURRENT_MONTH = now.getMonth() + 1;
 
-  const sortFloorOptions = (options: MasterOption[] = []) => {
+  const sortNumericOptions = (options: MasterOption[] = []) => {
     return [...options].sort((a, b) => {
       const numA = parseInt(a.label || a.value || '0', 10);
       const numB = parseInt(b.label || b.value || '0', 10);
@@ -1828,10 +1828,14 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   };
 
   const handlePhotosUpload = (files: File[]) => {
-    const existing = photoPreviews.filter(p => p.isExisting);
     const newPreviews = files.map(createFilePreview);
-    setPhotoPreviews([...existing, ...newPreviews]);
-    setFormData(prev => ({ ...prev, photos: [...(prev.photos || []), ...files] }));
+
+    setPhotoPreviews(prev => [...prev, ...newPreviews]);
+
+    setFormData(prev => ({
+      ...prev,
+      photos: [...(prev.photos || []), ...files]
+    }));
   };
 
   const removeOwnershipDoc = () => {
@@ -2154,13 +2158,13 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
               <SafeDropdown placeholder="Select Balcony" options={getOptions('balcony')} value={formData.balcony} onChange={handleDropdownChange('balcony')} className="w-full" />
             </Field>
             <Field label="Parking Qty">
-              <SafeDropdown placeholder="Select Parking Quantity" options={getOptions('parking qty')} value={formData.parkingQty} onChange={handleDropdownChange('parkingQty')} className="w-full" />
+              <SafeDropdown placeholder="Select Parking Quantity" options={sortNumericOptions(getOptions('parking qty'))} value={formData.parkingQty} onChange={handleDropdownChange('parkingQty')} className="w-full" />
             </Field>
             <Field label="Total Floors">
-              <SafeDropdown placeholder="Select Total Floors" options={sortFloorOptions(getOptions('total floors'))} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" searchable />
+              <SafeDropdown placeholder="Select Total Floors" options={sortNumericOptions(getOptions('total floors'))} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" searchable />
             </Field>
             <Field label="Floor">
-              <SafeDropdown placeholder="Select Floor" options={sortFloorOptions(getOptions('floor'))} value={formData.floor} onChange={handleDropdownChange('floor')} className="w-full" searchable />
+              <SafeDropdown placeholder="Select Floor" options={sortNumericOptions(getOptions('floor'))} value={formData.floor} onChange={handleDropdownChange('floor')} className="w-full" searchable />
             </Field>
             <Field label="Property Status">
               <SafeDropdown placeholder="Select Status" options={getOptions('property status')} value={formData.status} onChange={handleDropdownChange('status')} className="w-full" />
@@ -2393,7 +2397,14 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             <div>
               <label className={LBL}>Property Photos</label>
               <div className="border border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-orange-400 hover:bg-orange-50/20 transition-all cursor-pointer group" onClick={() => document.getElementById('property-photos-input')?.click()}>
-                <input id="property-photos-input" type="file" accept=".jpg,.jpeg,.png" multiple className="hidden" onChange={(e) => { const selected = Array.from(e.target.files || []); if (selected.length > 0) handlePhotosUpload(selected); }} />
+                <input id="property-photos-input" type="file" accept=".jpg,.jpeg,.png" multiple className="hidden" onChange={(e) => {
+                  const selected = Array.from(e.target.files || []);
+                  if (selected.length > 0) {
+                    handlePhotosUpload(selected);
+                  }
+                  // 🔥 IMPORTANT FIX
+                  e.target.value = "";
+                }} />
                 <Upload className="h-5 w-5 text-gray-300 group-hover:text-orange-400 mx-auto mb-1 transition-colors" />
                 <p className="text-xs font-medium text-gray-500 group-hover:text-gray-700">{photoPreviews.length > 0 ? `${photoPreviews.length} file(s) — add more` : 'Click to upload'}</p>
                 <p className="text-[10px] text-gray-400">JPG, PNG — 5 MB each</p>
