@@ -1246,6 +1246,9 @@
 //   );
 // }
 
+
+
+
 // src/pages/settings/MasterDataPage.tsx
 import React, { useState, useEffect, ChangeEvent } from "react";
 import {
@@ -2560,7 +2563,7 @@ export default function MasterDataPage(): JSX.Element {
         )}
       </main>
 
-      <Modal
+      {/* <Modal
         isOpen={isModalOpen}
         onClose={isConnectedRemarkTab || isSocietyTab ? (isSocietyTab ? resetSocietyForm : resetForm) : resetForm}
         title={isConnectedRemarkTab ? (isEditMode ? "Edit Connected Remark" : "Add Connected Remark") : isSocietyTab ? (isEditMode ? "Edit Society" : "Add Society") : `${isEditMode ? "Edit" : "Create"} Master Type`}
@@ -2576,7 +2579,11 @@ export default function MasterDataPage(): JSX.Element {
             onClose={resetSocietyForm}
             onSubmit={handleSocietySubmit}
             initialData={isEditMode && currentSociety ? currentSociety : null}
-            isEditing={isEditMode}
+              isEditing={isEditMode}
+              onRefresh={async () => {
+                console.log("Refresh called"); // 🔥 Debug log
+                await loadSocieties();
+              }}
           />
         ) : (
           <form onSubmit={handleSubmit}>
@@ -2620,11 +2627,90 @@ export default function MasterDataPage(): JSX.Element {
             </div>
           </form>
         )}
+      </Modal> */}
+
+      {/* Modal for Connected Remark and Master Type (without Society) */}
+      <Modal
+        isOpen={isModalOpen && !isSocietyTab}
+        onClose={resetForm}
+        title={isConnectedRemarkTab ? (isEditMode ? "Edit Connected Remark" : "Add Connected Remark") : `${isEditMode ? "Edit" : "Create"} Master Type`}
+      >
+        {isConnectedRemarkTab ? (
+          <div className="px-5 py-4">
+
+          <ConnectedRemarkForm
+            onClose={resetForm}
+            onSubmit={handleConnectedRemarkSubmit}
+            initialData={isEditMode && currentConnectedRemark ? (currentConnectedRemark as any) : null}
+            />
+            </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+              <div className="space-y-4 px-5 py-4">
+              <div>
+                <label className="block mb-1 font-medium text-xs">Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium text-xs">Status</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
+                >
+                  {isEditMode ? "Update" : "Create"}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Separate Modal for Society with custom header */}
+      <Modal
+        isOpen={isModalOpen && isSocietyTab}
+        onClose={resetSocietyForm}
+        showHeader={false}
+        showCloseButton={false}
+        width="max-w-md"
+      >
+        <SocietyForm
+          onClose={resetSocietyForm}
+          onSubmit={handleSocietySubmit}
+          initialData={isEditMode && currentSociety ? currentSociety : null}
+          isEditing={isEditMode}
+          onRefresh={async () => {
+            console.log("Refresh called");
+            await loadSocieties();
+          }}
+        />
       </Modal>
 
       <Modal isOpen={isValueModalOpen} onClose={resetValueForm} title={`${editingValue ? "Edit" : "Add"} Value`}>
         <form onSubmit={handleValueSubmit}>
-          <div className="space-y-4">
+          <div className="space-y-4 px-5 py-4 ">
             <div>
               <label className="block mb-1 font-medium text-xs">Value</label>
               <input
@@ -2632,7 +2718,7 @@ export default function MasterDataPage(): JSX.Element {
                 value={valueInput}
                 onChange={(e) => setValueInput(e.target.value)}
                 required
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs "
               />
             </div>
             <div>
