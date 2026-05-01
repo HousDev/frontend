@@ -14,8 +14,10 @@ const PRIORITY_TAGS = ['Buyer', 'Seller', 'Investor', 'Hot Lead', 'VIP'];
 const FILTER_TABS: { id: InboxFilter; label: string }[] = [
     { id: 'all', label: 'All' },
     { id: 'unread', label: 'Unread' },
+    { id: 'new', label: 'New' },
     { id: 'assigned', label: 'Assigned' },
-    { id: 'resolved', label: 'Resolved' },
+    { id: 'buyer', label: 'Buyer' },
+    { id: 'seller', label: 'Seller' }
 ];
 
 const STAGES = ['New', 'Contacted', 'Qualified', 'Site Visit', 'Closed', 'Lost'];
