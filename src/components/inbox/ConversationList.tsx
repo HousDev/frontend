@@ -150,53 +150,74 @@ export default function ConversationList({
                 </div>
 
                 {/* ✅ WhatsApp Style Filter Tabs with Counts */}
-                <div className="flex flex-wrap gap-1">
+                <div className="flex gap-1 overflow-x-auto whitespace-nowrap scrollbar-hide">
+
                     {/* All Tab */}
                     <button
                         onClick={() => onFilterChange('all')}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${filter === 'all' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                        className={`px-2 py-1 text-[11px] font-medium rounded-md transition-all shrink-0 ${filter === 'all'
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                    >
                         All
-                        <span className="ml-1 text-[10px] opacity-80">({totalCount})</span>
+                        <span className="ml-1 text-[9px] opacity-80">({totalCount})</span>
                     </button>
 
-                    {/* Unread Tab with Green Badge */}
+                    {/* Unread Tab */}
                     <button
                         onClick={() => onFilterChange('unread')}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1 ${filter === 'unread' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                        className={`px-2 py-1 text-[11px] font-medium rounded-md transition-all flex items-center gap-1 shrink-0 ${filter === 'unread'
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                    >
                         Unread
                         {unreadCount > 0 ? (
-                            <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center">
+                            <span className="bg-emerald-500 text-white text-[9px] px-1 py-0.5 rounded-full font-bold min-w-[16px] text-center">
                                 {unreadCount > 99 ? '99+' : unreadCount}
                             </span>
                         ) : (
-                            <span className="text-[10px] text-gray-400">(0)</span>
+                            <span className="text-[9px] text-gray-400">(0)</span>
                         )}
                     </button>
+
                     {/* Assigned Tab */}
                     <button
                         onClick={() => onFilterChange('assigned')}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${filter === 'assigned' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                        className={`px-2 py-1 text-[11px] font-medium rounded-md transition-all shrink-0 ${filter === 'assigned'
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                    >
                         Assigned
-                        <span className="ml-1 text-[10px] opacity-80">({assignedCount})</span>
+                        <span className="ml-1 text-[9px] opacity-80">({assignedCount})</span>
                     </button>
 
                     {/* Buyer Tab */}
                     <button
                         onClick={() => onFilterChange('buyer')}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${filter === 'buyer' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                        className={`px-2 py-1 text-[11px] font-medium rounded-md transition-all shrink-0 ${filter === 'buyer'
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                    >
                         Buyer
-                        <span className="ml-1 text-[10px] opacity-80">({buyerCount})</span>
+                        <span className="ml-1 text-[9px] opacity-80">({buyerCount})</span>
                     </button>
 
                     {/* Seller Tab */}
                     <button
                         onClick={() => onFilterChange('seller')}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${filter === 'seller' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                        className={`px-2 py-1 text-[11px] font-medium rounded-md transition-all shrink-0 ${filter === 'seller'
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                    >
                         Seller
-                        <span className="ml-1 text-[10px] opacity-80">({sellerCount})</span>
+                        <span className="ml-1 text-[9px] opacity-80">({sellerCount})</span>
                     </button>
                 </div>
-
                 {hasActiveFilter && (
                     <div className="flex items-center justify-between mt-2 px-1">
                         <span className="text-[10px] text-emerald-600 font-medium">Filters active</span>
