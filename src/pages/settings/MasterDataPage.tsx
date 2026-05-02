@@ -2694,7 +2694,7 @@ export default function MasterDataPage(): JSX.Element {
         onClose={resetSocietyForm}
         showHeader={false}
         showCloseButton={false}
-        width="max-w-md"
+        width="max-w-3xl"
       >
         <SocietyForm
           onClose={resetSocietyForm}
