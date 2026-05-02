@@ -1393,6 +1393,9 @@ export default function MasterDataPage(): JSX.Element {
   const [societies, setSocieties] = useState<SocietyData[]>([]);
   const [currentSociety, setCurrentSociety] = useState<SocietyData | null>(null);
 
+  const [selectedSocietyIds, setSelectedSocietyIds] = useState<string[]>([]);
+  const [isAllSocietiesSelected, setIsAllSocietiesSelected] = useState(false);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("masterDataActiveTab", activeId);
@@ -1487,6 +1490,65 @@ export default function MasterDataPage(): JSX.Element {
         draggable: false,
         position: "top-center",
       }
+    );
+  };
+
+
+  // Toggle select all societies
+  const toggleSelectAllSocieties = () => {
+    if (isAllSocietiesSelected) {
+      setSelectedSocietyIds([]);
+      setIsAllSocietiesSelected(false);
+    } else {
+      setSelectedSocietyIds(filteredSocieties.map(s => s.id!));
+      setIsAllSocietiesSelected(true);
+    }
+  };
+
+  // Toggle single society selection
+  const toggleSelectSociety = (id: string) => {
+    setSelectedSocietyIds(prev =>
+      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
+    );
+  };
+
+  // Bulk delete societies
+  const handleBulkDeleteSocieties = async () => {
+    if (selectedSocietyIds.length === 0) return;
+
+    toast.info(
+      (props: ToastContentProps) => {
+        const close = (props as any).closeToast as (() => void) | undefined;
+        return (
+          <div>
+            <p className="text-sm mb-2">Are you sure you want to delete {selectedSocietyIds.length} selected societies?</p>
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  try {
+                    await Promise.all(selectedSocietyIds.map(id => societyAPI.deleteSociety(id)));
+                    await loadSocieties();
+                    setSelectedSocietyIds([]);
+                    setIsAllSocietiesSelected(false);
+                    toast.success(`${selectedSocietyIds.length} societies deleted successfully 🗑️`);
+                  } catch (error: any) {
+                    toast.error(error.response?.data?.error || "Error deleting societies ❌");
+                  } finally {
+                    close?.();
+                  }
+                }}
+                className="px-3 py-1 bg-red-600 text-white rounded text-xs"
+              >
+                Yes
+              </button>
+              <button onClick={() => close?.()} className="px-3 py-1 bg-gray-300 rounded text-xs">
+                No
+              </button>
+            </div>
+          </div>
+        );
+      },
+      { autoClose: false, closeOnClick: false, draggable: false, position: "top-center" }
     );
   };
 
@@ -2277,67 +2339,98 @@ export default function MasterDataPage(): JSX.Element {
                   </div>
                 )}
               </div>
-            ) : isSocietyTab ? (
-              <div className="bg-white rounded-lg shadow-sm">
-                {filteredSocieties.length === 0 ? (
-                  <div className="text-center py-10 sm:py-12 text-gray-500">
-                    <Plus size={40} className="mx-auto mb-3 opacity-50" />
-                    {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No societies created yet</p>}
-                  </div>
-                ) : (
-                  <div className="w-full overflow-x-auto">
-                    <table className="min-w-[800px] w-full border-collapse">
-                      <thead>
-                        <tr className="border-b bg-gray-50">
-                          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">#</th>
-                          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Society Name</th>
-                          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Locality</th>
-                          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">City</th>
-                          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Pincode</th>
-                          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
-                          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredSocieties.map((society, index) => (
-                          <tr key={society.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3 text-gray-600 text-xs">{index + 1}</td>
-                            <td className="p-3 font-medium text-xs">{society.societyName}</td>
-                            <td className="p-3 font-medium text-xs">{society.locality}</td>
-                            <td className="p-3 font-medium text-xs">{society.city}</td>
-                            <td className="p-3 font-medium text-xs">{society.pincode}</td>
-                            <td className="p-3">
-                              <span
-                                className={`px-2 py-1 rounded text-[11px] sm:text-xs font-medium ${society.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                  }`}
-                              >
-                                {society.status || "Active"}
-                              </span>
-                            </td>
-                            <td className="p-3">
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleEditSociety(society)}
-                                  className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteSociety(society.id!)}
-                                  className="p-1 text-red-600 hover:bg-red-100 rounded"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
+              ) : isSocietyTab ? (
+                <div className="bg-white rounded-lg shadow-sm">
+                  {/* Bulk Actions Bar */}
+                  {selectedSocietyIds.length > 0 && (
+                    <div className="flex items-center justify-between p-3 bg-blue-50 border-b">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isAllSocietiesSelected}
+                          onChange={toggleSelectAllSocieties}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {selectedSocietyIds.length} society(s) selected
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleBulkDeleteSocieties}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs"
+                      >
+                        <Trash2 size={14} />
+                        Delete Selected ({selectedSocietyIds.length})
+                      </button>
+                    </div>
+                  )}
+
+                  {filteredSocieties.length === 0 ? (
+                    <div className="text-center py-10 sm:py-12 text-gray-500">
+                      <Plus size={40} className="mx-auto mb-3 opacity-50" />
+                      {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No societies created yet</p>}
+                    </div>
+                  ) : (
+                    <div className="w-full overflow-x-auto">
+                      <table className="min-w-[800px] w-full border-collapse">
+                        <thead>
+                          <tr className="border-b bg-gray-50">
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">
+                              <input
+                                type="checkbox"
+                                checked={isAllSocietiesSelected}
+                                onChange={toggleSelectAllSocieties}
+                                className="h-4 w-4 rounded border-gray-300"
+                              />
+                            </th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">#</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Society Name</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Locality</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">City</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Pincode</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            ) : (
+                        </thead>
+                        <tbody>
+                          {filteredSocieties.map((society, index) => (
+                            <tr key={society.id} className="border-b hover:bg-gray-50">
+                              <td className="p-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedSocietyIds.includes(society.id!)}
+                                  onChange={() => toggleSelectSociety(society.id!)}
+                                  className="h-4 w-4 rounded border-gray-300"
+                                />
+                              </td>
+                              <td className="p-3 text-gray-600 text-xs">{index + 1}</td>
+                              <td className="p-3 font-medium text-xs">{society.societyName}</td>
+                              <td className="p-3 font-medium text-xs">{society.locality}</td>
+                              <td className="p-3 font-medium text-xs">{society.city}</td>
+                              <td className="p-3 font-medium text-xs">{society.pincode}</td>
+                              <td className="p-3">
+                                <span className={`px-2 py-1 rounded text-[11px] sm:text-xs font-medium ${society.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                  {society.status || "Active"}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex gap-2">
+                                  <button onClick={() => handleEditSociety(society)} className="p-1 text-blue-600 hover:bg-blue-100 rounded">
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button onClick={() => handleDeleteSociety(society.id!)} className="p-1 text-red-600 hover:bg-red-100 rounded">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ) : (
               <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                 {filteredMasterItems.length === 0 ? (
                   <div className="col-span-full text-center py-10 sm:py-12 text-gray-500">
