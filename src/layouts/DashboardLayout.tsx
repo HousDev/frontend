@@ -1527,7 +1527,7 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto focus:outline-none custom-scrollbar">
+        <main className="flex-1 focus:outline-none ">
           <div className="px-0 py-0 sm:px-0 lg:px-0">
             <Outlet />
           </div>
