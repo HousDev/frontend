@@ -66,7 +66,7 @@ export default function ChatInput({ templates, onSendText, onSendTemplate, disab
                 </div>
             )}
 
-            <div className="flex items-end gap-2 px-4 py-3">
+            <div className="flex items-end gap-2 px-4 py-3 mb-2">
                 <div className="flex gap-1">
                     <button
                         onClick={() => setShowTemplates((v) => !v)}
@@ -95,7 +95,7 @@ export default function ChatInput({ templates, onSendText, onSendTemplate, disab
                         e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
                     }}
                     onKeyDown={handleKeyDown}
-                    placeholder={disabled ? 'Conversation closed' : 'Type a message… (Enter to send)'}
+                    placeholder={disabled ? 'Conversation closed' : 'Type a message...'}
                     disabled={disabled || sending}
                     rows={1}
                     className="flex-1 resize-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed max-h-[120px] leading-relaxed"

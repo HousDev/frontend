@@ -3,9 +3,12 @@ import {
     MessageSquare, Megaphone, BarChart3, Bot, FileText,
     Settings, Phone, DollarSign, Bell, X,
     Users, ShoppingBag, Home, Building2,
+    IndianRupee,
+    IndianRupeeIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { notificationStore, type AppNotification } from "../lib/notifications";
+import { FaWhatsapp } from "react-icons/fa";
 
 export type Page =
     | "inbox"
@@ -37,7 +40,7 @@ const NAV_ITEMS = [
     { id: "campaigns", label: "Campaigns", icon: Megaphone },
     { id: "chatbot", label: "Chatbot Flows", icon: Bot },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "meta-spend", label: "Meta Spend", icon: DollarSign },
+    { id: "meta-spend", label: "Meta Spend", icon: IndianRupeeIcon },
     { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -73,13 +76,13 @@ export default function Sidebar({
 
             {/* Logo */}
             <div className="flex items-center justify-center h-14">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <Phone size={16} className="text-white" />
+                <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                    <FaWhatsapp size={16} className="text-white" />
                 </div>
             </div>
 
             {/* Bell */}
-            <div className="absolute top-3 right-3 z-50">
+            {/* <div className="absolute top-3 right-3 z-50">
                 <button
                     onClick={handleBellClick}
                     className="relative p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-blue-600"
@@ -91,10 +94,10 @@ export default function Sidebar({
                         </span>
                     )}
                 </button>
-            </div>
+            </div> */}
 
             {/* Notification Dropdown */}
-            {bellOpen && (
+            {/* {bellOpen && (
                 <div className="absolute top-12 left-16 z-50 w-80 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
                     <div className="flex justify-between items-center px-4 py-2 border-b">
                         <span className="text-xs font-semibold text-gray-600">
@@ -140,7 +143,7 @@ export default function Sidebar({
                         )}
                     </div>
                 </div>
-            )}
+            )} */}
 
             {/* Navigation */}
             <nav className="flex-1 py-4 flex flex-col items-center gap-2 overflow-visible">
@@ -152,8 +155,8 @@ export default function Sidebar({
                             <button
                                 onClick={() => onNavigate(item.id)}
                                 className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${isActive
-                                        ? "bg-blue-100 text-blue-600"
-                                        : "text-gray-500 hover:bg-gray-100 hover:text-blue-600"
+                                        ? "bg-orange-200 text-[#0b3855]"
+                                        : "text-gray-400 hover:bg-gray-100 hover:text-[#0b3855]"
                                     }`}
                             >
                                 <item.icon size={20} />
