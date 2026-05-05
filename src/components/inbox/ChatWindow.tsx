@@ -430,6 +430,7 @@ export default function ChatWindow({
     }, [initialConversation]);
 
     // ✅ Socket.IO Connection for Real-time Chat
+    // Socket.IO Connection - ADD MORE LOGS
     useEffect(() => {
         if (!contact) return;
 
@@ -442,22 +443,41 @@ export default function ChatWindow({
             return;
         }
 
-        // Connect to socket
+        console.log("🔌 [Step 1] Connecting socket for userId:", userId);
+
         const socket = connectSocket(userId);
         socketRef.current = socket;
 
-        // ✅ Join contact room for real-time updates
+        // Add connection event
+        socket.on("connect", () => {
+            console.log("✅ [Step 2] Socket connected successfully, id:", socket.id);
+        });
+
+        // Add disconnect event
+        socket.on("disconnect", () => {
+            console.log("❌ [Step 3] Socket disconnected");
+        });
+
+        // Join contact room
+        console.log("🔌 [Step 4] Joining contact room:", contact.id);
         socket.emit("join_contact_room", contact.id);
-        console.log(`✅ Joined contact room: contact_${contact.id}`);
+
+        // Confirm room join
+        socket.emit("get_rooms", (rooms) => {
+            console.log("📡 [Step 5] Current rooms:", rooms);
+        });
 
         // Listen for new messages
         const handleNewMessage = (data: any) => {
-            console.log("🔥 NEW MESSAGE RECEIVED:", data);
+            console.log("📨 [Step 6] NEW MESSAGE EVENT RECEIVED:", data);
 
-            // Check if message is for current contact
-            if (data.contact_id !== contact.id) return;
+            if (data.contact_id !== contact.id) {
+                console.log(`⚠️ [Step 7] Message for different contact: ${data.contact_id} !== ${contact.id}`);
+                return;
+            }
 
-            // Create new message object
+            console.log("✅ [Step 8] Message belongs to current contact, updating UI...");
+
             const newMsg = {
                 id: data.message_id || Date.now(),
                 direction: data.direction || 'in',
@@ -468,17 +488,22 @@ export default function ChatWindow({
                 sender: data.direction === 'out' ? { name: 'You' } : null
             };
 
-            // Add to messages state (prevent duplicates)
+            console.log("📝 [Step 9] New message object:", newMsg);
+
             setMessages((prev) => {
                 const exists = prev.some(m => m.id === newMsg.id);
-                if (exists) return prev;
+                if (exists) {
+                    console.log("⚠️ [Step 10] Duplicate message, skipping");
+                    return prev;
+                }
+                console.log(`✅ [Step 11] Adding new message, total: ${prev.length + 1}`);
                 return [...prev, newMsg];
             });
 
-            // Auto mark as read if chat is open
+            // Auto mark as read
             whatsappAPI.markMessagesAsRead(contact.id).catch(console.error);
 
-            // Update conversation last message in parent
+            // Update conversation
             if (onConversationUpdate && conversation) {
                 onConversationUpdate({
                     ...conversation,
@@ -490,13 +515,15 @@ export default function ChatWindow({
         };
 
         socket.on("chat_update", handleNewMessage);
+        console.log("👂 [Step 12] Listening for 'chat_update' events");
 
-        // Cleanup on unmount or contact change
         return () => {
+            console.log("🧹 [Step 13] Cleaning up socket for contact:", contact.id);
             if (socket) {
                 socket.emit("leave_contact_room", contact.id);
                 socket.off("chat_update", handleNewMessage);
-                console.log(`📤 Left contact room: contact_${contact.id}`);
+                socket.off("connect");
+                socket.off("disconnect");
             }
         };
     }, [contact?.id, conversation?.id]);
@@ -665,6 +692,12 @@ export default function ChatWindow({
     const handleAddNote = async (body: any) => {
         if (!contact) return;
         try {
+
+            // ✅ Prevent duplicate socket connections
+            if (socketRef.current?.connected) {
+                console.log("⚠️ Socket already connected, skipping reconnection");
+                return;
+            }
             await whatsappAPI.addNote(contact.id, user?.id, body);
             await fetchAllNotes(); // Refresh notes after adding
             notificationStore.push('success', 'Note Added', 'Internal note saved', { label: "", page: "" });
@@ -764,14 +797,14 @@ export default function ChatWindow({
                             <p className="text-xs mt-1">Send a message to start the conversation</p>
                         </div>
                     ) : (
-                        messagesWithSeparators.map(({ msg, showSeparator, dateLabel }) => (
-                            <MessageBubble
-                                key={msg.id}
-                                message={msg}
-                                showDateSeparator={showSeparator}
-                                dateSeparatorLabel={dateLabel}
-                            />
-                        ))
+                                messagesWithSeparators.map(({ msg, showSeparator, dateLabel }, index) => (
+                                    <MessageBubble
+                                        key={`${msg.id}-${msg.timestamp}-${index}`}  // ✅ Unique key
+                                        message={msg}
+                                        showDateSeparator={showSeparator}
+                                        dateSeparatorLabel={dateLabel}
+                                    />
+                                ))
                     )}
                     <div ref={endRef} />
                 </div>

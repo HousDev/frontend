@@ -347,7 +347,10 @@ export function useConversationDetail(conversationId: string | null) {
     
     const fetchConversation = async () => {
       try {
-        const contact = await whatsappAPI.getContactById(conversationId);
+        // ✅ FIX: Remove "conv_" prefix
+        const cleanId = conversationId.replace("conv_", "");
+        const contact = await whatsappAPI.getContactById(cleanId);
+        
         if (contact) {
           let unreadCount = 0;
           try {
