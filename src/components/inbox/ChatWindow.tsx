@@ -1,6 +1,3 @@
-
-
-
 import { useEffect, useRef, useState } from 'react';
 import { Bot, CheckCircle, Clock, PhoneCall, ArrowLeft, ChevronRight, Activity, BotMessageSquare } from 'lucide-react';
 import type { WhatsAppConversation, WhatsAppContact, Tag, CrmUser, WhatsAppMessage, ConversationNote } from '../../types';
@@ -11,6 +8,7 @@ import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import ContactInfo from './ContactInfo';
 import { useAuth } from '@/contexts/AuthContext';
+import { connectSocket } from "@/lib/socket";
 
 interface Props {
     conversation: WhatsAppConversation | null;
@@ -40,7 +38,7 @@ export default function ChatWindow({
     onConversationUpdate,
 }: Props) {
     const [conversation, setConversation] = useState<WhatsAppConversation | null>(initialConversation);
-    const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
+    const [messages, setMessages] = useState<any[]>([]);
     const [notes, setNotes] = useState<ConversationNote[]>([]);
     const [templates, setTemplates] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -52,6 +50,40 @@ export default function ChatWindow({
         setConversation(initialConversation);
     }, [initialConversation]);
 
+    useEffect(() => {
+        if (!contact) return;
+
+        const userId = localStorage.getItem("user")
+            ? JSON.parse(localStorage.getItem("user"))?.id
+            : null;
+
+        if (!userId) return;
+
+        const socket = connectSocket(userId);
+
+        const handleNewMessage = (data: any) => {
+            console.log("🔥 NEW MESSAGE:", data);
+
+            if (data.contact_id !== contact.id) return;
+
+            const newMsg = {
+                id: Date.now(),
+                direction: 'in',
+                text: data.text,
+                timestamp: new Date().toISOString(),
+                status: 'delivered',
+                is_read: false,
+            };
+
+            setMessages((prev) => [...prev, newMsg]);
+        };
+
+        socket.on("chat_update", handleNewMessage);
+
+        return () => {
+            socket.off("chat_update", handleNewMessage);
+        };
+    }, [contact]);
     // ✅ Mark messages as read when chat window opens
     useEffect(() => {
         if (!conversation || !contact) return;

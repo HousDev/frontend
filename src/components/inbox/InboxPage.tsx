@@ -1,7 +1,3 @@
-
-
-
-
 import { useState, useEffect, useCallback } from 'react';
 import { whatsappAPI } from '@/lib/whatsappApi';
 import { useConversations, useContactDetail, useConversationDetail } from '../../hooks/useInbox';
