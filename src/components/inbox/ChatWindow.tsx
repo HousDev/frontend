@@ -423,6 +423,7 @@ export default function ChatWindow({
     const endRef = useRef<HTMLDivElement>(null);
     const socketRef = useRef<any>(null);
     const { user } = useAuth();
+    const [pendingMessageIds, setPendingMessageIds] = useState<Set<string | number>>(new Set()); 
 
     // Sync conversation from props
     useEffect(() => {
@@ -470,6 +471,23 @@ export default function ChatWindow({
         // Listen for new messages
         const handleNewMessage = (data: any) => {
             console.log("📨 [Step 6] NEW MESSAGE EVENT RECEIVED:", data);
+
+            // ✅ IGNORE if this is my own message (from socket broadcast)
+            if (data.isOwnMessage === true) {
+                console.log("⚠️ [Step 7] Skipping own message from socket");
+                return;
+            }
+
+            // ✅ Also check if message already exists (by text and recent timestamp)
+            const isDuplicate = messages.some(msg =>
+                msg.text === data.text &&
+                Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000
+            );
+
+            if (isDuplicate) {
+                console.log("⚠️ [Step 8] Duplicate message detected, skipping");
+                return;
+            }
 
             if (data.contact_id !== contact.id) {
                 console.log(`⚠️ [Step 7] Message for different contact: ${data.contact_id} !== ${contact.id}`);
@@ -628,29 +646,43 @@ export default function ChatWindow({
     const handleSendText = async (text: string) => {
         if (!conversation || !contact) return;
 
+        // ✅ Generate temporary ID for this message
+        const tempId = `temp_${Date.now()}_${Math.random()}`;
+
+        // ✅ Add to pending set to prevent duplicates
+        setPendingMessageIds(prev => new Set([...prev, tempId]));
+
+        const formattedMsg = {
+            id: tempId,
+            direction: 'out',
+            text: text,
+            timestamp: new Date().toISOString(),
+            status: 'sending',
+            is_read: true,
+            sender: { name: 'You' }
+        };
+
+        // ✅ Add to UI immediately (optimistic update)
+        setMessages((prev: any) => [...prev, formattedMsg]);
+
         try {
             const newMsg: any = await whatsappAPI.sendMessage({ contact_id: contact.id, text });
 
-            const formattedMsg = {
-                id: newMsg.id || Date.now(),
-                direction: 'out',
-                text: text,
-                timestamp: new Date().toISOString(),
-                status: 'sent',
-                is_read: true,
-                sender: { name: 'You' }
-            };
+            // ✅ Replace temp message with real message
+            setMessages((prev: any) =>
+                prev.map((msg: any) =>
+                    msg.id === tempId
+                        ? { ...msg, id: newMsg.id, status: 'sent' }
+                        : msg
+                )
+            );
 
-            setMessages((prev: any) => [...prev, formattedMsg]);
-
-            // ✅ Emit via socket for real-time update to other users
-            if (socketRef.current) {
-                socketRef.current.emit("new_message", {
-                    contactId: contact.id,
-                    message: formattedMsg,
-                    senderId: user?.id
-                });
-            }
+            // ✅ Remove from pending set
+            setPendingMessageIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(tempId);
+                return newSet;
+            });
 
             notificationStore.push(
                 'message',
@@ -661,6 +693,16 @@ export default function ChatWindow({
 
         } catch (err) {
             console.error('Failed to send message', err);
+
+            // ✅ Mark message as failed
+            setMessages((prev: any) =>
+                prev.map((msg: any) =>
+                    msg.id === tempId
+                        ? { ...msg, status: 'failed' }
+                        : msg
+                )
+            );
+
             notificationStore.push(
                 'error',
                 'Send Failed',
