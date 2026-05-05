@@ -66,24 +66,21 @@ export default function ChatInput({ templates, onSendText, onSendTemplate, disab
                 </div>
             )}
 
-            <div className="flex items-end gap-2 px-4 py-3 mb-2">
-                <div className="flex gap-1">
-                    <button
+<div className="flex items-end gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 mb-2">               
+<div className="flex gap-0.5 sm:gap-1">                    <button
                         onClick={() => setShowTemplates((v) => !v)}
                         disabled={disabled}
                         title="Quick Templates"
-                        className={`p-2 rounded-lg transition-colors ${showTemplates ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                        className={`p-1.5 sm:p-2 rounded-lg transition-colors ${showTemplates ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                             } disabled:opacity-40`}
                     >
-                        <FileText size={18} />
-                    </button>
+<FileText className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />                    </button>
                     <button
                         disabled={disabled}
                         title="Attach file"
                         className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors disabled:opacity-40"
                     >
-                        <Paperclip size={18} />
-                    </button>
+<Paperclip className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />                    </button>
                 </div>
 
                 <textarea
@@ -98,19 +95,18 @@ export default function ChatInput({ templates, onSendText, onSendTemplate, disab
                     placeholder={disabled ? 'Conversation closed' : 'Type a message...'}
                     disabled={disabled || sending}
                     rows={1}
-                    className="flex-1 resize-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed max-h-[120px] leading-relaxed"
+                    className="flex-1 min-w-0 resize-none bg-gray-50 border border-gray-200 rounded-xl px-2 sm:px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed max-h-[120px] leading-relaxed"
                 />
 
                 <button
                     onClick={handleSend}
                     disabled={!text.trim() || sending || disabled}
-                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                    className="p-2 sm:p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                 >
                     {sending ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
-                        <Send size={16} />
-                    )}
+<Send className="w-4 h-4 sm:w-[16px] sm:h-[16px]" />                    )}
                 </button>
             </div>
         </div>

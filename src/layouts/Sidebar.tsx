@@ -72,7 +72,7 @@ export default function Sidebar({
     };
 
     return (
-        <aside className="relative flex flex-col h-screen w-16 bg-white border-r border-gray-200 overflow-visible">
+        <aside className="relative flex flex-col h-screen w-11 sm:w-16 bg-white border-r border-gray-200 overflow-visible">
 
             {/* Logo */}
             <div className="flex items-center justify-center h-14">
@@ -154,13 +154,13 @@ export default function Sidebar({
                         <div key={item.id} className="relative group">
                             <button
                                 onClick={() => onNavigate(item.id)}
-                                className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${isActive
+                                className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${isActive
                                         ? "bg-orange-200 text-[#0b3855]"
                                         : "text-gray-400 hover:bg-gray-100 hover:text-[#0b3855]"
                                     }`}
                             >
-                                <item.icon size={20} />
-                            </button>
+<item.icon className="w-4 h-4 sm:w-5 sm:h-5" />                           
+ </button>
 
                             {/* Tooltip FIXED */}
                             <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 
