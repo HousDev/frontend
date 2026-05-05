@@ -328,11 +328,10 @@ export default function ConversationList({
                                     }`}
                             >
                                 <div className="relative shrink-0 mt-0.5">
-                                    <div className={`w-8 h-8  border border-gray-400 rounded-full flex items-center justify-center text-gray-700 text-sm font-medium ${isSelected ? 'bg-emerald-500' : 'bg-blue-100'}`}>
+                                    <div className={`w-8 h-8  border border-gray-400 rounded-full flex items-center justify-center text-gray-700 text-sm font-medium ${isSelected ? 'bg-blue-300' : 'bg-blue-100'}`}>
                                         {initials}
                                     </div>
-                                    <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${STAGE_DOT[stage] || 'bg-gray-400'}`} />
-                                </div>
+<span className={`absolute bottom-0 right-0 w-2 h-2 translate-y-[-30%] translate-x-[20%] rounded-full border-2 border-white ${STAGE_DOT[stage] || 'bg-gray-400'}`} />  </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-start justify-between gap-1 mb-0.5">
                                         <span className={`text-sm font-semibold truncate leading-tight ${hasUnread ? 'text-gray-900' : 'text-gray-700'}`}>{displayName}</span>
