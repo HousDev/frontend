@@ -423,7 +423,9 @@ export default function ChatWindow({
     const endRef = useRef<HTMLDivElement>(null);
     const socketRef = useRef<any>(null);
     const { user } = useAuth();
-    const [pendingMessageIds, setPendingMessageIds] = useState<Set<string | number>>(new Set()); 
+
+    // ✅ Track sent messages to prevent duplicates
+    const sentMessagesRef = useRef<Set<string>>(new Set());
 
     // Sync conversation from props
     useEffect(() => {
@@ -431,7 +433,6 @@ export default function ChatWindow({
     }, [initialConversation]);
 
     // ✅ Socket.IO Connection for Real-time Chat
-    // Socket.IO Connection - ADD MORE LOGS
     useEffect(() => {
         if (!contact) return;
 
@@ -449,52 +450,40 @@ export default function ChatWindow({
         const socket = connectSocket(userId);
         socketRef.current = socket;
 
-        // Add connection event
         socket.on("connect", () => {
             console.log("✅ [Step 2] Socket connected successfully, id:", socket.id);
         });
 
-        // Add disconnect event
         socket.on("disconnect", () => {
             console.log("❌ [Step 3] Socket disconnected");
         });
 
-        // Join contact room
         console.log("🔌 [Step 4] Joining contact room:", contact.id);
         socket.emit("join_contact_room", contact.id);
-
-        // Confirm room join
-        socket.emit("get_rooms", (rooms) => {
-            console.log("📡 [Step 5] Current rooms:", rooms);
-        });
 
         // Listen for new messages
         const handleNewMessage = (data: any) => {
             console.log("📨 [Step 6] NEW MESSAGE EVENT RECEIVED:", data);
 
-            // ✅ IGNORE if this is my own message (from socket broadcast)
+            // ✅ Skip if this is my own message (from socket broadcast)
             if (data.isOwnMessage === true) {
                 console.log("⚠️ [Step 7] Skipping own message from socket");
                 return;
             }
 
-            // ✅ Also check if message already exists (by text and recent timestamp)
-            const isDuplicate = messages.some(msg =>
-                msg.text === data.text &&
-                Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 2000
-            );
-
-            if (isDuplicate) {
-                console.log("⚠️ [Step 8] Duplicate message detected, skipping");
+            // ✅ Check if this message was just sent by us
+            const messageKey = `${data.contact_id}_${data.text}_${data.timestamp}`;
+            if (sentMessagesRef.current.has(messageKey)) {
+                console.log("⚠️ [Step 7.5] Skipping message we just sent");
                 return;
             }
 
             if (data.contact_id !== contact.id) {
-                console.log(`⚠️ [Step 7] Message for different contact: ${data.contact_id} !== ${contact.id}`);
+                console.log(`⚠️ [Step 8] Message for different contact: ${data.contact_id} !== ${contact.id}`);
                 return;
             }
 
-            console.log("✅ [Step 8] Message belongs to current contact, updating UI...");
+            console.log("✅ [Step 9] Message belongs to current contact, updating UI...");
 
             const newMsg = {
                 id: data.message_id || Date.now(),
@@ -506,10 +495,9 @@ export default function ChatWindow({
                 sender: data.direction === 'out' ? { name: 'You' } : null
             };
 
-            console.log("📝 [Step 9] New message object:", newMsg);
-
+            // ✅ Check for duplicate before adding
             setMessages((prev) => {
-                const exists = prev.some(m => m.id === newMsg.id);
+                const exists = prev.some(m => m.id === newMsg.id || (m.text === newMsg.text && Math.abs(new Date(m.timestamp).getTime() - new Date(newMsg.timestamp).getTime()) < 1000));
                 if (exists) {
                     console.log("⚠️ [Step 10] Duplicate message, skipping");
                     return prev;
@@ -555,12 +543,10 @@ export default function ChatWindow({
                 await whatsappAPI.markMessagesAsRead(contact.id);
                 console.log("✅ Messages marked as read for contact:", contact.id);
 
-                // Update local messages to mark them as read
                 setMessages(prev => prev.map(msg =>
                     msg.direction === 'in' ? { ...msg, is_read: true } : msg
                 ));
 
-                // Update conversation unread count in parent
                 if (onConversationUpdate) {
                     onConversationUpdate({ ...conversation, unread_count: 0 });
                 }
@@ -585,7 +571,6 @@ export default function ChatWindow({
                 const msgs = await whatsappAPI.getMessages(contact.id);
                 console.log('Messages fetched:', msgs?.length || 0);
 
-                // Format messages for MessageBubble component
                 const formatted: any = (msgs || []).map((msg: any) => ({
                     id: msg.id,
                     direction: msg.direction === 'out' ? 'out' : 'in',
@@ -642,15 +627,22 @@ export default function ChatWindow({
         fetchAllNotes();
     }, [contact]);
 
-    // Handle send text message
+    // ✅ Handle send text message - FIXED DUPLICATE ISSUE
     const handleSendText = async (text: string) => {
         if (!conversation || !contact) return;
 
-        // ✅ Generate temporary ID for this message
-        const tempId = `temp_${Date.now()}_${Math.random()}`;
+        // ✅ Create unique key for this message to prevent duplicates
+        const messageKey = `${contact.id}_${text}_${Date.now()}`;
 
-        // ✅ Add to pending set to prevent duplicates
-        setPendingMessageIds(prev => new Set([...prev, tempId]));
+        // ✅ Prevent duplicate sends
+        if (sentMessagesRef.current.has(messageKey)) {
+            console.log("⚠️ Duplicate send prevented for:", messageKey);
+            return;
+        }
+
+        sentMessagesRef.current.add(messageKey);
+
+        const tempId = `temp_${Date.now()}_${Math.random()}`;
 
         const formattedMsg = {
             id: tempId,
@@ -662,7 +654,7 @@ export default function ChatWindow({
             sender: { name: 'You' }
         };
 
-        // ✅ Add to UI immediately (optimistic update)
+        // ✅ Optimistic update
         setMessages((prev: any) => [...prev, formattedMsg]);
 
         try {
@@ -677,12 +669,10 @@ export default function ChatWindow({
                 )
             );
 
-            // ✅ Remove from pending set
-            setPendingMessageIds(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(tempId);
-                return newSet;
-            });
+            // ✅ Remove from tracking after delay
+            setTimeout(() => {
+                sentMessagesRef.current.delete(messageKey);
+            }, 1000);
 
             notificationStore.push(
                 'message',
@@ -694,7 +684,6 @@ export default function ChatWindow({
         } catch (err) {
             console.error('Failed to send message', err);
 
-            // ✅ Mark message as failed
             setMessages((prev: any) =>
                 prev.map((msg: any) =>
                     msg.id === tempId
@@ -702,6 +691,8 @@ export default function ChatWindow({
                         : msg
                 )
             );
+
+            sentMessagesRef.current.delete(messageKey);
 
             notificationStore.push(
                 'error',
@@ -734,14 +725,8 @@ export default function ChatWindow({
     const handleAddNote = async (body: any) => {
         if (!contact) return;
         try {
-
-            // ✅ Prevent duplicate socket connections
-            if (socketRef.current?.connected) {
-                console.log("⚠️ Socket already connected, skipping reconnection");
-                return;
-            }
             await whatsappAPI.addNote(contact.id, user?.id, body);
-            await fetchAllNotes(); // Refresh notes after adding
+            await fetchAllNotes();
             notificationStore.push('success', 'Note Added', 'Internal note saved', { label: "", page: "" });
         } catch (err) {
             console.error('Failed to add note', err);
@@ -839,14 +824,14 @@ export default function ChatWindow({
                             <p className="text-xs mt-1">Send a message to start the conversation</p>
                         </div>
                     ) : (
-                                messagesWithSeparators.map(({ msg, showSeparator, dateLabel }, index) => (
-                                    <MessageBubble
-                                        key={`${msg.id}-${msg.timestamp}-${index}`}  // ✅ Unique key
-                                        message={msg}
-                                        showDateSeparator={showSeparator}
-                                        dateSeparatorLabel={dateLabel}
-                                    />
-                                ))
+                        messagesWithSeparators.map(({ msg, showSeparator, dateLabel }, index) => (
+                            <MessageBubble
+                                key={`${msg.id}-${msg.timestamp}-${index}`}
+                                message={msg}
+                                showDateSeparator={showSeparator}
+                                dateSeparatorLabel={dateLabel}
+                            />
+                        ))
                     )}
                     <div ref={endRef} />
                 </div>
