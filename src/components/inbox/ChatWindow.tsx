@@ -549,7 +549,7 @@ export default function ChatWindow({
                 socket.off("disconnect");
             }
         };
-    }, [contact?.id, conversation?.id]);
+    }, [contact?.id]);
 
     // ✅ Mark messages as read when chat window opens
     useEffect(() => {
