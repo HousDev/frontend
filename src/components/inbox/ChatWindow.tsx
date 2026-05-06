@@ -674,12 +674,12 @@ export default function ChatWindow({
                 sentMessagesRef.current.delete(messageKey);
             }, 1000);
 
-            // notificationStore.push(
-            //     'message',
-            //     'Message Sent',
-            //     `Sent to ${contact.name}`,
-            //     { label: "", page: "" }
-            // );
+            notificationStore.push(
+                'message',
+                'Message Sent',
+                `Sent to ${contact.name}`,
+                { label: "", page: "" }
+            );
 
         } catch (err) {
             console.error('Failed to send message', err);
