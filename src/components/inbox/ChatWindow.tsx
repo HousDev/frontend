@@ -484,7 +484,24 @@ export default function ChatWindow({
             }
 
             console.log("✅ [Step 9] Message belongs to current contact, updating UI...");
+            // ✅ Show notification only for received messages
+            if (data.direction === "in") {
 
+                // browser/tab inactive ho tab notification dikhao
+                if (document.hidden) {
+
+                    notificationStore.push(
+                        "message",
+                        `New Message from ${contact?.name || "Customer"}`,
+                        data.text || "You received a new message",
+                        {
+                            label: "Open Chat",
+                            page: "/whatsapp"
+                        }
+                    );
+
+                }
+            }
             const newMsg = {
                 id: data.message_id || Date.now(),
                 direction: data.direction || 'in',
@@ -674,12 +691,14 @@ export default function ChatWindow({
                 sentMessagesRef.current.delete(messageKey);
             }, 1000);
 
-            notificationStore.push(
-                'message',
-                'Message Sent',
-                `Sent to ${contact.name}`,
-                { label: "", page: "" }
-            );
+            // notificationStore.push(
+            //     'message',
+            //     'Message Sent',
+            //     `Sent to ${contact.name}`,
+            //     { label: "", page: "" }
+            // );
+
+            
 
         } catch (err) {
             console.error('Failed to send message', err);
