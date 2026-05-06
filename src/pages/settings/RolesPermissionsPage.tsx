@@ -798,7 +798,7 @@ const RolesPermissionsPage: React.FC = () => {
       </div>
 
       {/* ── Main Card ── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 max-h-[500px] sm:max-h-[620px] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
 
         {/* Tabs */}
         <div className="border-b border-gray-200 px-4 sm:px-6 sticky top-0 bg-white z-10">

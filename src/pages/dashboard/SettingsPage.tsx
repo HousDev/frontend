@@ -1545,7 +1545,1262 @@
 //   );
 // };
 
+// // export default SettingsPage;
+// // src/pages/dashboard/SettingsPage.tsx
+// import React, { useState, useEffect } from "react";
+// import { Link } from "react-router-dom";
+// import {
+//   Settings,
+//   User,
+//   Shield,
+//   Database,
+//   Zap,
+//   Download,
+//   Upload,
+//   Bell,
+//   Mail,
+//   Smartphone,
+//   Globe,
+//   Lock,
+//   Palette,
+//   Users,
+//   Building,
+//   ArrowRight,
+//   Save,
+//   RotateCcw,
+//   Camera,
+//   Star,
+//   CheckCircle,
+//   X,
+// } from "lucide-react";
+// import { useAuth } from "@/contexts/AuthContext";
+// import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+// import { usersAPI } from "@/lib/api";
+// import Button from "@/components/ui/Button";
+// import LoadingSpinner from "@/components/ui/LoadingSpinner";
+
+// import { masterDataAPI } from "@/lib/mastersAPI";
+// import systemSettingsAPI from "@/lib/systemSettingsAPI";
+// import { toast } from "react-toastify";
+
+// /**
+//  * Local types
+//  */
+// interface UserProfile {
+//   id: string;
+//   username?: string;
+//   dob?: string | null;
+//   email?: string;
+//   first_name: string;
+//   last_name: string;
+//   phone?: string;
+//   avatar?: string;
+//   designation?: string;
+//   department?: string;
+//   role?: string;
+//   timezone: string;
+//   language: string;
+//   email_notifications: boolean;
+//   sms_notifications: boolean;
+//   push_notifications: boolean;
+//   [k: string]: any;
+// }
+
+// /** A flexible shape for system settings - add more keys here if you have them typed elsewhere */
+// interface SystemSettings {
+//   company_name: string;
+//   currency: string;
+//   date_format: string;
+//   time_format: string;
+//   default_language: string;
+//   max_file_size: number;
+//   backup_frequency: string;
+//   primary_color: string;
+//   secondary_color: string;
+//   company_logo?: string | null;
+//   company_favicon?: string | null;
+//   footer_logo?: string | null;
+//   auto_assign_leads?: boolean;
+//   lead_scoring_enabled?: boolean;
+//   property_auto_approval?: boolean;
+//   [k: string]: any;
+// }
+// const normalizeDOB = (dob: string | null | undefined) => {
+//   if (!dob) return "";
+//   // Convert ISO to YYYY-MM-DD
+//   const d = new Date(dob);
+//   if (isNaN(d.getTime())) return "";
+//   const yyyy = d.getFullYear();
+//   const mm = String(d.getMonth() + 1).padStart(2, "0");
+//   const dd = String(d.getDate()).padStart(2, "0");
+//   return `${yyyy}-${mm}-${dd}`;
+// };
+
+// const SettingsPage: React.FC = () => {
+//   // auth/context hooks — cast to known shapes so TS can check usages below.
+//   const { user, updateUser } = useAuth();
+//   // useSystemSettings may be typed in your project; assert here for local usage
+//   const {
+//     systemSettings,
+//     loading: systemLoading,
+//     updateSystemSettings,
+//     saveSystemSettings,
+//   } = (useSystemSettings() as unknown) as {
+//     systemSettings: SystemSettings;
+//     loading: boolean;
+//     updateSystemSettings: (patch: Partial<SystemSettings>) => void;
+//     saveSystemSettings: () => Promise<any>;
+//   };
+
+//   const [profile, setProfile] = useState<UserProfile | null>(null);
+//   const [loading, setLoading] = useState(true);
+//   const [saving, setSaving] = useState(false);
+//   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+//   const [activeTab, setActiveTab] = useState<
+//     "profile" | "notifications" | "system" | "security"
+//   >("profile");
+//   const [passwordData, setPasswordData] = useState({
+//     current_password: "",
+//     new_password: "",
+//     confirm_password: "",
+//   });
+
+//   // Master data state
+//   const [masterOptions, setMasterOptions] = useState({
+//     roles: [] as { value: string; label: string }[],
+//     departments: [] as { value: string; label: string }[],
+//   });
+
+//   useEffect(() => {
+//     fetchUserProfile();
+//     fetchMasterData();
+//     // eslint-disable-next-line react-hooks/exhaustive-deps
+//   }, []);
+
+//   const formatDOBForMySQL = (dob: string | null | undefined) => {
+//     if (!dob) return null;
+//     const d = new Date(dob);
+//     if (isNaN(d.getTime())) return null;
+//     const yyyy = d.getFullYear();
+//     const mm = String(d.getMonth() + 1).padStart(2, "0");
+//     const dd = String(d.getDate()).padStart(2, "0");
+//     return `${yyyy}-${mm}-${dd}`;
+//   };
+
+
+//   const fetchMasterData = async () => {
+//     try {
+//       // masterDataAPI shapes aren't known here — treat responses as any
+//       const commonMasterTypes: any[] = await masterDataAPI.getAllMasterTypes(
+//         "common"
+//       );
+
+//       const masterValues = await Promise.all(
+//         commonMasterTypes.map((masterType: any) =>
+//           masterDataAPI.getMasterValues(masterType.id)
+//         )
+//       );
+
+//       const organizedData: Record<string, { value: string; label: string }[]> =
+//         {};
+
+//       commonMasterTypes.forEach((masterType: any, index: number) => {
+//         const values = masterValues[index] || [];
+//         const data = values.map((item: any) => ({
+//           value: String(item.id),
+//           label: item.value || item.name || "Unknown",
+//         }));
+//         organizedData[(masterType.name || "").toLowerCase()] = data;
+//       });
+
+//       setMasterOptions({
+//         roles: organizedData["role"] || [],
+//         departments: organizedData["department"] || [],
+//       });
+//     } catch (error) {
+//       console.error("Failed to load master data:", error);
+//       console.error("Failed to load dropdown options");
+//     }
+//   };
+
+//   const fetchUserProfile = async () => {
+//     try {
+//       const response: any = await usersAPI.getProfile();
+     
+//       if (response?.success) {
+//         // normalize missing fields with safe defaults
+//         const p: UserProfile = {
+//   ...response.data, // first spread everything
+//   id: String(response.data.id ?? ""),
+//   dob: normalizeDOB(response.data.dob), // overwrite with normalized YYYY-MM-DD
+//   email: response.data.email ?? "",
+//   first_name: response.data.first_name ?? "",
+//   last_name: response.data.last_name ?? "",
+//   phone: response.data.phone ?? "",
+//   avatar: response.data.avatar ?? undefined,
+//   designation: response.data.designation ?? "",
+//   department: response.data.department ?? "",
+//   role: response.data.role ?? "",
+//   timezone: response.data.timezone ?? "UTC",
+//   language: response.data.language ?? "en",
+//   email_notifications: !!response.data.email_notifications,
+//   sms_notifications: !!response.data.sms_notifications,
+//   push_notifications: !!response.data.push_notifications,
+// };
+
+        
+//         setProfile(p);
+//       } else {
+//         // if API returns success:false, still try to use data if present
+//         if (response?.data) {
+//           setProfile(response.data as UserProfile);
+//         }
+//       }
+//     } catch (error) {
+//       console.error("Error fetching user profile:", error);
+//       toast.error("Failed to load profile");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+//   const handleProfileUpdate = async () => {
+//     if (!profile) return;
+
+//     try {
+//       setSaving(true);
+
+//       // clone profile to avoid mutating state
+//       const payload = { ...profile };
+//       if (payload.dob) {
+//         payload.dob = formatDOBForMySQL(payload.dob);
+//       }
+
+//       const response: any = await usersAPI.updateProfile(payload);
+
+//       if (response?.success) {
+//         toast.success("Profile updated successfully");
+//         setProfile({
+//           ...profile,
+//           ...response.data,
+//         });
+//         updateUser({
+//           first_name: response.data.first_name || user?.first_name,
+//           last_name: response.data.last_name || user?.last_name,
+//           role: response.data.role || user?.role,
+//           avatar: response.data.avatar || (user as any)?.avatar,
+//         });
+//       } else {
+//         toast.error(response?.message || "Failed to update profile");
+//       }
+//     } catch (error) {
+//       console.error("Error updating profile:", error);
+//       toast.error("Failed to update profile");
+//     } finally {
+//       setSaving(false);
+//     }
+//   };
+
+
+//   // Profile picture upload handler
+//   const handleAvatarUpload = async (file: File) => {
+//     if (!file) return;
+
+//     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
+//     if (!allowedTypes.includes(file.type)) {
+//       toast.error("Please upload a valid image file (JPG, PNG, GIF)");
+//       return;
+//     }
+
+//     const maxSize = 5 * 1024 * 1024; // 5MB
+//     if (file.size > maxSize) {
+//       toast.error("File size must be less than 5MB");
+//       return;
+//     }
+
+//     try {
+//       setUploadingAvatar(true);
+
+//       const formData = new FormData();
+//       formData.append("avatar", file);
+
+//       const response: any = await usersAPI.uploadAvatar(formData);
+
+//       if (response?.success) {
+//         const updatedProfile = {
+//           ...profile!,
+//           avatar: `${response.data.avatar}?t=${Date.now()}`,
+//         };
+//         setProfile(updatedProfile);
+//         // ✅ update AuthContext (topbar will reflect immediately)
+//         updateUser({ avatar: updatedProfile.avatar } as Partial<typeof user>);
+//         toast.success("Profile picture updated successfully");
+//       } else {
+//         toast.error(response?.message || "Failed to upload profile picture");
+//       }
+//     } catch (error: any) {
+//       console.error("Error uploading avatar:", error);
+//       toast.error(
+//         error?.response?.data?.message || "Failed to upload profile picture"
+//       );
+//     } finally {
+//       setUploadingAvatar(false);
+//     }
+//   };
+
+//   // Remove profile picture handler
+//   const handleAvatarRemove = async () => {
+//     if (!profile?.avatar) return;
+
+//     try {
+//       setUploadingAvatar(true);
+
+//       const response: any = await usersAPI.removeAvatar();
+
+//       if (response?.success) {
+//         const updatedProfile = { ...profile, avatar: undefined };
+//         setProfile(updatedProfile);
+
+//         // ✅ update AuthContext
+//         updateUser({ avatar: undefined } as Partial<typeof user>);
+
+//         toast.success("Profile picture removed successfully");
+//       } else {
+//         toast.error(response?.message || "Failed to remove profile picture");
+//       }
+//     } catch (error: any) {
+//       console.error("Error removing avatar:", error);
+//       toast.error(
+//         error?.response?.data?.message || "Failed to remove profile picture"
+//       );
+//     } finally {
+//       setUploadingAvatar(false);
+//     }
+//   };
+
+//   const handlePasswordChange = async () => {
+//     if (passwordData.new_password !== passwordData.confirm_password) {
+//       toast.error("Passwords do not match");
+//       return;
+//     }
+
+//     try {
+//       setSaving(true);
+//       const resp: any = await usersAPI.changePassword({
+//         current_password: passwordData.current_password,
+//         new_password: passwordData.new_password,
+//       });
+//       if (resp?.success) {
+//         toast.success("Password changed successfully");
+//         setPasswordData({
+//           current_password: "",
+//           new_password: "",
+//           confirm_password: "",
+//         });
+//       } else {
+//         toast.error(resp?.message || "Failed to change password");
+//       }
+//     } catch (error: any) {
+//       console.error("Error changing password:", error);
+//       toast.error(error?.response?.data?.message || "Failed to change password");
+//     } finally {
+//       setSaving(false);
+//     }
+//   };
+
+//   const handleSystemSettingsUpdate = async () => {
+//     if (!systemSettings) return;
+
+//     try {
+//       setSaving(true);
+//       await saveSystemSettings();
+//       toast.success("System settings updated successfully");
+//     } catch (error: any) {
+//       console.error("Error updating system settings:", error);
+//       toast.error("Failed to update system settings");
+//     } finally {
+//       setSaving(false);
+//     }
+//   };
+
+//   const handleFileUpload = async (
+//     file: File,
+//     type: "company_logo" | "company_favicon" | "footer_logo"
+//   ) => {
+//     if (!systemSettings) return;
+
+//     try {
+//       const formData = new FormData();
+//       formData.append(type, file);
+
+//       // append other scalar settings (string/number/boolean) to formData
+//       Object.keys(systemSettings).forEach((key) => {
+//         if (key === type) return;
+//         const val = systemSettings[key];
+//         if (val !== undefined && val !== null) {
+//           // convert primitives to string
+//           if (typeof val === "object") return;
+//           formData.append(key, String(val));
+//         }
+//       });
+
+//       const data: any = await systemSettingsAPI.saveSettings(formData);
+
+//       if (data?.success) {
+//         updateSystemSettings({
+//           [type]: `${data.data[type]}?t=${Date.now()}`,
+//         } as Partial<SystemSettings>);
+
+//         let successMessage = "";
+//         switch (type) {
+//           case "company_logo":
+//             successMessage = "Company logo updated successfully";
+//             break;
+//           case "company_favicon":
+//             successMessage = "Favicon updated successfully";
+//             break;
+//           case "footer_logo":
+//             successMessage = "Footer logo updated successfully";
+//             break;
+//         }
+
+//         toast.success(successMessage);
+//       } else {
+//         toast.error(data?.message || "File upload failed");
+//       }
+//     } catch (err) {
+//       console.error("File upload error:", err);
+//       toast.error("Error uploading file");
+//     }
+//   };
+
+//   const handleFileRemove = async (type: "company_logo" | "company_favicon" | "footer_logo") => {
+//     try {
+//       const formData = new FormData();
+//       let removeKey = "";
+
+//       switch (type) {
+//         case "company_logo":
+//           removeKey = "remove_logo";
+//           break;
+//         case "company_favicon":
+//           removeKey = "remove_favicon";
+//           break;
+//         case "footer_logo":
+//           removeKey = "remove_footer_logo";
+//           break;
+//       }
+
+//       formData.append(removeKey, "true");
+
+//       const data: any = await systemSettingsAPI.saveSettings(formData);
+
+//       if (data?.success) {
+//         updateSystemSettings({ [type]: null } as Partial<SystemSettings>);
+
+//         let successMessage = "";
+//         switch (type) {
+//           case "company_logo":
+//             successMessage = "Company logo removed";
+//             break;
+//           case "company_favicon":
+//             successMessage = "Favicon removed";
+//             break;
+//           case "footer_logo":
+//             successMessage = "Footer logo removed";
+//             break;
+//         }
+
+//         toast.info(successMessage);
+//       } else {
+//         toast.error(data?.message || "Failed to remove file");
+//       }
+//     } catch (err) {
+//       console.error("Error removing file:", err);
+//       toast.error("Error removing file");
+//     }
+//   };
+
+//   if (loading || systemLoading) {
+//     return (
+//       <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-slate-50 to-slate-100">
+//         <div className="text-center">
+//           <LoadingSpinner size="lg" />
+//           <p className="mt-4 text-slate-600 font-medium">Loading settings...</p>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   const quickLinks = [
+//     {
+//       title: "Master Data",
+//       description: "Manage system data and configurations",
+//       icon: Database,
+//       color: "blue",
+//       href: "/dashboard/settings/master-data",
+//     },
+//     {
+//       title: "Import/Export",
+//       description: "Data import and export tools",
+//       icon: Download,
+//       color: "green",
+//       href: "/dashboard/settings/import-export",
+//     },
+//     {
+//       title: "AI Settings",
+//       description: "Configure AI features and automation",
+//       icon: Zap,
+//       color: "purple",
+//       href: "/dashboard/settings/ai-settings",
+//     },
+//     {
+//       title: "User Management",
+//       description: "Manage users and their permissions",
+//       icon: Users,
+//       color: "orange",
+//       href: "/dashboard/users",
+//     },
+//   ] as const;
+
+//   const colorMap: Record<string, string> = {
+//     blue: "bg-gradient-to-r from-blue-500 to-blue-600",
+//     green: "bg-gradient-to-r from-green-500 to-green-600",
+//     purple: "bg-gradient-to-r from-purple-500 to-purple-600",
+//     orange: "bg-gradient-to-r from-orange-500 to-orange-600",
+//   };
+
+//   const tabs = [
+//     { id: "profile", label: "Profile", icon: User },
+//     { id: "notifications", label: "Notifications", icon: Bell },
+//     { id: "security", label: "Security", icon: Lock },
+//     ...(user?.role === "admin"
+//       ? [{ id: "system" as const, label: "System", icon: Settings }]
+//       : []),
+//   ];
+
+//   return (
+//     <div className="bg-slate-50 h-screen">
+//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-1 py-6 sm:py-8 lg:py-3 space-y-6 sm:space-y-8">
+//         {/* Header - Enhanced with better spacing and mobile optimization */}
+//         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 rounded-2xl shadow-xl p-5 sm:p-6 lg:p-8">
+//           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+//             <div className="flex items-center gap-3">
+//               <div className="h-10 w-10 sm:h-12 sm:w-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg">
+//                 <Settings className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+//               </div>
+//               <div>
+//                 <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Settings</h1>
+//                 <p className="text-xs sm:text-sm text-white/80 mt-0.5">Manage your account and system preferences</p>
+//               </div>
+//             </div>
+//             <div className="flex flex-wrap gap-2">
+//               <Link to="/dashboard/settings/roles-permissions">
+//                 <Button
+//                   variant="outline"
+//                   className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20 hover:border-white/40 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm rounded-xl transition-all"
+//                 >
+//                   <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+//                   <span>Roles</span>
+//                 </Button>
+//               </Link>
+//               <Link to="/dashboard/settings/integrations">
+//                 <Button
+//                   variant="outline"
+//                   className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20 hover:border-white/40 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm rounded-xl transition-all"
+//                 >
+//                   <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+//                   <span>Integrations</span>
+//                 </Button>
+//               </Link>
+//             </div>
+//           </div>
+//         </div>
+
+//         {/* Quick Links - Responsive grid with hover effects */}
+//         <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+//           {quickLinks.map((link, index) => (
+//             <Link
+//               key={index}
+//               to={link.href}
+//               className="group bg-white rounded-xl shadow-sm hover:shadow-md border border-slate-200 p-4 transition-all duration-200 hover:-translate-y-0.5"
+//             >
+//               <div className="flex items-center gap-3">
+//                 <div className={`h-10 w-10 ${colorMap[link.color]} rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-200 flex-shrink-0`}>
+//                   <link.icon className="h-5 w-5 text-white" />
+//                 </div>
+//                 <div className="flex-1 min-w-0">
+//                   <h3 className="text-sm font-semibold text-slate-800 group-hover:text-blue-600 transition-colors">
+//                     {link.title}
+//                   </h3>
+//                   <p className="text-xs text-slate-500 line-clamp-1">{link.description}</p>
+//                 </div>
+//                 <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+//               </div>
+//             </Link>
+//           ))}
+//         </div>
+
+//         {/* Main Card with Tabs - Clean white theme with subtle shadow */}
+//         <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+//           {/* Tab Navigation - Scrollable on mobile */}
+//           <div className="border-b border-slate-200 bg-slate-50/50 overflow-x-auto">
+//             <nav className="flex px-4 sm:px-6 gap-1">
+//               {tabs.map((tab) => (
+//                 <button
+//                   key={tab.id}
+//                   onClick={() => setActiveTab(tab.id as any)}
+//                   className={`flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 font-medium text-sm transition-all duration-200 border-b-2 ${
+//                     activeTab === tab.id
+//                       ? "border-blue-500 text-blue-600 bg-white"
+//                       : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+//                   }`}
+//                 >
+//                   <div className="flex items-center gap-2">
+//                     <tab.icon className="h-4 w-4" />
+//                     <span>{tab.label}</span>
+//                   </div>
+//                 </button>
+//               ))}
+//             </nav>
+//           </div>
+
+//           {/* Tab Content - Responsive padding */}
+//           <div className="p-4 sm:p-6 lg:p-8 max-h-[340px] overflow-y-auto">
+//             {/* PROFILE TAB */}
+//             {activeTab === "profile" && profile && (
+//               <div className="space-y-6 sm:space-y-8">
+//                 {/* Profile Header - Stack on mobile, row on larger */}
+//                 <div className="flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8 pb-4 border-b border-slate-100">
+//                   <div className="relative group self-start">
+//                     <div className="h-24 w-24 sm:h-28 sm:w-28 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center shadow-md overflow-hidden">
+//                       {profile.avatar ? (
+//                         <img
+//                           src={profile.avatar}
+//                           alt={`${profile.first_name || "User"}'s avatar`}
+//                           className="h-full w-full object-cover"
+//                           key={profile.avatar}
+//                         />
+//                       ) : (
+//                         <User className="h-10 w-10 sm:h-12 sm:w-12 text-blue-400" />
+//                       )}
+//                       {uploadingAvatar && (
+//                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+//                           <LoadingSpinner size="sm" />
+//                         </div>
+//                       )}
+//                     </div>
+//                     <label className="absolute -bottom-2 right-0">
+//                       <div className="bg-white border border-slate-200 rounded-full p-1.5 shadow-sm hover:shadow-md transition cursor-pointer">
+//                         <Camera className="h-3.5 w-3.5 text-slate-500" />
+//                       </div>
+//                       <input
+//                         type="file"
+//                         accept="image/jpeg,image/jpg,image/png,image/gif"
+//                         onChange={(e) => {
+//                           const file = e.target.files?.[0];
+//                           if (file) handleAvatarUpload(file);
+//                         }}
+//                         className="sr-only"
+//                         disabled={uploadingAvatar}
+//                       />
+//                     </label>
+//                   </div>
+
+//                   <div className="flex-1">
+//                     <h3 className="text-xl sm:text-2xl font-bold text-slate-800">Profile Information</h3>
+//                     <p className="text-sm text-slate-500 mt-1">Update your personal details and preferences</p>
+//                     <div className="flex flex-wrap gap-2 mt-4">
+//                       <label className="cursor-pointer">
+//                         <div className="inline-flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+//                           <Upload className="h-3.5 w-3.5" />
+//                           {uploadingAvatar ? "Uploading..." : "Upload Photo"}
+//                         </div>
+//                         <input
+//                           type="file"
+//                           accept="image/jpeg,image/jpg,image/png,image/gif"
+//                           onChange={(e) => {
+//                             const file = e.target.files?.[0];
+//                             if (file) handleAvatarUpload(file);
+//                           }}
+//                           className="hidden"
+//                           disabled={uploadingAvatar}
+//                         />
+//                       </label>
+//                       {profile.avatar && (
+//                         <button
+//                           onClick={handleAvatarRemove}
+//                           disabled={uploadingAvatar}
+//                           className="inline-flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+//                         >
+//                           <X className="h-3.5 w-3.5" />
+//                           Remove
+//                         </button>
+//                       )}
+//                     </div>
+//                     <p className="text-xs text-slate-400 mt-2">Min 200×200px, Max 5MB. JPG, PNG, GIF</p>
+//                   </div>
+//                 </div>
+
+//                 {/* Form Fields - Responsive grid columns */}
+//                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+//                   <div className="space-y-1.5">
+//                     <label className="block text-sm font-medium text-slate-700">First Name</label>
+//                     <input
+//                       type="text"
+//                       value={profile.first_name ?? ""}
+//                       onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
+//                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
+//                       placeholder="First name"
+//                     />
+//                   </div>
+//                   <div className="space-y-1.5">
+//                     <label className="block text-sm font-medium text-slate-700">Last Name</label>
+//                     <input
+//                       type="text"
+//                       value={profile.last_name ?? ""}
+//                       onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
+//                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
+//                       placeholder="Last name"
+//                     />
+//                   </div>
+//                   <div className="space-y-1.5">
+//                     <label className="block text-sm font-medium text-slate-700">Email</label>
+//                     <input
+//                       type="email"
+//                       value={profile.email ?? ""}
+//                       readOnly
+//                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 text-slate-500 cursor-not-allowed"
+//                       placeholder="Email"
+//                     />
+//                   </div>
+//                   <div className="space-y-1.5">
+//                     <label className="block text-sm font-medium text-slate-700">Phone</label>
+//                     <input
+//                       type="tel"
+//                       value={profile.phone ?? ""}
+//                       onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+//                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
+//                       placeholder="Phone number"
+//                     />
+//                   </div>
+//                   <div className="space-y-1.5">
+//                     <label className="block text-sm font-medium text-slate-700">Designation</label>
+//                     <input
+//                       type="text"
+//                       value={profile.designation ?? ""}
+//                       onChange={(e) => setProfile({ ...profile, designation: e.target.value })}
+//                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
+//                       placeholder="e.g., Product Manager"
+//                     />
+//                   </div>
+//                   <div className="space-y-1.5">
+//                     <label className="block text-sm font-medium text-slate-700">Department</label>
+//                     <select
+//                       value={masterOptions.departments.find((d) => d.label === profile.department)?.value || ""}
+//                       onChange={(e) =>
+//                         setProfile({
+//                           ...profile,
+//                           department: masterOptions.departments.find((d) => d.value === e.target.value)?.label || "",
+//                         })
+//                       }
+//                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+//                     >
+//                       <option value="">Select Department</option>
+//                       {masterOptions.departments.map((dept) => (
+//                         <option key={dept.value} value={dept.value}>{dept.label}</option>
+//                       ))}
+//                     </select>
+//                   </div>
+//                   <div className="space-y-1.5">
+//                     <label className="block text-sm font-medium text-slate-700">Date of Birth</label>
+//                     <input
+//                       type="date"
+//                       value={profile?.dob ?? ""}
+//                       onChange={(e) => setProfile({ ...profile, dob: e.target.value })}
+//                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+//                     />
+//                   </div>
+//                   <div className="space-y-1.5">
+//                     <label className="block text-sm font-medium text-slate-700">Role</label>
+//                     <select
+//                       value={masterOptions.roles.find((r) => r.label === profile.role)?.value || ""}
+//                       onChange={(e) =>
+//                         setProfile({
+//                           ...profile,
+//                           role: masterOptions.roles.find((r) => r.value === e.target.value)?.label || "",
+//                         })
+//                       }
+//                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+//                     >
+//                       <option value="">Select Role</option>
+//                       {masterOptions.roles.map((role) => (
+//                         <option key={role.value} value={role.value}>{role.label}</option>
+//                       ))}
+//                     </select>
+//                   </div>
+//                   <div className="space-y-1.5">
+//                     <label className="block text-sm font-medium text-slate-700">Timezone</label>
+//                     <select
+//                       value={profile.timezone}
+//                       onChange={(e) => setProfile({ ...profile, timezone: e.target.value })}
+//                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+//                     >
+//                       <option value="UTC">UTC</option>
+//                       <option value="America/New_York">Eastern Time</option>
+//                       <option value="America/Chicago">Central Time</option>
+//                       <option value="America/Denver">Mountain Time</option>
+//                       <option value="America/Los_Angeles">Pacific Time</option>
+//                       <option value="Asia/Kolkata">India Standard Time</option>
+//                     </select>
+//                   </div>
+//                   <div className="space-y-1.5">
+//                     <label className="block text-sm font-medium text-slate-700">Language</label>
+//                     <select
+//                       value={profile.language}
+//                       onChange={(e) => setProfile({ ...profile, language: e.target.value })}
+//                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+//                     >
+//                       <option value="en">English</option>
+//                       <option value="hi">Hindi</option>
+//                       <option value="es">Spanish</option>
+//                       <option value="fr">French</option>
+//                       <option value="de">German</option>
+//                     </select>
+//                   </div>
+//                 </div>
+
+//                 {/* Action Buttons */}
+//                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-slate-100">
+//                   <div className="flex gap-3">
+//                     <Button
+//                       onClick={handleProfileUpdate}
+//                       disabled={saving || uploadingAvatar}
+//                       className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover:shadow-lg rounded-xl px-5 py-2 text-sm font-medium transition-all"
+//                     >
+//                       <Save className="h-4 w-4 mr-2" />
+//                       {saving ? "Saving..." : "Save Changes"}
+//                     </Button>
+//                     <Button
+//                       variant="outline"
+//                       onClick={() => {
+//                         fetchUserProfile();
+//                         fetchMasterData();
+//                       }}
+//                       disabled={saving || uploadingAvatar}
+//                       className="border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-xl px-5 py-2 text-sm font-medium"
+//                     >
+//                       <RotateCcw className="h-4 w-4 mr-2" />
+//                       Reset
+//                     </Button>
+//                   </div>
+//                   <p className="text-xs text-slate-400">Email cannot be changed. Contact admin for updates.</p>
+//                 </div>
+//               </div>
+//             )}
+
+//             {/* NOTIFICATIONS TAB */}
+//             {activeTab === "notifications" && profile && (
+//               <div className="space-y-6">
+//                 <div>
+//                   <h3 className="text-xl font-bold text-slate-800">Notification Preferences</h3>
+//                   <p className="text-sm text-slate-500 mt-1">Choose how you want to receive notifications</p>
+//                 </div>
+//                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+//                   {[
+//                     { icon: Mail, title: "Email Notifications", description: "Receive notifications via email", checked: profile.email_notifications, key: "email_notifications", color: "text-blue-500" },
+//                     { icon: Smartphone, title: "SMS Notifications", description: "Receive notifications via SMS", checked: profile.sms_notifications, key: "sms_notifications", color: "text-green-500" },
+//                     { icon: Bell, title: "Push Notifications", description: "Receive browser push notifications", checked: profile.push_notifications, key: "push_notifications", color: "text-purple-500" },
+//                   ].map((notification) => (
+//                     <div key={notification.key} className="bg-slate-50 rounded-xl p-4 border border-slate-100 hover:border-slate-200 transition-all">
+//                       <div className="flex items-center justify-between">
+//                         <div className="flex items-center gap-3">
+//                           <div className="h-9 w-9 rounded-lg bg-white shadow-sm flex items-center justify-center">
+//                             <notification.icon className={`h-4 w-4 ${notification.color}`} />
+//                           </div>
+//                           <div>
+//                             <h4 className="text-sm font-semibold text-slate-800">{notification.title}</h4>
+//                             <p className="text-xs text-slate-500">{notification.description}</p>
+//                           </div>
+//                         </div>
+//                         <label className="relative inline-flex items-center cursor-pointer">
+//                           <input
+//                             type="checkbox"
+//                             checked={notification.checked}
+//                             onChange={(e) => setProfile({ ...profile, [notification.key]: e.target.checked })}
+//                             className="sr-only peer"
+//                           />
+//                           <div className="w-10 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+//                         </label>
+//                       </div>
+//                     </div>
+//                   ))}
+//                 </div>
+//                 <div className="pt-4">
+//                   <Button
+//                     onClick={handleProfileUpdate}
+//                     disabled={saving}
+//                     className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl px-5 py-2 text-sm font-medium"
+//                   >
+//                     <Save className="h-4 w-4 mr-2" />
+//                     {saving ? "Saving..." : "Save Preferences"}
+//                   </Button>
+//                 </div>
+//               </div>
+//             )}
+
+//             {/* SECURITY TAB */}
+//             {activeTab === "security" && (
+//               <div className="space-y-6">
+//                 <div>
+//                   <h3 className="text-xl font-bold text-slate-800">Security Settings</h3>
+//                   <p className="text-sm text-slate-500 mt-1">Manage your password and security preferences</p>
+//                 </div>
+//                 <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+//                   <div className="flex gap-3">
+//                     <Shield className="h-5 w-5 text-amber-600 flex-shrink-0" />
+//                     <div>
+//                       <h4 className="font-semibold text-amber-800 text-sm">Security Tip</h4>
+//                       <p className="text-amber-700 text-xs">Use 8+ characters with uppercase, lowercase, numbers, and symbols.</p>
+//                     </div>
+//                   </div>
+//                 </div>
+//                 <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
+//                   <h4 className="text-base font-semibold text-slate-800 mb-4">Change Password</h4>
+//                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+//                     <div>
+//                       <label className="block text-xs font-medium text-slate-600 mb-1">Current Password</label>
+//                       <input
+//                         type="password"
+//                         value={passwordData.current_password}
+//                         onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+//                         placeholder="Enter current password"
+//                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+//                       />
+//                     </div>
+//                     <div>
+//                       <label className="block text-xs font-medium text-slate-600 mb-1">New Password</label>
+//                       <input
+//                         type="password"
+//                         value={passwordData.new_password}
+//                         onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+//                         placeholder="Enter new password"
+//                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+//                       />
+//                     </div>
+//                     <div>
+//                       <label className="block text-xs font-medium text-slate-600 mb-1">Confirm Password</label>
+//                       <input
+//                         type="password"
+//                         value={passwordData.confirm_password}
+//                         onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
+//                         placeholder="Confirm new password"
+//                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+//                       />
+//                     </div>
+//                   </div>
+//                 </div>
+//                 <div>
+//                   <Button
+//                     onClick={handlePasswordChange}
+//                     disabled={saving || !passwordData.current_password || !passwordData.new_password || !passwordData.confirm_password}
+//                     className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl px-5 py-2 text-sm font-medium"
+//                   >
+//                     <Lock className="h-4 w-4 mr-2" />
+//                     {saving ? "Changing..." : "Change Password"}
+//                   </Button>
+//                 </div>
+//               </div>
+//             )}
+
+//             {/* SYSTEM TAB - Admin only */}
+//             {activeTab === "system" && user?.role === "admin" && systemSettings && (
+//               <div className="space-y-6">
+//                 <div>
+//                   <h3 className="text-xl font-bold text-slate-800">System Configuration</h3>
+//                   <p className="text-sm text-slate-500 mt-1">Configure global system settings and preferences</p>
+//                 </div>
+//                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+//                   {/* Company Settings Card */}
+//                   <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 space-y-4">
+//                     <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+//                       <Building className="h-4 w-4 text-blue-500" />
+//                       Company Settings
+//                     </h4>
+//                     <div className="space-y-3">
+//                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+//                         <div>
+//                           <label className="block text-xs font-medium text-slate-600 mb-1">Company Name</label>
+//                           <input
+//                             type="text"
+//                             value={systemSettings.company_name || ""}
+//                             onChange={(e) => updateSystemSettings({ company_name: e.target.value })}
+//                             className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
+//                           />
+//                         </div>
+//                         <div>
+//                           <label className="block text-xs font-medium text-slate-600 mb-1">Currency</label>
+//                           <select
+//                             value={systemSettings.currency || "USD"}
+//                             onChange={(e) => updateSystemSettings({ currency: e.target.value })}
+//                             className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
+//                           >
+//                             <option value="INR">INR - Indian Rupee</option>
+//                             <option value="USD">USD - US Dollar</option>
+//                             <option value="EUR">EUR - Euro</option>
+//                             <option value="GBP">GBP - British Pound</option>
+//                             <option value="CAD">CAD - Canadian Dollar</option>
+//                           </select>
+//                         </div>
+//                       </div>
+//                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+//                         <div>
+//                           <label className="block text-xs font-medium text-slate-600 mb-1">Date Format</label>
+//                           <select
+//                             value={systemSettings.date_format || "YYYY-MM-DD"}
+//                             onChange={(e) => updateSystemSettings({ date_format: e.target.value })}
+//                             className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
+//                           >
+//                             <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+//                             <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+//                             <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+//                           </select>
+//                         </div>
+//                         <div>
+//                           <label className="block text-xs font-medium text-slate-600 mb-1">Time Format</label>
+//                           <select
+//                             value={systemSettings.time_format || "24h"}
+//                             onChange={(e) => updateSystemSettings({ time_format: e.target.value })}
+//                             className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
+//                           >
+//                             <option value="12h">12 Hour</option>
+//                             <option value="24h">24 Hour</option>
+//                           </select>
+//                         </div>
+//                       </div>
+//                       <div>
+//                         <label className="block text-xs font-medium text-slate-600 mb-1">Default Language</label>
+//                         <select
+//                           value={systemSettings.default_language || "en"}
+//                           onChange={(e) => updateSystemSettings({ default_language: e.target.value })}
+//                           className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
+//                         >
+//                           <option value="en">English</option>
+//                           <option value="hi">Hindi</option>
+//                           <option value="es">Spanish</option>
+//                           <option value="fr">French</option>
+//                           <option value="de">German</option>
+//                         </select>
+//                       </div>
+//                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+//                         <div>
+//                           <label className="block text-xs font-medium text-slate-600 mb-1">Max File Size (MB)</label>
+//                           <input
+//                             type="number"
+//                             value={Math.round((systemSettings.max_file_size || 2097152) / 1048576)}
+//                             onChange={(e) => updateSystemSettings({ max_file_size: (parseInt(e.target.value, 10) || 2) * 1048576 })}
+//                             min={1}
+//                             max={100}
+//                             className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
+//                           />
+//                         </div>
+//                         <div>
+//                           <label className="block text-xs font-medium text-slate-600 mb-1">Backup Frequency</label>
+//                           <select
+//                             value={systemSettings.backup_frequency || "daily"}
+//                             onChange={(e) => updateSystemSettings({ backup_frequency: e.target.value })}
+//                             className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
+//                           >
+//                             <option value="hourly">Hourly</option>
+//                             <option value="daily">Daily</option>
+//                             <option value="weekly">Weekly</option>
+//                             <option value="monthly">Monthly</option>
+//                           </select>
+//                         </div>
+//                       </div>
+//                     </div>
+//                   </div>
+
+//                   {/* Appearance & Branding Card */}
+//                   <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 space-y-4">
+//                     <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+//                       <Palette className="h-4 w-4 text-purple-500" />
+//                       Appearance & Branding
+//                     </h4>
+//                     <div className="grid grid-cols-2 gap-3">
+//                       <div>
+//                         <label className="block text-xs font-medium text-slate-600 mb-1">Primary Color</label>
+//                         <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-2 py-1 bg-white">
+//                           <input
+//                             type="color"
+//                             value={systemSettings.primary_color || "#3B82F6"}
+//                             onChange={(e) => updateSystemSettings({ primary_color: e.target.value })}
+//                             className="w-8 h-7 rounded border-0 cursor-pointer"
+//                           />
+//                           <input
+//                             type="text"
+//                             value={systemSettings.primary_color || "#3B82F6"}
+//                             onChange={(e) => updateSystemSettings({ primary_color: e.target.value })}
+//                             className="flex-1 text-xs bg-transparent focus:outline-none"
+//                           />
+//                         </div>
+//                       </div>
+//                       <div>
+//                         <label className="block text-xs font-medium text-slate-600 mb-1">Secondary Color</label>
+//                         <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-2 py-1 bg-white">
+//                           <input
+//                             type="color"
+//                             value={systemSettings.secondary_color || "#10B981"}
+//                             onChange={(e) => updateSystemSettings({ secondary_color: e.target.value })}
+//                             className="w-8 h-7 rounded border-0 cursor-pointer"
+//                           />
+//                           <input
+//                             type="text"
+//                             value={systemSettings.secondary_color || "#10B981"}
+//                             onChange={(e) => updateSystemSettings({ secondary_color: e.target.value })}
+//                             className="flex-1 text-xs bg-transparent focus:outline-none"
+//                           />
+//                         </div>
+//                       </div>
+//                     </div>
+                    
+//                     {/* Logos section - responsive */}
+//                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+//                       <div>
+//                         <label className="block text-xs font-medium text-slate-600 mb-1 text-center">Favicon</label>
+//                         <div className="border-2 border-dashed border-slate-200 rounded-lg p-3 text-center bg-white">
+//                           {systemSettings.company_favicon ? (
+//                             <div className="space-y-2">
+//                               <img src={systemSettings.company_favicon} alt="Favicon" className="h-8 w-8 mx-auto object-contain" />
+//                               <div className="flex justify-center gap-2">
+//                                 <input id="favicon-upload" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "company_favicon"); }} className="hidden" />
+//                                 <label htmlFor="favicon-upload" className="cursor-pointer text-xs text-blue-600 hover:text-blue-700">Change</label>
+//                                 <button onClick={() => handleFileRemove("company_favicon")} className="text-xs text-red-600 hover:text-red-700">Remove</button>
+//                               </div>
+//                             </div>
+//                           ) : (
+//                             <div>
+//                               <Upload className="h-5 w-5 text-slate-400 mx-auto mb-1" />
+//                               <input id="favicon-upload-empty" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "company_favicon"); }} className="hidden" />
+//                               <label htmlFor="favicon-upload-empty" className="cursor-pointer text-xs text-blue-600">Upload</label>
+//                               <p className="text-xs text-slate-400 mt-1">16x16/32x32</p>
+//                             </div>
+//                           )}
+//                         </div>
+//                       </div>
+//                       <div>
+//                         <label className="block text-xs font-medium text-slate-600 mb-1 text-center">Company Logo</label>
+//                         <div className="border-2 border-dashed border-slate-200 rounded-lg p-3 text-center bg-white">
+//                           {systemSettings.company_logo ? (
+//                             <div className="space-y-2">
+//                               <img src={systemSettings.company_logo} alt="Company Logo" className="h-10 w-auto mx-auto object-contain" />
+//                               <div className="flex justify-center gap-2">
+//                                 <input id="logo-upload" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "company_logo"); }} className="hidden" />
+//                                 <label htmlFor="logo-upload" className="cursor-pointer text-xs text-blue-600">Change</label>
+//                                 <button onClick={() => handleFileRemove("company_logo")} className="text-xs text-red-600">Remove</button>
+//                               </div>
+//                             </div>
+//                           ) : (
+//                             <div>
+//                               <Upload className="h-5 w-5 text-slate-400 mx-auto mb-1" />
+//                               <input id="logo-upload-empty" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "company_logo"); }} className="hidden" />
+//                               <label htmlFor="logo-upload-empty" className="cursor-pointer text-xs text-blue-600">Upload Logo</label>
+//                               <p className="text-xs text-slate-400 mt-1">PNG/JPG up to 2MB</p>
+//                             </div>
+//                           )}
+//                         </div>
+//                       </div>
+//                       <div>
+//                         <label className="block text-xs font-medium text-slate-600 mb-1 text-center">Footer Logo</label>
+//                         <div className="border-2 border-dashed border-slate-200 rounded-lg p-3 text-center bg-white">
+//                           {systemSettings.footer_logo ? (
+//                             <div className="space-y-2">
+//                               <img src={systemSettings.footer_logo} alt="Footer Logo" className="h-10 w-auto mx-auto object-contain" />
+//                               <div className="flex justify-center gap-2">
+//                                 <input id="footer-logo-upload" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "footer_logo"); }} className="hidden" />
+//                                 <label htmlFor="footer-logo-upload" className="cursor-pointer text-xs text-blue-600">Change</label>
+//                                 <button onClick={() => handleFileRemove("footer_logo")} className="text-xs text-red-600">Remove</button>
+//                               </div>
+//                             </div>
+//                           ) : (
+//                             <div>
+//                               <Upload className="h-5 w-5 text-slate-400 mx-auto mb-1" />
+//                               <input id="footer-logo-upload-empty" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "footer_logo"); }} className="hidden" />
+//                               <label htmlFor="footer-logo-upload-empty" className="cursor-pointer text-xs text-blue-600">Upload Logo</label>
+//                               <p className="text-xs text-slate-400 mt-1">PNG/JPG up to 2MB</p>
+//                             </div>
+//                           )}
+//                         </div>
+//                       </div>
+//                     </div>
+//                   </div>
+
+//                   {/* System Features - Full width */}
+//                   <div className="lg:col-span-2 bg-slate-50 rounded-xl p-5 border border-slate-100">
+//                     <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2 mb-4">
+//                       <Zap className="h-4 w-4 text-yellow-500" />
+//                       System Features
+//                     </h4>
+//                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+//                       {[
+//                         { title: "Auto Assign Leads", description: "Automatically assign new leads to agents", checked: !!systemSettings.auto_assign_leads, key: "auto_assign_leads", icon: Users, color: "text-blue-500" },
+//                         { title: "Lead Scoring", description: "Enable AI-powered lead scoring", checked: !!systemSettings.lead_scoring_enabled, key: "lead_scoring_enabled", icon: Star, color: "text-yellow-500" },
+//                         { title: "Property Auto Approval", description: "Automatically approve property listings", checked: !!systemSettings.property_auto_approval, key: "property_auto_approval", icon: CheckCircle, color: "text-green-500" },
+//                       ].map((feature) => (
+//                         <div key={feature.key} className="bg-white rounded-lg p-3 border border-slate-100">
+//                           <div className="flex items-center justify-between mb-2">
+//                             <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center">
+//                               <feature.icon className={`h-4 w-4 ${feature.color}`} />
+//                             </div>
+//                             <label className="relative inline-flex items-center cursor-pointer">
+//                               <input
+//                                 type="checkbox"
+//                                 checked={feature.checked}
+//                                 onChange={(e) => updateSystemSettings({ [feature.key]: e.target.checked } as Partial<SystemSettings>)}
+//                                 className="sr-only peer"
+//                               />
+//                               <div className="w-9 h-5 bg-slate-200 rounded-full peer-checked:bg-blue-500 after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+//                             </label>
+//                           </div>
+//                           <h5 className="font-semibold text-slate-800 text-sm">{feature.title}</h5>
+//                           <p className="text-xs text-slate-500">{feature.description}</p>
+//                         </div>
+//                       ))}
+//                     </div>
+//                   </div>
+//                 </div>
+//                 <div className="flex gap-3 pt-2">
+//                   <Button
+//                     onClick={handleSystemSettingsUpdate}
+//                     disabled={saving}
+//                     className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl px-5 py-2 text-sm font-medium"
+//                   >
+//                     <Save className="h-4 w-4 mr-2" />
+//                     {saving ? "Saving..." : "Save Settings"}
+//                   </Button>
+//                   <Button
+//                     variant="outline"
+//                     onClick={() => { window.location.reload(); toast.info("Settings refreshed"); }}
+//                     disabled={saving}
+//                     className="border-slate-200 rounded-xl px-5 py-2 text-sm"
+//                   >
+//                     <RotateCcw className="h-4 w-4 mr-2" />
+//                     Refresh
+//                   </Button>
+//                 </div>
+//               </div>
+//             )}
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
 // export default SettingsPage;
+
+
+
+
 // src/pages/dashboard/SettingsPage.tsx
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -1572,20 +2827,20 @@ import {
   Star,
   CheckCircle,
   X,
+  ChevronRight,
+  Key,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import { usersAPI } from "@/lib/api";
 import Button from "@/components/ui/Button";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-
 import { masterDataAPI } from "@/lib/mastersAPI";
 import systemSettingsAPI from "@/lib/systemSettingsAPI";
 import { toast } from "react-toastify";
 
-/**
- * Local types
- */
+// Brand: navy #1a3a5c  orange #e87722
+
 interface UserProfile {
   id: string;
   username?: string;
@@ -1606,7 +2861,6 @@ interface UserProfile {
   [k: string]: any;
 }
 
-/** A flexible shape for system settings - add more keys here if you have them typed elsewhere */
 interface SystemSettings {
   company_name: string;
   currency: string;
@@ -1625,9 +2879,9 @@ interface SystemSettings {
   property_auto_approval?: boolean;
   [k: string]: any;
 }
+
 const normalizeDOB = (dob: string | null | undefined) => {
   if (!dob) return "";
-  // Convert ISO to YYYY-MM-DD
   const d = new Date(dob);
   if (isNaN(d.getTime())) return "";
   const yyyy = d.getFullYear();
@@ -1637,9 +2891,7 @@ const normalizeDOB = (dob: string | null | undefined) => {
 };
 
 const SettingsPage: React.FC = () => {
-  // auth/context hooks — cast to known shapes so TS can check usages below.
   const { user, updateUser } = useAuth();
-  // useSystemSettings may be typed in your project; assert here for local usage
   const {
     systemSettings,
     loading: systemLoading,
@@ -1656,16 +2908,12 @@ const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [activeTab, setActiveTab] = useState<
-    "profile" | "notifications" | "system" | "security"
-  >("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "notifications" | "system" | "security">("profile");
   const [passwordData, setPasswordData] = useState({
     current_password: "",
     new_password: "",
     confirm_password: "",
   });
-
-  // Master data state
   const [masterOptions, setMasterOptions] = useState({
     roles: [] as { value: string; label: string }[],
     departments: [] as { value: string; label: string }[],
@@ -1674,7 +2922,6 @@ const SettingsPage: React.FC = () => {
   useEffect(() => {
     fetchUserProfile();
     fetchMasterData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const formatDOBForMySQL = (dob: string | null | undefined) => {
@@ -1687,23 +2934,13 @@ const SettingsPage: React.FC = () => {
     return `${yyyy}-${mm}-${dd}`;
   };
 
-
   const fetchMasterData = async () => {
     try {
-      // masterDataAPI shapes aren't known here — treat responses as any
-      const commonMasterTypes: any[] = await masterDataAPI.getAllMasterTypes(
-        "common"
-      );
-
+      const commonMasterTypes: any[] = await masterDataAPI.getAllMasterTypes("common");
       const masterValues = await Promise.all(
-        commonMasterTypes.map((masterType: any) =>
-          masterDataAPI.getMasterValues(masterType.id)
-        )
+        commonMasterTypes.map((masterType: any) => masterDataAPI.getMasterValues(masterType.id))
       );
-
-      const organizedData: Record<string, { value: string; label: string }[]> =
-        {};
-
+      const organizedData: Record<string, { value: string; label: string }[]> = {};
       commonMasterTypes.forEach((masterType: any, index: number) => {
         const values = masterValues[index] || [];
         const data = values.map((item: any) => ({
@@ -1712,49 +2949,40 @@ const SettingsPage: React.FC = () => {
         }));
         organizedData[(masterType.name || "").toLowerCase()] = data;
       });
-
       setMasterOptions({
         roles: organizedData["role"] || [],
         departments: organizedData["department"] || [],
       });
     } catch (error) {
       console.error("Failed to load master data:", error);
-      console.error("Failed to load dropdown options");
     }
   };
 
   const fetchUserProfile = async () => {
     try {
       const response: any = await usersAPI.getProfile();
-     
       if (response?.success) {
-        // normalize missing fields with safe defaults
         const p: UserProfile = {
-  ...response.data, // first spread everything
-  id: String(response.data.id ?? ""),
-  dob: normalizeDOB(response.data.dob), // overwrite with normalized YYYY-MM-DD
-  email: response.data.email ?? "",
-  first_name: response.data.first_name ?? "",
-  last_name: response.data.last_name ?? "",
-  phone: response.data.phone ?? "",
-  avatar: response.data.avatar ?? undefined,
-  designation: response.data.designation ?? "",
-  department: response.data.department ?? "",
-  role: response.data.role ?? "",
-  timezone: response.data.timezone ?? "UTC",
-  language: response.data.language ?? "en",
-  email_notifications: !!response.data.email_notifications,
-  sms_notifications: !!response.data.sms_notifications,
-  push_notifications: !!response.data.push_notifications,
-};
-
-        
+          ...response.data,
+          id: String(response.data.id ?? ""),
+          dob: normalizeDOB(response.data.dob),
+          email: response.data.email ?? "",
+          first_name: response.data.first_name ?? "",
+          last_name: response.data.last_name ?? "",
+          phone: response.data.phone ?? "",
+          avatar: response.data.avatar ?? undefined,
+          designation: response.data.designation ?? "",
+          department: response.data.department ?? "",
+          role: response.data.role ?? "",
+          timezone: response.data.timezone ?? "UTC",
+          language: response.data.language ?? "en",
+          email_notifications: !!response.data.email_notifications,
+          sms_notifications: !!response.data.sms_notifications,
+          push_notifications: !!response.data.push_notifications,
+        };
         setProfile(p);
       } else {
-        // if API returns success:false, still try to use data if present
-        if (response?.data) {
-          setProfile(response.data as UserProfile);
-        }
+        if (response?.data) setProfile(response.data as UserProfile);
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -1763,26 +2991,17 @@ const SettingsPage: React.FC = () => {
       setLoading(false);
     }
   };
+
   const handleProfileUpdate = async () => {
     if (!profile) return;
-
     try {
       setSaving(true);
-
-      // clone profile to avoid mutating state
       const payload = { ...profile };
-      if (payload.dob) {
-        payload.dob = formatDOBForMySQL(payload.dob);
-      }
-
+      if (payload.dob) payload.dob = formatDOBForMySQL(payload.dob);
       const response: any = await usersAPI.updateProfile(payload);
-
       if (response?.success) {
         toast.success("Profile updated successfully");
-        setProfile({
-          ...profile,
-          ...response.data,
-        });
+        setProfile({ ...profile, ...response.data });
         updateUser({
           first_name: response.data.first_name || user?.first_name,
           last_name: response.data.last_name || user?.last_name,
@@ -1800,38 +3019,19 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-
-  // Profile picture upload handler
   const handleAvatarUpload = async (file: File) => {
     if (!file) return;
-
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("Please upload a valid image file (JPG, PNG, GIF)");
-      return;
-    }
-
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      toast.error("File size must be less than 5MB");
-      return;
-    }
-
+    if (!allowedTypes.includes(file.type)) { toast.error("Please upload a valid image file (JPG, PNG, GIF)"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("File size must be less than 5MB"); return; }
     try {
       setUploadingAvatar(true);
-
       const formData = new FormData();
       formData.append("avatar", file);
-
       const response: any = await usersAPI.uploadAvatar(formData);
-
       if (response?.success) {
-        const updatedProfile = {
-          ...profile!,
-          avatar: `${response.data.avatar}?t=${Date.now()}`,
-        };
+        const updatedProfile = { ...profile!, avatar: `${response.data.avatar}?t=${Date.now()}` };
         setProfile(updatedProfile);
-        // ✅ update AuthContext (topbar will reflect immediately)
         updateUser({ avatar: updatedProfile.avatar } as Partial<typeof user>);
         toast.success("Profile picture updated successfully");
       } else {
@@ -1839,50 +3039,35 @@ const SettingsPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Error uploading avatar:", error);
-      toast.error(
-        error?.response?.data?.message || "Failed to upload profile picture"
-      );
+      toast.error(error?.response?.data?.message || "Failed to upload profile picture");
     } finally {
       setUploadingAvatar(false);
     }
   };
 
-  // Remove profile picture handler
   const handleAvatarRemove = async () => {
     if (!profile?.avatar) return;
-
     try {
       setUploadingAvatar(true);
-
       const response: any = await usersAPI.removeAvatar();
-
       if (response?.success) {
         const updatedProfile = { ...profile, avatar: undefined };
         setProfile(updatedProfile);
-
-        // ✅ update AuthContext
         updateUser({ avatar: undefined } as Partial<typeof user>);
-
         toast.success("Profile picture removed successfully");
       } else {
         toast.error(response?.message || "Failed to remove profile picture");
       }
     } catch (error: any) {
       console.error("Error removing avatar:", error);
-      toast.error(
-        error?.response?.data?.message || "Failed to remove profile picture"
-      );
+      toast.error(error?.response?.data?.message || "Failed to remove profile picture");
     } finally {
       setUploadingAvatar(false);
     }
   };
 
   const handlePasswordChange = async () => {
-    if (passwordData.new_password !== passwordData.confirm_password) {
-      toast.error("Passwords do not match");
-      return;
-    }
-
+    if (passwordData.new_password !== passwordData.confirm_password) { toast.error("Passwords do not match"); return; }
     try {
       setSaving(true);
       const resp: any = await usersAPI.changePassword({
@@ -1891,11 +3076,7 @@ const SettingsPage: React.FC = () => {
       });
       if (resp?.success) {
         toast.success("Password changed successfully");
-        setPasswordData({
-          current_password: "",
-          new_password: "",
-          confirm_password: "",
-        });
+        setPasswordData({ current_password: "", new_password: "", confirm_password: "" });
       } else {
         toast.error(resp?.message || "Failed to change password");
       }
@@ -1909,7 +3090,6 @@ const SettingsPage: React.FC = () => {
 
   const handleSystemSettingsUpdate = async () => {
     if (!systemSettings) return;
-
     try {
       setSaving(true);
       await saveSystemSettings();
@@ -1922,48 +3102,21 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleFileUpload = async (
-    file: File,
-    type: "company_logo" | "company_favicon" | "footer_logo"
-  ) => {
+  const handleFileUpload = async (file: File, type: "company_logo" | "company_favicon" | "footer_logo") => {
     if (!systemSettings) return;
-
     try {
       const formData = new FormData();
       formData.append(type, file);
-
-      // append other scalar settings (string/number/boolean) to formData
       Object.keys(systemSettings).forEach((key) => {
         if (key === type) return;
         const val = systemSettings[key];
-        if (val !== undefined && val !== null) {
-          // convert primitives to string
-          if (typeof val === "object") return;
-          formData.append(key, String(val));
-        }
+        if (val !== undefined && val !== null && typeof val !== "object") formData.append(key, String(val));
       });
-
       const data: any = await systemSettingsAPI.saveSettings(formData);
-
       if (data?.success) {
-        updateSystemSettings({
-          [type]: `${data.data[type]}?t=${Date.now()}`,
-        } as Partial<SystemSettings>);
-
-        let successMessage = "";
-        switch (type) {
-          case "company_logo":
-            successMessage = "Company logo updated successfully";
-            break;
-          case "company_favicon":
-            successMessage = "Favicon updated successfully";
-            break;
-          case "footer_logo":
-            successMessage = "Footer logo updated successfully";
-            break;
-        }
-
-        toast.success(successMessage);
+        updateSystemSettings({ [type]: `${data.data[type]}?t=${Date.now()}` } as Partial<SystemSettings>);
+        const msgs = { company_logo: "Company logo updated", company_favicon: "Favicon updated", footer_logo: "Footer logo updated" };
+        toast.success(msgs[type]);
       } else {
         toast.error(data?.message || "File upload failed");
       }
@@ -1976,41 +3129,13 @@ const SettingsPage: React.FC = () => {
   const handleFileRemove = async (type: "company_logo" | "company_favicon" | "footer_logo") => {
     try {
       const formData = new FormData();
-      let removeKey = "";
-
-      switch (type) {
-        case "company_logo":
-          removeKey = "remove_logo";
-          break;
-        case "company_favicon":
-          removeKey = "remove_favicon";
-          break;
-        case "footer_logo":
-          removeKey = "remove_footer_logo";
-          break;
-      }
-
-      formData.append(removeKey, "true");
-
+      const removeKeys = { company_logo: "remove_logo", company_favicon: "remove_favicon", footer_logo: "remove_footer_logo" };
+      formData.append(removeKeys[type], "true");
       const data: any = await systemSettingsAPI.saveSettings(formData);
-
       if (data?.success) {
         updateSystemSettings({ [type]: null } as Partial<SystemSettings>);
-
-        let successMessage = "";
-        switch (type) {
-          case "company_logo":
-            successMessage = "Company logo removed";
-            break;
-          case "company_favicon":
-            successMessage = "Favicon removed";
-            break;
-          case "footer_logo":
-            successMessage = "Footer logo removed";
-            break;
-        }
-
-        toast.info(successMessage);
+        const msgs = { company_logo: "Company logo removed", company_favicon: "Favicon removed", footer_logo: "Footer logo removed" };
+        toast.info(msgs[type]);
       } else {
         toast.error(data?.message || "Failed to remove file");
       }
@@ -2022,568 +3147,421 @@ const SettingsPage: React.FC = () => {
 
   if (loading || systemLoading) {
     return (
-      <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="min-h-screen flex justify-center items-center bg-gray-50">
         <div className="text-center">
           <LoadingSpinner size="lg" />
-          <p className="mt-4 text-slate-600 font-medium">Loading settings...</p>
+          <p className="mt-3 text-gray-500 text-sm font-medium">Loading settings...</p>
         </div>
       </div>
     );
   }
 
   const quickLinks = [
-    {
-      title: "Master Data",
-      description: "Manage system data and configurations",
-      icon: Database,
-      color: "blue",
-      href: "/dashboard/settings/master-data",
-    },
-    {
-      title: "Import/Export",
-      description: "Data import and export tools",
-      icon: Download,
-      color: "green",
-      href: "/dashboard/settings/import-export",
-    },
-    {
-      title: "AI Settings",
-      description: "Configure AI features and automation",
-      icon: Zap,
-      color: "purple",
-      href: "/dashboard/settings/ai-settings",
-    },
-    {
-      title: "User Management",
-      description: "Manage users and their permissions",
-      icon: Users,
-      color: "orange",
-      href: "/dashboard/users",
-    },
+    { title: "Master Data", description: "Manage system data", icon: Database, color: "bg-blue-500", href: "/dashboard/settings/master-data" },
+    { title: "Import/Export", description: "Data import & export", icon: Download, color: "bg-emerald-500", href: "/dashboard/settings/import-export" },
+    { title: "AI Settings", description: "Configure AI features", icon: Zap, color: "bg-purple-500", href: "/dashboard/settings/ai-settings" },
+    { title: "User Management", description: "Manage users & permissions", icon: Users, color: "bg-orange-500", href: "/dashboard/users" },
   ] as const;
-
-  const colorMap: Record<string, string> = {
-    blue: "bg-gradient-to-r from-blue-500 to-blue-600",
-    green: "bg-gradient-to-r from-green-500 to-green-600",
-    purple: "bg-gradient-to-r from-purple-500 to-purple-600",
-    orange: "bg-gradient-to-r from-orange-500 to-orange-600",
-  };
 
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "security", label: "Security", icon: Lock },
-    ...(user?.role === "admin"
-      ? [{ id: "system" as const, label: "System", icon: Settings }]
-      : []),
+    ...(user?.role === "admin" ? [{ id: "system" as const, label: "System", icon: Settings }] : []),
   ];
 
+  // ── Shared input classes ──
+  const inputCls = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#e87722]/40 focus:border-[#e87722] transition-colors bg-white";
+  const selectCls = `${inputCls} appearance-none cursor-pointer`;
+  const labelCls = "block text-xs font-semibold text-gray-600 mb-1";
+
+  // ── Upload box helper ──
+  const UploadBox = ({ imageUrl, alt, uploadId, onUpload, onRemove, hint }: {
+    imageUrl?: string | null; alt: string; uploadId: string;
+    onUpload: (f: File) => void; onRemove: () => void; hint: string;
+  }) => (
+    <div className="border-2 border-dashed border-gray-200 rounded-xl p-3 text-center hover:border-[#e87722]/50 transition-colors">
+      {imageUrl ? (
+        <div className="space-y-2">
+          <img src={imageUrl} alt={alt} className="h-10 w-auto mx-auto object-contain" />
+          <div className="flex justify-center gap-2">
+            <input id={uploadId} type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); }} className="hidden" />
+            <label htmlFor={uploadId} className="cursor-pointer text-[10px] font-medium bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100 transition-colors">Change</label>
+            <button onClick={onRemove} className="text-[10px] font-medium bg-red-50 text-red-500 px-2 py-1 rounded-lg hover:bg-red-100 transition-colors">Remove</button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <Upload className="h-4 w-4 text-gray-300 mx-auto" />
+          <input id={`${uploadId}-empty`} type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); }} className="hidden" />
+          <label htmlFor={`${uploadId}-empty`} className="cursor-pointer text-[10px] font-medium bg-[#e87722]/10 text-[#e87722] px-2 py-1 rounded-lg hover:bg-[#e87722]/20 inline-block transition-colors">Upload</label>
+          <p className="text-[10px] text-gray-400">{hint}</p>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div className="bg-slate-50 h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-1 py-6 sm:py-8 lg:py-3 space-y-6 sm:space-y-8">
-        {/* Header - Enhanced with better spacing and mobile optimization */}
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 rounded-2xl shadow-xl p-5 sm:p-6 lg:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+<div className="min-h-screen bg-gray-50 p-2 sm:p-4 lg:p-6 overflow-y-auto">     
+   <div className="max-w-7xl mx-auto space-y-4">
+
+        {/* ── Page Header ── */}
+        <div className="bg-[#1a3a5c] rounded-2xl p-4 sm:p-5 relative overflow-hidden">
+          {/* Subtle pattern */}
+          <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #e87722 0%, transparent 50%), radial-gradient(circle at 80% 20%, #e87722 0%, transparent 40%)' }} />
+          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 sm:h-12 sm:w-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg">
-                <Settings className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+              <div className="w-10 h-10 bg-[#e87722] rounded-xl flex items-center justify-center shrink-0 shadow-lg">
+                <Settings className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Settings</h1>
-                <p className="text-xs sm:text-sm text-white/80 mt-0.5">Manage your account and system preferences</p>
+                <h1 className="text-lg sm:text-xl font-bold text-white">Settings</h1>
+                <p className="text-xs text-white/60">Manage your account and system preferences</p>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Link to="/dashboard/settings/roles-permissions">
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20 hover:border-white/40 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm rounded-xl transition-all"
-                >
-                  <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span>Roles</span>
-                </Button>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-medium rounded-lg transition-colors">
+                  <Shield className="h-3.5 w-3.5 text-[#e87722]" />
+                  Roles &amp; Permissions
+                </button>
               </Link>
               <Link to="/dashboard/settings/integrations">
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20 hover:border-white/40 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm rounded-xl transition-all"
-                >
-                  <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span>Integrations</span>
-                </Button>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-medium rounded-lg transition-colors">
+                  <Zap className="h-3.5 w-3.5 text-[#e87722]" />
+                  Integrations
+                </button>
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Quick Links - Responsive grid with hover effects */}
-        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {quickLinks.map((link, index) => (
-            <Link
-              key={index}
-              to={link.href}
-              className="group bg-white rounded-xl shadow-sm hover:shadow-md border border-slate-200 p-4 transition-all duration-200 hover:-translate-y-0.5"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`h-10 w-10 ${colorMap[link.color]} rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-200 flex-shrink-0`}>
-                  <link.icon className="h-5 w-5 text-white" />
+        {/* ── Quick Links ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+          {quickLinks.map((link, i) => (
+            <Link key={i} to={link.href} className="group bg-white rounded-xl border border-gray-200 p-3 sm:p-4 hover:border-[#e87722]/40 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 sm:w-9 sm:h-9 ${link.color} rounded-lg flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform`}>
+                  <link.icon className="h-4 w-4 text-white" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-slate-800 group-hover:text-blue-600 transition-colors">
-                    {link.title}
-                  </h3>
-                  <p className="text-xs text-slate-500 line-clamp-1">{link.description}</p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xs sm:text-sm font-semibold text-[#1a3a5c] group-hover:text-[#e87722] transition-colors truncate">{link.title}</h3>
+                  <p className="text-[10px] sm:text-xs text-gray-400 truncate hidden sm:block">{link.description}</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                <ArrowRight className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 group-hover:text-[#e87722] transition-all shrink-0" />
               </div>
             </Link>
           ))}
         </div>
 
-        {/* Main Card with Tabs - Clean white theme with subtle shadow */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-          {/* Tab Navigation - Scrollable on mobile */}
-          <div className="border-b border-slate-200 bg-slate-50/50 overflow-x-auto">
-            <nav className="flex px-4 sm:px-6 gap-1">
+        {/* ── Main Card ── */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+
+          {/* Tabs */}
+          <div className="border-b border-gray-200 px-3 sm:px-6 overflow-x-auto">
+            <nav className="flex gap-0 whitespace-nowrap">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 font-medium text-sm transition-all duration-200 border-b-2 ${
+                  className={`flex items-center gap-1.5 px-3 sm:px-5 py-3.5 text-xs sm:text-sm font-medium border-b-2 transition-all shrink-0 ${
                     activeTab === tab.id
-                      ? "border-blue-500 text-blue-600 bg-white"
-                      : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                      ? "border-[#e87722] text-[#e87722]"
+                      : "border-transparent text-gray-500 hover:text-[#1a3a5c] hover:border-gray-300"
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <tab.icon className="h-4 w-4" />
-                    <span>{tab.label}</span>
-                  </div>
+                  <tab.icon className="h-3.5 w-3.5" />
+                  {tab.label}
                 </button>
               ))}
             </nav>
           </div>
 
-          {/* Tab Content - Responsive padding */}
-          <div className="p-4 sm:p-6 lg:p-8 max-h-[340px] overflow-y-auto">
-            {/* PROFILE TAB */}
-            {activeTab === "profile" && profile && (
-              <div className="space-y-6 sm:space-y-8">
-                {/* Profile Header - Stack on mobile, row on larger */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8 pb-4 border-b border-slate-100">
-                  <div className="relative group self-start">
-                    <div className="h-24 w-24 sm:h-28 sm:w-28 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center shadow-md overflow-hidden">
-                      {profile.avatar ? (
-                        <img
-                          src={profile.avatar}
-                          alt={`${profile.first_name || "User"}'s avatar`}
-                          className="h-full w-full object-cover"
-                          key={profile.avatar}
-                        />
-                      ) : (
-                        <User className="h-10 w-10 sm:h-12 sm:w-12 text-blue-400" />
-                      )}
-                      {uploadingAvatar && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <LoadingSpinner size="sm" />
-                        </div>
-                      )}
-                    </div>
-                    <label className="absolute -bottom-2 right-0">
-                      <div className="bg-white border border-slate-200 rounded-full p-1.5 shadow-sm hover:shadow-md transition cursor-pointer">
-                        <Camera className="h-3.5 w-3.5 text-slate-500" />
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/gif"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleAvatarUpload(file);
-                        }}
-                        className="sr-only"
-                        disabled={uploadingAvatar}
-                      />
-                    </label>
-                  </div>
+          <div className="p-4 sm:p-6">
 
-                  <div className="flex-1">
-                    <h3 className="text-xl sm:text-2xl font-bold text-slate-800">Profile Information</h3>
-                    <p className="text-sm text-slate-500 mt-1">Update your personal details and preferences</p>
-                    <div className="flex flex-wrap gap-2 mt-4">
-                      <label className="cursor-pointer">
-                        <div className="inline-flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                          <Upload className="h-3.5 w-3.5" />
-                          {uploadingAvatar ? "Uploading..." : "Upload Photo"}
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/jpg,image/png,image/gif"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleAvatarUpload(file);
-                          }}
-                          className="hidden"
-                          disabled={uploadingAvatar}
-                        />
-                      </label>
-                      {profile.avatar && (
-                        <button
-                          onClick={handleAvatarRemove}
-                          disabled={uploadingAvatar}
-                          className="inline-flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-400 mt-2">Min 200×200px, Max 5MB. JPG, PNG, GIF</p>
-                  </div>
-                </div>
+            {/* ══ PROFILE TAB ══ */}
+          {activeTab === "profile" && profile && (
+  <div className="space-y-5">
+    {/* Avatar + info - Mobile mein bhi side by side */}
+    <div className="flex flex-row items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+      <div className="relative shrink-0">
+        <div className="w-28 h-28 bg-[#1a3a5c] rounded-2xl flex items-center justify-center overflow-hidden shadow-md">
+          {profile.avatar ? (
+            <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" key={profile.avatar} />
+          ) : (
+            <User className="h-10 w-10 text-white/60" />
+          )}
+          {uploadingAvatar && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-2xl">
+              <LoadingSpinner size="sm" />
+            </div>
+          )}
+        </div>
+        {/* Quick change overlay */}
+        <label className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#e87722] rounded-full flex items-center justify-center cursor-pointer shadow-md hover:bg-[#d06a1a] transition-colors">
+          <Camera className="h-3.5 w-3.5 text-white" />
+          <input type="file" accept="image/jpeg,image/jpg,image/png,image/gif" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAvatarUpload(f); }} className="sr-only" disabled={uploadingAvatar} />
+        </label>
+      </div>
 
-                {/* Form Fields - Responsive grid columns */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">First Name</label>
-                    <input
-                      type="text"
-                      value={profile.first_name ?? ""}
-                      onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
-                      placeholder="First name"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">Last Name</label>
-                    <input
-                      type="text"
-                      value={profile.last_name ?? ""}
-                      onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
-                      placeholder="Last name"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">Email</label>
-                    <input
-                      type="email"
-                      value={profile.email ?? ""}
-                      readOnly
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 text-slate-500 cursor-not-allowed"
-                      placeholder="Email"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">Phone</label>
-                    <input
-                      type="tel"
-                      value={profile.phone ?? ""}
-                      onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
-                      placeholder="Phone number"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">Designation</label>
-                    <input
-                      type="text"
-                      value={profile.designation ?? ""}
-                      onChange={(e) => setProfile({ ...profile, designation: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
-                      placeholder="e.g., Product Manager"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">Department</label>
-                    <select
-                      value={masterOptions.departments.find((d) => d.label === profile.department)?.value || ""}
-                      onChange={(e) =>
-                        setProfile({
-                          ...profile,
-                          department: masterOptions.departments.find((d) => d.value === e.target.value)?.label || "",
-                        })
-                      }
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                    >
-                      <option value="">Select Department</option>
-                      {masterOptions.departments.map((dept) => (
-                        <option key={dept.value} value={dept.value}>{dept.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">Date of Birth</label>
-                    <input
-                      type="date"
-                      value={profile?.dob ?? ""}
-                      onChange={(e) => setProfile({ ...profile, dob: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">Role</label>
-                    <select
-                      value={masterOptions.roles.find((r) => r.label === profile.role)?.value || ""}
-                      onChange={(e) =>
-                        setProfile({
-                          ...profile,
-                          role: masterOptions.roles.find((r) => r.value === e.target.value)?.label || "",
-                        })
-                      }
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                    >
-                      <option value="">Select Role</option>
-                      {masterOptions.roles.map((role) => (
-                        <option key={role.value} value={role.value}>{role.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">Timezone</label>
-                    <select
-                      value={profile.timezone}
-                      onChange={(e) => setProfile({ ...profile, timezone: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                    >
-                      <option value="UTC">UTC</option>
-                      <option value="America/New_York">Eastern Time</option>
-                      <option value="America/Chicago">Central Time</option>
-                      <option value="America/Denver">Mountain Time</option>
-                      <option value="America/Los_Angeles">Pacific Time</option>
-                      <option value="Asia/Kolkata">India Standard Time</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">Language</label>
-                    <select
-                      value={profile.language}
-                      onChange={(e) => setProfile({ ...profile, language: e.target.value })}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                    >
-                      <option value="en">English</option>
-                      <option value="hi">Hindi</option>
-                      <option value="es">Spanish</option>
-                      <option value="fr">French</option>
-                      <option value="de">German</option>
-                    </select>
-                  </div>
-                </div>
+      {/* Text content - Mobile mein bhi right side */}
+      <div className="flex-1 min-w-0">
+        <h3 className="text-base sm:text-lg font-bold text-[#1a3a5c]">Profile Information</h3>
+        <p className="text-xs text-gray-400 mt-0.5">Keep your personal details up to date</p>
+        
+        {/* Buttons - Mobile mein bhi ek hi row mein */}
+        <div className="flex flex-row items-center gap-2 mt-3">
+          <label className="cursor-pointer flex-1 sm:flex-none">
+            <span className="flex items-center justify-center gap-1.5 bg-[#1a3a5c]/8 hover:bg-[#1a3a5c]/15 text-[#1a3a5c] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-[#1a3a5c]/20 w-full sm:w-auto">
+              <Upload className="h-3.5 w-3.5" />
+              {uploadingAvatar ? "Uploading…" : "Upload Photo"}
+            </span>
+            <input type="file" accept="image/jpeg,image/jpg,image/png,image/gif" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAvatarUpload(f); }} className="hidden" disabled={uploadingAvatar} />
+          </label>
+          {profile.avatar && (
+            <button onClick={handleAvatarRemove} disabled={uploadingAvatar} className="flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-red-100 flex-1 sm:flex-none">
+              <X className="h-3.5 w-3.5" /> Remove
+            </button>
+          )}
+        </div>
+        <p className="text-[10px] text-gray-400 mt-1.5">JPG, PNG, GIF · max 5MB · min 200×200px</p>
+      </div>
+    </div>
 
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-slate-100">
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={handleProfileUpdate}
-                      disabled={saving || uploadingAvatar}
-                      className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md hover:shadow-lg rounded-xl px-5 py-2 text-sm font-medium transition-all"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {saving ? "Saving..." : "Save Changes"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        fetchUserProfile();
-                        fetchMasterData();
-                      }}
-                      disabled={saving || uploadingAvatar}
-                      className="border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-xl px-5 py-2 text-sm font-medium"
-                    >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Reset
-                    </Button>
-                  </div>
-                  <p className="text-xs text-slate-400">Email cannot be changed. Contact admin for updates.</p>
-                </div>
-              </div>
-            )}
+    {/* Form grid - 2 columns on mobile, 4 columns on desktop */}
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+      {[
+        { label: "First Name", value: profile.first_name ?? "", key: "first_name", type: "text", placeholder: "John" },
+        { label: "Last Name", value: profile.last_name ?? "", key: "last_name", type: "text", placeholder: "Doe" },
+        { label: "Email", value: profile.email ?? "", key: "email", type: "email", placeholder: "you@example.com", readOnly: true },
+        { label: "Phone", value: profile.phone ?? "", key: "phone", type: "tel", placeholder: "+91 98765 43210" },
+        { label: "Designation", value: profile.designation ?? "", key: "designation", type: "text", placeholder: "Product Manager" },
+      ].map((field) => (
+        <div key={field.key}>
+          <label className={labelCls}>{field.label}</label>
+          <input
+            type={field.type}
+            value={field.value}
+            readOnly={field.readOnly}
+            placeholder={field.placeholder}
+            onChange={(e) => setProfile({ ...profile, [field.key]: e.target.value })}
+            className={`${inputCls} ${field.readOnly ? "opacity-60 cursor-not-allowed bg-gray-50" : ""}`}
+          />
+        </div>
+      ))}
 
-            {/* NOTIFICATIONS TAB */}
+      <div>
+        <label className={labelCls}>Department</label>
+        <select
+          value={masterOptions.departments.find((d) => d.label === profile.department)?.value || ""}
+          onChange={(e) => setProfile({ ...profile, department: masterOptions.departments.find((d) => d.value === e.target.value)?.label || "" })}
+          className={selectCls}
+        >
+          <option value="">Select Department</option>
+          {masterOptions.departments.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <label className={labelCls}>Date of Birth</label>
+        <input type="date" value={profile?.dob ?? ""} onChange={(e) => setProfile({ ...profile, dob: e.target.value })} className={inputCls} />
+      </div>
+
+      <div>
+        <label className={labelCls}>Role</label>
+        <select
+          value={masterOptions.roles.find((r) => r.label === profile.role)?.value || ""}
+          onChange={(e) => setProfile({ ...profile, role: masterOptions.roles.find((r) => r.value === e.target.value)?.label || "" })}
+          className={selectCls}
+        >
+          <option value="">Select Role</option>
+          {masterOptions.roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <label className={labelCls}>Timezone</label>
+        <select value={profile.timezone} onChange={(e) => setProfile({ ...profile, timezone: e.target.value })} className={selectCls}>
+          <option value="UTC">UTC</option>
+          <option value="America/New_York">Eastern Time</option>
+          <option value="America/Chicago">Central Time</option>
+          <option value="America/Denver">Mountain Time</option>
+          <option value="America/Los_Angeles">Pacific Time</option>
+          <option value="Asia/Kolkata">India Standard Time</option>
+        </select>
+      </div>
+
+      <div>
+        <label className={labelCls}>Language</label>
+        <select value={profile.language} onChange={(e) => setProfile({ ...profile, language: e.target.value })} className={selectCls}>
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+        </select>
+      </div>
+    </div>
+
+    {/* Actions */}
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4 border-t border-gray-100">
+      <div className="flex gap-2">
+        <button onClick={handleProfileUpdate} disabled={saving || uploadingAvatar} className="flex items-center gap-2 px-4 py-2 bg-[#1a3a5c] hover:bg-[#e87722] text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-colors">
+          <Save className="h-3.5 w-3.5" />
+          {saving ? "Saving…" : "Save Changes"}
+        </button>
+        <button onClick={() => { fetchUserProfile(); fetchMasterData(); }} disabled={saving || uploadingAvatar} className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors">
+          <RotateCcw className="h-3.5 w-3.5" /> Reset
+        </button>
+      </div>
+      <p className="text-[10px] text-gray-400">Email cannot be changed here — contact admin.</p>
+    </div>
+  </div>
+)}
+
+            {/* ══ NOTIFICATIONS TAB ══ */}
             {activeTab === "notifications" && profile && (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-800">Notification Preferences</h3>
-                  <p className="text-sm text-slate-500 mt-1">Choose how you want to receive notifications</p>
+                  <h3 className="text-base font-bold text-[#1a3a5c]">Notification Preferences</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Choose how you want to receive notifications</p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
-                    { icon: Mail, title: "Email Notifications", description: "Receive notifications via email", checked: profile.email_notifications, key: "email_notifications", color: "text-blue-500" },
-                    { icon: Smartphone, title: "SMS Notifications", description: "Receive notifications via SMS", checked: profile.sms_notifications, key: "sms_notifications", color: "text-green-500" },
-                    { icon: Bell, title: "Push Notifications", description: "Receive browser push notifications", checked: profile.push_notifications, key: "push_notifications", color: "text-purple-500" },
-                  ].map((notification) => (
-                    <div key={notification.key} className="bg-slate-50 rounded-xl p-4 border border-slate-100 hover:border-slate-200 transition-all">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-lg bg-white shadow-sm flex items-center justify-center">
-                            <notification.icon className={`h-4 w-4 ${notification.color}`} />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-semibold text-slate-800">{notification.title}</h4>
-                            <p className="text-xs text-slate-500">{notification.description}</p>
-                          </div>
+                    { icon: Mail, title: "Email Notifications", description: "Receive notifications via email", checked: profile.email_notifications, key: "email_notifications", accent: "text-blue-500", bg: "bg-blue-50" },
+                    { icon: Smartphone, title: "SMS Notifications", description: "Receive notifications via SMS", checked: profile.sms_notifications, key: "sms_notifications", accent: "text-emerald-500", bg: "bg-emerald-50" },
+                    { icon: Bell, title: "Push Notifications", description: "Receive browser push notifications", checked: profile.push_notifications, key: "push_notifications", accent: "text-purple-500", bg: "bg-purple-50" },
+                  ].map((n) => (
+                    <div key={n.key} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 ${n.bg} rounded-lg flex items-center justify-center shrink-0`}>
+                          <n.icon className={`h-4 w-4 ${n.accent}`} />
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={notification.checked}
-                            onChange={(e) => setProfile({ ...profile, [notification.key]: e.target.checked })}
-                            className="sr-only peer"
-                          />
-                          <div className="w-10 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
-                        </label>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-800">{n.title}</p>
+                          <p className="text-[10px] text-gray-400">{n.description}</p>
+                        </div>
                       </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+                        <input type="checkbox" checked={n.checked} onChange={(e) => setProfile({ ...profile, [n.key]: e.target.checked })} className="sr-only peer" />
+                        <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-[#e87722] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
+                      </label>
                     </div>
                   ))}
                 </div>
-                <div className="pt-4">
-                  <Button
-                    onClick={handleProfileUpdate}
-                    disabled={saving}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl px-5 py-2 text-sm font-medium"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {saving ? "Saving..." : "Save Preferences"}
-                  </Button>
+
+                <div className="pt-3 border-t border-gray-100">
+                  <button onClick={handleProfileUpdate} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-[#1a3a5c] hover:bg-[#e87722] text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-colors">
+                    <Save className="h-3.5 w-3.5" />
+                    {saving ? "Saving…" : "Save Preferences"}
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* SECURITY TAB */}
+            {/* ══ SECURITY TAB ══ */}
             {activeTab === "security" && (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-800">Security Settings</h3>
-                  <p className="text-sm text-slate-500 mt-1">Manage your password and security preferences</p>
+                  <h3 className="text-base font-bold text-[#1a3a5c]">Security Settings</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Manage your password and security preferences</p>
                 </div>
-                <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                  <div className="flex gap-3">
-                    <Shield className="h-5 w-5 text-amber-600 flex-shrink-0" />
-                    <div>
-                      <h4 className="font-semibold text-amber-800 text-sm">Security Tip</h4>
-                      <p className="text-amber-700 text-xs">Use 8+ characters with uppercase, lowercase, numbers, and symbols.</p>
-                    </div>
+
+                <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <Shield className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-semibold text-amber-800">Security Tip</p>
+                    <p className="text-[10px] text-amber-700 mt-0.5 leading-relaxed">Use a strong password with at least 8 characters, including uppercase, lowercase, numbers, and symbols.</p>
                   </div>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
-                  <h4 className="text-base font-semibold text-slate-800 mb-4">Change Password</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Current Password</label>
-                      <input
-                        type="password"
-                        value={passwordData.current_password}
-                        onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
-                        placeholder="Enter current password"
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">New Password</label>
-                      <input
-                        type="password"
-                        value={passwordData.new_password}
-                        onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
-                        placeholder="Enter new password"
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Confirm Password</label>
-                      <input
-                        type="password"
-                        value={passwordData.confirm_password}
-                        onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
-                        placeholder="Confirm new password"
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                      />
-                    </div>
+
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                  <h4 className="text-sm font-bold text-[#1a3a5c] mb-3 flex items-center gap-2">
+                    <Key className="h-4 w-4 text-[#e87722]" />
+                    Change Password
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { label: "Current Password", key: "current_password", placeholder: "Enter current password" },
+                      { label: "New Password", key: "new_password", placeholder: "Enter new password" },
+                      { label: "Confirm New Password", key: "confirm_password", placeholder: "Confirm new password" },
+                    ].map((f) => (
+                      <div key={f.key}>
+                        <label className={labelCls}>{f.label}</label>
+                        <input
+                          type="password"
+                          value={passwordData[f.key as keyof typeof passwordData]}
+                          onChange={(e) => setPasswordData({ ...passwordData, [f.key]: e.target.value })}
+                          placeholder={f.placeholder}
+                          className={inputCls}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div>
-                  <Button
+
+                <div className="pt-3 border-t border-gray-100">
+                  <button
                     onClick={handlePasswordChange}
                     disabled={saving || !passwordData.current_password || !passwordData.new_password || !passwordData.confirm_password}
-                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl px-5 py-2 text-sm font-medium"
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-colors"
                   >
-                    <Lock className="h-4 w-4 mr-2" />
-                    {saving ? "Changing..." : "Change Password"}
-                  </Button>
+                    <Lock className="h-3.5 w-3.5" />
+                    {saving ? "Changing…" : "Change Password"}
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* SYSTEM TAB - Admin only */}
+            {/* ══ SYSTEM TAB ══ */}
             {activeTab === "system" && user?.role === "admin" && systemSettings && (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-800">System Configuration</h3>
-                  <p className="text-sm text-slate-500 mt-1">Configure global system settings and preferences</p>
+                  <h3 className="text-base font-bold text-[#1a3a5c]">System Configuration</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Configure global system settings and preferences</p>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  {/* Company Settings Card */}
-                  <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 space-y-4">
-                    <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                      <Building className="h-4 w-4 text-blue-500" />
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Company Settings */}
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                    <h4 className="text-sm font-bold text-[#1a3a5c] flex items-center gap-2">
+                      <Building className="h-4 w-4 text-[#e87722]" />
                       Company Settings
                     </h4>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Company Name</label>
-                          <input
-                            type="text"
-                            value={systemSettings.company_name || ""}
-                            onChange={(e) => updateSystemSettings({ company_name: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Currency</label>
-                          <select
-                            value={systemSettings.currency || "USD"}
-                            onChange={(e) => updateSystemSettings({ currency: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
-                          >
-                            <option value="INR">INR - Indian Rupee</option>
-                            <option value="USD">USD - US Dollar</option>
-                            <option value="EUR">EUR - Euro</option>
-                            <option value="GBP">GBP - British Pound</option>
-                            <option value="CAD">CAD - Canadian Dollar</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Date Format</label>
-                          <select
-                            value={systemSettings.date_format || "YYYY-MM-DD"}
-                            onChange={(e) => updateSystemSettings({ date_format: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
-                          >
-                            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Time Format</label>
-                          <select
-                            value={systemSettings.time_format || "24h"}
-                            onChange={(e) => updateSystemSettings({ time_format: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
-                          >
-                            <option value="12h">12 Hour</option>
-                            <option value="24h">24 Hour</option>
-                          </select>
-                        </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelCls}>Company Name</label>
+                        <input type="text" value={systemSettings.company_name || ""} onChange={(e) => updateSystemSettings({ company_name: e.target.value })} className={inputCls} />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Default Language</label>
-                        <select
-                          value={systemSettings.default_language || "en"}
-                          onChange={(e) => updateSystemSettings({ default_language: e.target.value })}
-                          className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
-                        >
+                        <label className={labelCls}>Currency</label>
+                        <select value={systemSettings.currency || "USD"} onChange={(e) => updateSystemSettings({ currency: e.target.value })} className={selectCls}>
+                          <option value="INR">INR - Indian Rupee</option>
+                          <option value="USD">USD - US Dollar</option>
+                          <option value="EUR">EUR - Euro</option>
+                          <option value="GBP">GBP - British Pound</option>
+                          <option value="CAD">CAD - Canadian Dollar</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Date Format</label>
+                        <select value={systemSettings.date_format || "YYYY-MM-DD"} onChange={(e) => updateSystemSettings({ date_format: e.target.value })} className={selectCls}>
+                          <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                          <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                          <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Time Format</label>
+                        <select value={systemSettings.time_format || "24h"} onChange={(e) => updateSystemSettings({ time_format: e.target.value })} className={selectCls}>
+                          <option value="12h">12 Hour</option>
+                          <option value="24h">24 Hour</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Default Language</label>
+                        <select value={systemSettings.default_language || "en"} onChange={(e) => updateSystemSettings({ default_language: e.target.value })} className={selectCls}>
                           <option value="en">English</option>
                           <option value="hi">Hindi</option>
                           <option value="es">Spanish</option>
@@ -2591,204 +3569,138 @@ const SettingsPage: React.FC = () => {
                           <option value="de">German</option>
                         </select>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Max File Size (MB)</label>
-                          <input
-                            type="number"
-                            value={Math.round((systemSettings.max_file_size || 2097152) / 1048576)}
-                            onChange={(e) => updateSystemSettings({ max_file_size: (parseInt(e.target.value, 10) || 2) * 1048576 })}
-                            min={1}
-                            max={100}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Backup Frequency</label>
-                          <select
-                            value={systemSettings.backup_frequency || "daily"}
-                            onChange={(e) => updateSystemSettings({ backup_frequency: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white"
-                          >
-                            <option value="hourly">Hourly</option>
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                          </select>
-                        </div>
+                      <div>
+                        <label className={labelCls}>Max File Size (MB)</label>
+                        <input type="number" value={Math.round((systemSettings.max_file_size || 2097152) / 1048576)} onChange={(e) => updateSystemSettings({ max_file_size: (parseInt(e.target.value, 10) || 2) * 1048576 })} min={1} max={100} className={inputCls} />
+                      </div>
+                      <div className="col-span-2">
+                        <label className={labelCls}>Backup Frequency</label>
+                        <select value={systemSettings.backup_frequency || "daily"} onChange={(e) => updateSystemSettings({ backup_frequency: e.target.value })} className={selectCls}>
+                          <option value="hourly">Hourly</option>
+                          <option value="daily">Daily</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="monthly">Monthly</option>
+                        </select>
                       </div>
                     </div>
                   </div>
 
-                  {/* Appearance & Branding Card */}
-                  <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 space-y-4">
-                    <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                      <Palette className="h-4 w-4 text-purple-500" />
-                      Appearance & Branding
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Primary Color</label>
-                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-2 py-1 bg-white">
-                          <input
-                            type="color"
-                            value={systemSettings.primary_color || "#3B82F6"}
-                            onChange={(e) => updateSystemSettings({ primary_color: e.target.value })}
-                            className="w-8 h-7 rounded border-0 cursor-pointer"
-                          />
-                          <input
-                            type="text"
-                            value={systemSettings.primary_color || "#3B82F6"}
-                            onChange={(e) => updateSystemSettings({ primary_color: e.target.value })}
-                            className="flex-1 text-xs bg-transparent focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Secondary Color</label>
-                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-2 py-1 bg-white">
-                          <input
-                            type="color"
-                            value={systemSettings.secondary_color || "#10B981"}
-                            onChange={(e) => updateSystemSettings({ secondary_color: e.target.value })}
-                            className="w-8 h-7 rounded border-0 cursor-pointer"
-                          />
-                          <input
-                            type="text"
-                            value={systemSettings.secondary_color || "#10B981"}
-                            onChange={(e) => updateSystemSettings({ secondary_color: e.target.value })}
-                            className="flex-1 text-xs bg-transparent focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Logos section - responsive */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1 text-center">Favicon</label>
-                        <div className="border-2 border-dashed border-slate-200 rounded-lg p-3 text-center bg-white">
-                          {systemSettings.company_favicon ? (
-                            <div className="space-y-2">
-                              <img src={systemSettings.company_favicon} alt="Favicon" className="h-8 w-8 mx-auto object-contain" />
-                              <div className="flex justify-center gap-2">
-                                <input id="favicon-upload" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "company_favicon"); }} className="hidden" />
-                                <label htmlFor="favicon-upload" className="cursor-pointer text-xs text-blue-600 hover:text-blue-700">Change</label>
-                                <button onClick={() => handleFileRemove("company_favicon")} className="text-xs text-red-600 hover:text-red-700">Remove</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div>
-                              <Upload className="h-5 w-5 text-slate-400 mx-auto mb-1" />
-                              <input id="favicon-upload-empty" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "company_favicon"); }} className="hidden" />
-                              <label htmlFor="favicon-upload-empty" className="cursor-pointer text-xs text-blue-600">Upload</label>
-                              <p className="text-xs text-slate-400 mt-1">16x16/32x32</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1 text-center">Company Logo</label>
-                        <div className="border-2 border-dashed border-slate-200 rounded-lg p-3 text-center bg-white">
-                          {systemSettings.company_logo ? (
-                            <div className="space-y-2">
-                              <img src={systemSettings.company_logo} alt="Company Logo" className="h-10 w-auto mx-auto object-contain" />
-                              <div className="flex justify-center gap-2">
-                                <input id="logo-upload" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "company_logo"); }} className="hidden" />
-                                <label htmlFor="logo-upload" className="cursor-pointer text-xs text-blue-600">Change</label>
-                                <button onClick={() => handleFileRemove("company_logo")} className="text-xs text-red-600">Remove</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div>
-                              <Upload className="h-5 w-5 text-slate-400 mx-auto mb-1" />
-                              <input id="logo-upload-empty" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "company_logo"); }} className="hidden" />
-                              <label htmlFor="logo-upload-empty" className="cursor-pointer text-xs text-blue-600">Upload Logo</label>
-                              <p className="text-xs text-slate-400 mt-1">PNG/JPG up to 2MB</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1 text-center">Footer Logo</label>
-                        <div className="border-2 border-dashed border-slate-200 rounded-lg p-3 text-center bg-white">
-                          {systemSettings.footer_logo ? (
-                            <div className="space-y-2">
-                              <img src={systemSettings.footer_logo} alt="Footer Logo" className="h-10 w-auto mx-auto object-contain" />
-                              <div className="flex justify-center gap-2">
-                                <input id="footer-logo-upload" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "footer_logo"); }} className="hidden" />
-                                <label htmlFor="footer-logo-upload" className="cursor-pointer text-xs text-blue-600">Change</label>
-                                <button onClick={() => handleFileRemove("footer_logo")} className="text-xs text-red-600">Remove</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div>
-                              <Upload className="h-5 w-5 text-slate-400 mx-auto mb-1" />
-                              <input id="footer-logo-upload-empty" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file, "footer_logo"); }} className="hidden" />
-                              <label htmlFor="footer-logo-upload-empty" className="cursor-pointer text-xs text-blue-600">Upload Logo</label>
-                              <p className="text-xs text-slate-400 mt-1">PNG/JPG up to 2MB</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Appearance & Branding */}
+                 <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+  <h4 className="text-sm font-bold text-[#1a3a5c] flex items-center gap-2">
+    <Palette className="h-4 w-4 text-[#e87722]" />
+    Appearance &amp; Branding
+  </h4>
 
-                  {/* System Features - Full width */}
-                  <div className="lg:col-span-2 bg-slate-50 rounded-xl p-5 border border-slate-100">
-                    <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2 mb-4">
-                      <Zap className="h-4 w-4 text-yellow-500" />
+  {/* Colors */}
+  <div className="grid grid-cols-2 gap-3">
+    {[
+      { label: "Primary Color", key: "primary_color", default: "#3B82F6" },
+      { label: "Secondary Color", key: "secondary_color", default: "#10B981" },
+    ].map((c) => (
+      <div key={c.key}>
+        <label className={labelCls}>{c.label}</label>
+        <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus-within:ring-2 focus-within:ring-[#e87722]/40 focus-within:border-[#e87722]">
+          <input
+            type="color"
+            value={systemSettings[c.key] || c.default}
+            onChange={(e) => updateSystemSettings({ [c.key]: e.target.value })}
+            className="w-8 h-7 rounded border-none p-0 cursor-pointer"
+          />
+          <input
+            type="text"
+            value={systemSettings[c.key] || c.default}
+            onChange={(e) => updateSystemSettings({ [c.key]: e.target.value })}
+            className="flex-1 text-xs bg-transparent border-none outline-none text-gray-700 min-w-0"
+          />
+        </div>
+      </div>
+    ))}
+  </div>
+
+  {/* Logo uploads — 1 col on mobile, 3 on sm+ */}
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div>
+      <label className={labelCls}>Company Logo</label>
+      <UploadBox
+        imageUrl={systemSettings.company_logo}
+        alt="Company Logo"
+        uploadId="logo-upload"
+        onUpload={(f) => handleFileUpload(f, "company_logo")}
+        onRemove={() => handleFileRemove("company_logo")}
+        hint="PNG/JPG · 2MB"
+      />
+    </div>
+    <div>
+      <label className={labelCls}>Favicon</label>
+      <UploadBox
+        imageUrl={systemSettings.company_favicon}
+        alt="Favicon"
+        uploadId="favicon-upload"
+        onUpload={(f) => handleFileUpload(f, "company_favicon")}
+        onRemove={() => handleFileRemove("company_favicon")}
+        hint="16×16 or 32×32"
+      />
+    </div>
+    <div>
+      <label className={labelCls}>Footer Logo</label>
+      <UploadBox
+        imageUrl={systemSettings.footer_logo}
+        alt="Footer Logo"
+        uploadId="footer-logo-upload"
+        onUpload={(f) => handleFileUpload(f, "footer_logo")}
+        onRemove={() => handleFileRemove("footer_logo")}
+        hint="PNG/JPG · 2MB"
+      />
+    </div>
+  </div>
+</div>
+
+                  {/* System Features — full width */}
+                  <div className="lg:col-span-2 p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                    <h4 className="text-sm font-bold text-[#1a3a5c] flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-[#e87722]" />
                       System Features
                     </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {[
-                        { title: "Auto Assign Leads", description: "Automatically assign new leads to agents", checked: !!systemSettings.auto_assign_leads, key: "auto_assign_leads", icon: Users, color: "text-blue-500" },
-                        { title: "Lead Scoring", description: "Enable AI-powered lead scoring", checked: !!systemSettings.lead_scoring_enabled, key: "lead_scoring_enabled", icon: Star, color: "text-yellow-500" },
-                        { title: "Property Auto Approval", description: "Automatically approve property listings", checked: !!systemSettings.property_auto_approval, key: "property_auto_approval", icon: CheckCircle, color: "text-green-500" },
-                      ].map((feature) => (
-                        <div key={feature.key} className="bg-white rounded-lg p-3 border border-slate-100">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center">
-                              <feature.icon className={`h-4 w-4 ${feature.color}`} />
+                        { title: "Auto Assign Leads", description: "Auto-assign new leads to agents", checked: !!systemSettings.auto_assign_leads, key: "auto_assign_leads", icon: Users, accent: "text-blue-500", bg: "bg-blue-50" },
+                        { title: "Lead Scoring", description: "Enable AI-powered lead scoring", checked: !!systemSettings.lead_scoring_enabled, key: "lead_scoring_enabled", icon: Star, accent: "text-amber-500", bg: "bg-amber-50" },
+                        { title: "Property Auto Approval", description: "Auto-approve property listings", checked: !!systemSettings.property_auto_approval, key: "property_auto_approval", icon: CheckCircle, accent: "text-emerald-500", bg: "bg-emerald-50" },
+                      ].map((f) => (
+                        <div key={f.key} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 ${f.bg} rounded-lg flex items-center justify-center shrink-0`}>
+                              <f.icon className={`h-4 w-4 ${f.accent}`} />
                             </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={feature.checked}
-                                onChange={(e) => updateSystemSettings({ [feature.key]: e.target.checked } as Partial<SystemSettings>)}
-                                className="sr-only peer"
-                              />
-                              <div className="w-9 h-5 bg-slate-200 rounded-full peer-checked:bg-blue-500 after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
-                            </label>
+                            <div>
+                              <p className="text-xs font-semibold text-gray-800">{f.title}</p>
+                              <p className="text-[10px] text-gray-400 leading-tight">{f.description}</p>
+                            </div>
                           </div>
-                          <h5 className="font-semibold text-slate-800 text-sm">{feature.title}</h5>
-                          <p className="text-xs text-slate-500">{feature.description}</p>
+                          <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
+                            <input type="checkbox" checked={f.checked} onChange={(e) => updateSystemSettings({ [f.key]: e.target.checked } as Partial<SystemSettings>)} className="sr-only peer" />
+                            <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-[#e87722] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
+                          </label>
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-3 pt-2">
-                  <Button
-                    onClick={handleSystemSettingsUpdate}
-                    disabled={saving}
-                    className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl px-5 py-2 text-sm font-medium"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {saving ? "Saving..." : "Save Settings"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => { window.location.reload(); toast.info("Settings refreshed"); }}
-                    disabled={saving}
-                    className="border-slate-200 rounded-xl px-5 py-2 text-sm"
-                  >
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Refresh
-                  </Button>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                  <button onClick={handleSystemSettingsUpdate} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-[#1a3a5c] hover:bg-[#e87722] text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-colors">
+                    <Save className="h-3.5 w-3.5" />
+                    {saving ? "Saving…" : "Save Settings"}
+                  </button>
+                  <button onClick={() => { window.location.reload(); toast.info("System settings refreshed"); }} disabled={saving} className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors">
+                    <RotateCcw className="h-3.5 w-3.5" /> Refresh
+                  </button>
                 </div>
               </div>
             )}
+
           </div>
         </div>
       </div>
