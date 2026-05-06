@@ -477,14 +477,8 @@ export default function ChatWindow({
                 console.log("⚠️ [Step 7.5] Skipping message we just sent");
                 return;
             }
-
-            if (data.contact_id !== contact.id) {
-                console.log(`⚠️ [Step 8] Message for different contact: ${data.contact_id} !== ${contact.id}`);
-                return;
-            }
-
-            console.log("✅ [Step 9] Message belongs to current contact, updating UI...");
-            // ✅ Show notification only for received messages
+        console.log("✅ [Step 9] Message belongs to current contact, updating UI...");
+            // notification first
             if (String(data.direction).trim().toLowerCase() === "in") {
 
                 console.log("🔥 PUSHING NOTIFICATION");
@@ -498,7 +492,12 @@ export default function ChatWindow({
                         page: "/whatsapp"
                     }
                 );
+            }
 
+            // THEN check current active chat
+            if (data.contact_id !== contact.id) {
+                console.log(`⚠️ [Step 8] Message for different contact`);
+                return;
             }
             const newMsg = {
                 id: data.message_id || Date.now(),
