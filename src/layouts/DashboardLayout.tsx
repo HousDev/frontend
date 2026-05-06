@@ -1527,11 +1527,12 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 focus:outline-none ">
-          <div className="px-0 py-0 sm:px-0 lg:px-0">
-            <Outlet />
-          </div>
-        </main>
+       {/* Main content */}
+<main className="flex-1 overflow-y-auto focus:outline-none custom-main-scrollbar">
+  <div className="px-0 py-0 sm:px-0 lg:px-0">
+    <Outlet />
+  </div>
+</main>
       </div>
 
       <ActivityTrackerModal
@@ -1546,57 +1547,78 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
       />
 
       {/* Custom scrollbar styles */}
-      <style>{`
-        @keyframes slide-in-left {
-          from {
-            transform: translateX(-100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .animate-slide-in-left {
-          animation: slide-in-left 0.3s ease-out;
-        }
-        
-        .animate-fade-in {
-          animation: fade-in 0.2s ease-out;
-        }
-        
-        /* Custom scrollbar for compact design */
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
-        }
-        
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 10px;
-        }
-        
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.3);
-          border-radius: 10px;
-        }
-        
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.5);
-        }
-      `}</style>
+     <style>{`
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-slide-in-left {
+    animation: slide-in-left 0.3s ease-out;
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+  
+  /* Custom scrollbar for compact design */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+  }
+  
+  /* Light orange custom scrollbar for main content */
+  .custom-main-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .custom-main-scrollbar::-webkit-scrollbar-track {
+    background: #fef3c7;
+    border-radius: 10px;
+  }
+  
+  .custom-main-scrollbar::-webkit-scrollbar-thumb {
+    background: #fb923c;
+    border-radius: 10px;
+  }
+  
+  .custom-main-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #f97316;
+  }
+    
+`}</style>
     </div>
   );
 };

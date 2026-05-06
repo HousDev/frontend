@@ -2654,7 +2654,7 @@ style={{ background: theme.orange }}              >
                 <ImageWithDebug
                   srcCandidate={Array.isArray(property.photos) && property.photos.length > 0 ? property.photos[0] : ''}
                   alt={dash(property.title)}
-                  className="w-full h-32 sm:h-36 rounded-t-lg transition-transform duration-300 ease-out group-hover:scale-105 object-cover"
+                  className="w-full h-32 sm:h-36 rounded-t-lg transition-transform duration-300 ease-out group-hover:scale-105 object-cover object-center"
                   propertyCtx={{ title: property.title, propertyId: property.propertyId }}
                 />
 

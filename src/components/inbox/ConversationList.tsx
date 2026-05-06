@@ -45,6 +45,13 @@ export default function ConversationList({
     onSelect, onFilterChange, onSearchChange, onRefresh,
 }: Props) {
     const [showFilter, setShowFilter] = useState(false);
+    const [allConversations, setAllConversations] = useState<WhatsAppConversation[]>([]);
+
+useEffect(() => {
+    if (conversations.length > 0 && filter === 'all') {
+        setAllConversations(conversations);
+    }
+}, [conversations, filter]);
     const [advanced, setAdvanced] = useState<AdvancedFilter>(emptyAdvanced);
     const [pendingFilter, setPendingFilter] = useState<AdvancedFilter>(emptyAdvanced);
 
@@ -68,18 +75,17 @@ export default function ConversationList({
         || advanced.stages.length > 0 || advanced.hasUnread !== null || advanced.tagSearch;
 
     // ✅ Calculate counts for filter tabs (WhatsApp style)
-    const totalCount = conversations.length;
-    const unreadCount = conversations.filter(c => c.unread_count > 0).length;
-    const newCount = conversations.filter(c => c.contact?.stage === 'New').length;
-    const assignedCount = conversations.filter(c => c.assigned_to).length;
-    const buyerCount = conversations.filter(c => {
-        const tags = c.contact?.tags || [];
-        return tags.some((t: any) => t.name?.toLowerCase() === 'buyer');
-    }).length;
-    const sellerCount = conversations.filter(c => {
-        const tags = c.contact?.tags || [];
-        return tags.some((t: any) => t.name?.toLowerCase() === 'seller');
-    }).length;
+const totalCount = allConversations.length;
+const unreadCount = allConversations.filter(c => c.unread_count > 0).length;
+const assignedCount = allConversations.filter(c => c.assigned_to).length;
+const buyerCount = allConversations.filter(c => {
+    const tags = c.contact?.tags || [];
+    return tags.some((t: any) => t.name?.toLowerCase() === 'buyer');
+}).length;
+const sellerCount = allConversations.filter(c => {
+    const tags = c.contact?.tags || [];
+    return tags.some((t: any) => t.name?.toLowerCase() === 'seller');
+}).length;
 
     const applyAdvanced = (f: AdvancedFilter) => {
         setAdvanced(f);

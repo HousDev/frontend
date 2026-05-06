@@ -1,7 +1,3 @@
-
-
-
-
 // src/pages/settings/MasterDataPage.tsx
 import React, { useState, useEffect, ChangeEvent } from "react";
 import {
@@ -1274,7 +1270,7 @@ export default function MasterDataPage(): JSX.Element {
                   )}
                 </div>
               ) : (
-              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 max-h-[480px] overflow-y-auto pr-2">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 max-h-[390px] sm:max-h-[480px] overflow-y-auto pr-2">
                 {filteredMasterItems.length === 0 ? (
                   <div className="col-span-full text-center py-10 sm:py-12 text-gray-500">
                     <Plus size={40} className="mx-auto mb-3 opacity-50" />

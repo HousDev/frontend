@@ -1255,7 +1255,7 @@ const OverviewTab = ({ property, onUpdate }: any) => {
               src={photo}
               alt={`${property.title || 'Property'} - ${index + 1}`}
               className="w-full h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px]"
-              imgClassName="rounded-lg"
+              imgClassName="rounded-lg object-cover object-center"
             />
             <div className="absolute top-2 right-2 flex flex-wrap gap-1 justify-end z-20">
               <PropertyTags tags={property.tags || []} />
