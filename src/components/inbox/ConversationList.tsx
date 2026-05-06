@@ -54,11 +54,17 @@ export default function ConversationList({
 
     useEffect(() => {
         notificationStore.subscribe((all) => {
-            setNotifications(all);
-            setNotifUnread(all.filter((n) => !n.read).length);
+
+            console.log("🔥 Notification Updated:", all);
+
+            setNotifications([...all]);
+
+            setNotifUnread(
+                all.filter((n) => !n.read).length
+            );
+
         });
     }, []);
-
     const handleBellClick = () => {
         setBellOpen((v) => !v);
         if (!bellOpen) notificationStore.markAllRead();

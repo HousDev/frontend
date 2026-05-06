@@ -486,7 +486,7 @@ export default function ChatWindow({
             console.log("✅ [Step 9] Message belongs to current contact, updating UI...");
             // ✅ Show notification only for received messages
             if (data.direction === "in") {
-
+                console.log("🔥 PUSHING NOTIFICATION");
                 // browser/tab inactive ho tab notification dikhao
                 if (document.hidden) {
 
