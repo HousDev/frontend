@@ -54,22 +54,16 @@ export default function ConversationList({
 
     useEffect(() => {
         notificationStore.subscribe((all) => {
-
-            console.log("🔥 Notification Updated:", all);
-
-            setNotifications([...all]);
-
-            setNotifUnread(
-                all.filter((n) => !n.read).length
-            );
-
+            setNotifications(all);
+            setNotifUnread(all.filter((n) => !n.read).length);
         });
     }, []);
+
     const handleBellClick = () => {
         setBellOpen((v) => !v);
         if (!bellOpen) notificationStore.markAllRead();
     };
-    
+
     const hasActiveFilter = advanced.datePreset !== null || advanced.dateFrom || advanced.dateTo
         || advanced.stages.length > 0 || advanced.hasUnread !== null || advanced.tagSearch;
 
@@ -132,9 +126,9 @@ export default function ConversationList({
         setShowFilter(true);
     };
 
-    
+
     return (
-<div className="flex flex-col h-full w-full xl:w-80 bg-white border-r border-gray-200 shrink-0 relative">
+        <div className="flex flex-col h-full w-full xl:w-80 bg-white border-r border-gray-200 shrink-0 relative">
             <div className="px-4 pt-4 pb-3 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -145,36 +139,36 @@ export default function ConversationList({
                             </span>
                         )}
                     </div>
-                   <div className="flex items-center gap-1">
-    <button
-        onClick={openFilter}
-        className={`relative p-1.5 rounded-lg transition-colors ${hasActiveFilter ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}
-        title="Advanced filters"
-    >
-        <SlidersHorizontal size={14} />
-        {hasActiveFilter && (
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full" />
-        )}
-    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={openFilter}
+                            className={`relative p-1.5 rounded-lg transition-colors ${hasActiveFilter ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}
+                            title="Advanced filters"
+                        >
+                            <SlidersHorizontal size={14} />
+                            {hasActiveFilter && (
+                                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full" />
+                            )}
+                        </button>
 
-    {/* ✅ Bell icon moved here — next to filter */}
-    <button
-        onClick={handleBellClick}
-        className="relative p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-        title="Notifications"
-    >
-        <Bell size={14} />
-        {notifUnread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] rounded-full px-1 leading-tight">
-                {notifUnread > 9 ? "9+" : notifUnread}
-            </span>
-        )}
-    </button>
+                        {/* ✅ Bell icon moved here — next to filter */}
+                        <button
+                            onClick={handleBellClick}
+                            className="relative p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                            title="Notifications"
+                        >
+                            <Bell size={14} />
+                            {notifUnread > 0 && (
+                                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] rounded-full px-1 leading-tight">
+                                    {notifUnread > 9 ? "9+" : notifUnread}
+                                </span>
+                            )}
+                        </button>
 
-    <button onClick={onRefresh} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors" title="Refresh">
-        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-    </button>
-</div>
+                        <button onClick={onRefresh} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors" title="Refresh">
+                            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="relative mb-3">
@@ -195,8 +189,8 @@ export default function ConversationList({
                     <button
                         onClick={() => onFilterChange('all')}
                         className={`px-2 py-1 text-[11px] font-medium rounded-md transition-all shrink-0 ${filter === 'all'
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
                         All
@@ -207,8 +201,8 @@ export default function ConversationList({
                     <button
                         onClick={() => onFilterChange('unread')}
                         className={`px-2 py-1 text-[11px] font-medium rounded-md transition-all flex items-center gap-1 shrink-0 ${filter === 'unread'
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
                         Unread
@@ -225,8 +219,8 @@ export default function ConversationList({
                     <button
                         onClick={() => onFilterChange('assigned')}
                         className={`px-2 py-1 text-[11px] font-medium rounded-md transition-all shrink-0 ${filter === 'assigned'
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
                         Assigned
@@ -237,8 +231,8 @@ export default function ConversationList({
                     <button
                         onClick={() => onFilterChange('buyer')}
                         className={`px-2 py-1 text-[11px] font-medium rounded-md transition-all shrink-0 ${filter === 'buyer'
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
                         Buyer
@@ -249,8 +243,8 @@ export default function ConversationList({
                     <button
                         onClick={() => onFilterChange('seller')}
                         className={`px-2 py-1 text-[11px] font-medium rounded-md transition-all shrink-0 ${filter === 'seller'
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
                         Seller
@@ -269,7 +263,7 @@ export default function ConversationList({
                     </div>
                 )}
             </div>
-              {bellOpen && (
+            {bellOpen && (
                 <div className="absolute top-14 left-0 right-0 z-50 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden mx-2">
                     <div className="flex justify-between items-center px-4 py-2 border-b">
                         <span className="text-xs font-semibold text-gray-600">Notifications</span>
@@ -337,7 +331,7 @@ export default function ConversationList({
                                     <div className={`w-8 h-8  border border-gray-400 rounded-full flex items-center justify-center text-gray-700 text-sm font-medium ${isSelected ? 'bg-blue-300' : 'bg-blue-100'}`}>
                                         {initials}
                                     </div>
-<span className={`absolute bottom-0 right-0 w-2 h-2 translate-y-[-30%] translate-x-[20%] rounded-full border-2 border-white ${STAGE_DOT[stage] || 'bg-gray-400'}`} />  </div>
+                                    <span className={`absolute bottom-0 right-0 w-2 h-2 translate-y-[-30%] translate-x-[20%] rounded-full border-2 border-white ${STAGE_DOT[stage] || 'bg-gray-400'}`} />  </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-start justify-between gap-1 mb-0.5">
                                         <span className={`text-sm font-semibold truncate leading-tight ${hasUnread ? 'text-gray-900' : 'text-gray-700'}`}>{displayName}</span>

@@ -162,7 +162,7 @@
 //         endRef.current?.scrollIntoView({ behavior: 'smooth' });
 //     }, [messages]);
 
-  
+
 
 //     const handleSendText = async (text: string) => {
 //     if (!conversation || !contact) return;
@@ -477,28 +477,14 @@ export default function ChatWindow({
                 console.log("⚠️ [Step 7.5] Skipping message we just sent");
                 return;
             }
-        console.log("✅ [Step 9] Message belongs to current contact, updating UI...");
-            // notification first
-            if (String(data.direction).trim().toLowerCase() === "in") {
 
-                console.log("🔥 PUSHING NOTIFICATION");
-
-                notificationStore.push(
-                    "message",
-                    `New Message from ${contact?.name || "Customer"}`,
-                    data.text || "You received a new message",
-                    {
-                        label: "Open Chat",
-                        page: "/whatsapp"
-                    }
-                );
-            }
-
-            // THEN check current active chat
             if (data.contact_id !== contact.id) {
-                console.log(`⚠️ [Step 8] Message for different contact`);
+                console.log(`⚠️ [Step 8] Message for different contact: ${data.contact_id} !== ${contact.id}`);
                 return;
             }
+
+            console.log("✅ [Step 9] Message belongs to current contact, updating UI...");
+
             const newMsg = {
                 id: data.message_id || Date.now(),
                 direction: data.direction || 'in',
@@ -546,7 +532,7 @@ export default function ChatWindow({
                 socket.off("disconnect");
             }
         };
-    }, [contact?.id]);
+    }, [contact?.id, conversation?.id]);
 
     // ✅ Mark messages as read when chat window opens
     useEffect(() => {
@@ -688,14 +674,12 @@ export default function ChatWindow({
                 sentMessagesRef.current.delete(messageKey);
             }, 1000);
 
-            // notificationStore.push(
-            //     'message',
-            //     'Message Sent',
-            //     `Sent to ${contact.name}`,
-            //     { label: "", page: "" }
-            // );
-
-            
+            notificationStore.push(
+                'message',
+                'Message Sent',
+                `Sent to ${contact.name}`,
+                { label: "", page: "" }
+            );
 
         } catch (err) {
             console.error('Failed to send message', err);
