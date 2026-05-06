@@ -66,6 +66,10 @@ class NotificationStore {
   getUnreadCount() {
     return this.notifications.filter((n) => !n.read).length;
   }
+
+  getAll() {
+  return [...this.notifications];
+}
 }
 
 export const notificationStore = new NotificationStore();
