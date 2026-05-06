@@ -486,21 +486,19 @@ export default function ChatWindow({
             console.log("✅ [Step 9] Message belongs to current contact, updating UI...");
             // ✅ Show notification only for received messages
             if (data.direction === "in") {
+
                 console.log("🔥 PUSHING NOTIFICATION");
-                // browser/tab inactive ho tab notification dikhao
-                if (document.hidden) {
 
-                    notificationStore.push(
-                        "message",
-                        `New Message from ${contact?.name || "Customer"}`,
-                        data.text || "You received a new message",
-                        {
-                            label: "Open Chat",
-                            page: "/whatsapp"
-                        }
-                    );
+                notificationStore.push(
+                    "message",
+                    `New Message from ${contact?.name || "Customer"}`,
+                    data.text || "You received a new message",
+                    {
+                        label: "Open Chat",
+                        page: "/whatsapp"
+                    }
+                );
 
-                }
             }
             const newMsg = {
                 id: data.message_id || Date.now(),
