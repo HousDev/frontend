@@ -1063,71 +1063,72 @@ const handleSend = async () => {
 )}
 
             {/* Main input row */}
-<div className="flex items-end gap-1 px-2 sm:px-3 py-2">                {/* Template button */}
-                <button
-                    onClick={() => { setShowTemplates(v => !v); setShowEmoji(false); setShowAttach(false); }}
-                    disabled={disabled}
-                    data-template-btn
-                    className={`p-2 rounded-full transition-colors shrink-0 ${
-                        showTemplates ? 'text-[#008069] bg-[#e8f0fe]' : 'text-[#8696a0] hover:bg-gray-200'
-                    } disabled:opacity-40`}
-                >
-                    <FileText size={22} />
-                </button>
+<div className="flex items-end gap-0.5 sm:gap-1 px-1 sm:px-2 py-1.5 sm:py-2">                
+    <button
+        onClick={() => { setShowTemplates(v => !v); setShowEmoji(false); setShowAttach(false); }}
+        disabled={disabled}
+        data-template-btn
+        className={`p-1.5 sm:p-2 rounded-full transition-colors shrink-0 ${
+            showTemplates ? 'text-[#008069] bg-[#e8f0fe]' : 'text-[#8696a0] hover:bg-gray-200'
+        } disabled:opacity-40`}
+    >
+        <FileText size={18} className="sm:w-[22px] sm:h-[22px]" />
+    </button>
 
                 {/* Emoji button */}
-                <button
-onClick={() => { setShowEmoji(v => !v); setShowAttach(false); setShowTemplates(false); setEmojiSearch(''); }}
-                    disabled={disabled}
-                    data-emoji-btn
-                    className={`p-2 rounded-full transition-colors shrink-0 ${
-                        showEmoji ? 'text-[#008069] bg-[#e8f0fe]' : 'text-[#8696a0] hover:bg-gray-200'
-                    } disabled:opacity-40`}
-                >
-                    <Smile size={22} />
-                </button>
+              <button
+    onClick={() => { setShowEmoji(v => !v); setShowAttach(false); setShowTemplates(false); setEmojiSearch(''); }}
+    disabled={disabled}
+    data-emoji-btn
+    className={`p-1.5 sm:p-2 rounded-full transition-colors shrink-0 ${
+        showEmoji ? 'text-[#008069] bg-[#e8f0fe]' : 'text-[#8696a0] hover:bg-gray-200'
+    } disabled:opacity-40`}
+>
+    <Smile size={18} className="sm:w-[22px] sm:h-[22px]" />
+</button>
 
                 {/* Textarea */}
                 <textarea
-                    ref={textareaRef}
-                    value={text}
-                    onChange={(e) => {
-                        setText(e.target.value);
-                        e.target.style.height = 'auto';
-                        e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
-                    }}
-                    onKeyDown={handleKeyDown}
-placeholder={disabled ? 'Conversation closed' : 'Message'}                    disabled={disabled || sending}
-                    rows={1}
-                    className="flex-1 min-w-0 resize-none bg-white rounded-2xl px-4 py-2.5 text-[14px] text-[#111b21] placeholder-[#8696a0] focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed max-h-[100px] leading-relaxed"
-                />
+    ref={textareaRef}
+    value={text}
+    onChange={(e) => {
+        setText(e.target.value);
+        e.target.style.height = 'auto';
+        e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
+    }}
+    onKeyDown={handleKeyDown}
+    placeholder={disabled ? 'Conversation closed' : 'Message'}
+    disabled={disabled || sending}
+    rows={1}
+    className="flex-1 min-w-0 resize-none bg-white rounded-2xl px-3 sm:px-4 py-2 text-[14px] text-[#111b21] placeholder-[#8696a0] focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed max-h-[100px] leading-relaxed"
+/>
 
                 {/* Attachment button (only when no text and no file selected) */}
-                {!text.trim() && !selectedFile && (
-                    <button
-                        onClick={() => { setShowAttach(v => !v); setShowEmoji(false); setShowTemplates(false); }}
-                        disabled={disabled}
-                        data-attach-btn
-                        className={`p-2 rounded-full transition-colors shrink-0 ${
-                            showAttach ? 'text-[#008069] bg-[#e8f0fe]' : 'text-[#8696a0] hover:bg-gray-200'
-                        } disabled:opacity-40`}
-                    >
-                        <Paperclip size={22} />
-                    </button>
-                )}
+              {!text.trim() && !selectedFile && (
+    <button
+        onClick={() => { setShowAttach(v => !v); setShowEmoji(false); setShowTemplates(false); }}
+        disabled={disabled}
+        data-attach-btn
+        className={`p-1.5 sm:p-2 rounded-full transition-colors shrink-0 ${
+            showAttach ? 'text-[#008069] bg-[#e8f0fe]' : 'text-[#8696a0] hover:bg-gray-200'
+        } disabled:opacity-40`}
+    >
+        <Paperclip size={18} className="sm:w-[22px] sm:h-[22px]" />
+    </button>
+)}
 
                 {/* Send / Mic button */}
-                <button
+               <button
     onClick={canSend ? handleSend : undefined}
     disabled={sending || disabled}
-    className="w-10 h-10 bg-[#008069] text-white rounded-full flex items-center justify-center hover:bg-[#017561] active:bg-[#015f4e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-md"
+    className="w-8 h-8 sm:w-10 sm:h-10 bg-[#008069] text-white rounded-full flex items-center justify-center hover:bg-[#017561] active:bg-[#015f4e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-md"
 >
     {sending ? (
-        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
     ) : canSend ? (
-        <Send size={18} />
+        <Send size={15} className="sm:w-[18px] sm:h-[18px]" />
     ) : (
-        <Mic size={18} />
+        <Mic size={15} className="sm:w-[18px] sm:h-[18px]" />
     )}
 </button>
             </div>

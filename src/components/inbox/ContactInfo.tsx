@@ -485,19 +485,19 @@ const contactTags = localTags;
                             )}
                         </div>
                         <div className="flex gap-2">
-                            <textarea
-                                value={noteText}
-                                onChange={(e) => setNoteText(e.target.value)}
-                                placeholder="Add internal note…"
-                                rows={2}
-                                className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && e.ctrlKey) {
-                                        e.preventDefault();
-                                        handleAddNote();
-                                    }
-                                }}
-                            />
+                          <textarea
+    value={noteText}
+    onChange={(e) => setNoteText(e.target.value)}
+    placeholder="Add internal note…"
+    rows={2}
+    className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+    onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleAddNote();
+        }
+    }}
+/>
                             <button
                                 onClick={handleAddNote}
                                 disabled={!noteText.trim()}
