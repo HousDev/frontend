@@ -784,15 +784,33 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
 
 
  useEffect(() => {
-    const fetchWhatsappCount = async () => {
-        try {
-            const contacts = await whatsappAPI.getContacts();
-            setWhatsappCount(Array.isArray(contacts) ? contacts.length : 0);
-        } catch (err) {
-            console.error('Failed to fetch whatsapp count:', err);
+    // ✅ FIXED - fetches unread count across all contacts
+const fetchWhatsappCount = async () => {
+    try {
+        const contacts = await whatsappAPI.getContacts();
+        if (!Array.isArray(contacts)) {
             setWhatsappCount(0);
+            return;
         }
-    };
+        
+        let totalUnread = 0;
+        await Promise.all(
+            contacts.map(async (contact: any) => {
+                try {
+                    const result = await whatsappAPI.getUnreadCount(contact.id);
+                    totalUnread += Number(result?.unread_count) || 0;
+                } catch {
+                    // ignore per-contact errors
+                }
+            })
+        );
+        
+        setWhatsappCount(totalUnread);
+    } catch (err) {
+        console.error('Failed to fetch whatsapp count:', err);
+        setWhatsappCount(0);
+    }
+};
 
     if (user?.id) {
         fetchWhatsappCount();
