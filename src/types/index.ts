@@ -399,6 +399,9 @@ export interface WhatsAppMessage {
   sender?: CrmUser | null;
   time_sent?: string;
   is_read?: boolean;
+  media_type?: string | null;   
+  file_name?: string | null;    
+  sending?: boolean;
 }
 
 export interface ConversationNote {

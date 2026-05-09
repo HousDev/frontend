@@ -816,6 +816,7 @@
 //   },
 // };
 
+
 import { api } from "./api";
 
 // ------------------------------------------------------------------
@@ -1136,6 +1137,33 @@ export const whatsappAPI = {
     return handleResponse(response);
   },
   
+  sendMediaMessage: async (data: {
+  contact_id: string | number;
+  file: File;
+  caption?: string;
+}) => {
+  const formData = new FormData();
+
+  formData.append("contact_id", String(data.contact_id));
+  formData.append("file", data.file);
+
+  if (data.caption) {
+    formData.append("caption", data.caption);
+  }
+
+  const response = await api.post(
+    "/messages/send-media",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return handleResponse(response);
+},
+  
   getMessages: async (contact_id: string | number): Promise<Message[]> => {
     const response = await api.get(`/messages/${contact_id}`);
     return handleResponse(response);
@@ -1324,4 +1352,10 @@ export const whatsappAPI = {
       console.error("Error fetching sales executives:", error);
     }
   },
+
+
+  sendLocation: async (data: { contact_id: string | number; latitude: number; longitude: number }) => {
+  const response = await api.post("/messages/send-location", data);
+  return handleResponse(response);
+},
 };
