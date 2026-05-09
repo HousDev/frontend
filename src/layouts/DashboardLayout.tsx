@@ -65,7 +65,7 @@ import NotificationPanel from "./NotificationPanel";
 import { notificationAPI } from "@/lib/notificationAPI";
 import UserProfileMenu from "./UserProfileMenu";
 import { can } from "@/utils/permission";
-
+import { whatsappAPI } from "@/lib/whatsappApi";
 // Color configuration
 const COLORS = {
   primary: {
@@ -212,7 +212,7 @@ const DashboardLayout = () => {
   const NotificationPanelAny = NotificationPanel;
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-
+const [whatsappCount, setWhatsappCount] = useState<number>(0);
   const navTextClass = `text-[${COLORS.primary.main}]`;
   const navHoverClass = `group-hover:text-[${COLORS.secondary.main}]`;
 
@@ -782,6 +782,25 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
     return () => interval && clearInterval(interval);
   }, [user?.id]);
 
+
+ useEffect(() => {
+    const fetchWhatsappCount = async () => {
+        try {
+            const contacts = await whatsappAPI.getContacts();
+            setWhatsappCount(Array.isArray(contacts) ? contacts.length : 0);
+        } catch (err) {
+            console.error('Failed to fetch whatsapp count:', err);
+            setWhatsappCount(0);
+        }
+    };
+
+    if (user?.id) {
+        fetchWhatsappCount();
+        const interval = setInterval(fetchWhatsappCount, 30000);
+        return () => clearInterval(interval);
+    }
+}, [user?.id]);
+
   const handleBellClick = useCallback(async () => {
     setOpen((prev) => !prev);
     if (unreadCount > 0 && user?.id) {
@@ -1125,31 +1144,44 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
           {filteredNavigation.map((item) => (
             <div key={item.name}>
               {item.type === "single" ? (
-                <Link
-                  to={item.href}
-                  onClick={handleSidebarLinkClick}
-                  className={cn(
-                    "group flex items-center px-3 py-3 text-base font-medium rounded-sm transition-all duration-200",
-                    isActive(item.href, item.exact)
-                      ? "bg-orange-500 text-white shadow-sm"
-                      : "text-white/80 hover:text-white hover:bg-white/10"
-                  )}
-                >
-                  <item.icon
-                    className={cn(
-                      "mr-2.5 h-4 w-4 flex-shrink-0 transition-all duration-200",
-                      isActive(item.href, item.exact)
-                        ? "text-white"
-                        : "text-white/60 group-hover:text-orange-400"
-                    )}
-                  />
-                  <span className="flex-1 text-xs">
-                    {item.name}
-                  </span>
-                  {isActive(item.href, item.exact) && (
-                    <div className="w-1 h-1 bg-white rounded-full" />
-                  )}
-                </Link>
+          <Link
+  to={item.href}
+  onClick={handleSidebarLinkClick}
+  className={cn(
+    "group flex items-center px-3 py-3 text-base font-medium rounded-sm transition-all duration-200",
+    isActive(item.href, item.exact)
+      ? "bg-orange-500 text-white shadow-sm"
+      : "text-white/80 hover:text-white hover:bg-white/10"
+  )}
+>
+  <item.icon
+    className={cn(
+      "mr-2.5 h-4 w-4 flex-shrink-0 transition-all duration-200",
+      isActive(item.href, item.exact)
+        ? "text-white"
+        : "text-white/60 group-hover:text-orange-400"
+    )}
+  />
+  <span className="flex-1 text-xs">
+    {item.name}
+  </span>
+
+  {/* Count badge for WhatsAppCRM */}
+  {item.name === 'WhatsAppCRM' && whatsappCount > 0 ? (
+    <span className={cn(
+      "text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-tight",
+      isActive(item.href, item.exact)
+        ? "bg-white text-orange-500"
+        : "bg-orange-500 text-white"
+    )}>
+      {whatsappCount > 99 ? '99+' : whatsappCount}
+    </span>
+  ) : (
+    isActive(item.href, item.exact) && (
+      <div className="w-1 h-1 bg-white rounded-full" />
+    )
+  )}
+</Link>
               ) : (
                 <div>
                   <button
@@ -1271,6 +1303,7 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
     handleLogout,
     expandedMenus,
     toggleMenu,
+    whatsappCount,
   ]);
 
   return (

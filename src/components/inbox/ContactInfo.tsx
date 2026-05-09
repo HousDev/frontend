@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Phone, Mail, MapPin, DollarSign, User, ChevronDown, ChevronUp,
     Plus, X, StickyNote, Building2, AlertCircle, UserPlus, CheckCircle, Tag,
@@ -67,7 +67,10 @@ export default function ContactInfo({
     const [creatingLead, setCreatingLead] = useState(false);
     const [leadCreated, setLeadCreated] = useState(false);
     const { user } = useAuth()
-
+const [localTags, setLocalTags] = useState<TagType[]>(contact?.tags || []);
+useEffect(() => {
+    setLocalTags(contact?.tags || []);
+}, [contact?.id]);
     // Create lead using API
     const handleCreateLead = async () => {
         if (!contact || creatingLead) return;
@@ -149,53 +152,70 @@ export default function ContactInfo({
     };
 
     const handleSaveNewTag = async () => {
-        if (!newTagName.trim() || savingTag || !contact) return;
-        setSavingTag(true);
-        try {
-            const newTag: any = await whatsappAPI.createTag(newTagName.trim(), newTagColor);
-            onTagCreated?.(newTag);
-            await whatsappAPI.addTagToContact(contact.id, newTag.id);
-            onAddTag(newTag.id);
-            setNewTagName('');
-            setNewTagColor(TAG_COLORS[0]);
-            setCreatingTag(false);
-            setShowTagPicker(false);
-            notificationStore.push('success', 'Tag Created', `Tag "${newTag.name}" created and added`);
-        } catch (error) {
-            console.error('Failed to create tag:', error);
-            notificationStore.push('error', 'Failed', 'Could not create tag');
-        } finally {
-            setSavingTag(false);
-        }
-    };
+    if (!newTagName.trim() || savingTag || !contact) return;
+    setSavingTag(true);
+    try {
+        const newTag: any = await whatsappAPI.createTag(newTagName.trim(), newTagColor);
+        
+        // ✅ Notify parent to add to allTags list
+        onTagCreated?.(newTag);
+        
+        // ✅ Add tag to contact
+        await whatsappAPI.addTagToContact(contact.id, newTag.id);
+        
+        // ✅ Notify parent to add to contact's tags
+        onAddTag(String(newTag.id));
+        
+        // ✅ Also update local optimistic state immediately
+        setLocalTags(prev => [...prev, newTag]);
+        
+        setNewTagName('');
+        setNewTagColor(TAG_COLORS[0]);
+        setCreatingTag(false);
+        setShowTagPicker(false);
+        notificationStore.push('success', 'Tag Created', `Tag "${newTag.name}" created and added`);
+    } catch (error) {
+        console.error('Failed to create tag:', error);
+        notificationStore.push('error', 'Failed', 'Could not create tag');
+    } finally {
+        setSavingTag(false);
+    }
+};
+const handleAddTag = async (tagId: string) => {
+    if (!contact) return;
+    try {
+        await whatsappAPI.addTagToContact(contact.id, tagId);
+        onAddTag(tagId);
+        
+        // ✅ Add to local state immediately
+        const tag = allTags.find(t => String(t.id) === tagId);
+        if (tag) setLocalTags(prev => [...prev, tag]);
+        
+        setShowTagPicker(false);
+        setTagSearch('');
+        notificationStore.push('success', 'Tag Added', `Tag "${tag?.name}" added to contact`);
+    } catch (error) {
+        console.error('Failed to add tag:', error);
+        notificationStore.push('error', 'Failed', 'Could not add tag');
+    }
+};
 
-    const handleAddTag = async (tagId: string) => {
-        if (!contact) return;
-        try {
-            await whatsappAPI.addTagToContact(contact.id, tagId);
-            onAddTag(tagId);
-            setShowTagPicker(false);
-            setTagSearch('');
-            const tag = allTags.find(t => t.id === tagId);
-            notificationStore.push('success', 'Tag Added', `Tag "${tag?.name}" added to contact`);
-        } catch (error) {
-            console.error('Failed to add tag:', error);
-            notificationStore.push('error', 'Failed', 'Could not add tag');
-        }
-    };
-
-    const handleRemoveTag = async (tagId: string) => {
-        if (!contact) return;
-        try {
-            await whatsappAPI.removeTagFromContact(contact.id, tagId);
-            onRemoveTag(tagId);
-            const tag = allTags.find(t => t.id === tagId);
-            notificationStore.push('success', 'Tag Removed', `Tag "${tag?.name}" removed from contact`);
-        } catch (error) {
-            console.error('Failed to remove tag:', error);
-            notificationStore.push('error', 'Failed', 'Could not remove tag');
-        }
-    };
+   const handleRemoveTag = async (tagId: string) => {
+    if (!contact) return;
+    try {
+        await whatsappAPI.removeTagFromContact(contact.id, tagId);
+        onRemoveTag(tagId);
+        
+        // ✅ Remove from local state immediately
+        setLocalTags(prev => prev.filter(t => String(t.id) !== tagId));
+        
+        const tag = allTags.find(t => String(t.id) === tagId);
+        notificationStore.push('success', 'Tag Removed', `Tag "${tag?.name}" removed from contact`);
+    } catch (error) {
+        console.error('Failed to remove tag:', error);
+        notificationStore.push('error', 'Failed', 'Could not remove tag');
+    }
+};
 
     if (!contact) {
         return (
@@ -205,10 +225,10 @@ export default function ContactInfo({
         );
     }
 
-    const contactTags = contact.tags || [];
+const contactTags = localTags;
     const filteredAvailableTags = allTags
-        .filter((t) => !contactTags.some((ct) => ct.id === t.id))
-        .filter((t) => !tagSearch || t.name.toLowerCase().includes(tagSearch.toLowerCase()));
+    .filter((t) => !localTags.some((ct) => String(ct.id) === String(t.id)))
+    .filter((t) => !tagSearch || t.name.toLowerCase().includes(tagSearch.toLowerCase()));
 
     return (
         <div className="flex flex-col h-full overflow-y-auto text-sm">

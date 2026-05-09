@@ -56,86 +56,62 @@ export function useConversations(filter: InboxFilter, search: string) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchConversations = useCallback(async () => {
-    setLoading(true);
-    try {
-      const contacts = await whatsappAPI.getContacts();
-      
-      const convs = await Promise.all(
-        (contacts || []).map(async (contact: any) => {
-          let lastMsg = null;
-          let unreadCount = 0;
-          
-          try {
-            const msgs = await whatsappAPI.getMessages(contact.id);
-            if (msgs && msgs.length) {
-              lastMsg = msgs[msgs.length - 1];
-              unreadCount = msgs.filter((m: any) => 
-                m.direction === 'in' && m.is_read === 0
-              ).length;
-            }
-          } catch (e) {
-            console.error('Failed to fetch messages for contact', contact.id, e);
-          }
-          
-          return {
-            id: `conv_${contact.id}`,
-            contact_id: contact.id,
-            contact: contact,
-            status: 'open',
-            unread_count: unreadCount,
-            last_message: lastMsg?.text || contact.last_message || '',
-            last_message_at: lastMsg?.time_sent || contact.last_contact_time || contact.created_at || new Date().toISOString(),
-            bot_active: false,
-            flow_id: null,
-            current_step_index: 0,
-            assigned_to: contact.assigned_to || null,
-            created_at: contact.created_at,
-            updated_at: contact.updated_at || contact.created_at,
-          };
-        })
+  setLoading(true);
+  try {
+    const contacts = await whatsappAPI.getContacts();
+    
+    const convs = await Promise.all(
+      (contacts || []).map(async (contact: any) => {
+        let unreadCount = 0;
+        
+        try {
+          const unreadResult = await whatsappAPI.getUnreadCount(contact.id);
+          unreadCount = Number(unreadResult?.unread_count) || 0;
+        } catch (e) {
+          unreadCount = 0;
+        }
+        
+        return {
+          id: `conv_${contact.id}`,
+          contact_id: contact.id,
+          contact: contact,
+          status: 'open',
+          unread_count: unreadCount,
+          last_message: contact.last_message || '',
+          last_message_at: contact.last_contact_time || contact.created_at || new Date().toISOString(),
+          bot_active: false,
+          flow_id: null,
+          current_step_index: 0,
+          assigned_to: contact.assigned_to || null,
+          created_at: contact.created_at,
+          updated_at: contact.updated_at || contact.created_at,
+        };
+      })
+    );
+
+    // ✅ Only apply search here, NO tab filter
+    let result = convs;
+
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.contact?.name?.toLowerCase().includes(s) ||
+          c.contact?.phone?.toLowerCase().includes(s)
       );
-      
-      let filtered = convs;
-
-      if (filter === 'unread') {
-        filtered = filtered.filter((c) => c.unread_count > 0);
-      }
-      else if (filter === 'assigned') {
-        filtered = filtered.filter((c) => c.assigned_to);
-      }
-      else if (filter === 'buyer') {
-        filtered = filtered.filter((c) => {
-          const tags = c.contact?.tags || [];
-          return tags.some((t: any) => t.name?.toLowerCase() === 'buyer');
-        });
-      }
-      else if (filter === 'seller') {
-        filtered = filtered.filter((c) => {
-          const tags = c.contact?.tags || [];
-          return tags.some((t: any) => t.name?.toLowerCase() === 'seller');
-        });
-      }
-
-      if (search.trim()) {
-        const s = search.toLowerCase();
-        filtered = filtered.filter(
-          (c) =>
-            c.contact?.name?.toLowerCase().includes(s) ||
-            c.contact?.phone?.toLowerCase().includes(s)
-        );
-      }
-
-      filtered.sort((a, b) => {
-        return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime();
-      });
-
-      setConversations(filtered);
-    } catch (err) {
-      console.error('Failed to fetch conversations', err);
-    } finally {
-      setLoading(false);
     }
-  }, [filter, search]);
+
+    result.sort((a, b) => {
+      return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime();
+    });
+
+    setConversations(result);
+  } catch (err) {
+    console.error('Failed to fetch conversations', err);
+  } finally {
+    setLoading(false);
+  }
+}, [search]);  // ← removed filter from deps
 
   useEffect(() => {
     fetchConversations();
