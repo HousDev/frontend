@@ -1,6 +1,15 @@
 import { useEffect } from "react";
-import { connectSocket, getSocket } from "@/lib/socket";
+// import { connectSocket, getSocket } from "@/lib/socket";
+import { io } from 'socket.io-client';
 
+function connectSocket(userId: string | number) {
+  return io(import.meta.env.VITE_API_URL || "https://resaleexpert.in", {
+    path: "/socket.io",
+    transports: ["websocket", "polling"],
+    query: { userId: String(userId) },
+    withCredentials: true,
+  });
+}
 type Handler = (payload: any) => void;
 
 export function useNotificationsSocket(userId: number | string, handlers: {
@@ -25,13 +34,11 @@ export function useNotificationsSocket(userId: number | string, handlers: {
     s.on("notification:readAll", hReadAll);
 
     return () => {
-      const sock = getSocket();
-      if (!sock) return;
-      sock.off("notification:new", hNew);
-      sock.off("notification:created", hUpd);
-      sock.off("notification:updated", hUpd);
-      sock.off("notification:read", hRead);
-      sock.off("notification:readAll", hReadAll);
+      s.off("notification:new", hNew);
+s.off("notification:created", hUpd);
+s.off("notification:updated", hUpd);
+s.off("notification:read", hRead);
+s.off("notification:readAll", hReadAll);
     };
   }, [userId]);
 }

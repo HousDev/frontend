@@ -1132,7 +1132,7 @@ export const whatsappAPI = {
   },
 
   // ---------- Messages ----------
-  sendMessage: async (data: { contact_id: string | number; text: string; is_note?: boolean }) => {
+  sendMessage: async (data: { contact_id: string | number; text: string; is_note?: boolean;sender_name?: string;   }) => {
     const response = await api.post("/messages/send", data);
     return handleResponse(response);
   },
@@ -1141,6 +1141,7 @@ export const whatsappAPI = {
   contact_id: string | number;
   file: File;
   caption?: string;
+  sender_name?: string;
 }) => {
   const formData = new FormData();
 
@@ -1151,6 +1152,7 @@ export const whatsappAPI = {
     formData.append("caption", data.caption);
   }
 
+  if (data.sender_name) formData.append("sender_name", data.sender_name);
   const response = await api.post(
     "/messages/send-media",
     formData,
@@ -1354,7 +1356,7 @@ export const whatsappAPI = {
   },
 
 
-  sendLocation: async (data: { contact_id: string | number; latitude: number; longitude: number }) => {
+  sendLocation: async (data: { contact_id: string | number; latitude: number; longitude: number,sender_name?: string;   }) => {
   const response = await api.post("/messages/send-location", data);
   return handleResponse(response);
 },
