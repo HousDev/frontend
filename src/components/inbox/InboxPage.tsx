@@ -6,11 +6,25 @@ import type { InboxFilter } from '../../hooks/useInbox';
 import type { WhatsAppConversation } from '../../types';
 import ConversationList from './ConversationList';
 import ChatWindow from './ChatWindow';
-import { connectSocket } from "@/lib/socket";
+import { Toaster } from 'react-hot-toast';
+// import { connectSocket } from "@/lib/socket";
+import { io } from 'socket.io-client';
+
 import ContactInfo from './ContactInfo';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { notificationStore } from '@/lib/notifications';
 
+
+
+function connectSocket(userId: string | number) {
+  return io(import.meta.env.VITE_API_URL || "https://resaleexpert.in", {
+    path: "/socket.io",
+    transports: ["websocket", "polling"],
+    query: { userId: String(userId) },
+    withCredentials: true,
+  });
+}
 
 // Mobile view states
 type MobileView = 'list' | 'chat'| 'contact';;
@@ -82,7 +96,20 @@ const { user } = useAuth();
                             : (prev.unread_count || 0) + 1,
                 };
             });
+            if (data.direction === 'in' && selectedConv?.contact_id !== contact_id) {
+        const senderConv = conversations.find(
+            (c: any) => c.contact_id === contact_id
+        );
+        const senderName = senderConv?.contact?.name || `Contact ${contact_id}`;
+        
+        notificationStore.push(
+            'message',
+            senderName,
+            text || 'New message',
+            { label: 'View', page: 'inbox' }
+        );
 
+    }
             if (selectedConv?.contact_id === contact_id) {
                 refresh();
             }
@@ -168,6 +195,8 @@ const handleAddNote = useCallback(async (body: any) => {
 }, [contact, fetchAllNotes]);
     return (
         <>
+                    <Toaster position="top-right" />
+
             {/* ── DESKTOP: show both side by side (unchanged) ── */}
             <div className="hidden xl:flex h-full overflow-hidden bg-white ">
                 <ConversationList

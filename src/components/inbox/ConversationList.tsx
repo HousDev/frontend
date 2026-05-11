@@ -107,10 +107,11 @@ export default function ConversationList({
   const [notifUnread, setNotifUnread] = useState(0);
 
   useEffect(() => {
-    notificationStore.subscribe((all) => {
+    const unsubscribe = notificationStore.subscribe((all) => {
       setNotifications(all);
       setNotifUnread(all.filter((n) => !n.read).length);
     });
+    return () => { unsubscribe(); };
   }, []);
 
   const handleBellClick = () => {

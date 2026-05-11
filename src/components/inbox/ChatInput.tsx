@@ -708,22 +708,29 @@ const [emojiSearch, setEmojiSearch] = useState('');
 
 const handleSend = async () => {
     if (sending || disabled) return;
+    
+    // ADD THIS - prevent double fire
+    if (!selectedFile && !text.trim()) return;
+    
     setSending(true);
+    
     try {
         if (selectedFile) {
-            if (!onSendMedia) {
-                console.error("onSendMedia not provided");
-                return;
-            }
+            if (!onSendMedia) return;
+            
+            const fileToSend = selectedFile.file; // capture before removeFile
             const finalCaption = text.trim();
-            await onSendMedia(selectedFile.file, finalCaption); // ✅ this calls ChatWindow's handleSendMedia
-            removeFile();
+            
+            removeFile(); // ← MOVE THIS BEFORE await to prevent double click
             setText('');
+            
+            await onSendMedia(fileToSend, finalCaption);
             return;
         }
         if (text.trim()) {
-            await onSendText(text.trim());
-            setText('');
+            const textToSend = text.trim();
+            setText(''); // ← CLEAR TEXT BEFORE await
+            await onSendText(textToSend);
         }
     } catch (error) {
         console.error('Failed to send:', error);

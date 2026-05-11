@@ -9,8 +9,21 @@ import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import ContactInfo from './ContactInfo';
 import { useAuth } from '@/contexts/AuthContext';
-import { connectSocket } from "@/lib/socket";
+// import { connectSocket } from "@/lib/socket";
+import { io } from 'socket.io-client';
+
+
+
 import whatsapp_bg from '@/assets/images/whatsapp_bg.png';
+function connectSocket(userId: string | number) {
+  return io(import.meta.env.VITE_API_URL || "https://resaleexpert.in", {
+    path: "/socket.io",
+    transports: ["websocket", "polling"],
+    query: { userId: String(userId) },
+    withCredentials: true,
+  });
+}
+
 interface Props {
     conversation: WhatsAppConversation | null;
     contact: WhatsAppContact | null;
@@ -45,6 +58,8 @@ export default function ChatWindow({
     const [loading, setLoading] = useState(false);
     const endRef = useRef<HTMLDivElement>(null);
     const socketRef = useRef<any>(null);
+    const [isSending, setIsSending] = useState(false);
+const lastMessageTimeRef = useRef<number>(0);
     const { user } = useAuth();
 
     // ✅ Track sent messages to prevent duplicates
@@ -201,8 +216,10 @@ if (data.direction === 'out' && data.message_type === 'location') return;
                     timestamp: msg.time_sent || msg.timestamp,
                     status: msg.status,
                     is_read: msg.is_read || false,
-                    sender: msg.direction === 'out' ? { name: 'You' } : null,
-                    media_url: msg.media_url || null,    // ← ADD
+sender: msg.direction === 'out' 
+    ? { name: msg.sender?.name || msg.sender_name || 'You' }
+    : null,             
+            media_url: msg.media_url || null,    // ← ADD
     media_type: msg.media_type || null,  // ← ADD
     file_name: msg.file_name || null, 
                 }));
@@ -257,7 +274,12 @@ if (data.direction === 'out' && data.message_type === 'location') return;
 // In the handleSendMedia function
 const handleSendMedia = async (file: File, caption: string) => {
     if (!conversation || !contact) return;
+      const now = Date.now();
+    if (now - lastMessageTimeRef.current < 2000) return;
+    lastMessageTimeRef.current = now;
 
+    if (isSending) return;
+    setIsSending(true);
     const tempId = `temp_media_${Date.now()}`;
     const previewUrl = URL.createObjectURL(file);
 
@@ -268,7 +290,7 @@ const handleSendMedia = async (file: File, caption: string) => {
         timestamp: new Date().toISOString(),
         status: 'sending',
         is_read: true,
-        sender: { name: 'You' },
+        sender: { name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'You' },
         media_url: previewUrl,
         media_type: file.type,
         file_name: file.name
@@ -278,23 +300,22 @@ const handleSendMedia = async (file: File, caption: string) => {
 
     try {
         const result: any = await whatsappAPI.sendMediaMessage({
-            contact_id: contact.id,
-            file,
-            caption: caption || ''  // ← Send caption to backend
-        });
-
+           contact_id: contact.id,
+  file,
+  caption: caption || '',
+  sender_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim()  // ← ADD
+});
         setMessages((prev: any) =>
-            prev.map((msg: any) =>
-                msg.id === tempId
-                    ? { 
-                        ...msg, 
-                        id: result.id || tempId, 
-                        status: 'sent',
-                        text: result.text || caption || '📎 Media'  // ← Use returned text
-                      }
-                    : msg
-            )
-        );
+    prev.map((msg: any) =>
+        msg.id === tempId ? { 
+            ...msg, 
+            id: result.id, 
+            status: 'sent',
+            sender: { name: result.sender?.name || msg.sender?.name || 'You' }
+            // ← sender mat overwrite karo, ...msg se already sahi naam hai
+        } : msg
+    )
+);
     } catch (err) {
         console.error('Failed to send media', err);
         setMessages((prev: any) =>
@@ -303,82 +324,84 @@ const handleSendMedia = async (file: File, caption: string) => {
             )
         );
     }
+    finally {
+        setTimeout(() => setIsSending(false), 2000); // ← ADD THIS
+    }
 };
     // ✅ Handle send text message - FIXED DUPLICATE ISSUE
-    const handleSendText = async (text: string) => {
-        if (!conversation || !contact) return;
+   // ✅ REPLACE THIS ENTIRE FUNCTION (around line 110-160)
+const handleSendText = async (text: string) => {
+    if (!conversation || !contact) return;
+    
+    // Add these 3 lines at the VERY TOP of the function
+    const now = Date.now();
+    if (now - lastMessageTimeRef.current < 1000) return;
+    lastMessageTimeRef.current = now;
+    
+    // Add this check
+    if (isSending) return;
 
-        // ✅ Create unique key for this message to prevent duplicates
-        const messageKey = `${contact.id}_${text}_${Date.now()}`;
+    const messageKey = `${contact.id}_${text}_${now}`;
+    if (sentMessagesRef.current.has(messageKey)) return;
 
-        // ✅ Prevent duplicate sends
-        if (sentMessagesRef.current.has(messageKey)) {
-            console.log("⚠️ Duplicate send prevented for:", messageKey);
-            return;
-        }
+    sentMessagesRef.current.add(messageKey);
+    setIsSending(true);  // ← Add this line
 
-        sentMessagesRef.current.add(messageKey);
+    const tempId = `temp_${Date.now()}_${Math.random()}`;
 
-        const tempId = `temp_${Date.now()}_${Math.random()}`;
-
-        const formattedMsg = {
-            id: tempId,
-            direction: 'out',
-            text: text,
-            timestamp: new Date().toISOString(),
-            status: 'sending',
-            is_read: true,
-            sender: { name: 'You' }
-        };
-
-        // ✅ Optimistic update
-        setMessages((prev: any) => [...prev, formattedMsg]);
-
-        try {
-            const newMsg: any = await whatsappAPI.sendMessage({ contact_id: contact.id, text });
-
-            // ✅ Replace temp message with real message
-            setMessages((prev: any) =>
-                prev.map((msg: any) =>
-                    msg.id === tempId
-                        ? { ...msg, id: newMsg.id, status: 'sent' }
-                        : msg
-                )
-            );
-
-            // ✅ Remove from tracking after delay
-            setTimeout(() => {
-                sentMessagesRef.current.delete(messageKey);
-            }, 1000);
-
-            notificationStore.push(
-                'message',
-                'Message Sent',
-                `Sent to ${contact.name}`,
-                { label: "", page: "" }
-            );
-
-        } catch (err) {
-            console.error('Failed to send message', err);
-
-            setMessages((prev: any) =>
-                prev.map((msg: any) =>
-                    msg.id === tempId
-                        ? { ...msg, status: 'failed' }
-                        : msg
-                )
-            );
-
-            sentMessagesRef.current.delete(messageKey);
-
-            notificationStore.push(
-                'error',
-                'Send Failed',
-                'Could not send message. Try again.',
-                { label: "", page: "" }
-            );
-        }
+    const formattedMsg = {
+        id: tempId,
+        direction: 'out',
+        text: text,
+        timestamp: new Date().toISOString(),
+        status: 'sending',
+        is_read: true,
+        sender: { name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'You' } 
     };
+
+    setMessages((prev: any) => [...prev, formattedMsg]);
+
+    try {
+        const newMsg: any = await whatsappAPI.sendMessage({ contact_id: contact.id, text, sender_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() });
+
+        setMessages((prev: any) =>
+            prev.map((msg: any) =>
+                msg.id === tempId ? { ...msg, id: newMsg.id, status: 'sent' } : msg
+            )
+        );
+
+        setTimeout(() => {
+            sentMessagesRef.current.delete(messageKey);
+            setIsSending(false);  // ← Add this line
+        }, 2000);
+
+        notificationStore.push(
+            'message',
+            'Message Sent',
+            `Sent to ${contact.name}`,
+            { label: "", page: "" }
+        );
+
+    } catch (err) {
+        console.error('Failed to send message', err);
+
+        setMessages((prev: any) =>
+            prev.map((msg: any) =>
+                msg.id === tempId ? { ...msg, status: 'failed' } : msg
+            )
+        );
+
+        sentMessagesRef.current.delete(messageKey);
+        setIsSending(false);  // ← Add this line
+
+        notificationStore.push(
+            'error',
+            'Send Failed',
+            'Could not send message. Try again.',
+            { label: "", page: "" }
+        );
+    }
+};
 
     const handleSendTemplate = async (templateName: string, vars: string[]) => {
         notificationStore.push('info', 'Coming Soon', 'Template feature will be available soon', { label: "", page: "" });
@@ -416,7 +439,8 @@ const handleSendLocation = async (lat: number, lng: number) => {
         const result: any = await whatsappAPI.sendLocation({ 
             contact_id: contact.id, 
             latitude: lat, 
-            longitude: lng 
+            longitude: lng ,
+            sender_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() 
         });
 
         // Replace temp message with real one

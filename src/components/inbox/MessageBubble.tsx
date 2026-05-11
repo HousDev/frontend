@@ -432,16 +432,21 @@ export default function MessageBubble({ message, showDateSeparator, dateSeparato
                         </div>
                     )}
 
-                    {/* ───── TIMESTAMP + STATUS ───── */}
-                    <div className={`flex items-center gap-1 mt-0.5 ${isOutbound ? 'flex-row-reverse' : ''}`}>
-                        <span className="text-[10px] text-[#8696a0]">{formatTime(message.timestamp)}</span>
-                        {isOutbound && STATUS_ICONS[message.status]}
-                        {message.sender && (
-                            <span className="text-[10px] text-[#8696a0]">
-                                {message.sender.name}
-                            </span>
-                        )}
-                    </div>
+
+                   {/* ───── TIMESTAMP + STATUS ───── */}
+<div className={`flex items-center gap-1 mt-0.5 ${isOutbound ? 'flex-row-reverse' : ''}`}>
+    <span className="text-[10px] text-[#8696a0]">{formatTime(message.timestamp)}</span>
+    {isOutbound && (
+        <>
+            {STATUS_ICONS[message.status]}
+            {message.sender?.name && (
+                <span className="text-[10px] text-[#8696a0]">
+                    {message.sender.name}
+                </span>
+            )}
+        </>
+    )}
+</div>
 
                 </div>
             </div>
