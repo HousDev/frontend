@@ -67,6 +67,7 @@ import UserProfileMenu from "./UserProfileMenu";
 import { can } from "@/utils/permission";
 import { whatsappAPI } from "@/lib/whatsappApi";
 import { initNotificationSound, playNotificationSound } from "../../src/utils/notificationSound"; // adjust path to wherever your sound file is
+import io, { Socket } from "socket.io-client";
 
 // Color configuration
 const COLORS = {
@@ -211,6 +212,7 @@ const DashboardLayout = () => {
   const [mobileTimersOpen, setMobileTimersOpen] = useState(false);
   const mobileTimersRef = useRef<HTMLDivElement | null>(null);
   const prevUnreadCountRef = useRef<number>(0);
+const socketRef = useRef<Socket | null>(null);
 
   const NotificationPanelAny = NotificationPanel;
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -748,93 +750,235 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
       document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    let interval: any;
+  // useEffect(() => {
+  //   let interval: any;
 
-    const fetchNotifications = async () => {
-      try {
-        if (!user?.id) return;
-        const userIdNum = Number(user.id);
-        if (Number.isNaN(userIdNum)) return;
+  //   const fetchNotifications = async () => {
+  //     try {
+  //       if (!user?.id) return;
+  //       const userIdNum = Number(user.id);
+  //       if (Number.isNaN(userIdNum)) return;
 
-        const res = await notificationAPI.getUserNotifications(
-          userIdNum
-        );
-        const list: RawNotification[] = Array.isArray(res?.notifications)
-          ? res.notifications
-          : res?.notifications
-            ? [res.notifications]
-            : [];
+  //       const res = await notificationAPI.getUserNotifications(
+  //         userIdNum
+  //       );
+  //       const list: RawNotification[] = Array.isArray(res?.notifications)
+  //         ? res.notifications
+  //         : res?.notifications
+  //           ? [res.notifications]
+  //           : [];
 
-        const ui = list.map(mapRawToUI);
+  //       const ui = list.map(mapRawToUI);
 
-        setNotifications((prev) =>
-          JSON.stringify(prev) !== JSON.stringify(ui) ? ui : prev
-        );
-        const newUnread = ui.filter((n) => !n.read).length;
+  //       setNotifications((prev) =>
+  //         JSON.stringify(prev) !== JSON.stringify(ui) ? ui : prev
+  //       );
+  //       const newUnread = ui.filter((n) => !n.read).length;
         
-        // 🔊 PLAY SOUND WHEN NEW NOTIFICATION ARRIVES
-        if (newUnread > prevUnreadCountRef.current) {
-          playNotificationSound();
-        }
-        prevUnreadCountRef.current = newUnread;
+  //       // 🔊 PLAY SOUND WHEN NEW NOTIFICATION ARRIVES
+  //       if (newUnread > prevUnreadCountRef.current) {
+  //         playNotificationSound();
+  //       }
+  //       prevUnreadCountRef.current = newUnread;
         
-        setUnreadCount((prev) =>
-          prev !== newUnread ? newUnread : prev
-        );
-      } catch (err) {
-        console.error("Error fetching notifications:", err);
-      }
-    };
+  //       setUnreadCount((prev) =>
+  //         prev !== newUnread ? newUnread : prev
+  //       );
+  //     } catch (err) {
+  //       console.error("Error fetching notifications:", err);
+  //     }
+  //   };
 
-    if (user?.id) {
-      fetchNotifications();
-      interval = setInterval(fetchNotifications, 10000);
-    }
-    return () => interval && clearInterval(interval);
-  }, [user?.id]);
+  //   if (user?.id) {
+  //     fetchNotifications();
+  //     interval = setInterval(fetchNotifications, 1000);
+  //   }
+  //   return () => interval && clearInterval(interval);
+  // }, [user?.id]);
 
 
-useEffect(() => {
-    const fetchWhatsappCount = async () => {
-        try {
-            const contacts = await whatsappAPI.getContacts();
-            if (!Array.isArray(contacts)) {
-                setWhatsappCount(0);
-                return;
-            }
+// useEffect(() => {
+//     const fetchWhatsappCount = async () => {
+//         try {
+//             const contacts = await whatsappAPI.getContacts();
+//             if (!Array.isArray(contacts)) {
+//                 setWhatsappCount(0);
+//                 return;
+//             }
             
-            let totalUnread = 0;
-            await Promise.all(
-                contacts.map(async (contact: any) => {
-                    try {
-                        const result = await whatsappAPI.getUnreadCount(contact.id);
-                        totalUnread += Number(result?.unread_count) || 0;
-                    } catch {
-                        // ignore per-contact errors
-                    }
-                })
-            );
+//             let totalUnread = 0;
+//             await Promise.all(
+//                 contacts.map(async (contact: any) => {
+//                     try {
+//                         const result = await whatsappAPI.getUnreadCount(contact.id);
+//                         totalUnread += Number(result?.unread_count) || 0;
+//                     } catch {
+//                         // ignore per-contact errors
+//                     }
+//                 })
+//             );
 
-            // ✅ Play sound only if new messages arrived
-            if (totalUnread > prevWhatsappCountRef.current) {
-                playNotificationSound();
-            }
-            prevWhatsappCountRef.current = totalUnread;
-            setWhatsappCount(totalUnread);
-        } catch (err) {
-            console.error('Failed to fetch whatsapp count:', err);
-            setWhatsappCount(0);
-        }
+//             // ✅ Play sound only if new messages arrived
+//             if (totalUnread > prevWhatsappCountRef.current) {
+//                 playNotificationSound();
+//             }
+//             prevWhatsappCountRef.current = totalUnread;
+//             setWhatsappCount(totalUnread);
+//         } catch (err) {
+//             console.error('Failed to fetch whatsapp count:', err);
+//             setWhatsappCount(0);
+//         }
+//     };
+
+//     if (user?.id) {
+//         fetchWhatsappCount();
+//         const interval = setInterval(fetchWhatsappCount, 1000);
+//         return () => clearInterval(interval);
+//     }
+// }, [user?.id]);
+
+
+
+// ============================================
+// SOCKET.IO REAL-TIME CONNECTION
+// ============================================
+useEffect(() => {
+  if (!user?.id) return;
+
+  const userId = Number(user.id);
+  if (isNaN(userId)) return;
+
+  // Initialize socket connection
+  const socket = io(import.meta.env.VITE_API_URL || "http://localhost:3000", {
+    transports: ["websocket", "polling"],
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+  });
+
+  socketRef.current = socket;
+
+  socket.on("connect", () => {
+    console.log("✅ Socket connected:", socket.id);
+    socket.emit("join_user", { userId });
+  });
+
+  // 🔔 LISTEN FOR NEW NOTIFICATIONS
+  socket.on("new_notification", (data: any) => {
+    console.log("🔔 New notification:", data);
+    playNotificationSound();
+    
+    const newNotification: NotificationItem = {
+      id: Date.now(),
+      title: data.title || "New Notification",
+      message: data.message || "",
+      type: data.type || "general",
+      priority: data.priority || "medium",
+      timestamp: new Date().toISOString(),
+      read: false,
+      link: data.link || null,
+      color: "orange",
     };
+    
+    setNotifications(prev => [newNotification, ...prev]);
+    setUnreadCount(prev => prev + 1);
+  });
 
-    if (user?.id) {
-        fetchWhatsappCount();
-        const interval = setInterval(fetchWhatsappCount, 1000);
-        return () => clearInterval(interval);
+  // 💬 LISTEN FOR NEW WHATSAPP MESSAGES
+  socket.on("new_whatsapp_message", (data: any) => {
+    console.log("💬 New WhatsApp message:", data);
+    playNotificationSound();
+    setWhatsappCount(prev => {
+      const newCount = prev + 1;
+      prevWhatsappCountRef.current = newCount;
+      return newCount;
+    });
+  });
+
+  // 📊 WHATSAPP UNREAD COUNT UPDATE
+  socket.on("whatsapp_unread_update", (data: { totalUnread: number }) => {
+    console.log("WhatsApp unread update:", data.totalUnread);
+    if (data.totalUnread > prevWhatsappCountRef.current) {
+      playNotificationSound();
     }
+    prevWhatsappCountRef.current = data.totalUnread;
+    setWhatsappCount(data.totalUnread);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("❌ Socket disconnected");
+  });
+
+  return () => {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+  };
 }, [user?.id]);
 
+// ============================================
+// INITIAL FETCH (ONLY ONCE - NO POLLING)
+// ============================================
+
+// Fetch notifications once
+useEffect(() => {
+  const fetchNotifications = async () => {
+    if (!user?.id) return;
+    try {
+      const userIdNum = Number(user.id);
+      if (isNaN(userIdNum)) return;
+
+      const res = await notificationAPI.getUserNotifications(userIdNum);
+      const list: RawNotification[] = Array.isArray(res?.notifications)
+        ? res.notifications
+        : res?.notifications
+          ? [res.notifications]
+          : [];
+
+      const ui = list.map(mapRawToUI);
+      setNotifications(ui);
+      const newUnread = ui.filter((n) => !n.read).length;
+      setUnreadCount(newUnread);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  fetchNotifications();
+}, [user?.id]);
+
+// Fetch whatsapp count once
+useEffect(() => {
+  const fetchWhatsappCount = async () => {
+    if (!user?.id) return;
+    try {
+      const contacts = await whatsappAPI.getContacts();
+      if (!Array.isArray(contacts)) {
+        setWhatsappCount(0);
+        return;
+      }
+      
+      let totalUnread = 0;
+      for (const contact of contacts) {
+        try {
+          const result = await whatsappAPI.getUnreadCount(contact.id);
+          totalUnread += Number(result?.unread_count) || 0;
+        } catch {
+          // ignore
+        }
+      }
+      
+      prevWhatsappCountRef.current = totalUnread;
+      setWhatsappCount(totalUnread);
+    } catch (err) {
+      console.error('Failed to fetch whatsapp count:', err);
+      setWhatsappCount(0);
+    }
+  };
+
+  fetchWhatsappCount();
+}, [user?.id]);
 useEffect(() => {
     const unlockAudio = () => {
         initNotificationSound();
