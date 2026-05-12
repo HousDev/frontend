@@ -530,21 +530,35 @@ const PublicFooter = ({ onPageChange }: any) => {
       </div>
 
       {/* Bottom Footer */}
-      <div className="bg-gray-950 border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="text-gray-400 text-sm mb-4 md:mb-0 text-center md:text-left">
-              © {currentYear} {companyName}. All rights reserved.{' '}
-              <span className="mx-2 text-gray-500">|</span>
-              <span className="text-gray-400">
-                Developed by <span className="font-semibold text-white">Hously Finntech Realty</span>
-              </span>
-              <span className="mx-2 text-gray-500">|</span>
-              <span className="text-gray-400">Real Estate Experience.</span>
-            </div>
-          </div>
-        </div>
+     <div className="bg-gray-950 border-t border-gray-800">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="flex flex-col md:flex-row items-center justify-between">
+      <div className="text-gray-400 text-sm mb-4 md:mb-0 text-center md:text-left">
+        © {currentYear} {companyName}. All rights reserved.{` `}
+        
+        <span className="mx-2 text-gray-500">|</span>
+
+        <span className="text-gray-400">
+          Developed by{' '}
+         <a
+  href="https://hously.in"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="font-semibold text-white underline hover:text-gray-300 transition-colors"
+>
+  Hously Finntech Realty
+</a>
+        </span>
+
+        <span className="mx-2 text-gray-500">|</span>
+
+        <span className="text-gray-400">
+          Real Estate Experience.
+        </span>
       </div>
+    </div>
+  </div>
+</div>
 
       {/* Add these modals near end of component JSX */}
               {/* <PrivacyPolicyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
