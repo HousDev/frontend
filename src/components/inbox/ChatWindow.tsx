@@ -101,7 +101,7 @@ const { user } = useAuth();
         });
 
         console.log("🔌 [Step 4] Joining contact room:", contact.id);
-        socket.emit("join_contact_room", contact.id);
+socket.emit("join_contact_room", `contact:${contact.id}`)
 
         // Listen for new messages
         const handleNewMessage = (data: any) => {
@@ -190,7 +190,7 @@ socket.on('contact_presence', handlePresence);
 return () => {
     console.log("🧹 [Step 13] Cleaning up socket for contact:", contact.id);
     if (socket) {
-        socket.emit("leave_contact_room", contact.id);
+socket.emit("leave_contact_room", `contact:${contact.id}`)
         socket.off("chat_update", handleNewMessage);
         socket.off("message_status_update", handleStatusUpdate);
         socket.off("contact_presence", handlePresence);
