@@ -8,19 +8,20 @@ import { notificationStore } from '../../lib/notifications';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import ContactInfo from './ContactInfo';
-import { useAuth } from '@/contexts/AuthContext';;
+import { useAuth } from '@/contexts/AuthContext';
+// import { connectSocket } from "@/lib/socket";
 import { io } from 'socket.io-client';
 
 
 
 import whatsapp_bg from '@/assets/images/whatsapp_bg.png';
 function connectSocket(userId: string | number) {
-    return io(import.meta.env.VITE_API_URL || "https://resaleexpert.in", {
-        path: "/socket.io",
-        transports: ["websocket", "polling"],
-        query: { userId: String(userId) },
-        withCredentials: true,
-    });
+  return io(import.meta.env.VITE_API_URL || "https://resaleexpert.in", {
+    path: "/socket.io",
+    transports: ["websocket", "polling"],
+    query: { userId: String(userId) },
+    withCredentials: true,
+  });
 }
 
 interface Props {
@@ -57,13 +58,13 @@ export default function ChatWindow({
     const [loading, setLoading] = useState(false);
     const endRef = useRef<HTMLDivElement>(null);
     const socketRef = useRef<any>(null);
-    const [isSending, setIsSending] = useState(false);
-    const [contactPresence, setContactPresence] = useState<{
-        status: 'online' | 'offline';
-        last_seen: string;
-    } | null>(null);
-    const lastMessageTimeRef = useRef<number>(0);
-    const { user } = useAuth();
+  const [isSending, setIsSending] = useState(false);
+const [contactPresence, setContactPresence] = useState<{
+    status: 'online' | 'offline';
+    last_seen: string;
+} | null>(null);
+const lastMessageTimeRef = useRef<number>(0);
+const { user } = useAuth();
 
     // ✅ Track sent messages to prevent duplicates
     const sentMessagesRef = useRef<Set<string>>(new Set());
@@ -105,7 +106,7 @@ export default function ChatWindow({
         // Listen for new messages
         const handleNewMessage = (data: any) => {
             console.log("📨 [Step 6] NEW MESSAGE EVENT RECEIVED:", data);
-            if (data.direction === 'out' && data.message_type === 'location') return;
+if (data.direction === 'out' && data.message_type === 'location') return;
             // ✅ Skip if this is my own message (from socket broadcast)
             if (data.isOwnMessage === true) {
                 console.log("⚠️ [Step 7] Skipping own message from socket");
@@ -165,38 +166,38 @@ export default function ChatWindow({
         console.log("👂 [Step 12] Listening for 'chat_update' events");
 
         // ✅ Listen for real-time message status updates (sent/delivered/read)
-        const handleStatusUpdate = (data: { whatsapp_msg_id: string; status: string }) => {
-            console.log("📊 Status update received:", data);
-            setMessages(prev =>
-                prev.map(m =>
-                    m.whatsapp_msg_id === data.whatsapp_msg_id
-                        ? { ...m, status: data.status }
-                        : m
-                )
-            );
-        };
+const handleStatusUpdate = (data: { whatsapp_msg_id: string; status: string }) => {
+  console.log("📊 Status update received:", data);
+  setMessages(prev =>
+    prev.map(m =>
+      m.whatsapp_msg_id === data.whatsapp_msg_id
+        ? { ...m, status: data.status }
+        : m
+    )
+  );
+};
 
-        socket.on('message_status_update', handleStatusUpdate);
+socket.on('message_status_update', handleStatusUpdate);
 
-        // ✅ Online/offline presence
-        const handlePresence = (data: { contact_id: string; status: 'online' | 'offline'; last_seen: string }) => {
-            if (String(data.contact_id) === String(contact.id)) {
-                setContactPresence({ status: data.status, last_seen: data.last_seen });
-            }
-        };
-        socket.on('contact_presence', handlePresence);
+// ✅ Online/offline presence
+const handlePresence = (data: { contact_id: string; status: 'online' | 'offline'; last_seen: string }) => {
+    if (String(data.contact_id) === String(contact.id)) {
+        setContactPresence({ status: data.status, last_seen: data.last_seen });
+    }
+};
+socket.on('contact_presence', handlePresence);
 
-        return () => {
-            console.log("🧹 [Step 13] Cleaning up socket for contact:", contact.id);
-            if (socket) {
-                socket.emit("leave_contact_room", contact.id);
-                socket.off("chat_update", handleNewMessage);
-                socket.off("message_status_update", handleStatusUpdate);
-                socket.off("contact_presence", handlePresence);
-                socket.off("connect");
-                socket.off("disconnect");
-            }
-        };
+return () => {
+    console.log("🧹 [Step 13] Cleaning up socket for contact:", contact.id);
+    if (socket) {
+        socket.emit("leave_contact_room", contact.id);
+        socket.off("chat_update", handleNewMessage);
+        socket.off("message_status_update", handleStatusUpdate);
+        socket.off("contact_presence", handlePresence);
+        socket.off("connect");
+        socket.off("disconnect");
+    }
+};
     }, [contact?.id, conversation?.id]);
 
     // ✅ Mark messages as read when chat window opens
@@ -244,36 +245,15 @@ export default function ChatWindow({
                     status: msg.status,
                     is_read: msg.is_read || false,
                     whatsapp_msg_id: msg.whatsapp_msg_id || null,
-                    sender: msg.direction === 'out'
-                        ? { name: msg.sender?.name || msg.sender_name || 'You' }
-                        : null,
-                    media_url: msg.media_url || null,    // ← ADD
-                    media_type: msg.media_type || null,  // ← ADD
-                    file_name: msg.file_name || null,
+sender: msg.direction === 'out' 
+    ? { name: msg.sender?.name || msg.sender_name || 'You' }
+    : null,             
+            media_url: msg.media_url || null,    // ← ADD
+    media_type: msg.media_type || null,  // ← ADD
+    file_name: msg.file_name || null, 
                 }));
 
-                setMessages((prev: any) => {
-
-                    const existingIds = new Set(
-                        prev.map((m: any) => m.id)
-                    );
-
-                    const merged = [...prev];
-
-                    formatted.forEach((msg: any) => {
-
-                        if (!existingIds.has(msg.id)) {
-                            merged.push(msg);
-                        }
-                    });
-
-                    return merged.sort(
-                        (a: any, b: any) =>
-                            new Date(a.timestamp).getTime() -
-                            new Date(b.timestamp).getTime()
-                    );
-                });
-
+                setMessages(formatted);
             } catch (err) {
                 console.error('Failed to fetch messages', err);
             } finally {
@@ -282,7 +262,7 @@ export default function ChatWindow({
         };
 
         fetchMessages();
-    }, [conversation?.id, contact?.id]);
+    }, [conversation?.id, contact]);
 
     // Fetch templates on mount
     useEffect(() => {
@@ -318,219 +298,219 @@ export default function ChatWindow({
     useEffect(() => {
         fetchAllNotes();
     }, [contact]);
-    // ✅ KEEP THIS ONE
+  // ✅ KEEP THIS ONE
 
-    // In the handleSendMedia function
-    const handleSendMedia = async (file: File, caption: string) => {
-        if (!conversation || !contact) return;
-        const now = Date.now();
-        if (now - lastMessageTimeRef.current < 2000) return;
-        lastMessageTimeRef.current = now;
+// In the handleSendMedia function
+const handleSendMedia = async (file: File, caption: string) => {
+    if (!conversation || !contact) return;
+      const now = Date.now();
+    if (now - lastMessageTimeRef.current < 2000) return;
+    lastMessageTimeRef.current = now;
 
-        if (isSending) return;
-        setIsSending(true);
-        const tempId = `temp_media_${Date.now()}`;
-        const previewUrl = URL.createObjectURL(file);
+    if (isSending) return;
+    setIsSending(true);
+    const tempId = `temp_media_${Date.now()}`;
+    const previewUrl = URL.createObjectURL(file);
 
-        const tempMsg = {
-            id: tempId,
-            direction: 'out',
-            text: caption || '📎 Media',  // ← Show caption or default text
-            timestamp: new Date().toISOString(),
-            status: 'sending',
-            is_read: true,
-            sender: { name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'You' },
-            media_url: previewUrl,
-            media_type: file.type,
-            file_name: file.name
-        };
-
-        setMessages((prev: any) => [...prev, tempMsg]);
-
-        try {
-            const result: any = await whatsappAPI.sendMediaMessage({
-                contact_id: contact.id,
-                file,
-                caption: caption || '',
-                sender_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim()  // ← ADD
-            });
-            setMessages((prev: any) =>
-                prev.map((msg: any) =>
-                    msg.id === tempId ? {
-                        ...msg,
-                        id: result.id,
-                        status: 'sent',
-                        whatsapp_msg_id: result.whatsapp_msg_id || null,  // ✅ ADD
-                        sender: { name: result.sender?.name || msg.sender?.name || 'You' }
-                    } : msg
-                )
-            );
-
-        } catch (err) {
-            console.error('Failed to send media', err);
-            setMessages((prev: any) =>
-                prev.map((msg: any) =>
-                    msg.id === tempId ? { ...msg, status: 'failed' } : msg
-                )
-            );
-        }
-        finally {
-            setTimeout(() => setIsSending(false), 2000); // ← ADD THIS
-        }
+    const tempMsg = {
+        id: tempId,
+        direction: 'out',
+        text: caption || '📎 Media',  // ← Show caption or default text
+        timestamp: new Date().toISOString(),
+        status: 'sending',
+        is_read: true,
+        sender: { name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'You' },
+        media_url: previewUrl,
+        media_type: file.type,
+        file_name: file.name
     };
+
+    setMessages((prev: any) => [...prev, tempMsg]);
+
+    try {
+        const result: any = await whatsappAPI.sendMediaMessage({
+           contact_id: contact.id,
+  file,
+  caption: caption || '',
+  sender_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim()  // ← ADD
+});
+       setMessages((prev: any) =>
+    prev.map((msg: any) =>
+        msg.id === tempId ? { 
+            ...msg, 
+            id: result.id, 
+            status: 'sent',
+            whatsapp_msg_id: result.whatsapp_msg_id || null,  // ✅ ADD
+            sender: { name: result.sender?.name || msg.sender?.name || 'You' }
+        } : msg
+    )
+);
+
+    } catch (err) {
+        console.error('Failed to send media', err);
+        setMessages((prev: any) =>
+            prev.map((msg: any) =>
+                msg.id === tempId ? { ...msg, status: 'failed' } : msg
+            )
+        );
+    }
+    finally {
+        setTimeout(() => setIsSending(false), 2000); // ← ADD THIS
+    }
+};
     // ✅ Handle send text message - FIXED DUPLICATE ISSUE
-    // ✅ REPLACE THIS ENTIRE FUNCTION (around line 110-160)
-    const handleSendText = async (text: string) => {
-        if (!conversation || !contact) return;
+   // ✅ REPLACE THIS ENTIRE FUNCTION (around line 110-160)
+const handleSendText = async (text: string) => {
+    if (!conversation || !contact) return;
+    
+    // Add these 3 lines at the VERY TOP of the function
+    const now = Date.now();
+    if (now - lastMessageTimeRef.current < 1000) return;
+    lastMessageTimeRef.current = now;
+    
+    // Add this check
+    if (isSending) return;
 
-        // Add these 3 lines at the VERY TOP of the function
-        const now = Date.now();
-        if (now - lastMessageTimeRef.current < 1000) return;
-        lastMessageTimeRef.current = now;
+    const messageKey = `${contact.id}_${text}_${now}`;
+    if (sentMessagesRef.current.has(messageKey)) return;
 
-        // Add this check
-        if (isSending) return;
+    sentMessagesRef.current.add(messageKey);
+    setIsSending(true);  // ← Add this line
 
-        const messageKey = `${contact.id}_${text}_${now}`;
-        if (sentMessagesRef.current.has(messageKey)) return;
+    const tempId = `temp_${Date.now()}_${Math.random()}`;
 
-        sentMessagesRef.current.add(messageKey);
-        setIsSending(true);  // ← Add this line
+    const formattedMsg = {
+        id: tempId,
+        direction: 'out',
+        text: text,
+        timestamp: new Date().toISOString(),
+        status: 'sending',
+        is_read: true,
+        sender: { name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'You' } 
+    };
 
-        const tempId = `temp_${Date.now()}_${Math.random()}`;
+    setMessages((prev: any) => [...prev, formattedMsg]);
 
-        const formattedMsg = {
-            id: tempId,
-            direction: 'out',
-            text: text,
-            timestamp: new Date().toISOString(),
-            status: 'sending',
-            is_read: true,
-            sender: { name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'You' }
-        };
+    try {
+        const newMsg: any = await whatsappAPI.sendMessage({ contact_id: contact.id, text, sender_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() });
 
-        setMessages((prev: any) => [...prev, formattedMsg]);
+       setMessages((prev: any) =>
+    prev.map((msg: any) =>
+        msg.id === tempId ? { 
+            ...msg, 
+            id: newMsg.id, 
+            status: 'sent',
+            whatsapp_msg_id: newMsg.whatsapp_msg_id || null  // ✅ save for status matching
+        } : msg
+    )
+);
 
-        try {
-            const newMsg: any = await whatsappAPI.sendMessage({ contact_id: contact.id, text, sender_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() });
-
-            setMessages((prev: any) =>
-                prev.map((msg: any) =>
-                    msg.id === tempId ? {
-                        ...msg,
-                        id: newMsg.id,
-                        status: 'sent',
-                        whatsapp_msg_id: newMsg.whatsapp_msg_id || null  // ✅ save for status matching
-                    } : msg
-                )
-            );
-
-            setTimeout(() => {
-                sentMessagesRef.current.delete(messageKey);
-                setIsSending(false);  // ← Add this line
-            }, 2000);
-
-            notificationStore.push(
-                'message',
-                'Message Sent',
-                `Sent to ${contact.name}`,
-                { label: "", page: "" }
-            );
-
-        } catch (err) {
-            console.error('Failed to send message', err);
-
-            setMessages((prev: any) =>
-                prev.map((msg: any) =>
-                    msg.id === tempId ? { ...msg, status: 'failed' } : msg
-                )
-            );
-
+        setTimeout(() => {
             sentMessagesRef.current.delete(messageKey);
             setIsSending(false);  // ← Add this line
+        }, 2000);
 
-            notificationStore.push(
-                'error',
-                'Send Failed',
-                'Could not send message. Try again.',
-                { label: "", page: "" }
-            );
-        }
-    };
+        notificationStore.push(
+            'message',
+            'Message Sent',
+            `Sent to ${contact.name}`,
+            { label: "", page: "" }
+        );
+
+    } catch (err) {
+        console.error('Failed to send message', err);
+
+        setMessages((prev: any) =>
+            prev.map((msg: any) =>
+                msg.id === tempId ? { ...msg, status: 'failed' } : msg
+            )
+        );
+
+        sentMessagesRef.current.delete(messageKey);
+        setIsSending(false);  // ← Add this line
+
+        notificationStore.push(
+            'error',
+            'Send Failed',
+            'Could not send message. Try again.',
+            { label: "", page: "" }
+        );
+    }
+};
 
     const handleSendTemplate = async (templateName: string, vars: string[]) => {
         notificationStore.push('info', 'Coming Soon', 'Template feature will be available soon', { label: "", page: "" });
     };
-    // Add this function in ChatWindow.tsx, near the other handle functions
-    const handleSendLocation = async (lat: number, lng: number) => {
-        if (!conversation || !contact) return;
+// Add this function in ChatWindow.tsx, near the other handle functions
+const handleSendLocation = async (lat: number, lng: number) => {
+    if (!conversation || !contact) return;
 
-        // Create unique key to prevent duplicates
-        const locationKey = `${contact.id}_location_${Date.now()}`;
+    // Create unique key to prevent duplicates
+    const locationKey = `${contact.id}_location_${Date.now()}`;
+    
+    // Create optimistic message for immediate display
+    const tempId = `temp_loc_${Date.now()}_${Math.random()}`;
+    const locationText = `📍 Location: ${lat}, ${lng}`;
+     
 
-        // Create optimistic message for immediate display
-        const tempId = `temp_loc_${Date.now()}_${Math.random()}`;
-        const locationText = `📍 Location: ${lat}, ${lng}`;
+     const messageKey = `${contact.id}_${locationText}_${new Date().toISOString().slice(0,19)}`;
+    sentMessagesRef.current.add(messageKey);
 
-
-        const messageKey = `${contact.id}_${locationText}_${new Date().toISOString().slice(0, 19)}`;
-        sentMessagesRef.current.add(messageKey);
-
-        const tempMsg = {
-            id: tempId,
-            direction: 'out',
-            text: locationText,
-            timestamp: new Date().toISOString(),
-            status: 'sending',
-            is_read: true,
-            sender: { name: 'You' },
-            message_type: 'location',
-        };
-
-        // ✅ Optimistic update - show immediately in chat
-        setMessages((prev: any) => [...prev, tempMsg]);
-
-        try {
-            const result: any = await whatsappAPI.sendLocation({
-                contact_id: contact.id,
-                latitude: lat,
-                longitude: lng,
-                sender_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim()
-            });
-
-            // Replace temp message with real one
-            setMessages((prev: any) =>
-                prev.map((msg: any) =>
-                    msg.id === tempId
-                        ? { ...msg, id: result.id || tempId, status: 'sent' }
-                        : msg
-                )
-            );
-
-            notificationStore.push(
-                'message',
-                'Location Sent',
-                `Location sent to ${contact.name}`,
-                { label: "", page: "" }
-            );
-        } catch (err) {
-            console.error('Failed to send location', err);
-
-            // Mark as failed
-            setMessages((prev: any) =>
-                prev.map((msg: any) =>
-                    msg.id === tempId ? { ...msg, status: 'failed' } : msg
-                )
-            );
-
-            notificationStore.push(
-                'error',
-                'Send Failed',
-                'Could not send location. Try again.',
-                { label: "", page: "" }
-            );
-        }
+    const tempMsg = {
+        id: tempId,
+        direction: 'out',
+        text: locationText,
+        timestamp: new Date().toISOString(),
+        status: 'sending',
+        is_read: true,
+        sender: { name: 'You' },
+        message_type: 'location',
     };
+
+    // ✅ Optimistic update - show immediately in chat
+    setMessages((prev: any) => [...prev, tempMsg]);
+
+    try {
+        const result: any = await whatsappAPI.sendLocation({ 
+            contact_id: contact.id, 
+            latitude: lat, 
+            longitude: lng ,
+            sender_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() 
+        });
+
+        // Replace temp message with real one
+        setMessages((prev: any) =>
+            prev.map((msg: any) =>
+                msg.id === tempId
+                    ? { ...msg, id: result.id || tempId, status: 'sent' }
+                    : msg
+            )
+        );
+
+        notificationStore.push(
+            'message',
+            'Location Sent',
+            `Location sent to ${contact.name}`,
+            { label: "", page: "" }
+        );
+    } catch (err) {
+        console.error('Failed to send location', err);
+        
+        // Mark as failed
+        setMessages((prev: any) =>
+            prev.map((msg: any) =>
+                msg.id === tempId ? { ...msg, status: 'failed' } : msg
+            )
+        );
+
+        notificationStore.push(
+            'error',
+            'Send Failed',
+            'Could not send location. Try again.',
+            { label: "", page: "" }
+        );
+    }
+};
 
     const toggleBotActive = async () => {
         if (!conversation) return;
@@ -583,52 +563,52 @@ export default function ChatWindow({
         <div className="flex flex-1 min-w-0 h-full">
             <div className="flex flex-col flex-1 min-w-0 h-full">
                 {/* Header */}
-                <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-white border-b border-shrink-0">                    {onClose && (
-                    <button
-                        onClick={onClose}
-                        className="p-1 -ml-1 sm:ml-0 rounded-lg hover:bg-gray-100 text-gray-500"
-                    >
-                        <ArrowLeft className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-                    </button>
-                )}
+<div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-white border-b border-shrink-0">                    {onClose && (
+                        <button
+                            onClick={onClose}
+                            className="p-1 -ml-1 sm:ml-0 rounded-lg hover:bg-gray-100 text-gray-500"
+                        >
+                            <ArrowLeft className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                        </button>
+                    )}
 
                     <button
                         onClick={() => onContactInfoOpen?.()}
-                        className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-600 border border-[#b7e4c7] rounded-full flex items-center justify-center text-[#075e54] text-xs sm:text-sm font-bold shrink-0 transition-all" title="View contact info"
+className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-600 border border-[#b7e4c7] rounded-full flex items-center justify-center text-[#075e54] text-xs sm:text-sm font-bold shrink-0 transition-all"                        title="View contact info"
                     >
-                        {contact.name
-                            ? contact.name
-                                .split(' ')
-                                .map((word) => word.charAt(0).toUpperCase())
-                                .slice(0, 2)
-                                .join('')
-                            : '?'}                    </button>
+{contact.name
+  ? contact.name
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('')
+  : '?'}                    </button>
 
                     <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 text-sm leading-tight break-words sm:truncate">
-                            {contact.name}
-                        </h3>
-                        {contactPresence?.status === 'online' ? (
-                            <p className="text-[11px] text-emerald-500 font-medium flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block animate-pulse" />
-                                online
-                            </p>
-                        ) : contactPresence?.last_seen ? (
-                            <p className="text-[11px] text-gray-400 truncate">
-                                last seen {new Date(contactPresence.last_seen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                        ) : (
-                            <p className="text-[11px] sm:text-xs text-gray-400 truncate">{contact.phone}</p>
-                        )}
-                    </div>
+    <h3 className="font-semibold text-gray-900 text-sm leading-tight break-words sm:truncate">
+        {contact.name}
+    </h3>
+    {contactPresence?.status === 'online' ? (
+        <p className="text-[11px] text-emerald-500 font-medium flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block animate-pulse" />
+            online
+        </p>
+    ) : contactPresence?.last_seen ? (
+        <p className="text-[11px] text-gray-400 truncate">
+            last seen {new Date(contactPresence.last_seen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </p>
+    ) : (
+        <p className="text-[11px] sm:text-xs text-gray-400 truncate">{contact.phone}</p>
+    )}
+</div>
 
                     <div className="flex items-center gap-1 sm:gap-2">
                         <button
                             onClick={toggleBotActive}
                             title={conversation.bot_active ? 'Disable Bot' : 'Enable Bot'}
                             className={`p-1.5 sm:p-2 rounded-lg transition-colors text-sm flex items-center gap-1.5 ${conversation.bot_active
-                                ? 'bg-[#d9fdd3] text-[#075e54] hover:bg-[#c8f7c5]'
-                                : 'bg-[#f0f2f5] text-[#667781] hover:bg-[#e4e6e9]'
+                               ? 'bg-[#d9fdd3] text-[#075e54] hover:bg-[#c8f7c5]'
+: 'bg-[#f0f2f5] text-[#667781] hover:bg-[#e4e6e9]'
                                 }`}
                         >
                             {conversation.bot_active ? <Bot className="w-4 h-4 sm:w-[15px] sm:h-[15px]" /> : <BotMessageSquare size={15} />}
@@ -641,8 +621,8 @@ export default function ChatWindow({
                             onClick={toggleResolved}
                             title={conversation.status === 'resolved' ? 'Reopen' : 'Resolve'}
                             className={`p-2 rounded-lg transition-colors text-sm flex items-center gap-1.5 ${conversation.status === 'resolved'
-                                ? 'bg-[#d9fdd3] text-[#075e54] hover:bg-[#c8f7c5]'
-                                : 'bg-[#f0f2f5] text-[#667781] hover:bg-[#e4e6e9]'
+? 'bg-[#d9fdd3] text-[#075e54] hover:bg-[#c8f7c5]'
+: 'bg-[#f0f2f5] text-[#667781] hover:bg-[#e4e6e9]'
                                 }`}
                         >
                             {conversation.status === 'resolved' ? <Clock size={15} /> : <CheckCircle size={15} />}
@@ -654,34 +634,34 @@ export default function ChatWindow({
                 </div>
 
                 {/* Messages Area */}
-                {/* Messages Area */}
-                <div
-                    className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 space-y-1 max-h-[calc(100vh-140px)] sm:max-h-none"
-                    style={{
-                        backgroundColor: '#efeae2',
-                        backgroundImage: `url(${whatsapp_bg})`,
-                        backgroundRepeat: 'repeat',
-                        backgroundSize: '412px auto',
-                    }}
-                >{loading ? (
-                    <div className="flex items-center justify-center h-full">
-                        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                    </div>
-                ) : messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                        <p className="text-sm">No messages yet</p>
-                        <p className="text-xs mt-1">Send a message to start the conversation</p>
-                    </div>
-                ) : (
-                    messagesWithSeparators.map(({ msg, showSeparator, dateLabel }, index) => (
-                        <MessageBubble
-                            key={`${msg.id}-${msg.timestamp}-${index}`}
-                            message={msg}
-                            showDateSeparator={showSeparator}
-                            dateSeparatorLabel={dateLabel}
-                        />
-                    ))
-                )}
+{/* Messages Area */}
+<div
+  className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 space-y-1 max-h-[calc(100vh-140px)] sm:max-h-none"
+  style={{
+    backgroundColor: '#efeae2',
+    backgroundImage: `url(${whatsapp_bg})`,
+    backgroundRepeat: 'repeat',
+    backgroundSize: '412px auto',
+  }}
+>{loading ? (
+                        <div className="flex items-center justify-center h-full">
+                            <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                    ) : messages.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                            <p className="text-sm">No messages yet</p>
+                            <p className="text-xs mt-1">Send a message to start the conversation</p>
+                        </div>
+                    ) : (
+                        messagesWithSeparators.map(({ msg, showSeparator, dateLabel }, index) => (
+                            <MessageBubble
+                                key={`${msg.id}-${msg.timestamp}-${index}`}
+                                message={msg}
+                                showDateSeparator={showSeparator}
+                                dateSeparatorLabel={dateLabel}
+                            />
+                        ))
+                    )}
                     <div ref={endRef} />
                 </div>
 
@@ -690,8 +670,8 @@ export default function ChatWindow({
                     templates={templates}
                     onSendText={handleSendText}
                     onSendTemplate={handleSendTemplate}
-                    onSendMedia={handleSendMedia}
-                    onSendLocation={handleSendLocation}
+                        onSendMedia={handleSendMedia}
+onSendLocation={handleSendLocation}
                     disabled={conversation.status === 'resolved'}
                 />
             </div>
