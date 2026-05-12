@@ -67,7 +67,7 @@ import UserProfileMenu from "./UserProfileMenu";
 import { can } from "@/utils/permission";
 import { whatsappAPI } from "@/lib/whatsappApi";
 import { initNotificationSound, playNotificationSound } from "../../src/utils/notificationSound"; // adjust path to wherever your sound file is
-import io, { Socket } from "socket.io-client";
+import { getSocket } from "@/lib/socket";
 
 // Color configuration
 const COLORS = {
@@ -212,7 +212,6 @@ const DashboardLayout = () => {
   const [mobileTimersOpen, setMobileTimersOpen] = useState(false);
   const mobileTimersRef = useRef<HTMLDivElement | null>(null);
   const prevUnreadCountRef = useRef<number>(0);
-const socketRef = useRef<Socket | null>(null);
 
   const NotificationPanelAny = NotificationPanel;
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -838,147 +837,127 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
 // }, [user?.id]);
 
 
-
-// ============================================
-// SOCKET.IO REAL-TIME CONNECTION
-// ============================================
 useEffect(() => {
   if (!user?.id) return;
 
-  const userId = Number(user.id);
-  if (isNaN(userId)) return;
+  let isMounted = true;
+  const socket = getSocket();
 
-  // Initialize socket connection
-  const socket = io(import.meta.env.VITE_API_URL || "http://localhost:3000", {
-    transports: ["websocket", "polling"],
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-  });
-
-  socketRef.current = socket;
-
-  socket.on("connect", () => {
-    console.log("✅ Socket connected:", socket.id);
-    socket.emit("join_user", { userId });
-  });
-
-  // 🔔 LISTEN FOR NEW NOTIFICATIONS
-  socket.on("new_notification", (data: any) => {
-    console.log("🔔 New notification:", data);
-    playNotificationSound();
-    
-    const newNotification: NotificationItem = {
-      id: Date.now(),
-      title: data.title || "New Notification",
-      message: data.message || "",
-      type: data.type || "general",
-      priority: data.priority || "medium",
-      timestamp: new Date().toISOString(),
-      read: false,
-      link: data.link || null,
-      color: "orange",
-    };
-    
-    setNotifications(prev => [newNotification, ...prev]);
-    setUnreadCount(prev => prev + 1);
-  });
-
-  // 💬 LISTEN FOR NEW WHATSAPP MESSAGES
-  socket.on("new_whatsapp_message", (data: any) => {
-    console.log("💬 New WhatsApp message:", data);
-    playNotificationSound();
-    setWhatsappCount(prev => {
-      const newCount = prev + 1;
-      prevWhatsappCountRef.current = newCount;
-      return newCount;
-    });
-  });
-
-  // 📊 WHATSAPP UNREAD COUNT UPDATE
-  socket.on("whatsapp_unread_update", (data: { totalUnread: number }) => {
-    console.log("WhatsApp unread update:", data.totalUnread);
-    if (data.totalUnread > prevWhatsappCountRef.current) {
-      playNotificationSound();
-    }
-    prevWhatsappCountRef.current = data.totalUnread;
-    setWhatsappCount(data.totalUnread);
-  });
-
-  socket.on("disconnect", () => {
-    console.log("❌ Socket disconnected");
-  });
-
-  return () => {
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-      socketRef.current = null;
-    }
-  };
-}, [user?.id]);
-
-// ============================================
-// INITIAL FETCH (ONLY ONCE - NO POLLING)
-// ============================================
-
-// Fetch notifications once
-useEffect(() => {
   const fetchNotifications = async () => {
-    if (!user?.id) return;
+    if (!isMounted) return;
     try {
       const userIdNum = Number(user.id);
-      if (isNaN(userIdNum)) return;
+      if (Number.isNaN(userIdNum)) return;
 
       const res = await notificationAPI.getUserNotifications(userIdNum);
       const list: RawNotification[] = Array.isArray(res?.notifications)
         ? res.notifications
         : res?.notifications
-          ? [res.notifications]
-          : [];
+        ? [res.notifications]
+        : [];
 
       const ui = list.map(mapRawToUI);
-      setNotifications(ui);
+
+      if (!isMounted) return;
+
+      setNotifications((prev) =>
+        JSON.stringify(prev) !== JSON.stringify(ui) ? ui : prev
+      );
       const newUnread = ui.filter((n) => !n.read).length;
-      setUnreadCount(newUnread);
+
+      if (newUnread > prevUnreadCountRef.current) {
+        playNotificationSound();
+      }
+      prevUnreadCountRef.current = newUnread;
+
+      setUnreadCount((prev) => (prev !== newUnread ? newUnread : prev));
     } catch (err) {
       console.error("Error fetching notifications:", err);
     }
   };
 
+  // ✅ Initial fetch (ek baar)
   fetchNotifications();
+
+  // ✅ Socket event listener
+  if (socket) {
+    socket.on("notifications_updated", () => {
+      console.log("Socket: notifications updated");
+      playNotificationSound();
+      fetchNotifications();
+    });
+  }
+
+  return () => {
+    isMounted = false;
+    if (socket) {
+      socket.off("notifications_updated");
+    }
+  };
 }, [user?.id]);
 
-// Fetch whatsapp count once
+
+// ✅ Replace the entire WhatsApp useEffect with this:
 useEffect(() => {
+  if (!user?.id) return;
+
+  let isMounted = true;
+  const socket = getSocket();
+
   const fetchWhatsappCount = async () => {
-    if (!user?.id) return;
+    if (!isMounted) return;
     try {
       const contacts = await whatsappAPI.getContacts();
       if (!Array.isArray(contacts)) {
         setWhatsappCount(0);
         return;
       }
-      
+
       let totalUnread = 0;
-      for (const contact of contacts) {
-        try {
-          const result = await whatsappAPI.getUnreadCount(contact.id);
-          totalUnread += Number(result?.unread_count) || 0;
-        } catch {
-          // ignore
-        }
+      await Promise.all(
+        contacts.map(async (contact: any) => {
+          try {
+            const result = await whatsappAPI.getUnreadCount(contact.id);
+            totalUnread += Number(result?.unread_count) || 0;
+          } catch {
+            // ignore per-contact errors
+          }
+        })
+      );
+
+      if (!isMounted) return;
+
+      if (totalUnread > prevWhatsappCountRef.current) {
+        playNotificationSound();
       }
-      
       prevWhatsappCountRef.current = totalUnread;
       setWhatsappCount(totalUnread);
     } catch (err) {
-      console.error('Failed to fetch whatsapp count:', err);
+      console.error("Failed to fetch whatsapp count:", err);
       setWhatsappCount(0);
     }
   };
 
+  // ✅ Initial fetch
   fetchWhatsappCount();
+
+  // ✅ Socket event listener (backend se emit karna hoga)
+  if (socket) {
+    socket.on("whatsapp_messages_updated", () => {
+      console.log("Socket: whatsapp messages updated");
+      playNotificationSound();
+      fetchWhatsappCount();
+    });
+  }
+
+  return () => {
+    isMounted = false;
+    if (socket) {
+      socket.off("whatsapp_messages_updated");
+    }
+  };
 }, [user?.id]);
+
 useEffect(() => {
     const unlockAudio = () => {
         initNotificationSound();
