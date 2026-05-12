@@ -66,6 +66,8 @@ import { notificationAPI } from "@/lib/notificationAPI";
 import UserProfileMenu from "./UserProfileMenu";
 import { can } from "@/utils/permission";
 import { whatsappAPI } from "@/lib/whatsappApi";
+import { initNotificationSound, playNotificationSound } from "../../src/utils/notificationSound"; // adjust path to wherever your sound file is
+
 // Color configuration
 const COLORS = {
   primary: {
@@ -208,11 +210,14 @@ const DashboardLayout = () => {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [mobileTimersOpen, setMobileTimersOpen] = useState(false);
   const mobileTimersRef = useRef<HTMLDivElement | null>(null);
+  const prevUnreadCountRef = useRef<number>(0);
 
   const NotificationPanelAny = NotificationPanel;
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 const [whatsappCount, setWhatsappCount] = useState<number>(0);
+const prevWhatsappCountRef = useRef<number>(0);
+
   const navTextClass = `text-[${COLORS.primary.main}]`;
   const navHoverClass = `group-hover:text-[${COLORS.secondary.main}]`;
 
@@ -767,6 +772,13 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
           JSON.stringify(prev) !== JSON.stringify(ui) ? ui : prev
         );
         const newUnread = ui.filter((n) => !n.read).length;
+        
+        // 🔊 PLAY SOUND WHEN NEW NOTIFICATION ARRIVES
+        if (newUnread > prevUnreadCountRef.current) {
+          playNotificationSound();
+        }
+        prevUnreadCountRef.current = newUnread;
+        
         setUnreadCount((prev) =>
           prev !== newUnread ? newUnread : prev
         );
@@ -783,34 +795,38 @@ const getCurrentModuleInfo = useCallback((pathname: string) => {
   }, [user?.id]);
 
 
- useEffect(() => {
-    // ✅ FIXED - fetches unread count across all contacts
-const fetchWhatsappCount = async () => {
-    try {
-        const contacts = await whatsappAPI.getContacts();
-        if (!Array.isArray(contacts)) {
+useEffect(() => {
+    const fetchWhatsappCount = async () => {
+        try {
+            const contacts = await whatsappAPI.getContacts();
+            if (!Array.isArray(contacts)) {
+                setWhatsappCount(0);
+                return;
+            }
+            
+            let totalUnread = 0;
+            await Promise.all(
+                contacts.map(async (contact: any) => {
+                    try {
+                        const result = await whatsappAPI.getUnreadCount(contact.id);
+                        totalUnread += Number(result?.unread_count) || 0;
+                    } catch {
+                        // ignore per-contact errors
+                    }
+                })
+            );
+
+            // ✅ Play sound only if new messages arrived
+            if (totalUnread > prevWhatsappCountRef.current) {
+                playNotificationSound();
+            }
+            prevWhatsappCountRef.current = totalUnread;
+            setWhatsappCount(totalUnread);
+        } catch (err) {
+            console.error('Failed to fetch whatsapp count:', err);
             setWhatsappCount(0);
-            return;
         }
-        
-        let totalUnread = 0;
-        await Promise.all(
-            contacts.map(async (contact: any) => {
-                try {
-                    const result = await whatsappAPI.getUnreadCount(contact.id);
-                    totalUnread += Number(result?.unread_count) || 0;
-                } catch {
-                    // ignore per-contact errors
-                }
-            })
-        );
-        
-        setWhatsappCount(totalUnread);
-    } catch (err) {
-        console.error('Failed to fetch whatsapp count:', err);
-        setWhatsappCount(0);
-    }
-};
+    };
 
     if (user?.id) {
         fetchWhatsappCount();
@@ -818,6 +834,15 @@ const fetchWhatsappCount = async () => {
         return () => clearInterval(interval);
     }
 }, [user?.id]);
+
+useEffect(() => {
+    const unlockAudio = () => {
+        initNotificationSound();
+        window.removeEventListener("click", unlockAudio);
+    };
+    window.addEventListener("click", unlockAudio);
+    return () => window.removeEventListener("click", unlockAudio);
+}, []);
 
   const handleBellClick = useCallback(async () => {
     setOpen((prev) => !prev);
