@@ -830,7 +830,7 @@ useEffect(() => {
 
     if (user?.id) {
         fetchWhatsappCount();
-        const interval = setInterval(fetchWhatsappCount, 30000);
+        const interval = setInterval(fetchWhatsappCount, 1000);
         return () => clearInterval(interval);
     }
 }, [user?.id]);
