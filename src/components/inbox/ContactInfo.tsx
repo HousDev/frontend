@@ -309,16 +309,22 @@ const contactTags = localTags;
 
             <div className="px-4 py-3 border-b border-gray-100">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Assigned To</p>
-               <select
+              <select
     value={contact.assigned_to || ''}
     onChange={(e) => handleAssign(e.target.value)}
     className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
 >
     <option value="">Unassigned</option>
     {users
-        .filter((u) => u.department?.toLowerCase() === 'seller' || u.department?.toLowerCase() === 'buyer')
+        .filter((u) => 
+            u.department?.toLowerCase() === 'sales' || 
+            u.role?.toLowerCase() === 'sales_executive' ||
+            u.role?.toLowerCase() === 'sales executive'
+        )
         .map((u) => (
-            <option key={u.id} value={u.id.toString()}>{u.first_name + " " + u.last_name} </option>
+            <option key={u.id} value={u.id.toString()}>
+                {(u.first_name + " " + u.last_name).trim() || u.name}
+            </option>
         ))}
 </select>
             </div>

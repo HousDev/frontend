@@ -58,9 +58,13 @@ export default function ChatWindow({
     const [loading, setLoading] = useState(false);
     const endRef = useRef<HTMLDivElement>(null);
     const socketRef = useRef<any>(null);
-    const [isSending, setIsSending] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+const [contactPresence, setContactPresence] = useState<{
+    status: 'online' | 'offline';
+    last_seen: string;
+} | null>(null);
 const lastMessageTimeRef = useRef<number>(0);
-    const { user } = useAuth();
+const { user } = useAuth();
 
     // ✅ Track sent messages to prevent duplicates
     const sentMessagesRef = useRef<Set<string>>(new Set());
@@ -161,15 +165,39 @@ if (data.direction === 'out' && data.message_type === 'location') return;
         socket.on("chat_update", handleNewMessage);
         console.log("👂 [Step 12] Listening for 'chat_update' events");
 
-        return () => {
-            console.log("🧹 [Step 13] Cleaning up socket for contact:", contact.id);
-            if (socket) {
-                socket.emit("leave_contact_room", contact.id);
-                socket.off("chat_update", handleNewMessage);
-                socket.off("connect");
-                socket.off("disconnect");
-            }
-        };
+        // ✅ Listen for real-time message status updates (sent/delivered/read)
+const handleStatusUpdate = (data: { whatsapp_msg_id: string; status: string }) => {
+  console.log("📊 Status update received:", data);
+  setMessages(prev =>
+    prev.map(m =>
+      m.whatsapp_msg_id === data.whatsapp_msg_id
+        ? { ...m, status: data.status }
+        : m
+    )
+  );
+};
+
+socket.on('message_status_update', handleStatusUpdate);
+
+// ✅ Online/offline presence
+const handlePresence = (data: { contact_id: string; status: 'online' | 'offline'; last_seen: string }) => {
+    if (String(data.contact_id) === String(contact.id)) {
+        setContactPresence({ status: data.status, last_seen: data.last_seen });
+    }
+};
+socket.on('contact_presence', handlePresence);
+
+return () => {
+    console.log("🧹 [Step 13] Cleaning up socket for contact:", contact.id);
+    if (socket) {
+        socket.emit("leave_contact_room", contact.id);
+        socket.off("chat_update", handleNewMessage);
+        socket.off("message_status_update", handleStatusUpdate);
+        socket.off("contact_presence", handlePresence);
+        socket.off("connect");
+        socket.off("disconnect");
+    }
+};
     }, [contact?.id, conversation?.id]);
 
     // ✅ Mark messages as read when chat window opens
@@ -216,6 +244,7 @@ if (data.direction === 'out' && data.message_type === 'location') return;
                     timestamp: msg.time_sent || msg.timestamp,
                     status: msg.status,
                     is_read: msg.is_read || false,
+                    whatsapp_msg_id: msg.whatsapp_msg_id || null,
 sender: msg.direction === 'out' 
     ? { name: msg.sender?.name || msg.sender_name || 'You' }
     : null,             
@@ -305,17 +334,18 @@ const handleSendMedia = async (file: File, caption: string) => {
   caption: caption || '',
   sender_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim()  // ← ADD
 });
-        setMessages((prev: any) =>
+       setMessages((prev: any) =>
     prev.map((msg: any) =>
         msg.id === tempId ? { 
             ...msg, 
             id: result.id, 
             status: 'sent',
+            whatsapp_msg_id: result.whatsapp_msg_id || null,  // ✅ ADD
             sender: { name: result.sender?.name || msg.sender?.name || 'You' }
-            // ← sender mat overwrite karo, ...msg se already sahi naam hai
         } : msg
     )
 );
+
     } catch (err) {
         console.error('Failed to send media', err);
         setMessages((prev: any) =>
@@ -364,11 +394,16 @@ const handleSendText = async (text: string) => {
     try {
         const newMsg: any = await whatsappAPI.sendMessage({ contact_id: contact.id, text, sender_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() });
 
-        setMessages((prev: any) =>
-            prev.map((msg: any) =>
-                msg.id === tempId ? { ...msg, id: newMsg.id, status: 'sent' } : msg
-            )
-        );
+       setMessages((prev: any) =>
+    prev.map((msg: any) =>
+        msg.id === tempId ? { 
+            ...msg, 
+            id: newMsg.id, 
+            status: 'sent',
+            whatsapp_msg_id: newMsg.whatsapp_msg_id || null  // ✅ save for status matching
+        } : msg
+    )
+);
 
         setTimeout(() => {
             sentMessagesRef.current.delete(messageKey);
@@ -550,9 +585,22 @@ className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-600 border border-[#b7e4c7] rounde
   : '?'}                    </button>
 
                     <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 text-sm leading-tight break-words sm:truncate">{contact.name}</h3>
-                        <p className="text-[11px] sm:text-xs text-gray-400 truncate">{contact.phone}</p>
-                    </div>
+    <h3 className="font-semibold text-gray-900 text-sm leading-tight break-words sm:truncate">
+        {contact.name}
+    </h3>
+    {contactPresence?.status === 'online' ? (
+        <p className="text-[11px] text-emerald-500 font-medium flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block animate-pulse" />
+            online
+        </p>
+    ) : contactPresence?.last_seen ? (
+        <p className="text-[11px] text-gray-400 truncate">
+            last seen {new Date(contactPresence.last_seen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </p>
+    ) : (
+        <p className="text-[11px] sm:text-xs text-gray-400 truncate">{contact.phone}</p>
+    )}
+</div>
 
                     <div className="flex items-center gap-1 sm:gap-2">
                         <button
