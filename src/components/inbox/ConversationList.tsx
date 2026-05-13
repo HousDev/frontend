@@ -219,7 +219,7 @@ if (advanced.hasUnread === false && Number(conv.unread_count) > 0) return false;
   };
 
   return (
-    <div className="flex flex-col h-full w-full xl:w-80 bg-white border-r border-gray-200 shrink-0 relative">
+    <div className="flex flex-col max-h-[90vh] w-full xl:w-80 bg-white border-r border-gray-200 shrink-0 relative">
       <div className="px-4 pt-4 pb-3 border-b border-gray-100">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -415,7 +415,7 @@ if (advanced.hasUnread === false && Number(conv.unread_count) > 0) return false;
           </div>
         </div>
       )}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto max-h-[calc(100vh-140px)] sm:max-h-[calc(100vh-220px)]">
         {loading && filteredConversations.length === 0 ? (
           <div className="flex items-center justify-center h-32">
             <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />

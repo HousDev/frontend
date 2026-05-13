@@ -560,10 +560,11 @@ const handleSendLocation = async (lat: number, lng: number) => {
     });
 
     return (
-        <div className="flex flex-1 min-w-0 h-full">
-            <div className="flex flex-col flex-1 min-w-0 h-full">
+        <div className="flex flex-1 min-w-0">
+            <div className="flex flex-col flex-1 min-w-0 ">
                 {/* Header */}
-<div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-white border-b border-shrink-0">                    {onClose && (
+<div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-white border-b border-shrink-0 sticky top-0 z-10">
+    {onClose && (
                         <button
                             onClick={onClose}
                             className="p-1 -ml-1 sm:ml-0 rounded-lg hover:bg-gray-100 text-gray-500"
@@ -636,7 +637,7 @@ className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-600 border border-[#b7e4c7] rounde
                 {/* Messages Area */}
 {/* Messages Area */}
 <div
-  className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 space-y-1 max-h-[calc(100vh-140px)] sm:max-h-none"
+  className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 space-y-1 max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-150px)]"
   style={{
     backgroundColor: '#efeae2',
     backgroundImage: `url(${whatsapp_bg})`,
