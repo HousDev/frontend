@@ -72,7 +72,7 @@ export default function Sidebar({
     };
 
     return (
-        <aside className="relative flex flex-col h-screen w-11 sm:w-16 bg-white border-r border-gray-200 overflow-visible">
+        <aside className="relative flex flex-col  w-11 sm:w-16 bg-white border-r border-gray-200 overflow-visible">
 
             {/* Logo */}
             <div className="flex items-center justify-center h-14">

@@ -32,7 +32,7 @@ export default function WhatsAppCRM() {
     };
 
     return (
-        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', height: '91vh', overflow: 'hidden' }}>
             <Sidebar
                 activePage={activePage}
                 onNavigate={setActivePage}

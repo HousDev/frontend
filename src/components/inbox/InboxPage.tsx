@@ -283,7 +283,7 @@ const handleAddNote = useCallback(async (body: any) => {
             </div>
         </div>
         {/* Contact Info */}
-        <div className="flex-1 overflow-y-auto">
+        <div className=" overflow-y-auto">
             <ContactInfo
                 contact={contact}
                 users={users}

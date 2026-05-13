@@ -231,7 +231,7 @@ const contactTags = localTags;
     .filter((t) => !tagSearch || t.name.toLowerCase().includes(tagSearch.toLowerCase()));
 
     return (
-        <div className="flex flex-col h-full overflow-y-auto text-sm">
+        <div className="flex flex-col h-full overflow-y-auto text-sm max-h-[calc(100vh-140px)] sm:max-h-[calc(100vh-70px)] ">
             <div className="px-4 py-5 border-b border-gray-100 text-center">
                 <div className="w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-2">
                     {contact.name?.charAt(0)?.toUpperCase() || '?'}
