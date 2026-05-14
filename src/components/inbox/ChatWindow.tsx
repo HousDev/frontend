@@ -722,6 +722,10 @@ function connectSocket(userId: string | number) {
         transports: ["websocket", "polling"],
         query: { userId: String(userId) },
         withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
     });
 }
 
@@ -775,6 +779,45 @@ export default function ChatWindow({
         setConversation(initialConversation);
     }, [initialConversation]);
 
+    // ✅ Auto-refresh messages every 3 seconds (fallback for socket issues)
+    useEffect(() => {
+        if (!contact) return;
+
+        const refreshMessages = async () => {
+            try {
+                const msgs = await whatsappAPI.getMessages(contact.id);
+                const formatted = msgs.map((msg: any) => ({
+                    id: msg.id,
+                    direction: msg.direction === 'out' ? 'out' : 'in',
+                    text: msg.text,
+                    timestamp: msg.time_sent || msg.timestamp,
+                    status: msg.status,
+                    is_read: msg.is_read,
+                    sender: msg.direction === 'out' ? { name: msg.sender_name || msg.sender?.name || 'You' } : null,
+                    whatsapp_msg_id: msg.whatsapp_msg_id
+                }));
+
+                setMessages(prev => {
+                    // Check if messages changed
+                    const prevIds = prev.map(m => m.id).join(',');
+                    const newIds = formatted.map(m => m.id).join(',');
+                    if (prevIds !== newIds) {
+                        console.log('🔄 Auto-refresh: messages updated', formatted.length);
+                        return formatted;
+                    }
+                    return prev;
+                });
+            } catch (err) {
+                console.error('Auto-refresh failed:', err);
+            }
+        };
+
+        refreshMessages();
+        const interval = setInterval(refreshMessages, 3000);
+
+        return () => clearInterval(interval);
+    }, [contact?.id]);
+
     // ✅ Socket.IO Connection for Real-time Chat
     useEffect(() => {
         if (!contact) return;
@@ -795,37 +838,39 @@ export default function ChatWindow({
 
         socket.on("connect", () => {
             console.log("✅ Socket connected successfully, id:", socket.id);
+            socket.emit("leave_contact_room", `contact:${contact.id}`);
+            setTimeout(() => {
+                socket.emit("join_contact_room", `contact:${contact.id}`);
+                console.log("✅ Joined room: contact:", contact.id);
+            }, 100);
         });
 
         socket.on("disconnect", () => {
-            console.log("❌ Socket disconnected");
+            console.log("❌ Socket disconnected, attempting to reconnect...");
         });
 
-        socket.emit("join_contact_room", `contact:${contact.id}`)
+        socket.on("connect_error", (error) => {
+            console.error("❌ Socket connection error:", error);
+        });
 
-        // ✅ FIXED: Listen for new messages - BOT MESSAGES NOW WORK
+        // ✅ Handle new messages - IMPROVED DUPLICATE DETECTION
         const handleNewMessage = (data: any) => {
             console.log("📨 NEW MESSAGE RECEIVED:", data);
 
-            // ✅ FIX: Removed the problematic condition that was blocking bot messages
-            // OLD: if (data.direction === 'out' && data.message_type === 'location') return;
-            // NEW: Only log location messages, don't skip anything
-
             if (data.message_type === 'location') {
                 console.log("📍 Location message received");
-                // Don't return - let it display
             }
 
-            // ✅ Skip if this is my own message (from socket broadcast)
+            // Skip if this is my own message
             if (data.isOwnMessage === true) {
                 console.log("⚠️ Skipping own message from socket");
                 return;
             }
 
-            // ✅ Check if this message was just sent by us
+            // Check for duplicate using message key
             const messageKey = `${data.contact_id}_${data.text}_${data.timestamp}`;
             if (sentMessagesRef.current.has(messageKey)) {
-                console.log("⚠️ Skipping message we just sent");
+                console.log("⚠️ Skipping duplicate message");
                 return;
             }
 
@@ -850,13 +895,16 @@ export default function ChatWindow({
                 whatsapp_msg_id: data.whatsapp_msg_id || null
             };
 
-            // ✅ Check for duplicate before adding
+            // ✅ IMPROVED: Better duplicate detection using WhatsApp message ID
             setMessages((prev) => {
                 const exists = prev.some(m =>
                     m.id === newMsg.id ||
+                    (m.whatsapp_msg_id && m.whatsapp_msg_id === newMsg.whatsapp_msg_id) ||
                     (m.text === newMsg.text &&
-                        Math.abs(new Date(m.timestamp).getTime() - new Date(newMsg.timestamp).getTime()) < 1000)
+                        m.direction === newMsg.direction &&
+                        Math.abs(new Date(m.timestamp).getTime() - new Date(newMsg.timestamp).getTime()) < 3000)
                 );
+
                 if (exists) {
                     console.log("⚠️ Duplicate message, skipping");
                     return prev;
@@ -883,7 +931,7 @@ export default function ChatWindow({
 
         socket.on("chat_update", handleNewMessage);
 
-        // ✅ Listen for real-time message status updates
+        // ✅ Listen for message status updates
         const handleStatusUpdate = (data: { whatsapp_msg_id: string; status: string }) => {
             console.log("📊 Status update received:", data);
             setMessages(prev =>
@@ -907,12 +955,14 @@ export default function ChatWindow({
         return () => {
             console.log("🧹 Cleaning up socket for contact:", contact.id);
             if (socket) {
-                socket.emit("leave_contact_room", `contact:${contact.id}`)
+                socket.emit("leave_contact_room", `contact:${contact.id}`);
                 socket.off("chat_update", handleNewMessage);
                 socket.off("message_status_update", handleStatusUpdate);
                 socket.off("contact_presence", handlePresence);
                 socket.off("connect");
                 socket.off("disconnect");
+                socket.off("connect_error");
+                socket.disconnect();
             }
         };
     }, [contact?.id, conversation?.id]);
@@ -1159,7 +1209,6 @@ export default function ChatWindow({
     const handleSendLocation = async (lat: number, lng: number) => {
         if (!conversation || !contact) return;
 
-        const locationKey = `${contact.id}_location_${Date.now()}`;
         const tempId = `temp_loc_${Date.now()}_${Math.random()}`;
         const locationText = `📍 Location: ${lat}, ${lng}`;
 
