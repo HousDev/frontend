@@ -43,6 +43,6 @@ export default function WhatsAppCRM() {
                 {renderPage()}
             </main>
             <ToastContainer onNavigate={setActivePage} />
-        </div>
+        </div> 
     );
 }

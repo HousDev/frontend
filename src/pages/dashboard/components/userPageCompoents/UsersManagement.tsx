@@ -1272,6 +1272,8 @@
 
 // export default UsersManagement;
 
+
+
 // ./components/userPageCompoents/UsersManagement.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -1333,10 +1335,11 @@ interface UsersManagementProps {
   masters: Record<string, any[]>;
   masterLoading: boolean;
   onCreateUser?: (opts: { role: 'buyer' | 'seller'; prefill?: Partial<User> }) => Promise<void> | void;
+  onTabChange?: (tabId: string) => void;
 }
 
 const TABS = [
-  { id: 'all', name: 'Team Members', roles: ['admin', 'executive', 'manager', 'team leader', 'agent', 'sales team leader', 'presales team leader', 'sales manager', 'marketing executive', 'presales executive','sales executive'], showCreateButton: false, createButtonText: '' },
+  { id: 'all', name: 'Team Members', roles: ['admin', 'executive', 'manager', 'team leader', 'agent', 'sales team leader', 'presales team leader', 'sales manager', 'marketing executive', 'presales executive','sales executive','sales executive'], showCreateButton: false, createButtonText: '' },
   { id: 'buyers', name: 'Buyers', roles: ['buyer'], showCreateButton: true, createButtonText: '' },
   { id: 'sellers', name: 'Sellers', roles: ['seller'], showCreateButton: true, createButtonText: '' },
   { id: 'buyer-accounts', name: 'Buyer Accounts', roles: ['buyer'], showCreateButton: true, createButtonText: '' },
@@ -1523,7 +1526,8 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
   getLabelFromValue,
   masters,
   masterLoading,
-  onCreateUser
+  onCreateUser,
+  onTabChange
 }) => {
   const navigate = useNavigate();
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -1655,6 +1659,9 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     setActiveTab(tabId);
     localStorage.setItem(LOCAL_STORAGE_TAB_KEY, tabId);
     setCurrentPage(1);
+     if (onTabChange) {
+    onTabChange(tabId); 
+  }
   };
 
   const getOriginalPassword = (userId?: string | number) => {

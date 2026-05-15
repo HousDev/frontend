@@ -110,6 +110,8 @@ export const usersAPI = {
   //   return response.data;
   // },
 
+
+  
   getSalesExecutives: async () => {
   const response = await api.get('/users/filter', {
     params: {
@@ -145,10 +147,34 @@ export const usersAPI = {
     const response = await api.post("/users/create", userData);
     return response.data;
   },
-  exportUsers: async () => {
-    const response = await api.get("/users/export");
-    return response.data;
-  },
+// Tab-wise Export
+exportUsersByTab: async (tabType: string, format: 'excel' | 'csv' = 'excel') => {
+  const response = await api.get("/users/export-by-tab", {
+    params: { tabType, format },
+    responseType: 'blob'
+  });
+  return response;
+},
+
+// Download template by type
+downloadImportTemplate: async (importType: 'users' | 'buyers' | 'sellers') => {
+  const response = await api.get("/users/import-template", {
+    params: { type: importType },
+    responseType: 'blob'
+  });
+  return response;
+},
+
+// Import by type
+importUsersByType: async (file: File, importType: 'users' | 'buyers' | 'sellers') => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('type', importType);
+  const response = await api.post("/users/import", formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
+},
   filterData: async (params?: any) => {
     const response = await api.get("/users/filter", { params });
     return response.data;

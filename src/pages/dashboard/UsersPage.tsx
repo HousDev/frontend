@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usersAPI } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-
+import ImportExportModal from './components/userPageCompoents/ImportExportModal';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import UserForm from './components/userPageCompoents/UserForm';
 import UsersManagement from './components/userPageCompoents/UsersManagement';
@@ -73,7 +73,9 @@ const UsersPage: React.FC = () => {
   const [refreshUsers, setRefreshUsers] = useState(0);
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [showGeneratedPassword, setShowGeneratedPassword] = useState(false);
-
+const [showImportExportModal, setShowImportExportModal] = useState(false);
+const [modalMode, setModalMode] = useState<'import' | 'export'>('export'); // ✅ ADD THIS
+const [currentTab, setCurrentTab] = useState<string>('all');
   // Helper: preserve id type when sending (numeric string -> number, uuid -> string)
   const toNullableId = (v: unknown): string | number | null => {
     if (v === null || v === undefined || v === '') return null;
@@ -349,22 +351,7 @@ const UsersPage: React.FC = () => {
     setNewUser(prev => ({ ...prev, password: pw }));
   };
 
-  const exportUsers = async () => {
-    try {
-      const response = await usersAPI.exportUsers();
-      const blob = new Blob([response.data], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `users-export-${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-      toast.success('Users exported successfully');
-    } catch (error: any) {
-      console.error('Error exporting users:', error);
-      toast.error(error?.response?.data?.message || 'Failed to export users');
-    }
-  };
+ 
 
   return (
     <div className="py-2 px-3">
@@ -372,22 +359,28 @@ const UsersPage: React.FC = () => {
   
   <div className="flex flex-nowrap gap-1 sm:gap-3 w-full sm:w-auto">
     
-    <Button
-      variant="outline"
-      onClick={exportUsers}
-      className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3"
-    >
-      <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-      <span className="truncate">Export</span>
-    </Button>
+   <Button
+  variant="outline"
+onClick={() => {
+    setModalMode('export');  // ✅ Export mode set karo
+    setShowImportExportModal(true);
+  }}  className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3"
+>
+  <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+  <span className="truncate">Export</span>
+</Button>
 
-    <Button
-      variant="outline"
-      className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3"
-    >
-      <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
-      <span className="truncate">Import</span>
-    </Button>
+<Button
+  variant="outline"
+onClick={() => {
+    setModalMode('import');  // ✅ Import mode set karo
+    setShowImportExportModal(true);
+  }}
+    className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3"
+>
+  <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
+  <span className="truncate">Import</span>
+</Button>
 
     <Link to="/dashboard/settings/roles-permissions" className="flex-1 sm:flex-none">
       <Button
@@ -423,6 +416,7 @@ const UsersPage: React.FC = () => {
         masters={masters}
         masterLoading={masterLoading}
         onCreateUser={handleOpenCreateFromChild}
+        onTabChange={(tabId) => setCurrentTab(tabId)}
       />
 
       {/* Reusable UserForm component */}
@@ -469,6 +463,16 @@ const UsersPage: React.FC = () => {
           </div>
         </div>
       )}
+
+     {showImportExportModal && (
+  <ImportExportModal
+    isOpen={showImportExportModal}
+    onClose={() => setShowImportExportModal(false)}
+    mode={modalMode}
+    tabType={currentTab}
+    onSuccess={() => setRefreshUsers(prev => prev + 1)}
+  />
+)}
     </div>
   );
 };

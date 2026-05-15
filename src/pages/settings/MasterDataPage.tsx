@@ -19,7 +19,7 @@ import { connectedRemarkAPI } from "@/lib/connectedRemarkAPI";
 import { societyAPI } from "@/lib/societyAPI";
 import { toast, ToastContentProps } from "react-toastify";
 import SocietyForm from "./master/SocietyForm";
-
+import * as XLSX from 'xlsx';
 type ImportType = "master" | "values";
 
 interface Tab {
@@ -764,46 +764,48 @@ export default function MasterDataPage(): JSX.Element {
     setSelectedValueIds([]);
   };
 
-  const handleExport = async (): Promise<void> => {
-    if (!selectedMaster || isConnectedRemarkTab) return;
+ const handleExport = async (): Promise<void> => {
+  if (!selectedMaster) return;
 
-    try {
-      const blob = await masterDataAPI.exportMasterValues(selectedMaster.id);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${selectedMaster.name}_values.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+  // Export all values (not just filtered ones) – same as original CSV export
+  const valuesToExport = selectedMaster.values.map(v => ({
+    'Value': v.value,
+    'Status': v.status,
+  }));
 
-      toast.success(`Values exported successfully for "${selectedMaster.name}" ✅`);
-    } catch (error) {
-      console.error("Error exporting values:", error);
-      toast.error("Error exporting values ❌ Please try again.");
-    }
-  };
+  if (valuesToExport.length === 0) {
+    toast.warn("No values to export.");
+    return;
+  }
 
-  const handleMasterExport = async (): Promise<void> => {
-    if (isConnectedRemarkTab) return;
+  const ws = XLSX.utils.json_to_sheet(valuesToExport);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, selectedMaster.name);
+  XLSX.writeFile(wb, `${selectedMaster.name}_values.xlsx`);
+  toast.success(`Values exported successfully for "${selectedMaster.name}" ✅`);
+};
 
-    try {
-      const blob = await masterDataAPI.exportMasterTypes(activeId);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${activeTab.title}_master_types.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      toast.success("Master types exported successfully ✅");
-    } catch (error) {
-      console.error("Error exporting master types:", error);
-      toast.error("Error exporting master types ❌ Please try again.");
-    }
-  };
+ const handleMasterExport = async (): Promise<void> => {
+  if (isConnectedRemarkTab) return;
+
+  // Use the currently filtered master items (respect search)
+  const dataToExport = filteredMasterItems.map(item => ({
+    'Name': item.name,
+    'Status': item.status,
+    'Value Count': item.valueCount,
+  }));
+
+  if (dataToExport.length === 0) {
+    toast.warn("No data to export.");
+    return;
+  }
+
+  const ws = XLSX.utils.json_to_sheet(dataToExport);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, activeTab.title);
+  XLSX.writeFile(wb, `${activeTab.title}_master_types.xlsx`);
+  toast.success("Master types exported successfully ✅");
+};
 
   const handleImport = async (file: File): Promise<void> => {
     try {
