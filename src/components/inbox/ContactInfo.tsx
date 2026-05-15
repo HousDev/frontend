@@ -67,10 +67,40 @@ export default function ContactInfo({
     const [creatingLead, setCreatingLead] = useState(false);
     const [leadCreated, setLeadCreated] = useState(false);
     const { user } = useAuth()
-const [localTags, setLocalTags] = useState<TagType[]>(contact?.tags || []);
-useEffect(() => {
-    setLocalTags(contact?.tags || []);
-}, [contact?.id]);
+    const [tagOverride, setTagOverride] = useState<TagType[] | null>(null);
+
+    const [extraTags, setExtraTags] = useState<TagType[]>([]);
+    const baseTags = tagOverride !== null ? tagOverride : (contact?.tags || []);
+    const localTags = [
+        ...baseTags,
+        ...extraTags.filter(et => !baseTags.some(t => String(t.id) === String(et.id)))
+    ];
+
+
+
+    // contact?.id ke baad yeh add karo:
+    useEffect(() => {
+        if (!contact?.id) return;
+
+        const fetchTags = async () => {
+            try {
+                const tags = await whatsappAPI.getContactTags(contact.id);
+                if (tags && Array.isArray(tags)) {
+                    setExtraTags([]); // reset extra
+                    // setTagOverride(tags);
+                    // Convert tags to match the expected type (convert id to string)
+                    const convertedTags = tags.map(tag => ({
+                        ...tag,
+                        id: String(tag.id)
+                    }));
+                    setTagOverride(convertedTags as any);
+                }
+            } catch (e) { }
+        };
+
+        const interval = setInterval(fetchTags, 3000);
+        return () => clearInterval(interval);
+    }, [contact?.id]);
     // Create lead using API
     const handleCreateLead = async () => {
         if (!contact || creatingLead) return;
@@ -152,70 +182,70 @@ useEffect(() => {
     };
 
     const handleSaveNewTag = async () => {
-    if (!newTagName.trim() || savingTag || !contact) return;
-    setSavingTag(true);
-    try {
-        const newTag: any = await whatsappAPI.createTag(newTagName.trim(), newTagColor);
-        
-        // ✅ Notify parent to add to allTags list
-        onTagCreated?.(newTag);
-        
-        // ✅ Add tag to contact
-        await whatsappAPI.addTagToContact(contact.id, newTag.id);
-        
-        // ✅ Notify parent to add to contact's tags
-        onAddTag(String(newTag.id));
-        
-        // ✅ Also update local optimistic state immediately
-        setLocalTags(prev => [...prev, newTag]);
-        
-        setNewTagName('');
-        setNewTagColor(TAG_COLORS[0]);
-        setCreatingTag(false);
-        setShowTagPicker(false);
-        notificationStore.push('success', 'Tag Created', `Tag "${newTag.name}" created and added`);
-    } catch (error) {
-        console.error('Failed to create tag:', error);
-        notificationStore.push('error', 'Failed', 'Could not create tag');
-    } finally {
-        setSavingTag(false);
-    }
-};
-const handleAddTag = async (tagId: string) => {
-    if (!contact) return;
-    try {
-        await whatsappAPI.addTagToContact(contact.id, tagId);
-        onAddTag(tagId);
-        
-        // ✅ Add to local state immediately
-        const tag = allTags.find(t => String(t.id) === tagId);
-        if (tag) setLocalTags(prev => [...prev, tag]);
-        
-        setShowTagPicker(false);
-        setTagSearch('');
-        notificationStore.push('success', 'Tag Added', `Tag "${tag?.name}" added to contact`);
-    } catch (error) {
-        console.error('Failed to add tag:', error);
-        notificationStore.push('error', 'Failed', 'Could not add tag');
-    }
-};
+        if (!newTagName.trim() || savingTag || !contact) return;
+        setSavingTag(true);
+        try {
+            const newTag: any = await whatsappAPI.createTag(newTagName.trim(), newTagColor);
 
-   const handleRemoveTag = async (tagId: string) => {
-    if (!contact) return;
-    try {
-        await whatsappAPI.removeTagFromContact(contact.id, tagId);
-        onRemoveTag(tagId);
-        
-        // ✅ Remove from local state immediately
-        setLocalTags(prev => prev.filter(t => String(t.id) !== tagId));
-        
-        const tag = allTags.find(t => String(t.id) === tagId);
-        notificationStore.push('success', 'Tag Removed', `Tag "${tag?.name}" removed from contact`);
-    } catch (error) {
-        console.error('Failed to remove tag:', error);
-        notificationStore.push('error', 'Failed', 'Could not remove tag');
-    }
-};
+            // ✅ Notify parent to add to allTags list
+            onTagCreated?.(newTag);
+
+            // ✅ Add tag to contact
+            await whatsappAPI.addTagToContact(contact.id, newTag.id);
+
+            // ✅ Notify parent to add to contact's tags
+            onAddTag(String(newTag.id));
+
+            // ✅ Also update local optimistic state immediately
+            setExtraTags(prev => [...prev, newTag]);
+
+            setNewTagName('');
+            setNewTagColor(TAG_COLORS[0]);
+            setCreatingTag(false);
+            setShowTagPicker(false);
+            notificationStore.push('success', 'Tag Created', `Tag "${newTag.name}" created and added`);
+        } catch (error) {
+            console.error('Failed to create tag:', error);
+            notificationStore.push('error', 'Failed', 'Could not create tag');
+        } finally {
+            setSavingTag(false);
+        }
+    };
+    const handleAddTag = async (tagId: string) => {
+        if (!contact) return;
+        try {
+            await whatsappAPI.addTagToContact(contact.id, tagId);
+            onAddTag(tagId);
+
+            // ✅ Add to local state immediately
+            const tag = allTags.find(t => String(t.id) === tagId);
+            if (tag) setExtraTags(prev => [...prev, tag]);
+
+            setShowTagPicker(false);
+            setTagSearch('');
+            notificationStore.push('success', 'Tag Added', `Tag "${tag?.name}" added to contact`);
+        } catch (error) {
+            console.error('Failed to add tag:', error);
+            notificationStore.push('error', 'Failed', 'Could not add tag');
+        }
+    };
+
+    const handleRemoveTag = async (tagId: string) => {
+        if (!contact) return;
+        try {
+            await whatsappAPI.removeTagFromContact(contact.id, tagId);
+            onRemoveTag(tagId);
+
+            // ✅ Remove from local state immediately
+            setExtraTags(prev => prev.filter(t => String(t.id) !== tagId));
+
+            const tag = allTags.find(t => String(t.id) === tagId);
+            notificationStore.push('success', 'Tag Removed', `Tag "${tag?.name}" removed from contact`);
+        } catch (error) {
+            console.error('Failed to remove tag:', error);
+            notificationStore.push('error', 'Failed', 'Could not remove tag');
+        }
+    };
 
     if (!contact) {
         return (
@@ -225,50 +255,49 @@ const handleAddTag = async (tagId: string) => {
         );
     }
 
-const contactTags = localTags;
+    const contactTags = localTags;
     const filteredAvailableTags = allTags
-    .filter((t) => !localTags.some((ct) => String(ct.id) === String(t.id)))
-    .filter((t) => !tagSearch || t.name.toLowerCase().includes(tagSearch.toLowerCase()));
+        .filter((t) => !localTags.some((ct) => String(ct.id) === String(t.id)))
+        .filter((t) => !tagSearch || t.name.toLowerCase().includes(tagSearch.toLowerCase()));
 
     return (
-        <div className="flex flex-col h-full overflow-y-auto text-sm max-h-[calc(100vh-140px)] sm:max-h-[calc(100vh-70px)] ">
-            <div className="px-4 py-5 border-b border-gray-100 text-center">
-                <div className="w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-2">
-                    {contact.name?.charAt(0)?.toUpperCase() || '?'}
-                </div>
-                <h3 className="font-semibold text-gray-900">{contact.name}</h3>
-                <p className="text-gray-500 text-xs mt-0.5">{contact.phone}</p>
-                <div className="mt-2 flex flex-col items-center gap-2">
-                    <select
-                        value={contact.stage}
-                        onChange={(e) => handleStageUpdate(e.target.value)}
-                        className={`text-xs font-semibold px-3 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 ${STAGE_COLORS[contact.stage]}`}
-                    >
-                        {STAGES.map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                        ))}
-                    </select>
-                    <button
-                        onClick={handleCreateLead}
-                        disabled={creatingLead || contact.stage !== 'New'}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${leadCreated
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : contact.stage === 'New'
-                                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            } disabled:opacity-50`}
-                    >
-                        {creatingLead ? (
-                            <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-                        ) : leadCreated ? (
-                            <CheckCircle size={12} />
-                        ) : (
-                            <UserPlus size={12} />
-                        )}
-                        {leadCreated ? 'Lead Created!' : contact.stage === 'New' ? 'Create Lead in CRM' : 'Lead Already Created'}
-                    </button>
-                </div>
+        <div className="flex flex-col h-full overflow-y-auto text-sm max-h-[calc(100vh-140px)] sm:max-h-[calc(100vh-70px)] ">            <div className="px-4 py-5 border-b border-gray-100 text-center">
+            <div className="w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-2">
+                {contact.name?.charAt(0)?.toUpperCase() || '?'}
             </div>
+            <h3 className="font-semibold text-gray-900">{contact.name}</h3>
+            <p className="text-gray-500 text-xs mt-0.5">{contact.phone}</p>
+            <div className="mt-2 flex flex-col items-center gap-2">
+                <select
+                    value={contact.stage}
+                    onChange={(e) => handleStageUpdate(e.target.value)}
+                    className={`text-xs font-semibold px-3 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 ${STAGE_COLORS[contact.stage]}`}
+                >
+                    {STAGES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                    ))}
+                </select>
+                <button
+                    onClick={handleCreateLead}
+                    disabled={creatingLead || contact.stage !== 'New'}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${leadCreated
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : contact.stage === 'New'
+                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        } disabled:opacity-50`}
+                >
+                    {creatingLead ? (
+                        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                    ) : leadCreated ? (
+                        <CheckCircle size={12} />
+                    ) : (
+                        <UserPlus size={12} />
+                    )}
+                    {leadCreated ? 'Lead Created!' : contact.stage === 'New' ? 'Create Lead in CRM' : 'Lead Already Created'}
+                </button>
+            </div>
+        </div>
 
             <div className="px-4 py-3 border-b border-gray-100">
                 <button
@@ -309,24 +338,30 @@ const contactTags = localTags;
 
             <div className="px-4 py-3 border-b border-gray-100">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Assigned To</p>
-              <select
-    value={contact.assigned_to || ''}
-    onChange={(e) => handleAssign(e.target.value)}
-    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
->
-    <option value="">Unassigned</option>
-    {users
-        .filter((u) => 
-            u.department?.toLowerCase() === 'sales' || 
-            u.role?.toLowerCase() === 'sales_executive' ||
-            u.role?.toLowerCase() === 'sales executive'
-        )
-        .map((u) => (
-            <option key={u.id} value={u.id.toString()}>
-                {(u.first_name + " " + u.last_name).trim() || u.name}
-            </option>
-        ))}
-</select>
+                <select
+                    value={contact.assigned_to || ''}
+                    onChange={(e) => handleAssign(e.target.value)}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                    <option value="">Unassigned</option>
+                    {users
+                        .filter(
+                            (u) =>
+                                (
+                                    u.department?.toLowerCase() === "seller" ||
+                                    u.department?.toLowerCase() === "buyer"
+                                ) &&
+                                (
+                                    u.role?.toLowerCase() === "sales executive" ||
+                                    u.role?.toLowerCase() === "buyer executive"
+                                )
+                        )
+                        .map((u) => (
+                            <option key={u.id} value={u.id.toString()}>
+                                {(u.first_name + " " + u.last_name).trim() || u.name}
+                            </option>
+                        ))}
+                </select>
             </div>
 
             <div className="px-4 py-3 border-b border-gray-100">
@@ -493,23 +528,23 @@ const contactTags = localTags;
                             )}
                         </div>
                         <div className="flex gap-2">
-                          <textarea
-    value={noteText}
-    onChange={(e) => setNoteText(e.target.value)}
-    placeholder="Add internal note…"
-    rows={2}
-    className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
-    onKeyDown={(e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleAddNote();
-        }
-    }}
-/>
+                            <textarea
+                                value={noteText}
+                                onChange={(e) => setNoteText(e.target.value)}
+                                placeholder="Add internal note…"
+                                rows={2}
+                                className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleAddNote();
+                                    }
+                                }}
+                            />
                             <button
                                 onClick={handleAddNote}
                                 disabled={!noteText.trim()}
-                                className="px-3 py-2 bg-amber-400 text-white rounded-lg text-xs font-semibold hover:bg-amber-500 disabled:opacity-40 self-end transition-colors"
+                                className="px-3 py-2 bg-amber-400 text-black  rounded-lg text-xs font-semibold hover:bg-amber-500 disabled:opacity-40 self-end transition-colors"
                             >
                                 <StickyNote size={13} />
                             </button>

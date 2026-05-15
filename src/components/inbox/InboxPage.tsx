@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { whatsappAPI } from '@/lib/whatsappApi';
 import { useConversations, useContactDetail, useConversationDetail } from '../../hooks/useInbox';
 import { useLeads, useTags, useCrmUsers } from '../../hooks/useLeads';
@@ -47,6 +47,8 @@ const { user } = useAuth();
     const { conversation: liveConversation } = useConversationDetail(selectedConvId);
     const selectedConv = liveConversation || conversations.find((c) => c.id === selectedConvId) || null;
     const { contact, setContact } = useContactDetail(selectedConv?.contact_id || null);
+    const setContactRef = useRef(setContact);
+    useEffect(() => { setContactRef.current = setContact; }, [setContact]);
     const { tags } = useTags();
     const { users: crmUsers } = useCrmUsers();
     const { addTag, removeTag, assignTo, updateStage } = useLeads();
@@ -82,6 +84,8 @@ const { user } = useAuth();
         socket.on("chat_update", (data) => {
             console.log("🔥 REALTIME EVENT:", data);
 
+            
+
             const { contact_id, text } = data;
 
             updateConversationLocally(`conv_${contact_id}`, (prev: any) => {
@@ -115,8 +119,46 @@ const { user } = useAuth();
             }
         });
 
+        socket.on("contact_tagged", (data) => {
+            console.log("🏷️ Contact tagged, refreshing...", data);
+            refresh();
+            if (data.contact_id) {
+                whatsappAPI.getContactTags(data.contact_id).then((tags: any) => {
+                    console.log("🏷️ Fetched tags directly:", tags);
+                    setContactRef.current((prev: any) => {
+                        if (!prev || String(prev.id) !== String(data.contact_id)) return prev;
+                        return { ...prev, tags: tags || [] };
+                    });
+                    updateConversationLocally(`conv_${data.contact_id}`, (prev: any) => {
+                        if (!prev) return prev;
+                        return { ...prev, contact: { ...prev.contact, tags: tags || [] } };
+                    });
+                }).catch(() => { });
+            }
+        });
+
+        socket.on("refresh_inbox", (data) => {
+            console.log("🔄 Refresh inbox received", data);
+            refresh();
+            if (data.contact_id) {
+                whatsappAPI.getContactTags(data.contact_id).then((tags: any) => {
+                    console.log("🏷️ Fetched tags directly:", tags);
+                    setContactRef.current((prev: any) => {
+                        if (!prev || String(prev.id) !== String(data.contact_id)) return prev;
+                        return { ...prev, tags: tags || [] };
+                    });
+                    updateConversationLocally(`conv_${data.contact_id}`, (prev: any) => {
+                        if (!prev) return prev;
+                        return { ...prev, contact: { ...prev.contact, tags: tags || [] } };
+                    });
+                }).catch(() => { });
+            }
+        });
+
         return () => {
             socket.off("chat_update");
+            socket.off("contact_tagged");  // ✅ Add this
+            socket.off("refresh_inbox");
         };
     }, [selectedConv, updateConversationLocally, refresh]);
 

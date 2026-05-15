@@ -1446,7 +1446,7 @@ export default function ChatWindow({
             </div>
 
             {/* Contact Info Sidebar (Desktop) */}
-            <div className="w-72 shrink-0 border-l border-gray-200 bg-white overflow-y-auto hidden xl:block">
+            <div className="w-60 shrink-0 border-l border-gray-200 bg-white overflow-y-auto hidden xl:block">
                 <ContactInfo
                     contact={contact}
                     users={users}

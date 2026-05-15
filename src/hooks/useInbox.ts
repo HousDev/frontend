@@ -296,9 +296,9 @@ export function useContactDetail(contactId: string | null) {
       return;
     }
 
-    const fetchContact = async () => {
-      try {
-        const data: any = await whatsappAPI.getContactById(contactId);
+   const fetchContact = async () => {
+    try {
+        const data: any = await whatsappAPI.getContactWithDetails(contactId);
         setContact(data);
       } catch (error) {
         console.error("Error fetching contact:", error);
