@@ -703,6 +703,9 @@
 //     );
 // }
 
+
+
+
 import { useEffect, useRef, useState } from 'react';
 import { Bot, CheckCircle, Clock, PhoneCall, ArrowLeft, BotMessageSquare } from 'lucide-react';
 import type { WhatsAppConversation, WhatsAppContact, Tag, CrmUser, WhatsAppMessage, ConversationNote } from '../../types';
@@ -794,7 +797,12 @@ export default function ChatWindow({
                     status: msg.status,
                     is_read: msg.is_read,
                     sender: msg.direction === 'out' ? { name: msg.sender_name || msg.sender?.name || 'You' } : null,
-                    whatsapp_msg_id: msg.whatsapp_msg_id
+                    whatsapp_msg_id: msg.whatsapp_msg_id,
+                    media_url: msg.media_url || null,       // ← ADD
+                    media_type: msg.media_type || null,     // ← ADD
+                    file_name: msg.file_name || null,       // ← ADD
+                    isInteractive: msg.isInteractive || false,  // ← ADD
+                    buttons: msg.buttons || null,
                 }));
 
                 setMessages(prev => {
@@ -1018,6 +1026,8 @@ export default function ChatWindow({
                     media_url: msg.media_url || null,
                     media_type: msg.media_type || null,
                     file_name: msg.file_name || null,
+                    isInteractive: msg.isInteractive || false,   // ← ADD
+                    buttons: msg.buttons || null,           
                 }));
 
                 setMessages(formatted);

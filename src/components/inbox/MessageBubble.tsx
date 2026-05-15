@@ -512,12 +512,51 @@ export default function MessageBubble({
                 </div>
               );
             })()}
+          {/* ───── INTERACTIVE / BUTTONS MESSAGE ───── */}
+          {(message.isInteractive ||
+            message.message_type === "buttons" ||
+            message.message_type === "interactive") &&   // ← add interactive type
+            message.text && (
+              <div
+                className={`rounded-[7.5px] overflow-hidden shadow-sm relative ${isOutbound
+                    ? "bg-[#d9fdd3] rounded-tr-none"
+                    : "bg-white border border-gray-100 rounded-tl-none"
+                  }`}
+              >
+                {isOutbound ? outTail : inTail}
+                {/* Header */}
+                <div className=" text-black text-[12px] font-semibold px-3 py-1.5">
+                  🏠 Property Assistant
+                </div>
+                {/* Body */}
+                <p className="text-[13.5px] px-3 py-2 text-[#111b21] whitespace-pre-wrap leading-snug">
+                  {message.text}
+                </p>
+                {/* Buttons */}
+                {message.buttons && message.buttons.length > 0 && (
+                  <div className="border-t border-gray-100">
+                    {message.buttons.map((btn: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 text-[13px] text-[#008069] font-medium border-b border-gray-100 last:border-b-0"
+                      >
+                        <span>↩</span>
+                        <span>{btn.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
           {/* ───── PLAIN TEXT (only when no media) - ✅ FIXED: Shows ALL messages including bot responses ───── */}
           {!message.media_url &&
             message.message_type !== "document" &&
             message.message_type !== "template" &&
             message.message_type !== "location" &&
+            message.message_type !== "buttons" &&    
+            message.message_type !== "interactive" &&   // ← ADD THIS
+            !message.isInteractive &&
             message.text && (
               <div
                 className={`px-3 py-2 rounded-[7.5px] shadow-sm relative ${isOutbound ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none" : "bg-white border border-gray-100 text-[#111b21] rounded-tl-none"}`}

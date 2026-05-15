@@ -374,7 +374,7 @@ export interface WhatsAppConversation {
 }
 
 export type MessageDirection = 'in' | 'out';
-export type MessageType = 'text' | 'image' | 'document' | 'video' | 'audio' | 'template' | 'interactive' | 'location' | 'sticker';
+export type MessageType = 'text' | 'image' | 'document' | 'video' | 'audio' | 'template' | 'interactive' | 'location' | 'sticker' | 'buttons';
 export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface WhatsAppMessage {
@@ -402,6 +402,9 @@ export interface WhatsAppMessage {
   media_type?: string | null;   
   file_name?: string | null;    
   sending?: boolean;
+  isInteractive?: boolean;
+buttons?: { title: string; next_step?: number }[] | null;
+
 }
 
 export interface ConversationNote {
