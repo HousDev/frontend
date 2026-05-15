@@ -285,6 +285,8 @@ import {
   FileText,
   Image as ImageIcon,
   MapPin,
+  CornerDownLeft,
+  CornerUpLeft,
 } from "lucide-react";
 import type { WhatsAppMessage } from "../../types";
 import { formatTime } from "../../lib/formatters";
@@ -515,12 +517,12 @@ export default function MessageBubble({
           {/* ───── INTERACTIVE / BUTTONS MESSAGE ───── */}
           {(message.isInteractive ||
             message.message_type === "buttons" ||
-            message.message_type === "interactive") &&   // ← add interactive type
+            message.message_type === "interactive") &&
             message.text && (
               <div
-                className={`rounded-[7.5px] overflow-hidden shadow-sm relative ${isOutbound
-                    ? "bg-[#d9fdd3] rounded-tr-none"
-                    : "bg-white border border-gray-100 rounded-tl-none"
+                className={`rounded-[7.5px] overflow-hidden shadow-sm relative max-w-[220px] ${isOutbound
+                  ? "bg-[#d9fdd3] rounded-tr-none"
+                  : "bg-white border border-gray-100 rounded-tl-none"
                   }`}
               >
                 {isOutbound ? outTail : inTail}
@@ -529,21 +531,21 @@ export default function MessageBubble({
                   🏠 Property Assistant
                 </div>
                 {/* Body */}
-                <p className="text-[13.5px] px-3 py-2 text-[#111b21] whitespace-pre-wrap leading-snug">
+                <p className="text-[13.5px] px-3 py-2 text-[#111b21] whitespace-wrap leading-snug">
                   {message.text}
                 </p>
                 {/* Buttons */}
                 {message.buttons && message.buttons.length > 0 && (
                   <div className="border-t border-gray-100">
-                    {message.buttons.map((btn: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 text-[13px] text-[#008069] font-medium border-b border-gray-100 last:border-b-0"
-                      >
-                        <span>↩</span>
-                        <span>{btn.title}</span>
-                      </div>
-                    ))}
+                  {message.buttons.map((btn: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-start gap-2 px-3 py-2 text-[13px] text-[#008069] font-medium border-b border-gray-100 last:border-b-0"
+                    >
+                      <CornerUpLeft size={13} className="text-[#008069] shrink-0" />
+                      <span>{btn.title}</span>
+                    </div>
+                  ))}
                   </div>
                 )}
               </div>
