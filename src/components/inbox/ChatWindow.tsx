@@ -63,8 +63,7 @@ export default function ChatWindow({
     const endRef = useRef<HTMLDivElement>(null);
     const socketRef = useRef<any>(null);
     const [isSending, setIsSending] = useState(false);
-    const [showContactInfo, setShowContactInfo] = useState(false);
-
+const [showContactInfo, setShowContactInfo] = useState(false);
     const [contactPresence, setContactPresence] = useState<{
         status: 'online' | 'offline';
         last_seen: string;
@@ -638,8 +637,13 @@ export default function ChatWindow({
                     )}
 
                     <button
-                        onClick={() => setShowContactInfo(v => !v)}  // ← Change this line
-                        className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-600 border border-[#b7e4c7] rounded-full flex items-center justify-center text-[#075e54] text-xs sm:text-sm font-bold shrink-0 transition-all"
+onClick={() => {
+    if (window.innerWidth >= 1280) {
+        setShowContactInfo(v => !v);
+    } else {
+        onContactInfoOpen?.();
+    }
+}}                        className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-600 border border-[#b7e4c7] rounded-full flex items-center justify-center text-[#075e54] text-xs sm:text-sm font-bold shrink-0 transition-all"
                         title="View contact info"
                     >
                         {contact.name
@@ -745,28 +749,27 @@ export default function ChatWindow({
 
             {/* Contact Info Sidebar (Desktop) */}
             {/* Contact Info Sidebar - toggles on avatar click, all screen sizes */}
-            {showContactInfo && (
-                <div className="w-72 shrink-0 border-l border-gray-200 bg-white overflow-y-auto">
-                    <ContactInfo
-                        contact={contact}
-                        users={users}
-                        allTags={allTags}
-                        onUpdateStage={onUpdateStage}
-                        onAssign={onAssign}
-                        onAddTag={onAddTag}
-                        onRemoveTag={onRemoveTag}
-                        onUpdateNotes={async (updatedNotes) => {
-                            try {
-                                await whatsappAPI.updateContact(contact.id, { notes: updatedNotes });
-                            } catch (err) {
-                                console.error('Failed to update notes', err);
-                            }
-                        }}
-                        conversationNotes={notes}
-                        onAddNote={handleAddNote}
-                        fetchAllNotes={fetchAllNotes}
-                    />
-                </div>
-            )}        </div>
+          {/* Contact Info Sidebar (Desktop) */}
+{showContactInfo && (
+<div className="w-72 shrink-0 border-l border-gray-200 bg-white overflow-y-auto">                <ContactInfo
+                    contact={contact}
+                    users={users}
+                    allTags={allTags}
+                    onUpdateStage={onUpdateStage}
+                    onAssign={onAssign}
+                    onAddTag={onAddTag}
+                    onRemoveTag={onRemoveTag}
+                    onUpdateNotes={async (updatedNotes) => {
+                        try {
+                            await whatsappAPI.updateContact(contact.id, { notes: updatedNotes });
+                        } catch (err) {
+                            console.error('Failed to update notes', err);
+                        }
+                    }}
+                    conversationNotes={notes}
+                    onAddNote={handleAddNote}
+                    fetchAllNotes={fetchAllNotes}
+                />
+            </div>  )}     </div>
     );
 }
