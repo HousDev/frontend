@@ -219,7 +219,7 @@ if (advanced.hasUnread === false && Number(conv.unread_count) > 0) return false;
   };
 
   return (
-    <div className="flex flex-col max-h-[90vh] w-full xl:w-72 bg-white border-r border-gray-200 shrink-0 relative">
+    <div className="flex flex-col max-h-[90vh] w-full xl:w-80 bg-white border-r border-gray-200 shrink-0 relative">
       <div className="px-4 pt-4 pb-3 border-b border-gray-100">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
