@@ -575,6 +575,13 @@ const SellersPage: React.FC = () => {
       roleFilteredSellers.filter(pred).length;
     return [
       { id: "all", label: "All", count: roleFilteredSellers.length },
+
+      {
+        id: "uncontacts",
+        label: "Uncontacts",
+        count: count((s) => (s.source || "").toLowerCase() === "whatsapp"),
+      },
+
       {
         id: "leads",
         label: "Fresh Leads",
@@ -685,6 +692,8 @@ const SellersPage: React.FC = () => {
           : !!seller.isActive;
       const matchesTab =
         activeTab === "all" ||
+        (activeTab === "uncontacts" && (seller.source || "").toLowerCase() === "whatsapp") ||
+
         (activeTab === "leads" && seller.stage === "initial_contact") ||
         (activeTab === "active" &&
           (isActiveBool || (seller.status || "").toLowerCase() === "active")) ||

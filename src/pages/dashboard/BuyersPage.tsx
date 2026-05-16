@@ -621,6 +621,8 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
 }, [executives, allBuyers, resolveExecutiveName]);
   const tabs = [
     { id: 'all', label: 'All', count: roleFilteredBuyers.length },
+    { id: 'uncontacts', label: 'Uncontacts', count: roleFilteredBuyers.filter(b => (b.source || '').toLowerCase() === 'whatsapp').length },
+
     { id: 'hot_leads', label: 'Hot Leads', count: roleFilteredBuyers.filter(b => priorityKey(b.priority) === 'high').length },
     { id: 'active', label: 'Active', count: roleFilteredBuyers.filter(b => b.is_active === true).length },
     { id: 'property_hunting', label: 'Property Hunting', count: roleFilteredBuyers.filter(b => stageKey(b.stage) === 'property_hunting').length },
@@ -651,6 +653,8 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
     const pri = priorityKey(buyer.priority);
 
     const matchesTab = activeTab === 'all' ||
+      (activeTab === 'uncontacts' && (buyer.source ?? '').toLowerCase() === 'whatsapp') ||
+
       (activeTab === 'hot_leads' && pri === 'high') ||
       (activeTab === 'active' && buyer.is_active === true) ||
       (activeTab === 'property_hunting' && stg === 'property_hunting') ||
