@@ -626,10 +626,18 @@ const [showContactInfo, setShowContactInfo] = useState(false);
         <div className="flex flex-1 min-w-0">
             <div className="flex flex-col flex-1 min-w-0 ">
                 {/* Header */}
-                <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-white border-b shrink-0 sticky top-0 z-10">
-                    {onClose && (
+                <div
+                    className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-white border-b shrink-0 sticky top-0 z-10 cursor-pointer"
+                    onClick={() => {
+                        if (window.innerWidth >= 1280) {
+                            setShowContactInfo(v => !v);
+                        } else {
+                            onContactInfoOpen?.();
+                        }
+                    }}
+                >                    {onClose && (
                         <button
-                            onClick={onClose}
+                            onClick={(e) => { e.stopPropagation(); onClose?.(); }}
                             className="p-1 -ml-1 sm:ml-0 rounded-lg hover:bg-gray-100 text-gray-500"
                         >
                             <ArrowLeft className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
@@ -637,13 +645,7 @@ const [showContactInfo, setShowContactInfo] = useState(false);
                     )}
 
                     <button
-onClick={() => {
-    if (window.innerWidth >= 1280) {
-        setShowContactInfo(v => !v);
-    } else {
-        onContactInfoOpen?.();
-    }
-}}                        className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-600 border border-[#b7e4c7] rounded-full flex items-center justify-center text-[#075e54] text-xs sm:text-sm font-bold shrink-0 transition-all"
+                        onClick={(e) => e.stopPropagation()}                        className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-600 border border-[#b7e4c7] rounded-full flex items-center justify-center text-[#075e54] text-xs sm:text-sm font-bold shrink-0 transition-all"
                         title="View contact info"
                     >
                         {contact.name
@@ -675,7 +677,7 @@ onClick={() => {
 
                     <div className="flex items-center gap-1 sm:gap-2">
                         <button
-                            onClick={toggleBotActive}
+                            onClick={(e) => { e.stopPropagation(); toggleBotActive(); }}
                             title={conversation.bot_active ? 'Disable Bot' : 'Enable Bot'}
                             className={`p-1.5 sm:p-2 rounded-lg transition-colors text-sm flex items-center gap-1.5 ${conversation.bot_active
                                 ? 'bg-[#d9fdd3] text-[#075e54] hover:bg-[#c8f7c5]'
@@ -689,8 +691,7 @@ onClick={() => {
                         </button>
 
                         <button
-                            onClick={toggleResolved}
-                            title={conversation.status === 'resolved' ? 'Reopen' : 'Resolve'}
+                            onClick={(e) => { e.stopPropagation(); toggleResolved(); }}                            title={conversation.status === 'resolved' ? 'Reopen' : 'Resolve'}
                             className={`p-2 rounded-lg transition-colors text-sm flex items-center gap-1.5 ${conversation.status === 'resolved'
                                 ? 'bg-[#d9fdd3] text-[#075e54] hover:bg-[#c8f7c5]'
                                 : 'bg-[#f0f2f5] text-[#667781] hover:bg-[#e4e6e9]'
