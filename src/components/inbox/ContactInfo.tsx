@@ -353,7 +353,7 @@ export default function ContactInfo({
                                 ) &&
                                 (
                                     u.role?.toLowerCase() === "sales executive" ||
-                                    u.role?.toLowerCase() === "buyer executive"
+                                    u.role?.toLowerCase() === "sales_executive"
                                 )
                         )
                         .map((u) => (
