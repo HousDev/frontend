@@ -290,6 +290,9 @@
 // }
 // types/index.ts
 
+
+
+
 export type UserRole = 'admin' | 'sales' | 'pre_sales';
 
 export interface CrmUser {

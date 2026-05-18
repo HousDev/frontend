@@ -14,6 +14,7 @@ import ContactInfo from './ContactInfo';
 import { useAuth } from '@/contexts/AuthContext';
 import { io } from 'socket.io-client';
 import whatsapp_bg from '@/assets/images/whatsapp_bg.png';
+import { formatCurrency, formatRelativeTime, formatPhone } from '../../lib/formatters';  // ← Added formatPhone
 
 function connectSocket(userId: string | number) {
     return io(import.meta.env.VITE_API_URL || "https://resaleexpert.in", {
@@ -671,7 +672,7 @@ const [showContactInfo, setShowContactInfo] = useState(false);
                                 last seen {new Date(contactPresence.last_seen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
                         ) : (
-                            <p className="text-[11px] sm:text-xs text-gray-400 truncate">{contact.phone}</p>
+                            <p className="text-[11px] sm:text-xs text-gray-400 truncate">{formatPhone(contact.phone)}</p>
                         )}
                     </div>
 

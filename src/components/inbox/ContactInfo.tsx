@@ -4,7 +4,7 @@ import {
     Plus, X, StickyNote, Building2, AlertCircle, UserPlus, CheckCircle, Tag,
 } from 'lucide-react';
 import type { WhatsAppContact, CrmUser, Tag as TagType, ConversationNote } from '../../types';
-import { formatCurrency, formatRelativeTime } from '../../lib/formatters';
+import { formatCurrency, formatRelativeTime, formatPhone } from '../../lib/formatters';
 import { notificationStore } from '../../lib/notifications';
 import { whatsappAPI } from '../../lib/whatsappApi';
 import { useAuth } from '@/contexts/AuthContext';
@@ -266,7 +266,7 @@ export default function ContactInfo({
                 {contact.name?.charAt(0)?.toUpperCase() || '?'}
             </div>
             <h3 className="font-semibold text-gray-900">{contact.name}</h3>
-            <p className="text-gray-500 text-xs mt-0.5">{contact.phone}</p>
+            <p className="text-gray-500 text-xs mt-0.5">{formatPhone(contact.phone)}</p>
             <div className="mt-2 flex flex-col items-center gap-2">
                 <select
                     value={contact.stage}
@@ -310,8 +310,7 @@ export default function ContactInfo({
 
                 {detailsExpanded && (
                     <div className="space-y-2">
-                        <DetailRow icon={<Phone size={13} />} value={contact.phone} />
-                        {contact.email && <DetailRow icon={<Mail size={13} />} value={contact.email} />}
+<DetailRow icon={<Phone size={13} />} value={formatPhone(contact.phone)} />                        {contact.email && <DetailRow icon={<Mail size={13} />} value={contact.email} />}
                         {contact.preferred_location && (
                             <DetailRow icon={<MapPin size={13} />} value={contact.preferred_location} />
                         )}

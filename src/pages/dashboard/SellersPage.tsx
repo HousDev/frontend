@@ -2198,3 +2198,6 @@ onEdit={(sellerData) => {
 };
 
 export default SellersPage;
+
+
+

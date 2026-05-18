@@ -368,6 +368,7 @@ import {
     Megaphone, Plus, Play, Pause, BarChart2, Clock, CheckCircle,
     XCircle, AlertCircle, Send, Eye, Search, Filter, RefreshCw,
     TrendingUp, Users, IndianRupee,
+    Trash2,
 } from 'lucide-react';
 import { whatsappAPI } from '../../lib/whatsappApi';
 import type { Campaign, CampaignStatus } from '../../types';
@@ -419,7 +420,9 @@ export default function CampaignsPage() {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<CampaignStatus | 'all'>('all');
     const [refreshing, setRefreshing] = useState(false);
-
+const [selectedCampaigns, setSelectedCampaigns] = useState<Set<number>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
     const fetchCampaigns = async () => {
         setLoading(true);
         try {
@@ -463,6 +466,42 @@ export default function CampaignsPage() {
         await fetchCampaigns();
         setRefreshing(false);
     };
+
+    const toggleSelectCampaign = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newSelected = new Set(selectedCampaigns);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedCampaigns(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedCampaigns.size === filtered.length) {
+      setSelectedCampaigns(new Set());
+    } else {
+      setSelectedCampaigns(new Set(filtered.map(c => c.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    setDeleting(true);
+    try {
+      const ids = Array.from(selectedCampaigns);
+      await whatsappAPI.bulkDeleteCampaigns(ids);
+      setSelectedCampaigns(new Set());
+      setShowBulkDeleteConfirm(false);
+      await fetchCampaigns();
+    } catch (err: any) {
+      console.error('Bulk delete failed:', err);
+      alert(err.response?.data?.error || 'Failed to delete campaigns');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
 
     const filtered = campaigns.filter((c) => {
         const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -570,6 +609,21 @@ export default function CampaignsPage() {
                         ))}
                     </div>
                 </div>
+
+
+                {filtered.length > 0 && (
+  <div className="flex items-center gap-2 mt-2 sm:mt-3">
+    <label className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-600 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={selectedCampaigns.size === filtered.length && filtered.length > 0}
+        onChange={toggleSelectAll}
+        className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+      />
+      Select All ({filtered.length})
+    </label>
+  </div>
+)}
             </div>
 
             {/* Campaign list */}
@@ -612,6 +666,16 @@ export default function CampaignsPage() {
 
                                     <div className="p-2 sm:p-5">
     <div className="flex items-start gap-2 sm:gap-4">
+          <div onClick={(e) => e.stopPropagation()} className="pt-0.5 sm:pt-1">
+    <input
+      type="checkbox"
+      checked={selectedCampaigns.has(campaign.id)}
+      onChange={() => {}} 
+      onClick={(e) => toggleSelectCampaign(campaign.id, e)}
+      className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+    />
+  </div>
+
         <div className={`w-7 h-7 sm:w-10 sm:h-10 ${sc.bg} rounded-xl flex items-center justify-center shrink-0 border ${sc.border}`}>
             <StatusIcon size={14} className={sc.color} />
         </div>
@@ -713,6 +777,68 @@ export default function CampaignsPage() {
                     </div>
                 )}
             </div>
+
+
+            {/* ✅ ADD BULK ACTION BAR RIGHT HERE */}
+{selectedCampaigns.size > 0 && (
+  <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white rounded-full shadow-lg px-4 py-2 sm:px-6 sm:py-3 flex items-center gap-3 sm:gap-6">
+    <span className="text-xs sm:text-sm font-medium">
+      {selectedCampaigns.size} selected
+    </span>
+    <button
+      onClick={() => setSelectedCampaigns(new Set())}
+      className="text-gray-400 hover:text-white text-xs sm:text-sm"
+    >
+      Cancel
+    </button>
+    <button
+      onClick={() => setShowBulkDeleteConfirm(true)}
+      className="flex items-center gap-1.5 px-3 sm:px-4 py-1 sm:py-1.5 bg-red-600 text-white text-xs sm:text-sm font-semibold rounded-full hover:bg-red-700 transition-colors"
+    >
+      <Trash2 size={14} />
+      Delete All
+    </button>
+  </div>
+)}
+
+{/* ✅ ADD CONFIRMATION MODAL */}
+{showBulkDeleteConfirm && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+          <Trash2 size={20} className="text-red-600" />
+        </div>
+        <h3 className="text-lg font-bold text-gray-900">Delete Campaigns</h3>
+      </div>
+      <p className="text-gray-600 mb-6">
+        Are you sure you want to delete {selectedCampaigns.size} campaign(s)? 
+        This action cannot be undone and will also remove all campaign logs.
+      </p>
+      <div className="flex gap-3 justify-end">
+        <button
+          onClick={() => setShowBulkDeleteConfirm(false)}
+          className="px-4 py-2 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+          disabled={deleting}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleBulkDelete}
+          disabled={deleting}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+        >
+          {deleting ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Trash2 size={16} />
+          )}
+          {deleting ? 'Deleting...' : `Delete ${selectedCampaigns.size}`}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
             {showForm && (
                 <CampaignForm

@@ -426,6 +426,12 @@ export const whatsappAPI = {
     return handleResponse(response);
   },
 
+bulkDeleteCampaigns: async (ids: (string | number)[]): Promise<{ success: boolean; message: string; deleted_count: number }> => {
+    // ✅ Correct path: includes "/campaigns" because baseURL is "/api"
+    const response = await api.delete("/campaigns/bulk", { data: { ids } });
+    return handleResponse(response);
+},
+
   launchCampaign: async (id: string | number): Promise<{ success: boolean; campaign: Campaign }> => {
     const response = await api.post(`/campaigns/${id}/launch`);
     return handleResponse(response);
