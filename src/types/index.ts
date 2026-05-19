@@ -305,7 +305,7 @@ export interface CrmUser {
   avatar_url: string | null;
   is_active: boolean;
   created_at: string;
-  first_name?: string;
+first_name?: string;
   last_name?: string;
   designation?: string;
   department?: string;

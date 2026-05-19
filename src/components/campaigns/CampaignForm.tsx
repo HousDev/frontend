@@ -329,19 +329,29 @@ export default function CampaignForm({ onSubmit, onClose }: Props) {
     const estimatedCost = selectedTemplate
         ? ((audienceCount || 0) * (INR_RATE[selectedTemplate.category] || 0.68))
         : 0;
-
     const handleSubmit = async () => {
         if (!name.trim() || !templateId) return;
         setSaving(true);
+
         const templateVars = variables.map((n) => {
             const m = varMapping[n];
             if (!m) return '';
             return m.fieldKey === '_custom' ? m.customValue : `{{contact.${m.fieldKey}}}`;
         });
 
+        // ✅ FIX: Convert local time to UTC
+        let scheduledAtUTC = null;
+        if (scheduleAt) {
+            const localDate = new Date(scheduleAt);
+            scheduledAtUTC = localDate.toISOString(); // Converts to UTC
+            console.log("🔴 Local time:", scheduleAt);
+            console.log("🔴 UTC time:", scheduledAtUTC);
+        }
+
         const campaignData: Partial<Campaign> = {
             name: name.trim(),
             template_id: templateId,
+            template_variables: templateVars,
             filters: {
                 stage: segFilters.stages.length ? segFilters.stages : undefined,
                 tags: segFilters.tagIds.length ? segFilters.tagIds : undefined,
@@ -349,18 +359,23 @@ export default function CampaignForm({ onSubmit, onClose }: Props) {
                 property_type: segFilters.property_type || undefined,
                 budget_min: segFilters.budget_min ? Number(segFilters.budget_min) : undefined,
                 budget_max: segFilters.budget_max ? Number(segFilters.budget_max) : undefined,
-                template_vars: templateVars.length > 0 ? templateVars : undefined,
                 media_url: mediaUrl || undefined,
             } as CampaignFilters,
             status: scheduleAt ? 'scheduled' : 'draft',
-            scheduled_at: scheduleAt || null,
+            scheduled_at: scheduledAtUTC,  // ✅ Send UTC time
             total_contacts: audienceCount || 0,
+
+            audience_mode: audienceMode,
+            audience_filters: audienceMode === 'segment' ? segFilters : {},
+            selected_contact_ids: audienceMode === 'manual' ? Array.from(selectedIds).map(id => String(id)) : [],
+            uploaded_contacts: audienceMode === 'upload' ? parsedContacts : [],
         };
+
+        console.log("🔴 Full campaignData:", campaignData);
 
         await onSubmit(campaignData);
         setSaving(false);
     };
-
     const stepIndex = STEPS.findIndex((s) => s.id === step);
     const canGoNext = () => {
         if (step === 'name') return name.trim().length > 0;
