@@ -3693,7 +3693,7 @@ const totalCountForTab = (tabId: string) => {
 
         {/* Main Channel Tabs - Scrollable on mobile */}
         <div className="mb-3 sm:mb-4 overflow-x-auto scrollbar-hide">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-1.5 min-w-max">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-50 p-1.5 min-w-max">
             <nav className="flex gap-1 sm:gap-1.5">
               {mainTabs.map((tab) => {
                 const active = activeMainTab === tab.id;
@@ -3724,7 +3724,7 @@ const totalCountForTab = (tabId: string) => {
 
         {/* Sub Tabs - Scrollable on mobile */}
         <div className="mb-3 sm:mb-4 overflow-x-auto scrollbar-hide">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-1.5 min-w-max">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-50 p-1.5 min-w-max">
             <nav role="tablist" className="flex gap-1 sm:gap-1.5">
               {subTabs.map((tab) => {
                 const active = activeSubTab === tab.id;
@@ -3751,7 +3751,7 @@ const totalCountForTab = (tabId: string) => {
 
         {/* Toolbar - Search & Filters */}
         {activeSubTab !== "create" && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-2 sm:p-3 mb-3 sm:mb-4 sticky top-2 z-10">
+          <div className="bg-white rounded-2xl  border border-gray-50 p-2 sm:p-3 mb-3 sm:mb-4 sticky top-2 z-10">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative flex-1 min-w-[160px]">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -3759,7 +3759,7 @@ const totalCountForTab = (tabId: string) => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search templates..."
-                  className="pl-9 pr-3 py-1.5 w-full border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#e67e22] focus:border-[#e67e22]"
+                  className="pl-9 pr-3 py-1.5 w-full border border-gray-100 rounded-lg text-xs focus:ring-2 focus:ring-[#e67e22] focus:border-[#e67e22]"
                 />
               </div>
 
@@ -3827,7 +3827,7 @@ const totalCountForTab = (tabId: string) => {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                   {pageItems.map((template) => (
                     <TemplateCard
                       key={String(template.id ?? template.name)}

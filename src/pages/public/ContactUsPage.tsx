@@ -625,6 +625,7 @@ import {
 import { getMasterDropdownOptions, type MasterOption } from '@/lib/useMasterData';
 import { contactsAPI } from '@/lib/contactsAPI';
 import { FaWhatsapp } from 'react-icons/fa';
+import Swal from 'sweetalert2';
 
 /* --------------------------------- Types --------------------------------- */
 
@@ -717,59 +718,98 @@ const ContactUsPage: React.FC = () => {
 
   /* --------------------------- Form Handlers ------------------------------- */
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setFeedback({ type: '', message: '' });
+ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
 
-    // Basic client-side validation
-    if (
-      !formData.name.trim() ||
-      !formData.email.trim() ||
-      !formData.phone.trim() ||
-      !formData.subject.trim() ||
-      !formData.message.trim()
-    ) {
-      setFeedback({ type: 'error', message: 'Please fill all required fields.' });
-      return;
-    }
+  // Validation
+  if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim() || 
+      !formData.subject.trim() || !formData.message.trim()) {
+    await Swal.fire({
+      title: 'Error!',
+      text: 'Please fill all required fields.',
+      icon: 'error',
+      confirmButtonText: 'OK',
+      width: '380px',
+      padding: '1.2rem',
+      customClass: {
+        popup: 'rounded-xl shadow-xl',
+        title: 'text-lg font-bold',
+        confirmButton: 'px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition',
+      },
+      buttonsStyling: false,
+    });
+    return;
+  }
 
-    setIsSubmitting(true);
+  setIsSubmitting(true);
 
-    try {
-      const payload = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        subject: formData.subject.trim(),
-        message: formData.message.trim(),
-        propertyType: formData.propertyType || null,
-        budget: formData.budget || null,
-        source: 'website',
-      };
+  try {
+    const payload = {
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      subject: formData.subject.trim(),
+      message: formData.message.trim(),
+      propertyType: formData.propertyType || null,
+      budget: formData.budget || null,
+      source: 'website',
+    };
 
-      await contactsAPI.submitContact(payload);
+    await contactsAPI.submitContact(payload);
 
-      setFeedback({ type: 'success', message: 'Thank you! We will get back to you within 24 hours.' });
+    // DIRECT SUCCESS SWEET ALERT - NO CONFIRMATION
+    await Swal.fire({
+      title: 'Thank You!',
+      text: 'We will get back to you within 24 hours.',
+      icon: 'success',
+      showCancelButton: false,
+      confirmButtonText: 'OK',
+      timer: 3000,
+      timerProgressBar: true,
+      width: '380px',
+      padding: '1.5rem',
+      customClass: {
+        popup: 'rounded-xl shadow-xl',
+        title: 'text-xl font-bold',
+        htmlContainer: 'text-sm text-gray-600',
+        confirmButton: 'px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition',
+        timerProgressBar: 'bg-green-500',
+      },
+      buttonsStyling: false,
+    });
 
-      // Clear form
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        subject: '',
-        message: '',
-        propertyType: '',
-        budget: '',
-      });
-    } catch (err: any) {
-      console.error('Submit failed', err);
-      const errMsg = err?.response?.data?.message || 'Failed to send message. Please try again later.';
-      setFeedback({ type: 'error', message: errMsg });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    // Clear form
+    setFormData({
+      name: '',
+      email: '',
+      phone: '',
+      subject: '',
+      message: '',
+      propertyType: '',
+      budget: '',
+    });
 
+  } catch (err: any) {
+    const errMsg = err?.response?.data?.message || 'Failed to send message. Please try again later.';
+    
+    await Swal.fire({
+      title: 'Error!',
+      text: errMsg,
+      icon: 'error',
+      confirmButtonText: 'OK',
+      width: '380px',
+      padding: '1.2rem',
+      customClass: {
+        popup: 'rounded-xl shadow-xl',
+        title: 'text-lg font-bold',
+        confirmButton: 'px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition',
+      },
+      buttonsStyling: false,
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -884,7 +924,7 @@ const ContactUsPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Form */}
-            <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="bg-white rounded-2xl shadow-sm p-8">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-800 mb-4">Send us a Message</h2>
@@ -893,14 +933,12 @@ const ContactUsPage: React.FC = () => {
                   </p>
                 </div>
 
-                {feedback.message && (
                   <div
                     className={`px-4 py-2 rounded-md text-sm ${feedback.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
                       }`}
                   >
-                    {feedback.message}
                   </div>
-                )}
+                
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -1040,7 +1078,7 @@ const ContactUsPage: React.FC = () => {
                   const colorClass = 'bg-[#E6761D]';
                   const isVisit = info.title === 'Visit Us';
                   return (
-                    <div key={index} className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+                    <div key={index} className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-start space-x-4">
                         <div className={`p-3 rounded-xl ${colorClass}`}>
                           <Icon className="text-white" size={20} />
