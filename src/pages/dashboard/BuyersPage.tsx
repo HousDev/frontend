@@ -662,12 +662,13 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
       (activeTab === 'ready_to_buy' && stg === 'property_finalization');
 
     const matchesFilters = (filters.source === 'all' || key(buyer.source) === key(filters.source)) &&
-      (filters.stage === 'all' || stg === filters.stage) &&
-      (filters.priority === 'all' || pri === filters.priority) &&
-      (filters.assigned === 'all' || key(buyer.assigned) === key(filters.assigned)) &&
-      (filters.assigned_executive === 'all' || key(buyer.assigned_executive) === key(filters.assigned_executive)) &&
-      (filters.status === 'all' || key(buyer.status) === key(filters.status)) &&
-      (filters.propertyType === 'all' || key(buyer.requirements?.propertyType) === key(filters.propertyType));
+  (filters.stage === 'all' || stg === filters.stage) &&
+  (filters.priority === 'all' || pri === filters.priority) &&
+  (filters.assigned === 'all' || key(buyer.assigned) === key(filters.assigned)) &&
+  (filters.assigned_executive === 'all' || key(buyer.assigned_executive) === key(filters.assigned_executive)) &&
+  (filters.status === 'all' || key(buyer.status) === key(filters.status)) &&
+  (filters.propertyType === 'all' || key(buyer.requirements?.propertyType) === key(filters.propertyType)) &&
+  matchesBudgetRange(buyer, filters.budgetRange); // ← यह नई line add हुई
 
     const created = buyer.created_at ? new Date(buyer.created_at) : null;
     const fromOk = !filters.dateFrom || (created && created >= new Date(filters.dateFrom));
@@ -1519,6 +1520,24 @@ function getStageBadge(stageOrBuyer: string | any) {
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}><span className="mr-1 text-xs">{config.icon}</span><span className="text-[10px] font-normal">{config.label}</span></span>;
 }
 
+
+function matchesBudgetRange(buyer: UIBuyer, budgetRange: string): boolean {
+  if (budgetRange === 'all') return true;
+  const bMin = buyer.budget?.min;
+  const bMax = buyer.budget?.max;
+  if (bMin == null && bMax == null) return false;
+  const val = bMin != null && bMax != null ? (bMin + bMax) / 2 : (bMin ?? bMax)!;
+  const L = 100_000;
+  const Cr = 10_000_000;
+  switch (budgetRange) {
+    case '0-50L':    return val <= 50 * L;
+    case '50L-1Cr':  return val > 50 * L  && val <= Cr;
+    case '1Cr-2Cr':  return val > Cr       && val <= 2 * Cr;
+    case '2Cr-5Cr':  return val > 2 * Cr   && val <= 5 * Cr;
+    case '5Cr+':     return val > 5 * Cr;
+    default:         return true;
+  }
+}
 function getPriorityBadge(priority: string | null | undefined) {
   const raw = (priority ?? '').toString().trim().toLowerCase();
   const priorityConfig: Record<string, { bg: string; text: string; label: string; icon: string }> = {

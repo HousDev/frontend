@@ -3129,8 +3129,12 @@ function TemplateCard({ template, onPreview, onEdit, onDuplicate, onDelete, onAp
       <div className="p-3 sm:p-4 flex flex-col flex-1">
         <div className="flex items-start justify-between mb-2 pr-24">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-[#e67e22] truncate text-sm sm:text-base">{template.name}</h3>
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
+<h3
+  className="font-medium text-gray-900 mb-1 group-hover:text-[#e67e22]
+  text-xs sm:text-base leading-snug break-words"
+>
+  {template.name}
+</h3>            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <Chip className="bg-blue-50 border-blue-200 text-blue-700 font-semibold">{template.category}</Chip>
               <StatusPill status={template.status} />
             </div>
@@ -3635,7 +3639,7 @@ const totalCountForTab = (tabId: string) => {
 
   // Action buttons component for mobile
   const MobileActionButtons = () => (
-    <div className="flex sm:hidden items-center gap-2 mb-3 overflow-x-auto pb-1">
+    <div className="flex sm:hidden items-center gap-2 mb-0 overflow-x-auto pb-1">
       <button
         onClick={() => setActiveSubTab("create")}
         className="bg-[#0f2b3d] text-white px-3 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-medium whitespace-nowrap"
@@ -3660,7 +3664,7 @@ const totalCountForTab = (tabId: string) => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className=" bg-gray-50">
    
 
       <div className="max-w-9xl mx-auto px-3 sm:px-2 lg:px-2 py-2 sm:py-2">
@@ -3668,7 +3672,7 @@ const totalCountForTab = (tabId: string) => {
         <MobileActionButtons />
 
         {/* Desktop Action Bar */}
-        <div className="hidden sm:flex items-center justify-end gap-2 mb-2">
+        <div className="hidden sm:flex items-center justify-end gap-2 mb-1 sticky top-0 z-10">
           <button
             onClick={() => setActiveSubTab("create")}
             className="bg-[#0f2b3d] text-white px-4 py-2 rounded-xl hover:bg-[#1a3a4f] flex items-center gap-2 text-sm font-medium"
@@ -3692,7 +3696,7 @@ const totalCountForTab = (tabId: string) => {
         </div>
 
         {/* Main Channel Tabs - Scrollable on mobile */}
-        <div className="mb-3 sm:mb-4 overflow-x-auto scrollbar-hide">
+        <div className="mb-1 sm:mb-2 overflow-x-auto scrollbar-hide">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-50 p-1.5 min-w-max">
             <nav className="flex gap-1 sm:gap-1.5">
               {mainTabs.map((tab) => {
@@ -3803,7 +3807,7 @@ const totalCountForTab = (tabId: string) => {
             title="Create Template"
           />
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto max-h-[400px]">
             {loading ? (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10 text-center">
                 <Loader2 className="w-8 h-8 animate-spin text-[#e67e22] mx-auto mb-3" />
@@ -3844,7 +3848,7 @@ const totalCountForTab = (tabId: string) => {
                 </div>
 
                 {pages > 1 && (
-                  <div className="flex items-center justify-center gap-2">
+                  <div className="flex items-center justify-center gap-2 sticky bottom-0 bg-white rounded-lg py-2">
                     <button disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="px-3 py-1.5 rounded-lg border bg-white text-xs disabled:opacity-50">
                       Prev
                     </button>
@@ -3871,51 +3875,109 @@ const totalCountForTab = (tabId: string) => {
       />
 
       {/* Preview Modal */}
-      <Modal open={!!previewItem} onClose={() => setPreviewItem(null)} size="lg">
-        {previewItem && (
-          <div className="p-4 sm:p-5 max-h-[600px] overflow-y-auto">
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-0.5">{previewItem.name}</h3>
-                <div className="flex items-center gap-2">
-                  <span className="inline-block px-2.5 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 rounded-full border border-blue-200">{previewItem.category}</span>
-                  <StatusPill status={previewItem.status} />
-                </div>
-              </div>
-              <button onClick={() => setPreviewItem(null)} className="p-2 rounded-lg hover:bg-gray-100">
-                <X className="w-4 h-4 text-gray-600" />
-              </button>
-            </div>
+    <Modal open={!!previewItem} onClose={() => setPreviewItem(null)} size="lg">
+  {previewItem && (
+    <div className="p-4 sm:p-5 max-h-[600px] overflow-y-auto">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-0.5">
+            {previewItem.name}
+          </h3>
 
-            {tokenize(previewItem.content).length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {tokenize(previewItem.content).map((v) => (
-                  <span key={v} className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 rounded px-1.5 py-0.5 font-mono">{v}</span>
-                ))}
-              </div>
-            )}
+          <div className="flex items-center gap-2">
+            <span className="inline-block px-2.5 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+              {previewItem.category}
+            </span>
 
-            {previewItem.channel === "email" ? (
-              <div
-                className="w-full min-h-[120px] max-h-[300px] overflow-y-auto bg-white rounded-lg border p-3"
-                dangerouslySetInnerHTML={{ __html: previewItem.content }}
-              />
-            ) : (
-              <div className="rounded-xl border bg-gray-50 p-4 text-gray-800 leading-relaxed whitespace-pre-wrap text-sm max-h-[400px] overflow-auto">
-                {highlightVariables(previewItem.content)}
-              </div>
-            )}
-
-            <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
-              <div>Channel: <span className="capitalize font-medium">{previewItem.channel}</span></div>
-              <div>Created: {previewItem.createdAt ? new Date(previewItem.createdAt).toLocaleDateString() : "-"}</div>
-            </div>
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button className="px-4 py-2 rounded-lg bg-[#0f2b3d] text-white text-sm hover:bg-[#1a3a4f]" onClick={() => setPreviewItem(null)}>Close</button>
-            </div>
+            <StatusPill status={previewItem.status} />
           </div>
-        )}
-      </Modal>
+        </div>
+
+        <button
+          onClick={() => setPreviewItem(null)}
+          className="p-2 rounded-lg hover:bg-gray-100"
+        >
+          <X className="w-4 h-4 text-gray-600" />
+        </button>
+      </div>
+
+      {/* Subject */}
+    {/* Subject */}
+{previewItem.channel === "email" && previewItem.subject && (
+  <div
+    className="flex items-center gap-2 px-3 py-2 rounded-lg mb-3"
+    style={{
+      background: "#fff7ed",
+      border: "1px solid #fed7aa",
+    }}
+  >
+    <span className="font-semibold text-orange-700 whitespace-nowrap text-xs">
+      Subject:
+    </span>
+
+    <span className="text-orange-900 font-medium text-sm">
+      {previewItem.subject}
+    </span>
+  </div>
+)}
+
+      {/* Variables */}
+      {tokenize(previewItem.content).length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {tokenize(previewItem.content).map((v) => (
+            <span
+              key={v}
+              className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 rounded px-1.5 py-0.5 font-mono"
+            >
+              {v}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Content */}
+      {previewItem.channel === "email" ? (
+        <div
+          className="w-full min-h-[120px] max-h-[300px] overflow-y-auto bg-white rounded-lg border p-3"
+          dangerouslySetInnerHTML={{ __html: previewItem.content }}
+        />
+      ) : (
+        <div className="rounded-xl border bg-gray-50 p-4 text-gray-800 leading-relaxed whitespace-pre-wrap text-sm max-h-[400px] overflow-auto">
+          {highlightVariables(previewItem.content)}
+        </div>
+      )}
+
+      {/* Footer Info */}
+      <div className="mt-4 space-y-2 text-xs text-gray-500">
+        <div className="flex items-center justify-between">
+          <div>
+            Channel:{" "}
+            <span className="capitalize font-medium">
+              {previewItem.channel}
+            </span>
+          </div>
+
+          <div>
+            Created:{" "}
+            {previewItem.createdAt
+              ? new Date(previewItem.createdAt).toLocaleDateString()
+              : "-"}
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="mt-4 flex items-center justify-end gap-2">
+        <button
+          className="px-4 py-2 rounded-lg bg-[#0f2b3d] text-white text-sm hover:bg-[#1a3a4f]"
+          onClick={() => setPreviewItem(null)}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  )}
+</Modal>
 
       {/* Delete Confirm Modal */}
       <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} size="md">
