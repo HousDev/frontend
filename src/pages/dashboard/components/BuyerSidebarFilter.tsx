@@ -1,6 +1,408 @@
+
+// import React, { useEffect } from "react";
+// import { createPortal } from "react-dom";
+// import { X, Filter } from "lucide-react";
+
+// // ── Theme ────────────────────────────────────────────────────────────────────
+// const N  = "#0f2b3d";
+// const O  = "#e67e22";
+// const BD = "#e2e8f0";
+
+// export type FiltersState = {
+//   dateFrom: string;
+//   dateTo: string;
+//   ignoreDate: boolean;
+//   source: string;
+//   stage: string;
+//   priority: string;
+//   assigned?: string;
+//   status?: string;
+//   budgetRange: string;
+//   propertyType: string;
+//   assigned_executive: string;
+// };
+
+// type OptionList = string[];
+// type ExecOption = { id: string | number; name: string };
+
+// interface Props {
+//   isOpen: boolean;
+//   onClose: () => void;
+//   filters: FiltersState;
+//   setFilters: React.Dispatch<React.SetStateAction<FiltersState>>;
+//   resetFilters: () => void;
+//   sources: OptionList;
+//   stages: OptionList;
+//   priorities: OptionList;
+//   budgetRanges: OptionList;
+//   propertyTypes: OptionList;
+//   executives: ExecOption[];
+// }
+
+// const labelStyle: React.CSSProperties = {
+//   display: "block",
+//   fontSize: "10px",
+//   fontWeight: 600,
+//   color: N,
+//   marginBottom: "4px",
+//   letterSpacing: "0.04em",
+//   textTransform: "uppercase",
+// };
+
+// const selectStyle: React.CSSProperties = {
+//   width: "100%",
+//   padding: "6px 8px",
+//   fontSize: "11px",
+//   border: `1px solid ${BD}`,
+//   borderRadius: "6px",
+//   background: "#fff",
+//   color: N,
+//   outline: "none",
+//   cursor: "pointer",
+// };
+
+// const BuyerSidebarFilter: React.FC<Props> = ({
+//   isOpen,
+//   onClose,
+//   filters,
+//   setFilters,
+//   resetFilters,
+//   sources,
+//   stages,
+//   priorities,
+//   budgetRanges,
+//   propertyTypes,
+//   executives,
+// }) => {
+//   if (typeof window === "undefined") return null;
+
+//   useEffect(() => {
+//     if (!isOpen) return;
+//     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+//     document.addEventListener("keydown", onKey);
+//     return () => document.removeEventListener("keydown", onKey);
+//   }, [isOpen, onClose]);
+
+//   useEffect(() => {
+//     if (!isOpen) return;
+//     const prev = document.body.style.overflow;
+//     document.body.style.overflow = "hidden";
+//     return () => { document.body.style.overflow = prev; };
+//   }, [isOpen]);
+
+//   useEffect(() => {
+//     if (filters?.ignoreDate && (filters.dateFrom || filters.dateTo)) {
+//       setFilters((prev) => ({ ...prev, dateFrom: "", dateTo: "" }));
+//     }
+//   }, [filters?.ignoreDate, setFilters]);
+
+//   const onChange = (key: keyof FiltersState, value: any) =>
+//     setFilters((prev) => ({ ...prev, [key]: value }));
+
+//   const applyAndClose = () => onClose();
+
+//   // Count how many filters are active (for badge)
+//   const activeCount = [
+//     filters.source !== "all",
+//     filters.stage !== "all",
+//     filters.priority !== "all",
+//     filters.budgetRange !== "all",
+//     filters.propertyType !== "all",
+//     filters.assigned_executive !== "all",
+//     !filters.ignoreDate && (!!filters.dateFrom || !!filters.dateTo),
+//   ].filter(Boolean).length;
+
+//   return createPortal(
+//     <>
+//       {/* Overlay */}
+//       <div
+//         onClick={onClose}
+//         aria-hidden={!isOpen}
+//         style={{
+//           position: "fixed", inset: 0,
+//           background: "rgba(15,43,61,0.45)",
+//           backdropFilter: "blur(2px)",
+//           zIndex: 40,
+//           transition: "opacity 0.25s",
+//           opacity: isOpen ? 1 : 0,
+//           pointerEvents: isOpen ? "auto" : "none",
+//         }}
+//       />
+
+//       {/* Sidebar */}
+//       <aside
+//         role="dialog"
+//         aria-modal="true"
+//         aria-labelledby="buyer-filter-title"
+//         style={{
+//           position: "fixed", top: 0, right: 0, height: "100%",
+//           width: "min(270px, 100vw)",
+//           background: "#f8fafc",
+//           boxShadow: "-4px 0 32px rgba(15,43,61,0.18)",
+//           zIndex: 50,
+//           display: "flex", flexDirection: "column",
+//           transform: isOpen ? "translateX(0)" : "translateX(100%)",
+//           transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)",
+//         }}
+//         className="sm:!w-[380px]"
+//       >
+//         {/* ── Header ── */}
+//         <div style={{
+//           background: N, borderBottom: `1px solid ${BD}`,
+//           padding: "10px 16px", display: "flex",
+//           alignItems: "center", justifyContent: "space-between",
+//           flexShrink: 0,
+//         }}>
+//           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+//             <Filter size={15} color={O} />
+//             <span id="buyer-filter-title" style={{ color: "#fff", fontWeight: 600, fontSize: "13px", letterSpacing: "0.06em" }}>
+//               Buyer Filters
+//             </span>
+//             {activeCount > 0 && (
+//               <span style={{
+//                 background: O, color: "#fff", fontSize: "9px",
+//                 fontWeight: 700, borderRadius: "999px",
+//                 padding: "1px 6px", lineHeight: "16px",
+//               }}>
+//                 {activeCount}
+//               </span>
+//             )}
+//           </div>
+
+//           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+//             <button onClick={resetFilters} style={{
+//               fontSize: "10px", padding: "3px 10px", borderRadius: "999px",
+//               border: `1px solid ${O}`, background: "transparent",
+//               color: O, cursor: "pointer", fontWeight: 600,
+//             }}>
+//               Reset
+//             </button>
+//             <button onClick={onClose} aria-label="Close filters" style={{
+//               width: 26, height: 26, borderRadius: "50%",
+//               background: "rgba(255,255,255,0.12)", border: "none",
+//               color: "#fff", cursor: "pointer",
+//               display: "flex", alignItems: "center", justifyContent: "center",
+//             }}>
+//               <X size={14} />
+//             </button>
+//           </div>
+//         </div>
+
+//         {/* ── Scrollable Content ── */}
+//         <div style={{ flex: 1, overflowY: "auto", padding: "16px", scrollbarWidth: "thin" }}>
+
+//           {/* Section: Lead Info */}
+//           <p style={{ fontSize: "9px", fontWeight: 700, color: O, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+//             LEAD INFO
+//           </p>
+//           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: 16 }}>
+
+//             {/* Source */}
+//             <div>
+//               <label style={labelStyle}>Source</label>
+//               <select value={filters.source} onChange={(e) => onChange("source", e.target.value)} style={selectStyle}>
+//                 {sources.map((s) => <option key={s} value={s}>{s === "all" ? "All" : s}</option>)}
+//               </select>
+//             </div>
+
+//             {/* Stage */}
+//             <div>
+//               <label style={labelStyle}>Stage</label>
+//               <select value={filters.stage} onChange={(e) => onChange("stage", e.target.value)} style={selectStyle}>
+//                 {stages.map((s) => (
+//                   <option key={s} value={s}>
+//                     {s === "all" ? "All" : s.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+//                   </option>
+//                 ))}
+//               </select>
+//             </div>
+
+//             {/* Priority */}
+//             <div>
+//               <label style={labelStyle}>Priority</label>
+//               <select value={filters.priority} onChange={(e) => onChange("priority", e.target.value)} style={selectStyle}>
+//                 {priorities.map((p) => (
+//                   <option key={p} value={p}>{p === "all" ? "All" : p.charAt(0).toUpperCase() + p.slice(1)}</option>
+//                 ))}
+//               </select>
+//             </div>
+
+//             {/* Executive */}
+//             <div>
+//               <label style={labelStyle}>Executive</label>
+//               <select value={filters.assigned_executive} onChange={(e) => onChange("assigned_executive", e.target.value)} style={selectStyle}>
+//                 <option value="all">All</option>
+//                 {executives.map((ex) => (
+//                   <option key={ex.id} value={String(ex.id)}>{ex.name}</option>
+//                 ))}
+//               </select>
+//             </div>
+//           </div>
+
+//           {/* Divider */}
+//           <div style={{ borderTop: `1px dashed ${BD}`, margin: "0 0 14px" }} />
+
+//           {/* Section: Requirements */}
+//           <p style={{ fontSize: "9px", fontWeight: 700, color: O, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+//             REQUIREMENTS
+//           </p>
+//           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: 16 }}>
+
+//             {/* Budget Range */}
+//             <div style={{ gridColumn: "1 / -1" }}>
+//               <label style={labelStyle}>Budget Range</label>
+//               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+//                 {budgetRanges.map((b) => {
+//                   const isSelected = filters.budgetRange === b;
+//                   return (
+//                     <button
+//                       key={b}
+//                       onClick={() => onChange("budgetRange", b)}
+//                       style={{
+//                         padding: "5px 4px",
+//                         fontSize: "10px",
+//                         fontWeight: isSelected ? 700 : 500,
+//                         borderRadius: 6,
+//                         border: `1px solid ${isSelected ? O : BD}`,
+//                         background: isSelected ? `${O}18` : "#fff",
+//                         color: isSelected ? O : N,
+//                         cursor: "pointer",
+//                         transition: "all 0.15s",
+//                         textAlign: "center",
+//                       }}
+//                     >
+//                       {b === "all" ? "All" : b}
+//                     </button>
+//                   );
+//                 })}
+//               </div>
+//             </div>
+
+//             {/* Property Type */}
+//             <div style={{ gridColumn: "1 / -1" }}>
+//               <label style={labelStyle}>Property Type</label>
+//               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+//                 {propertyTypes.map((t) => {
+//                   const isSelected = filters.propertyType === t;
+//                   return (
+//                     <button
+//                       key={t}
+//                       onClick={() => onChange("propertyType", t)}
+//                       style={{
+//                         padding: "5px 12px",
+//                         fontSize: "10px",
+//                         fontWeight: isSelected ? 700 : 500,
+//                         borderRadius: 6,
+//                         border: `1px solid ${isSelected ? O : BD}`,
+//                         background: isSelected ? `${O}18` : "#fff",
+//                         color: isSelected ? O : N,
+//                         cursor: "pointer",
+//                         transition: "all 0.15s",
+//                       }}
+//                     >
+//                       {t === "all" ? "All" : t}
+//                     </button>
+//                   );
+//                 })}
+//               </div>
+//             </div>
+//           </div>
+
+//           {/* Divider */}
+//           <div style={{ borderTop: `1px dashed ${BD}`, margin: "0 0 14px" }} />
+
+//           {/* Section: Date Range */}
+//           <p style={{ fontSize: "9px", fontWeight: 700, color: O, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+//             DATE RANGE
+//           </p>
+
+//           {/* Ignore Date */}
+//           <div style={{
+//             display: "flex", alignItems: "center", gap: 8,
+//             background: `${N}08`, border: `1px solid ${BD}`,
+//             borderRadius: 6, padding: "7px 12px", marginBottom: 10,
+//           }}>
+//             <input
+//               id="buyer-ignoreDate"
+//               type="checkbox"
+//               checked={!!filters.ignoreDate}
+//               onChange={(e) => onChange("ignoreDate", e.target.checked)}
+//               style={{ width: 14, height: 14, accentColor: O, cursor: "pointer" }}
+//             />
+//             <label htmlFor="buyer-ignoreDate" style={{ fontSize: "11px", color: N, cursor: "pointer" }}>
+//               Ignore Date Filter
+//             </label>
+//           </div>
+
+//           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+//             <div>
+//               <label style={labelStyle}>From Date</label>
+//               <input
+//                 type="date"
+//                 value={filters.dateFrom}
+//                 onChange={(e) => onChange("dateFrom", e.target.value)}
+//                 disabled={filters.ignoreDate}
+//                 style={{
+//                   ...selectStyle,
+//                   opacity: filters.ignoreDate ? 0.4 : 1,
+//                   cursor: filters.ignoreDate ? "not-allowed" : "pointer",
+//                 }}
+//               />
+//             </div>
+//             <div>
+//               <label style={labelStyle}>To Date</label>
+//               <input
+//                 type="date"
+//                 value={filters.dateTo}
+//                 onChange={(e) => onChange("dateTo", e.target.value)}
+//                 disabled={filters.ignoreDate}
+//                 style={{
+//                   ...selectStyle,
+//                   opacity: filters.ignoreDate ? 0.4 : 1,
+//                   cursor: filters.ignoreDate ? "not-allowed" : "pointer",
+//                 }}
+//               />
+//             </div>
+//           </div>
+//         </div>
+
+//         {/* ── Footer ── */}
+//         <div style={{
+//           borderTop: `1px solid ${BD}`, background: "#f8fafc",
+//           padding: "12px 16px", display: "flex", gap: 10, flexShrink: 0,
+//         }}>
+//           <button onClick={resetFilters} style={{
+//             flex: 1, padding: "7px", fontSize: "11px", fontWeight: 600,
+//             border: `1px solid ${O}`, background: "#fff", color: O,
+//             borderRadius: 6, cursor: "pointer",
+//           }}>
+//             Clear All
+//           </button>
+//           <button onClick={applyAndClose} style={{
+//             flex: 1, padding: "7px", fontSize: "11px", fontWeight: 600,
+//             background: N, color: "#fff", border: "none",
+//             borderRadius: 6, cursor: "pointer",
+//           }}>
+//             Apply Filters
+//           </button>
+//         </div>
+//       </aside>
+//     </>,
+//     document.body
+//   );
+// };
+
+// export default BuyerSidebarFilter;
+
+
+
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { X, Filter } from "lucide-react";
+
+const N  = "#0f2b3d";
+const O  = "#e67e22";
+const BD = "#e2e8f0";
 
 export type FiltersState = {
   dateFrom: string;
@@ -13,18 +415,16 @@ export type FiltersState = {
   status?: string;
   budgetRange: string;
   propertyType: string;
-  assigned_executive: string; 
-
-  
+  assigned_executive: string;
 };
 
 type OptionList = string[];
 type ExecOption = { id: string | number; name: string };
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   filters: FiltersState;
-  // Proper setter type for React useState
   setFilters: React.Dispatch<React.SetStateAction<FiltersState>>;
   resetFilters: () => void;
   sources: OptionList;
@@ -32,16 +432,31 @@ interface Props {
   priorities: OptionList;
   budgetRanges: OptionList;
   propertyTypes: OptionList;
-   executives: ExecOption[];
+  executives: ExecOption[];
 }
 
-/**
- * BuyerSidebarFilter
- * - Renders as a portal (document.body) to avoid stacking-context issues
- * - High z-index (z-50 / z-40) so it stays above sticky headers
- * - Prevents background scroll while open
- * - Accessible (aria labels) + Escape to close
- */
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: "10px",
+  fontWeight: 600,
+  color: N,
+  marginBottom: "4px",
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+};
+
+const selectStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "6px 8px",
+  fontSize: "11px",
+  border: `1px solid ${BD}`,
+  borderRadius: "6px",
+  background: "#fff",
+  color: N,
+  outline: "none",
+  cursor: "pointer",
+};
+
 const BuyerSidebarFilter: React.FC<Props> = ({
   isOpen,
   onClose,
@@ -53,112 +468,139 @@ const BuyerSidebarFilter: React.FC<Props> = ({
   priorities,
   budgetRanges,
   propertyTypes,
-   executives
+  executives,
 }) => {
-  // SSR guard
   if (typeof window === "undefined") return null;
 
-  // Close on Escape
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [isOpen, onClose]);
 
-  // Prevent background scroll while sidebar is open
   useEffect(() => {
     if (!isOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    return () => { document.body.style.overflow = prev; };
   }, [isOpen]);
 
-  // If Ignore Date turned on, clear date fields (safe functional update)
   useEffect(() => {
     if (filters?.ignoreDate && (filters.dateFrom || filters.dateTo)) {
       setFilters((prev) => ({ ...prev, dateFrom: "", dateTo: "" }));
     }
   }, [filters?.ignoreDate, setFilters]);
 
-  // local handlers
   const onChange = (key: keyof FiltersState, value: any) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
 
-  const applyAndClose = () => {
-    // parent already holds filters in state; close sidebar
-    onClose();
-  };
+  const applyAndClose = () => onClose();
+
+  const activeCount = [
+    filters.source !== "all",
+    filters.stage !== "all",
+    filters.priority !== "all",
+    filters.budgetRange !== "all",
+    filters.propertyType !== "all",
+    filters.assigned_executive !== "all",
+    !filters.ignoreDate && (!!filters.dateFrom || !!filters.dateTo),
+  ].filter(Boolean).length;
 
   return createPortal(
     <>
-      {/* Overlay (z-40) */}
+      {/* Overlay */}
       <div
         onClick={onClose}
         aria-hidden={!isOpen}
-        className={`fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${isOpen ? "opacity-100 pointer-events-auto z-40" : "opacity-0 pointer-events-none"}`}
+        style={{
+          position: "fixed", inset: 0,
+          background: "rgba(15,43,61,0.45)",
+          backdropFilter: "blur(2px)",
+          zIndex: 40,
+          transition: "opacity 0.25s",
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? "auto" : "none",
+        }}
       />
 
-      {/* Sidebar (z-50) */}
+      {/* Sidebar */}
       <aside
         role="dialog"
         aria-modal="true"
         aria-labelledby="buyer-filter-title"
-        className={`fixed top-0 right-0 h-full w-full sm:w-[380px] bg-gradient-to-b from-indigo-50 via-white to-purple-50 shadow-2xl transform transition-transform duration-300 ease-out z-50
-          ${isOpen ? "translate-x-0" : "translate-x-full"}`}
+        style={{
+          position: "fixed", top: 0, right: 0, height: "100%",
+          width: "min(270px, 100vw)",
+          background: "#f8fafc",
+          boxShadow: "-4px 0 32px rgba(15,43,61,0.18)",
+          zIndex: 50,
+          display: "flex", flexDirection: "column",
+          transform: isOpen ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)",
+        }}
+        className="sm:!w-[380px]"
       >
-        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
-          <h3 id="buyer-filter-title" className="text-sm font-semibold tracking-wide">Filters</h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { resetFilters(); }}
-              className="text-xs bg-white/20 px-2 py-1 rounded hover:bg-white/30"
-            >
+        {/* Header */}
+        <div style={{
+          background: N, borderBottom: `1px solid ${BD}`,
+          padding: "10px 16px", display: "flex",
+          alignItems: "center", justifyContent: "space-between",
+          flexShrink: 0,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Filter size={15} color={O} />
+            <span id="buyer-filter-title" style={{ color: "#fff", fontWeight: 600, fontSize: "13px", letterSpacing: "0.06em" }}>
+              Buyer Filters
+            </span>
+            {activeCount > 0 && (
+              <span style={{
+                background: O, color: "#fff", fontSize: "9px",
+                fontWeight: 700, borderRadius: "999px",
+                padding: "1px 6px", lineHeight: "16px",
+              }}>
+                {activeCount}
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={resetFilters} style={{
+              fontSize: "10px", padding: "3px 10px", borderRadius: "999px",
+              border: `1px solid ${O}`, background: "transparent",
+              color: O, cursor: "pointer", fontWeight: 600,
+            }}>
               Reset
             </button>
-            <button
-              onClick={onClose}
-              aria-label="Close filters"
-              className="p-1 rounded-full bg-white/20 hover:bg-white/30 transition"
-            >
-              <X size={18} />
+            <button onClick={onClose} aria-label="Close filters" style={{
+              width: 26, height: 26, borderRadius: "50%",
+              background: "rgba(255,255,255,0.12)", border: "none",
+              color: "#fff", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <X size={14} />
             </button>
           </div>
         </div>
 
-        <div className="p-4 overflow-y-auto h-[calc(100%-56px)] text-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-           
+        {/* Scrollable Content */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px", scrollbarWidth: "thin" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
 
             {/* Source */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Source</label>
-              <select
-                value={filters.source}
-                onChange={(e) => onChange("source", e.target.value)}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
-              >
-                {sources.map((s) => (
-                  <option key={s} value={s}>{s === "all" ? "All" : s}</option>
-                ))}
+              <label style={labelStyle}>Source</label>
+              <select value={filters.source} onChange={(e) => onChange("source", e.target.value)} style={selectStyle}>
+                {sources.map((s) => <option key={s} value={s}>{s === "all" ? "All" : s}</option>)}
               </select>
             </div>
 
             {/* Stage */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Stage</label>
-              <select
-                value={filters.stage}
-                onChange={(e) => onChange("stage", e.target.value)}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
-              >
+              <label style={labelStyle}>Stage</label>
+              <select value={filters.stage} onChange={(e) => onChange("stage", e.target.value)} style={selectStyle}>
                 {stages.map((s) => (
                   <option key={s} value={s}>
-                    {s === "all" ? "All" : s.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase())}
+                    {s === "all" ? "All" : s.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                   </option>
                 ))}
               </select>
@@ -166,115 +608,113 @@ const BuyerSidebarFilter: React.FC<Props> = ({
 
             {/* Priority */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Priority</label>
-              <select
-                value={filters.priority}
-                onChange={(e) => onChange("priority", e.target.value)}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
-              >
+              <label style={labelStyle}>Priority</label>
+              <select value={filters.priority} onChange={(e) => onChange("priority", e.target.value)} style={selectStyle}>
                 {priorities.map((p) => (
                   <option key={p} value={p}>{p === "all" ? "All" : p.charAt(0).toUpperCase() + p.slice(1)}</option>
                 ))}
               </select>
             </div>
 
-            {/* Budget */}
+            {/* Executive */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Budget</label>
-              <select
-                value={filters.budgetRange}
-                onChange={(e) => onChange("budgetRange", e.target.value)}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
-              >
-                {budgetRanges.map((b) => (
-                  <option key={b} value={b}>{b === "all" ? "All" : b}</option>
+              <label style={labelStyle}>Executive</label>
+              <select value={filters.assigned_executive} onChange={(e) => onChange("assigned_executive", e.target.value)} style={selectStyle}>
+                <option value="all">All</option>
+                {executives.map((ex) => (
+                  <option key={ex.id} value={String(ex.id)}>{ex.name}</option>
                 ))}
               </select>
             </div>
 
-            {/* Property Type */}
+            {/* Budget Range — dropdown */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Property Type</label>
-              <select
-                value={filters.propertyType}
-                onChange={(e) => onChange("propertyType", e.target.value)}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
-              >
-                {propertyTypes.map((t) => (
-                  <option key={t} value={t}>{t === "all" ? "All" : t}</option>
-                ))}
+              <label style={labelStyle}>Budget Range</label>
+              <select value={filters.budgetRange} onChange={(e) => onChange("budgetRange", e.target.value)} style={selectStyle}>
+                {budgetRanges.map((b) => <option key={b} value={b}>{b === "all" ? "All" : b}</option>)}
               </select>
             </div>
 
+            {/* Property Type — dropdown */}
             <div>
-  <label className="block text-xs font-medium text-gray-700 mb-1">Executive</label>
-  <select
-    value={filters.assigned_executive}
-    onChange={(e) => onChange("assigned_executive", e.target.value)}
-    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
-  >
-    <option value="all">All</option>
-    {executives.map((ex) => (
-      <option key={ex.id} value={String(ex.id)}>
-        {ex.name} 
-      </option>
-    ))}
-  </select>
-</div>
-             {/* From Date */}
+              <label style={labelStyle}>Property Type</label>
+              <select value={filters.propertyType} onChange={(e) => onChange("propertyType", e.target.value)} style={selectStyle}>
+                {propertyTypes.map((t) => <option key={t} value={t}>{t === "all" ? "All" : t}</option>)}
+              </select>
+            </div>
+
+            {/* From Date */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">From Date</label>
+              <label style={labelStyle}>From Date</label>
               <input
                 type="date"
                 value={filters.dateFrom}
                 onChange={(e) => onChange("dateFrom", e.target.value)}
                 disabled={filters.ignoreDate}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
+                style={{
+                  ...selectStyle,
+                  opacity: filters.ignoreDate ? 0.4 : 1,
+                  cursor: filters.ignoreDate ? "not-allowed" : "pointer",
+                }}
               />
             </div>
 
             {/* To Date */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">To Date</label>
+              <label style={labelStyle}>To Date</label>
               <input
                 type="date"
                 value={filters.dateTo}
                 onChange={(e) => onChange("dateTo", e.target.value)}
                 disabled={filters.ignoreDate}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
+                style={{
+                  ...selectStyle,
+                  opacity: filters.ignoreDate ? 0.4 : 1,
+                  cursor: filters.ignoreDate ? "not-allowed" : "pointer",
+                }}
               />
             </div>
           </div>
 
-          {/* Ignore Date and actions */}
-          <div className="flex items-center justify-between mt-4">
-            <label className="flex items-center space-x-2 text-sm">
-              <input
-                type="checkbox"
-                checked={!!filters.ignoreDate}
-                onChange={(e) => onChange("ignoreDate", e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-              />
-              <span className="text-xs text-gray-700">Ignore Date</span>
+          {/* Ignore Date */}
+          <div style={{
+            marginTop: 14,
+            display: "flex", alignItems: "center", gap: 8,
+            background: `${N}08`, border: `1px solid ${BD}`,
+            borderRadius: 6, padding: "7px 12px",
+          }}>
+            <input
+              id="buyer-ignoreDate"
+              type="checkbox"
+              checked={!!filters.ignoreDate}
+              onChange={(e) => onChange("ignoreDate", e.target.checked)}
+              style={{ width: 14, height: 14, accentColor: O, cursor: "pointer" }}
+            />
+            <label htmlFor="buyer-ignoreDate" style={{ fontSize: "11px", color: N, cursor: "pointer" }}>
+              Ignore Date
             </label>
-
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => { resetFilters(); }}
-                className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800"
-                aria-label="Reset filters"
-              >
-                Reset
-              </button>
-              <button
-                onClick={applyAndClose}
-                className="px-3 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700"
-                aria-label="Apply filters"
-              >
-                Apply
-              </button>
-            </div>
           </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          borderTop: `1px solid ${BD}`, background: "#f8fafc",
+          padding: "12px 16px", display: "flex", gap: 10, flexShrink: 0,
+        }}>
+          <button onClick={resetFilters} style={{
+            flex: 1, padding: "7px", fontSize: "11px", fontWeight: 600,
+            border: `1px solid ${O}`, background: "#fff", color: O,
+            borderRadius: 6, cursor: "pointer",
+          }}>
+            Clear All
+          </button>
+          <button onClick={applyAndClose} style={{
+            flex: 1, padding: "7px", fontSize: "11px", fontWeight: 600,
+            background: N, color: "#fff", border: "none",
+            borderRadius: 6, cursor: "pointer",
+          }}>
+            Apply Filters
+          </button>
         </div>
       </aside>
     </>,

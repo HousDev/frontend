@@ -1551,6 +1551,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     department: '',
     phone: '',
     status: '',
+    created_at: '',
   });
 
   // Tab state from localStorage
@@ -1922,6 +1923,12 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       toast.error('Failed to copy');
     });
   };
+   const formatDateTime = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
   const getFilteredUsers = () => {
     const activeTabConfig = TABS.find(t => t.id === activeTab) ?? TABS[0];
@@ -1981,6 +1988,17 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
         return status.includes(term);
       });
     }
+
+     if (colSearch.created_at) {
+    const term = colSearch.created_at.toLowerCase();
+    source = source.filter(u => {
+      // Format the created_at date for searching
+      const createdDate = u.created_at ? formatDateTime(u.created_at).toLowerCase() : '';
+      // Also search by last_login if you want
+      const lastLoginDate = u.last_login ? formatDateTime(u.last_login).toLowerCase() : '';
+      return createdDate.includes(term) || lastLoginDate.includes(term);
+    });
+  }
 
     if (roleFilter !== 'all' && activeTab === 'all') {
       source = source.filter(u => normalizeRole(u.role) === normalizeRole(roleFilter));
@@ -2284,12 +2302,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
     return 'N/A';
   };
 
-  const formatDateTime = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return 'N/A';
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
+ 
 
   const roles = masters.role || [];
   const availableRoles = activeTab === 'all' ? roles : [];
@@ -2578,8 +2591,8 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
                       <input type="text" placeholder="Search dept..." value={colSearch.department} onChange={e => setColSearch(p => ({ ...p, department: e.target.value }))} style={colSearchInputStyle} />
                     </th>
                     <th className="px-2 py-1.5">
-                      <input type="text" placeholder="Search date..." disabled style={{ ...colSearchInputStyle, opacity: 0.5 }} />
-                    </th>
+    <input type="text" placeholder="Search date..." value={colSearch.created_at} onChange={e => setColSearch(p => ({ ...p, created_at: e.target.value }))} style={colSearchInputStyle} />
+  </th>
                     <th className="px-2 py-1.5" />
                   </tr>
                 </thead>

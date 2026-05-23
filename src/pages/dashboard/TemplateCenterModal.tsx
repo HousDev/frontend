@@ -1819,6 +1819,7 @@ type TemplateData = {
   name: string;
   category: string;
   content: string;
+  subject?: string;
   priority: string;
   autoApprove: boolean;
   status: string;
@@ -2042,6 +2043,7 @@ export default function TemplateCenterModal({
   const [autoApprove, setAutoApprove] = useState(false);
   const [status, setStatus] = useState("pending");
   const [saving, setSaving] = useState(false);
+  const [subject, setSubject] = useState("");
   const [showVarsMobile, setShowVarsMobile] = useState(false);
   const [emailTab, setEmailTab] = useState<"editor" | "ai">("editor");
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
@@ -2081,6 +2083,7 @@ export default function TemplateCenterModal({
       setName(initial.name ?? "");
       setCategory(initial.category ?? "");
       setContent(initial.content ?? "");
+        setSubject(initial.subject ?? "");
       setPriority(initial.priority ?? "Normal");
       setAutoApprove(Boolean(initial.autoApprove));
       setStatus(initial.status ?? (initial.autoApprove ? "approved" : "pending"));
@@ -2088,6 +2091,7 @@ export default function TemplateCenterModal({
       setName("");
       setCategory("");
       setContent("");
+        setSubject(""); 
       setPriority("Normal");
       setAutoApprove(false);
       setStatus("pending");
@@ -2145,6 +2149,7 @@ export default function TemplateCenterModal({
         name: name.trim(),
         category,
         content,
+        subject: isEmail ? subject.trim() : undefined, 
         priority,
         autoApprove,
         status: autoApprove ? "approved" : status,
@@ -2250,35 +2255,53 @@ export default function TemplateCenterModal({
               </div>
 
               {/* Row 2: Auto-approve + Status */}
-              <div className="flex flex-wrap items-center gap-4 pb-1 border-b" style={{ borderColor: BD }}>
-                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={autoApprove}
-                    onChange={(e) => setAutoApprove(e.target.checked)}
-                  />
-                  <span className="relative w-8 h-4 rounded-full transition" style={{ background: autoApprove ? O : BD }}>
-                    <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${autoApprove ? 'translate-x-4' : 'translate-x-0'}`} />
-                  </span>
-                  <span className="text-xs font-medium" style={{ color: N }}>Auto-approve</span>
-                </label>
+             {/* Row 2: Auto-approve + Status + Email Subject */}
+<div className="flex flex-wrap items-center gap-4 pb-1 border-b" style={{ borderColor: BD }}>
+  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+    <input
+      type="checkbox"
+      className="sr-only peer"
+      checked={autoApprove}
+      onChange={(e) => setAutoApprove(e.target.checked)}
+    />
+    <span className="relative w-8 h-4 rounded-full transition" style={{ background: autoApprove ? O : BD }}>
+      <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${autoApprove ? 'translate-x-4' : 'translate-x-0'}`} />
+    </span>
+    <span className="text-xs font-medium" style={{ color: N }}>Auto-approve</span>
+  </label>
 
-                <div className="flex items-center gap-2">
-                  <label className="text-[10px] font-medium" style={{ color: MU }}>Status</label>
-                  <select
-                    value={autoApprove ? "approved" : status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    disabled={autoApprove}
-                    className="px-3 py-1 text-xs border rounded-md bg-white focus:ring-1 focus:ring-orange-500 min-w-[110px] disabled:opacity-60"
-                    style={{ borderColor: BD }}
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </div>
-              </div>
+  <div className="flex items-center gap-2">
+    <label className="text-[10px] font-medium" style={{ color: MU }}>Status</label>
+    <select
+      value={autoApprove ? "approved" : status}
+      onChange={(e) => setStatus(e.target.value)}
+      disabled={autoApprove}
+      className="px-3 py-1 text-xs border rounded-md bg-white focus:ring-1 focus:ring-orange-500 min-w-[110px] disabled:opacity-60"
+      style={{ borderColor: BD }}
+    >
+      <option value="pending">Pending</option>
+      <option value="approved">Approved</option>
+      <option value="rejected">Rejected</option>
+    </select>
+  </div>
+
+  {/* Email Subject — same row, fills remaining space */}
+  {isEmail && (
+    <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+      <label className="text-[10px] font-medium whitespace-nowrap" style={{ color: MU }}>
+        Email Subject
+      </label>
+      <input
+        type="text"
+        value={subject}
+        onChange={(e) => setSubject(e.target.value)}
+        placeholder="e.g. Welcome to Roomac!"
+        className="flex-1 border rounded-md h-7 px-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+        style={{ borderColor: `${O}80` }}
+      />
+    </div>
+  )}
+</div>
 
               {/* Content Area — 2/3 + Variables sidebar */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -2317,6 +2340,8 @@ export default function TemplateCenterModal({
                   {isEmail && emailTab === "editor" && (
                     <>
                       <div className="flex items-center justify-between">
+                       
+
                         <label className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: MU }}>HTML Content</label>
                         <span className="text-[10px]" style={{ color: MU }}>
                           {CONTENT_LIMIT.toLocaleString()} limit •{" "}
