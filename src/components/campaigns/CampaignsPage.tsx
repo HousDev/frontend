@@ -75,6 +75,60 @@ const [selectedCampaigns, setSelectedCampaigns] = useState<Set<number>>(new Set(
     useEffect(() => {
         fetchCampaigns();
     }, []);
+    useEffect(() => {
+        let socket: any = null;
+
+        const initSocket = async () => {
+            const userId = localStorage.getItem("user")
+                ? JSON.parse(localStorage.getItem("user") || "{}").id
+                : null;
+
+            if (!userId) return;
+
+            // Import socket.io client
+            const { io } = await import('socket.io-client');
+
+            socket = io(import.meta.env.VITE_API_URL || "https://resaleexpert.in", {
+                path: "/socket.io",
+                transports: ["websocket", "polling"],
+                query: { userId: String(userId) },
+                withCredentials: true,
+            });
+
+            const handleStatsUpdate = ({ campaign_id, stats }: any) => {
+                setCampaigns((prev: any[]) =>
+                    prev.map(c => c.id === campaign_id ? { ...c, ...stats } : c)
+                );
+                setDetailCampaign((prev: any) =>
+                    prev && prev.id === campaign_id ? { ...prev, ...stats } : prev
+                );
+            };
+
+            const handleCampaignCompleted = ({ campaign_id, stats }: any) => {
+                console.log("🎉 CAMPAIGN_COMPLETED EVENT RECEIVED:", campaign_id, stats);
+                setCampaigns((prev: any[]) =>
+                    prev.map(c => c.id === campaign_id ? { ...c, ...stats, status: 'completed' } : c)
+                );
+                setDetailCampaign((prev: any) =>
+                    prev && prev.id === campaign_id ? { ...prev, ...stats, status: 'completed' } : prev
+                );
+            };
+
+            socket.on('campaign_stats_update', handleStatsUpdate);
+            socket.on('campaign_completed', handleCampaignCompleted);
+
+            (window as any)._campaignSocket = socket;
+        };
+
+        initSocket();
+
+        return () => {
+            if ((window as any)._campaignSocket) {
+                (window as any)._campaignSocket.disconnect();
+                (window as any)._campaignSocket = null;
+            }
+        };
+    }, []);
 
     const createCampaign = async (data: any) => {
         try {
@@ -87,10 +141,33 @@ const [selectedCampaigns, setSelectedCampaigns] = useState<Set<number>>(new Set(
         }
     };
 
+    // const launchCampaign = async (id: any) => {
+    //     try {
+    //         const result = await whatsappAPI.launchCampaign(id);
+    //         setCampaigns(prev => prev.map(c => c.id === id ? result.campaign : c));
+    //         return result;
+    //     } catch (err) {
+    //         console.error('Failed to launch campaign', err);
+    //         throw err;
+    //     }
+    // };
     const launchCampaign = async (id: any) => {
         try {
             const result = await whatsappAPI.launchCampaign(id);
             setCampaigns(prev => prev.map(c => c.id === id ? result.campaign : c));
+
+            // ✅ ADD THIS - Poll for status change every 2 seconds
+            const interval = setInterval(async () => {
+                const updated = await whatsappAPI.getCampaignById(id);
+                if (updated.status === 'completed') {
+                    setCampaigns(prev => prev.map(c => c.id === id ? updated : c));
+                    clearInterval(interval);
+                }
+            }, 2000);
+
+            // Stop polling after 30 seconds
+            setTimeout(() => clearInterval(interval), 30000);
+
             return result;
         } catch (err) {
             console.error('Failed to launch campaign', err);
@@ -493,6 +570,7 @@ const [selectedCampaigns, setSelectedCampaigns] = useState<Set<number>>(new Set(
                     campaigns={campaigns}
                     onClose={() => setDetailCampaign(null)}
                     onLaunch={() => launchCampaign(detailCampaign.id)}
+                    onCampaignChange={(updated: any) => setDetailCampaign(updated)}
                 />
             )}
         </div>

@@ -1,7 +1,3 @@
-
-
-
-
 import { useEffect, useRef, useState } from 'react';
 import { Bot, CheckCircle, Clock, PhoneCall, ArrowLeft, BotMessageSquare } from 'lucide-react';
 import type { WhatsAppConversation, WhatsAppContact, Tag, CrmUser, WhatsAppMessage, ConversationNote } from '../../types';
@@ -96,10 +92,11 @@ const [showContactInfo, setShowContactInfo] = useState(false);
                     is_read: msg.is_read,
                     sender: msg.direction === 'out' ? { name: msg.sender_name || msg.sender?.name || 'You' } : null,
                     whatsapp_msg_id: msg.whatsapp_msg_id,
-                    media_url: msg.media_url || null,       // ← ADD
-                    media_type: msg.media_type || null,     // ← ADD
-                    file_name: msg.file_name || null,       // ← ADD
-                    isInteractive: msg.isInteractive || false,  // ← ADD
+                    media_url: msg.media_url || null,       
+                    media_type: msg.media_type || null,     
+                    file_name: msg.file_name || null, 
+                    message_type: msg.message_type || null, 
+                    isInteractive: msg.isInteractive || false,  
                     buttons: msg.buttons || null,
                 }));
 
@@ -198,7 +195,10 @@ const [showContactInfo, setShowContactInfo] = useState(false);
                 message_type: data.message_type || 'text',
                 isInteractive: data.isInteractive || false,
                 buttons: data.buttons || null,
-                whatsapp_msg_id: data.whatsapp_msg_id || null
+                whatsapp_msg_id: data.whatsapp_msg_id || null,
+                media_url: data.media_url || null,
+                media_type: data.media_type || null,
+                file_name: data.file_name || null,
             };
 
             // ✅ IMPROVED: Better duplicate detection using WhatsApp message ID
@@ -325,7 +325,8 @@ const [showContactInfo, setShowContactInfo] = useState(false);
                     media_type: msg.media_type || null,
                     file_name: msg.file_name || null,
                     isInteractive: msg.isInteractive || false,   // ← ADD
-                    buttons: msg.buttons || null,           
+                    buttons: msg.buttons || null, 
+                    message_type: msg.message_type || null,
                 }));
 
                 setMessages(formatted);

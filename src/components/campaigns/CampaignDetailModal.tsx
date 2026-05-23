@@ -72,6 +72,33 @@ export default function CampaignDetailModal({ campaign, campaigns, onClose, onLa
         }
     }, [campaign.id, campaign.status]);
 
+    useEffect(() => {
+        let socket: any = null;
+
+        const tryConnect = setInterval(() => {
+            if ((window as any).socket) {
+                socket = (window as any).socket;
+                clearInterval(tryConnect);
+
+                const handleStatsUpdate = ({ campaign_id }: any) => {
+                    if (campaign_id === campaign.id) {
+                        fetchLogs();
+                    }
+                };
+
+                socket.on('campaign_stats_update', handleStatsUpdate);
+                (window as any)._detailStatsCleanup = () => {
+                    socket?.off('campaign_stats_update', handleStatsUpdate);
+                };
+            }
+        }, 200);
+
+        return () => {
+            clearInterval(tryConnect);
+            (window as any)._detailStatsCleanup?.();
+        };
+    }, [campaign.id]);
+
     const filteredLogs = useMemo(() => {
         if (logFilter === 'all') return logs;
         return logs.filter((l) => l.status === logFilter);

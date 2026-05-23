@@ -28,7 +28,11 @@ interface Props {
   showDateSeparator: boolean;
   dateSeparatorLabel: string;
 }
-
+const getMediaUrl = (url: string) => {
+  if (!url) return url;
+  if (url.startsWith('http')) return url;
+  return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${url}`;
+};
 export default function MessageBubble({
   message,
   showDateSeparator,
@@ -181,7 +185,10 @@ export default function MessageBubble({
               <p className="text-[11px] font-semibold mb-1 text-[#008069]">
                 Template: {message.template_name}
               </p>
-              <p className="text-[13.5px] whitespace-pre-wrap leading-snug">
+              <p
+                className="text-[13.5px] leading-snug"
+                style={{ whiteSpace: 'pre-wrap' }}
+              >
                 {message.text}
               </p>
             </div>
@@ -255,9 +262,12 @@ export default function MessageBubble({
                   🏠 Property Assistant
                 </div>
                 {/* Body */}
-                <p className="text-[13.5px] px-3 py-2 text-[#111b21] whitespace-wrap leading-snug">
-                  {message.text}
-                </p>
+              <p
+                className="text-[13.5px] px-3 py-2 text-[#111b21] leading-snug"
+                style={{ whiteSpace: 'pre-wrap' }}
+              >
+                {message.text}
+              </p>
                 {/* Buttons */}
                 {message.buttons && message.buttons.length > 0 && (
                   <div className="border-t border-gray-100">
@@ -288,9 +298,12 @@ export default function MessageBubble({
                 className={`px-3 py-2 rounded-[7.5px] shadow-sm relative ${isOutbound ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none" : "bg-white border border-gray-100 text-[#111b21] rounded-tl-none"}`}
               >
                 {isOutbound ? outTail : inTail}
-                <p className="text-[13.5px] whitespace-pre-wrap leading-snug break-words">
-                  {message.text}
-                </p>
+              <p
+                className="text-[13.5px] leading-snug break-words"
+                style={{ whiteSpace: 'pre-wrap' }}
+              >
+                {message.text?.replace(/\\n/g, '\n')}
+              </p>
               </div>
             )}
 
