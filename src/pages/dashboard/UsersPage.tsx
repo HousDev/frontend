@@ -397,7 +397,7 @@ onClick={() => {
         resetForm();
         setShowUserModal(true);
       }}
-      className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3 text-white bg-[#0f2b3d]"
+      className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3 text-white bg-[#0f2b3d] hover:bg-[#0f2b3d]"
       disabled={masterLoading}
     >
       <Plus className="h-3 w-3 sm:h-4 sm:w-4" />

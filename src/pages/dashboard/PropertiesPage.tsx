@@ -1368,6 +1368,7 @@ const PropertiesPage = () => {
       { id: 'sold', label: 'Sold', count: properties.filter(p => p.status === 'Sold').length, color: 'purple' },
       { id: 'negotiation', label: 'Under Negotiation', count: properties.filter(p => p.status === 'Under Negotiation').length, color: 'orange' },
       { id: 'public', label: 'Public Listings', count: properties.filter(p => p.isPublic).length, color: 'indigo' },
+      { id: 'private', label: 'Private Listings', count: properties.filter(p => !p.isPublic).length, color: 'red' },
       { id: 'hot', label: 'Hot Properties', count: properties.filter(p => (Number(p.hotLeads) || 0) > 2).length, color: 'red' },
       { 
       id: 'new_listing', 
@@ -1397,6 +1398,8 @@ count: properties.filter(p => {
         (activeTab === 'sold' && p.status === 'Sold') ||
         (activeTab === 'negotiation' && p.status === 'Under Negotiation') ||
         (activeTab === 'public' && p.isPublic) ||
+                (activeTab === 'private' && !p.isPublic) ||
+
         (activeTab === 'hot' && (Number(p.hotLeads) || 0) > 2) ||
 (activeTab === 'new_listing' && (p.leadSource === 'seller_portal' || (p.leadSource || '').includes('seller_portal')));
  const matchesExecutive =
@@ -2111,6 +2114,21 @@ count: properties.filter(p => {
     to { opacity: 1; transform: translateY(0); }
   }
   .animate-fade-in { animation: fade-in 0.15s ease-out; }
+
+  .tabs-scroll::-webkit-scrollbar {
+    height: 4px;
+  }
+  .tabs-scroll::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+  }
+  .tabs-scroll::-webkit-scrollbar-thumb {
+    background: #e67e22;
+    border-radius: 10px;
+  }
+  .tabs-scroll::-webkit-scrollbar-thumb:hover {
+    background: #d35400;
+  }
 `}</style>
     <div className="h-[91.7vh] flex flex-col bg-gray-50 overflow-hidden">
       {/* Header */}
@@ -2259,8 +2277,7 @@ style={{ background: theme.orange }}              >
        <div className="mt-4">
   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
     {/* Tabs - Scrollable on mobile */}
-    <div className="flex space-x-1 overflow-x-auto pb-1 flex-1">
-      {tabs.map((tab) => (
+<div className="tabs-scroll flex space-x-1 overflow-x-auto pb-1 flex-1" style={{ scrollbarWidth:'thin', scrollbarColor: '#e67e22 #f1f5f9' }}>      {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => setActiveTab(tab.id)}
@@ -2768,21 +2785,34 @@ style={{ background: theme.orange }}              >
                   </button>
 
                   {/* More Options Dropdown - NO BACKDROP, allows scrolling */}
-                  <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenDropdownId(openDropdownId === property.id ? null : property.id);
-                      }}
-                      className="p-1.5 rounded transition-colors"
-                      style={{ background: '#f1f5f9', color: '#64748b' }}
-                    >
-                      <MoreHorizontal size={12} />
-                    </button>
+                <div className="relative">
+  <button
+    id={`more-btn-${property.id}`}
+    onClick={(e) => {
+      e.stopPropagation();
+      setOpenDropdownId(openDropdownId === property.id ? null : property.id);
+    }}
+    className="p-1.5 rounded transition-colors"
+    style={{ background: '#f1f5f9', color: '#64748b' }}
+  >
+    <MoreHorizontal size={12} />
+  </button>
 
-                    {openDropdownId === property.id && (
-                      // Dropdown - opens UPWARD, NO backdrop
-<div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[150px]">                        <div className="py-1">
+  {openDropdownId === property.id && (
+    <div
+      id={`more-menu-${property.id}`}
+      className="fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl min-w-[150px]"
+      ref={el => {
+        if (el) {
+          const btn = document.getElementById(`more-btn-${property.id}`);
+          if (btn) {
+            const rect = btn.getBoundingClientRect();
+            el.style.top = (rect.top - el.offsetHeight - 4) + 'px';
+            el.style.left = (rect.right - el.offsetWidth) + 'px';
+          }
+        }
+      }}
+    >                    <div className="py-1">
                           {property.assignedTo ? (
                             <button
                               onClick={(e) => {
@@ -2901,33 +2931,66 @@ style={{ background: theme.orange }}              >
                   />
                 </td>
               )}
-              <td className="px-3 py-3">
-                <div className="flex items-center space-x-3">
-                  <button
-                    type="button"
-                    className="relative flex-shrink-0"
-                    onClick={() => handleViewProperty(p)}
-                    aria-label="Open property details"
-                  >
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                      <ImageWithDebug
-                        srcCandidate={Array.isArray(p.photos) && p.photos.length > 0 ? p.photos[0] : ''}
-                        alt={dash(p.title)}
-                        className="w-full h-full object-cover"
-                        propertyCtx={{ title: p.title, propertyId: p.propertyId }}
-                      />
-                    </div>
-                  </button>
-                  <div>
-                    <div className="font-semibold text-[11px] truncate max-w-[100px]" style={{ color: '#0f2b3d' }}>
-                      {(p.type && p.type !== ' - ') && <span className="mr-1">{p.type}</span>}
-                      {(p.unitType && p.unitType !== ' - ') && <span className="mr-1">{p.unitType}</span>}
-                    </div>
-                    <div className="text-[9px] text-gray-400">{dash(p.propertyId)}</div>
-                    <div className="text-[10px] font-semibold" style={{ color: '#e67e22' }}>{formatCurrency(p.budget)}</div>
-                  </div>
-                </div>
-              </td>
+            <td className="px-3 py-3">
+  <div className="flex items-center space-x-3">
+    
+    {/* Image */}
+    <button
+      type="button"
+      className="relative flex-shrink-0"
+      onClick={() => handleViewProperty(p)}
+      aria-label="Open property details"
+    >
+      <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+        <ImageWithDebug
+          srcCandidate={
+            Array.isArray(p.photos) && p.photos.length > 0
+              ? p.photos[0]
+              : ""
+          }
+          alt={dash(p.title)}
+          className="w-full h-full object-cover"
+          propertyCtx={{ title: p.title, propertyId: p.propertyId }}
+        />
+      </div>
+    </button>
+
+    {/* Right Details Clickable */}
+    <button
+      type="button"
+      onClick={() => handleViewProperty(p)}
+      className="text-left cursor-pointer"
+      aria-label="View property details"
+    >
+      <div>
+        <div
+          className="font-semibold text-[11px] truncate max-w-[100px]"
+          style={{ color: "#0f2b3d" }}
+        >
+          {(p.type && p.type !== " - ") && (
+            <span className="mr-1">{p.type}</span>
+          )}
+
+          {(p.unitType && p.unitType !== " - ") && (
+            <span className="mr-1">{p.unitType}</span>
+          )}
+        </div>
+
+        <div className="text-[9px] text-gray-400">
+          {dash(p.propertyId)}
+        </div>
+
+        <div
+          className="text-[10px] font-semibold"
+          style={{ color: "#e67e22" }}
+        >
+          {formatCurrency(p.budget)}
+        </div>
+      </div>
+    </button>
+
+  </div>
+</td>
               <td className="px-3 py-3">
                 <div className="min-w-[140px]">
                   <div className="text-[11px] font-medium truncate max-w-[150px]" style={{ color: '#0f2b3d' }}>{[p.location, p.city].filter(Boolean).join(', ') || ' - '}</div>
