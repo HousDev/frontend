@@ -1618,23 +1618,55 @@ const OverviewTab = ({ property, onUpdate }: any) => {
         {/* Right Column - Seller, Executive & Key Dates */}
         <div className="w-full xl:w-72 2xl:w-80 shrink-0 space-y-2">
           {/* Seller Card */}
-          <div className="bg-white rounded-lg border p-2.5" style={{ borderColor: BD }}>
-            <h3 className="text-[11px] font-semibold mb-2" style={{ color: N }}>Seller Information</h3>
+         {/* Seller Card */}
+          <div className="rounded-lg p-2.5" style={{ background: 'linear-gradient(135deg, #3b82f608 0%, #3b82f615 100%)', border: '1px solid #3b82f630' }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: '#3b82f620' }}>
+                <User size={12} style={{ color: '#3b82f6' }} />
+              </div>
+              <h3 className="text-[11px] font-bold" style={{ color: '#3b82f6' }}>Seller Information</h3>
+            </div>
             <div className="space-y-1.5 text-[10px]">
-              <div className="flex items-center gap-1.5"><User size={11} style={{ color: MU }} /><span className="font-medium" style={{ color: N }}>{property.seller?.name || "-"}</span></div>
-              <div className="flex items-center gap-1.5"><Phone size={11} style={{ color: MU }} /><span style={{ color: MU }}>{property.seller?.phone || "Not Available"}</span></div>
-              <div className="flex items-center gap-1.5"><Mail size={11} style={{ color: MU }} /><span style={{ color: MU }}>{property.seller?.email || "Not Available"}</span></div>
-              <div className="flex items-center gap-1.5"><MapPin size={11} style={{ color: MU }} /><span style={{ color: MU }}>{property?.location && property?.city ? `${property.location}, ${property.city}` : "-"}</span></div>
+              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#3b82f608' }}>
+                <User size={10} style={{ color: '#3b82f6' }} />
+                <span className="font-semibold" style={{ color: N }}>{property.seller?.name || "-"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#3b82f608' }}>
+                <Phone size={10} style={{ color: '#3b82f6' }} />
+                <span style={{ color: MU }}>{property.seller?.phone || "Not Available"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#3b82f608' }}>
+                <Mail size={10} style={{ color: '#3b82f6' }} />
+                <span style={{ color: MU }}>{property.seller?.email || "Not Available"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#3b82f608' }}>
+                <MapPin size={10} style={{ color: '#3b82f6' }} />
+                <span style={{ color: MU }}>{property?.location && property?.city ? `${property.location}, ${property.city}` : "-"}</span>
+              </div>
             </div>
           </div>
 
           {/* Executive Card */}
-          <div className="bg-white rounded-lg border p-2.5" style={{ borderColor: BD }}>
-            <h3 className="text-[11px] font-semibold mb-2" style={{ color: N }}>Executive Information</h3>
+          <div className="rounded-lg p-2.5" style={{ background: 'linear-gradient(135deg, #e67e2208 0%, #e67e2215 100%)', border: '1px solid #e67e2230' }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: '#e67e2220' }}>
+                <User size={12} style={{ color: O }} />
+              </div>
+              <h3 className="text-[11px] font-bold" style={{ color: O }}>Executive Information</h3>
+            </div>
             <div className="space-y-1.5 text-[10px]">
-              <div className="flex items-center gap-1.5"><User size={11} style={{ color: MU }} /><span className="font-medium" style={{ color: N }}>{property.assignedTo?.name || "-"}</span></div>
-              <div className="flex items-center gap-1.5"><Phone size={11} style={{ color: MU }} /><span style={{ color: MU }}>{property.assignedTo?.phone || "Not Available"}</span></div>
-              <div className="flex items-center gap-1.5"><Mail size={11} style={{ color: MU }} /><span style={{ color: MU }}>{property.assignedTo?.email || "Not Available"}</span></div>
+              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
+                <User size={10} style={{ color: O }} />
+                <span className="font-semibold" style={{ color: N }}>{property.assignedTo?.name || "-"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
+                <Phone size={10} style={{ color: O }} />
+                <span style={{ color: MU }}>{property.assignedTo?.phone || "Not Available"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
+                <Mail size={10} style={{ color: O }} />
+                <span style={{ color: MU }}>{property.assignedTo?.email || "Not Available"}</span>
+              </div>
             </div>
           </div>
 

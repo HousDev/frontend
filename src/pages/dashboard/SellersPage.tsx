@@ -34,6 +34,7 @@ import {
   SlidersHorizontal,
   Clock,
   AlertCircle,
+  Calendar,
 } from "lucide-react";
 import SellerFormModal from "../../components/sellers/SellerFormModal";
 import SellerViewPage from "../../components/sellers/SellerViewPage";
@@ -50,6 +51,8 @@ import { usersAPI } from "@/lib/api";
 import { can } from "@/utils/permission";
 import Swal from "sweetalert2";
 import * as XLSX from 'xlsx';
+import SellerFollowupModal from "@/components/sellers/SellerFollowupModal";
+import sellerFollowupAPI from "@/lib/sellerFollowupAPI";
 
 
 // Resale Theme Colors (matching LeadsPage)
@@ -411,7 +414,9 @@ const SellersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
-
+// Add with your other useState declarations
+const [showSellerFollowupModal, setShowSellerFollowupModal] = useState(false);
+const [selectedSellerForFollowup, setSelectedSellerForFollowup] = useState<any>(null);
   const [executives, setExecutives] = useState<Executive[]>([UNASSIGNED_EXEC]);
   const [execsLoading, setExecsLoading] = useState(false);
   const [masterLoading, setMasterLoading] = useState(true);
@@ -1699,404 +1704,312 @@ onEdit={(sellerData) => {
                 </div>
               )}
 
-              <div className="overflow-y-auto overflow-x-auto flex-1 max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-290px)]">
-                <table className="w-full" style={{ minWidth: "1100px" }}>
-                  <thead style={{ position: "sticky", top: 0 }}>
-                    <tr style={{ backgroundColor: RESALE.navy }}>
-                      <th className="w-8 px-3 py-3">
-                        <input
-                          type="checkbox"
-                          checked={
-                            paginatedSellers.length > 0 &&
-                            paginatedSellers.every((s) =>
-                              selectedSellers.includes(s.id),
-                            )
-                          }
-                          onChange={handleSelectAll}
-                          className="rounded border-gray-300"
-                        />
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                        Seller Details
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                        Contact & Location
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                        Business Info
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                        Assigned To
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                        Progress & Activity
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                        Performance
-                      </th>
-                      <th className="px-3 py-3 text-right text-xs font-medium text-black uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                    {/* Column Search Row - FIXED ORDER */}
-                    <tr style={{ backgroundColor: RESALE.navyLight }}>
-                      <th className="px-3 py-1.5" />
-
-                      {/* 1. Seller Details → search name */}
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search name…"
-                          value={colSearch.name}
-                          onChange={(e) =>
-                            setColSearch((p) => ({
-                              ...p,
-                              name: e.target.value,
-                            }))
-                          }
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-
-                      {/* 2. Contact & Location → search phone/email/location */}
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search phone/email/location…"
-                          value={colSearch.contact}
-                          onChange={(e) =>
-                            setColSearch((p) => ({
-                              ...p,
-                              contact: e.target.value,
-                            }))
-                          }
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search source/status…"
-                          value={colSearch.source}
-                          onChange={(e) =>
-                            setColSearch((p) => ({
-                              ...p,
-                              source: e.target.value,
-                            }))
-                          }
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-
-                      {/* 4. Assigned To → search assigned person name */}
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search assigned…"
-                          value={colSearch.assigned}
-                          onChange={(e) =>
-                            setColSearch((p) => ({
-                              ...p,
-                              assigned: e.target.value,
-                            }))
-                          }
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-
-                      {/* 5. Progress & Activity → search stage */}
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search stage…"
-                          value={colSearch.stage}
-                          onChange={(e) =>
-                            setColSearch((p) => ({
-                              ...p,
-                              stage: e.target.value,
-                            }))
-                          }
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-
-                      {/* 6. Performance → empty (nothing to search here) */}
-                      <th className="px-2 py-1.5" />
-
-                      {/* 7. Actions → empty */}
-                      <th className="px-2 py-1.5" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {paginatedSellers.map((seller) => (
-                      <tr
-                        key={seller.id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-3 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedSellers.includes(seller.id)}
-                            onChange={() => handleSellerSelection(seller.id)}
-                            className="rounded border-gray-300"
-                          />
-                        </td>
-                        {/* Seller Details Column */}
-                        <td className="px-3 py-3">
-                          <button
-                            onClick={() => handleViewSeller(seller)}
-                            className="flex items-center gap-2 group w-full text-left"
-                          >
-                            {/* Profile Icon with First & Last Letters */}
-                            <div
-                              className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0 shadow-sm"
-                              style={{ backgroundColor: RESALE.orange }}
-                            >
-                              {(() => {
-                                const firstName =
-                                  seller.name?.split(" ")[0] || "";
-                                const lastName =
-                                  seller.name?.split(" ")[1] || "";
-                                const firstLetter = firstName.charAt(0) || "";
-                                const lastLetter = lastName.charAt(0) || "";
-                                return (firstLetter + lastLetter)
-                                  .toUpperCase()
-                                  .slice(0, 2);
-                              })() ||
-                                seller.name?.charAt(0)?.toUpperCase() ||
-                                "S"}
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              {/* Name */}
-                              <p className="font-medium text-sm text-gray-900 truncate">
-                                {seller.salutation} {seller.name}
-                              </p>
-
-                              {/* ID and Status Row */}
-                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                <p className="text-xs text-gray-400">
-                                  ID: {seller.id}
-                                </p>
-                                {/* Active/Inactive Status Badge */}
-                                <span
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusBadgeClass(seller.isActive)}`}
-                                >
-                                  {seller.isActive
-                                    ? "🟢 Active"
-                                    : "⚫ Inactive"}
-                                </span>
-                                {/* Lead Score Star */}
-                                <div
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${seller.leadScore >= 80 ? "bg-green-100 text-green-700" : seller.leadScore >= 60 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}
-                                >
-                                  <Star size={10} className="mr-0.5" />
-                                  <span className="font-semibold">
-                                    {seller.leadScore}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Phone size={12} className="text-gray-400" />
-                              <a
-                                href={`tel:${seller.phone}`}
-                                className="text-xs text-gray-600 hover:text-orange-500"
-                              >
-                                {seller.phone}
-                              </a>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Mail size={12} className="text-gray-400" />
-                              <a
-                                href={`mailto:${seller.email}`}
-                                className="text-xs text-gray-600 hover:text-orange-500 truncate max-w-[130px]"
-                              >
-                                {seller.email}
-                              </a>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin size={12} className="text-gray-400" />
-                              <span className="text-xs text-gray-600 truncate max-w-[120px]">
-                                {seller.location}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="space-y-1">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStageBadgeClass(seller.stage)}`}
-                            >
-                              {seller.stage?.replace(/_/g, " ")}
-                            </span>
-                            <div>
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityBadgeClass(seller.priority)}`}
-                              >
-                                {seller.priority}
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              Source:{" "}
-                              <span className="font-medium">
-                                {seller.source}
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              Created:{" "}
-                              <span className="font-medium">
-                                {toDate(seller.created_at)}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-xs text-gray-600 flex-shrink-0">
-                                {seller.assigned_to_name?.charAt(0) || "U"}
-                              </div>
-                              <div className="font-semibold text-gray-900 text-[12px]">
-                                {seller.assigned_to_name || "Unassigned"}
-                              </div>
-                            </div>
-                            {seller.assigned_to_email && (
-                              <div className="text-[9px] text-gray-500 truncate max-w-[140px] pl-8">
-                                {seller.assigned_to_email}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="space-y-1">
-                            <div>
-                              <div className="flex justify-between text-xs mb-1">
-                                <span>Stage Progress</span>
-                                <span>{seller.stageProgress}%</span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                <div
-                                  className="bg-orange-500 h-1.5 rounded-full"
-                                  style={{ width: `${seller.stageProgress}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              Visits:{" "}
-                              <span className="font-medium">
-                                {seller.visits}
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              Last Activity:{" "}
-                              <span className="font-medium">
-                                {toDate(seller.lastActivity)}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="space-y-1 text-xs">
-                            <div className="flex justify-between">
-                              <span>Deal Value:</span>
-                              <span className="font-medium">
-                                ₹{seller.dealValue?.toLocaleString()}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Response Rate:</span>
-                              <span className="font-medium">
-                                {seller.responseRate}%
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Properties:</span>
-                              <span className="font-medium">
-                                {seller.properties?.length || 0}
-                              </span>
-                            </div>
-                            {seller.expectedClose && (
-                              <div className="flex justify-between">
-                                <span>Expected Close:</span>
-                                <span className="font-medium text-orange-600">
-                                  {toDate(seller.expectedClose)}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          <div className="flex justify-end gap-1">
-                            <button
-                              onClick={() => handleViewSeller(seller)}
-                              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
-                            >
-                              <Eye size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleSellerAccount(seller.id)}
-                              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-green-600"
-                            >
-                              <UserCheck size={14} />
-                            </button>
-                            {canUpdate && canEditSeller(user, seller) && (
-                              <button
-                                onClick={() => handleEditSeller(seller)}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-orange-500"
-                              >
-                                <Edit size={14} />
-                              </button>
-                            )}
-                            <div className="relative group">
-                              <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
-                                <MoreHorizontal size={14} />
-                              </button>
-                              <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 w-36">
-                                <div className="p-1">
-                                  <button className="flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full">
-                                    <PhoneCall size={12} /> Call
-                                  </button>
-                                  <button className="flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full">
-                                    <MessageCircle size={12} /> WhatsApp
-                                  </button>
-                                  <button className="flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded w-full">
-                                    <Send size={12} /> Email
-                                  </button>
-                                  {canDelete &&
-                                    canDeleteSeller(user, seller) && (
-                                      <button
-                                        onClick={() =>
-                                          handleDeleteSeller(seller.id)
-                                        }
-                                        className="flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-100 rounded w-full"
-                                      >
-                                        <Trash2 size={12} /> Delete
-                                      </button>
-                                    )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {paginatedSellers.length === 0 && (
-                  <div className="text-center py-12">
-                    <div className="text-gray-400 mb-2">No sellers found</div>
-                    <p className="text-xs text-gray-400">
-                      Try adjusting your filters or search criteria
-                    </p>
-                  </div>
-                )}
+             <div className="overflow-y-auto overflow-x-auto flex-1 max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-290px)]">
+  <table className="w-full" style={{ minWidth: "1100px" }}>
+    <thead style={{ position: "sticky", top: 0 }}>
+      <tr style={{ backgroundColor: RESALE.navy }}>
+        <th className="w-8 px-2 py-2">
+          <input
+            type="checkbox"
+            checked={
+              paginatedSellers.length > 0 &&
+              paginatedSellers.every((s) => selectedSellers.includes(s.id))
+            }
+            onChange={handleSelectAll}
+            className="rounded border-gray-300"
+          />
+        </th>
+        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Seller Details</th>
+        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Contact & Location</th>
+        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Business Info</th>
+        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Assigned To</th>
+        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Progress & Activity</th>
+        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Performance</th>
+        <th className="px-2 py-2 text-right text-xs font-medium text-black uppercase tracking-wider">Actions</th>
+      </tr>
+      {/* Column Search Row - FIXED ORDER */}
+      <tr style={{ backgroundColor: RESALE.navyLight }}>
+        <th className="px-2 py-1" />
+        <th className="px-1.5 py-1">
+          <input
+            type="text"
+            placeholder="Search name…"
+            value={colSearch.name}
+            onChange={(e) => setColSearch((p) => ({ ...p, name: e.target.value }))}
+            style={colSearchInputStyle}
+            className="text-xs"
+          />
+        </th>
+        <th className="px-1.5 py-1">
+          <input
+            type="text"
+            placeholder="Search phone/email/location…"
+            value={colSearch.contact}
+            onChange={(e) => setColSearch((p) => ({ ...p, contact: e.target.value }))}
+            style={colSearchInputStyle}
+            className="text-xs"
+          />
+        </th>
+        <th className="px-1.5 py-1">
+          <input
+            type="text"
+            placeholder="Search source/status…"
+            value={colSearch.source}
+            onChange={(e) => setColSearch((p) => ({ ...p, source: e.target.value }))}
+            style={colSearchInputStyle}
+            className="text-xs"
+          />
+        </th>
+        <th className="px-1.5 py-1">
+          <input
+            type="text"
+            placeholder="Search assigned…"
+            value={colSearch.assigned}
+            onChange={(e) => setColSearch((p) => ({ ...p, assigned: e.target.value }))}
+            style={colSearchInputStyle}
+            className="text-xs"
+          />
+        </th>
+        <th className="px-1.5 py-1">
+          <input
+            type="text"
+            placeholder="Search stage…"
+            value={colSearch.stage}
+            onChange={(e) => setColSearch((p) => ({ ...p, stage: e.target.value }))}
+            style={colSearchInputStyle}
+            className="text-xs"
+          />
+        </th>
+        <th className="px-1.5 py-1" />
+        <th className="px-1.5 py-1" />
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-gray-100">
+      {paginatedSellers.map((seller) => (
+        <tr key={seller.id} className="hover:bg-gray-50 transition-colors">
+          <td className="px-2 py-2">
+            <input
+              type="checkbox"
+              checked={selectedSellers.includes(seller.id)}
+              onChange={() => handleSellerSelection(seller.id)}
+              className="rounded border-gray-300"
+            />
+          </td>
+          {/* Seller Details Column */}
+          <td className="px-2 py-2">
+            <button onClick={() => handleViewSeller(seller)} className="flex items-center gap-2 group w-full text-left">
+              <div
+                className="h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0 shadow-sm"
+                style={{ backgroundColor: RESALE.orange }}
+              >
+                {(() => {
+                  const firstName = seller.name?.split(" ")[0] || "";
+                  const lastName = seller.name?.split(" ")[1] || "";
+                  const firstLetter = firstName.charAt(0) || "";
+                  const lastLetter = lastName.charAt(0) || "";
+                  return (firstLetter + lastLetter).toUpperCase().slice(0, 2);
+                })() || seller.name?.charAt(0)?.toUpperCase() || "S"}
               </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm text-gray-900 truncate">{seller.salutation} {seller.name}</p>
+                <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                  <p className="text-xs text-gray-400">ID: {seller.id}</p>
+                  <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getStatusBadgeClass(seller.isActive)}`}>
+                    {seller.isActive ? "🟢 Active" : "⚫ Inactive"}
+                  </span>
+                  <div className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${seller.leadScore >= 80 ? "bg-green-100 text-green-700" : seller.leadScore >= 60 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
+                    <Star size={9} className="mr-0.5" />
+                    <span className="font-semibold">{seller.leadScore}</span>
+                  </div>
+                </div>
+              </div>
+            </button>
+          </td>
+          <td className="px-2 py-2">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1">
+                <Phone size={11} className="text-gray-400" />
+                <a href={`tel:${seller.phone}`} className="text-xs text-gray-600 hover:text-orange-500">{seller.phone}</a>
+              </div>
+              <div className="flex items-center gap-1">
+                <Mail size={11} className="text-gray-400" />
+                <a href={`mailto:${seller.email}`} className="text-xs text-gray-600 hover:text-orange-500 truncate max-w-[130px]">{seller.email}</a>
+              </div>
+              <div className="flex items-center gap-1">
+                <MapPin size={11} className="text-gray-400" />
+                <span className="text-xs text-gray-600 truncate max-w-[120px]">{seller.location}</span>
+              </div>
+            </div>
+          </td>
+          <td className="px-2 py-2">
+            <div className="space-y-0.5">
+              {/* Stage and Priority in same row */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStageBadgeClass(seller.stage)}`}>
+                  {seller.stage?.replace(/_/g, " ")}
+                </span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getPriorityBadgeClass(seller.priority)}`}>
+                  {seller.priority}
+                </span>
+              </div>
+              <div className="text-[10px] text-gray-600">Source: <span className="font-medium">{seller.source}</span></div>
+              <div className="text-[10px] text-gray-600">Created: <span className="font-medium">{toDate(seller.created_at)}</span></div>
+            </div>
+          </td>
+          <td className="px-2 py-2">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-[10px] text-gray-600 flex-shrink-0">
+                  {seller.assigned_to_name?.charAt(0) || "U"}
+                </div>
+                <div className="font-semibold text-gray-900 text-[11px]">{seller.assigned_to_name || "Unassigned"}</div>
+              </div>
+              {seller.assigned_to_email && (
+                <div className="text-[8px] text-gray-500 truncate max-w-[140px] pl-7">{seller.assigned_to_email}</div>
+              )}
+            </div>
+          </td>
+          <td className="px-2 py-2">
+            <div className="space-y-0.5">
+              <div>
+                <div className="flex justify-between text-[10px] mb-0.5">
+                  <span>Stage Progress</span>
+                  <span>{seller.stageProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-1">
+                  <div className="bg-orange-500 h-1 rounded-full" style={{ width: `${seller.stageProgress}%` }}></div>
+                </div>
+              </div>
+              <div className="text-[10px] text-gray-600">Visits: <span className="font-medium">{seller.visits}</span></div>
+              <div className="text-[10px] text-gray-600">Last Activity: <span className="font-medium">{toDate(seller.lastActivity)}</span></div>
+            </div>
+          </td>
+          <td className="px-2 py-2">
+            <div className="space-y-0.5 text-[10px]">
+              <div className="flex justify-between"><span>Deal Value:</span><span className="font-medium">₹{seller.dealValue?.toLocaleString()}</span></div>
+              <div className="flex justify-between"><span>Response Rate:</span><span className="font-medium">{seller.responseRate}%</span></div>
+              <div className="flex justify-between"><span>Properties:</span><span className="font-medium">{seller.properties?.length || 0}</span></div>
+              {seller.expectedClose && (
+                <div className="flex justify-between"><span>Expected Close:</span><span className="font-medium text-orange-600">{toDate(seller.expectedClose)}</span></div>
+              )}
+            </div>
+          </td>
+          <td className="px-2 py-2 text-right">
+            <div className="flex justify-end gap-0.5">
+              <button onClick={() => handleViewSeller(seller)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"><Eye size={13} /></button>
+              <button onClick={() => handleSellerAccount(seller.id)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-green-600"><UserCheck size={13} /></button>
+              {canUpdate && canEditSeller(user, seller) && (
+                <button onClick={() => handleEditSeller(seller)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-orange-500"><Edit size={13} /></button>
+              )}
+       <div className="relative group">
+  <button className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"><MoreHorizontal size={13} /></button>
+  <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 w-32">
+    <div className="p-0.5">
+      {/* Call Button */}
+      <button 
+        onClick={() => {
+          const phoneNumber = seller.phone?.replace(/\D/g, '');
+          if (phoneNumber && phoneNumber !== '-') {
+            window.open(`tel:${phoneNumber}`);
+          } else {
+            toast.error("No phone number available");
+          }
+        }} 
+        className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-100 rounded w-full"
+      >
+        <PhoneCall size={11} /> Call
+      </button>
+      
+      {/* WhatsApp Button */}
+      <button 
+        onClick={() => {
+          const phoneNumber = seller.phone?.replace(/\D/g, '');
+          if (phoneNumber && phoneNumber !== '-') {
+            // Use only properties that definitely exist
+            const userName = user?.username || (user?.email?.split('@')[0]) || 'Team';
+            const message = encodeURIComponent(
+              `Hi ${seller.salutation || ''} ${seller.name},\n\n` +
+              `I hope you're doing well!\n\n` +
+              `This is regarding your property at ${seller.location || 'your location'}.\n\n` +
+              `We have some interested buyers looking for properties like yours.\n\n` +
+              `Could you please share the latest updates or let me know a convenient time to discuss?\n\n` +
+              `Looking forward to your response.\n\n` +
+              `Best Regards,\n` +
+              `${userName}`
+            );
+            window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+          } else {
+            toast.error("No phone number available for WhatsApp");
+          }
+        }} 
+        className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-100 rounded w-full"
+      >
+        <MessageCircle size={11} /> WhatsApp
+      </button>
+      
+      {/* Email Button */}
+      <button 
+        onClick={() => {
+          const email = seller.email;
+          if (email && email !== '-') {
+            const subject = encodeURIComponent(`Regarding Your Property Inquiry - ${seller.location || 'Property'}`);
+            const userName = user?.username || (user?.email?.split('@')[0]) || 'Team';
+            const body = encodeURIComponent(
+              `Dear ${seller.salutation || ''} ${seller.name},\n\n` +
+              `I hope this email finds you well.\n\n` +
+              `This is regarding your property at ${seller.location || 'your location'}.\n\n` +
+              `We have potential buyers showing interest in properties like yours.\n\n` +
+              `Could you please share:\n` +
+              `1. Current status of the property\n` +
+              `2. Any price updates\n` +
+              `3. Best time for a site visit\n\n` +
+              `Looking forward to your response.\n\n` +
+              `Best Regards,\n` +
+              `${userName}`
+            );
+            window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
+          } else {
+            toast.error("No email address available");
+          }
+        }} 
+        className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-100 rounded w-full"
+      >
+        <Send size={11} /> Email
+      </button>
+      
+      {/* Follow-up option */}
+      <button 
+        onClick={() => {
+          setSelectedSellerForFollowup(seller);
+          setShowSellerFollowupModal(true);
+        }} 
+        className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-blue-600 hover:bg-blue-50 rounded w-full"
+      >
+        <Calendar size={11} /> Follow-up
+      </button>
+      
+      {/* Delete Button */}
+      {canDelete && canDeleteSeller(user, seller) && (
+        <button onClick={() => handleDeleteSeller(seller.id)} className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-red-600 hover:bg-red-100 rounded w-full">
+          <Trash2 size={11} /> Delete
+        </button>
+      )}
+    </div>
+  </div>
+</div>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  {paginatedSellers.length === 0 && (
+    <div className="text-center py-8">
+      <div className="text-gray-400 mb-1 text-sm">No sellers found</div>
+      <p className="text-xs text-gray-400">Try adjusting your filters or search criteria</p>
+    </div>
+  )}
+</div>
 
               {filteredSellers.length > 0 && (
                 <div
@@ -2193,6 +2106,40 @@ onEdit={(sellerData) => {
           onClose={() => setShowImportLeads(false)}
         />
       )}
+
+
+      {/* Seller Follow-up Modal */}
+{/* Seller Follow-up Modal */}
+{showSellerFollowupModal && selectedSellerForFollowup && (
+  <SellerFollowupModal
+    isOpen={showSellerFollowupModal}
+    onClose={() => {
+      setShowSellerFollowupModal(false);
+      setSelectedSellerForFollowup(null);
+    }}
+    onSave={async (payload) => {
+      try {
+        // Call API to save follow-up
+        await sellerFollowupAPI.create(payload);
+        toast.success("Follow-up added successfully");
+        setShowSellerFollowupModal(false);
+        setSelectedSellerForFollowup(null);
+        // Refresh sellers to show updated follow-ups count
+        const apiSellers = await sellerAPI.getAll();
+        const normalized = Array.isArray(apiSellers)
+          ? apiSellers.map(mapApiSellerToUI)
+          : [];
+        setAllSellers(normalized);
+      } catch (error) {
+        console.error("Error adding follow-up:", error);
+        toast.error("Failed to add follow-up");
+      }
+    }}
+    tabId="seller"
+    sellerId={selectedSellerForFollowup.id}
+    initialForm={undefined}
+  />
+)}
     </div>
   );
 };
