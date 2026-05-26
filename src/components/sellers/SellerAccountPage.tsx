@@ -222,13 +222,13 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
         </button>
 
         {/* Back Button (desktop) */}
-        <button
-          onClick={onBack}
-          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors hidden sm:inline-flex text-white"
-          aria-label="Back"
-        >
-          <ArrowLeft size={18} />
-        </button>
+       <button
+  onClick={() => window.history.back()}
+  className="p-1.5 rounded-lg hover:bg-white/10 transition-colors hidden sm:inline-flex text-white"
+  aria-label="Back"
+>
+  <ArrowLeft size={18} />
+</button>
 
         {/* Text Column */}
         <div className="min-w-0">

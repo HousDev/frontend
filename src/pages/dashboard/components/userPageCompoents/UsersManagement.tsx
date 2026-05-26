@@ -1280,7 +1280,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, Edit, Trash2, Mail, Phone, Calendar, Activity, CheckCircle, XCircle,
   Eye, Share2, MessageCircle, Copy, Plus, Users as UsersIcon, UserPlus,
-  SlidersHorizontal, X, Filter
+  SlidersHorizontal, X, Filter,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { usersAPI } from '@/lib/api';
 import Button from '@/components/ui/Button';
@@ -2319,6 +2321,61 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
 };
 
   return (
+    <>
+      <style>
+        {`
+          .scrollbar-custom {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom::-webkit-scrollbar {
+            height: 4px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+          .scrollbar-custom-vertical {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar {
+            width: 4px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+              /* ✅ Column divider lines */
+  table tbody td {
+    border-right: 1px solid rgba(209, 213, 219, 0.5);
+  }
+  table tbody td:last-child {
+    border-right: none;
+  }
+  table thead th {
+    border-right: 1px solid rgba(209, 213, 219, 0.4);
+  }
+  table thead th:last-child {
+    border-right: none;
+  }
+
+        `}
+      </style>
     <div className="space-y-4">
       {/* Local create modal fallback */}
       {showCreateModalLocal && (
@@ -2363,397 +2420,409 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
       )}
 
       {/* Tabs */}
-      <nav className="flex overflow-x-auto scrollbar-hide sm:-mt-9 mt-2" aria-label="Tabs">
-        <div className="flex gap-2 sm:gap-3 min-w-full sm:min-w-0">
-          {TABS.map((tab) => {
-            const isActive = activeTab === (tab.id as any);
-            const count = userCounts[tab.id] || 0;
-            const Icon = tab.id === 'all' ? UsersIcon : UserPlus;
+    <nav
+  className="flex overflow-x-auto scrollbar-hide sm:-mt-8 mt-1"
+  aria-label="Tabs"
+>
+  <div className="flex gap-1.5 sm:gap-2 min-w-full sm:min-w-0">
+    {TABS.map((tab) => {
+      const isActive = activeTab === (tab.id as any);
+      const count = userCounts[tab.id] || 0;
+      const Icon = tab.id === 'all' ? UsersIcon : UserPlus;
 
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id as any)}
-                className={`shrink-0 flex items-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-2 sm:px-3 border-b-2 transition-all whitespace-nowrap text-xs sm:text-sm font-medium ${
-                  isActive
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">{tab.name}</span>
-                <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs font-semibold ${
-                  isActive ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-700'
-                }`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      return (
+        <button
+          key={tab.id}
+          onClick={() => handleTabChange(tab.id as any)}
+          className={`shrink-0 flex items-center gap-1 sm:gap-1.5 py-1.5 sm:py-2 px-2 sm:px-2.5 border-b-2 transition-all whitespace-nowrap text-[11px] sm:text-xs font-medium ${
+            isActive
+              ? 'border-orange-500 text-orange-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+
+          <span className="hidden sm:inline">
+            {tab.name}
+          </span>
+
+          <span className="sm:hidden">
+            {tab.name.split(' ')[0]}
+          </span>
+
+          <span
+            className={`rounded-full px-1 py-0.5 text-[9px] sm:text-[10px] font-semibold ${
+              isActive
+                ? 'bg-orange-100 text-orange-700'
+                : 'bg-gray-100 text-gray-700'
+            }`}
+          >
+            {count}
+          </span>
+        </button>
+      );
+    })}
+  </div>
+</nav>
 
       {/* Search & Filter Bar */}
       <div className="rounded-xl p-0 mt-0">
   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
 
-    {/* ✅ LEFT SIDE (Filters) */}
-    <div className="flex gap-2 flex-nowrap overflow-x-auto">
+   {/* ✅ LEFT SIDE (Filters) */}
+<div className="flex gap-1.5 sm:gap-2 flex-nowrap overflow-x-auto scrollbar-hide">
 
-      {activeTab === 'all' && (
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          disabled={masterLoading}
-          className="min-w-[120px] px-2 py-1.5 text-xs lg:text-sm border border-gray-200 rounded-md bg-white"
-        >
-          <option value="all">All Roles</option>
-          {availableRoles.map((r: any) => (
-            <option key={r.value} value={r.value}>
-              {r.label}
-            </option>
-          ))}
-        </select>
-      )}
+  {activeTab === 'all' && (
+    <select
+      value={roleFilter}
+      onChange={(e) => setRoleFilter(e.target.value)}
+      disabled={masterLoading}
+      className="min-w-[105px] sm:min-w-[120px] px-2 py-1 text-[11px] sm:text-xs lg:text-sm border border-gray-200 rounded-md bg-white"
+    >
+      <option value="all">All Roles</option>
+      {availableRoles.map((r: any) => (
+        <option key={r.value} value={r.value}>
+          {r.label}
+        </option>
+      ))}
+    </select>
+  )}
 
-      <select
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value)}
-        className="min-w-[120px] px-2 py-1.5 text-xs lg:text-sm border border-gray-200 rounded-md bg-white"
-      >
-        <option value="all">All Status</option>
-        <option value="active">Active</option>
-        <option value="inactive">Inactive</option>
-      </select>
+  <select
+    value={statusFilter}
+    onChange={(e) => setStatusFilter(e.target.value)}
+    className="min-w-[105px] sm:min-w-[120px] px-2 py-1 text-[11px] sm:text-xs lg:text-sm border border-gray-200 rounded-md bg-white"
+  >
+    <option value="all">All Status</option>
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
+  </select>
 
-      <select
-        value={itemsPerPage}
-        onChange={(e) => setItemsPerPage(parseInt(e.target.value))}
-        className="min-w-[90px] px-2 py-1.5 text-xs lg:text-sm border border-gray-200 rounded-md bg-white"
-      >
-        {[10, 20, 50, 100].map((n) => (
-          <option key={n} value={n}>
-            {n}/page
-          </option>
-        ))}
-      </select>
-    </div>
+  <select
+    value={itemsPerPage}
+    onChange={(e) => setItemsPerPage(parseInt(e.target.value))}
+    className="min-w-[80px] sm:min-w-[90px] px-2 py-1 text-[11px] sm:text-xs lg:text-sm border border-gray-200 rounded-md bg-white"
+  >
+    {[10, 20, 50, 100].map((n) => (
+      <option key={n} value={n}>
+        {n}/page
+      </option>
+    ))}
+  </select>
+
+</div>
 
     {/* ✅ DESKTOP BULK ACTIONS (Right Side) */}
-    {showBulkActions && (
-      <div className="hidden lg:flex">
-        <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
-          <div className="flex items-center gap-2">
-            <span className="text-orange-800 font-medium text-sm whitespace-nowrap">
-              {selectedUsers.length} selected
-            </span>
-
-            <Button
-              size="sm"
-              onClick={() => handleBulkAction('activate')}
-              className="h-8 px-3 text-xs bg-green-600 text-white"
-            >
-              Activate
-            </Button>
-
-            <Button
-              size="sm"
-              onClick={() => handleBulkAction('deactivate')}
-              className="h-8 px-3 text-xs bg-yellow-600 text-white"
-            >
-              Deactivate
-            </Button>
-
-            <Button
-              size="sm"
-              onClick={() => handleBulkAction('delete')}
-              className="h-8 px-3 text-xs bg-red-600 text-white"
-            >
-              Delete
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSelectedUsers([]);
-                setShowBulkActions(false);
-              }}
-              className="h-8 px-3 text-xs"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </div>
-    )}
-  </div>
-
-  {/* ✅ MOBILE BULK ACTIONS (Compact) */}
   {showBulkActions && (
-    <div className="lg:hidden mt-2">
-      <div className="bg-orange-50 border border-orange-200 rounded-md px-2 py-1.5">
+  <div className="flex">
+    <div className="bg-orange-50 border border-orange-200 rounded-md px-1.5 py-1 w-full sm:w-auto overflow-x-auto scrollbar-hide">
+      
+      <div className="flex items-center gap-1 min-w-max">
 
-        <div className="text-orange-800 text-[11px] font-medium mb-1">
+        <span className="text-orange-800 font-medium text-[10px] sm:text-[11px] whitespace-nowrap">
           {selectedUsers.length} selected
-        </div>
+        </span>
 
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            className="flex-1 h-7 text-[10px] px-1 bg-green-600 text-white"
-            onClick={() => handleBulkAction('activate')}
-          >
-            Activate
-          </Button>
+        <Button
+          size="sm"
+          onClick={() => handleBulkAction('activate')}
+          className="h-6 sm:h-7 px-2 text-[10px] sm:text-[11px] bg-green-600 text-white rounded-md"
+        >
+          Activate
+        </Button>
 
-          <Button
-            size="sm"
-            className="flex-1 h-7 text-[10px] px-1 bg-yellow-600 text-white"
-            onClick={() => handleBulkAction('deactivate')}
-          >
-            Deactivate
-          </Button>
+        <Button
+          size="sm"
+          onClick={() => handleBulkAction('deactivate')}
+          className="h-6 sm:h-7 px-2 text-[10px] sm:text-[11px] bg-yellow-600 text-white rounded-md"
+        >
+          Deactivate
+        </Button>
 
-          <Button
-            size="sm"
-            className="flex-1 h-7 text-[10px] px-1 bg-red-600 text-white"
-            onClick={() => handleBulkAction('delete')}
-          >
-            Delete
-          </Button>
+        <Button
+          size="sm"
+          onClick={() => handleBulkAction('delete')}
+          className="h-6 sm:h-7 px-2 text-[10px] sm:text-[11px] bg-red-600 text-white rounded-md"
+        >
+          Delete
+        </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 h-7 text-[10px] px-1"
-            onClick={() => {
-              setSelectedUsers([]);
-              setShowBulkActions(false);
-            }}
-          >
-            Cancel
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSelectedUsers([]);
+            setShowBulkActions(false);
+          }}
+          className="h-6 sm:h-7 px-2 text-[10px] sm:text-[11px] rounded-md"
+        >
+          Cancel
+        </Button>
+
       </div>
     </div>
-  )}
+  </div>
+)}
+  </div>
+
+  
 </div>
      
      
 
-      {/* Users Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
-        {loading ? (
-          <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
-        ) : (
-          <>
-            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] sm:max-h-[calc(100vh-260px)]" >
-              <table className="w-full" style={{ minWidth: '1000px' }}>
-                <thead style={{ position: 'sticky', top: 0 }}>
-                  {/* Main Headers */}
-                  <tr style={{ backgroundColor: RESALE.navy }}>
-                    {(activeTab !== 'buyers' && activeTab !== 'sellers') && (
-                      <th className="w-8 px-3 py-3">
-                        <input
-                          type="checkbox"
-                          checked={paginatedUsers.length > 0 && selectedUsers.length === paginatedUsers.map(u => u.id!).filter(Boolean).length}
-                          onChange={handleSelectAll}
-                          className="rounded border-gray-300 accent-orange-500"
-                        />
-                      </th>
-                    )}
-                    <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">User</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-Black uppercase tracking-wider">Contact</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-Black uppercase tracking-wider">Role</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-Black uppercase tracking-wider">Status</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-Black uppercase tracking-wider">Performance</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-Black uppercase tracking-wider">Dates</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-Black uppercase tracking-wider">Actions</th>
-                  </tr>
-                  {/* Column Search Row */}
-                  <tr className='text-gray-500' style={{ backgroundColor: RESALE.navyLight }}>
-                    {(activeTab !== 'buyers' && activeTab !== 'sellers') && <th className="px-2 py-1.5" />}
-                    <th className="px-2 py-1.5">
-                      <input type="text" placeholder="Search name..." value={colSearch.name} onChange={e => setColSearch(p => ({ ...p, name: e.target.value }))} style={colSearchInputStyle} />
-                    </th>
-                    <th className="px-2 py-1.5">
-                      <input type="text" placeholder="Search email/phone..." value={colSearch.email} onChange={e => setColSearch(p => ({ ...p, email: e.target.value }))} style={colSearchInputStyle} />
-                    </th>
-                    <th className="px-2 py-1.5">
-                      <input type="text" placeholder="Search role..." value={colSearch.role} onChange={e => setColSearch(p => ({ ...p, role: e.target.value }))} style={colSearchInputStyle} />
-                    </th>
-                    <th className="px-2 py-1.5">
-                      <input type="text" placeholder="Search status..." value={colSearch.status} onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))} style={colSearchInputStyle} />
-                    </th>
-                    <th className="px-2 py-1.5">
-                      <input type="text" placeholder="Search dept..." value={colSearch.department} onChange={e => setColSearch(p => ({ ...p, department: e.target.value }))} style={colSearchInputStyle} />
-                    </th>
-                    <th className="px-2 py-1.5">
-    <input type="text" placeholder="Search date..." value={colSearch.created_at} onChange={e => setColSearch(p => ({ ...p, created_at: e.target.value }))} style={colSearchInputStyle} />
-  </th>
-                    <th className="px-2 py-1.5" />
-                  </tr>
-                </thead>
+  <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden mt-0">
+  {loading ? (
+    <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
+  ) : (
+    <>
+      <div
+        className="overflow-x-auto overflow-y-auto scrollbar-custom scrollbar-custom-vertical"
+      style={{
+  overflowY: 'auto',
+  overflowX: 'auto',
+  maxHeight: window.innerWidth < 640
+    ? selectedUsers.length > 0 ? 'calc(100vh - 320px)' : 'calc(100vh - 280px)'
+    : selectedUsers.length > 0 ? 'calc(100vh - 200px)' : 'calc(100vh - 230px)',
+}}
+      >
+        <table className="w-full" style={{ minWidth: '800px', borderCollapse: 'separate', borderSpacing: 0 }}>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 30 }}>
+            {/* Main Headers */}
+            <tr style={{ backgroundColor: RESALE.navy }}>
+              {(activeTab !== 'buyers' && activeTab !== 'sellers') && (
+                <th className="w-6 px-2 py-1.5 text-center bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={paginatedUsers.length > 0 && selectedUsers.length === paginatedUsers.map(u => u.id!).filter(Boolean).length}
+                    onChange={handleSelectAll}
+                    className="rounded border-gray-300 accent-orange-500 w-3 h-3"
+                  />
+                </th>
+              )}
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">User</th>
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">Contact</th>
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">Role</th>
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">Status</th>
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">Performance</th>
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">Dates</th>
+              <th className="px-2 py-1.5 text-right text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">Actions</th>
+            </tr>
 
-                <tbody className="divide-y divide-gray-100">
-                  {paginatedUsers.length > 0 ? paginatedUsers.map(user => {
-                    const accountAlreadyExists = (activeTab === 'buyers' || activeTab === 'sellers') &&
-                      hasAccountCreated(user.id!, activeTab === 'buyers' ? 'buyer' : 'seller');
+            {/* Column Search Row */}
+            <tr className="text-gray-500" style={{ backgroundColor: RESALE.navyLight }}>
+              {(activeTab !== 'buyers' && activeTab !== 'sellers') && <th className="px-2 py-0.5 bg-gray-100" />}
+              <th className="px-1.5 py-0.5 bg-gray-100">
+                <input type="text" placeholder="Search name..." value={colSearch.name} onChange={e => setColSearch(p => ({ ...p, name: e.target.value }))} style={colSearchInputStyle} className="w-full" />
+              </th>
+              <th className="px-1.5 py-0.5 bg-gray-100">
+                <input type="text" placeholder="Search email/phone..." value={colSearch.email} onChange={e => setColSearch(p => ({ ...p, email: e.target.value }))} style={colSearchInputStyle} className="w-full" />
+              </th>
+              <th className="px-1.5 py-0.5 bg-gray-100">
+                <input type="text" placeholder="Search role..." value={colSearch.role} onChange={e => setColSearch(p => ({ ...p, role: e.target.value }))} style={colSearchInputStyle} className="w-full" />
+              </th>
+              <th className="px-1.5 py-0.5 bg-gray-100">
+                <input type="text" placeholder="Search status..." value={colSearch.status} onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))} style={colSearchInputStyle} className="w-full" />
+              </th>
+              <th className="px-1.5 py-0.5 bg-gray-100">
+                <input type="text" placeholder="Search dept..." value={colSearch.department} onChange={e => setColSearch(p => ({ ...p, department: e.target.value }))} style={colSearchInputStyle} className="w-full" />
+              </th>
+              <th className="px-1.5 py-0.5 bg-gray-100">
+                <input type="text" placeholder="Search date..." value={colSearch.created_at} onChange={e => setColSearch(p => ({ ...p, created_at: e.target.value }))} style={colSearchInputStyle} className="w-full" />
+              </th>
+              <th className="px-1.5 py-0.5 bg-gray-100" />
+            </tr>
+          </thead>
 
-                    return (
-                      <tr key={String(user.id)} className="hover:bg-gray-50 transition-colors">
-                        {(activeTab !== 'buyers' && activeTab !== 'sellers') && (
-                          <td className="px-3 py-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedUsers.some(x => String(x) === String(user.id))}
-                              onChange={() => handleSelectUser(user.id)}
-                              className="rounded border-gray-300 accent-orange-500"
-                            />
-                          </td>
-                        )}
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-2">
-                            {user.avatar ? (
-                              <img src={String(user.avatar)} alt={`${user.first_name} avatar`} className="h-8 w-8 rounded-full object-cover" />
-                            ) : (
-                              <div className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: RESALE.orange }}>
-                                {((user.first_name?.[0] || '') + (user.last_name?.[0] || '')).toUpperCase()}
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-medium text-sm  text-gray-700" >
-                                {user.salutation ? user.salutation + ' ' : ''}{user.first_name} {user.last_name}
-                              </p>
-                              {user.username && <p className="text-xs text-gray-400">@{user.username}</p>}
-                              {user.dob && <p className="text-[10px] text-gray-400">DOB: {formatDateForDisplay(user.dob)}</p>}
-                              {(activeTab === 'buyers' || activeTab === 'sellers') && (
-                                <p className={`text-xs ${accountAlreadyExists ? 'text-green-600' : 'text-orange-600'}`}>
-                                  {accountAlreadyExists ? '✓ Account Created' : '○ No Account'}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Mail size={12} className="text-gray-400" />
-                              <a href={`mailto:${user.email}`} className="text-xs text-gray-600 hover:text-orange-500">{user.email}</a>
-                            </div>
-                            {user.phone && (
-                              <div className="flex items-center gap-1">
-                                <Phone size={12} className="text-gray-400" />
-                                <a href={`tel:${user.phone}`} className="text-xs text-gray-600">{user.phone}</a>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
-                            {getLabelFromValue('role', user.role) || user.role}
-                          </span>
-                          {user.department && <div className="text-[10px] text-gray-400 mt-0.5">Dept: {user.department}</div>}
-                          {user.designation && <div className="text-[10px] text-gray-400">Desig: {user.designation}</div>}
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-1">
-                            {user.is_active ? <CheckCircle size={12} className="text-green-500" /> : <XCircle size={12} className="text-red-500" />}
-                            <span className={`text-xs ${user.is_active ? 'text-green-700' : 'text-red-700'}`}>
-                              {user.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="text-xs text-gray-700">
-                            <div>{user.total_leads || 0} leads</div>
-                            <div className="text-gray-400">{user.total_properties || 0} properties</div>
-                            {user.total_revenue !== undefined && user.total_revenue !== null && (
-                              <div className="text-gray-400">{formatCurrency(user.total_revenue)} revenue</div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="space-y-1 text-xs text-gray-500">
-                            <div className="flex items-center gap-1">
-                              <Calendar size={11} className="text-gray-400" />
-                              <span>Created: {formatDateTime(user.created_at)}</span>
-                            </div>
-                            {user.last_login && (
-                              <div className="flex items-center gap-1">
-                                <Activity size={11} className="text-gray-400" />
-                                <span>Last: {formatDateTime(user.last_login)}</span>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 text-right">
-                          {(activeTab === 'buyers' || activeTab === 'sellers') ? (
-                            <Button
-                              onClick={() => startCreateAccount(activeTab === 'buyers' ? 'buyer' : 'seller', buildPrefillFromUser(user))}
-                              size="sm"
-                              disabled={accountAlreadyExists}
-                              className={`${accountAlreadyExists ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
-                            >
-                              <Plus className="h-3 w-3 mr-1" />
-                              {accountAlreadyExists ? 'Exists' : 'Create'}
-                            </Button>
-                          ) : (
-                            <div className="flex justify-end gap-1">
-                              <button onClick={() => onEditUser(user)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: RESALE.orange }}>
-                                <Edit size={14} />
-                              </button>
-                              <button onClick={() => handleShareUser(user)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-blue-600">
-                                <Share2 size={14} />
-                              </button>
-                              <button
-                                onClick={() => handleToggleUserStatus(user.id, user.is_active)}
-                                className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${user.is_active ? 'text-red-600' : 'text-green-600'}`}
-                              >
-                                {user.is_active ? <XCircle size={14} /> : <CheckCircle size={14} />}
-                              </button>
-                              <button 
-  onClick={() => handleDeleteUser(user.id, `${user.salutation ? user.salutation + ' ' : ''}${user.first_name} ${user.last_name}`)} 
-  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-red-600"
->
-  <Trash2 size={14} />
-</button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  }) : (
-                    <tr>
-                      <td colSpan={8} className="px-6 py-12 text-center">
-                        <div className="flex flex-col items-center">
-                          <UserPlus className="h-12 w-12 text-gray-400 mb-4" />
-                          <h3 className="text-lg font-medium text-gray-900 mb-2">{activeTab === 'buyers' || activeTab === 'sellers' ? `No ${activeTab} data found` : 'No users found'}</h3>
-                          <p className="text-gray-500 mb-4">{searchTerm || roleFilter !== 'all' || statusFilter !== 'all' ? 'Try adjusting filters' : 'No data to display'}</p>
-                          {activeTabConfig?.showCreateButton && <Button onClick={() => startCreateAccount(activeTab.includes('buyer') ? 'buyer' : 'seller')} style={{ backgroundColor: RESALE.orange }} className="text-white"><Plus className="h-4 w-4 mr-1" /> {activeTabConfig.createButtonText || `Create ${activeTab.includes('buyer') ? 'Buyer' : 'Seller'} Account`}</Button>}
-                        </div>
-                      </td>
-                    </tr>
+          <tbody className="divide-y divide-gray-100 bg-white">
+            {paginatedUsers.length > 0 ? paginatedUsers.map(user => {
+              const accountAlreadyExists = (activeTab === 'buyers' || activeTab === 'sellers') &&
+                hasAccountCreated(user.id!, activeTab === 'buyers' ? 'buyer' : 'seller');
+
+              return (
+                <tr key={String(user.id)} className="hover:bg-gray-50 transition-colors">
+
+                  {/* CHECKBOX */}
+                  {(activeTab !== 'buyers' && activeTab !== 'sellers') && (
+                    <td className="px-2 py-1 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.some(x => String(x) === String(user.id))}
+                        onChange={() => handleSelectUser(user.id)}
+                        className="rounded border-gray-300 accent-orange-500 w-3 h-3"
+                      />
+                    </td>
                   )}
-                </tbody>
-              </table>
-            </div>
 
-            {/* Pagination */}
-            {filteredUsers.length > 0 && (
-              <div className="px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="text-xs text-gray-500">Showing {paginatedUsers.length} of {filteredUsers.length} users</div>
-                <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-              </div>
+                  {/* USER */}
+                  <td className="px-2 py-1">
+                    <div className="flex items-center gap-1.5">
+                      {user.avatar ? (
+                        <img src={String(user.avatar)} alt={`${user.first_name} avatar`} className="h-6 w-6 rounded-full object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[9px] font-medium flex-shrink-0" style={{ backgroundColor: RESALE.orange }}>
+                          {((user.first_name?.[0] || '') + (user.last_name?.[0] || '')).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-[11px] text-gray-800 truncate max-w-[120px]">
+                          {user.salutation ? user.salutation + ' ' : ''}{user.first_name} {user.last_name}
+                        </p>
+                        {user.username && <p className="text-[9px] text-gray-400">@{user.username}</p>}
+                        {user.dob && <p className="text-[9px] text-gray-400">DOB: {formatDateForDisplay(user.dob)}</p>}
+                        {(activeTab === 'buyers' || activeTab === 'sellers') && (
+                          <p className={`text-[9px] ${accountAlreadyExists ? 'text-green-600' : 'text-orange-600'}`}>
+                            {accountAlreadyExists ? '✓ Account Created' : '○ No Account'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* CONTACT */}
+                  <td className="px-2 py-1">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1">
+                        <Mail size={9} className="text-gray-400 flex-shrink-0" />
+                        <a href={`mailto:${user.email}`} className="text-[9px] text-gray-600 hover:text-orange-500 truncate max-w-[130px]">{user.email}</a>
+                      </div>
+                      {user.phone && (
+                        <div className="flex items-center gap-1">
+                          <Phone size={9} className="text-gray-400 flex-shrink-0" />
+                          <a href={`tel:${user.phone}`} className="text-[9px] text-gray-600">{user.phone}</a>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* ROLE */}
+                  <td className="px-2 py-1">
+                    <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-medium ${getRoleColor(user.role)}`}>
+                      {getLabelFromValue('role', user.role) || user.role}
+                    </span>
+                    {user.department && <div className="text-[9px] text-gray-400 mt-0.5 truncate max-w-[90px]">Dept: {user.department}</div>}
+                    {user.designation && <div className="text-[9px] text-gray-400 truncate max-w-[90px]">Desig: {user.designation}</div>}
+                  </td>
+
+                  {/* STATUS */}
+                  <td className="px-2 py-1">
+                    <div className="flex items-center gap-1">
+                      {user.is_active ? <CheckCircle size={10} className="text-green-500" /> : <XCircle size={10} className="text-red-500" />}
+                      <span className={`text-[9px] ${user.is_active ? 'text-green-700' : 'text-red-700'}`}>
+                        {user.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* PERFORMANCE */}
+                  <td className="px-2 py-1">
+                    <div className="text-[9px] text-gray-700 space-y-0.5">
+                      <div>{user.total_leads || 0} leads</div>
+                      <div className="text-gray-400">{user.total_properties || 0} props</div>
+                      {user.total_revenue !== undefined && user.total_revenue !== null && (
+                        <div className="text-gray-400">{formatCurrency(user.total_revenue)}</div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* DATES */}
+                  <td className="px-2 py-1">
+                    <div className="space-y-0.5 text-[9px] text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <Calendar size={9} className="text-gray-400 flex-shrink-0" />
+                        <span className="truncate max-w-[110px]">Created: {formatDateTime(user.created_at)}</span>
+                      </div>
+                      {user.last_login && (
+                        <div className="flex items-center gap-1">
+                          <Activity size={9} className="text-gray-400 flex-shrink-0" />
+                          <span className="truncate max-w-[110px]">Last: {formatDateTime(user.last_login)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* ACTIONS */}
+                  <td className="px-2 py-1 text-right">
+                    {(activeTab === 'buyers' || activeTab === 'sellers') ? (
+                      <Button
+                        onClick={() => startCreateAccount(activeTab === 'buyers' ? 'buyer' : 'seller', buildPrefillFromUser(user))}
+                        size="sm"
+                        disabled={accountAlreadyExists}
+                        className={`text-[10px] px-2 py-0.5 ${accountAlreadyExists ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                      >
+                        <Plus className="h-3 w-3 mr-0.5" />
+                        {accountAlreadyExists ? 'Exists' : 'Create'}
+                      </Button>
+                    ) : (
+                      <div className="flex justify-end gap-0.5">
+                        <button onClick={() => onEditUser(user)} className="p-1 rounded hover:bg-gray-100 transition-colors" style={{ color: RESALE.orange }} title="Edit">
+                          <Edit size={12} />
+                        </button>
+                        <button onClick={() => handleShareUser(user)} className="p-1 rounded hover:bg-gray-100 transition-colors text-blue-600" title="Share">
+                          <Share2 size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleToggleUserStatus(user.id, user.is_active)}
+                          className={`p-1 rounded hover:bg-gray-100 transition-colors ${user.is_active ? 'text-red-600' : 'text-green-600'}`}
+                          title={user.is_active ? 'Deactivate' : 'Activate'}
+                        >
+                          {user.is_active ? <XCircle size={12} /> : <CheckCircle size={12} />}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user.id, `${user.salutation ? user.salutation + ' ' : ''}${user.first_name} ${user.last_name}`)}
+                          className="p-1 rounded hover:bg-red-50 transition-colors text-red-600"
+                          title="Delete"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+
+                </tr>
+              );
+            }) : (
+              <tr>
+                <td colSpan={8} className="px-6 py-12 text-center">
+                  <div className="flex flex-col items-center">
+                    <UserPlus className="h-12 w-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      {activeTab === 'buyers' || activeTab === 'sellers' ? `No ${activeTab} data found` : 'No users found'}
+                    </h3>
+                    <p className="text-gray-500 mb-4">
+                      {searchTerm || roleFilter !== 'all' || statusFilter !== 'all' ? 'Try adjusting filters' : 'No data to display'}
+                    </p>
+                    {activeTabConfig?.showCreateButton && (
+                      <Button
+                        onClick={() => startCreateAccount(activeTab.includes('buyer') ? 'buyer' : 'seller')}
+                        style={{ backgroundColor: RESALE.orange }}
+                        className="text-white"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        {activeTabConfig.createButtonText || `Create ${activeTab.includes('buyer') ? 'Buyer' : 'Seller'} Account`}
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              </tr>
             )}
-          </>
-        )}
+          </tbody>
+        </table>
       </div>
+
+      {/* Pagination */}
+      {filteredUsers.length > 0 && (
+        <div className="px-3 py-1.5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="text-[10px] text-gray-500">Showing {paginatedUsers.length} of {filteredUsers.length} users</div>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        </div>
+      )}
+    </>
+  )}
+</div>
 
      
     </div>
+    </>
   );
 };
 

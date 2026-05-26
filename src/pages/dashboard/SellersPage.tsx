@@ -53,6 +53,7 @@ import Swal from "sweetalert2";
 import * as XLSX from 'xlsx';
 import SellerFollowupModal from "@/components/sellers/SellerFollowupModal";
 import sellerFollowupAPI from "@/lib/sellerFollowupAPI";
+import { SiWhatsapp } from "react-icons/si";
 
 
 // Resale Theme Colors (matching LeadsPage)
@@ -638,11 +639,18 @@ const [selectedSellerForFollowup, setSelectedSellerForFollowup] = useState<any>(
 
       // Column-level search filters (case-insensitive)
       // Column-level search filters (case-insensitive)
-      const matchesColName =
-        !colSearch.name ||
-        (seller.name || "")
-          .toLowerCase()
-          .includes(colSearch.name.toLowerCase());
+     const matchesColName =
+  !colSearch.name ||
+  (seller.name || "")
+    .toLowerCase()
+    .includes(colSearch.name.toLowerCase()) ||
+  (seller.id || "")
+    .toString()
+    .toLowerCase()
+    .includes(colSearch.name.toLowerCase()) ||
+  (seller.isActive ? "active" : "inactive")
+    .toLowerCase()
+    .includes(colSearch.name.toLowerCase());
 
       // Contact & Location column - searches phone, email, AND location
       const matchesColContact =
@@ -658,17 +666,24 @@ const [selectedSellerForFollowup, setSelectedSellerForFollowup] = useState<any>(
           .includes(colSearch.contact.toLowerCase());
 
       // Business Info column - searches source AND status
-      const matchesColSource =
-        !colSearch.source ||
-        (seller.source || "")
-          .toLowerCase()
-          .includes(colSearch.source.toLowerCase()) ||
-        (seller.status || "")
-          .toLowerCase()
-          .includes(colSearch.source.toLowerCase()) ||
-        (seller.isActive ? "active" : "inactive").includes(
-          colSearch.source.toLowerCase(),
-        );
+     const matchesColSource =
+  !colSearch.source ||
+  (seller.source || "")
+    .toLowerCase()
+    .includes(colSearch.source.toLowerCase()) ||
+  (seller.status || "")
+    .toLowerCase()
+    .includes(colSearch.source.toLowerCase()) ||
+  (seller.isActive ? "active" : "inactive")
+    .toLowerCase()
+    .includes(colSearch.source.toLowerCase()) ||
+  (seller.stage || "")
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .includes(colSearch.source.toLowerCase()) ||
+  (seller.priority || "")
+    .toLowerCase()
+    .includes(colSearch.source.toLowerCase());
 
       const matchesColPriority =
         !colSearch.priority ||
@@ -798,10 +813,11 @@ const [selectedSellerForFollowup, setSelectedSellerForFollowup] = useState<any>(
       width: "400px",
       padding: "1.5rem",
       customClass: {
-        popup: "rounded-xl",
-        confirmButton: "px-4 py-2 bg-red-600 text-white rounded-lg",
-        cancelButton: "px-4 py-2 bg-gray-500 text-white rounded-lg",
-      },
+  popup: "rounded-xl",
+  actions: "flex gap-3",
+  confirmButton: "px-4 py-2 bg-red-600 text-white rounded-lg",
+  cancelButton: "px-4 py-2 bg-gray-500 text-white rounded-lg",
+},
       buttonsStyling: false,
     });
     if (!result.isConfirmed) return;
@@ -1289,80 +1305,150 @@ onEdit={(sellerData) => {
   }
 
   return (
+    <>
+     <style>
+        {`
+          .scrollbar-custom {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom::-webkit-scrollbar {
+            height: 4px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+          .scrollbar-custom-vertical {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar {
+            width: 4px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+              /* ✅ Column divider lines */
+  table tbody td {
+    border-right: 1px solid rgba(209, 213, 219, 0.5);
+  }
+  table tbody td:last-child {
+    border-right: none;
+  }
+  table thead th {
+    border-right: 1px solid rgba(209, 213, 219, 0.4);
+  }
+  table thead th:last-child {
+    border-right: none;
+  }
+
+        `}
+      </style>
     <div className="" style={{ backgroundColor: "#f5f6f8" }}>
-      <div className="max-w-[1600px] mx-auto px-3 sm:px-4 md:px-6 py-0 sm:py-6">
+      <div className="max-w-[1600px] mx-auto px-2 sm:px-2 md:px-2 py-1 sm:py-2">
         {/* Tabs Row */}
-        <div className="hidden sm:flex items-center justify-between gap-3 mb-3">
-          <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
-            <div className="flex gap-1 min-w-max bg-gray-100 p-1 rounded-xl">
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      setActiveTab(tab.id);
-                      setCurrentPage(1);
-                    }}
-                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${isActive ? "bg-white shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                    style={isActive ? { color: RESALE.orange } : {}}
-                  >
-                    <span>{tab.label}</span>
-                    <span
-                      className="px-1.5 py-0.5 rounded-full text-xs font-semibold"
-                      style={
-                        isActive
-                          ? {
-                              backgroundColor: `${RESALE.orange}20`,
-                              color: RESALE.orange,
-                            }
-                          : { backgroundColor: "#e5e7eb", color: "#6b7280" }
-                      }
-                    >
-                      {tab.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => setShowFilters(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+     <div className="hidden sm:flex items-center justify-between gap-2 mb-2">
+  {/* Tabs */}
+  <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
+    <div className="flex gap-1 min-w-max bg-gray-100 p-1 rounded-lg">
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.id;
+
+        return (
+          <button
+            key={tab.id}
+            onClick={() => {
+              setActiveTab(tab.id);
+              setCurrentPage(1);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-medium transition-all whitespace-nowrap ${
+              isActive
+                ? "bg-white shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            style={isActive ? { color: RESALE.orange } : {}}
+          >
+            <span>{tab.label}</span>
+
+            <span
+              className="px-1.5 py-[1px] rounded-full text-[10px] font-semibold"
+              style={
+                isActive
+                  ? {
+                      backgroundColor: `${RESALE.orange}20`,
+                      color: RESALE.orange,
+                    }
+                  : {
+                      backgroundColor: "#e5e7eb",
+                      color: "#6b7280",
+                    }
+              }
             >
-              <SlidersHorizontal size={14} />
-              <span>Filters</span>
-            </button>
-            {canExport && (
-              <button
-                onClick={handleExportAllFiltered}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-              >
-                <Download size={14} />
-                <span>Export</span>
-              </button>
-            )}
-            {canImport && (
-              <button
-                onClick={() => setShowImportLeads(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-              >
-                <Upload size={14} />
-                <span>Import</span>
-              </button>
-            )}
-            {canCreate && (
-              <button
-                onClick={handleAddSeller}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm text-white rounded-lg transition-colors bg-[#0f2b3d]"
-              >
-                <Plus size={14} />
-                <span>Add Seller</span>
-              </button>
-            )}
-          </div>
-        </div>
+              {tab.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+
+  {/* Action Buttons */}
+  <div className="flex items-center gap-1.5 flex-shrink-0">
+    <button
+      onClick={() => setShowFilters(true)}
+      className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
+    >
+      <SlidersHorizontal size={13} />
+      <span>Filters</span>
+    </button>
+
+    {canExport && (
+      <button
+        onClick={handleExportAllFiltered}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
+      >
+        <Download size={13} />
+        <span>Export</span>
+      </button>
+    )}
+
+    {canImport && (
+      <button
+        onClick={() => setShowImportLeads(true)}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
+      >
+        <Upload size={13} />
+        <span>Import</span>
+      </button>
+    )}
+
+    {canCreate && (
+      <button
+        onClick={handleAddSeller}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-white rounded-md transition-colors bg-[#0f2b3d]"
+      >
+        <Plus size={13} />
+        <span>Add Seller</span>
+      </button>
+    )}
+  </div>
+</div>
 
         {/* Mobile Action Row */}
         <div className="flex sm:hidden items-center justify-between gap-2 mb-2">
@@ -1405,7 +1491,7 @@ onEdit={(sellerData) => {
         </div>
 
         {/* Mobile Tabs + Per Page */}
-        <div className="flex sm:hidden items-center gap-2 mb-3">
+        <div className="flex sm:hidden items-center gap-2 mb-1">
           <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
             <div className="flex gap-1 min-w-max bg-gray-100 p-1 rounded-xl">
               {tabs.map((tab) => {
@@ -1439,7 +1525,7 @@ onEdit={(sellerData) => {
               })}
             </div>
           </div>
-          <select
+          {/* <select
             value={itemsPerPage}
             onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
             className="flex-shrink-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white"
@@ -1449,7 +1535,7 @@ onEdit={(sellerData) => {
                 {n}/pg
               </option>
             ))}
-          </select>
+          </select> */}
         </div>
 
         {/* Bulk Action Bar */}
@@ -1648,431 +1734,382 @@ onEdit={(sellerData) => {
               </div>
             </div>
           )}
-        {/* Per Page Desktop */}
-        {selectedSellers.length === 0 && (
-          <div className="hidden sm:flex justify-end mb-3">
-            <select
-              value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
-              className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white"
-            >
-              {[10, 20, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n} / page
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+       
 
-        {/* Search Bar */}
-<div className="mb-4">
-  <div className="relative max-w-md">
-    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-    <input
-      type="text"
-      placeholder="Search sellers by name, phone, email, location..."
-      value={searchTerm}
-      onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
-    />
-  </div>
-</div>
+   
 
         {/* Table Card */}
-        <div
-          className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden"
-          style={{ display: "flex", flexDirection: "column" }}
+      <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden h-full">
+  {loading ? (
+    <div className="flex justify-center py-12"><TableLoader message="Loading sellers..." size="lg" colSpan={0} /></div>
+  ) : (
+    <>
+      {isExecutive && (
+        <div className="bg-blue-50 border-b border-blue-100 px-3 py-1.5 text-xs text-blue-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+          <div className="flex items-center gap-1.5"><AlertCircle size={10} /><span>You are viewing sellers assigned to you only</span></div>
+          <div>Total: <span className="font-bold">{filteredSellers.length}</span> sellers</div>
+        </div>
+      )}
+
+      {/* OUTER: controls max-height + vertical scroll - DYNAMIC HEIGHT LIKE BUYER TABLE */}
+      <div
+        className="scrollbar-custom-vertical"
+        style={{
+          overflowY: 'auto',
+          overflowX: 'auto',
+          maxHeight: window.innerWidth < 640
+            ? selectedSellers.length > 0 ? 'calc(100vh - 360px)' : 'calc(100vh - 230px)'
+            : selectedSellers.length > 0 ? 'calc(100vh - 230px)' : 'calc(100vh - 160px)',
+        }}
+      >
+        <table
+          className="w-full"
+          style={{ minWidth: '900px', borderCollapse: 'separate', borderSpacing: 0 }}
         >
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <TableLoader message="Loading sellers..." size="lg" colSpan={0} />
-            </div>
-          ) : (
-            <>
-              {isExecutive && (
-                <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 text-xs text-blue-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle size={12} />
-                    <span>You are viewing sellers assigned to you only</span>
-                  </div>
-                  <div>
-                    Total:{" "}
-                    <span className="font-bold">{filteredSellers.length}</span>{" "}
-                    sellers
-                  </div>
-                </div>
+          {/* THEAD: sticky so it never scrolls away */}
+          <thead style={{ position: 'sticky', top: 0, zIndex: 30 }}>
+            {/* ROW 1: Column Headers */}
+            <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
+              {/* CHECKBOX */}
+              {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                <th className="w-6 px-2 py-1.5 text-center bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={paginatedSellers.length > 0 && paginatedSellers.every(s => selectedSellers.includes(s.id))}
+                    onChange={handleSelectAll}
+                    className="rounded border-red-500 text-orange-600 focus:ring-orange-500 w-3 h-3"
+                  />
+                </th>
               )}
 
-             <div className="overflow-y-auto overflow-x-auto flex-1 max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-290px)]">
-  <table className="w-full" style={{ minWidth: "1100px" }}>
-    <thead style={{ position: "sticky", top: 0 }}>
-      <tr style={{ backgroundColor: RESALE.navy }}>
-        <th className="w-8 px-2 py-2">
-          <input
-            type="checkbox"
-            checked={
-              paginatedSellers.length > 0 &&
-              paginatedSellers.every((s) => selectedSellers.includes(s.id))
-            }
-            onChange={handleSelectAll}
-            className="rounded border-gray-300"
-          />
-        </th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Seller Details</th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Contact & Location</th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Business Info</th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Assigned To</th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Progress & Activity</th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Performance</th>
-        <th className="px-2 py-2 text-right text-xs font-medium text-black uppercase tracking-wider">Actions</th>
-      </tr>
-      {/* Column Search Row - FIXED ORDER */}
-      <tr style={{ backgroundColor: RESALE.navyLight }}>
-        <th className="px-2 py-1" />
-        <th className="px-1.5 py-1">
-          <input
-            type="text"
-            placeholder="Search name…"
-            value={colSearch.name}
-            onChange={(e) => setColSearch((p) => ({ ...p, name: e.target.value }))}
-            style={colSearchInputStyle}
-            className="text-xs"
-          />
-        </th>
-        <th className="px-1.5 py-1">
-          <input
-            type="text"
-            placeholder="Search phone/email/location…"
-            value={colSearch.contact}
-            onChange={(e) => setColSearch((p) => ({ ...p, contact: e.target.value }))}
-            style={colSearchInputStyle}
-            className="text-xs"
-          />
-        </th>
-        <th className="px-1.5 py-1">
-          <input
-            type="text"
-            placeholder="Search source/status…"
-            value={colSearch.source}
-            onChange={(e) => setColSearch((p) => ({ ...p, source: e.target.value }))}
-            style={colSearchInputStyle}
-            className="text-xs"
-          />
-        </th>
-        <th className="px-1.5 py-1">
-          <input
-            type="text"
-            placeholder="Search assigned…"
-            value={colSearch.assigned}
-            onChange={(e) => setColSearch((p) => ({ ...p, assigned: e.target.value }))}
-            style={colSearchInputStyle}
-            className="text-xs"
-          />
-        </th>
-        <th className="px-1.5 py-1">
-          <input
-            type="text"
-            placeholder="Search stage…"
-            value={colSearch.stage}
-            onChange={(e) => setColSearch((p) => ({ ...p, stage: e.target.value }))}
-            style={colSearchInputStyle}
-            className="text-xs"
-          />
-        </th>
-        <th className="px-1.5 py-1" />
-        <th className="px-1.5 py-1" />
-      </tr>
-    </thead>
-    <tbody className="divide-y divide-gray-100">
-      {paginatedSellers.map((seller) => (
-        <tr key={seller.id} className="hover:bg-gray-50 transition-colors">
-          <td className="px-2 py-2">
-            <input
-              type="checkbox"
-              checked={selectedSellers.includes(seller.id)}
-              onChange={() => handleSellerSelection(seller.id)}
-              className="rounded border-gray-300"
-            />
-          </td>
-          {/* Seller Details Column */}
-          <td className="px-2 py-2">
-            <button onClick={() => handleViewSeller(seller)} className="flex items-center gap-2 group w-full text-left">
-              <div
-                className="h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0 shadow-sm"
-                style={{ backgroundColor: RESALE.orange }}
-              >
-                {(() => {
-                  const firstName = seller.name?.split(" ")[0] || "";
-                  const lastName = seller.name?.split(" ")[1] || "";
-                  const firstLetter = firstName.charAt(0) || "";
-                  const lastLetter = lastName.charAt(0) || "";
-                  return (firstLetter + lastLetter).toUpperCase().slice(0, 2);
-                })() || seller.name?.charAt(0)?.toUpperCase() || "S"}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-gray-900 truncate">{seller.salutation} {seller.name}</p>
-                <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                  <p className="text-xs text-gray-400">ID: {seller.id}</p>
-                  <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${getStatusBadgeClass(seller.isActive)}`}>
-                    {seller.isActive ? "🟢 Active" : "⚫ Inactive"}
-                  </span>
-                  <div className={`inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-medium ${seller.leadScore >= 80 ? "bg-green-100 text-green-700" : seller.leadScore >= 60 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
-                    <Star size={9} className="mr-0.5" />
-                    <span className="font-semibold">{seller.leadScore}</span>
+              {/* STICKY COL 1: COMMUNICATE */}
+              <th className="px-2 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">
+                COMMUNICATE
+              </th>
+
+              {/* STICKY COL 2: SELLER DETAILS */}
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">
+                SELLER DETAILS
+              </th>
+
+              {/* SCROLLABLE COLUMNS */}
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">CONTACT & LOCATION</th>
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">BUSINESS INFO</th>
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">PROGRESS & ACTIVITY</th>
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">PERFORMANCE</th>
+              <th className="px-2 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">MANAGE</th>
+              <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ASSIGNED TO</th>
+             </tr>
+
+            {/* ROW 2: Column Search - STICKY TOO */}
+            <tr className="bg-gray-100">
+              <th className="px-2 py-0.5 bg-gray-100" />
+              <th className="px-1.5 py-0.5 bg-gray-100" />
+              <th className="px-1.5 py-0.5 bg-gray-100">
+  <input
+    type="text"
+    placeholder="Search name/ID/status..."
+    value={colSearch.name}
+    onChange={(e) => setColSearch(p => ({ ...p, name: e.target.value }))}
+    className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+  />
+</th>
+              <th className="px-1.5 py-0.5 bg-gray-100">
+                <input
+                  type="text"
+                  placeholder="Search phone/email/location..."
+                  value={colSearch.contact}
+                  onChange={(e) => setColSearch(p => ({ ...p, contact: e.target.value }))}
+                  className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                />
+              </th>
+              <th className="px-1.5 py-0.5 bg-gray-100">
+                <input
+                  type="text"
+                  placeholder="Search source/status..."
+                  value={colSearch.source}
+                  onChange={(e) => setColSearch(p => ({ ...p, source: e.target.value }))}
+                  className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                />
+              </th>
+              <th className="px-1.5 py-0.5 bg-gray-100">
+                <input
+                  type="text"
+                  placeholder="Search stage..."
+                  value={colSearch.stage}
+                  onChange={(e) => setColSearch(p => ({ ...p, stage: e.target.value }))}
+                  className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                />
+              </th>
+              <th className="px-1.5 py-0.5 bg-gray-100" />
+              <th className="px-1.5 py-0.5 bg-gray-100" />
+              <th className="px-1.5 py-0.5 bg-gray-100">
+                <input
+                  type="text"
+                  placeholder="Search assigned..."
+                  value={colSearch.assigned}
+                  onChange={(e) => setColSearch(p => ({ ...p, assigned: e.target.value }))}
+                  className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                />
+              </th>
+             </tr>
+          </thead>
+
+          <tbody className="bg-white divide-y divide-gray-100">
+            {paginatedSellers.map((seller) => (
+              <tr key={seller.id} className="hover:bg-gray-50 transition-colors">
+                {/* CHECKBOX */}
+                {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                  <td className="px-2 py-1 text-center bg-white">
+                    <input
+                      type="checkbox"
+                      checked={selectedSellers.includes(seller.id)}
+                      onChange={() => handleSellerSelection(seller.id)}
+                      className="rounded border-red-900 text-orange-600 focus:ring-orange-500 w-3 h-3"
+                    />
+                  </td>
+                )}
+
+                {/* COMMUNICATE */}
+                <td className="px-2 py-1 bg-white">
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => { const p = seller.phone?.replace(/\D/g, ''); if (p && p !== '-') window.open(`tel:${p}`); else toast.error("No phone"); }} className="p-1 rounded hover:bg-green-100 text-green-600"><Phone size={11} /></button>
+                    <button onClick={() => { const p = seller.phone?.replace(/\D/g, ''); if (p && p !== '-') { const u = user?.username || 'Team'; window.open(`https://wa.me/${p}?text=${encodeURIComponent(`Hi ${seller.name},\n\nBest Regards,\n${u}`)}`, '_blank'); } else toast.error("No phone"); }} className="p-1 rounded hover:bg-green-100 text-green-600"><SiWhatsapp size={11} /></button>
+                    <button onClick={() => { if (seller.email && seller.email !== '-') { const u = user?.username || 'Team'; window.open(`mailto:${seller.email}?subject=Property Inquiry&body=Best Regards,${u}`, '_blank'); } else toast.error("No email"); }} className="p-1 rounded hover:bg-blue-100 text-blue-600"><Mail size={11} /></button>
+                    <button onClick={() => { setSelectedSellerForFollowup(seller); setShowSellerFollowupModal(true); }} className="p-1 rounded hover:bg-purple-100 text-purple-600"><Calendar size={11} /></button>
                   </div>
-                </div>
-              </div>
-            </button>
-          </td>
-          <td className="px-2 py-2">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-1">
-                <Phone size={11} className="text-gray-400" />
-                <a href={`tel:${seller.phone}`} className="text-xs text-gray-600 hover:text-orange-500">{seller.phone}</a>
-              </div>
-              <div className="flex items-center gap-1">
-                <Mail size={11} className="text-gray-400" />
-                <a href={`mailto:${seller.email}`} className="text-xs text-gray-600 hover:text-orange-500 truncate max-w-[130px]">{seller.email}</a>
-              </div>
-              <div className="flex items-center gap-1">
-                <MapPin size={11} className="text-gray-400" />
-                <span className="text-xs text-gray-600 truncate max-w-[120px]">{seller.location}</span>
-              </div>
-            </div>
-          </td>
-          <td className="px-2 py-2">
-            <div className="space-y-0.5">
-              {/* Stage and Priority in same row */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStageBadgeClass(seller.stage)}`}>
-                  {seller.stage?.replace(/_/g, " ")}
-                </span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getPriorityBadgeClass(seller.priority)}`}>
-                  {seller.priority}
-                </span>
-              </div>
-              <div className="text-[10px] text-gray-600">Source: <span className="font-medium">{seller.source}</span></div>
-              <div className="text-[10px] text-gray-600">Created: <span className="font-medium">{toDate(seller.created_at)}</span></div>
-            </div>
-          </td>
-          <td className="px-2 py-2">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-[10px] text-gray-600 flex-shrink-0">
-                  {seller.assigned_to_name?.charAt(0) || "U"}
-                </div>
-                <div className="font-semibold text-gray-900 text-[11px]">{seller.assigned_to_name || "Unassigned"}</div>
-              </div>
-              {seller.assigned_to_email && (
-                <div className="text-[8px] text-gray-500 truncate max-w-[140px] pl-7">{seller.assigned_to_email}</div>
-              )}
-            </div>
-          </td>
-          <td className="px-2 py-2">
-            <div className="space-y-0.5">
-              <div>
-                <div className="flex justify-between text-[10px] mb-0.5">
-                  <span>Stage Progress</span>
-                  <span>{seller.stageProgress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-1">
-                  <div className="bg-orange-500 h-1 rounded-full" style={{ width: `${seller.stageProgress}%` }}></div>
-                </div>
-              </div>
-              <div className="text-[10px] text-gray-600">Visits: <span className="font-medium">{seller.visits}</span></div>
-              <div className="text-[10px] text-gray-600">Last Activity: <span className="font-medium">{toDate(seller.lastActivity)}</span></div>
-            </div>
-          </td>
-          <td className="px-2 py-2">
-            <div className="space-y-0.5 text-[10px]">
-              <div className="flex justify-between"><span>Deal Value:</span><span className="font-medium">₹{seller.dealValue?.toLocaleString()}</span></div>
-              <div className="flex justify-between"><span>Response Rate:</span><span className="font-medium">{seller.responseRate}%</span></div>
-              <div className="flex justify-between"><span>Properties:</span><span className="font-medium">{seller.properties?.length || 0}</span></div>
-              {seller.expectedClose && (
-                <div className="flex justify-between"><span>Expected Close:</span><span className="font-medium text-orange-600">{toDate(seller.expectedClose)}</span></div>
-              )}
-            </div>
-          </td>
-          <td className="px-2 py-2 text-right">
-            <div className="flex justify-end gap-0.5">
-              <button onClick={() => handleViewSeller(seller)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"><Eye size={13} /></button>
-              <button onClick={() => handleSellerAccount(seller.id)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-green-600"><UserCheck size={13} /></button>
-              {canUpdate && canEditSeller(user, seller) && (
-                <button onClick={() => handleEditSeller(seller)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-orange-500"><Edit size={13} /></button>
-              )}
-       <div className="relative group">
-  <button className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"><MoreHorizontal size={13} /></button>
-  <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 w-32">
-    <div className="p-0.5">
-      {/* Call Button */}
-      <button 
-        onClick={() => {
-          const phoneNumber = seller.phone?.replace(/\D/g, '');
-          if (phoneNumber && phoneNumber !== '-') {
-            window.open(`tel:${phoneNumber}`);
-          } else {
-            toast.error("No phone number available");
-          }
-        }} 
-        className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-100 rounded w-full"
-      >
-        <PhoneCall size={11} /> Call
-      </button>
+                 </td>
+
+                {/* SELLER DETAILS */}
+                <td className="px-2 py-1 bg-white">
+                  <button onClick={() => handleViewSeller(seller)} className="flex items-center gap-2 group w-full text-left">
+                    <div className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[9px] font-medium shadow-sm" style={{ backgroundColor: RESALE.orange }}>
+                      {(() => { const f = seller.name?.split(" ")[0] || ""; const l = seller.name?.split(" ")[1] || ""; return (f.charAt(0) + l.charAt(0)).toUpperCase().slice(0, 2) || seller.name?.charAt(0)?.toUpperCase() || "S"; })()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-[11px] text-gray-900 hover:text-orange-500 truncate">{seller.salutation} {seller.name}</p>
+                      <div className="flex items-center gap-1 mt-0 flex-wrap">
+                        <span className="text-[9px] text-gray-400">ID: {seller.id}</span>
+                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[8px] font-medium ${seller.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                          {seller.isActive ? "● Active" : "● Inactive"}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                 </td>
+
+                {/* CONTACT & LOCATION */}
+                <td className="px-2 py-1">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1"><Phone size={9} className="text-gray-400" /><a href={`tel:${seller.phone}`} className="text-[9px] text-gray-600 hover:text-orange-500">{seller.phone}</a></div>
+                    <div className="flex items-center gap-1"><Mail size={9} className="text-gray-400" /><a href={`mailto:${seller.email}`} className="text-[9px] text-gray-600 hover:text-orange-500 truncate max-w-[120px]">{seller.email}</a></div>
+                    <div className="flex items-center gap-1"><MapPin size={9} className="text-gray-400" /><span className="text-[9px] text-gray-600 truncate max-w-[120px]">{seller.location}</span></div>
+                  </div>
+                 </td>
+
+                {/* BUSINESS INFO */}
+                <td className="px-2 py-1">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium ${getStageBadgeClass(seller.stage)}`}>{seller.stage?.replace(/_/g, " ")}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium ${getPriorityBadgeClass(seller.priority)}`}>{seller.priority}</span>
+                    </div>
+                    <div className="text-[9px] text-gray-600">Source: <span className="font-medium">{seller.source}</span></div>
+                  </div>
+                 </td>
+
+                {/* PROGRESS & ACTIVITY */}
+                <td className="px-2 py-1">
+                  <div className="space-y-0.5">
+                    <div><div className="flex justify-between text-[9px] mb-0.5"><span> Stage Progress</span><span>{seller.stageProgress}%</span></div><div className="w-20 bg-gray-200 rounded-full h-1"><div className="bg-orange-500 h-1 rounded-full" style={{ width: `${seller.stageProgress}%` }} /></div></div>
+                    <div className="text-[9px] text-gray-600">Visits: <span className="font-medium">{seller.visits}</span></div>
+                  </div>
+                 </td>
+
+                {/* PERFORMANCE */}
+         <td className="px-2 py-1">
+  <div className="space-y-0.5">
+
+    {/* First Line */}
+    <div className="flex items-center gap-3 whitespace-nowrap overflow-x-auto scrollbar-hide">
+
+      <div className="flex items-center gap-1">
+        <span className="text-[9px] text-gray-500">
+          Deal Value:
+        </span>
+
+        <span className="font-medium text-[10px]">
+          ₹{seller.dealValue?.toLocaleString()}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-1">
+        <span className="text-[9px] text-gray-500">
+          Response Rate:
+        </span>
+
+        <span className="font-medium text-[10px]">
+          {seller.responseRate}%
+        </span>
+      </div>
+
+      <div className="flex items-center gap-1">
+        <span className="text-[9px] text-gray-500">
+          Properties:
+        </span>
+
+        <span className="font-medium text-[10px]">
+          {seller.properties?.length || 0}
+        </span>
+      </div>
+    </div>
+
+    {/* Second Line */}
+    <div className="text-[9px] text-gray-600 flex items-center gap-2 flex-wrap">
       
-      {/* WhatsApp Button */}
-      <button 
-        onClick={() => {
-          const phoneNumber = seller.phone?.replace(/\D/g, '');
-          if (phoneNumber && phoneNumber !== '-') {
-            // Use only properties that definitely exist
-            const userName = user?.username || (user?.email?.split('@')[0]) || 'Team';
-            const message = encodeURIComponent(
-              `Hi ${seller.salutation || ''} ${seller.name},\n\n` +
-              `I hope you're doing well!\n\n` +
-              `This is regarding your property at ${seller.location || 'your location'}.\n\n` +
-              `We have some interested buyers looking for properties like yours.\n\n` +
-              `Could you please share the latest updates or let me know a convenient time to discuss?\n\n` +
-              `Looking forward to your response.\n\n` +
-              `Best Regards,\n` +
-              `${userName}`
-            );
-            window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
-          } else {
-            toast.error("No phone number available for WhatsApp");
-          }
-        }} 
-        className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-100 rounded w-full"
-      >
-        <MessageCircle size={11} /> WhatsApp
-      </button>
-      
-      {/* Email Button */}
-      <button 
-        onClick={() => {
-          const email = seller.email;
-          if (email && email !== '-') {
-            const subject = encodeURIComponent(`Regarding Your Property Inquiry - ${seller.location || 'Property'}`);
-            const userName = user?.username || (user?.email?.split('@')[0]) || 'Team';
-            const body = encodeURIComponent(
-              `Dear ${seller.salutation || ''} ${seller.name},\n\n` +
-              `I hope this email finds you well.\n\n` +
-              `This is regarding your property at ${seller.location || 'your location'}.\n\n` +
-              `We have potential buyers showing interest in properties like yours.\n\n` +
-              `Could you please share:\n` +
-              `1. Current status of the property\n` +
-              `2. Any price updates\n` +
-              `3. Best time for a site visit\n\n` +
-              `Looking forward to your response.\n\n` +
-              `Best Regards,\n` +
-              `${userName}`
-            );
-            window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
-          } else {
-            toast.error("No email address available");
-          }
-        }} 
-        className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-100 rounded w-full"
-      >
-        <Send size={11} /> Email
-      </button>
-      
-      {/* Follow-up option */}
-      <button 
-        onClick={() => {
-          setSelectedSellerForFollowup(seller);
-          setShowSellerFollowupModal(true);
-        }} 
-        className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-blue-600 hover:bg-blue-50 rounded w-full"
-      >
-        <Calendar size={11} /> Follow-up
-      </button>
-      
-      {/* Delete Button */}
-      {canDelete && canDeleteSeller(user, seller) && (
-        <button onClick={() => handleDeleteSeller(seller.id)} className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-red-600 hover:bg-red-100 rounded w-full">
-          <Trash2 size={11} /> Delete
-        </button>
+      <div>
+        Last Activity:{" "}
+        <span className="font-medium">
+          {toDate(seller.lastActivity)}
+        </span>
+      </div>
+
+      <span className="text-gray-400">•</span>
+
+      <div>
+        Created:{" "}
+        <span className="font-medium">
+          {toDate(seller.created_at)}
+        </span>
+      </div>
+
+      {seller.expectedClose && (
+        <>
+          <span className="text-gray-400">•</span>
+
+          <div>
+            <span className="text-gray-500">
+              Close:
+            </span>{" "}
+
+            <span className="font-medium text-orange-600">
+              {toDate(seller.expectedClose)}
+            </span>
+          </div>
+        </>
       )}
     </div>
   </div>
-</div>
-            </div>
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-  {paginatedSellers.length === 0 && (
-    <div className="text-center py-8">
-      <div className="text-gray-400 mb-1 text-sm">No sellers found</div>
-      <p className="text-xs text-gray-400">Try adjusting your filters or search criteria</p>
-    </div>
-  )}
-</div>
+</td>
 
-              {filteredSellers.length > 0 && (
-                <div
-                  className="px-4 py-3 border-t border-gray-100 flex flex-row items-center justify-between gap-2"
-                  style={{ flexShrink: 0, backgroundColor: "#fff" }}
-                >
-                  <div className="text-xs text-gray-500 whitespace-nowrap">
-                    Showing {paginatedSellers.length} of{" "}
-                    {filteredSellers.length} sellers
+                {/* MANAGE */}
+                <td className="px-2 py-1 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <button onClick={() => handleViewSeller(seller)} className="p-1 rounded hover:bg-gray-100 text-gray-500"><Eye size={11} /></button>
+                    <button onClick={() => handleSellerAccount(seller.id)} className="p-1 rounded hover:bg-gray-100 text-green-600"><UserCheck size={11} /></button>
+                    {canUpdate && canEditSeller(user, seller) && <button onClick={() => handleEditSeller(seller)} className="p-1 rounded hover:bg-gray-100 text-orange-500"><Edit size={11} /></button>}
+                    {canDelete && canDeleteSeller(user, seller) && <button onClick={() => handleDeleteSeller(seller.id)} className="p-1 rounded hover:bg-red-100 text-red-600"><Trash2 size={11} /></button>}
                   </div>
+                 </td>
+
+                {/* ASSIGNED TO - LAST COLUMN */}
+                <td className="px-2 py-1">
+  <div className="space-y-0.5">
+    <div className="flex items-center gap-2">
+      <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-[9px] text-gray-600 flex-shrink-0">
+        {seller.assigned_to_name
+          ?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")
+          ?.charAt(0) || "U"}
+      </div>
+
+      <div className="font-semibold text-gray-900 text-[10px]">
+        {seller.assigned_to_name
+          ? seller.assigned_to_name
+              .replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")
+              .split(" ")[0]
+          : "Unassigned"}
+      </div>
+    </div>
+
+    {/* {seller.assigned_to_email && (
+      <div className="text-[8px] text-gray-500 truncate max-w-[130px] pl-7">
+        {seller.assigned_to_email}
+      </div>
+    )} */}
+  </div>
+</td>
+               </tr>
+            ))}
+          </tbody>
+         </table>
+
+        {paginatedSellers.length === 0 && (
+          <div className="text-center py-6">
+            <div className="text-gray-400 mb-1 text-sm">No sellers found</div>
+            <p className="text-xs text-gray-400">Try adjusting your filters or search criteria</p>
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {filteredSellers.length > 0 && (
+        <div className="px-2 sm:px-3 py-2 border-t border-gray-100 bg-white">
+          {/* MOBILE */}
+          <div className="flex flex-col gap-2 sm:hidden">
+            <div className="text-[10px] text-gray-500 text-center">Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredSellers.length)} of {filteredSellers.length} sellers</div>
+            <div className="flex items-center justify-between gap-2">
+              {selectedSellers.length === 0 && (
+                <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="min-w-[90px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white">
+                  {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/page</option>)}
+                </select>
+              )}
+              <div className="flex-1 overflow-x-auto scrollbar-hide">
+                <div className="flex justify-end min-w-max">
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.max(prev - 1, 1))
-                      }
-                      disabled={currentPage === 1}
-                      className="p-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <ChevronLeft size={14} />
-                    </button>
+                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronLeft size={14} /></button>
                     <div className="flex items-center gap-1">
-                      {Array.from(
-                        { length: Math.min(5, totalPages) },
-                        (_, i) => {
-                          const page = i + 1;
-                          return (
-                            <button
-                              key={page}
-                              onClick={() => setCurrentPage(page)}
-                              className={`px-2 py-1 rounded text-xs ${currentPage === page ? "bg-orange-500 text-white" : "border border-gray-300 hover:bg-gray-50"}`}
-                            >
-                              {page}
-                            </button>
-                          );
-                        },
-                      )}
-                      {totalPages > 5 && (
-                        <>
-                          <span className="px-1 text-xs">...</span>
-                          <button
-                            onClick={() => setCurrentPage(totalPages)}
-                            className={`px-2 py-1 rounded text-xs ${currentPage === totalPages ? "bg-orange-500 text-white" : "border border-gray-300 hover:bg-gray-50"}`}
-                          >
-                            {totalPages}
-                          </button>
-                        </>
-                      )}
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const page = i + 1;
+                        return <button key={page} onClick={() => setCurrentPage(page)} className={`px-2 py-1 rounded text-xs ${currentPage === page ? "bg-orange-500 text-white" : "border border-gray-300"}`}>{page}</button>;
+                      })}
+                      {totalPages > 5 && <span className="px-1 text-xs">...</span>}
+                      {totalPages > 5 && <button onClick={() => setCurrentPage(totalPages)} className="px-2 py-1 rounded text-xs border border-gray-300">{totalPages}</button>}
                     </div>
-                    <button
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                      }
-                      disabled={currentPage === totalPages}
-                      className="p-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <ChevronRight size={14} />
-                    </button>
+                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronRight size={14} /></button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* DESKTOP */}
+          <div className="hidden sm:flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="text-[10px] text-gray-500 whitespace-nowrap">Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredSellers.length)} of {filteredSellers.length} sellers</div>
+              {selectedSellers.length === 0 && (
+                <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white">
+                  {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/page</option>)}
+                </select>
               )}
-            </>
-          )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronLeft size={14} /></button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const page = i + 1;
+                  return <button key={page} onClick={() => setCurrentPage(page)} className={`px-2 py-1 rounded text-xs ${currentPage === page ? "bg-orange-500 text-white" : "border border-gray-300"}`}>{page}</button>;
+                })}
+                {totalPages > 5 && <span className="px-1 text-xs">...</span>}
+                {totalPages > 5 && <button onClick={() => setCurrentPage(totalPages)} className="px-2 py-1 rounded text-xs border border-gray-300">{totalPages}</button>}
+              </div>
+              <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronRight size={14} /></button>
+            </div>
+          </div>
         </div>
+      )}
+    </>
+  )}
+</div>
       </div>
 
       <SellerSidebarFilter
@@ -2141,6 +2178,7 @@ onEdit={(sellerData) => {
   />
 )}
     </div>
+    </>
   );
 };
 

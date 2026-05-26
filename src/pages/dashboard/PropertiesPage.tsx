@@ -1365,12 +1365,10 @@ const PropertiesPage = () => {
     () => [
       { id: 'all', label: 'All Properties', count: properties.length, color: 'blue' },
       { id: 'available', label: 'Available', count: properties.filter(p => p.status === 'Available').length, color: 'green' },
-      { id: 'sold', label: 'Sold', count: properties.filter(p => p.status === 'Sold').length, color: 'purple' },
-      { id: 'negotiation', label: 'Under Negotiation', count: properties.filter(p => p.status === 'Under Negotiation').length, color: 'orange' },
+    
       { id: 'public', label: 'Public Listings', count: properties.filter(p => p.isPublic).length, color: 'indigo' },
       { id: 'private', label: 'Private Listings', count: properties.filter(p => !p.isPublic).length, color: 'red' },
-      { id: 'hot', label: 'Hot Properties', count: properties.filter(p => (Number(p.hotLeads) || 0) > 2).length, color: 'red' },
-      { 
+        { 
       id: 'new_listing', 
       label: 'New Listings', 
 count: properties.filter(p => {
@@ -1379,6 +1377,10 @@ count: properties.filter(p => {
 }).length,
       color: 'orange' 
     },
+      { id: 'hot', label: 'Hot Properties', count: properties.filter(p => (Number(p.hotLeads) || 0) > 2).length, color: 'red' },
+    
+      { id: 'sold', label: 'Sold', count: properties.filter(p => p.status === 'Sold').length, color: 'purple' },
+      { id: 'negotiation', label: 'Under Negotiation', count: properties.filter(p => p.status === 'Under Negotiation').length, color: 'orange' },
     ],
     [properties]
   );
@@ -2136,7 +2138,7 @@ count: properties.filter(p => {
       <div className="sticky top-0  bg-gray-50">
 
         {/* Header */}
-<div className=" bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4">    
+<div className=" bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-2 py-4">    
       <div className=" md:hidden flex flex-col lg:flex-row lg:items-center justify-between gap-4">
       
           <div className="flex items-center space-x-2 ml-auto">
@@ -2277,17 +2279,45 @@ style={{ background: theme.orange }}              >
        <div className="mt-4">
   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
     {/* Tabs - Scrollable on mobile */}
-<div className="tabs-scroll flex space-x-1 overflow-x-auto pb-1 flex-1" style={{ scrollbarWidth:'thin', scrollbarColor: '#e67e22 #f1f5f9' }}>      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => setActiveTab(tab.id)}
-          className={tabBtnClass(activeTab === tab.id, tab.color)}
-        >
-          <span className="font-medium text-xs whitespace-nowrap">{tab.label}</span>
-          <span className={tabCountClass(activeTab === tab.id, tab.color)}>{tab.count}</span>
-        </button>
-      ))}
-    </div>
+<div
+  className="tabs-scroll flex items-center gap-0.5 overflow-x-auto pb-1 flex-1 scrollbar-hide"
+  // style={{
+  //   scrollbarWidth: "thin",
+  //   scrollbarColor: "#e67e22 #f1f5f9",
+  // }}
+>
+  {tabs.map((tab) => (
+    <button
+      key={tab.id}
+      onClick={() => setActiveTab(tab.id)}
+      className={`${tabBtnClass(activeTab === tab.id, tab.color)}
+        px-2 py-0.5 sm:px-2.5 sm:py-1
+        rounded-md
+        min-h-[26px]
+        flex items-center gap-1
+        whitespace-nowrap
+        text-[10px] sm:text-[11px]
+        leading-none
+        flex-shrink-0
+      `}
+    >
+      <span className="font-medium whitespace-nowrap">
+        {tab.label}
+      </span>
+
+      <span
+        className={`${tabCountClass(activeTab === tab.id, tab.color)}
+          text-[9px]
+          px-1 py-[1px]
+          rounded-full
+          leading-none
+        `}
+      >
+        {tab.count}
+      </span>
+    </button>
+  ))}
+</div>
 
     {/* Desktop Buttons - Hidden on mobile, visible on desktop */}
     <div className="hidden lg:flex items-center space-x-2">
@@ -2656,7 +2686,7 @@ style={{ background: theme.orange }}              >
       <div className="p-2 sm:p-3 h-full overflow-y-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
           {paginatedProperties.map((property) => (
-            <div key={property.id} className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all group overflow-visible flex flex-col h-full" style={{ border: `1px solid #e2e8f0` }}>
+            <div key={property.id} className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-visible flex flex-col h-full" style={{ border: `1px solid #e2e8f0` }}>
               {/* Image Section */}
               <div
                 className="relative overflow-hidden cursor-pointer flex-shrink-0"
@@ -2671,7 +2701,7 @@ style={{ background: theme.orange }}              >
                 <ImageWithDebug
                   srcCandidate={Array.isArray(property.photos) && property.photos.length > 0 ? property.photos[0] : ''}
                   alt={dash(property.title)}
-                  className="w-full h-32 sm:h-36 rounded-t-lg transition-transform duration-300 ease-out group-hover:scale-105 object-cover object-center"
+                  className="w-full h-40 sm:h-48  rounded-md transition-transform duration-300 ease-out group-hover:scale-105 object-cover object-center"
                   propertyCtx={{ title: property.title, propertyId: property.propertyId }}
                 />
 

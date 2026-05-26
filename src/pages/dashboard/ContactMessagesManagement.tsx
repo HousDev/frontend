@@ -339,6 +339,7 @@ const ContactMessagesManagement = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [colSearch, setColSearch] = useState({
     name: "",
     contact: "",
@@ -356,7 +357,6 @@ const [filterState, setFilterState] = useState({
   dateTo: '',
   propertyType: ''
 });
-  const messagesPerPage = 10;
 
   const normalizeMessage = (m) => ({
     id: m.id ?? m._id ?? m.contactId,
@@ -444,10 +444,10 @@ const [filterState, setFilterState] = useState({
     setCurrentPage(1);
   }, [messages, searchTerm, statusFilter, colSearch, filterState]);
 
-  const indexOfLastMessage = currentPage * messagesPerPage;
-  const indexOfFirstMessage = indexOfLastMessage - messagesPerPage;
-  const currentMessages = filteredMessages.slice(indexOfFirstMessage, indexOfLastMessage);
-  const totalPages = Math.max(1, Math.ceil(filteredMessages.length / messagesPerPage));
+const indexOfLastMessage = currentPage * itemsPerPage;
+const indexOfFirstMessage = indexOfLastMessage - itemsPerPage;
+const currentMessages = filteredMessages.slice(indexOfFirstMessage, indexOfLastMessage);
+const totalPages = Math.max(1, Math.ceil(filteredMessages.length / itemsPerPage));
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -884,13 +884,68 @@ const FilterSidebar = ({ isOpen, onClose, filters, setFilters, onReset }) => {
   }
 
   return (
+    <>
+     <style>
+        {`
+          .scrollbar-custom {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom::-webkit-scrollbar {
+            height: 4px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+          .scrollbar-custom-vertical {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar {
+            width: 4px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+              /* ✅ Column divider lines */
+  table tbody td {
+    border-right: 1px solid rgba(209, 213, 219, 0.5);
+  }
+  table tbody td:last-child {
+    border-right: none;
+  }
+  table thead th {
+    border-right: 1px solid rgba(209, 213, 219, 0.4);
+  }
+  table thead th:last-child {
+    border-right: none;
+  }
+
+        `}
+      </style>
     <div style={{ backgroundColor: RESALE.navyLight }}>
-      <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+      <div className="px-3 sm:px-2 md:px-2 py-2 sm:py-2">
         
         
 
         {/* Stats Cards */}
-       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-4 sm:mb-5 sticky top-0 z-10">
+       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-2 sm:mb-2 sticky top-0 z-10">
   
   {/* Total */}
   <div className="bg-white rounded-lg sm:rounded-xl px-3 py-2 sm:p-3 border border-gray-200 shadow-sm">
@@ -930,58 +985,132 @@ const FilterSidebar = ({ isOpen, onClose, filters, setFilters, onReset }) => {
   ))}
 </div>
 
-        {/* Search and Bulk Delete Row */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-            <input
-              type="text"
-              placeholder="Search messages by name, email, subject..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm bg-white"
-            />
-          </div>
-          {selectedIds.length > 0 && (
-            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5">
-              <span className="text-xs font-semibold" style={{ color: RESALE.orange }}>
-                Selected: {selectedIds.length}
-              </span>
-              <button onClick={handleBulkDelete} className="px-3 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700">
-                Delete
-              </button>
-              <button onClick={() => setSelectedIds([])} className="px-3 py-1 text-xs border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">
-                Clear
-              </button>
-            </div>
-          )}
-        </div>
+      
 
-        {/* Tabs Row with Filter Button */}
-       <div className="flex flex-wrap items-center gap-2 mb-4">
-  
-  {/* Left Tabs */}
-<div className="flex items-center gap-1 overflow-x-auto md:flex-wrap md:overflow-visible pb-1 scrollbar-hide">
+    {/* Tabs + Actions */}
+<div className="flex flex-col gap-2 mb-2">
+
+  {/* ───────── DESKTOP VIEW ───────── */}
+  <div className="hidden sm:flex items-center gap-2">
+
+    {/* Tabs */}
+    <div className="flex items-center gap-1 overflow-x-auto flex-1 pb-1 scrollbar-hide">
+
+      {/* All */}
       <button
+        onClick={() => setStatusFilter('all')}
+        className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+          statusFilter === 'all'
+            ? 'bg-white shadow-sm'
+            : 'text-gray-600 hover:bg-gray-100'
+        }`}
+        style={statusFilter === 'all' ? { color: RESALE.orange } : {}}
+      >
+        All ({statusCounts.total})
+      </button>
+
+      {/* Status Tabs */}
+      {Object.entries(statusConfig).map(([status, config]) => (
+        <button
+          key={status}
+          onClick={() => setStatusFilter(status)}
+          className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+            statusFilter === status
+              ? 'bg-white shadow-sm'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+          style={statusFilter === status ? { color: RESALE.orange } : {}}
+        >
+          {config.label} ({statusCounts[status]})
+        </button>
+      ))}
+    </div>
+
+    {/* Desktop Selected Bar */}
+    {selectedIds.length > 0 && (
+      <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1">
+        
+        <span
+          className="text-[11px] font-semibold whitespace-nowrap"
+          style={{ color: RESALE.orange }}
+        >
+          Selected: {selectedIds.length}
+        </span>
+
+        <button
+          onClick={handleBulkDelete}
+          className="px-2 py-1 text-[11px] bg-red-600 text-white rounded-md hover:bg-red-700 whitespace-nowrap"
+        >
+          Delete
+        </button>
+
+        <button
+          onClick={() => setSelectedIds([])}
+          className="px-2 py-1 text-[11px] border border-gray-300 text-gray-600 rounded-md hover:bg-gray-50 whitespace-nowrap"
+        >
+          Clear
+        </button>
+      </div>
+    )}
+
+    {/* Desktop Actions */}
+    <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+
+      {/* Filter */}
+      <button
+        onClick={() => setShowFilterSidebar(true)}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap"
+      >
+        <SlidersHorizontal size={13} />
+        <span>Filter</span>
+      </button>
+
+      {/* Export */}
+      <button
+        onClick={exportData}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap"
+      >
+        <Download size={13} />
+        <span>Export</span>
+      </button>
+
+      {/* Refresh */}
+      <button
+        onClick={fetchMessages}
+        className="p-1.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+      >
+        <RefreshCw size={14} />
+      </button>
+    </div>
+  </div>
+
+  {/* ───────── MOBILE VIEW ───────── */}
+
+  {/* Row 1 → Tabs only */}
+  <div className="flex sm:hidden items-center overflow-x-auto gap-1 pb-1 scrollbar-hide">
+
+    {/* All */}
+    <button
       onClick={() => setStatusFilter('all')}
-      className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+      className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
         statusFilter === 'all'
           ? 'bg-white shadow-sm'
-          : 'text-gray-600 hover:bg-gray-100'
+          : 'text-gray-600'
       }`}
       style={statusFilter === 'all' ? { color: RESALE.orange } : {}}
     >
       All ({statusCounts.total})
     </button>
 
+    {/* Status Tabs */}
     {Object.entries(statusConfig).map(([status, config]) => (
       <button
         key={status}
         onClick={() => setStatusFilter(status)}
-        className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+        className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
           statusFilter === status
             ? 'bg-white shadow-sm'
-            : 'text-gray-600 hover:bg-gray-100'
+            : 'text-gray-600'
         }`}
         style={statusFilter === status ? { color: RESALE.orange } : {}}
       >
@@ -990,87 +1119,174 @@ const FilterSidebar = ({ isOpen, onClose, filters, setFilters, onReset }) => {
     ))}
   </div>
 
-  {/* Right Buttons */}
-  <div className="flex items-center gap-2 ml-auto">
-   <button onClick={() => setShowFilterSidebar(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
-  <SlidersHorizontal size={14} /> Filter
-</button>
+  {/* Row 2 → Selected + Actions */}
+  <div className="flex sm:hidden items-center justify-between gap-2">
 
-    <button
-      onClick={exportData}
-      className="flex items-center gap-1.5 px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-    >
-      <Download size={14} /> Export
-    </button>
+    {/* Left Side */}
+    <div className="flex items-center gap-1.5">
 
-    <button
-      onClick={fetchMessages}
-      className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-    >
-      <RefreshCw size={16} />
-    </button>
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1">
+
+          {/* Selected Count */}
+          <span
+            className="text-[11px] font-semibold whitespace-nowrap"
+            style={{ color: RESALE.orange }}
+          >
+            Sele: {selectedIds.length}
+          </span>
+
+          {/* Delete */}
+          <button
+            onClick={handleBulkDelete}
+            className="px-2 py-1 text-[11px] bg-red-600 text-white rounded-md whitespace-nowrap"
+          >
+            Delete
+          </button>
+
+          {/* Clear */}
+          <button
+            onClick={() => setSelectedIds([])}
+            className="px-2 py-1 text-[11px] border border-gray-300 text-gray-600 rounded-md whitespace-nowrap"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+    </div>
+
+    {/* Right Side */}
+    <div className="flex items-center gap-1.5 ml-auto">
+
+      {/* Filter */}
+      <button
+        onClick={() => setShowFilterSidebar(true)}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg whitespace-nowrap"
+      >
+        <SlidersHorizontal size={13} />
+        <span>Filter</span>
+      </button>
+
+      {/* Export */}
+      <button
+        onClick={exportData}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg whitespace-nowrap"
+      >
+        <Download size={13} />
+        <span>Export</span>
+      </button>
+
+      {/* Refresh */}
+      <button
+        onClick={fetchMessages}
+        className="p-1.5 bg-white border border-gray-200 rounded-lg"
+      >
+        <RefreshCw size={14} />
+      </button>
+    </div>
   </div>
 </div>
 
         {/* Main Table - Horizontal Scroll on Mobile */}
-       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-  <div className="overflow-x-auto overflow-y-auto max-h-[250px] sm:max-h-[380px]">
-    <table className="w-full text-sm table-fixed" style={{ minWidth: '900px' }}>
-      <colgroup>
-        <col style={{ width: '36px' }} />        {/* checkbox */}
-        <col style={{ width: '130px' }} />       {/* FROM */}
-        <col style={{ width: '150px' }} />       {/* CONTACT */}
-        <col style={{ width: '110px' }} />       {/* SUBJECT */}
-        <col style={{ width: '160px' }} />       {/* MESSAGE */}
-        <col style={{ width: '120px' }} />       {/* PROPERTY */}
-        <col style={{ width: '120px' }} />       {/* STATUS */}
-        <col style={{ width: '100px' }} />       {/* DATE */}
-        <col style={{ width: '180px' }} />       {/* ACTIONS */}
-      </colgroup>
-
-      <thead className="bg-gray-50 sticky top-0 z-10">
-        <tr>
-          <th className="px-2 py-3 text-left w-8">
+      <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden h-full">
+  
+  {/* OUTER: controls max-height + vertical scroll - DYNAMIC HEIGHT */}
+  <div
+    className="scrollbar-custom-vertical"
+    style={{
+      overflowY: 'auto',
+      overflowX: 'auto',
+      maxHeight: window.innerWidth < 640
+        ? selectedIds.length > 0 ? 'calc(100vh - 390px)' : 'calc(100vh - 390px)'
+        : selectedIds.length > 0 ? 'calc(100vh - 240px)' : 'calc(100vh - 240px)',
+    }}
+  >
+    <table
+      className="w-full"
+      style={{ minWidth: '1000px', borderCollapse: 'separate', borderSpacing: 0 }}
+    >
+      {/* THEAD: sticky so it never scrolls away */}
+      <thead style={{ position: 'sticky', top: 0, zIndex: 30 }}>
+        
+        {/* ROW 1: Column Headers */}
+        <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
+          <th className="w-6 px-2 py-1.5 text-center bg-gray-50">
             <input
               type="checkbox"
               checked={allOnPageSelected && currentMessages.length > 0}
               onChange={toggleSelectAllCurrent}
-              className="rounded border-gray-300 focus:ring-orange-500"
+              className="rounded border-gray-300 focus:ring-orange-500 w-3 h-3"
             />
           </th>
-          <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">FROM</th>
-          <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">CONTACT</th>
-          <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">SUBJECT</th>
-          <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">MESSAGE</th>
-          <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">PROPERTY</th>
-          <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">STATUS</th>
-          <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">DATE</th>
-          <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">ACTIONS</th>
+          <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">FROM</th>
+          <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">CONTACT</th>
+          <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">SUBJECT</th>
+          <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">MESSAGE</th>
+          <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">PROPERTY</th>
+          <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">STATUS</th>
+          <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">DATE</th>
+          <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ACTIONS</th>
         </tr>
 
-        {/* Column Search Row */}
+        {/* ROW 2: Column Search */}
         <tr className="bg-gray-100">
-          <th className="px-2 py-1.5"></th>
-          <th className="px-2 py-1.5">
-            <input type="text" placeholder="Search..." value={colSearch.name} onChange={e => setColSearch(p => ({ ...p, name: e.target.value }))} className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white" />
+          <th className="px-2 py-0.5 bg-gray-100" />
+          <th className="px-1.5 py-0.5 bg-gray-100">
+            <input
+              type="text"
+              placeholder="Search name..."
+              value={colSearch.name}
+              onChange={e => setColSearch(p => ({ ...p, name: e.target.value }))}
+              className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+            />
           </th>
-          <th className="px-2 py-1.5">
-            <input type="text" placeholder="Search..." value={colSearch.contact} onChange={e => setColSearch(p => ({ ...p, contact: e.target.value }))} className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white" />
+          <th className="px-1.5 py-0.5 bg-gray-100">
+            <input
+              type="text"
+              placeholder="Search email/phone..."
+              value={colSearch.contact}
+              onChange={e => setColSearch(p => ({ ...p, contact: e.target.value }))}
+              className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+            />
           </th>
-          <th className="px-2 py-1.5">
-            <input type="text" placeholder="Search..." value={colSearch.subject} onChange={e => setColSearch(p => ({ ...p, subject: e.target.value }))} className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white" />
+          <th className="px-1.5 py-0.5 bg-gray-100">
+            <input
+              type="text"
+              placeholder="Search subject..."
+              value={colSearch.subject}
+              onChange={e => setColSearch(p => ({ ...p, subject: e.target.value }))}
+              className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+            />
           </th>
-          <th className="px-2 py-1.5">
-            <input type="text" placeholder="Search..." value={colSearch.message} onChange={e => setColSearch(p => ({ ...p, message: e.target.value }))} className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white" />
+          <th className="px-1.5 py-0.5 bg-gray-100">
+            <input
+              type="text"
+              placeholder="Search message..."
+              value={colSearch.message}
+              onChange={e => setColSearch(p => ({ ...p, message: e.target.value }))}
+              className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+            />
           </th>
-          <th className="px-2 py-1.5">
-            <input type="text" placeholder="Search..." value={colSearch.propertyType} onChange={e => setColSearch(p => ({ ...p, propertyType: e.target.value }))} className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white" />
+          <th className="px-1.5 py-0.5 bg-gray-100">
+            <input
+              type="text"
+              placeholder="Search property..."
+              value={colSearch.propertyType}
+              onChange={e => setColSearch(p => ({ ...p, propertyType: e.target.value }))}
+              className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+            />
           </th>
-          <th className="px-2 py-1.5">
-            <input type="text" placeholder="Search..." value={colSearch.status} onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))} className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white" />
+          <th className="px-1.5 py-0.5 bg-gray-100">
+            <input
+              type="text"
+              placeholder="Search status..."
+              value={colSearch.status}
+              onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))}
+              className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+            />
           </th>
-          <th className="px-2 py-1.5"></th>
-          <th className="px-2 py-1.5"></th>
+          <th className="px-1.5 py-0.5 bg-gray-100" />
+          <th className="px-1.5 py-0.5 bg-gray-100" />
         </tr>
       </thead>
 
@@ -1084,92 +1300,91 @@ const FilterSidebar = ({ isOpen, onClose, filters, setFilters, onReset }) => {
             <tr key={message.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => openDetailModal(message)}>
 
               {/* Checkbox */}
-              <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
+              <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                 <input
                   type="checkbox"
                   checked={selectedIds.includes(message.id)}
                   onChange={() => toggleSelect(message.id)}
-                  className="rounded border-gray-300 focus:ring-orange-500"
+                  className="rounded border-gray-300 focus:ring-orange-500 w-3 h-3"
                 />
-              </td>
+               </td>
 
               {/* FROM */}
-              <td className="px-2 py-3">
+              <td className="px-2 py-2">
                 <div className="flex items-center gap-1.5">
-                  <div className="h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ backgroundColor: RESALE.orange }}>
+                  <div className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[9px] font-medium flex-shrink-0 shadow-sm" style={{ backgroundColor: RESALE.orange }}>
                     {message.name?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-semibold text-gray-900 text-xs truncate">{message.name}</div>
-                    {message.isStarred && <Star size={9} className="text-yellow-500" fill="currentColor" />}
+                    <div className="font-semibold text-gray-900 text-[11px] truncate max-w-[80px]">{message.name}</div>
+                    {message.isStarred && <Star size={8} className="text-yellow-500" fill="currentColor" />}
                   </div>
                 </div>
               </td>
 
               {/* CONTACT */}
-              <td className="px-2 py-3">
+              <td className="px-2 py-2">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-1">
-                    <Mail size={11} className="text-gray-400 flex-shrink-0" />
-                    <span className="text-xs text-gray-600 truncate">{message.email}</span>
+                    <Mail size={9} className="text-gray-400 flex-shrink-0" />
+                    <span className="text-[9px] text-gray-600 truncate max-w-[100px]">{message.email}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Phone size={11} className="text-gray-400 flex-shrink-0" />
-                    <span className="text-xs text-gray-600 truncate">{message.phone}</span>
+                    <Phone size={9} className="text-gray-400 flex-shrink-0" />
+                    <span className="text-[9px] text-gray-600 truncate max-w-[100px]">{message.phone}</span>
                   </div>
                 </div>
               </td>
 
               {/* SUBJECT */}
-              <td className="px-2 py-3">
-                <div className="text-xs font-medium text-gray-800 truncate">{message.subject}</div>
+              <td className="px-2 py-2">
+                <div className="text-[10px] font-medium text-gray-800 truncate max-w-[120px]">{message.subject}</div>
               </td>
 
               {/* MESSAGE */}
-              <td className="px-2 py-3">
-                <div className="text-xs text-gray-600 line-clamp-2">{message.message}</div>
+              <td className="px-2 py-2">
+                <div className="text-[9px] text-gray-600 line-clamp-2">{message.message}</div>
                 {message.replies?.length > 0 && (
-                  <div className="flex items-center gap-1 mt-0.5 text-[10px] text-gray-400">
-                    <MessageSquare size={9} /><span>{message.replies.length} replies</span>
+                  <div className="flex items-center gap-1 mt-0.5 text-[8px] text-gray-400">
+                    <MessageSquare size={8} /><span>{message.replies.length} replies</span>
                   </div>
                 )}
               </td>
 
               {/* PROPERTY */}
-              <td className="px-2 py-3">
+              <td className="px-2 py-2">
                 <div className="space-y-0.5">
-                  <div className="text-xs"><span className="text-gray-500">Type:</span> <span className="font-medium">{message.propertyType || '—'}</span></div>
-                  <div className="text-xs"><span className="text-gray-500">Budget:</span> <span className="text-green-600">{message.budget || '—'}</span></div>
+                  <div className="text-[9px]"><span className="text-gray-500">Type:</span> <span className="font-medium">{message.propertyType || '—'}</span></div>
+                  <div className="text-[9px]"><span className="text-gray-500">Budget:</span> <span className="text-green-600">{message.budget || '—'}</span></div>
                 </div>
               </td>
 
-              {/* STATUS */}
-              <td className="px-2 py-3">
+              {/* STATUS & PRIORITY */}
+              <td className="px-2 py-2">
                 <div className="space-y-1">
-                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
-                    <StatusIcon size={9} /> {status.label}
+                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium ${status.color}`}>
+                    <StatusIcon size={8} /> {status.label}
                   </span>
-                  <span className={`inline-flex items-center gap-0.9 px-1.5 py-0.5 rounded-full text-xs font-medium ${priority.bg} ${priority.text}`}>
+                  <span className={`inline-flex items-center gap-0.9 px-1.5 py-0.5 rounded-full text-[9px] font-medium ${priority.bg} ${priority.text} block`}>
                     {priority.label}
                   </span>
                 </div>
               </td>
 
               {/* DATE */}
-              <td className="px-2 py-3">
-                <div className="text-xs text-gray-500 whitespace-nowrap">{formatDate(message.timestamp)}</div>
+              <td className="px-2 py-2">
+                <div className="text-[9px] text-gray-500 whitespace-nowrap">{formatDate(message.timestamp)}</div>
               </td>
 
-              {/* ACTIONS — all in one row, no wrapping */}
-              <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
+              {/* ACTIONS */}
+              <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center gap-1 flex-nowrap">
-                  {/* Status Dropdown */}
                   <select
                     value={message.status}
                     onChange={(e) => updateMessageStatus(message.id, e.target.value)}
                     onClick={(e) => e.stopPropagation()}
-                    className="px-1.5 py-1 text-xs border rounded-lg focus:ring-1 focus:ring-orange-500 bg-white"
-                    style={{ borderColor: '#e2e8f0', maxWidth: '85px' }}
+                    className="px-1 py-0.5 text-[9px] border rounded focus:ring-1 focus:ring-orange-500 bg-white"
+                    style={{ borderColor: '#e2e8f0' }}
                   >
                     <option value="new">New</option>
                     <option value="replied">Replied</option>
@@ -1177,28 +1392,23 @@ const FilterSidebar = ({ isOpen, onClose, filters, setFilters, onReset }) => {
                     <option value="resolved">Resolved</option>
                   </select>
 
-                  {/* View */}
-                  <button onClick={() => openDetailModal(message)} className="p-1 text-gray-500 hover:bg-gray-100 rounded-lg flex-shrink-0" title="View">
-                    <Eye size={13} />
+                  <button onClick={() => openDetailModal(message)} className="p-1 text-gray-500 hover:bg-gray-100 rounded" title="View">
+                    <Eye size={11} />
                   </button>
 
-                  {/* Call */}
-                  <button onClick={() => window.open(`tel:${message.phone}`)} className="p-1 text-green-600 hover:bg-green-100 rounded-lg flex-shrink-0" title="Call">
-                    <Phone size={13} />
+                  <button onClick={() => window.open(`tel:${message.phone}`)} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Call">
+                    <Phone size={11} />
                   </button>
 
-                  {/* Email */}
-                  <button onClick={() => window.open(`mailto:${message.email}`)} className="p-1 text-blue-600 hover:bg-blue-100 rounded-lg flex-shrink-0" title="Email">
-                    <Mail size={13} />
+                  <button onClick={() => window.open(`mailto:${message.email}`)} className="p-1 text-blue-600 hover:bg-blue-100 rounded" title="Email">
+                    <Mail size={11} />
                   </button>
 
-                  {/* Star */}
-                  <button onClick={() => toggleStar(message.id)} className={`p-1 rounded-lg flex-shrink-0 ${message.isStarred ? 'text-yellow-500 bg-yellow-50' : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50'}`}>
-                    <Star size={13} fill={message.isStarred ? 'currentColor' : 'none'} />
+                  <button onClick={() => toggleStar(message.id)} className={`p-1 rounded ${message.isStarred ? 'text-yellow-500 bg-yellow-50' : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50'}`}>
+                    <Star size={11} fill={message.isStarred ? 'currentColor' : 'none'} />
                   </button>
                 </div>
               </td>
-
             </tr>
           );
         })}
@@ -1216,28 +1426,94 @@ const FilterSidebar = ({ isOpen, onClose, filters, setFilters, onReset }) => {
 
   {/* Pagination */}
   {filteredMessages.length > 0 && (
-    <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between bg-white">
-      <div className="text-[11px] sm:text-xs text-gray-500">
-        Showing {indexOfFirstMessage + 1}–{Math.min(indexOfLastMessage, filteredMessages.length)} of {filteredMessages.length}
+    <div className="px-2 sm:px-3 py-2 border-t border-gray-100 bg-white">
+      
+      {/* MOBILE */}
+      <div className="flex flex-col gap-2 sm:hidden">
+        <div className="text-[10px] text-gray-500 text-center">
+          Showing {indexOfFirstMessage + 1}–{Math.min(indexOfLastMessage, filteredMessages.length)} of {filteredMessages.length}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          {selectedIds.length === 0 && (
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
+              className="min-w-[90px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
+            >
+              {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/page</option>)}
+            </select>
+          )}
+          <div className="flex-1 overflow-x-auto scrollbar-hide">
+            <div className="flex justify-end min-w-max">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 rounded border border-gray-300 disabled:opacity-50">
+                  <ChevronLeft size={14} />
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const page = i + 1;
+                    return (
+                      <button key={page} onClick={() => setCurrentPage(page)} className={`px-2 py-1 rounded text-xs ${currentPage === page ? "bg-orange-500 text-white" : "border border-gray-300"}`}>
+                        {page}
+                      </button>
+                    );
+                  })}
+                  {totalPages > 5 && <span className="px-1 text-xs">...</span>}
+                  {totalPages > 5 && (
+                    <button onClick={() => setCurrentPage(totalPages)} className="px-2 py-1 rounded text-xs border border-gray-300">
+                      {totalPages}
+                    </button>
+                  )}
+                </div>
+                <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 rounded border border-gray-300 disabled:opacity-50">
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="flex items-center gap-1 sm:gap-2">
-        <button
-          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-          disabled={currentPage === 1}
-          className="p-1 sm:p-2 text-gray-600 disabled:opacity-50 rounded-lg hover:bg-gray-100"
-        >
-          <ChevronLeft size={15} />
-        </button>
-        <span className="text-xs sm:text-sm text-gray-700 whitespace-nowrap">
-          {currentPage} / {totalPages}
-        </span>
-        <button
-          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-          disabled={currentPage === totalPages}
-          className="p-1 sm:p-2 text-gray-600 disabled:opacity-50 rounded-lg hover:bg-gray-100"
-        >
-          <ChevronRight size={15} />
-        </button>
+
+      {/* DESKTOP */}
+      <div className="hidden sm:flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="text-[10px] text-gray-500 whitespace-nowrap">
+            Showing {indexOfFirstMessage + 1}–{Math.min(indexOfLastMessage, filteredMessages.length)} of {filteredMessages.length}
+          </div>
+          {selectedIds.length === 0 && (
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
+              className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
+            >
+              {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/page</option>)}
+            </select>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 rounded border border-gray-300 disabled:opacity-50">
+            <ChevronLeft size={14} />
+          </button>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              const page = i + 1;
+              return (
+                <button key={page} onClick={() => setCurrentPage(page)} className={`px-2 py-1 rounded text-xs ${currentPage === page ? "bg-orange-500 text-white" : "border border-gray-300"}`}>
+                  {page}
+                </button>
+              );
+            })}
+            {totalPages > 5 && <span className="px-1 text-xs">...</span>}
+            {totalPages > 5 && (
+              <button onClick={() => setCurrentPage(totalPages)} className="px-2 py-1 rounded text-xs border border-gray-300">
+                {totalPages}
+              </button>
+            )}
+          </div>
+          <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 rounded border border-gray-300 disabled:opacity-50">
+            <ChevronRight size={14} />
+          </button>
+        </div>
       </div>
     </div>
   )}
@@ -1261,6 +1537,7 @@ const FilterSidebar = ({ isOpen, onClose, filters, setFilters, onReset }) => {
         onStarToggle={toggleStar}
       />
     </div>
+    </>
   );
 };
 

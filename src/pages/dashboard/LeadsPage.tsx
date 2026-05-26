@@ -113,6 +113,9 @@ const LeadsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabID>('all');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 const [searchTerm, setSearchTerm] = useState('');
+// Add these with other bulk action states
+const [bulkStage, setBulkStage] = useState<string>('');
+const [bulkPriority, setBulkPriority] = useState<string>('');
   const [searchFilters, setSearchFilters] = useState({
     name: "",
     contact: "",
@@ -416,8 +419,12 @@ if (globalSearch && !(
       if (cs.source && !normalize(lead.lead_source).includes(normalize(cs.source))) return false;
       if (cs.priority && !normalize(lead.priority).includes(normalize(cs.priority))) return false;
       if (cs.status && !normalize(lead.status).includes(normalize(cs.status))) return false;
-      if (cs.created && !formatDate(lead.created_at).toLowerCase().includes(normalize(cs.created))) return false;
-
+if (cs.created) {
+  const searchValue = normalize(cs.created);
+  const dateMatch = formatDate(lead.created_at).toLowerCase().includes(searchValue);
+  const assignedMatch = (lead.assigned_executive_name || 'Unassigned').toLowerCase().includes(searchValue);
+  if (!dateMatch && !assignedMatch) return false;
+}
       if (f.assignedExecutive !== 'all') {
         if (f.assignedExecutive === 'Unassigned') {
           if (lead.assigned_executive_name && lead.assigned_executive_name.trim() !== "") return false;
@@ -1017,32 +1024,103 @@ const exportLeads = async () => {
   };
 
   return (
+      <>
+       <style>
+        {`
+          .scrollbar-custom {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom::-webkit-scrollbar {
+            height: 4px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+          .scrollbar-custom-vertical {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar {
+            width: 4px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+              /* ✅ Column divider lines */
+  table tbody td {
+    border-right: 1px solid rgba(209, 213, 219, 0.5);
+  }
+  table tbody td:last-child {
+    border-right: none;
+  }
+  table thead th {
+    border-right: 1px solid rgba(209, 213, 219, 0.4);
+  }
+  table thead th:last-child {
+    border-right: none;
+  }
+
+        `}
+      </style>
+
     <div className="" style={{ backgroundColor: '#f5f6f8' }}>
-      <div className="max-w-[1600px] mx-auto px-3 sm:px-4 md:px-6 py-0 sm:py-6">
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-2 md:px-2 py-0 sm:py-2">
 
         {/* Header Section */}
        {/* ── TABS ROW (desktop) - UNCHANGED ── */}
-<div className="hidden sm:flex items-center justify-between gap-3 mb-3">
+<div className="hidden sm:flex items-center justify-between gap-2 mb-2">
+  
+  {/* Tabs */}
   <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
-    <div className="flex gap-1 min-w-max bg-gray-100 p-1 rounded-xl">
+    <div className="flex gap-1 min-w-max bg-gray-100 p-0.5 rounded-lg">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
+
         return (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setCurrentPage(1); }}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-              isActive ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            onClick={() => {
+              setActiveTab(tab.id);
+              setCurrentPage(1);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-medium transition-all whitespace-nowrap ${
+              isActive
+                ? "bg-white shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
             }`}
             style={isActive ? { color: RESALE.orange } : {}}
           >
             <span>{tab.label}</span>
+
             <span
-              className="px-1.5 py-0.5 rounded-full text-xs font-semibold"
+              className="px-1.5 py-[1px] rounded-full text-[10px] font-semibold"
               style={
                 isActive
-                  ? { backgroundColor: `${RESALE.orange}20`, color: RESALE.orange }
-                  : { backgroundColor: '#e5e7eb', color: '#6b7280' }
+                  ? {
+                      backgroundColor: `${RESALE.orange}20`,
+                      color: RESALE.orange,
+                    }
+                  : {
+                      backgroundColor: "#e5e7eb",
+                      color: "#6b7280",
+                    }
               }
             >
               {tab.count}
@@ -1052,83 +1130,89 @@ const exportLeads = async () => {
       })}
     </div>
   </div>
-  <div className="flex items-center gap-2 flex-shrink-0">
+
+  {/* Action Buttons */}
+  <div className="flex items-center gap-1.5 flex-shrink-0">
+
     <button
       onClick={() => setShowFilterSidebar(true)}
-      className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-      
+      className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
     >
-      <SlidersHorizontal size={14} />
+      <SlidersHorizontal size={12} />
       <span>Filters</span>
     </button>
+
     {canExport && (
       <button
         onClick={exportLeads}
-        className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-        
+        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
       >
-        <Download size={14} />
+        <Download size={12} />
         <span>Export</span>
       </button>
     )}
+
     {canImport && (
       <button
         onClick={() => setShowImportModal(true)}
-        className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
       >
-        <Upload size={14} />
+        <Upload size={12} />
         <span>Import</span>
       </button>
     )}
+
     {canCreate && (
       <button
         onClick={() => setShowAddLeadModal(true)}
-        className="flex items-center gap-1.5 px-3 py-2 text-sm text-white rounded-lg transition-colors bg-[#0f2b3d]"
-        
+        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-white rounded-md transition-colors bg-[#0f2b3d]"
       >
-        <Plus size={14} />
+        <Plus size={12} />
         <span>Add Lead</span>
       </button>
     )}
   </div>
 </div>
 
-{/* ── MOBILE: Row 1 — Action buttons ── */}
 <div className="flex sm:hidden items-center justify-between gap-2 mb-2">
-  {/* <span className="text-sm font-semibold" style={{ color: RESALE.navy }}>Leads</span> */}
-  <div className="flex items-center gap-1.5 ml-auto mt-2">
+
+  <div className="flex items-center gap-1 ml-auto overflow-x-auto scrollbar-hide">
+
     <button
       onClick={() => setShowFilterSidebar(true)}
-      className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"
+      className="flex items-center gap-1 px-2 py-1 text-[11px] text-black bg-white border border-gray-200 rounded-md whitespace-nowrap"
     >
-      <SlidersHorizontal size={13} />
+      <SlidersHorizontal size={11} />
       <span>Filters</span>
     </button>
+
     {canExport && (
       <button
         onClick={exportLeads}
-        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"
+        className="flex items-center gap-1 px-2 py-1 text-[11px] text-black bg-white border border-gray-200 rounded-md whitespace-nowrap"
       >
-        <Download size={13} />
+        <Download size={11} />
         <span>Export</span>
       </button>
     )}
+
     {canImport && (
       <button
         onClick={() => setShowImportModal(true)}
-        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"
+        className="flex items-center gap-1 px-2 py-1 text-[11px] text-black bg-white border border-gray-200 rounded-md whitespace-nowrap"
       >
-        <Upload size={13} />
+        <Upload size={11} />
         <span>Import</span>
       </button>
     )}
+
     {canCreate && (
       <button
         onClick={() => setShowAddLeadModal(true)}
-        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-white rounded-lg"
+        className="flex items-center gap-1 px-2 py-1 text-[11px] text-white rounded-md whitespace-nowrap"
         style={{ backgroundColor: RESALE.orange }}
       >
-        <Plus size={13} />
+        <Plus size={11} />
         <span>Add Lead</span>
       </button>
     )}
@@ -1136,27 +1220,43 @@ const exportLeads = async () => {
 </div>
 
 {/* ── MOBILE: Row 2 — Tabs + per page ── */}
-<div className="flex sm:hidden items-center gap-2 mb-3">
+<div className="flex sm:hidden items-center gap-2 mb-2">
+
+  {/* Tabs */}
   <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
-    <div className="flex gap-1 min-w-max bg-gray-100 p-1 rounded-xl">
+    <div className="flex gap-1 min-w-max bg-gray-100 p-0.5 rounded-lg">
+
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
+
         return (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setCurrentPage(1); }}
-            className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
-              isActive ? 'bg-white shadow-sm' : 'text-gray-500'
+            onClick={() => {
+              setActiveTab(tab.id);
+              setCurrentPage(1);
+            }}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap ${
+              isActive
+                ? "bg-white shadow-sm"
+                : "text-gray-500"
             }`}
             style={isActive ? { color: RESALE.orange } : {}}
           >
             <span>{tab.label}</span>
+
             <span
-              className="px-1 py-0.5 rounded-full text-[10px] font-semibold"
+              className="px-1 py-0.5 rounded-full text-[9px] font-semibold"
               style={
                 isActive
-                  ? { backgroundColor: `${RESALE.orange}20`, color: RESALE.orange }
-                  : { backgroundColor: '#e5e7eb', color: '#6b7280' }
+                  ? {
+                      backgroundColor: `${RESALE.orange}20`,
+                      color: RESALE.orange,
+                    }
+                  : {
+                      backgroundColor: "#e5e7eb",
+                      color: "#6b7280",
+                    }
               }
             >
               {tab.count}
@@ -1166,157 +1266,204 @@ const exportLeads = async () => {
       })}
     </div>
   </div>
-  <select
+
+  {/* Per Page */}
+  {/* <select
     value={itemsPerPage}
-    onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
-    className="flex-shrink-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white"
+    onChange={(e) =>
+      setItemsPerPage(parseInt(e.target.value, 10))
+    }
+    className="flex-shrink-0 px-2 py-1 text-[11px] border border-gray-200 rounded-md bg-white"
   >
-    {[10, 20, 50, 100].map(n => (
-      <option key={n} value={n}>{n}/pg</option>
+    {[10, 20, 50, 100].map((n) => (
+      <option key={n} value={n}>
+        {n}/pg
+      </option>
     ))}
-  </select>
+  </select> */}
 </div>
 
-{/* ── BULK ACTION BAR ── */}
+{/* ── BULK ACTION BAR (Only Status & Assign - like Seller page) ── */}
 {selectedLeads.length > 0 && (canUpdate || canAssign || canBulkDelete) && (
-  <div className="bg-white border border-gray-200 rounded-xl p-3 mb-3 shadow-sm flex flex-col gap-2 sm:flex-wrap sm:flex-row sm:items-center">
-
-    {/* Row 1 (Mobile) */}
-    <div className="flex items-center gap-2 w-full sm:w-auto flex-nowrap overflow-x-auto sm:flex-wrap sm:overflow-visible">
+  <div className="bg-white border border-gray-200 rounded-lg p-1.5 mb-2 shadow-sm flex flex-col gap-1.5 sm:flex-row sm:items-center sm:flex-wrap">
+    
+    <div className="flex items-center gap-1.5 w-full sm:w-auto">
       
       <span
-        className="text-xs font-semibold px-2.5 py-1 rounded-lg border whitespace-nowrap"
+        className="text-[11px] font-semibold px-2 py-0.5 rounded-md border whitespace-nowrap"
         style={{
           color: RESALE.orange,
           backgroundColor: `${RESALE.orange}15`,
           borderColor: `${RESALE.orange}40`
         }}
       >
-        Selected: {selectedLeads.length}
+        {selectedLeads.length}
       </span>
 
       {canUpdate && (
-        <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <select
-            value={bulkStatus}
-            onChange={(e) => setBulkStatus(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white"
-          >
-            <option value="">Status...</option>
-            {['new','contacted','qualified','unqualified','hot','warm','cold','converted','lost',
-              ...Array.from(new Set(statusOptions.map(o => o.value).filter(v => v !== 'all')))]
-              .filter((v, i, arr) => arr.indexOf(v) === i)
-              .map(v => (
-                <option key={v} value={v}>
-                  {v.charAt(0).toUpperCase() + v.slice(1)}
-                </option>
-              ))}
-          </select>
-
-          <button
-            onClick={handleBulkStatusUpdate}
-            disabled={bulkLoading || !bulkStatus}
-            className="px-3 py-1 text-xs text-white rounded-lg disabled:opacity-50"
-            style={{ backgroundColor: RESALE.orange }}
-          >
-            {bulkLoading ? '…' : 'Apply'}
-          </button>
-        </div>
-      )}
-
-      {/* ✅ Delete in FIRST row (mobile only) */}
-      {canBulkDelete && (
-        <button
-          onClick={handleBulkDelete}
-          disabled={bulkLoading || selectedLeads.length === 0}
-          className="sm:hidden px-3 py-1 text-xs border border-red-300 text-red-600 rounded-lg whitespace-nowrap"
+        <select
+          onChange={async (e) => {
+            const val = e.target.value;
+            if (!val) return;
+            e.target.value = "";
+            if (selectedLeads.length === 0) { toast.error('No leads selected'); return; }
+            if (!canUpdate) { toast.error('You do not have permission to update leads'); return; }
+            setBulkLoading(true);
+            try {
+              await leadsAPI.bulkUpdateLeads({ ids: selectedLeads, status: val });
+              setAllLeads(prev =>
+                prev.map(l => selectedLeads.includes(l.id) ? { ...l, status: val } as Lead : l)
+              );
+              toast.success(`Updated ${selectedLeads.length} lead(s) to "${val}"`);
+              setSelectedLeads([]);
+            } catch (err) {
+              toast.error('Bulk status update failed');
+            } finally {
+              setBulkLoading(false);
+            }
+          }}
+          className="border border-gray-300 rounded-md px-1.5 py-0.5 text-[11px] bg-white h-6"
         >
-          {bulkLoading ? '…' : `Delete (${selectedLeads.length})`}
+          <option value="">Status</option>
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="qualified">Qualified</option>
+          <option value="unqualified">Unqualified</option>
+          <option value="hot">Hot</option>
+          <option value="warm">Warm</option>
+          <option value="cold">Cold</option>
+        </select>
+      )}
+
+      {/* Mobile only: Assign dropdown - same row as Status */}
+      {canAssign && (
+        <select
+          onChange={async (e) => {
+            const execId = e.target.value;
+            if (!execId) return;
+            e.target.value = "";
+            if (selectedLeads.length === 0) { toast.error('No leads selected'); return; }
+            if (!canAssign) { toast.error('You do not have permission to assign leads'); return; }
+            const newAssigneeId = execId === 'Unassigned' ? null : execId;
+            setBulkLoading(true);
+            try {
+              if ((leadsAPI as any).bulkAssignExecutives) {
+                await (leadsAPI as any).bulkAssignExecutives({ ids: selectedLeads, assigned_executive: newAssigneeId });
+              } else {
+                await (leadsAPI as any).bulkUpdateLeads({ ids: selectedLeads, assigned_executive: newAssigneeId });
+              }
+              await fetchLeads();
+              const assigneeName = newAssigneeId ? resolveUserNameById(newAssigneeId) || 'User' : null;
+              toast.success(newAssigneeId ? `Assigned ${selectedLeads.length} lead(s) to ${assigneeName}` : `Unassigned ${selectedLeads.length} lead(s)`);
+              setSelectedLeads([]);
+            } catch (err) {
+              toast.error('Bulk assignment failed');
+            } finally {
+              setBulkLoading(false);
+            }
+          }}
+          className="sm:hidden border border-gray-300 rounded-md px-1.5 py-0.5 text-[11px] bg-white min-w-[100px] h-6"
+        >
+          <option value="">Assign...</option>
+          <option value="Unassigned">Unassign</option>
+          {assignableExecutives.map((u: any) => (
+            <option key={u.id} value={u.id}>{u.name}</option>
+          ))}
+        </select>
+      )}
+
+      {/* Desktop only: Assign dropdown with label */}
+      {canAssign && (
+        <div className="hidden sm:flex items-center gap-1">
+          <span className="text-[11px] text-gray-500">Assign:</span>
+          <select
+            onChange={async (e) => {
+              const execId = e.target.value;
+              if (!execId) return;
+              e.target.value = "";
+              if (selectedLeads.length === 0) { toast.error('No leads selected'); return; }
+              if (!canAssign) { toast.error('You do not have permission to assign leads'); return; }
+              const newAssigneeId = execId === 'Unassigned' ? null : execId;
+              setBulkLoading(true);
+              try {
+                if ((leadsAPI as any).bulkAssignExecutives) {
+                  await (leadsAPI as any).bulkAssignExecutives({ ids: selectedLeads, assigned_executive: newAssigneeId });
+                } else {
+                  await (leadsAPI as any).bulkUpdateLeads({ ids: selectedLeads, assigned_executive: newAssigneeId });
+                }
+                await fetchLeads();
+                const assigneeName = newAssigneeId ? resolveUserNameById(newAssigneeId) || 'User' : null;
+                toast.success(newAssigneeId ? `Assigned ${selectedLeads.length} lead(s) to ${assigneeName}` : `Unassigned ${selectedLeads.length} lead(s)`);
+                setSelectedLeads([]);
+              } catch (err) {
+                toast.error('Bulk assignment failed');
+              } finally {
+                setBulkLoading(false);
+              }
+            }}
+            className="border border-gray-300 rounded-md px-1.5 py-0.5 text-[11px] bg-white min-w-[110px] h-6"
+          >
+            <option value="">Assign...</option>
+            <option value="Unassigned">Unassign</option>
+            {assignableExecutives.map((u: any) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+
+    {/* MOBILE ONLY - Action buttons row */}
+    <div className="flex sm:hidden">
+      <div className="grid gap-1.5 w-full" style={{ gridTemplateColumns: `repeat(${(canExport ? 1 : 0) + (canBulkDelete ? 1 : 0) + 1}, minmax(0, 1fr))` }}>
+        {canExport && (
+          <button
+            onClick={exportLeads}
+            className="w-full text-center px-1.5 py-0.5 text-[11px] border border-emerald-300 text-emerald-600 rounded-md truncate"
+          >
+            Export ({selectedLeads.length})
+          </button>
+        )}
+        {canBulkDelete && (
+          <button
+            onClick={handleBulkDelete}
+            disabled={bulkLoading}
+            className="w-full text-center px-1.5 py-0.5 text-[11px] border border-red-300 text-red-600 rounded-md truncate disabled:opacity-50"
+          >
+            {bulkLoading ? "…" : `Delete (${selectedLeads.length})`}
+          </button>
+        )}
+        <button
+          onClick={() => setSelectedLeads([])}
+          className="w-full text-center px-1.5 py-0.5 text-[11px] border border-gray-200 text-gray-600 rounded-md"
+        >
+          Clear
         </button>
-      )}
-
-      {/* Desktop divider */}
-      <div className="hidden sm:block h-5 w-px bg-gray-200" />
-
-      {/* Desktop Assign (unchanged) */}
-      {canAssign && (
-        <div className="hidden sm:flex items-center gap-1.5 whitespace-nowrap">
-          <span className="text-xs text-gray-500 hidden sm:inline">Assign:</span>
-          <select
-            value={bulkAssignee}
-            onChange={(e) => setBulkAssignee(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[130px]"
-          >
-            <option value="">Assign...</option>
-            <option value="Unassigned">Unassign</option>
-            {assignableExecutives.map((u: any) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-
-          <button
-            onClick={handleBulkAssign}
-            disabled={bulkLoading || !bulkAssignee}
-            className="px-3 py-1 text-xs text-white rounded-lg disabled:opacity-50"
-            style={{ backgroundColor: RESALE.orange }}
-          >
-            {bulkLoading ? '…' : 'Apply'}
-          </button>
-        </div>
-      )}
+      </div>
     </div>
 
-    {/* Row 2 (Mobile) */}
-    <div className="flex items-center gap-2 w-full sm:hidden">
-      
-      {canAssign && (
-        <div className="flex items-center gap-1.5 whitespace-nowrap">
-          <select
-            value={bulkAssignee}
-            onChange={(e) => setBulkAssignee(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[120px]"
-          >
-            <option value="">Assign...</option>
-            <option value="Unassigned">Unassign</option>
-            {assignableExecutives.map((u: any) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-
-          <button
-            onClick={handleBulkAssign}
-            disabled={bulkLoading || !bulkAssignee}
-            className="px-3 py-1 text-xs text-white rounded-lg disabled:opacity-50"
-            style={{ backgroundColor: RESALE.orange }}
-          >
-            {bulkLoading ? '…' : 'Apply'}
-          </button>
-        </div>
-      )}
-
-      {/* ✅ Clear in SECOND row */}
-      <button
-        onClick={() => setSelectedLeads([])}
-        className="ml-auto px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg whitespace-nowrap"
-      >
-        Clear
-      </button>
-    </div>
-
-    {/* ✅ Desktop actions (UNCHANGED) */}
+    {/* DESKTOP ONLY - Action buttons */}
     <div className="hidden sm:flex items-center gap-1.5 ml-auto">
+      {canExport && (
+        <button
+          onClick={exportLeads}
+          className="px-2 py-0.5 text-[11px] border border-emerald-300 text-emerald-600 rounded-md hover:bg-emerald-50"
+        >
+          Export ({selectedLeads.length})
+        </button>
+      )}
       {canBulkDelete && (
         <button
           onClick={handleBulkDelete}
-          disabled={bulkLoading || selectedLeads.length === 0}
-          className="px-3 py-1 text-xs border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+          disabled={bulkLoading}
+          className="px-2 py-0.5 text-[11px] border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50"
         >
-          {bulkLoading ? '…' : `Delete (${selectedLeads.length})`}
+          {bulkLoading ? "…" : `Delete (${selectedLeads.length})`}
         </button>
       )}
       <button
         onClick={() => setSelectedLeads([])}
-        className="px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50"
+        className="px-2 py-0.5 text-[11px] border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50"
       >
         Clear
       </button>
@@ -1325,25 +1472,10 @@ const exportLeads = async () => {
   </div>
 )}
 
-{/* ── PER PAGE desktop only, no selection ── */}
-{selectedLeads.length === 0 && (
-  <div className="hidden sm:flex justify-end mb-3">
-    <select
-      value={itemsPerPage}
-      onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
-      className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white"
-    >
-      {[10, 20, 50, 100].map(n => (
-        <option key={n} value={n}>{n} / page</option>
-      ))}
-    </select>
-  </div>
 
-
-)}
 
 {/* Search Bar */}
-<div className="mb-4">
+{/* <div className="mb-4">
   <div className="relative max-w-md">
     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
     <input
@@ -1354,306 +1486,374 @@ const exportLeads = async () => {
       className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
     />
   </div>
-</div>
+</div> */}
 
        
 
         {/* ===================== LEADS TABLE CARD ===================== */}
         {/* flex-col so the pagination sticks to the bottom outside the scroll area */}
-        <div
-          className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden"
-          style={{ display: 'flex', flexDirection: 'column' }}
-        >
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <LoadingSpinner size="lg" />
-            </div>
-          ) : (
-            <>
-              {/* Role-based visibility hint */}
-              {isExecutive && (
-                <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 text-xs text-blue-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle size={12} />
-                    <span>You are viewing leads assigned to you only</span>
-                  </div>
-                  <div>Total: <span className="font-bold">{filteredLeads.length}</span> leads</div>
-                </div>
-              )}
-
-              {/* ---- Scrollable table wrapper with max-height ---- */}
-             <div
-  className="overflow-y-auto overflow-x-auto flex-1 max-h-[calc(100vh-300px)] sm:max-h-[calc(100vh-300px)]"
+       <div
+  className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden"
+  style={{ display: 'flex', flexDirection: 'column' }}
 >
-                <table className="w-full" style={{ minWidth: '900px' }}>
-                  {/* sticky thead */}
-                  <thead style={{ position: 'sticky', top: 0,  }}>
-                    {/* ---- Main column headers ---- */}
-                    <tr style={{ backgroundColor: RESALE.navy }}>
-                      <th className="w-8 px-3 py-3">
-                        <input
-                          type="checkbox"
-                          checked={pageSlice.length > 0 && pageSlice.every(l => selectedLeads.includes(l.id))}
-                          onChange={handleSelectAll}
-                          className="rounded border-gray-300"
-                        />
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Name</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Contact</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Location</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Source</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Priority</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Status</th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-                        Created / Assigned
-                      </th>
-                      <th className="px-3 py-3 text-right text-xs font-medium text-black uppercase tracking-wider">Actions</th>
-                    </tr>
-
-                    {/* ---- Column-level search row ---- */}
-                    <tr className='text-gray-500' style={{ backgroundColor: RESALE.navyLight }}>
-                      <th className="px-3 py-1.5" />
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search name…"
-                          value={colSearch.name}
-                          onChange={e => setColSearch(p => ({ ...p, name: e.target.value }))}
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search contact…"
-                          value={colSearch.contact}
-                          onChange={e => setColSearch(p => ({ ...p, contact: e.target.value }))}
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search location…"
-                          value={colSearch.location}
-                          onChange={e => setColSearch(p => ({ ...p, location: e.target.value }))}
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search source…"
-                          value={colSearch.source}
-                          onChange={e => setColSearch(p => ({ ...p, source: e.target.value }))}
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search priority…"
-                          value={colSearch.priority}
-                          onChange={e => setColSearch(p => ({ ...p, priority: e.target.value }))}
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search status…"
-                          value={colSearch.status}
-                          onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))}
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-                      <th className="px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search date…"
-                          value={colSearch.created}
-                          onChange={e => setColSearch(p => ({ ...p, created: e.target.value }))}
-                          style={colSearchInputStyle}
-                        />
-                      </th>
-                      <th className="px-2 py-1.5" />
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-gray-100">
-                    {pageSlice.map((lead) => (
-                      <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-3 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedLeads.includes(lead.id)}
-                            onChange={() => handleSelectLead(lead.id)}
-                            className="rounded border-gray-300"
-                          />
-                        </td>
-
-                        {/* Name */}
-                        <td className="px-3 py-3">
-                          <Link to={`/dashboard/leads/${lead.id}`} className="flex items-center gap-2 group">
-                           <div
-  className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
-  style={{ backgroundColor: RESALE.orange }}
->
-  {lead.name
-    ?.split(' ')
-    .map(word => word[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase() || 'L'}
-</div>
-                            <div>
-                              <p className="font-medium text-sm text-gray-500" >
-                                {lead.salutation && `${lead.salutation}. `}{lead.name}
-                              </p>
-                              <p className="text-xs text-gray-400">{lead.lead_type?.toUpperCase()}</p>
-                              <p className="text-[10px] text-gray-400 mt-0.5">ID: {String(lead.id).slice(0, 6)}</p>
-                            </div>
-                          </Link>
-                        </td>
-
-                        {/* Contact */}
-                        <td className="px-3 py-3">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Phone size={12} className="text-gray-400 flex-shrink-0" />
-                              <a href={`tel:${lead.phone}`} className="text-xs text-gray-600 hover:text-orange-500">{lead.phone}</a>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Mail size={12} className="text-gray-400 flex-shrink-0" />
-                              <a href={`mailto:${lead.email}`} className="text-xs text-gray-600 hover:text-orange-500 truncate max-w-[130px]">{lead.email}</a>
-                            </div>
-                            {lead.whatsapp_number && (
-                              <div className="flex items-center gap-1">
-                                <SiWhatsapp size={12} className="text-green-500 flex-shrink-0" />
-                                <a
-                                  href={`https://wa.me/${lead.whatsapp_number.replace(/\D/g, '')}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-gray-600 hover:text-green-600"
-                                >
-                                  {lead.whatsapp_number.replace(/\D/g, '')}
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Location */}
-                        <td className="px-3 py-3">
-                          <div className="text-xs text-gray-700 font-medium">{lead.city || '-'}</div>
-                          {lead.location && <div className="text-gray-400 text-[11px] mt-0.5">{lead.location}</div>}
-                        </td>
-
-                        {/* Source */}
-                        <td className="px-3 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getSourceBadgeClass(lead.lead_source)}`}>
-                            {lead.lead_source?.replace(/_/g, ' ') || '-'}
-                          </span>
-                        </td>
-
-                        {/* Priority */}
-                        <td className="px-3 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityBadgeClass(lead.priority)}`}>
-                            {lead.priority || 'N/A'}
-                          </span>
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-3 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(lead.status)}`}>
-                            {lead.status || 'New'}
-                          </span>
-                        </td>
-
-                        {/* Created / Assigned — combined column */}
-                        <td className="px-3 py-3">
-                          <div className="text-xs text-gray-500 space-y-1">
-                            {/* Date with clock icon */}
-                            <div className="flex items-center gap-1">
-                              <Clock size={11} className="text-gray-400 flex-shrink-0" />
-                              <span>{formatDate(lead.created_at)}</span>
-                            </div>
-                            {/* Assigned executive */}
-                            {lead.assigned_executive_name ? (
-                              <div className="flex items-center gap-1 mt-0.5">
-                                <User size={11} className="flex-shrink-0" style={{ color: RESALE.orange }} />
-                                <span style={{ color: RESALE.orange }} className="font-medium mr-0.5">→</span>
-                                <span className="font-medium text-gray-700 text-[11px]">{lead.assigned_executive_name}</span>
-                              </div>
-                            ) : (
-                              <div className="text-[11px] text-gray-400 italic mt-0.5">Unassigned</div>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-3 py-3 text-right">
-                          <div className="flex justify-end gap-1">
-                            {canRead && (
-                              <Link to={`/dashboard/leads/${lead.id}`}>
-                               <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
-  <Eye size={14} />
-</button>
-                              </Link>
-                            )}
-                            {canUpdate && (
-                              <button
-                                onClick={() => { setSelectedLead(lead); setShowEditLeadModal(true); }}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-orange-500"
-                              >
-                                <Edit size={14} />
-                              </button>
-                            )}
-                            {canDelete && (
-                              <button
-  onClick={() => handleDeleteLead(lead.id, lead.name)}
-  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-red-500"
->
-  <Trash2 size={14} />
-</button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {/* Empty State */}
-                {pageSlice.length === 0 && (
-                  <div className="text-center py-12">
-                    <div className="text-gray-400 mb-2">No leads found</div>
-                    <p className="text-xs text-gray-400">Try adjusting your filters or search criteria</p>
-                  </div>
-                )}
-              </div>
-              {/* ---- End scrollable wrapper ---- */}
-
-              {/* ---- Fixed Pagination Footer (outside scroll, inside card) ---- */}
-            {filteredLeads.length > 0 && (
-  <div
-    className="px-4 py-3 border-t border-gray-100 flex flex-row sm:flex-row items-center justify-between gap-2 sm:gap-3"
-    style={{ flexShrink: 0, backgroundColor: '#fff' }}
-  >
-    <div className="text-xs text-gray-500 whitespace-nowrap">
-      Showing {pageSlice.length} of {filteredLeads.length} leads
+  {loading ? (
+    <div className="flex justify-center py-12">
+      <LoadingSpinner size="lg" />
     </div>
+  ) : (
+    <>
+      {/* Role-based visibility hint */}
+      {isExecutive && (
+        <div className="bg-blue-50 border-b border-blue-100 px-3 py-1.5 text-xs text-blue-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+          <div className="flex items-center gap-1.5">
+            <AlertCircle size={10} />
+            <span>You are viewing leads assigned to you only</span>
+          </div>
+          <div>Total: <span className="font-bold">{filteredLeads.length}</span> leads</div>
+        </div>
+      )}
 
-    <Pagination
-      currentPage={currentPage}
-      totalPages={totalPages}
-      onPageChange={setCurrentPage}
-    />
-  </div>
-)}
-            </>
+      {/* Scrollable table wrapper with dynamic max-height */}
+<div
+  className="overflow-y-auto overflow-x-auto flex-1 scrollbar-custom-vertical"
+  style={{
+    maxHeight: window.innerWidth < 640
+      ? selectedLeads.length > 0 ? 'calc(100vh - 280px)' : 'calc(100vh - 210px)'
+      : selectedLeads.length > 0 ? 'calc(100vh - 200px)' : 'calc(100vh - 160px)',
+  }}
+>
+        <div className="overflow-x-auto scrollbar-custom">
+          <table className="w-full" style={{ minWidth: '1000px' }}>
+            {/* sticky thead */}
+            <thead style={{ position: 'sticky', top: 0, zIndex: 30 }}>
+              {/* Main column headers */}
+              <tr style={{ backgroundColor: RESALE.navy }}>
+           <th className="w-6 px-2 py-1.5">
+  <input
+    type="checkbox"
+    checked={pageSlice.length > 0 && pageSlice.every(l => selectedLeads.includes(l.id))}
+    onChange={handleSelectAll}
+    className="rounded w-3 h-3"
+    style={{ 
+      accentColor: '#e5e7eb',
+      borderColor: '#d1d5db',
+      borderWidth: '1px',
+      borderStyle: 'solid'
+    }}
+  />
+</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">NAME</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">CONTACT</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">LOCATION</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">SOURCE</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">PRIORITY</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">STATUS</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">CREATED / ASSIGNED</th>
+                <th className="px-2 py-1.5 text-center text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">ACTIONS</th>
+              </tr>
+
+              {/* Column-level search row */}
+              <tr className='text-gray-500' style={{ backgroundColor: RESALE.navyLight }}>
+                <th className="px-2 py-0.5" />
+                <th className="px-1.5 py-0.5">
+                  <input
+                    type="text"
+                    placeholder="Search name…"
+                    value={colSearch.name}
+                    onChange={e => setColSearch(p => ({ ...p, name: e.target.value }))}
+                    style={colSearchInputStyle}
+                    className="text-[9px] w-24"
+                  />
+                </th>
+                <th className="px-1.5 py-0.5">
+                  <input
+                    type="text"
+                    placeholder="Search contact…"
+                    value={colSearch.contact}
+                    onChange={e => setColSearch(p => ({ ...p, contact: e.target.value }))}
+                    style={colSearchInputStyle}
+                    className="text-[9px] w-28"
+                  />
+                </th>
+                <th className="px-1.5 py-0.5">
+                  <input
+                    type="text"
+                    placeholder="Search location…"
+                    value={colSearch.location}
+                    onChange={e => setColSearch(p => ({ ...p, location: e.target.value }))}
+                    style={colSearchInputStyle}
+                    className="text-[9px] w-24"
+                  />
+                </th>
+                <th className="px-1.5 py-0.5">
+                  <input
+                    type="text"
+                    placeholder="Search source…"
+                    value={colSearch.source}
+                    onChange={e => setColSearch(p => ({ ...p, source: e.target.value }))}
+                    style={colSearchInputStyle}
+                    className="text-[9px] w-24"
+                  />
+                </th>
+                <th className="px-1.5 py-0.5">
+                  <input
+                    type="text"
+                    placeholder="Search priority…"
+                    value={colSearch.priority}
+                    onChange={e => setColSearch(p => ({ ...p, priority: e.target.value }))}
+                    style={colSearchInputStyle}
+                    className="text-[9px] w-20"
+                  />
+                </th>
+                <th className="px-1.5 py-0.5">
+                  <input
+                    type="text"
+                    placeholder="Search status…"
+                    value={colSearch.status}
+                    onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))}
+                    style={colSearchInputStyle}
+                    className="text-[9px] w-20"
+                  />
+                </th>
+               <th className="px-1.5 py-0.5">
+  <input
+    type="text"
+    placeholder="Search date/assigned…"
+    value={colSearch.created}
+    onChange={e => setColSearch(p => ({ ...p, created: e.target.value }))}
+    style={colSearchInputStyle}
+    className="text-[9px] w-28"
+  />
+</th>
+                <th className="px-1.5 py-0.5" />
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-gray-50">
+              {pageSlice.map((lead) => (
+                <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+            <td className="px-2 py-1">
+  <input
+    type="checkbox"
+    checked={selectedLeads.includes(lead.id)}
+    onChange={() => handleSelectLead(lead.id)}
+    className="rounded w-3 h-3"
+    style={{ 
+      accentColor: '#e5e7eb',
+      borderColor: '#d1d5db',
+      borderWidth: '1px',
+      borderStyle: 'solid'
+    }}
+  />
+</td>
+
+                  {/* NAME */}
+                  <td className="px-2 py-1">
+                    <Link to={`/dashboard/leads/${lead.id}`} className="flex items-center gap-1.5 group">
+                      <div
+                        className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[9px] font-medium flex-shrink-0 shadow-sm"
+                        style={{ backgroundColor: RESALE.orange }}
+                      >
+                        {lead.name
+                          ?.split(' ')
+                          .map(word => word[0])
+                          .slice(0, 2)
+                          .join('')
+                          .toUpperCase() || 'L'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-[11px] text-gray-900 truncate">
+                          {lead.salutation && `${lead.salutation}. `}{lead.name}
+                        </p>
+                        <div className="flex items-center gap-1 mt-0 flex-wrap">
+                          <p className="text-[9px] text-gray-400">{lead.lead_type?.toUpperCase() || 'LEAD'}</p>
+                          <p className="text-[9px] text-gray-400">ID: {String(lead.id).slice(0, 6)}</p>
+                        </div>
+                      </div>
+                    </Link>
+                  </td>
+
+                  {/* CONTACT */}
+                  <td className="px-2 py-1">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1">
+                        <Phone size={9} className="text-gray-400 flex-shrink-0" />
+                        <a href={`tel:${lead.phone}`} className="text-[9px] text-gray-600 hover:text-orange-500">{lead.phone}</a>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Mail size={9} className="text-gray-400 flex-shrink-0" />
+                        <a href={`mailto:${lead.email}`} className="text-[9px] text-gray-600 hover:text-orange-500 truncate max-w-[110px]">{lead.email}</a>
+                      </div>
+                      {lead.whatsapp_number && (
+                        <div className="flex items-center gap-1">
+                          <SiWhatsapp size={9} className="text-green-500 flex-shrink-0" />
+                          <a
+                            href={`https://wa.me/${lead.whatsapp_number.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[9px] text-gray-600 hover:text-green-600"
+                          >
+                            {lead.whatsapp_number.replace(/\D/g, '')}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* LOCATION */}
+                  <td className="px-2 py-1">
+                    <div className="text-[9px] text-gray-700 font-medium">{lead.city || '-'}</div>
+                    {lead.location && <div className="text-gray-400 text-[8px] mt-0.5">{lead.location}</div>}
+                  </td>
+
+                  {/* SOURCE */}
+                  <td className="px-2 py-1">
+                    <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-medium ${getSourceBadgeClass(lead.lead_source)}`}>
+                      {lead.lead_source?.replace(/_/g, ' ') || '-'}
+                    </span>
+                  </td>
+
+                  {/* PRIORITY */}
+                  <td className="px-2 py-1">
+                    <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-medium ${getPriorityBadgeClass(lead.priority)}`}>
+                      {lead.priority || 'N/A'}
+                    </span>
+                  </td>
+
+                  {/* STATUS */}
+                  <td className="px-2 py-1">
+                    <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-medium ${getStatusBadgeClass(lead.status)}`}>
+                      {lead.status || 'New'}
+                    </span>
+                  </td>
+
+                  {/* CREATED / ASSIGNED */}
+                  <td className="px-2 py-1">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1">
+                        <Clock size={9} className="text-gray-400 flex-shrink-0" />
+                        <span className="text-[9px] text-gray-600">{formatDate(lead.created_at)}</span>
+                      </div>
+                      {lead.assigned_executive_name ? (
+                        <div className="flex items-center gap-1">
+                          <User size={9} className="flex-shrink-0" style={{ color: RESALE.orange }} />
+                          <span className="font-medium text-[9px] text-gray-700">{lead.assigned_executive_name}</span>
+                        </div>
+                      ) : (
+                        <div className="text-[9px] text-gray-400 italic">Unassigned</div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* ACTIONS */}
+                  <td className="px-2 py-1 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      {canRead && (
+                        <Link to={`/dashboard/leads/${lead.id}`}>
+                          <button className="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500" title="View">
+                            <Eye size={10} />
+                          </button>
+                        </Link>
+                      )}
+                      {canUpdate && (
+                        <button
+                          onClick={() => { setSelectedLead(lead); setShowEditLeadModal(true); }}
+                          className="p-1 rounded hover:bg-gray-100 transition-colors text-orange-500" title="Edit"
+                        >
+                          <Edit size={10} />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDeleteLead(lead.id, lead.name)}
+                          className="p-1 rounded hover:bg-red-100 transition-colors text-red-500" title="Delete"
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Empty State */}
+          {pageSlice.length === 0 && (
+            <div className="text-center py-6">
+              <div className="text-gray-400 mb-1 text-sm">No leads found</div>
+              <p className="text-xs text-gray-400">Try adjusting your filters or search criteria</p>
+            </div>
           )}
         </div>
+      </div>
+
+      {/* Fixed Pagination Footer */}
+      {filteredLeads.length > 0 && (
+        <div className="px-2 sm:px-3 py-1.5 border-t border-gray-100 bg-white">
+
+          {/* MOBILE VIEW */}
+          <div className="flex flex-col gap-2 sm:hidden">
+            <div className="text-[10px] text-gray-500 text-center">
+              Showing {(currentPage - 1) * itemsPerPage + 1}-
+              {Math.min(currentPage * itemsPerPage, filteredLeads.length)}{" "}
+              of {filteredLeads.length} leads
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              {selectedLeads.length === 0 && (
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
+                  className="min-w-[80px] px-2 py-0.5 text-[10px] border border-gray-200 rounded-lg bg-white"
+                >
+                  {[10, 20, 50, 100].map((n) => (
+                    <option key={n} value={n}>{n} / page</option>
+                  ))}
+                </select>
+              )}
+              <div className="flex-1 overflow-x-auto scrollbar-hide">
+                <div className="flex justify-end min-w-max">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* DESKTOP VIEW */}
+          <div className="hidden sm:flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="text-[10px] text-gray-500 whitespace-nowrap">
+                Showing {(currentPage - 1) * itemsPerPage + 1}-
+                {Math.min(currentPage * itemsPerPage, filteredLeads.length)}{" "}
+                of {filteredLeads.length} leads
+              </div>
+              {selectedLeads.length === 0 && (
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
+                  className="px-2 py-0.5 text-[10px] border border-gray-200 rounded-lg bg-white"
+                >
+                  {[10, 20, 50, 100].map((n) => (
+                    <option key={n} value={n}>{n} / page</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  )}
+</div>
         {/* ===================== END TABLE CARD ===================== */}
 
       </div>
@@ -1703,6 +1903,7 @@ const exportLeads = async () => {
         />
       )}
     </div>
+  </>
   );
 };
 

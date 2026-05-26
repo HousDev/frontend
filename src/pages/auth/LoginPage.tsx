@@ -1322,9 +1322,19 @@ const LoginPage: React.FC = () => {
       const generalRoles = ['marketing executive', 'sales executive', 'presales executive'];
       if (generalRoles.includes(role)) { navigate(from || '/dashboard', { replace: true }); return; }
       navigate(from || '/dashboard', { replace: true });
-    } catch (err: any) {
-      toast.error(err?.message || 'Login failed. Please try again.');
-    } finally {
+   } catch (err: any) {
+  const msg = (err?.message || '').toLowerCase();
+  if (msg.includes('password') || msg.includes('incorrect')) {
+    setErrors(prev => ({ ...prev, password: 'Incorrect password. Please try again.' }));
+    toast.error('Incorrect password. Please try again.');
+  } else if (msg.includes('user') || msg.includes('not found')) {
+    setErrors(prev => ({ ...prev, username: 'Username not found.' }));
+    toast.error('Username not found.');
+  } else {
+    setErrors(prev => ({ ...prev, password: 'Invalid credentials.' }));
+    toast.error('Invalid username or password.');
+  }
+} finally {
       setLoading(false);
     }
   };
@@ -1471,9 +1481,9 @@ const LoginPage: React.FC = () => {
                 <input type="checkbox" className="w-[15px] h-[15px] accent-[#c1a378] cursor-pointer" />
                 <span className="text-[13px] text-[#666]">Remember me</span>
               </label>
-              <a href="#" className="text-[13px] font-medium text-[#E8720C] no-underline hover:text-[#ff7802] transition-colors">
-                Forgot password?
-              </a>
+            <a href="#" onClick={(e) => e.preventDefault()} className="text-[13px] font-medium text-[#E8720C] ...">
+  Forgot password?
+</a>
             </div>
 
             <button
