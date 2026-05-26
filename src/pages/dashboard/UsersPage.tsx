@@ -355,56 +355,64 @@ const [currentTab, setCurrentTab] = useState<string>('all');
 
   return (
     <div className="py-2 px-3">
-<div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 px-4 mt-3">
+<div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 px-0 mt-3">
   
-  <div className="flex flex-nowrap gap-1 sm:gap-3 w-full sm:w-auto">
-    
-   <Button
-  variant="outline"
-onClick={() => {
-    setModalMode('export');  // ✅ Export mode set karo
-    setShowImportExportModal(true);
-  }}  className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3"
->
-  <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-  <span className="truncate">Export</span>
-</Button>
+<div className="flex flex-nowrap gap-1 sm:gap-2 w-auto max-w-full overflow-x-auto scrollbar-hide pr-0 items-end justify-end">
 
-<Button
-  variant="outline"
-onClick={() => {
-    setModalMode('import');  // ✅ Import mode set karo
-    setShowImportExportModal(true);
-  }}
-    className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3"
->
-  <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
-  <span className="truncate">Import</span>
-</Button>
+  {/* Export */}
+  <Button
+    variant="outline"
+    onClick={() => {
+      setModalMode('export');
+      setShowImportExportModal(true);
+    }}
+    className="flex-shrink-0 flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5"
+  >
+    <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+    <span className="truncate">Export</span>
+  </Button>
 
-    <Link to="/dashboard/settings/roles-permissions" className="flex-1 sm:flex-none">
-      <Button
-        variant="outline"
-        className="w-full flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3"
-      >
-        <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
-        <span className="truncate">Roles</span>
-      </Button>
-    </Link>
+  {/* Import */}
+  <Button
+    variant="outline"
+    onClick={() => {
+      setModalMode('import');
+      setShowImportExportModal(true);
+    }}
+    className="flex-shrink-0 flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5"
+  >
+    <Upload className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+    <span className="truncate">Import</span>
+  </Button>
 
+  {/* Roles */}
+  <Link
+    to="/dashboard/settings/roles-permissions"
+    className="flex-shrink-0"
+  >
     <Button
-      onClick={() => {
-        resetForm();
-        setShowUserModal(true);
-      }}
-      className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] sm:text-sm py-1 sm:py-2 px-1.5 sm:px-3 text-white bg-[#0f2b3d] hover:bg-[#0f2b3d]"
-      disabled={masterLoading}
+      variant="outline"
+      className="flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5"
     >
-      <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-      <span className="truncate">Add User</span>
+      <Shield className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+      <span className="truncate">Roles</span>
     </Button>
+  </Link>
 
-  </div>
+  {/* Add User */}
+  <Button
+    onClick={() => {
+      resetForm();
+      setShowUserModal(true);
+    }}
+    className="flex-shrink-0 flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5 text-white bg-[#0f2b3d] hover:bg-[#0f2b3d]"
+    disabled={masterLoading}
+  >
+    <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+    <span className="truncate">Add User</span>
+  </Button>
+
+</div>
 </div>
 
 

@@ -563,9 +563,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return validatedUser;
     } catch (error: any) {
       console.error("❌ [LOGIN] Error:", error);
-      throw new Error(
-        error?.response?.data?.message || error.message || "Login failed"
-      );
+     throw new Error(
+  error?.response?.data?.message || error?.message || "Login failed"
+);
+
     }
   };
 

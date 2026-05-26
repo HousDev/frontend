@@ -9,7 +9,9 @@ import {
   UserCheck, PhoneCall, Send,
   Briefcase, UserX,
   TrendingUp, SlidersHorizontal, Clock, AlertCircle, CheckCircle, XCircle,
-  Calendar
+  Calendar,
+  Share2,
+  ShareIcon
 } from 'lucide-react';
 import { SiWhatsapp } from "react-icons/si";
 import Swal from 'sweetalert2';
@@ -187,10 +189,13 @@ const BuyersPage = () => {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
+const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
 
   // Column-level search filters
   const [colSearch, setColSearch] = useState({
     buyer: "",
+    phoneWhatsapp: "",
+     emailLocation: "",
     contact: "",
     business: "",
     assigned: "",
@@ -355,6 +360,15 @@ const [selectedBuyerForFollowup, setSelectedBuyerForFollowup] = useState<UIBuyer
     if (execDropdownOpen) document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [execDropdownOpen]);
+
+  useEffect(() => {
+  const handleResize = () => {
+    setIsDesktop(window.innerWidth >= 768);
+  };
+  window.addEventListener('resize', handleResize);
+  return () => window.removeEventListener('resize', handleResize);
+}, []);
+
 
   const filteredExecutives = executives.filter(exec =>
     execSearch.trim() === '' ? true :
@@ -681,15 +695,47 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
 
     // Column search
     const cs = colSearch;
-    const matchesColSearch = (!cs.buyer || (buyer.name?.toLowerCase().includes(cs.buyer.toLowerCase()) || String(buyer.id).includes(cs.buyer))) &&
-      (!cs.contact || (buyer.phone?.includes(cs.contact) || buyer.email?.toLowerCase().includes(cs.contact.toLowerCase()))) &&
-      (!cs.business || (buyer.source?.toLowerCase().includes(cs.business.toLowerCase()) || buyer.priority?.toLowerCase().includes(cs.business.toLowerCase()))) &&
-      (!cs.assigned || (buyer.assigned_executive_name?.toLowerCase().includes(cs.assigned.toLowerCase()))) &&
-      (!cs.requirements || (buyer.requirements?.propertyType?.toLowerCase().includes(cs.requirements.toLowerCase()) || 
-        formatCurrency(buyer.budget.min).includes(cs.requirements) || formatCurrency(buyer.budget.max).includes(cs.requirements))) &&
-      (!cs.progress || (buyer.stage?.toLowerCase().includes(cs.progress.toLowerCase()))) &&
-      (!cs.performance || (String(buyer.matchedPropertiesCount || 0).includes(cs.performance) || 
-        String(buyer.activities?.length || 0).includes(cs.performance)));
+const matchesColSearch = 
+  (!cs.buyer || (
+    buyer.name?.toLowerCase().includes(cs.buyer.toLowerCase()) || 
+    String(buyer.id).includes(cs.buyer) ||
+    // ✅ Status search add kiya
+    (cs.buyer.toLowerCase() === 'active' && buyer.is_active === true) ||
+    (cs.buyer.toLowerCase() === 'inactive' && buyer.is_active === false)
+  )) &&
+  (!cs.phoneWhatsapp || (
+    buyer.phone?.includes(cs.phoneWhatsapp) || 
+    buyer.whatsapp?.includes(cs.phoneWhatsapp) ||
+    // ✅ Email search phoneWhatsapp se bhi
+    buyer.email?.toLowerCase().includes(cs.phoneWhatsapp.toLowerCase())
+  )) &&
+  (!cs.emailLocation || (
+    buyer.email?.toLowerCase().includes(cs.emailLocation.toLowerCase()) || 
+    buyer.location?.toLowerCase().includes(cs.emailLocation.toLowerCase()) || 
+    buyer.city?.toLowerCase().includes(cs.emailLocation.toLowerCase())
+  )) &&
+  (!cs.business || (
+    buyer.source?.toLowerCase().includes(cs.business.toLowerCase()) || 
+    buyer.priority?.toLowerCase().includes(cs.business.toLowerCase())
+  )) &&
+  (!cs.assigned || (
+    buyer.assigned_executive_name?.toLowerCase().includes(cs.assigned.toLowerCase())
+  )) &&
+  (!cs.requirements || (
+    buyer.requirements?.propertyType?.toLowerCase().includes(cs.requirements.toLowerCase()) || 
+    // ✅ Budget search add kiya
+    formatCurrency(buyer.budget.min).toLowerCase().includes(cs.requirements.toLowerCase()) || 
+    formatCurrency(buyer.budget.max).toLowerCase().includes(cs.requirements.toLowerCase()) ||
+    String(buyer.budget.min || '').includes(cs.requirements) ||
+    String(buyer.budget.max || '').includes(cs.requirements)
+  )) &&
+  (!cs.progress || (
+    buyer.stage?.toLowerCase().includes(cs.progress.toLowerCase())
+  )) &&
+  (!cs.performance || (
+    String(buyer.matchedPropertiesCount || 0).includes(cs.performance) || 
+    String(buyer.activities?.length || 0).includes(cs.performance)
+  ));
 
     return matchesSearch && matchesTab && matchesFilters && matchesDate && matchesColSearch;
   }).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
@@ -1084,14 +1130,24 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
   toast.success(`Exported ${source.length} buyers to Excel successfully`);
 };
   const resetFilters = () => {
-    setFilters({
-      dateFrom: '', dateTo: '', ignoreDate: false, source: 'all', stage: 'all', priority: 'all',
-      assigned: 'all', assigned_executive: 'all', status: 'all', budgetRange: 'all', propertyType: 'all',
-    });
-    setColSearch({ buyer: "", contact: "", business: "", assigned: "", requirements: "", progress: "", performance: "" });
-    setSearchTerm('');
-    setActiveTab('all');
-  };
+  setFilters({
+    dateFrom: '', dateTo: '', ignoreDate: false, source: 'all', stage: 'all', priority: 'all',
+    assigned: 'all', assigned_executive: 'all', status: 'all', budgetRange: 'all', propertyType: 'all',
+  });
+  setColSearch({ 
+    buyer: "", 
+    phoneWhatsapp: "",      // ✅ Added missing property
+    emailLocation: "",      // ✅ Added missing property
+    contact: "", 
+    business: "", 
+    assigned: "", 
+    requirements: "", 
+    progress: "", 
+    performance: "" 
+  });
+  setSearchTerm('');
+  setActiveTab('all');
+};
 
   const getColSpan = () => {
     let colSpan = 8;
@@ -1137,70 +1193,206 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
 
   return (
     <div style={{ backgroundColor: '#f5f6f8' }}>
-      <div className="max-w-[1600px] mx-auto px-3 sm:px-4 md:px-6 py-0 sm:py-6">
+        <style>
+        {`
+          .scrollbar-custom {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom::-webkit-scrollbar {
+            height: 4px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+          .scrollbar-custom-vertical {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar {
+            width: 4px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+              /* ✅ Column divider lines */
+  table tbody td {
+    border-right: 1px solid rgba(209, 213, 219, 0.5);
+  }
+  table tbody td:last-child {
+    border-right: none;
+  }
+  table thead th {
+    border-right: 1px solid rgba(209, 213, 219, 0.4);
+  }
+  table thead th:last-child {
+    border-right: none;
+  }
+
+        `}
+      </style>
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-2 md:px-2 py-2 sm:py-2">
         {/* TABS ROW */}
-        <div className="hidden sm:flex items-center justify-between gap-3 mb-3">
-          <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
-            <div className="flex gap-1 min-w-max bg-gray-100 p-1 rounded-xl">
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => { setActiveTab(tab.id); setCurrentPage(1); }}
-                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                    style={isActive ? { color: RESALE.orange } : {}}
-                  >
-                    <span>{tab.label}</span>
-                    <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${isActive ? `bg-orange-100 text-orange-600` : 'bg-gray-200 text-gray-600'}`}>
-                      {tab.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-  <button onClick={() => setShowFilters(true)} className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
-    <SlidersHorizontal size={14} /><span>Filters</span>
-  </button>
-  {canExport && (
-    <>
-      <button onClick={() => exportToExcel('filtered')} className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
-        <Download size={14} /><span>Export</span>
-      </button>
-      {selectedBuyers.length > 0 && (
-        <button onClick={() => exportToExcel('selected')} className="flex items-center gap-1.5 px-3 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">
-          <Download size={14} /><span>Export Selected ({selectedBuyers.length})</span>
+      <div className="hidden sm:flex items-center justify-between gap-2 mb-2">
+
+  {/* Tabs */}
+  <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
+    <div className="flex gap-1 min-w-max bg-gray-100 p-0.5 rounded-lg">
+
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.id;
+
+        return (
+          <button
+            key={tab.id}
+            onClick={() => {
+              setActiveTab(tab.id);
+              setCurrentPage(1);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-medium transition-all whitespace-nowrap ${
+              isActive
+                ? "bg-white shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            style={isActive ? { color: RESALE.orange } : {}}
+          >
+            <span>{tab.label}</span>
+
+            <span
+              className={`px-1.5 py-[1px] rounded-full text-[10px] font-semibold ${
+                isActive
+                  ? "bg-orange-100 text-orange-600"
+                  : "bg-gray-200 text-gray-600"
+              }`}
+            >
+              {tab.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+
+  {/* Actions */}
+  <div className="flex items-center gap-1.5 flex-shrink-0">
+
+    <button
+      onClick={() => setShowFilters(true)}
+      className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
+    >
+      <SlidersHorizontal size={12} />
+      <span>Filters</span>
+    </button>
+
+    {canExport && (
+      <>
+        <button
+          onClick={() => exportToExcel('filtered')}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
+        >
+          <Download size={12} />
+          <span>Export</span>
         </button>
-      )}
-    </>
-  )}
-  {canImport && <button onClick={() => setShowImportBuyers(true)} className="flex items-center gap-1.5 px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-lg hover:bg-gray-50"><Upload size={14} /><span>Import</span></button>}
-  {canCreate && <button onClick={handleAddBuyer} className="flex items-center gap-1.5 px-3 py-2 text-sm text-white rounded-lg bg-[#0f2b3d]" ><Plus size={14} /><span>Add Buyer</span></button>}
+
+        {/* {selectedBuyers.length > 0 && (
+          <button
+            onClick={() => exportToExcel('selected')}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-white bg-green-600 rounded-md hover:bg-green-700"
+          >
+            <Download size={12} />
+            <span>
+              Export Selected ({selectedBuyers.length})
+            </span>
+          </button>
+        )} */}
+      </>
+    )}
+
+    {canImport && (
+      <button
+        onClick={() => setShowImportBuyers(true)}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
+      >
+        <Upload size={12} />
+        <span>Import</span>
+      </button>
+    )}
+
+    {canCreate && (
+      <button
+        onClick={handleAddBuyer}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-white rounded-md bg-[#0f2b3d]"
+      >
+        <Plus size={12} />
+        <span>Add Buyer</span>
+      </button>
+    )}
+  </div>
 </div>
-        </div>
 
         {/* MOBILE TABS */}
-        <div className="flex sm:hidden items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-1.5 ml-auto mt-2">
-  <button onClick={() => setShowFilters(true)} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"><SlidersHorizontal size={13} /><span>Filters</span></button>
-  {canExport && (
-    <>
-      <button onClick={() => exportToExcel('filtered')} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"><Download size={13} /><span>Export</span></button>
-      {selectedBuyers.length > 0 && (
-        <button onClick={() => exportToExcel('selected')} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-white bg-green-600 rounded-lg"><Download size={13} /><span>Exp Sel ({selectedBuyers.length})</span></button>
-      )}
-    </>
-  )}
-  {canImport && <button onClick={() => setShowImportBuyers(true)} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg"><Upload size={13} /><span>Import</span></button>}
-  {canCreate && <button onClick={handleAddBuyer} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-white rounded-lg bg-[#0f2b3d]"><Plus size={13} /><span>Add Buyer</span></button>}
+      <div className="flex sm:hidden items-center justify-between gap-2 mb-1">
+  <div className="flex items-center gap-1.5 ml-auto overflow-x-auto scrollbar-hide">
+
+    <button
+      onClick={() => setShowFilters(true)}
+      className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg whitespace-nowrap"
+    >
+      <SlidersHorizontal size={12} />
+      <span>Filters</span>
+    </button>
+
+    {canExport && (
+      <button
+        onClick={() => exportToExcel('filtered')}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg whitespace-nowrap"
+      >
+        <Download size={12} />
+        <span>Export</span>
+      </button>
+    )}
+
+    {canImport && (
+      <button
+        onClick={() => setShowImportBuyers(true)}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg whitespace-nowrap"
+      >
+        <Upload size={12} />
+        <span>Import</span>
+      </button>
+    )}
+
+    {canCreate && (
+      <button
+        onClick={handleAddBuyer}
+        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-white rounded-lg bg-[#0f2b3d] whitespace-nowrap"
+      >
+        <Plus size={12} />
+        <span>Add Buyer</span>
+      </button>
+    )}
+
+  </div>
 </div>
-        </div>
 
         <div className="flex sm:hidden items-center gap-2 mb-3">
-          <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
-            <div className="flex gap-1 min-w-max bg-gray-100 p-1 rounded-xl">
+<div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">            <div className="flex gap-1 min-w-max bg-gray-100 p-1 rounded-xl">
               {tabs.slice(0, 4).map((tab) => {
                 const isActive = activeTab === tab.id;
                 return (
@@ -1212,97 +1404,230 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
               })}
             </div>
           </div>
-          <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="flex-shrink-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white">
+          {/* <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="flex-shrink-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white"> 
             {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/pg</option>)}
-          </select>
+          </select> */}
         </div>
 
-        {/* BULK ACTION BAR */}
-        {selectedBuyers.length > 0 && (canUpdate || canAssign || canBulkDelete) && (
-          <div className="bg-white border border-gray-200 rounded-xl p-3 mb-3 shadow-sm flex flex-col gap-2 sm:flex-wrap sm:flex-row sm:items-center">
-            <div className="flex items-center gap-2 w-full sm:w-auto flex-nowrap overflow-x-auto">
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border" style={{ color: RESALE.orange, backgroundColor: `${RESALE.orange}15`, borderColor: `${RESALE.orange}40` }}>
-                Selected: {selectedBuyers.length}
-              </span>
-              {canUpdate && (
-                <>
-                  <select value={bulkStage} onChange={(e) => setBulkStage(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white">
-                    <option value="">Update Stage...</option>
-                    {effectiveStageOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                  </select>
-                  <button onClick={() => { if (bulkStage) { handleBulkUpdateLeadField('buyer_lead_stage', bulkStage); setBulkStage(''); } }} disabled={bulkLoading || !bulkStage} className="px-3 py-1 text-xs text-white rounded-lg disabled:opacity-50" style={{ backgroundColor: RESALE.orange }}>Apply</button>
-                  <select value={bulkPriority} onChange={(e) => setBulkPriority(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white">
-                    <option value="">Update Priority...</option>
-                    {effectivePriorityOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                  </select>
-                  <button onClick={() => { if (bulkPriority) { handleBulkUpdateLeadField('buyer_lead_priority', bulkPriority); setBulkPriority(''); } }} disabled={bulkLoading || !bulkPriority} className="px-3 py-1 text-xs text-white rounded-lg disabled:opacity-50" style={{ backgroundColor: RESALE.orange }}>Apply</button>
-                </>
-              )}
-              {canBulkDelete && <button onClick={handleBulkDelete} disabled={bulkLoading || selectedBuyers.length === 0} className="sm:hidden px-3 py-1 text-xs border border-red-300 text-red-600 rounded-lg">Delete</button>}
-              <div className="hidden sm:block h-5 w-px bg-gray-200" />
-              {canAssign && (
-                <div className="hidden sm:flex items-center gap-1.5">
-                  <span className="text-xs text-gray-500">Assign:</span>
-                  <select value={bulkAssignee} onChange={(e) => setBulkAssignee(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[130px]">
-                    <option value="">Assign...</option>
-                    <option value="Unassigned">Unassign</option>
-                    {assignableExecutives.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
-                  <button onClick={() => { if (bulkAssignee) { const execId = bulkAssignee === 'Unassigned' ? null : bulkAssignee; handleAssignExecutive(execId); setBulkAssignee(''); } }} disabled={bulkLoading || !bulkAssignee} className="px-3 py-1 text-xs text-white rounded-lg disabled:opacity-50" style={{ backgroundColor: RESALE.orange }}>Apply</button>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 w-full sm:hidden">
-              {canAssign && (
-                <div className="flex items-center gap-1.5">
-                  <select value={bulkAssignee} onChange={(e) => setBulkAssignee(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[120px]">
-                    <option value="">Assign...</option>
-                    <option value="Unassigned">Unassign</option>
-                    {assignableExecutives.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
-                  <button onClick={() => { if (bulkAssignee) { const execId = bulkAssignee === 'Unassigned' ? null : bulkAssignee; handleAssignExecutive(execId); setBulkAssignee(''); } }} disabled={bulkLoading || !bulkAssignee} className="px-3 py-1 text-xs text-white rounded-lg disabled:opacity-50" style={{ backgroundColor: RESALE.orange }}>Apply</button>
-                </div>
-              )}
-              <button onClick={() => setSelectedBuyers([])} className="ml-auto px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg">Clear</button>
-            </div>
-            <div className="hidden sm:flex items-center gap-1.5 ml-auto">
-              {canUpdate && (
-                <>
-                  <button onClick={() => handleBulkUpdateLeadField('is_active', 1)} className="px-3 py-1 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Mark Active</button>
-                  <button onClick={() => handleBulkUpdateLeadField('is_active', 0)} className="px-3 py-1 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700">Mark Inactive</button>
-                </>
-              )}
+  {selectedBuyers.length > 0 && (canUpdate || canAssign || canBulkDelete) && (
+    <div className="bg-white border border-gray-200 rounded-xl p-3 mb-1 shadow-sm flex flex-col gap-2 sm:flex-wrap sm:flex-row sm:items-center">
 
-               {/* ADD THIS Export Selected Button */}
-  {canExport && (
-    <button onClick={() => exportToExcel('selected')} className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700">
-      Export ({selectedBuyers.length})
-    </button>
-  )}
-              {canBulkDelete && <button onClick={handleBulkDelete} disabled={bulkLoading || selectedBuyers.length === 0} className="px-3 py-1 text-xs border border-red-300 text-red-600 rounded-lg hover:bg-red-50">Delete ({selectedBuyers.length})</button>}
-              <button onClick={() => setSelectedBuyers([])} className="px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Clear</button>
-            </div>
-          </div>
+      {/* TOP ROW */}
+      <div className="flex items-center gap-2 w-full sm:w-auto flex-nowrap overflow-x-auto scrollbar-hide">
+        
+        <span
+          className="text-xs font-semibold px-2.5 py-1 rounded-lg border whitespace-nowrap"
+          style={{
+            color: RESALE.orange,
+            backgroundColor: `${RESALE.orange}15`,
+            borderColor: `${RESALE.orange}40`,
+          }}
+        >
+          Selected: {selectedBuyers.length}
+        </span>
+
+        {canUpdate && (
+          <>
+            <select
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val) {
+                  handleBulkUpdateLeadField("buyer_lead_stage", val);
+                  e.target.value = "";
+                }
+              }}
+              className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[140px]"
+            >
+              <option value="">Update Stage...</option>
+              {effectiveStageOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val) {
+                  handleBulkUpdateLeadField("buyer_lead_priority", val);
+                  e.target.value = "";
+                }
+              }}
+              className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[150px]"
+            >
+              <option value="">Update Priority...</option>
+              {effectivePriorityOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </>
         )}
 
-        {selectedBuyers.length === 0 && (
-          <div className="hidden sm:flex justify-end mb-3">
-            <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white">
-              {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n} / page</option>)}
+        {/* MOBILE DELETE */}
+        {canBulkDelete && (
+          <button
+            onClick={handleBulkDelete}
+            disabled={bulkLoading || selectedBuyers.length === 0}
+            className="sm:hidden px-3 py-1 text-xs border border-red-300 text-red-600 rounded-lg whitespace-nowrap"
+          >
+            Delete
+          </button>
+        )}
+
+        {/* DESKTOP ASSIGN */}
+        <div className="hidden sm:block h-5 w-px bg-gray-200" />
+
+        {canAssign && (
+          <div className="hidden sm:flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">Assign:</span>
+            <select
+              onChange={(e) => {
+                const execId = e.target.value;
+                if (execId) {
+                  const newAssigneeId = execId === "Unassigned" ? null : execId;
+                  handleAssignExecutive(newAssigneeId);
+                  e.target.value = "";
+                }
+              }}
+              className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[130px]"
+            >
+              <option value="">Assign...</option>
+              <option value="Unassigned">Unassign</option>
+              {assignableExecutives.map((u: any) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* MOBILE COMPACT ACTION ROW - EXACTLY AS IT WAS */}
+      <div className="flex items-center gap-2 w-full sm:hidden overflow-x-auto whitespace-nowrap scrollbar-hide">
+
+        {canAssign && (
+          <div className="flex items-center gap-1.5">
+            <select
+              onChange={(e) => {
+                const execId = e.target.value;
+                if (execId) {
+                  const newAssigneeId = execId === "Unassigned" ? null : execId;
+                  handleAssignExecutive(newAssigneeId);
+                  e.target.value = "";
+                }
+              }}
+              className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[120px]"
+            >
+              <option value="">Assign...</option>
+              <option value="Unassigned">Unassign</option>
+              {assignableExecutives.map((u: any) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
             </select>
           </div>
         )}
 
+        {canUpdate && (
+          <>
+            <button
+              onClick={() => handleBulkUpdateLeadField("is_active", 1)}
+              className="px-3 py-1 text-xs bg-emerald-600 text-white rounded-lg whitespace-nowrap"
+            >
+              Active
+            </button>
+            <button
+              onClick={() => handleBulkUpdateLeadField("is_active", 0)}
+              className="px-3 py-1 text-xs bg-gray-600 text-white rounded-lg whitespace-nowrap"
+            >
+              Inactive
+            </button>
+          </>
+        )}
+
+        {canExport && (
+          <button
+            onClick={() => exportToExcel("selected")}
+            className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg whitespace-nowrap"
+          >
+            Export ({selectedBuyers.length})
+          </button>
+        )}
+
+        <button
+          onClick={() => setSelectedBuyers([])}
+          className="px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg whitespace-nowrap"
+        >
+          Clear
+        </button>
+      </div>
+
+      {/* DESKTOP ACTIONS - ALL ON RIGHT SIDE */}
+      <div className="hidden sm:flex items-center gap-1.5 w-full sm:w-auto sm:ml-auto mt-2 sm:mt-0 overflow-x-auto whitespace-nowrap scrollbar-hide">
+
+        {canUpdate && (
+          <>
+            <button
+              onClick={() => handleBulkUpdateLeadField("is_active", 1)}
+              className="px-3 py-1 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 whitespace-nowrap"
+            >
+              Mark Active
+            </button>
+            <button
+              onClick={() => handleBulkUpdateLeadField("is_active", 0)}
+              className="px-3 py-1 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700 whitespace-nowrap"
+            >
+              Mark Inactive
+            </button>
+          </>
+        )}
+
+        {canExport && (
+          <button
+            onClick={() => exportToExcel("selected")}
+            className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
+          >
+            Export ({selectedBuyers.length})
+          </button>
+        )}
+
+        {canBulkDelete && (
+          <button
+            onClick={handleBulkDelete}
+            disabled={bulkLoading || selectedBuyers.length === 0}
+            className="px-3 py-1 text-xs border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 whitespace-nowrap"
+          >
+            Delete ({selectedBuyers.length})
+          </button>
+        )}
+
+        <button
+          onClick={() => setSelectedBuyers([])}
+          className="px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 whitespace-nowrap"
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+)}
+
+       
+
         {/* Search Bar */}
-        <div className="mb-4">
+        {/* <div className="mb-4">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
             <input type="text" placeholder="Search buyers by name, phone, email, location..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm" />
           </div>
-        </div>
+        </div> */}
 
         {/* MAIN TABLE */}
-<div className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden h-full">  {loading ? (
+<div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden h-full">  {loading ? (
             <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
           ) : (
             <>
@@ -1316,7 +1641,7 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
                 </div>
               )}
 
-<div className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden h-full">  {loading ? (
+<div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden h-full">  {loading ? (
             <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
           ) : (
             <>
@@ -1330,340 +1655,701 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
                 </div>
               )}
 
-<div className="overflow-y-auto max-h-[calc(100vh-300px)] sm:max-h-[calc(100vh-300px)]">
-  <table className="w-full" style={{ minWidth: '1200px' }}>
-    <thead className="bg-[#f3f4f6] sticky top-0 z-10">
-      <tr>
-        {(canUpdate || canDelete || canAssign || canBulkDelete) && <th className="w-8 px-2 py-2 text-left"><input type="checkbox" checked={selectedBuyers.length === paginatedBuyers.length && paginatedBuyers.length > 0} onChange={handleSelectAll} className="rounded border-gray-300 text-orange-600 focus:ring-orange-500" /></th>}
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase">BUYER DETAILS</th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase">CONTACT & LOCATION</th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase">BUSINESS INFO</th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase">ASSIGNED TO</th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase">REQUIREMENTS & BUDGET</th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase">PROGRESS & ACTIVITY</th>
-        <th className="px-2 py-2 text-left text-xs font-medium text-black uppercase">PERFORMANCE</th>
-        {shouldShowActionsColumn && <th className="px-2 py-2 text-right text-xs font-medium text-black uppercase">ACTIONS</th>}
+{/* OUTER: controls max-height + vertical scroll */}
+<div
+  className="scrollbar-custom-vertical"
+  style={{
+    overflowY: 'auto',
+    overflowX: 'auto',
+   maxHeight:
+  window.innerWidth < 640
+    ? selectedBuyers.length > 0 ? 'calc(100vh - 340px)' : 'calc(100vh - 230px)'
+    : selectedBuyers.length > 0 ? 'calc(100vh - 230px)' : 'calc(100vh - 160px)',
+  }}
+>
+  <table
+    className="w-full"
+    style={{ minWidth: '1400px', borderCollapse: 'separate', borderSpacing: 0 }}
+  >
+    {/* ── THEAD: sticky so it never scrolls away ── */}
+    <thead
+      style={{ position: 'sticky', top: 0, zIndex: 30 }}
+    >
+      {/* ── ROW 1: Column Headers ── */}
+      <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
+
+        {/* CHECKBOX */}
+        {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+         <th
+  className="w-6 px-2 py-1.5 text-center bg-gray-50"
+  style={isDesktop ? { position: 'sticky', left: 0, zIndex: 31, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' } : {}}
+>
+            <input
+              type="checkbox"
+              checked={selectedBuyers.length === paginatedBuyers.length && paginatedBuyers.length > 0}
+              onChange={handleSelectAll}
+              className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
+            />
+          </th>
+        )}
+
+        {/* STICKY COL 1: COMMUNICATE */}
+        {shouldShowActionsColumn && (
+         <th
+  className="px-2 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50"
+  style={isDesktop ? {
+    position: 'sticky',
+    left: (canUpdate || canDelete || canAssign || canBulkDelete) ? '28px' : 0,
+    zIndex: 31,
+    boxShadow: '2px 0 4px rgba(0,0,0,0.06)',
+  } : {}}
+>
+            COMMUNICATE
+          </th>
+        )}
+
+        {/* STICKY COL 2: BUYER DETAILS */}
+       <th
+  className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50"
+  style={isDesktop ? {
+    position: 'sticky',
+    left: (() => {
+      let left = 0;
+      if (canUpdate || canDelete || canAssign || canBulkDelete) left += 28;
+      if (shouldShowActionsColumn) left += 125;
+      return `${left}px`;
+    })(),
+    zIndex: 31,
+    boxShadow: '2px 0 4px rgba(0,0,0,0.06)',
+  } : {}}
+>
+          BUYER DETAILS
+        </th>
+
+        {/* SCROLLABLE COLUMNS */}
+        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">PHONE & EMAIL</th>
+        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">BUDGET & LOCATION</th>
+        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">BUSINESS INFO</th>
+        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">REQUIREMENT</th>
+        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">PROGRESS</th>
+        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ACTIVITY</th>
+        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">MATCHES & ACTS</th>
+        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">VISIT & RESP</th>
+        {shouldShowActionsColumn && (
+          <th className="px-2 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">MANAGE</th>
+        )}
+        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ASSIGNED TO</th>
       </tr>
-      {/* Column Search Row */}
-      <tr className="bg-[#e5e7eb] text-gray-500">
-        {(canUpdate || canDelete || canAssign || canBulkDelete) && <th className="px-2 py-1"></th>}
-        <th className="px-1.5 py-1"><input type="text" placeholder="Search buyer..." value={colSearch.buyer} onChange={e => setColSearch(p => ({ ...p, buyer: e.target.value }))} className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded bg-[#FFFFFF26]" /></th>
-        <th className="px-1.5 py-1"><input type="text" placeholder="Search contact..." value={colSearch.contact} onChange={e => setColSearch(p => ({ ...p, contact: e.target.value }))} className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded bg-[#FFFFFF26]" /></th>
-        <th className="px-1.5 py-1"><input type="text" placeholder="Search source/priority..." value={colSearch.business} onChange={e => setColSearch(p => ({ ...p, business: e.target.value }))} className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded bg-[#FFFFFF26]" /></th>
-        <th className="px-1.5 py-1"><input type="text" placeholder="Search assigned..." value={colSearch.assigned} onChange={e => setColSearch(p => ({ ...p, assigned: e.target.value }))} className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded bg-[#FFFFFF26]" /></th>
-        <th className="px-1.5 py-1"><input type="text" placeholder="Search requirements..." value={colSearch.requirements} onChange={e => setColSearch(p => ({ ...p, requirements: e.target.value }))} className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded bg-[#FFFFFF26]" /></th>
-        <th className="px-1.5 py-1"><input type="text" placeholder="Search stage..." value={colSearch.progress} onChange={e => setColSearch(p => ({ ...p, progress: e.target.value }))} className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded bg-[#FFFFFF26]" /></th>
-        <th className="px-1.5 py-1"><input type="text" placeholder="Search matches/activities..." value={colSearch.performance} onChange={e => setColSearch(p => ({ ...p, performance: e.target.value }))} className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded bg-[#FFFFFF26]" /></th>
-        {shouldShowActionsColumn && <th className="px-1.5 py-1"></th>}
+
+      {/* ── ROW 2: Column Search ── */}
+      <tr className="bg-gray-100">
+
+        {/* CHECKBOX - sticky */}
+       {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+  <th
+    className="px-2 py-0.5 bg-gray-100"
+    style={isDesktop ? { position: 'sticky', left: 0, zIndex: 31 } : {}}
+  />
+)}
+
+        {/* COMMUNICATE - sticky placeholder */}
+      {shouldShowActionsColumn && (
+  <th
+    className="px-1.5 py-0.5 bg-gray-100"
+    style={isDesktop ? {
+      position: 'sticky',
+      left: (canUpdate || canDelete || canAssign || canBulkDelete) ? '28px' : 0,
+      zIndex: 31,
+    } : {}}
+  />
+)}
+
+        {/* BUYER DETAILS search - sticky */}
+       <th
+  className="px-1.5 py-0.5 bg-gray-100"
+  style={isDesktop ? {
+    position: 'sticky',
+    left: (() => {
+      let left = 0;
+      if (canUpdate || canDelete || canAssign || canBulkDelete) left += 28;
+      if (shouldShowActionsColumn) left += 125;
+      return `${left}px`;
+    })(),
+    zIndex: 31,
+  } : {}}
+>
+  <input
+    type="text"
+    placeholder="Search buyer..."
+    value={colSearch.buyer}
+    onChange={e => setColSearch(p => ({ ...p, buyer: e.target.value }))}
+    className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+  />
+</th>
+
+        {/* PHONE & EMAIL search */}
+        <th className="px-1.5 py-0.5 bg-gray-100">
+          <input
+            type="text"
+            placeholder="Search phone/email..."
+            value={colSearch.phoneWhatsapp}
+            onChange={e => setColSearch(p => ({ ...p, phoneWhatsapp: e.target.value }))}
+            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+          />
+        </th>
+
+        {/* BUDGET & LOCATION search */}
+        <th className="px-1.5 py-0.5 bg-gray-100">
+          <input
+            type="text"
+            placeholder="Search location..."
+            value={colSearch.emailLocation}
+            onChange={e => setColSearch(p => ({ ...p, emailLocation: e.target.value }))}
+            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+          />
+        </th>
+
+        {/* BUSINESS INFO search */}
+        <th className="px-1.5 py-0.5 bg-gray-100">
+          <input
+            type="text"
+            placeholder="Search source/priority..."
+            value={colSearch.business}
+            onChange={e => setColSearch(p => ({ ...p, business: e.target.value }))}
+            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+          />
+        </th>
+
+        {/* REQUIREMENT search */}
+        <th className="px-1.5 py-0.5 bg-gray-100">
+          <input
+            type="text"
+            placeholder="Search requirement..."
+            value={colSearch.requirements}
+            onChange={e => setColSearch(p => ({ ...p, requirements: e.target.value }))}
+            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+          />
+        </th>
+
+        {/* PROGRESS search */}
+        <th className="px-1.5 py-0.5 bg-gray-100">
+          <input
+            type="text"
+            placeholder="Search stage..."
+            value={colSearch.progress}
+            onChange={e => setColSearch(p => ({ ...p, progress: e.target.value }))}
+            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+          />
+        </th>
+
+        {/* ACTIVITY - empty */}
+        <th className="px-1.5 py-0.5 bg-gray-100" />
+
+        {/* MATCHES search */}
+        <th className="px-1.5 py-0.5 bg-gray-100">
+          <input
+            type="text"
+            placeholder="Search matches..."
+            value={colSearch.performance}
+            onChange={e => setColSearch(p => ({ ...p, performance: e.target.value }))}
+            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+          />
+        </th>
+
+        {/* VISIT & RESP - empty */}
+        <th className="px-1.5 py-0.5 bg-gray-100" />
+
+        {/* MANAGE - empty */}
+        {shouldShowActionsColumn && <th className="px-1.5 py-0.5 bg-gray-100" />}
+
+        {/* ASSIGNED TO search */}
+        <th className="px-1.5 py-0.5 bg-gray-100">
+          <input
+            type="text"
+            placeholder="Search assigned..."
+            value={colSearch.assigned}
+            onChange={e => setColSearch(p => ({ ...p, assigned: e.target.value }))}
+            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+          />
+        </th>
       </tr>
     </thead>
+
+    {/* ── TBODY: only this scrolls ── */}
     <tbody className="bg-white divide-y divide-gray-100">
       {paginatedBuyers.map((buyer) => {
         const { name: execName, isCurrentUser } = resolveExecutiveName(buyer.assigned_executive);
         const initials = getInitials(buyer.name);
         return (
           <tr key={buyer.id} className="hover:bg-gray-50 transition-colors">
+
+            {/* CHECKBOX */}
             {(canUpdate || canDelete || canAssign || canBulkDelete) && (
-              <td className="px-2 py-2"><input type="checkbox" checked={selectedBuyers.includes(buyer.id)} onChange={() => handleBuyerSelection(buyer.id)} className="rounded border-gray-300 text-orange-600 focus:ring-orange-500" /></td>
+            <td
+  className="px-2 py-1 text-center bg-white"
+  style={isDesktop ? { position: 'sticky', left: 0, zIndex: 10, boxShadow: '2px 0 4px rgba(0,0,0,0.04)' } : {}}
+>
+                <input
+                  type="checkbox"
+                  checked={selectedBuyers.includes(buyer.id)}
+                  onChange={() => handleBuyerSelection(buyer.id)}
+                  className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
+                />
+              </td>
             )}
-            {/* Buyer Details */}
-            <td className="px-2 py-2">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0 shadow-sm" style={{ backgroundColor: RESALE.orange }}>
+
+            {/* STICKY COL 1: COMMUNICATE */}
+            {shouldShowActionsColumn && (
+              <td
+  className="px-2 py-1 bg-white"
+  style={isDesktop ? {
+    position: 'sticky',
+    left: (canUpdate || canDelete || canAssign || canBulkDelete) ? '28px' : 0,
+    zIndex: 10,
+    boxShadow: '2px 0 4px rgba(0,0,0,0.04)',
+  } : {}}
+>
+                <div className="flex items-center gap-1">
+                  {/* Call */}
+                  <button
+                    onClick={() => {
+                      const phoneNumber = buyer.phone?.replace(/\D/g, '');
+                      if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
+                        window.location.href = `tel:${phoneNumber}`;
+                      } else {
+                        toast.error("No phone number available");
+                      }
+                    }}
+                    className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
+                    title="Call"
+                  >
+                    <Phone size={11} />
+                  </button>
+
+                  {/* WhatsApp */}
+                  <button
+                    onClick={() => {
+                      const phoneNumber = buyer.phone?.replace(/\D/g, '');
+                      if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
+                        const userName = user?.username || user?.name || user?.email?.split('@')[0] || 'Team';
+                        const message = encodeURIComponent(
+                          `Hi ${buyer.salutation || ''} ${buyer.name || 'Buyer'},\n\n` +
+                          `Property search for ${buyer.requirements?.propertyType || 'property'} in ${buyer.location || buyer.city || 'your location'}.\n\n` +
+                          `Budget: ${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}\n\n` +
+                          `Found ${buyer.matchedPropertiesCount || 0} matching properties.\n\n` +
+                          `Best Regards,\n${userName}`
+                        );
+                        window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+                      } else {
+                        toast.error("No phone number available for WhatsApp");
+                      }
+                    }}
+                    className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
+                    title="WhatsApp"
+                  >
+                    <SiWhatsapp size={11} />
+                  </button>
+
+                  {/* Email */}
+                  <button
+                    onClick={() => {
+                      const email = buyer.email;
+                      if (email && email !== '-' && email !== '') {
+                        const userName = user?.username || user?.name || user?.email?.split('@')[0] || 'Team';
+                        const subject = encodeURIComponent(
+                          `Property Recommendations - ${buyer.requirements?.propertyType || 'Property'}`
+                        );
+                        const body = encodeURIComponent(
+                          `Dear ${buyer.salutation || ''} ${buyer.name || 'Buyer'},\n\n` +
+                          `Requirements: ${buyer.requirements?.propertyType || 'Not specified'}\n` +
+                          `Budget: ${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}\n` +
+                          `Location: ${buyer.location || buyer.city || 'Not specified'}\n\n` +
+                          `Found ${buyer.matchedPropertiesCount || 0} matching properties.\n\n` +
+                          `Best Regards,\n${userName}`
+                        );
+                        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+                      } else {
+                        toast.error("No email address available");
+                      }
+                    }}
+                    className="p-1 rounded hover:bg-blue-100 transition-colors text-blue-600"
+                    title="Email"
+                  >
+                    <Mail size={11} strokeWidth={1.8} />
+                  </button>
+
+                  {/* Send Properties */}
+                  <button
+                    onClick={() => {
+                      const phoneNumber = buyer.phone?.replace(/\D/g, '');
+                      if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
+                        const userName = user?.username || user?.name || (user?.email?.split('@')[0]) || 'Team';
+                        const message = encodeURIComponent(
+                          `🏠 Property Recommendations for ${buyer.name} 🏠\n\n` +
+                          `Location: ${buyer.location || buyer.city || 'your location'}\n` +
+                          `Budget: ${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}\n` +
+                          `Type: ${buyer.requirements?.propertyType || 'property'}\n\n` +
+                          `Found ${buyer.matchedPropertiesCount || 0} matching properties!\n\n` +
+                          `Best Regards,\n${userName}`
+                        );
+                        window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+                      } else {
+                        toast.error("No phone number available to send properties");
+                      }
+                    }}
+                    className="p-1 rounded hover:bg-yellow-100 transition-colors text-yellow-600"
+                    title="Send Properties"
+                  >
+                    <ShareIcon size={11} />
+                  </button>
+
+                  {/* Follow-up */}
+                  <button
+                    onClick={() => {
+                      setSelectedBuyerForFollowup(buyer);
+                      setShowBuyerFollowupModal(true);
+                    }}
+                    className="p-1 rounded hover:bg-purple-100 transition-colors text-purple-600"
+                    title="Follow-up"
+                  >
+                    <Calendar size={11} />
+                  </button>
+                </div>
+              </td>
+            )}
+
+            {/* STICKY COL 2: BUYER DETAILS — full name with salutation */}
+           <td
+  className="px-2 py-1 bg-white"
+  style={isDesktop ? {
+    position: 'sticky',
+    left: (() => {
+      let left = 0;
+      if (canUpdate || canDelete || canAssign || canBulkDelete) left += 28;
+      if (shouldShowActionsColumn) left += 125;
+      return `${left}px`;
+    })(),
+    zIndex: 10,
+    boxShadow: '2px 0 4px rgba(0,0,0,0.04)',
+  } : {}}
+>
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                <div
+                  className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0 shadow-sm"
+                  style={{ backgroundColor: RESALE.orange }}
+                >
                   {initials}
                 </div>
                 <div className="min-w-0">
-                  <button onClick={() => handleViewBuyer(buyer)} className="font-medium text-sm text-gray-900 hover:text-orange-500 text-left leading-tight">
+                  <button
+                    onClick={() => handleViewBuyer(buyer)}
+                    className="font-medium text-[11px] text-gray-900 hover:text-orange-500 text-left leading-tight"
+                  >
                     {buyer.salutation && `${buyer.salutation} `}{buyer.name || 'Unknown'}
                   </button>
-                  <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                    <span className="text-xs text-gray-400">ID: {String(buyer.id).slice(0, 6)}</span>
+                  <div className="flex items-center gap-1 mt-0 flex-wrap">
+                    <span className="text-[9px] text-gray-400">ID: {String(buyer.id).slice(0, 6)}</span>
                     {getStatusBadge(buyer.is_active)}
                   </div>
                 </div>
               </div>
             </td>
-            {/* Contact & Location */}
-            <td className="px-2 py-2">
+
+            {/* PHONE & EMAIL (merged, no WhatsApp row) */}
+            <td className="px-2 py-1">
               <div className="space-y-0.5">
-                <div className="flex items-center gap-1"><Phone size={11} className="text-gray-400" /><a href={`tel:${buyer.phone}`} className="text-xs text-gray-600 hover:text-orange-500">{safeStr(buyer.phone)}</a></div>
-                <div className="flex items-center gap-1"><Mail size={11} className="text-gray-400" /><a href={`mailto:${buyer.email}`} className="text-xs text-gray-600 hover:text-orange-500 truncate max-w-[130px]">{safeStr(buyer.email)}</a></div>
-                {buyer.whatsapp && <div className="flex items-center gap-1"><SiWhatsapp size={11} className="text-green-500" /><a href={`https://wa.me/${buyer.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 hover:text-green-600">{buyer.whatsapp.replace(/\D/g, '')}</a></div>}
-                <div className="flex items-center gap-1"><MapPin size={11} className="text-gray-400" /><span className="text-xs text-gray-600">{safeStr(buyer.location)}{buyer.city ? `, ${buyer.city}` : ''}</span></div>
-              </div>
-            </td>
-            {/* Business Info */}
-            <td className="px-2 py-2">
-              <div className="space-y-0.5">
-                <div className="text-[10px]"><span className="text-gray-500">Source:</span> <span className="font-medium text-blue-700">{buyer.source || 'Not specified'}</span></div>
-                <div>{getPriorityBadge(buyer.priority)}</div>
-                {buyer.created_at && <div className="flex items-center gap-1 text-[10px] text-gray-500"><Clock size={10} /><span>{formatDateTime(buyer.created_at)}</span></div>}
-              </div>
-            </td>
-            {/* Assigned To */}
-            <td className="px-2 py-2">
-              {buyer.assigned_executive ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-[10px] text-gray-600 flex-shrink-0">
-                    {execName?.charAt(0) || "U"}
-                  </div>
-                  <div className="font-semibold text-gray-900 text-[11px]">{execName}</div>
-                  {isCurrentUser && <span className="text-[8px] bg-green-100 text-green-700 px-1 rounded">You</span>}
+                <div className="flex items-center gap-1">
+                  <Phone size={10} className="text-gray-400" />
+                  <a href={`tel:${buyer.phone}`} className="text-[10px] text-gray-600 hover:text-orange-500">
+                    {safeStr(buyer.phone)}
+                  </a>
                 </div>
-              ) : <span className="text-[11px] text-gray-400 italic">Not assigned</span>}
-            </td>
-            {/* Requirements & Budget */}
-            <td className="px-2 py-2">
-              <div className="space-y-0.5">
-                <div className="text-[10px]"><span className="text-gray-500">Property:</span> <span className="font-medium">{buyer.requirements?.propertyType || '—'}</span></div>
-                <div className="text-[10px]"><span className="text-gray-500">Types:</span> <span className="text-gray-600">{safeStr(buyer.requirements?.unitTypes)}</span></div>
-                <div className="text-[10px]"><span className="text-gray-500">Budget:</span> <span className="font-medium text-green-600 ml-1">{formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}</span></div>
+                <div className="flex items-center gap-1">
+                  <Mail size={10} className="text-gray-400" />
+                  <a
+                    href={`mailto:${buyer.email}`}
+                    className="text-[10px] text-gray-600 hover:text-orange-500 truncate max-w-[130px]"
+                  >
+                    {safeStr(buyer.email)}
+                  </a>
+                </div>
               </div>
             </td>
-            {/* Progress & Activity */}
-            <td className="px-2 py-2">
+
+            {/* BUDGET & LOCATION (merged) */}
+            <td className="px-2 py-1">
               <div className="space-y-0.5">
+                <span className="text-[10px] font-bold text-green-600 whitespace-nowrap">
+                  {formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}
+                </span>
+                <div className="flex items-center gap-1">
+                  <MapPin size={10} className="text-gray-400" />
+                  <span className="text-[10px] text-gray-600 truncate max-w-[120px]">
+                    {safeStr(buyer.location)}{buyer.city ? `, ${buyer.city}` : ''}
+                  </span>
+                </div>
+              </div>
+            </td>
+
+            {/* BUSINESS INFO */}
+            <td className="px-2 py-1">
+              <div className="space-y-0.5">
+                <div className="text-[10px] whitespace-nowrap overflow-hidden text-ellipsis">
+                  <span className="text-gray-500">Source:</span>{" "}
+                  <span className="font-medium text-blue-700">
+                    {buyer.source || "Not specified"}
+                  </span>
+                </div>
+                <div>{getPriorityBadge(buyer.priority)}</div>
+              </div>
+            </td>
+
+            {/* REQUIREMENT */}
+            <td className="px-2 py-1">
+              <div className="text-[10px] font-medium text-gray-800">
+                {buyer.requirements?.propertyType || '—'}
+              </div>
+              <div className="text-[8px] text-gray-500 mt-0.5">
+                {safeStr(buyer.requirements?.unitTypes)}
+              </div>
+            </td>
+
+            {/* PROGRESS */}
+            <td className="px-2 py-1">
+              <div className="space-y-0.5 whitespace-nowrap">
                 {getStageBadge(buyer.stage)}
-                <div>
-                  <div className="flex justify-between text-[10px] mb-0.5">
-                    <span>Stage Progress</span>
+                <div className="w-20">
+                  <div className="flex justify-between text-[8px] text-gray-500 mb-0">
                     <span>{buyer.stageProgress || 0}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-1">
-                    <div className="bg-orange-500 h-1 rounded-full" style={{ width: `${buyer.stageProgress || 0}%` }}></div>
+                    <div
+                      className="bg-orange-500 h-1 rounded-full"
+                      style={{ width: `${buyer.stageProgress || 0}%` }}
+                    />
                   </div>
                 </div>
-                <div className="text-[10px] text-gray-600">Last: {formatDate(buyer.lastActivity)}</div>
               </div>
             </td>
-            {/* Performance - 2 ROWS (matches & acts in row1, visits & response in row2) */}
-            <td className="px-2 py-2">
+
+            {/* ACTIVITY */}
+            <td className="px-2 py-1">
+              <div className="text-[9px] text-gray-600">
+                Last: {formatDate(buyer.lastActivity)}
+              </div>
+            </td>
+
+            {/* MATCHES & ACTS */}
+            <td className="px-2 py-1">
               <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <Target size={10} className="text-green-500" />
-                    <span className={`text-[10px] font-medium ${(buyer.matchedPropertiesCount || 0) > 0 ? 'text-green-600' : 'text-gray-500'}`}>
-                      {buyer.matchedPropertiesCount || 0} matches
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Activity size={10} className="text-orange-500" />
-                    <span className="text-[10px] text-gray-600">{buyer.activities?.length ?? 0} acts</span>
-                  </div>
+                <div className="flex items-center gap-1">
+                  <Target size={9} className="text-green-500" />
+                  <span className={`text-[9px] font-medium ${(buyer.matchedPropertiesCount || 0) > 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                    {buyer.matchedPropertiesCount || 0} matches
+                  </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <Eye size={10} className="text-purple-500" />
-                    <span className="text-[10px] text-gray-600">{buyer.visits ?? 0} visits</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <TrendingUp size={10} className="text-blue-500" />
-                    <span className="text-[10px] text-gray-600">{buyer.responseRate ? `${buyer.responseRate}%` : '-'}</span>
-                  </div>
+                <div className="flex items-center gap-1">
+                  <Activity size={9} className="text-orange-500" />
+                  <span className="text-[9px] text-gray-600">{buyer.activities?.length ?? 0} acts</span>
+                </div>
+              </div>
+            </td>
+
+            {/* VISIT & RESP */}
+            <td className="px-2 py-1">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1">
+                  <Eye size={9} className="text-purple-500" />
+                  <span className="text-[9px] text-gray-600">{buyer.visits ?? 0} visits</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <TrendingUp size={9} className="text-blue-500" />
+                  <span className="text-[9px] text-gray-600">{buyer.responseRate ? `${buyer.responseRate}%` : '-'}</span>
                 </div>
                 {buyer.notifications > 0 && (
-                  <div className="flex items-center gap-1">
-                    <Bell size={10} className="text-red-500" />
-                    <span className="text-[10px] text-red-600 font-medium">{buyer.notifications}</span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Bell size={8} className="text-red-500" />
+                    <span className="text-[8px] text-red-600 font-medium">{buyer.notifications} notif</span>
                   </div>
                 )}
               </div>
             </td>
-     {/* Actions */}
-{shouldShowActionsColumn && (
-  <td className="px-2 py-2 text-right">
-    <div className="flex justify-end gap-0.5">
-      <button onClick={() => handleViewBuyer(buyer)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-500" title="View"><Eye size={13} /></button>
-      <button onClick={() => handleBuyerAccount(buyer)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-green-600" title="Account"><UserCheck size={13} /></button>
-      {canEditBuyer(buyer) && <button onClick={() => handleEditBuyer(buyer)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-orange-500" title="Edit"><Edit size={13} /></button>}
-      <div className="relative group">
-        <button className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"><MoreHorizontal size={13} /></button>
-        <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 w-36">
-          <div className="p-0.5">
-            {/* Call Button */}
-            <button 
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                const phoneNumber = buyer.phone?.replace(/\D/g, '');
-                if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
-                  window.location.href = `tel:${phoneNumber}`;
-                } else {
-                  toast.error("No phone number available");
-                }
-              }} 
-              className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-100 rounded w-full"
-            >
-              <PhoneCall size={11} /> Call
-            </button>
-            
-            {/* WhatsApp Button */}
-            <button 
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                const phoneNumber = buyer.phone?.replace(/\D/g, '');
-                if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
-                  const userName = user?.username || user?.name || (user?.email?.split('@')[0]) || 'Team';
-                  const message = encodeURIComponent(
-                    `Hi ${buyer.salutation || ''} ${buyer.name || 'Buyer'},\n\n` +
-                    `I hope you're doing well!\n\n` +
-                    `This is regarding your property search for ${buyer.requirements?.propertyType || 'a property'} in ${buyer.location || buyer.city || 'your preferred location'}.\n\n` +
-                    `${buyer.budget?.min || buyer.budget?.max ? `💰 Budget: ${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}\n\n` : ''}` +
-                    `We have found ${buyer.matchedPropertiesCount || 0} properties matching your requirements.\n\n` +
-                    `Would you like to schedule a site visit?\n\n` +
-                    `Looking forward to your response.\n\n` +
-                    `Best Regards,\n` +
-                    `${userName}`
-                  );
-                  window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
-                } else {
-                  toast.error("No phone number available for WhatsApp");
-                }
-              }} 
-              className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-100 rounded w-full"
-            >
-              <MessageCircle size={11} /> WhatsApp
-            </button>
-            
-            {/* Email Button */}
-            <button 
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                const email = buyer.email;
-                if (email && email !== '-' && email !== '') {
-                  const userName = user?.username || user?.name || (user?.email?.split('@')[0]) || 'Team';
-                  const subject = encodeURIComponent(`Property Recommendations - ${buyer.requirements?.propertyType || 'Property'} Search`);
-                  const body = encodeURIComponent(
-                    `Dear ${buyer.salutation || ''} ${buyer.name || 'Buyer'},\n\n` +
-                    `I hope this email finds you well.\n\n` +
-                    `📋 Your Requirements Summary:\n` +
-                    `• Property Type: ${buyer.requirements?.propertyType || 'Not specified'}\n` +
-                    `• Budget: ${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}\n` +
-                    `• Location: ${buyer.location || buyer.city || 'Not specified'}\n` +
-                    `• Unit Types: ${buyer.requirements?.unitTypes || 'Not specified'}\n\n` +
-                    `🏠 We have found ${buyer.matchedPropertiesCount || 0} properties matching your requirements.\n\n` +
-                    `Would you like to schedule a site visit or receive more details?\n\n` +
-                    `Looking forward to your response.\n\n` +
-                    `Best Regards,\n` +
-                    `${userName}`
-                  );
-                  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
-                } else {
-                  toast.error("No email address available");
-                }
-              }} 
-              className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-100 rounded w-full"
-            >
-              <Send size={11} /> Email
-            </button>
-            
-            {/* FOLLOW-UP Button - Opens Follow-up Modal */}
-<button 
-  type="button"
-  onClick={(e) => {
-    e.stopPropagation();
-    setSelectedBuyerForFollowup(buyer);
-    setShowBuyerFollowupModal(true);
-  }} 
-  className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-blue-600 hover:bg-blue-50 rounded w-full"
->
-  <Calendar size={11} /> Follow-up
-</button>
-            
-            {/* ✅ SEND PROPERTIES Button - WhatsApp with property details */}
-            <button 
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                const phoneNumber = buyer.phone?.replace(/\D/g, '');
-                if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
-                  const userName = user?.username || user?.name || (user?.email?.split('@')[0]) || 'Team';
-                  
-                  // Get property details from buyer's matched properties or requirements
-                  const propertyType = buyer.requirements?.propertyType || 'property';
-                  const budget = buyer.budget?.min && buyer.budget?.max 
-                    ? `${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}`
-                    : 'your budget range';
-                  const location = buyer.location || buyer.city || 'your preferred location';
-                  const unitTypes = Array.isArray(buyer.requirements?.unitTypes) 
-                    ? buyer.requirements.unitTypes.join(', ') 
-                    : buyer.requirements?.unitTypes || 'property';
-                  
-                  const message = encodeURIComponent(
-                    `🏠 *Property Recommendations for ${buyer.name}* 🏠\n\n` +
-                    `Hi ${buyer.salutation || ''} ${buyer.name || 'Buyer'},\n\n` +
-                    `Based on your requirements:\n` +
-                    `📍 *Location:* ${location}\n` +
-                    `💰 *Budget:* ${budget}\n` +
-                    `🏢 *Property Type:* ${propertyType}\n` +
-                    `📐 *Unit Types:* ${unitTypes}\n\n` +
-                    `✨ We have found ${buyer.matchedPropertiesCount || 0} properties matching your criteria!\n\n` +
-                    `Would you like to:\n` +
-                    `• Schedule a site visit\n` +
-                    `• Receive property details via email\n` +
-                    `• Discuss further over a call\n\n` +
-                    `Please let me know your availability.\n\n` +
-                    `Best Regards,\n` +
-                    `${userName}\n` +
-                    `ResaleExpert Team`
-                  );
-                  window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
-                } else {
-                  toast.error("No phone number available to send properties");
-                }
-              }} 
-              className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-purple-600 hover:bg-purple-50 rounded w-full"
-            >
-              <Home size={11} /> Send Properties
-            </button>
-            
-            {canDeleteBuyer(buyer) && (
-              <button 
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteBuyer(buyer.id, buyer.name || undefined);
-                }} 
-                className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-red-600 hover:bg-red-100 rounded w-full"
-              >
-                <Trash2 size={11} /><span>Delete</span>
-              </button>
+
+            {/* MANAGE: VIEW, ACCOUNT, EDIT, DELETE */}
+            {shouldShowActionsColumn && (
+              <td className="px-2 py-1">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleViewBuyer(buyer)}
+                    className="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500"
+                    title="View"
+                  >
+                    <Eye size={11} />
+                  </button>
+                  <button
+                    onClick={() => handleBuyerAccount(buyer)}
+                    className="p-1 rounded hover:bg-gray-100 transition-colors text-green-600"
+                    title="Account"
+                  >
+                    <UserCheck size={11} />
+                  </button>
+                  {canEditBuyer(buyer) && (
+                    <button
+                      onClick={() => handleEditBuyer(buyer)}
+                      className="p-1 rounded hover:bg-gray-100 transition-colors text-orange-500"
+                      title="Edit"
+                    >
+                      <Edit size={11} />
+                    </button>
+                  )}
+                  {canDeleteBuyer(buyer) && (
+                    <button
+                      onClick={() => handleDeleteBuyer(buyer.id, buyer.name || undefined)}
+                      className="p-1 rounded hover:bg-red-100 transition-colors text-red-600"
+                      title="Delete"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
+              </td>
             )}
-          </div>
-        </div>
-      </div>
-    </div>
-  </td>
-)}
+
+            {/* LAST COL: ASSIGNED TO */}
+            <td className="px-2 py-1">
+              {buyer.assigned_executive ? (
+                <div className="flex items-center gap-2 whitespace-nowrap">
+                  <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-[9px] text-gray-600 flex-shrink-0">
+                    {execName
+                      ?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")
+                      ?.charAt(0) || "U"}
+                  </div>
+                  <div className="font-semibold text-gray-900 text-[10px]">
+                    {execName
+                      ?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")
+                      ?.split(" ")[0]}
+                  </div>
+                  {isCurrentUser && (
+                    <span className="text-[7px] bg-green-100 text-green-700 px-1 rounded">
+                      You
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-[10px] text-gray-400 italic">
+                  Not assigned
+                </span>
+              )}
+            </td>
+
           </tr>
         );
       })}
+
       {paginatedBuyers.length === 0 && (
-        <tr><td colSpan={getColSpan()} className="text-center py-8">
-          <div className="text-gray-400 mb-1 text-sm">No buyers found</div>
-          <p className="text-xs text-gray-400">Try adjusting your filters or search criteria</p>
-        </td></tr>
+        <tr>
+          <td colSpan={getColSpan()} className="text-center py-6">
+            <div className="text-gray-400 mb-1 text-sm">No buyers found</div>
+            <p className="text-xs text-gray-400">Try adjusting your filters or search criteria</p>
+          </td>
+        </tr>
       )}
     </tbody>
   </table>
 </div>
+{filteredSortedBuyers.length > 0 && (
+  <div className="px-2 sm:px-3 py-2 border-t border-gray-100 bg-white">
+    
+    {/* MOBILE */}
+    <div className="flex flex-col gap-2 sm:hidden">
+      
+      {/* Showing Text */}
+      <div className="text-[10px] text-gray-500 text-center">
+        Showing {startIndex + 1}-
+        {Math.min(startIndex + itemsPerPage, filteredSortedBuyers.length)}{" "}
+        of {filteredSortedBuyers.length} buyers
+      </div>
 
-              {filteredSortedBuyers.length > 0 && (
-<div className="px-4 py-3 border-t border-gray-100 flex flex-row items-center justify-between bg-white">                  <div className="text-xs text-gray-500">Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredSortedBuyers.length)} of {filteredSortedBuyers.length} buyers</div>
-                  <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-                </div>
-              )}
+      {/* Bottom Row */}
+      <div className="flex items-center justify-between gap-2">
+        
+        {/* Dropdown */}
+        {selectedBuyers.length === 0 && (
+          <select
+            value={itemsPerPage}
+            onChange={(e) =>
+              setItemsPerPage(parseInt(e.target.value, 10))
+            }
+            className="min-w-[90px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
+          >
+            {[10, 20, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n} / page
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Pagination Wrapper */}
+        <div className="flex-1 overflow-x-auto scrollbar-hide">
+          <div className="flex justify-end min-w-max">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* DESKTOP */}
+    <div className="hidden sm:flex items-center justify-between gap-3">
+      
+      {/* Left Side */}
+      <div className="flex items-center gap-3">
+        
+        <div className="text-[10px] text-gray-500 whitespace-nowrap">
+          Showing {startIndex + 1}-
+          {Math.min(
+            startIndex + itemsPerPage,
+            filteredSortedBuyers.length
+          )}{" "}
+          of {filteredSortedBuyers.length} buyers
+        </div>
+
+        {selectedBuyers.length === 0 && (
+          <select
+            value={itemsPerPage}
+            onChange={(e) =>
+              setItemsPerPage(parseInt(e.target.value, 10))
+            }
+            className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
+          >
+            {[10, 20, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n} / page
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Right Side */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
+    </div>
+  </div>
+)}
+            
             </>
           )}
         </div>
 
-              {filteredSortedBuyers.length > 0 && (
-<div className="px-3 py-1.5 border-t border-gray-100 flex flex-row items-center justify-between bg-white">                  <div className="text-[10px] text-gray-500">Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredSortedBuyers.length)} of {filteredSortedBuyers.length} buyers</div>
-                  <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-                </div>
-              )}
+              
             </>
           )}
         </div>
@@ -1754,16 +2440,48 @@ function matchesBudgetRange(buyer: UIBuyer, budgetRange: string): boolean {
   }
 }
 function getPriorityBadge(priority: string | null | undefined) {
-  const raw = (priority ?? '').toString().trim().toLowerCase();
-  const priorityConfig: Record<string, { bg: string; text: string; label: string; icon: string }> = {
-    high: { bg: 'bg-red-100', text: 'text-red-700', label: 'High', icon: '🔥' },
-    medium: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Medium', icon: '⚡' },
-    low: { bg: 'bg-green-100', text: 'text-green-700', label: 'Low', icon: '🌱' },
-  };
-  const config = priorityConfig[raw] || { bg: 'bg-gray-100', text: 'text-gray-700', label: raw || '-', icon: '' };
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>{config.icon} {config.label}</span>;
-}
+  const raw = (priority ?? "").toString().trim().toLowerCase();
 
+  const priorityConfig: Record<
+    string,
+    { bg: string; text: string; label: string; icon: string }
+  > = {
+    high: {
+      bg: "bg-red-100",
+      text: "text-red-700",
+      label: "High",
+      icon: "🔥",
+    },
+    medium: {
+      bg: "bg-yellow-100",
+      text: "text-yellow-700",
+      label: "Medium",
+      icon: "⚡",
+    },
+    low: {
+      bg: "bg-green-100",
+      text: "text-green-700",
+      label: "Low",
+      icon: "🌱",
+    },
+  };
+
+  const config = priorityConfig[raw] || {
+    bg: "bg-gray-100",
+    text: "text-gray-700",
+    label: raw || "-",
+    icon: "",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-[1px] rounded-full text-[10px] font-medium ${config.bg} ${config.text}`}
+    >
+      <span className="text-[9px]">{config.icon}</span>
+      {config.label}
+    </span>
+  );
+}
 export default BuyersPage;
 
 
