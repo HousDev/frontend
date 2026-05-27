@@ -2406,13 +2406,13 @@ const DashboardLayout = () => {
             colorClass: navTextClass,
             required: "property.read",
           },
-          {
-            name: "Contact Messages",
-            href: "/dashboard/contact-messages",
-            icon: MessageCircle,
-            colorClass: navTextClass,
-            required: "lead.read",
-          },
+          // {
+          //   name: "Contact Messages",
+          //   href: "/dashboard/contact-messages",
+          //   icon: MessageCircle,
+          //   colorClass: navTextClass,
+          //   required: "lead.read",
+          // },
         ],
       },
       {
