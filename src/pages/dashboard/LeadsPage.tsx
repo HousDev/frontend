@@ -1730,11 +1730,7 @@ const exportLeads = async () => {
                   {/* CREATED / ASSIGNED */}
                   <td className="px-2 py-1">
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-1">
-                        <Clock size={9} className="text-gray-400 flex-shrink-0" />
-                        <span className="text-[9px] text-gray-600">{formatDate(lead.created_at)}</span>
-                      </div>
-                      {lead.assigned_executive_name ? (
+                       {lead.assigned_executive_name ? (
                         <div className="flex items-center gap-1">
                           <User size={9} className="flex-shrink-0" style={{ color: RESALE.orange }} />
                           <span className="font-medium text-[9px] text-gray-700">{lead.assigned_executive_name}</span>
@@ -1742,6 +1738,11 @@ const exportLeads = async () => {
                       ) : (
                         <div className="text-[9px] text-gray-400 italic">Unassigned</div>
                       )}
+                      <div className="flex items-center gap-1">
+                        <Clock size={9} className="text-gray-400 flex-shrink-0" />
+                        <span className="text-[9px] text-gray-600">{formatDate(lead.created_at)}</span>
+                      </div>
+                     
                     </div>
                   </td>
 
