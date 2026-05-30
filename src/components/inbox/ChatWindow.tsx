@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, CheckCircle, Clock, PhoneCall, ArrowLeft, BotMessageSquare } from 'lucide-react';
+import { Bot, CheckCircle, Clock, PhoneCall, ArrowLeft, BotMessageSquare, MoreVertical, Trash2, Ban, Send as SendIcon } from 'lucide-react';
 import type { WhatsAppConversation, WhatsAppContact, Tag, CrmUser, WhatsAppMessage, ConversationNote } from '../../types';
 import { whatsappAPI } from '@/lib/whatsappApi';
 import { formatDate } from '../../lib/formatters';
@@ -68,6 +68,13 @@ const [showContactInfo, setShowContactInfo] = useState(false);
     const lastMessageTimeRef = useRef<number>(0);
     const { user } = useAuth();
 
+    const [showMenu, setShowMenu] = useState(false);
+const [showClearConfirm, setShowClearConfirm] = useState(false);
+const [isClearing, setIsClearing] = useState(false);
+const [isBlocked, setIsBlocked] = useState<boolean>(false);
+
+const menuRef = useRef<HTMLDivElement>(null);
+
     // ✅ Track sent messages to prevent duplicates
     const sentMessagesRef = useRef<Set<string>>(new Set());
 
@@ -75,6 +82,17 @@ const [showContactInfo, setShowContactInfo] = useState(false);
     useEffect(() => {
         setConversation(initialConversation);
     }, [initialConversation]);
+
+    // ADD this useEffect
+useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+        if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+            setShowMenu(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+}, []);
 
     // ✅ Auto-refresh messages every 3 seconds (fallback for socket issues)
     useEffect(() => {
@@ -372,6 +390,12 @@ const [showContactInfo, setShowContactInfo] = useState(false);
     };
 
     useEffect(() => {
+    if (!contact) return;
+    // contact object mein is_blocked field aayega API se
+    setIsBlocked(!!(contact as any).is_blocked);
+}, [contact?.id]);
+
+    useEffect(() => {
         fetchAllNotes();
     }, [contact]);
 
@@ -592,6 +616,41 @@ const [showContactInfo, setShowContactInfo] = useState(false);
         onConversationUpdate?.(updated);
     };
 
+    // ADD after toggleResolved function
+const handleClearChat = async () => {
+    if (!contact) return;
+    setIsClearing(true);
+    try {
+        await whatsappAPI.clearChatHistory(contact.id);
+        setMessages([]);
+        setShowClearConfirm(false);
+        notificationStore.push('success', 'Chat Cleared', 'Chat history has been cleared', { label: '', page: '' });
+    } catch (err) {
+        notificationStore.push('error', 'Failed', 'Could not clear chat history', { label: '', page: '' });
+    } finally {
+        setIsClearing(false);
+    }
+};
+
+// FIND and REPLACE the entire handleBlock function:
+const handleBlock = async () => {
+    if (!contact) return;
+    setShowMenu(false);
+    try {
+        if (isBlocked) {
+            await whatsappAPI.unblockContact(contact.id);
+            setIsBlocked(false);
+            notificationStore.push('success', 'Contact Unblocked', `${contact.name} has been unblocked`, { label: '', page: '' });
+        } else {
+            await whatsappAPI.blockContact(contact.id);
+            setIsBlocked(true);
+            notificationStore.push('success', 'Contact Blocked', `${contact.name} has been blocked`, { label: '', page: '' });
+        }
+    } catch (err) {
+        notificationStore.push('error', 'Failed', isBlocked ? 'Could not unblock contact' : 'Could not block contact', { label: '', page: '' });
+    }
+};
+
     const handleAddNote = async (body: any) => {
         if (!contact) return;
         try {
@@ -704,11 +763,60 @@ const [showContactInfo, setShowContactInfo] = useState(false);
                                 {conversation.status === 'resolved' ? 'Reopen' : 'Resolve'}
                             </span>
                         </button>
+
+                        <div className="relative" ref={menuRef}>
+    <button
+        onClick={(e) => { e.stopPropagation(); setShowMenu(v => !v); }}
+        className="p-2 rounded-lg bg-[#f0f2f5] text-[#667781] hover:bg-[#e4e6e9] transition-colors"
+        title="More options"
+    >
+        <MoreVertical size={15} />
+    </button>
+
+    {showMenu && (
+        <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 z-50 w-52 overflow-hidden">
+            {/* <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    notificationStore.push('info', 'Coming Soon', 'Template send coming soon', { label: '', page: '' });
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-50"
+            >
+                <SendIcon size={15} className="text-gray-400 shrink-0" />
+                Send Template Message
+            </button> */}
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    setShowClearConfirm(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-50 transition-colors border-b border-gray-50"
+            >
+                <Trash2 size={15} className="shrink-0" />
+                Clear Chat History
+            </button>
+            <button
+    onClick={(e) => { e.stopPropagation(); handleBlock(); }}
+    className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+        isBlocked
+            ? 'text-emerald-600 hover:bg-emerald-50'
+            : 'text-red-500 hover:bg-red-50'
+    }`}
+>
+    <Ban size={15} className="shrink-0" />
+    {isBlocked ? 'Unblock Contact' : 'Block Contact'}
+</button>
+        </div>
+    )}
+</div>
                     </div>
                 </div>
 
                 {/* Messages Area */}
                 <div
+                
                     className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 space-y-1 max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-150px)]"
                     style={{
                         backgroundColor: '#efeae2',
@@ -717,6 +825,14 @@ const [showContactInfo, setShowContactInfo] = useState(false);
                         backgroundSize: '412px auto',
                     }}
                 >
+                    {isBlocked && (
+                        <div className="flex items-center justify-center py-2 px-3 sticky top-0 z-10">
+                            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-xs font-medium px-4 py-2 rounded-full shadow-sm">
+                                <Ban size={12} />
+                                This contact is blocked. Unblock to send messages.
+                            </div>
+                        </div>
+                    )}
                     {loading ? (
                         <div className="flex items-center justify-center h-full">
                             <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
@@ -740,14 +856,15 @@ const [showContactInfo, setShowContactInfo] = useState(false);
                 </div>
 
                 {/* Chat Input */}
-                <ChatInput
-                    templates={templates}
-                    onSendText={handleSendText}
-                    onSendTemplate={handleSendTemplate}
-                    onSendMedia={handleSendMedia}
-                    onSendLocation={handleSendLocation}
-                    disabled={conversation.status === 'resolved'}
-                />
+               <ChatInput
+    templates={templates}
+    onSendText={handleSendText}
+    onSendTemplate={handleSendTemplate}
+    onSendMedia={handleSendMedia}
+    onSendLocation={handleSendLocation}
+    disabled={conversation.status === 'resolved' || isBlocked}
+    isBlocked={isBlocked}
+/>
             </div>
 
             {/* Contact Info Sidebar (Desktop) */}
@@ -773,6 +890,42 @@ const [showContactInfo, setShowContactInfo] = useState(false);
                     onAddNote={handleAddNote}
                     fetchAllNotes={fetchAllNotes}
                 />
-            </div>  )}     </div>
+            </div>
+          )} 
+           {showClearConfirm && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
+                        <div className="w-14 h-14 rounded-full border-4 border-orange-400 flex items-center justify-center mx-auto mb-4">
+                            <span className="text-orange-400 text-2xl font-bold">!</span>
+                        </div>
+                        <h3 className="text-base font-semibold text-gray-800 mb-2">
+                            Are you sure you want to clear chat history for this contact?
+                        </h3>
+                        <p className="text-sm text-red-400 mb-6 leading-relaxed">
+                            Only chat history will be deleted permanently.
+                        </p>
+                        <div className="flex gap-3 justify-center">
+                            <button
+                                onClick={handleClearChat}
+                                disabled={isClearing}
+                                className="px-6 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                            >
+                                {isClearing ? 'Clearing...' : 'Yes'}
+                            </button>
+                            <button
+                                onClick={() => setShowClearConfirm(false)}
+                                className="px-6 py-2 bg-gray-700 text-white text-sm font-semibold rounded-lg hover:bg-gray-800 transition-colors"
+                            >
+                                No
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            
+              
+              </div>
+              
     );
 }

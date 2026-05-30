@@ -76,7 +76,30 @@ const ManagerDashboard: React.FC = () => {
   const isThisMonth = (d: any) => { if (!d) return false; const dt = new Date(d); if (isNaN(dt.getTime())) return false; const now = new Date(); return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth(); };
   const isLeadConverted = (lead: any) => { const s = getString(lead?.status)?.toLowerCase().replace(/\s+/g, "_"); return ["converted", "won", "closed_won", "sale", "booked", "successful"].includes(s); };
   const getAssigneeId = (lead: any) => lead?.assigned_to_id ?? lead?.assigned_to ?? lead?.executive_id ?? lead?.agent_id ?? lead?.owner_id ?? lead?.user_id ?? null;
-
+// Helper to get a display name from a lead object (handles various API field names)
+const getLeadDisplayName = (lead: any): string => {
+  // Try common name fields
+  const name =
+    lead?.name ||
+    lead?.full_name ||
+    lead?.customer_name ||
+    lead?.contact_name ||
+    lead?.first_name ||
+    lead?.firstName;
+  
+  if (name && typeof name === "string") return name.trim();
+  
+  // If first + last are available separately
+  const first = lead?.first_name || lead?.firstName;
+  const last = lead?.last_name || lead?.lastName;
+  if (first || last) return `${first || ""} ${last || ""}`.trim();
+  
+  // Fallback to email or phone
+  if (lead?.email) return lead.email;
+  if (lead?.phone || lead?.mobile) return lead.phone || lead.mobile;
+  
+  return "Unknown Lead";
+};
   const fetchManagerData = async () => {
     try {
       setRefreshing(prev => !loading || prev);
@@ -287,13 +310,13 @@ const ManagerDashboard: React.FC = () => {
                   {/* Left accent bar */}
                   <div className="w-1 h-9 rounded-full shrink-0" style={{ background: ORANGE }} />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: NAVY }}>
-                      {(lead.first_name ?? "Unknown") + " " + (lead.last_name ?? "")}
-                    </p>
-                    <p className="text-xs truncate" style={{ color: "#7a95a8" }}>
-                      {lead.email ?? "—"} · {safeDate(lead.created_at ?? lead.createdAt)}
-                    </p>
-                  </div>
+  <p className="text-sm font-medium truncate" style={{ color: NAVY }}>
+    {getLeadDisplayName(lead)}
+  </p>
+  <p className="text-xs truncate" style={{ color: "#7a95a8" }}>
+    {lead.email ?? "—"} · {safeDate(lead.created_at ?? lead.createdAt)}
+  </p>
+</div>
                 </div>
                 <span className="ml-3 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0"
                   style={leadStatusStyle(lead.status)}>

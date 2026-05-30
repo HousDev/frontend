@@ -133,30 +133,56 @@ export default function MessageBubble({
           )}
 
           {/* ───── DOCUMENT / PDF (from media_type field) ───── */}
-          {message.media_url &&
-            (message.media_type?.startsWith("application/") ||
-              message.media_type?.startsWith("text/")) && (
-              <a
-                href={message.media_url}
-                target="_blank"
-                rel="noreferrer"
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-[7.5px] shadow-sm relative no-underline ${isOutbound ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none" : "bg-white border border-gray-100 text-[#111b21] rounded-tl-none"}`}
-              >
-                {isOutbound ? outTail : inTail}
-                <FileText size={20} className="text-[#667781] shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-[13.5px] font-medium text-[#111b21] truncate">
-                    {message.file_name ||
-                      message.text ||
-                      message.caption ||
-                      "Document"}
-                  </p>
-                  <p className="text-[11px] text-[#8696a0]">
-                    {message.media_type}
-                  </p>
-                </div>
-              </a>
-            )}
+{/* ───── DOCUMENT / PDF (from media_type field) ───── */}
+{message.media_url &&
+  (message.media_type?.startsWith("application/") ||
+    message.media_type?.startsWith("text/")) && (() => {
+    const mt = message.media_type || "";
+    const fn = message.file_name || message.text || message.caption || "Document";
+    const ext = fn.includes(".") ? fn.split(".").pop()?.toUpperCase() : null;
+    const typeLabel =
+      mt.includes("pdf") ? "PDF" :
+      mt.includes("presentation") || mt.includes("powerpoint") ? "PPTX" :
+      mt.includes("word") || mt.includes("document") ? "DOCX" :
+      mt.includes("sheet") || mt.includes("excel") ? "XLSX" :
+      mt.includes("csv") ? "CSV" :
+      mt.includes("plain") ? "TXT" :
+      ext || "FILE";
+    const bgColor =
+      mt.includes("pdf") ? "#E53935" :
+      mt.includes("presentation") || mt.includes("powerpoint") ? "#D84315" :
+      mt.includes("word") || mt.includes("document") ? "#1565C0" :
+      mt.includes("sheet") || mt.includes("excel") ? "#2E7D32" :
+      "#546E7A";
+  return (
+  <a
+    href={message.media_url}
+        target="_blank"
+        rel="noreferrer"
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-[7.5px] shadow-sm relative no-underline min-w-[200px] max-w-[260px] ${
+          isOutbound
+            ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none"
+            : "bg-white border border-gray-100 text-[#111b21] rounded-tl-none"
+        }`}
+      >
+        {isOutbound ? outTail : inTail}
+        <div
+          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-white text-[10px] font-bold"
+          style={{ backgroundColor: bgColor }}
+        >
+          {typeLabel}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13.5px] font-medium text-[#111b21] truncate">
+            {fn}
+          </p>
+          <p className="text-[11px] text-[#8696a0] mt-0.5">
+            {typeLabel} · Tap to open
+          </p>
+        </div>
+      </a>
+    );
+  })()}
 
           {/* ───── DOCUMENT (legacy message_type field) ───── */}
           {!message.media_url && message.message_type === "document" && (
@@ -298,12 +324,35 @@ export default function MessageBubble({
                 className={`px-3 py-2 rounded-[7.5px] shadow-sm relative ${isOutbound ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none" : "bg-white border border-gray-100 text-[#111b21] rounded-tl-none"}`}
               >
                 {isOutbound ? outTail : inTail}
-              <p
+              {/* <p
                 className="text-[13.5px] leading-snug break-words"
                 style={{ whiteSpace: 'pre-wrap' }}
               >
                 {message.text?.replace(/\\n/g, '\n')}
-              </p>
+              </p> */}
+<p
+        className="text-[13.5px] leading-snug break-words"
+        style={{ whiteSpace: 'pre-wrap' }}
+      >
+        {message.text?.replace(/\\n/g, '\n').split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
+          /^https?:\/\//.test(part) ? (
+            <a
+              key={i}
+              href={part}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[#027eb5] underline break-all"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {part}
+            </a>
+          ) : (
+            part
+          )
+        )}
+      </p>
+
+              
               </div>
             )}
 
