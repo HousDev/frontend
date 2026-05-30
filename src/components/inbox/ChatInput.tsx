@@ -21,6 +21,8 @@ interface Props {
     onSendMedia?: (file: File, caption: string) => Promise<void>;
     onSendLocation?: (lat: number, lng: number) => Promise<void>;
     disabled?: boolean;
+        isBlocked?: boolean;
+
 }
 
 // Complete WhatsApp emoji set with proper categories
@@ -127,7 +129,7 @@ interface SelectedFile {
     type: 'image' | 'video' | 'audio' | 'document';
 }
 
-export default function ChatInput({ templates, onSendText, onSendTemplate, onSendMedia, onSendLocation, disabled }: Props) {
+export default function ChatInput({ templates, onSendText, onSendTemplate, onSendMedia, onSendLocation, disabled, isBlocked }: Props) {
     const [text, setText] = useState('');
     const [showTemplates, setShowTemplates] = useState(false);
     const [sending, setSending] = useState(false);
@@ -539,7 +541,7 @@ const handleSend = async () => {
         e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
     }}
     onKeyDown={handleKeyDown}
-    placeholder={disabled ? 'Conversation closed' : 'Message'}
+placeholder={disabled ? (isBlocked ? 'Contact is blocked' : 'Conversation closed') : 'Message'}
     disabled={disabled || sending}
     rows={1}
     className="flex-1 min-w-0 resize-none bg-white rounded-2xl px-3 sm:px-4 py-2 text-[14px] text-[#111b21] placeholder-[#8696a0] focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed max-h-[100px] leading-relaxed"
@@ -560,10 +562,10 @@ const handleSend = async () => {
 )}
 
                 {/* Send / Mic button */}
-               <button
+             <button
     onClick={canSend ? handleSend : undefined}
     disabled={sending || disabled}
-    className="w-8 h-8 sm:w-10 sm:h-10 bg-[#008069] text-white rounded-full flex items-center justify-center hover:bg-[#017561] active:bg-[#015f4e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-md"
+    className="w-10 h-10 sm:w-11 sm:h-11 bg-[#008069] text-white rounded-full flex items-center justify-center hover:bg-[#017561] active:bg-[#015f4e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-md"
 >
     {sending ? (
         <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

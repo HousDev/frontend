@@ -175,8 +175,7 @@ const BuyersPage = () => {
   }
 
   /* ---------------- UI state ---------------- */
-  const [activeTab, setActiveTab] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
+const [activeTab, setActiveTab] = useState('uncontacts');  const [searchTerm, setSearchTerm] = useState('');
   const [selectedBuyers, setSelectedBuyers] = useState<Array<number | string>>([]);
   const [showBuyerForm, setShowBuyerForm] = useState(false);
   const [currentBuyerView, setCurrentBuyerView] = useState<UIBuyer | null>(null);

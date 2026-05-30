@@ -393,7 +393,7 @@ const SellersPage: React.FC = () => {
     );
   }
 
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("uncontacts");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSellers, setSelectedSellers] = useState<number[]>([]);
   const [showSellerForm, setShowSellerForm] = useState(false);

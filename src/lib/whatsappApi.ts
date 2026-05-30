@@ -547,4 +547,20 @@ bulkDeleteCampaigns: async (ids: (string | number)[]): Promise<{ success: boolea
   const response = await api.post("/messages/send-location", data);
   return handleResponse(response);
 },
+
+// ADD before the closing };
+clearChatHistory: async (contactId: string | number) => {
+  const response = await api.patch(`/messages/${contactId}/clear`);
+  return handleResponse(response);
+},
+
+blockContact: async (contactId: string | number) => {
+  const response = await api.patch(`/contacts/${contactId}/block`);
+  return handleResponse(response);
+},
+
+unblockContact: async (contactId: string | number) => {
+  const response = await api.patch(`/contacts/${contactId}/unblock`);
+  return handleResponse(response);
+},
 };
