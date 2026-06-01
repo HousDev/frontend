@@ -110,7 +110,7 @@ const LeadsPage: React.FC = () => {
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [showEditLeadModal, setShowEditLeadModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [activeTab, setActiveTab] = useState<TabID>('all');
+  const [activeTab, setActiveTab] = useState<TabID>('new');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 const [searchTerm, setSearchTerm] = useState('');
 // Add these with other bulk action states

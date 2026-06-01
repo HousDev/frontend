@@ -403,7 +403,9 @@ export interface WhatsAppMessage {
   time_sent?: string;
   is_read?: boolean;
   media_type?: string | null;   
-  file_name?: string | null;    
+  file_name?: string | null;  
+  file_size?: number | null;    // ← ADD
+  page_count?: number | null;   // ← ADD  
   sending?: boolean;
   isInteractive?: boolean;
 buttons?: { title: string; next_step?: number }[] | null;
