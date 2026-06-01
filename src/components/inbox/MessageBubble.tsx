@@ -31,7 +31,14 @@ interface Props {
 const getMediaUrl = (url: string) => {
   if (!url) return url;
   if (url.startsWith('http')) return url;
-  return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${url}`;
+  
+  // Get the base API URL from env, but strip any trailing slash and remove "/api"
+  let base = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  base = base.replace(/\/$/, '').replace(/\/api$/, ''); // Remove trailing slash and /api
+  
+  // Ensure url starts with a slash
+  const path = url.startsWith('/') ? url : '/' + url;
+  return `${base}${path}`;
 };
 export default function MessageBubble({
   message,
