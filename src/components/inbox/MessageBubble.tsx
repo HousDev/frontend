@@ -133,57 +133,181 @@ export default function MessageBubble({
           )}
 
           {/* ───── DOCUMENT / PDF (from media_type field) ───── */}
-{/* ───── DOCUMENT / PDF (from media_type field) ───── */}
+{/* ───── DOCUMENT / PDF ───── */}
+{/* ───── DOCUMENT / PDF ───── */}
 {message.media_url &&
   (message.media_type?.startsWith("application/") ||
-    message.media_type?.startsWith("text/")) && (() => {
+    message.media_type?.startsWith("text/")) &&
+  (() => {
     const mt = message.media_type || "";
-    const fn = message.file_name || message.text || message.caption || "Document";
-    const ext = fn.includes(".") ? fn.split(".").pop()?.toUpperCase() : null;
-    const typeLabel =
-      mt.includes("pdf") ? "PDF" :
-      mt.includes("presentation") || mt.includes("powerpoint") ? "PPTX" :
-      mt.includes("word") || mt.includes("document") ? "DOCX" :
-      mt.includes("sheet") || mt.includes("excel") ? "XLSX" :
-      mt.includes("csv") ? "CSV" :
-      mt.includes("plain") ? "TXT" :
-      ext || "FILE";
-    const bgColor =
-      mt.includes("pdf") ? "#E53935" :
-      mt.includes("presentation") || mt.includes("powerpoint") ? "#D84315" :
-      mt.includes("word") || mt.includes("document") ? "#1565C0" :
-      mt.includes("sheet") || mt.includes("excel") ? "#2E7D32" :
-      "#546E7A";
-  return (
-  <a
-    href={message.media_url}
-        target="_blank"
-        rel="noreferrer"
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-[7.5px] shadow-sm relative no-underline min-w-[200px] max-w-[260px] ${
+
+    const fn =
+      message.file_name ||
+      message.text ||
+      message.caption ||
+      "Document";
+
+    const fileSizeKb = message.file_size
+      ? `${Math.round(message.file_size / 1024)} kB · `
+      : "";
+
+    const fnLower = fn.toLowerCase();
+
+    const isPdf =
+      mt.includes("pdf") || fnLower.endsWith(".pdf");
+
+    const isExcel =
+      mt.includes("sheet") ||
+      mt.includes("excel") ||
+      fnLower.endsWith(".xlsx") ||
+      fnLower.endsWith(".xls") ||
+      fnLower.endsWith(".csv");
+
+    const isWord =
+      !isExcel &&
+      (mt.includes("word") ||
+        mt.includes("document") ||
+        fnLower.endsWith(".docx") ||
+        fnLower.endsWith(".doc"));
+
+    const isPpt =
+      !isExcel &&
+      !isWord &&
+      (mt.includes("presentation") ||
+        mt.includes("powerpoint") ||
+        fnLower.endsWith(".pptx"));
+
+    const typeLabel = isPdf
+      ? "PDF"
+      : isExcel
+      ? "XLSX"
+      : isWord
+      ? "DOCX"
+      : isPpt
+      ? "PPTX"
+      : "FILE";
+
+    const iconBg = isPdf
+      ? "#E53935"
+      : isExcel
+      ? "#43A047"
+      : isWord
+      ? "#1E88E5"
+      : isPpt
+      ? "#FB8C00"
+      : "#546E7A";
+
+    return (
+      <div
+        className={`relative overflow-hidden rounded-[7.5px] shadow-sm w-full max-w-[280px] sm:max-w-[320px] ${
           isOutbound
-            ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none"
-            : "bg-white border border-gray-100 text-[#111b21] rounded-tl-none"
+            ? "bg-[#d9fdd3] rounded-tr-none"
+            : "bg-white border border-[#e9edef] rounded-tl-none"
         }`}
       >
         {isOutbound ? outTail : inTail}
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-white text-[10px] font-bold"
-          style={{ backgroundColor: bgColor }}
-        >
-          {typeLabel}
+
+        {/* PDF PREVIEW */}
+       {/* PDF PREVIEW */}
+{isPdf && (
+  <div
+    className="w-[280px] bg-[#f0f2f5] overflow-hidden"
+    style={{
+      height: "130px",
+    }}
+  >
+   <iframe
+  src={`${message.media_url}#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+  title="PDF Preview"
+  scrolling="no"
+  className="border-none pointer-events-none"
+  style={{
+    width: "700px",
+    height: "1200px",
+    transform: "scale(0.42)",
+    transformOrigin: "top left",
+    marginTop: "-8px",
+  }}
+/>
+  </div>
+)}
+
+        {/* FILE CARD */}
+        <div className="bg-[#f7f8fa] px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+
+            {/* LEFT */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {!isPdf && (
+                <div
+                  className="flex items-center justify-center shrink-0"
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "3px",
+                    backgroundColor: iconBg,
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: "12px",
+                  }}
+                >
+                  {isExcel
+                    ? "X"
+                    : isWord
+                    ? "W"
+                    : isPpt
+                    ? "P"
+                    : "F"}
+                </div>
+              )}
+
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-[13px] font-medium text-[#111b21] leading-tight"
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {fn}
+                </p>
+
+                <p className="text-[11px] text-[#667781] mt-0.5">
+                  {fileSizeKb}
+                  {typeLabel}
+                </p>
+              </div>
+            </div>
+
+            {/* DOWNLOAD */}
+            <a
+              href={message.media_url}
+              download={fn}
+              onClick={(e) => e.stopPropagation()}
+              className="shrink-0 text-[#667781] hover:text-[#111b21]"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 3v12" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M5 21h14" />
+              </svg>
+            </a>
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[13.5px] font-medium text-[#111b21] truncate">
-            {fn}
-          </p>
-          <p className="text-[11px] text-[#8696a0] mt-0.5">
-            {typeLabel} · Tap to open
-          </p>
-        </div>
-      </a>
+      </div>
     );
   })()}
-
           {/* ───── DOCUMENT (legacy message_type field) ───── */}
           {!message.media_url && message.message_type === "document" && (
             <div
