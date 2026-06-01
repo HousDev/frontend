@@ -817,8 +817,7 @@ const handleBlock = async () => {
                 {/* Messages Area */}
                 <div
                 
-                    className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 space-y-1 max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-150px)]"
-                    style={{
+className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 space-y-1 max-h-[calc(100vh-160px)] sm:max-h-[calc(100vh-150px)]"                    style={{
                         backgroundColor: '#efeae2',
                         backgroundImage: `url(${whatsapp_bg})`,
                         backgroundRepeat: 'repeat',
@@ -867,8 +866,7 @@ const handleBlock = async () => {
 />
             </div>
 
-            {/* Contact Info Sidebar (Desktop) */}
-            {/* Contact Info Sidebar - toggles on avatar click, all screen sizes */}
+
           {/* Contact Info Sidebar (Desktop) */}
 {showContactInfo && (
 <div className="w-72 shrink-0 border-l border-gray-200 bg-white overflow-y-auto">                <ContactInfo
