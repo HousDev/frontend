@@ -1603,6 +1603,24 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   const [isLoadingSociety, setIsLoadingSociety] = useState(false);
   const [isEditDataLoaded, setIsEditDataLoaded] = useState(false);
 
+  // ========== HELPER: convert dropdown label to ID ==========
+const resolveDropdownField = (
+  fieldValue: string | undefined,
+  options: MasterOption[]
+): string => {
+  if (!fieldValue) return "";
+  // Already an ID?
+  if (options.some(opt => String(opt.value) === String(fieldValue))) {
+    return String(fieldValue);
+  }
+  const normalizedInput = String(fieldValue).toLowerCase().replace(/\s+/g, '');
+  const match = options.find(opt => {
+    const normalizedLabel = String(opt.label).toLowerCase().replace(/\s+/g, '');
+    return normalizedLabel === normalizedInput;
+  });
+  return match ? String(match.value) : "";
+};
+
   const getLabelFromValue = (options: MasterOption[] = [], value: string): string => {
     if (!value || !options || !Array.isArray(options)) return '';
     const exactMatch = options.find(o => String(o.value) === String(value));
@@ -1876,6 +1894,42 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       setSocietyDetails(null);
     };
   }, [isOpen]);
+
+
+  // ========== CONVERT stored labels to dropdown IDs after master data loads ==========
+useEffect(() => {
+  // Wait until we have the required master options
+  const needed = [
+    "property subtype", "property type", "unit type", "furnishing",
+    "parking type", "property status", "lead source", "selling rights",
+    "bedrooms", "bathrooms", "facing", "balcony"
+  ];
+  const optionsLoaded = needed.every(key => masterOptions[key] && masterOptions[key].length > 0);
+  if (!optionsLoaded) return;
+
+  // Only run for edit mode after initial data is loaded
+  if (mode !== 'edit' || !initialData || !isEditDataLoaded) return;
+
+  const updates: Partial<PropertyFormData> = {};
+
+  updates.propertyType = resolveDropdownField(formData.propertyType, masterOptions["property type"]);
+  updates.propertySubtype = resolveDropdownField(formData.propertySubtype, masterOptions["property subtype"]);
+  updates.unitType = resolveDropdownField(formData.unitType, masterOptions["unit type"]);
+  updates.furnishing = resolveDropdownField(formData.furnishing, masterOptions["furnishing"]);
+  updates.parkingType = resolveDropdownField(formData.parkingType, masterOptions["parking type"]);
+  updates.status = resolveDropdownField(formData.status, masterOptions["property status"]);
+  updates.leadSource = resolveDropdownField(formData.leadSource, masterOptions["lead source"]);
+  updates.sellingRights = resolveDropdownField(formData.sellingRights, masterOptions["selling rights"]);
+  updates.bedrooms = resolveDropdownField(formData.bedrooms, masterOptions["bedrooms"]);
+  updates.bathrooms = resolveDropdownField(formData.bathrooms, masterOptions["bathrooms"]);
+  updates.facing = resolveDropdownField(formData.facing, masterOptions["facing"]);
+  updates.balcony = resolveDropdownField(formData.balcony, masterOptions["balcony"]);
+
+  // Only update if something actually changed
+  if (Object.values(updates).some(v => v !== undefined && v !== "")) {
+    setFormData(prev => ({ ...prev, ...updates }));
+  }
+}, [masterOptions, mode, initialData, isEditDataLoaded, formData.propertyType, formData.propertySubtype, formData.unitType, formData.furnishing, formData.parkingType, formData.status, formData.leadSource, formData.sellingRights, formData.bedrooms, formData.bathrooms, formData.facing, formData.balcony]);
 
   // Separate effect for edit mode - runs after societyOptions is loaded
   useEffect(() => {

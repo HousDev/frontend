@@ -216,19 +216,17 @@ export default function MessageBubble({
       height: "130px",
     }}
   >
-   <iframe
-  src={`${message.media_url}#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-  title="PDF Preview"
-  scrolling="no"
-  className="border-none pointer-events-none"
-  style={{
-    width: "700px",
-    height: "1200px",
-    transform: "scale(0.42)",
-    transformOrigin: "top left",
-    marginTop: "-8px",
-  }}
-/>
+    <iframe
+src={`${getMediaUrl(message.media_url)}#page=1&toolbar=0&navpanes=0&scrollbar=0`}      title="PDF Preview"
+      scrolling="no"
+      className="border-none pointer-events-none"
+      style={{
+        width: "700px",
+        height: "1200px",
+        transform: "scale(0.42)",
+        transformOrigin: "top left",
+      }}
+    />
   </div>
 )}
 
@@ -282,7 +280,7 @@ export default function MessageBubble({
 
             {/* DOWNLOAD */}
             <a
-              href={message.media_url}
+href={getMediaUrl(message.media_url)}
               download={fn}
               onClick={(e) => e.stopPropagation()}
               className="shrink-0 text-[#667781] hover:text-[#111b21]"
