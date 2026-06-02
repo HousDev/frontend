@@ -218,22 +218,17 @@ export default function MessageBubble({
        {/* PDF PREVIEW */}
 {isPdf && (
   <div
-    className="w-[280px] bg-[#f0f2f5] overflow-hidden"
-    style={{
-      height: "130px",
-    }}
+    className="w-[280px] bg-[#dfe5e7] flex flex-col items-center justify-center cursor-pointer"
+    style={{ height: "130px" }}
+    onClick={() => window.open(getMediaUrl(message.media_url), "_blank")}
   >
-    <iframe
-src={`${getMediaUrl(message.media_url)}#page=1&toolbar=0&navpanes=0&scrollbar=0`}      title="PDF Preview"
-      scrolling="no"
-      className="border-none pointer-events-none"
-      style={{
-        width: "700px",
-        height: "1200px",
-        transform: "scale(0.42)",
-        transformOrigin: "top left",
-      }}
-    />
+    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#b0bec5" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+    <span className="text-[11px] font-semibold text-[#E53935] mt-2 tracking-wide">PDF</span>
   </div>
 )}
 
@@ -286,28 +281,34 @@ src={`${getMediaUrl(message.media_url)}#page=1&toolbar=0&navpanes=0&scrollbar=0`
             </div>
 
             {/* DOWNLOAD */}
-            <a
-href={getMediaUrl(message.media_url)}
-              download={fn}
-              onClick={(e) => e.stopPropagation()}
-              className="shrink-0 text-[#667781] hover:text-[#111b21]"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 3v12" />
-                <path d="M7 10l5 5 5-5" />
-                <path d="M5 21h14" />
-              </svg>
-            </a>
+          <button
+  onClick={async (e) => {
+    e.stopPropagation();
+    const url = getMediaUrl(message.media_url);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('fetch failed');
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fn;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch {
+      window.open(url, '_blank');
+    }
+  }}
+  className="shrink-0 text-[#667781] hover:text-[#111b21] bg-transparent border-none cursor-pointer p-0"
+>
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3v12"/>
+    <path d="M7 10l5 5 5-5"/>
+    <path d="M5 21h14"/>
+  </svg>
+</button>
           </div>
         </div>
       </div>
