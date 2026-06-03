@@ -2357,7 +2357,7 @@ const matchesColSearch =
       {/* Modals */}
       <BuyerSidebarFilter isOpen={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} resetFilters={resetFilters} sources={sources} stages={stagesFromMasters} priorities={prioritiesFromMasters} budgetRanges={budgetRanges} propertyTypes={propertyTypes} executives={executives.map(e => ({ id: e.id, name: e.name }))} />
       <BuyerFormModal isOpen={showBuyerForm} onClose={() => { setShowBuyerForm(false); setEditingBuyer(null); }} buyer={editingBuyer} onSave={handleSaveBuyer} />
-      <ImportBuyersLeadsModal isOpen={showImportBuyers} onClose={() => setShowImportBuyers(false)} />
+      <ImportBuyersLeadsModal isOpen={showImportBuyers} onClose={() => setShowImportBuyers(false)} onImportComplete={fetchBuyers} />
         {/* Buyer Follow-up Modal */}
 {showBuyerFollowupModal && selectedBuyerForFollowup && (
   <BuyerFollowupModal

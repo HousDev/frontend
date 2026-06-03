@@ -1,6 +1,6 @@
 
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Users,
   Plus,
@@ -461,26 +461,45 @@ const [selectedSellerForFollowup, setSelectedSellerForFollowup] = useState<any>(
     fetchMasters();
   }, []);
 
-  useEffect(() => {
-    const fetchSellers = async () => {
-      try {
-        setLoading(true);
-        const apiSellers = await sellerAPI.getAll();
-        const normalized = Array.isArray(apiSellers)
-          ? apiSellers.map(mapApiSellerToUI)
-          : [];
-        setAllSellers(normalized);
-      } catch (err) {
-        console.error("Error fetching sellers:", err);
-        setAllSellers([]);
-        setErrMsg("Failed to load sellers");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSellers();
-  }, []);
+  // useEffect(() => {
+  //   const fetchSellers = async () => {
+  //     try {
+  //       setLoading(true);
+  //       const apiSellers = await sellerAPI.getAll();
+  //       const normalized = Array.isArray(apiSellers)
+  //         ? apiSellers.map(mapApiSellerToUI)
+  //         : [];
+  //       setAllSellers(normalized);
+  //     } catch (err) {
+  //       console.error("Error fetching sellers:", err);
+  //       setAllSellers([]);
+  //       setErrMsg("Failed to load sellers");
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+  //   fetchSellers();
+  // }, []);
 
+
+const loadSellers = useCallback(async () => {
+  try {
+    setLoading(true);
+    const apiSellers = await sellerAPI.getAll();
+    const normalized = Array.isArray(apiSellers) ? apiSellers.map(mapApiSellerToUI) : [];
+    setAllSellers(normalized);
+  } catch (err) {
+    console.error("Error fetching sellers:", err);
+    setAllSellers([]);
+    setErrMsg("Failed to load sellers");
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
+useEffect(() => {
+  loadSellers();
+}, [loadSellers]);
   useEffect(() => {
     if (allSellers.length > 0 && user) {
       const filtered = filterSellersByRole(user, allSellers);
@@ -1059,10 +1078,11 @@ const [selectedSellerForFollowup, setSelectedSellerForFollowup] = useState<any>(
       width: "400px",
       padding: "1.5rem",
       customClass: {
-        popup: "rounded-xl",
-        confirmButton: "px-4 py-2 bg-red-600 text-white rounded-lg",
-        cancelButton: "px-4 py-2 bg-gray-500 text-white rounded-lg",
-      },
+  popup: "rounded-xl",
+  actions: "flex gap-3",
+  confirmButton: "px-4 py-2 bg-red-600 text-white rounded-lg",
+  cancelButton: "px-4 py-2 bg-gray-500 text-white rounded-lg",
+},
       buttonsStyling: false,
     });
     if (!result.isConfirmed) return;
@@ -2141,6 +2161,9 @@ onEdit={(sellerData) => {
         <ImportSellersLeadsModal
           isOpen={showImportLeads}
           onClose={() => setShowImportLeads(false)}
+          onImportComplete={loadSellers}  
+          
+
         />
       )}
 
