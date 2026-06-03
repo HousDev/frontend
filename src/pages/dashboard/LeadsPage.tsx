@@ -1901,6 +1901,7 @@ const exportLeads = async () => {
         <ImportLeadsModal
           isOpen={showImportModal}
           onClose={() => setShowImportModal(false)}
+          onSuccess={fetchLeads} 
         />
       )}
     </div>
