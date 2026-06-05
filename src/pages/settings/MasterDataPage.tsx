@@ -60,6 +60,7 @@ interface SocietyData {
   id?: string;
   status?: string;
   createdAt?: string;
+  amenities?: string[];
 }
 
 interface ConnectedRemark {
@@ -764,48 +765,48 @@ export default function MasterDataPage(): JSX.Element {
     setSelectedValueIds([]);
   };
 
- const handleExport = async (): Promise<void> => {
-  if (!selectedMaster) return;
+  const handleExport = async (): Promise<void> => {
+    if (!selectedMaster) return;
 
-  // Export all values (not just filtered ones) – same as original CSV export
-  const valuesToExport = selectedMaster.values.map(v => ({
-    'Value': v.value,
-    'Status': v.status,
-  }));
+    // Export all values (not just filtered ones) – same as original CSV export
+    const valuesToExport = selectedMaster.values.map(v => ({
+      'Value': v.value,
+      'Status': v.status,
+    }));
 
-  if (valuesToExport.length === 0) {
-    toast.warn("No values to export.");
-    return;
-  }
+    if (valuesToExport.length === 0) {
+      toast.warn("No values to export.");
+      return;
+    }
 
-  const ws = XLSX.utils.json_to_sheet(valuesToExport);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, selectedMaster.name);
-  XLSX.writeFile(wb, `${selectedMaster.name}_values.xlsx`);
-  toast.success(`Values exported successfully for "${selectedMaster.name}" ✅`);
-};
+    const ws = XLSX.utils.json_to_sheet(valuesToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, selectedMaster.name);
+    XLSX.writeFile(wb, `${selectedMaster.name}_values.xlsx`);
+    toast.success(`Values exported successfully for "${selectedMaster.name}" ✅`);
+  };
 
- const handleMasterExport = async (): Promise<void> => {
-  if (isConnectedRemarkTab) return;
+  const handleMasterExport = async (): Promise<void> => {
+    if (isConnectedRemarkTab) return;
 
-  // Use the currently filtered master items (respect search)
-  const dataToExport = filteredMasterItems.map(item => ({
-    'Name': item.name,
-    'Status': item.status,
-    'Value Count': item.valueCount,
-  }));
+    // Use the currently filtered master items (respect search)
+    const dataToExport = filteredMasterItems.map(item => ({
+      'Name': item.name,
+      'Status': item.status,
+      'Value Count': item.valueCount,
+    }));
 
-  if (dataToExport.length === 0) {
-    toast.warn("No data to export.");
-    return;
-  }
+    if (dataToExport.length === 0) {
+      toast.warn("No data to export.");
+      return;
+    }
 
-  const ws = XLSX.utils.json_to_sheet(dataToExport);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, activeTab.title);
-  XLSX.writeFile(wb, `${activeTab.title}_master_types.xlsx`);
-  toast.success("Master types exported successfully ✅");
-};
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, activeTab.title);
+    XLSX.writeFile(wb, `${activeTab.title}_master_types.xlsx`);
+    toast.success("Master types exported successfully ✅");
+  };
 
   const handleImport = async (file: File): Promise<void> => {
     try {
@@ -939,88 +940,88 @@ export default function MasterDataPage(): JSX.Element {
       <main className="p-3 sm:p-4">
         {currentView === "list" ? (
           <>
-           <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between mb-4 sm:mb-6">
+            <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between mb-4 sm:mb-6">
 
-  {/* 🔹 MOBILE: Heading + Create button in same row */}
-  <div className="flex items-center justify-between md:block">
-    <h2 className="text-base sm:text-lg font-semibold truncate">
-      {activeTab.title}
-    </h2>
+              {/* 🔹 MOBILE: Heading + Create button in same row */}
+              <div className="flex items-center justify-between md:block">
+                <h2 className="text-base sm:text-lg font-semibold truncate">
+                  {activeTab.title}
+                </h2>
 
-    {/* Create button (mobile only) */}
-    <div className="md:hidden">
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-2 text-xs"
-      >
-        <Plus size={14} />
-       <span className="whitespace-nowrap">
-        {isConnectedRemarkTab
-          ? "Add Connected Remark"
-          : isSocietyTab
-          ? "Add Society"
-          : `Create ${activeTab.title} types`}
-      </span>
-      </button>
-    </div>
-  </div>
+                {/* Create button (mobile only) */}
+                <div className="md:hidden">
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-2 text-xs"
+                  >
+                    <Plus size={14} />
+                    <span className="whitespace-nowrap">
+                      {isConnectedRemarkTab
+                        ? "Add Connected Remark"
+                        : isSocietyTab
+                          ? "Add Society"
+                          : `Create ${activeTab.title} types`}
+                    </span>
+                  </button>
+                </div>
+              </div>
 
-  {/* 🔹 RIGHT SECTION */}
-  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap w-full md:w-auto">
+              {/* 🔹 RIGHT SECTION */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap w-full md:w-auto">
 
-    {/* Search */}
-    <input
-      type="text"
-      placeholder="Search..."
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      className="w-full sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
+                {/* Search */}
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
 
-    {/* 🔹 MOBILE: Import + Export in one row */}
-    {!isConnectedRemarkTab && !isSocietyTab && (
-      <div className="flex gap-2 w-full md:w-auto">
-        <button
-          onClick={() => {
-            setImportType("master");
-            setIsImportModalOpen(true);
-          }}
-          className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
-        >
-          <Upload size={14} />
-          <span className="whitespace-nowrap">
-            Import {activeTab.title}
-          </span>
-        </button>
+                {/* 🔹 MOBILE: Import + Export in one row */}
+                {!isConnectedRemarkTab && !isSocietyTab && (
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <button
+                      onClick={() => {
+                        setImportType("master");
+                        setIsImportModalOpen(true);
+                      }}
+                      className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
+                    >
+                      <Upload size={14} />
+                      <span className="whitespace-nowrap">
+                        Import {activeTab.title}
+                      </span>
+                    </button>
 
-        <button
-          onClick={handleMasterExport}
-          disabled={!filteredMasterItems.length}
-          className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
-        >
-          <Download size={14} />
-          <span className="whitespace-nowrap">Export</span>
-        </button>
-      </div>
-    )}
+                    <button
+                      onClick={handleMasterExport}
+                      disabled={!filteredMasterItems.length}
+                      className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                    >
+                      <Download size={14} />
+                      <span className="whitespace-nowrap">Export</span>
+                    </button>
+                  </div>
+                )}
 
-    {/* 🔹 DESKTOP: Create button (unchanged) */}
-    <button
-      onClick={() => setIsModalOpen(true)}
-      className="hidden md:flex w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg items-center justify-center gap-2 text-xs"
-    >
-      <Plus size={14} />
-      <span className="whitespace-nowrap">
-        {isConnectedRemarkTab
-          ? "Add Connected Remark"
-          : isSocietyTab
-          ? "Add Society"
-          : `Create ${activeTab.title} types`}
-      </span>
-    </button>
+                {/* 🔹 DESKTOP: Create button (unchanged) */}
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="hidden md:flex w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg items-center justify-center gap-2 text-xs"
+                >
+                  <Plus size={14} />
+                  <span className="whitespace-nowrap">
+                    {isConnectedRemarkTab
+                      ? "Add Connected Remark"
+                      : isSocietyTab
+                        ? "Add Society"
+                        : `Create ${activeTab.title} types`}
+                  </span>
+                </button>
 
-  </div>
-</div>
+              </div>
+            </div>
 
             {isLoading ? (
               <div className="text-center py-10 sm:py-12">
@@ -1036,242 +1037,291 @@ export default function MasterDataPage(): JSX.Element {
                   </div>
                 ) : (
                   <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-  <div className="overflow-auto max-h-[380px] sm:max-h-[450px]">
-    <table className="min-w-[800px] w-full border-collapse">
+                    <div className="overflow-auto max-h-[380px] sm:max-h-[450px]">
+                          <table className="min-w-[1200px] w-full border-collapse table-fixed">
 
-      <thead className="sticky top-0 z-10">
-        <tr className="border-b bg-gray-50">
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">#</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Tab Id</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Type 1</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Value 1</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Type 2</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Value 2</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Remarks</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
-        </tr>
-      </thead>
+                        <thead className="sticky top-0 z-10">
+                          <tr className="border-b bg-gray-50">
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">#</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Tab Id</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Type 1</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Value 1</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Type 2</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Value 2</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Remarks</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
+                          </tr>
+                        </thead>
 
-      <tbody className="bg-white divide-y divide-gray-100">
-        {filteredConnectedRemarks.map((remark, index) => (
-          <tr key={remark.id} className="border-b hover:bg-gray-50 transition-colors">
-            <td className="p-3 text-gray-600 text-xs">{index + 1}</td>
-            <td className="p-3 font-medium text-xs">{remark.tab_id || remark.tabId || "N/A"}</td>
-            <td className="p-3 font-medium text-xs">{remark.type1Name || "N/A"}</td>
-            <td className="p-3 font-medium text-xs">{remark.value1Name || "N/A"}</td>
-            <td className="p-3 font-medium text-xs">{remark.type2Name || "N/A"}</td>
-            <td className="p-3 font-medium text-xs">{remark.value2Name || "N/A"}</td>
-            <td className="p-3 font-medium text-xs max-w-xs">
-              {(() => {
-                if (!remark.remarks || (Array.isArray(remark.remarks) && remark.remarks.length === 0)) {
-                  return <span className="text-gray-400">No remarks</span>;
-                }
-                if (Array.isArray(remark.remarks)) {
-                  return (
-                    <ol className="list-decimal list-inside space-y-1">
-                      {remark.remarks.map((remarkText, idx) => {
-                        const text =
-                          typeof remarkText === "object" && remarkText !== null
-                            ? (remarkText as any).note || (remarkText as any).text || (remarkText as any).remark || "Empty remark"
-                            : String(remarkText || "Empty remark");
-                        return (
-                          <li key={idx} className="text-[11px] sm:text-xs text-gray-700 break-words">
-                            {text}
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  );
-                }
-                if (typeof remark.remarks === "object" && remark.remarks !== null) {
-                  const r = remark.remarks as Record<string, any>;
-                  const text = r.note || r.text || r.remark || "Empty remark";
-                  return <span className="text-[11px] sm:text-xs text-gray-700">{text}</span>;
-                }
-                return (
-                  <span className="text-[11px] sm:text-xs text-gray-700">
-                    {String(remark.remarks ?? "Empty remark")}
-                  </span>
-                );
-              })()}
-            </td>
-            <td className="p-3">
-              <span
-                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium border ${
-                  remark.status === "Active"
-                    ? "bg-green-50 text-green-700 border-green-200"
-                    : "bg-red-50 text-red-600 border-red-200"
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${remark.status === "Active" ? "bg-green-500" : "bg-red-500"}`} />
-                {remark.status}
-              </span>
-            </td>
-            <td className="p-3">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEditConnectedRemark(remark)}
-                  className="p-1 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                >
-                  <Edit2 size={14} />
-                </button>
-                <button
-                  onClick={() => handleDeleteConnectedRemark(remark.id)}
-                  className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </td>
-          </tr>
-        ))}
+                        <tbody className="bg-white divide-y divide-gray-100">
+                          {filteredConnectedRemarks.map((remark, index) => (
+                            <tr key={remark.id} className="border-b hover:bg-gray-50 transition-colors">
+                              <td className="p-3 text-gray-600 text-xs">{index + 1}</td>
+                              <td className="p-3 font-medium text-xs">{remark.tab_id || remark.tabId || "N/A"}</td>
+                              <td className="p-3 font-medium text-xs">{remark.type1Name || "N/A"}</td>
+                              <td className="p-3 font-medium text-xs">{remark.value1Name || "N/A"}</td>
+                              <td className="p-3 font-medium text-xs">{remark.type2Name || "N/A"}</td>
+                              <td className="p-3 font-medium text-xs">{remark.value2Name || "N/A"}</td>
+                              <td className="p-3 font-medium text-xs max-w-xs">
+                                {(() => {
+                                  if (!remark.remarks || (Array.isArray(remark.remarks) && remark.remarks.length === 0)) {
+                                    return <span className="text-gray-400">No remarks</span>;
+                                  }
+                                  if (Array.isArray(remark.remarks)) {
+                                    return (
+                                      <ol className="list-decimal list-inside space-y-1">
+                                        {remark.remarks.map((remarkText, idx) => {
+                                          const text =
+                                            typeof remarkText === "object" && remarkText !== null
+                                              ? (remarkText as any).note || (remarkText as any).text || (remarkText as any).remark || "Empty remark"
+                                              : String(remarkText || "Empty remark");
+                                          return (
+                                            <li key={idx} className="text-[11px] sm:text-xs text-gray-700 break-words">
+                                              {text}
+                                            </li>
+                                          );
+                                        })}
+                                      </ol>
+                                    );
+                                  }
+                                  if (typeof remark.remarks === "object" && remark.remarks !== null) {
+                                    const r = remark.remarks as Record<string, any>;
+                                    const text = r.note || r.text || r.remark || "Empty remark";
+                                    return <span className="text-[11px] sm:text-xs text-gray-700">{text}</span>;
+                                  }
+                                  return (
+                                    <span className="text-[11px] sm:text-xs text-gray-700">
+                                      {String(remark.remarks ?? "Empty remark")}
+                                    </span>
+                                  );
+                                })()}
+                              </td>
+                              <td className="p-3">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium border ${remark.status === "Active"
+                                      ? "bg-green-50 text-green-700 border-green-200"
+                                      : "bg-red-50 text-red-600 border-red-200"
+                                    }`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${remark.status === "Active" ? "bg-green-500" : "bg-red-500"}`} />
+                                  {remark.status}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleEditConnectedRemark(remark)}
+                                    className="p-1 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteConnectedRemark(remark.id)}
+                                    className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
 
-        {filteredConnectedRemarks.length === 0 && (
-          <tr>
-            <td colSpan={9} className="p-3 text-center text-xs text-gray-400">
-              No data found
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
+                          {filteredConnectedRemarks.length === 0 && (
+                            <tr>
+                              <td colSpan={9} className="p-3 text-center text-xs text-gray-400">
+                                No data found
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
 
-  <div className="px-3 py-2 bg-gray-50 border-t border-gray-100">
-    <span className="text-xs text-gray-400">
-      Showing <span className="font-medium text-gray-600">{filteredConnectedRemarks.length}</span> records
-    </span>
-  </div>
-</div>
+                    <div className="px-3 py-2 bg-gray-50 border-t border-gray-100">
+                      <span className="text-xs text-gray-400">
+                        Showing <span className="font-medium text-gray-600">{filteredConnectedRemarks.length}</span> records
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
-              ) : isSocietyTab ? (
-                <div className="bg-white rounded-lg shadow-sm">
-                  {/* Bulk Actions Bar */}
-                  {selectedSocietyIds.length > 0 && (
-                    <div className="flex items-center justify-between p-3 bg-blue-50 border-b">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={isAllSocietiesSelected}
-                          onChange={toggleSelectAllSocieties}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {selectedSocietyIds.length} society(s) selected
-                        </span>
-                      </div>
-                      <button
-                        onClick={handleBulkDeleteSocieties}
-                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs"
-                      >
-                        <Trash2 size={14} />
-                        Delete Selected ({selectedSocietyIds.length})
-                      </button>
+            ) : isSocietyTab ? (
+              <div className="bg-white rounded-lg shadow-sm">
+                {/* Bulk Actions Bar */}
+                {selectedSocietyIds.length > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 border-b">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isAllSocietiesSelected}
+                        onChange={toggleSelectAllSocieties}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {selectedSocietyIds.length} society(s) selected
+                      </span>
                     </div>
-                  )}
+                    <button
+                      onClick={handleBulkDeleteSocieties}
+                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs"
+                    >
+                      <Trash2 size={14} />
+                      Delete Selected ({selectedSocietyIds.length})
+                    </button>
+                  </div>
+                )}
 
-                  {filteredSocieties.length === 0 ? (
-                    <div className="text-center py-10 sm:py-12 text-gray-500">
-                      <Plus size={40} className="mx-auto mb-3 opacity-50" />
-                      {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No societies created yet</p>}
+                {filteredSocieties.length === 0 ? (
+                  <div className="text-center py-10 sm:py-12 text-gray-500">
+                    <Plus size={40} className="mx-auto mb-3 opacity-50" />
+                    {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No societies created yet</p>}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                    <div className="overflow-auto max-h-[400px] sm:max-h-[450px]">
+                      <table className="min-w-[800px] w-full border-collapse">
+
+                        <thead className="sticky top-0 z-10">
+                          <tr className="border-b bg-gray-50">
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">
+                              <input
+                                type="checkbox"
+                                checked={isAllSocietiesSelected}
+                                onChange={toggleSelectAllSocieties}
+                                className="h-4 w-4 rounded border-gray-300"
+                              />
+                            </th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">#</th>
+                                  <th className="w-[22%] text-left p-3 font-medium text-[11px] sm:text-xs">Society Name</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Locality</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">City</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Pincode</th>
+                                  <th className="w-[25%] text-left p-3 font-medium text-[11px] sm:text-xs">Amenities</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
+                          </tr>
+                        </thead>
+                              <tbody className="bg-white divide-y divide-gray-100">
+                                {filteredSocieties.map((society, index) => (
+                                  <tr
+                                    key={society.id}
+                                    className="border-b hover:bg-gray-50 transition-colors"
+                                  >
+                                    <td className="p-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedSocietyIds.includes(society.id!)}
+                                        onChange={() => toggleSelectSociety(society.id!)}
+                                        className="h-4 w-4 rounded border-gray-300"
+                                      />
+                                    </td>
+
+                                    <td className="p-3 text-gray-600 text-xs">
+                                      {index + 1}
+                                    </td>
+
+                                    <td className="p-3 font-medium text-xs w-[22%]">
+                                      {society.societyName}
+                                    </td>
+
+                                    <td className="p-3 font-medium text-xs">
+                                      {society.locality}
+                                    </td>
+
+                                    <td className="p-3 font-medium text-xs">
+                                      {society.city}
+                                    </td>
+
+                                    <td className="p-3 font-medium text-xs">
+                                      {society.pincode}
+                                    </td>
+
+                                    {/* Amenities */}
+                                    <td className="p-3 min-w-[300px]">
+                                      {society.amenities?.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {society.amenities.slice(0, 3).map((amenity, idx) => (
+                                            <span
+                                              key={idx}
+                                              className="inline-block px-2 py-1 bg-purple-50 text-purple-600 rounded text-[10px] border border-purple-200"
+                                            >
+                                              {amenity}
+                                            </span>
+                                          ))}
+                                          {society.amenities.length > 3 && (
+                                            <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 rounded text-[10px]">
+                                              +{society.amenities.length - 3}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-gray-400 text-xs">—</span>
+                                      )}
+                                    </td>
+
+                                    {/* Status */}
+                                    <td className="p-3">
+                                      <span
+                                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${society.status === "Active"
+                                            ? "bg-green-50 text-green-700 border-green-200"
+                                            : "bg-red-50 text-red-700 border-red-200"
+                                          }`}
+                                      >
+                                        <span
+                                          className={`w-2 h-2 rounded-full ${society.status === "Active"
+                                              ? "bg-green-500"
+                                              : "bg-red-500"
+                                            }`}
+                                        />
+                                        {society.status || "Active"}
+                                      </span>
+                                    </td>
+
+                                    {/* Actions */}
+                                    <td className="p-3">
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => handleEditSociety(society)}
+                                          className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded"
+                                        >
+                                          <Edit2 size={14} />
+                                        </button>
+
+                                        <button
+                                          onClick={() => handleDeleteSociety(society.id!)}
+                                          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+
+                                {filteredSocieties.length === 0 && (
+                                  <tr>
+                                    <td colSpan={9} className="p-6 text-center text-gray-500">
+                                      No societies found
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                      </table>
                     </div>
-                  ) : (
-                   <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-  <div className="overflow-auto max-h-[400px] sm:max-h-[450px]">
-    <table className="min-w-[800px] w-full border-collapse">
 
-      <thead className="sticky top-0 z-10">
-        <tr className="border-b bg-gray-50">
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">
-            <input
-              type="checkbox"
-              checked={isAllSocietiesSelected}
-              onChange={toggleSelectAllSocieties}
-              className="h-4 w-4 rounded border-gray-300"
-            />
-          </th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">#</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Society Name</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Locality</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">City</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Pincode</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
-        </tr>
-      </thead>
-
-      <tbody className="bg-white divide-y divide-gray-100">
-        {filteredSocieties.map((society, index) => (
-          <tr key={society.id} className="border-b hover:bg-gray-50 transition-colors">
-            <td className="p-3">
-              <input
-                type="checkbox"
-                checked={selectedSocietyIds.includes(society.id!)}
-                onChange={() => toggleSelectSociety(society.id!)}
-                className="h-4 w-4 rounded border-gray-300"
-              />
-            </td>
-            <td className="p-3 text-gray-600 text-xs">{index + 1}</td>
-            <td className="p-3 font-medium text-xs">{society.societyName}</td>
-            <td className="p-3 font-medium text-xs">{society.locality}</td>
-            <td className="p-3 font-medium text-xs">{society.city}</td>
-            <td className="p-3 font-medium text-xs">{society.pincode}</td>
-            <td className="p-3">
-              <span
-                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium border ${
-                  society.status === "Active"
-                    ? "bg-green-50 text-green-700 border-green-200"
-                    : "bg-red-50 text-red-600 border-red-200"
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${society.status === "Active" ? "bg-green-500" : "bg-red-500"}`} />
-                {society.status || "Active"}
-              </span>
-            </td>
-            <td className="p-3">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEditSociety(society)}
-                  className="p-1 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                >
-                  <Edit2 size={14} />
-                </button>
-                <button
-                  onClick={() => handleDeleteSociety(society.id!)}
-                  className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                >
-                  <Trash2 size={14} />
-                </button>
+                    <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                      <span className="text-xs text-gray-400">
+                        Showing <span className="font-medium text-gray-600">{filteredSocieties.length}</span> societies
+                      </span>
+                      {selectedSocietyIds.length > 0 && (
+                        <span className="text-xs text-blue-600 font-medium">{selectedSocietyIds.length} selected</span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            </td>
-          </tr>
-        ))}
-
-        {filteredSocieties.length === 0 && (
-          <tr>
-            <td colSpan={8} className="p-3 text-center text-xs text-gray-400">
-              No societies found
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-
-  <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-    <span className="text-xs text-gray-400">
-      Showing <span className="font-medium text-gray-600">{filteredSocieties.length}</span> societies
-    </span>
-    {selectedSocietyIds.length > 0 && (
-      <span className="text-xs text-blue-600 font-medium">{selectedSocietyIds.length} selected</span>
-    )}
-  </div>
-</div>
-                  )}
-                </div>
-              ) : (
+            ) : (
               <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 max-h-[390px] sm:max-h-[480px] overflow-y-auto pr-2">
                 {filteredMasterItems.length === 0 ? (
                   <div className="col-span-full text-center py-10 sm:py-12 text-gray-500">
@@ -1328,106 +1378,104 @@ export default function MasterDataPage(): JSX.Element {
         ) : (
           <>
             <div className="mb-4 sm:mb-6">
-  <button
-    onClick={handleBackToList}
-    className="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-3 sm:mb-4"
-  >
-    <ArrowLeft size={18} className="sm:size-5" />
-    <span className="text-sm sm:text-base">Back to {activeTab.title}</span>
-  </button>
-
-  <div className="bg-white rounded-lg p-3 sm:p-3 shadow-sm">
-    
-    {/* HEADER */}
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-2 sm:mb-2">
-      
-      {/* TITLE + STATUS (unchanged for desktop) */}
-<div className="flex items-center justify-between w-full sm:w-auto gap-2">        <h2 className="text-sm sm:text-base font-semibold">
-          {selectedMaster?.name}
-        </h2>
-
-        <span
-          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium sm:mt-2 ${
-            selectedMaster?.status === "Active"
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
-          }`}
-        >
-          {selectedMaster?.status === "Active" ? (
-            <CheckCircle size={12} />
-          ) : (
-            <XCircle size={12} />
-          )}
-          {selectedMaster?.status}
-        </span>
-      </div>
-
-      {/* RIGHT SECTION */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap w-full sm:w-auto">
-
-        {/* ✅ MOBILE: BUTTONS FIRST */}
-        <div className="flex flex-row gap-2 w-full sm:w-auto order-1 sm:order-none">
-          {!isConnectedRemarkTab && (
-            <>
               <button
-                onClick={() => {
-                  setImportType("values");
-                  setIsImportModalOpen(true);
-                }}
-                disabled={!selectedMaster}
-                className={`flex-1 sm:w-auto bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs ${
-                  !selectedMaster ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+                onClick={handleBackToList}
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-3 sm:mb-4"
               >
-                <Upload size={14} />
-                <span className="whitespace-nowrap">Import Values</span>
+                <ArrowLeft size={18} className="sm:size-5" />
+                <span className="text-sm sm:text-base">Back to {activeTab.title}</span>
               </button>
 
-              <button
-                onClick={handleExport}
-                disabled={!selectedMaster?.values?.length}
-                className="flex-1 sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
-              >
-                <Download size={14} />
-                <span className="whitespace-nowrap">Export</span>
-              </button>
+              <div className="bg-white rounded-lg p-3 sm:p-3 shadow-sm">
 
-              <button
-                onClick={() => setIsValueModalOpen(true)}
-                className="flex-1 sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
-              >
-                <Plus size={14} />
-                <span className="whitespace-nowrap">Add Value</span>
-              </button>
-            </>
-          )}
-        </div>
+                {/* HEADER */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-2 sm:mb-2">
 
-        {/* ✅ SEARCH + DELETE */}
-        <div className="flex flex-row gap-2 w-full sm:w-auto order-2 sm:order-none">
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+                  {/* TITLE + STATUS (unchanged for desktop) */}
+                  <div className="flex items-center justify-between w-full sm:w-auto gap-2">        <h2 className="text-sm sm:text-base font-semibold">
+                    {selectedMaster?.name}
+                  </h2>
 
-          {!isConnectedRemarkTab && selectedValueIds.length > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs whitespace-nowrap"
-            >
-              <Trash2 size={14} />
-              <span className="whitespace-nowrap">
-                Delete Selected ({selectedValueIds.length})
-              </span>
-            </button>
-          )}
-        </div>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium sm:mt-2 ${selectedMaster?.status === "Active"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                        }`}
+                    >
+                      {selectedMaster?.status === "Active" ? (
+                        <CheckCircle size={12} />
+                      ) : (
+                        <XCircle size={12} />
+                      )}
+                      {selectedMaster?.status}
+                    </span>
+                  </div>
 
-      </div>
-    </div>
+                  {/* RIGHT SECTION */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap w-full sm:w-auto">
+
+                    {/* ✅ MOBILE: BUTTONS FIRST */}
+                    <div className="flex flex-row gap-2 w-full sm:w-auto order-1 sm:order-none">
+                      {!isConnectedRemarkTab && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setImportType("values");
+                              setIsImportModalOpen(true);
+                            }}
+                            disabled={!selectedMaster}
+                            className={`flex-1 sm:w-auto bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs ${!selectedMaster ? "opacity-50 cursor-not-allowed" : ""
+                              }`}
+                          >
+                            <Upload size={14} />
+                            <span className="whitespace-nowrap">Import Values</span>
+                          </button>
+
+                          <button
+                            onClick={handleExport}
+                            disabled={!selectedMaster?.values?.length}
+                            className="flex-1 sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                          >
+                            <Download size={14} />
+                            <span className="whitespace-nowrap">Export</span>
+                          </button>
+
+                          <button
+                            onClick={() => setIsValueModalOpen(true)}
+                            className="flex-1 sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
+                          >
+                            <Plus size={14} />
+                            <span className="whitespace-nowrap">Add Value</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* ✅ SEARCH + DELETE */}
+                    <div className="flex flex-row gap-2 w-full sm:w-auto order-2 sm:order-none">
+                      <input
+                        type="text"
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="flex-1 sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+
+                      {!isConnectedRemarkTab && selectedValueIds.length > 0 && (
+                        <button
+                          onClick={handleBulkDelete}
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs whitespace-nowrap"
+                        >
+                          <Trash2 size={14} />
+                          <span className="whitespace-nowrap">
+                            Delete Selected ({selectedValueIds.length})
+                          </span>
+                        </button>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
 
                 {isValuesLoading ? (
                   <div className="text-center py-8">
@@ -1450,94 +1498,93 @@ export default function MasterDataPage(): JSX.Element {
                   </div>
                 ) : (
                   <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-  <div className="overflow-auto max-h-[320px] sm:max-h-[410px]">
-    <table className="min-w-[600px] w-full border-collapse">
-      
-      <thead className="sticky top-0 z-10">
-        <tr className="bg-gray-100 border-b border-gray-200">
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isAllSelected}
-                onChange={toggleSelectAll}
-                className="h-4 w-4"
-              />
-              <span>#</span>
-            </div>
-          </th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Value</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
-          <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
-        </tr>
-      </thead>
+                    <div className="overflow-auto max-h-[320px] sm:max-h-[410px]">
+                      <table className="min-w-[600px] w-full border-collapse">
 
-      <tbody className="bg-white divide-y divide-gray-100">
-        {filteredValues.map((value, index) => (
-          <tr key={value.id} className="border-b hover:bg-gray-50 transition-colors">
-            <td className="p-3 text-gray-600 text-xs">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={selectedValueIds.includes(value.id)}
-                  onChange={() => toggleSelectValue(value.id)}
-                  className="h-4 w-4"
-                />
-                {index + 1}
-              </div>
-            </td>
-            <td className="p-3 font-medium text-xs">{value.value}</td>
-            <td className="p-3">
-              <span
-                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium border ${
-                  value.status === "Active"
-                    ? "bg-green-50 text-green-700 border-green-200"
-                    : "bg-red-50 text-red-600 border-red-200"
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${value.status === "Active" ? "bg-green-500" : "bg-red-500"}`} />
-                {value.status}
-              </span>
-            </td>
-            <td className="p-3">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEditValue(value)}
-                  className="p-1 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                >
-                  <Edit2 size={14} />
-                </button>
-                <button
-                  onClick={() => handleDeleteValue(value.id)}
-                  className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </td>
-          </tr>
-        ))}
+                        <thead className="sticky top-0 z-10">
+                          <tr className="bg-gray-100 border-b border-gray-200">
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isAllSelected}
+                                  onChange={toggleSelectAll}
+                                  className="h-4 w-4"
+                                />
+                                <span>#</span>
+                              </div>
+                            </th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Value</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
+                            <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
+                          </tr>
+                        </thead>
 
-        {filteredValues.length === 0 && (
-          <tr>
-            <td colSpan={4} className="p-3 text-center text-xs text-gray-400">
-              No values found
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                          {filteredValues.map((value, index) => (
+                            <tr key={value.id} className="border-b hover:bg-gray-50 transition-colors">
+                              <td className="p-3 text-gray-600 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedValueIds.includes(value.id)}
+                                    onChange={() => toggleSelectValue(value.id)}
+                                    className="h-4 w-4"
+                                  />
+                                  {index + 1}
+                                </div>
+                              </td>
+                              <td className="p-3 font-medium text-xs">{value.value}</td>
+                              <td className="p-3">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium border ${value.status === "Active"
+                                      ? "bg-green-50 text-green-700 border-green-200"
+                                      : "bg-red-50 text-red-600 border-red-200"
+                                    }`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${value.status === "Active" ? "bg-green-500" : "bg-red-500"}`} />
+                                  {value.status}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleEditValue(value)}
+                                    className="p-1 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteValue(value.id)}
+                                    className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
 
-  <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-    <span className="text-xs text-gray-400">
-      Showing <span className="font-medium text-gray-600">{filteredValues.length}</span> values
-    </span>
-    {selectedValueIds.length > 0 && (
-      <span className="text-xs text-blue-600 font-medium">{selectedValueIds.length} selected</span>
-    )}
-  </div>
-</div>
+                          {filteredValues.length === 0 && (
+                            <tr>
+                              <td colSpan={4} className="p-3 text-center text-xs text-gray-400">
+                                No values found
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                      <span className="text-xs text-gray-400">
+                        Showing <span className="font-medium text-gray-600">{filteredValues.length}</span> values
+                      </span>
+                      {selectedValueIds.length > 0 && (
+                        <span className="text-xs text-blue-600 font-medium">{selectedValueIds.length} selected</span>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -1605,77 +1652,77 @@ export default function MasterDataPage(): JSX.Element {
       </Modal> */}
 
       <Modal
-  isOpen={isModalOpen && !isSocietyTab}
-  onClose={resetForm}
-  showHeader={false}
-  showCloseButton={false}
->
-  {/* Custom header - same style as SocietyForm */}
-  <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b rounded-t-lg" style={{ background: '#0f2b3d', borderColor: '#e2e8f0' }}>
-    <div className="flex items-center gap-2">
-      <div className="w-1 h-5 rounded-full bg-[#e67e22]" />
-      <h2 className="text-sm font-bold text-white">
-        {isConnectedRemarkTab
-          ? (isEditMode ? "Edit Connected Remark" : "Add Connected Remark")
-          : (isEditMode ? "Edit Master Type" : "Create Master Type")}
-      </h2>
-    </div>
-    <button onClick={resetForm} className="p-1 rounded hover:bg-white/10 transition-colors">
-      <X size={16} color="white" />
-    </button>
-  </div>
-
-  {isConnectedRemarkTab ? (
-    <div className="px-5 py-4">
-      <ConnectedRemarkForm
+        isOpen={isModalOpen && !isSocietyTab}
         onClose={resetForm}
-        onSubmit={handleConnectedRemarkSubmit}
-        initialData={isEditMode && currentConnectedRemark ? (currentConnectedRemark as any) : null}
-      />
-    </div>
-  ) : (
-    <form onSubmit={handleSubmit}>
-      <div className="space-y-4 px-5 py-4">
-        <div>
-          <label className="block mb-1 font-medium text-xs">Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
-          />
-        </div>
-        <div>
-          <label className="block mb-1 font-medium text-xs">Status</label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
-          >
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
-        </div>
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={resetForm}
-            className="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100 text-xs"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
-          >
-            {isEditMode ? "Update" : "Create"}
+        showHeader={false}
+        showCloseButton={false}
+      >
+        {/* Custom header - same style as SocietyForm */}
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b rounded-t-lg" style={{ background: '#0f2b3d', borderColor: '#e2e8f0' }}>
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-5 rounded-full bg-[#e67e22]" />
+            <h2 className="text-sm font-bold text-white">
+              {isConnectedRemarkTab
+                ? (isEditMode ? "Edit Connected Remark" : "Add Connected Remark")
+                : (isEditMode ? "Edit Master Type" : "Create Master Type")}
+            </h2>
+          </div>
+          <button onClick={resetForm} className="p-1 rounded hover:bg-white/10 transition-colors">
+            <X size={16} color="white" />
           </button>
         </div>
-      </div>
-    </form>
-  )}
-</Modal>
+
+        {isConnectedRemarkTab ? (
+          <div className="px-5 py-4">
+            <ConnectedRemarkForm
+              onClose={resetForm}
+              onSubmit={handleConnectedRemarkSubmit}
+              initialData={isEditMode && currentConnectedRemark ? (currentConnectedRemark as any) : null}
+            />
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4 px-5 py-4">
+              <div>
+                <label className="block mb-1 font-medium text-xs">Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium text-xs">Status</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
+                >
+                  {isEditMode ? "Update" : "Create"}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+      </Modal>
 
       {/* Separate Modal for Society with custom header */}
       <Modal
