@@ -1,20 +1,15 @@
 // SocietyForm.tsx
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Upload, Download, X, Save, FileSpreadsheet, AlertCircle, CheckCircle, XCircle, ChevronDown, ChevronUp, Sparkles, Search, Building2, ChevronDown as ChevronDownIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Upload, Download, X, Save, FileSpreadsheet, AlertCircle, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { societyAPI } from '@/lib/societyAPI';
-import { masterDataAPI } from '@/lib/mastersAPI';
-import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
-import Dropdown from '@/components/ui/Dropdown';
 import { toast } from 'react-toastify';
-import { createPortal } from 'react-dom';
 
 interface SocietyFormData {
     societyName: string;
     locality: string;
     city: string;
     pincode: string;
-    amenities?: string[];
 }
 
 interface ImportValidationResult {
@@ -33,162 +28,6 @@ interface SocietyFormProps {
     onRefresh?: () => Promise<void>;
 }
 
-// Helper function to get scroll parents
-function getScrollParents(node: Element | null): Element[] {
-    const parents: Element[] = [];
-    let el = node?.parentElement || null;
-    while (el) {
-        const style = window.getComputedStyle(el);
-        const oy = style.overflowY;
-        if (oy === 'auto' || oy === 'scroll' || el === document.body) parents.push(el);
-        el = el.parentElement;
-    }
-    return parents;
-}
-
-// Multi-Select Amenities Dropdown Component
-const AmenitiesMultiSelect: React.FC<{
-    options: MasterOption[];
-    selectedValues: string[];
-    onToggle: (value: string) => void;
-    label: string;
-    placeholder?: string;
-}> = ({ options, selectedValues, onToggle, label, placeholder = 'Select amenities...' }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const buttonRef = useRef<HTMLButtonElement | null>(null);
-    const dropdownRef = useRef<HTMLDivElement | null>(null);
-    const [rect, setRect] = useState<DOMRect | null>(null);
-
-    const filteredOptions = useMemo(
-        () => options.filter((o) => (o.label || '').toLowerCase().includes(searchTerm.toLowerCase())),
-        [options, searchTerm],
-    );
-
-    const displayText = useMemo(() => {
-        if (selectedValues.length === 0) return placeholder;
-        if (selectedValues.length === 1) {
-            const option = options.find((opt) => String(opt.value) === String(selectedValues[0]));
-            return option?.label || selectedValues[0];
-        }
-        return `${selectedValues.length} items selected`;
-    }, [selectedValues, options, placeholder]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const onDocClick = (e: MouseEvent) => {
-            const target = e.target as Node;
-            if (dropdownRef.current?.contains(target)) return;
-            if (buttonRef.current?.contains(target)) return;
-            setIsOpen(false);
-            setSearchTerm('');
-        };
-        document.addEventListener('mousedown', onDocClick);
-        return () => document.removeEventListener('mousedown', onDocClick);
-    }, [isOpen]);
-
-    const updateRect = () => {
-        if (!buttonRef.current) return setRect(null);
-        setRect(buttonRef.current.getBoundingClientRect());
-    };
-
-    useEffect(() => {
-        if (!isOpen) return;
-        updateRect();
-        const onResize = () => updateRect();
-        const onScroll = () => updateRect();
-        window.addEventListener('resize', onResize);
-        window.addEventListener('scroll', onScroll, true);
-        const parents = getScrollParents(buttonRef.current);
-        parents.forEach((p) => p.addEventListener('scroll', onScroll, true));
-        return () => {
-            window.removeEventListener('resize', onResize);
-            window.removeEventListener('scroll', onScroll, true);
-            parents.forEach((p) => p.removeEventListener('scroll', onScroll, true));
-        };
-    }, [isOpen]);
-
-    useEffect(() => {
-        const prev = document.body.style.overflow;
-        if (isOpen) document.body.style.overflow = 'hidden';
-        else document.body.style.overflow = prev || '';
-        return () => { document.body.style.overflow = prev || ''; };
-    }, [isOpen]);
-
-    const getPortalTarget = () => {
-        if (typeof document === 'undefined') return null;
-        return document.getElementById('modal-portal') || document.body;
-    };
-
-    const isModalPortal = typeof document !== 'undefined' && !!document.getElementById('modal-portal');
-    const Z = isModalPortal ? 1050 : 9999999;
-
-    const popupStyle: any = rect
-        ? { position: 'fixed', zIndex: Z, top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, minWidth: rect.width, maxHeight: '50vh', overflow: 'hidden', pointerEvents: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.10)', borderRadius: '8px' }
-        : { position: 'fixed', zIndex: Z, top: 0, left: 0, minWidth: 200, pointerEvents: 'auto' };
-
-    const popup = (
-        <div ref={dropdownRef} className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden" style={popupStyle}>
-            <div className="p-2.5 border-b border-gray-100 bg-gray-50">
-                <div className="relative">
-                    <Search size={14} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Search amenities..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400"
-                        autoFocus
-                    />
-                </div>
-            </div>
-            <div className="max-h-64 overflow-y-auto">
-                {filteredOptions.length === 0 ? (
-                    <p className="text-xs text-gray-400 p-3 text-center">No amenities found</p>
-                ) : (
-                    filteredOptions.map((option) => (
-                        <label
-                            key={String(option.value)}
-                            className="flex items-center px-3 py-2 hover:bg-orange-50 cursor-pointer transition-colors"
-                        >
-                            <input
-                                type="checkbox"
-                                checked={selectedValues.map(String).includes(String(option.value))}
-                                onChange={() => onToggle(String(option.value))}
-                                className="mr-2.5 h-3.5 w-3.5 rounded border-gray-300 accent-orange-500"
-                            />
-                            <span className="text-xs text-gray-700">{option.label}</span>
-                        </label>
-                    ))
-                )}
-            </div>
-            {selectedValues.length > 0 && (
-                <div className="px-3 py-1.5 bg-orange-50 border-t border-orange-100 text-[10px] text-orange-600 font-bold">
-                    {selectedValues.length} selected
-                </div>
-            )}
-        </div>
-    );
-
-    const portalTarget = typeof document !== 'undefined' ? getPortalTarget() : null;
-
-    return (
-        <div className="relative">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-600 mb-1">{label}</label>
-            <button
-                ref={buttonRef}
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setIsOpen((p) => !p); setTimeout(updateRect, 0); }}
-                className="w-full h-9 px-3 rounded-lg text-sm border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E6761D]/20 focus:border-[#E6761D] transition-all flex items-center justify-between text-left"
-            >
-                <span className={`truncate ${selectedValues.length === 0 ? 'text-gray-400' : 'text-gray-800'}`}>{displayText}</span>
-                <ChevronDownIcon size={12} className="text-gray-400 flex-shrink-0 ml-1" />
-            </button>
-            {isOpen && buttonRef.current && portalTarget && createPortal(popup, portalTarget)}
-        </div>
-    );
-};
-
 const SocietyForm: React.FC<SocietyFormProps> = ({
     initialData,
     onSubmit,
@@ -201,14 +40,7 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
         locality: '',
         city: '',
         pincode: '',
-        amenities: [],
     });
-
-    // Master data options
-    const [cityOptions, setCityOptions] = useState<MasterOption[]>([]);
-    const [localityOptions, setLocalityOptions] = useState<MasterOption[]>([]);
-    const [amenitiesOptions, setAmenitiesOptions] = useState<MasterOption[]>([]);
-    const [isLoadingMaster, setIsLoadingMaster] = useState(false);
 
     const [errors, setErrors] = useState<Partial<Record<keyof SocietyFormData, string>>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -218,88 +50,10 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
     const [existingSocieties, setExistingSocieties] = useState<any[]>([]);
     const [showValidSection, setShowValidSection] = useState(true);
     const [showInvalidSection, setShowInvalidSection] = useState(true);
+
+    // Duplicate check states
     const [duplicateError, setDuplicateError] = useState<string | null>(null);
     const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
-    const [searchSocietyTerm, setSearchSocietyTerm] = useState('');
-    const [showSocietyDropdown, setShowSocietyDropdown] = useState(false);
-    const [societyOptions, setSocietyOptions] = useState<MasterOption[]>([]);
-    const [filteredSocietyOptions, setFilteredSocietyOptions] = useState<MasterOption[]>([]);
-    const societyInputRef = useRef<HTMLInputElement>(null);
-    const societyDropdownRef = useRef<HTMLDivElement>(null);
-
-    // Load master data on mount
-    useEffect(() => {
-        loadMasterData();
-        loadExistingSocieties();
-    }, []);
-
-    const loadMasterData = async () => {
-        setIsLoadingMaster(true);
-        try {
-            // Fetch city, locality, and amenities from master data
-            const data = await getMasterDropdownOptions(['common', 'property']);
-
-            // City options
-            const cities = data['city'] || [];
-            setCityOptions(cities);
-
-            // Locality options - from master data
-            const localities = data['location'] || data['locality'] || [];
-            setLocalityOptions(localities);
-
-            // Amenities options - from master data
-            const amenities = data['amenities'] || data['common']?.filter((c: any) => c.type === 'amenity') || [];
-            setAmenitiesOptions(amenities);
-
-            // Society options
-            const societies = await societyAPI.getAllSocieties();
-            const societyOpts = societies.map((s: any) => ({
-                value: s.societyName,
-                label: s.societyName
-            }));
-            setSocietyOptions(societyOpts);
-            setFilteredSocietyOptions(societyOpts);
-        } catch (error) {
-            console.error('Error loading master data:', error);
-        } finally {
-            setIsLoadingMaster(false);
-        }
-    };
-
-    // Filter society options based on search
-    useEffect(() => {
-        if (searchSocietyTerm) {
-            const filtered = societyOptions.filter(opt =>
-                opt.label.toLowerCase().includes(searchSocietyTerm.toLowerCase())
-            );
-            setFilteredSocietyOptions(filtered);
-            setShowSocietyDropdown(true);
-        } else {
-            setFilteredSocietyOptions(societyOptions);
-            setShowSocietyDropdown(false);
-        }
-    }, [searchSocietyTerm, societyOptions]);
-
-    // Close dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (societyDropdownRef.current && !societyDropdownRef.current.contains(event.target as Node) &&
-                societyInputRef.current && !societyInputRef.current.contains(event.target as Node)) {
-                setShowSocietyDropdown(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const loadExistingSocieties = async () => {
-        try {
-            const societies = await societyAPI.getAllSocieties();
-            setExistingSocieties(societies);
-        } catch (error) {
-            console.error('Error loading societies:', error);
-        }
-    };
 
     // Initialize form with data for editing
     useEffect(() => {
@@ -309,78 +63,38 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                 locality: initialData.locality || '',
                 city: initialData.city || '',
                 pincode: initialData.pincode || '',
-                amenities: initialData.amenities || [],
             });
-            setSearchSocietyTerm(initialData.societyName || '');
         }
     }, [initialData]);
 
-    const handleSocietySelect = (society: MasterOption) => {
-        setFormData(prev => ({ ...prev, societyName: society.label }));
-        setSearchSocietyTerm(society.label);
-        setShowSocietyDropdown(false);
-
-        // Auto-fetch amenities for selected society
-        if (society.label) {
-            fetchAmenitiesForSociety(society.label);
-        }
-    };
-
-    const fetchAmenitiesForSociety = async (societyName: string) => {
+    // Load existing societies for duplicate check
+    const loadExistingSocieties = async () => {
         try {
-            const existingSociety = existingSocieties.find(
-                s => s.societyName?.toLowerCase() === societyName.toLowerCase()
-            );
-
-            if (existingSociety?.amenities && existingSociety.amenities.length > 0) {
-                setFormData(prev => ({ ...prev, amenities: existingSociety.amenities }));
-                toast.info(`Loaded ${existingSociety.amenities.length} amenities for "${societyName}"`);
-            }
+            const societies = await societyAPI.getAllSocieties();
+            setExistingSocieties(societies);
         } catch (error) {
-            console.error('Error fetching amenities:', error);
+            console.error('Error loading societies:', error);
         }
     };
 
-    const handleCitySelect = (value: string) => {
-        setFormData(prev => ({ ...prev, city: value }));
-        // Clear locality error if city is selected
-        if (errors.city) {
-            setErrors(prev => ({ ...prev, city: '' }));
-        }
-    };
+    useEffect(() => {
+        loadExistingSocieties();
+    }, []);
 
-    const handleLocalitySelect = (value: string) => {
-        setFormData(prev => ({ ...prev, locality: value }));
-        // Clear locality error if locality is selected
-        if (errors.locality) {
-            setErrors(prev => ({ ...prev, locality: '' }));
-        }
-    };
-
-    const handleAmenityToggle = (amenity: string) => {
-        setFormData(prev => ({
-            ...prev,
-            amenities: prev.amenities?.includes(amenity)
-                ? prev.amenities.filter(a => a !== amenity)
-                : [...(prev.amenities || []), amenity]
-        }));
-    };
-
-    // 🔥 UPDATED: Check duplicate based ONLY on Society Name, Locality, and Pincode (City is ignored)
+    // Function to check duplicate society
     const checkDuplicate = async () => {
-        const { societyName, locality, pincode } = formData;
+        const { societyName, locality, city, pincode } = formData;
 
-        // Only check if all three required fields are filled
-        if (!societyName || !locality || !pincode) {
+        if (!societyName || !locality || !city || !pincode) {
             setDuplicateError(null);
             return;
         }
 
-        // If editing and values haven't changed, no duplicate error
         if (isEditing && initialData) {
             const isSameAsOriginal =
                 initialData.societyName === societyName &&
                 initialData.locality === locality &&
+                initialData.city === city &&
                 initialData.pincode === pincode;
 
             if (isSameAsOriginal) {
@@ -393,15 +107,15 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
 
         try {
             const allSocieties = await societyAPI.getAllSocieties();
-            // Check for duplicate based ONLY on societyName, locality, and pincode
             const exists = allSocieties.some(society =>
-                society.societyName?.toLowerCase() === societyName.toLowerCase() &&
-                society.locality?.toLowerCase() === locality.toLowerCase() &&
+                society.societyName.toLowerCase() === societyName.toLowerCase() &&
+                society.locality.toLowerCase() === locality.toLowerCase() &&
+                society.city.toLowerCase() === city.toLowerCase() &&
                 society.pincode === pincode
             );
 
             if (exists) {
-                setDuplicateError(`⚠️ "${societyName}" already exists in ${locality} - ${pincode}`);
+                setDuplicateError(`⚠️ "${societyName}" already exists in ${locality}, ${city} - ${pincode}`);
             } else {
                 setDuplicateError(null);
             }
@@ -412,17 +126,17 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
         }
     };
 
-    // Auto check when societyName, locality, or pincode changes
+    // Auto check when any field changes
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (formData.societyName && formData.locality && formData.pincode) {
+            if (formData.societyName && formData.locality && formData.city && formData.pincode) {
                 checkDuplicate();
             } else {
                 setDuplicateError(null);
             }
         }, 600);
         return () => clearTimeout(timer);
-    }, [formData.societyName, formData.locality, formData.pincode]);
+    }, [formData.societyName, formData.locality, formData.city, formData.pincode]);
 
     const validateField = (name: keyof SocietyFormData, value: string): string => {
         switch (name) {
@@ -451,43 +165,31 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
         }
     };
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
-        if (name === 'societyName') {
-            setSearchSocietyTerm(value);
-        }
         if (errors[name as keyof SocietyFormData]) {
             setErrors((prev) => ({ ...prev, [name]: '' }));
         }
+    };
+
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        const error = validateField(name as keyof SocietyFormData, value);
+        setErrors((prev) => ({ ...prev, [name]: error }));
     };
 
     const validateForm = (): boolean => {
         const newErrors: Partial<Record<keyof SocietyFormData, string>> = {};
         let isValid = true;
 
-        if (!formData.societyName) {
-            newErrors.societyName = 'Society name is required';
-            isValid = false;
-        }
-        if (!formData.locality) {
-            newErrors.locality = 'Locality is required';
-            isValid = false;
-        }
-        if (!formData.city) {
-            newErrors.city = 'City is required';
-            isValid = false;
-        }
-        if (!formData.pincode) {
-            newErrors.pincode = 'Pincode is required';
-            isValid = false;
-        } else {
-            const pincodeRegex = /^[1-9][0-9]{5}$/;
-            if (!pincodeRegex.test(formData.pincode)) {
-                newErrors.pincode = 'Enter a valid 6-digit pincode';
+        (Object.keys(formData) as Array<keyof SocietyFormData>).forEach((key) => {
+            const error = validateField(key, formData[key]);
+            if (error) {
+                newErrors[key] = error;
                 isValid = false;
             }
-        }
+        });
 
         if (duplicateError) {
             isValid = false;
@@ -525,48 +227,77 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
         }
     };
 
-    // 🔥 UPDATED: Import validation - duplicate check based on Society Name, Locality, and Pincode only
+    // 📌 VALIDATE IMPORT DATA
     const validateImportData = (data: SocietyFormData, rowNumber: number): ImportValidationResult => {
         const errors: string[] = [];
         let isDuplicate = false;
 
-        if (!data.societyName) errors.push('Society name is required');
-        else if (data.societyName.length < 2) errors.push('Society name must be at least 2 characters');
-        else if (data.societyName.length > 100) errors.push('Society name must be less than 100 characters');
+        // Validate Society Name
+        if (!data.societyName) {
+            errors.push('Society name is required');
+        } else if (data.societyName.length < 2) {
+            errors.push('Society name must be at least 2 characters');
+        } else if (data.societyName.length > 100) {
+            errors.push('Society name must be less than 100 characters');
+        }
 
-        if (!data.locality) errors.push('Locality is required');
-        else if (data.locality.length < 2) errors.push('Locality must be at least 2 characters');
-        else if (data.locality.length > 100) errors.push('Locality must be less than 100 characters');
+        // Validate Locality
+        if (!data.locality) {
+            errors.push('Locality is required');
+        } else if (data.locality.length < 2) {
+            errors.push('Locality must be at least 2 characters');
+        } else if (data.locality.length > 100) {
+            errors.push('Locality must be less than 100 characters');
+        }
 
-        if (!data.city) errors.push('City is required');
-        else if (data.city.length < 2) errors.push('City must be at least 2 characters');
-        else if (data.city.length > 50) errors.push('City must be less than 50 characters');
+        // Validate City
+        if (!data.city) {
+            errors.push('City is required');
+        } else if (data.city.length < 2) {
+            errors.push('City must be at least 2 characters');
+        } else if (data.city.length > 50) {
+            errors.push('City must be less than 50 characters');
+        }
 
+        // Validate Pincode
         const pincodeRegex = /^[1-9][0-9]{5}$/;
-        if (!data.pincode) errors.push('Pincode is required');
-        else if (!pincodeRegex.test(data.pincode)) errors.push('Invalid pincode format');
+        if (!data.pincode) {
+            errors.push('Pincode is required');
+        } else if (!pincodeRegex.test(data.pincode)) {
+            errors.push('Invalid pincode format (must be 6 digits)');
+        }
 
-        // 🔥 Duplicate check: ONLY Society Name + Locality + Pincode (City is ignored for duplicate detection)
-        if (data.societyName && data.locality && data.pincode && pincodeRegex.test(data.pincode)) {
+        // Check for duplicate in existing database
+        if (data.societyName && data.locality && data.city && data.pincode && pincodeRegex.test(data.pincode)) {
             const isDuplicateRecord = existingSocieties.some(existing =>
                 existing.societyName?.toLowerCase() === data.societyName.toLowerCase() &&
                 existing.locality?.toLowerCase() === data.locality.toLowerCase() &&
+                existing.city?.toLowerCase() === data.city.toLowerCase() &&
                 existing.pincode === data.pincode
             );
+
             if (isDuplicateRecord) {
                 isDuplicate = true;
-                errors.push('Duplicate record already exists (Same Society Name, Locality & Pincode)');
+                errors.push('Duplicate record already exists in database');
             }
         }
 
-        return { data, isValid: errors.length === 0, isDuplicate, errors, rowNumber };
+        return {
+            data,
+            isValid: errors.length === 0,
+            isDuplicate,
+            errors,
+            rowNumber
+        };
     };
 
+    // 📌 IMPORT FROM EXCEL with validation
     const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
         setIsImporting(true);
+
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
@@ -576,7 +307,9 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                 const worksheet = workbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+                // Validate and map data
                 const validatedData: ImportValidationResult[] = [];
+
                 for (let i = 0; i < jsonData.length; i++) {
                     const row: any = jsonData[i];
                     const societyData: SocietyFormData = {
@@ -584,15 +317,20 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                         locality: row['Locality'] || row.locality || '',
                         city: row['City'] || row.city || '',
                         pincode: String(row['Pincode'] || row.pincode || ''),
-                        amenities: row['Amenities'] ? String(row['Amenities']).split(',').map((a: string) => a.trim()) : [],
                     };
-                    validatedData.push(validateImportData(societyData, i + 2));
+
+                    const validation = validateImportData(societyData, i + 2);
+                    validatedData.push(validation);
                 }
 
                 setImportPreview(validatedData);
                 setShowBulkImport(true);
-                toast.info(`Found ${validatedData.filter(v => v.isValid).length} valid records`);
+
+                const validCount = validatedData.filter(v => v.isValid).length;
+                const invalidCount = validatedData.filter(v => !v.isValid).length;
+                toast.info(`Found ${validCount} valid and ${invalidCount} invalid records`);
             } catch (error) {
+                console.error('Import error:', error);
                 toast.error('Failed to parse Excel file');
             } finally {
                 setIsImporting(false);
@@ -602,11 +340,14 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
         event.target.value = '';
     };
 
+    // 📌 CONFIRM BULK IMPORT - Only valid records
     const confirmBulkImport = async () => {
         try {
             setIsImporting(true);
+
             let successCount = 0;
             let errorCount = 0;
+
             const validItems = importPreview.filter(v => v.isValid);
             const duplicateItems = importPreview.filter(v => v.isDuplicate);
             const invalidItems = importPreview.filter(v => !v.isValid && !v.isDuplicate);
@@ -628,7 +369,6 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                     successCount++;
                 } catch (err) {
                     errorCount++;
-                    console.error('Import error:', err);
                 }
             }
 
@@ -651,12 +391,14 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
             setImportPreview([]);
             onClose();
         } catch (error) {
+            console.error('Bulk import error:', error);
             toast.error('Failed to import societies');
         } finally {
             setIsImporting(false);
         }
     };
 
+    // 📌 EXPORT TO EXCEL
     const handleExport = async () => {
         try {
             const blob = await societyAPI.exportSocieties();
@@ -664,29 +406,42 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
             const link = document.createElement('a');
             link.href = url;
             link.download = `societies_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(link);
             link.click();
-            URL.revokeObjectURL(url);
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
             toast.success('Societies exported successfully!');
         } catch (error) {
+            console.error('Export error:', error);
             toast.error('Export failed');
         }
     };
 
+    // 📌 DOWNLOAD SAMPLE EXCEL
     const downloadSample = () => {
         const sampleData = [
-            { 'Society Name': 'Green Valley Residency', 'Locality': 'Hinjewadi Phase 1', 'City': 'Pune', 'Pincode': 411057, 'Amenities': 'Parking, Security, Gym' },
-            { 'Society Name': 'Sunshine Heights', 'Locality': 'Baner', 'City': 'Pune', 'Pincode': 411045, 'Amenities': 'Swimming Pool, Clubhouse, WiFi' },
+            { 'Society Name': 'Green Valley Residency', 'Locality': 'Hinjewadi Phase 1', 'City': 'Pune', 'Pincode': 411057 },
+            { 'Society Name': 'Sunshine Heights', 'Locality': 'Baner', 'City': 'Pune', 'Pincode': 411045 },
         ];
+
         const worksheet = XLSX.utils.json_to_sheet(sampleData);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Sample');
+
+        worksheet['!cols'] = [
+            { wch: 30 },
+            { wch: 25 },
+            { wch: 20 },
+            { wch: 12 },
+        ];
+
         XLSX.writeFile(workbook, 'sample_societies.xlsx');
         toast.info('Sample file downloaded');
     };
 
     const getInputClassName = (fieldName: keyof SocietyFormData) => {
         const baseClass = "w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors";
-        if (duplicateError && fieldName === 'societyName') {
+        if (duplicateError) {
             return `${baseClass} border-red-500 bg-red-50`;
         }
         return errors[fieldName]
@@ -694,13 +449,14 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
             : `${baseClass} border-gray-300 focus:border-blue-500`;
     };
 
+    // Statistics for preview
     const validItems = importPreview.filter(v => v.isValid);
     const validCount = validItems.length;
     const duplicateCount = importPreview.filter(v => v.isDuplicate).length;
     const invalidCount = importPreview.filter(v => !v.isValid && !v.isDuplicate).length;
 
     return (
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-3xl mx-auto">
             {/* Custom Header */}
             <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b rounded-t-lg" style={{ background: '#0f2b3d', borderColor: '#e2e8f0' }}>
                 <div className="flex items-center gap-2">
@@ -714,10 +470,10 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                         <Upload size={16} />
                         <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={handleImport} disabled={isImporting} />
                     </label>
-                    <button type="button" onClick={handleExport} className="p-1.5 rounded text-white hover:bg-white/10 transition-colors">
+                    <button type="button" onClick={handleExport} className="p-1.5 rounded text-white hover:bg-white/10 transition-colors" title="Export Societies">
                         <Download size={16} />
                     </button>
-                    <button type="button" onClick={downloadSample} className="p-1.5 rounded text-white hover:bg-white/10 transition-colors">
+                    <button type="button" onClick={downloadSample} className="p-1.5 rounded text-white hover:bg-white/10 transition-colors" title="Download Sample Excel">
                         <FileSpreadsheet size={16} />
                     </button>
                     <button onClick={onClose} className="p-1 rounded hover:bg-white/10 transition-colors ml-2">
@@ -734,11 +490,11 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                     </div>
                 )}
 
-                {isLoadingMaster && (
+                {isCheckingDuplicate && !duplicateError && (
                     <div className="mx-6 mt-4 p-2 bg-blue-50 rounded-lg">
                         <div className="flex items-center justify-center gap-2">
                             <div className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                            <span className="text-xs text-blue-600">Loading master data...</span>
+                            <span className="text-xs text-blue-600">Checking for existing society...</span>
                         </div>
                     </div>
                 )}
@@ -746,7 +502,7 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                 {duplicateError && (
                     <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                         <p className="text-sm text-red-600 flex items-center gap-2">
-                            <X size={16} className="text-red-500" />
+                            <X size={16} className="text-red-500 flex-shrink-0" />
                             {duplicateError}
                         </p>
                     </div>
@@ -754,76 +510,60 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
 
                 <div className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Society Name - Searchable Dropdown */}
-                        <div className="relative">
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Society Name <span className="text-red-500">*</span>
                             </label>
-                            <div className="relative">
-                                <input
-                                    ref={societyInputRef}
-                                    type="text"
-                                    name="societyName"
-                                    value={searchSocietyTerm}
-                                    onChange={handleInputChange}
-                                    onFocus={() => setShowSocietyDropdown(true)}
-                                    placeholder="Search or enter society name"
-                                    className={getInputClassName('societyName')}
-                                    autoComplete="off"
-                                />
-                                <Search size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                            </div>
-                            {showSocietyDropdown && filteredSocietyOptions.length > 0 && (
-                                <div ref={societyDropdownRef} className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                    {filteredSocietyOptions.map((option) => (
-                                        <button
-                                            key={option.value}
-                                            type="button"
-                                            onClick={() => handleSocietySelect(option)}
-                                            className="w-full text-left px-3 py-2 text-sm hover:bg-orange-50 transition-colors flex items-center gap-2"
-                                        >
-                                            <Building2 size={14} className="text-gray-400" />
-                                            {option.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                            <input
+                                type="text"
+                                name="societyName"
+                                value={formData.societyName}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                placeholder="Enter society name"
+                                className={getInputClassName('societyName')}
+                                disabled={isSubmitting}
+                                autoComplete="off"
+                            />
                             {errors.societyName && <p className="mt-1 text-xs text-red-500">{errors.societyName}</p>}
                         </div>
 
-                        {/* Locality - Dropdown from Master */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Locality <span className="text-red-500">*</span>
                             </label>
-                            <Dropdown
-                                placeholder="Select locality"
-                                options={localityOptions}
+                            <input
+                                type="text"
+                                name="locality"
                                 value={formData.locality}
-                                onChange={handleLocalitySelect}
-                                className="w-full"
-                                searchable
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                placeholder="Enter locality"
+                                className={getInputClassName('locality')}
+                                disabled={isSubmitting}
+                                autoComplete="off"
                             />
                             {errors.locality && <p className="mt-1 text-xs text-red-500">{errors.locality}</p>}
                         </div>
 
-                        {/* City - Dropdown from Master */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 City <span className="text-red-500">*</span>
                             </label>
-                            <Dropdown
-                                placeholder="Select city"
-                                options={cityOptions}
+                            <input
+                                type="text"
+                                name="city"
                                 value={formData.city}
-                                onChange={handleCitySelect}
-                                className="w-full"
-                                searchable
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                placeholder="Enter city name"
+                                className={getInputClassName('city')}
+                                disabled={isSubmitting}
+                                autoComplete="off"
                             />
                             {errors.city && <p className="mt-1 text-xs text-red-500">{errors.city}</p>}
                         </div>
 
-                        {/* Pincode - Input */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Pincode <span className="text-red-500">*</span>
@@ -832,52 +572,25 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                 type="text"
                                 name="pincode"
                                 value={formData.pincode}
-                                onChange={handleInputChange}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
                                 placeholder="Enter 6-digit pincode"
                                 maxLength={6}
                                 className={getInputClassName('pincode')}
+                                disabled={isSubmitting}
+                                autoComplete="off"
                             />
                             {errors.pincode && <p className="mt-1 text-xs text-red-500">{errors.pincode}</p>}
                             <p className="mt-1 text-xs text-gray-400">Must be a valid 6-digit Indian pincode</p>
                         </div>
                     </div>
 
-                    {/* Amenities Section - Multi-Select Dropdown */}
-                    <div className="mt-6">
-                        <AmenitiesMultiSelect
-                            label="AMENITIES"
-                            options={amenitiesOptions}
-                            selectedValues={formData.amenities || []}
-                            onToggle={handleAmenityToggle}
-                            placeholder="Select amenities..."
-                        />
-
-                        {/* Selected Amenities Tags */}
-                        {formData.amenities && formData.amenities.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                                {formData.amenities.map(amenity => (
-                                    <span key={amenity} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 rounded-full text-xs text-purple-700 border border-purple-200">
-                                        {amenity}
-                                        <button
-                                            type="button"
-                                            onClick={() => handleAmenityToggle(amenity)}
-                                            className="text-purple-400 hover:text-purple-600"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Action Buttons */}
                     <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
                         <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
                             Cancel
                         </button>
                         <button type="submit" disabled={isSubmitting || isCheckingDuplicate || !!duplicateError} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
-                            {isSubmitting && <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>}
+                            {isSubmitting && <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
                             <Save size={16} />
                             {isSubmitting ? (isEditing ? 'Updating...' : 'Saving...') : (isEditing ? 'Update Society' : 'Save Society')}
                         </button>
@@ -940,7 +653,6 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                                         <th className="p-2 text-left border-b">Locality</th>
                                                         <th className="p-2 text-left border-b">City</th>
                                                         <th className="p-2 text-left w-24 border-b">Pincode</th>
-                                                        <th className="p-2 text-left w-32 border-b">Amenities</th>
                                                         <th className="p-2 text-left w-24 border-b">Status</th>
                                                     </tr>
                                                 </thead>
@@ -952,7 +664,6 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                                             <td className="p-2">{item.data.locality}</td>
                                                             <td className="p-2">{item.data.city}</td>
                                                             <td className="p-2">{item.data.pincode}</td>
-                                                            <td className="p-2 text-xs text-gray-500">{item.data.amenities?.join(', ') || '-'}</td>
                                                             <td className="p-2">
                                                                 <span className="inline-flex items-center gap-1 text-green-600">
                                                                     <CheckCircle size={14} /> Valid
@@ -990,7 +701,6 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                                         <th className="p-2 text-left border-b">Locality</th>
                                                         <th className="p-2 text-left border-b">City</th>
                                                         <th className="p-2 text-left w-24 border-b">Pincode</th>
-                                                        <th className="p-2 text-left w-32 border-b">Amenities</th>
                                                         <th className="p-2 text-left w-28 border-b">Status</th>
                                                         <th className="p-2 text-left border-b">Errors</th>
                                                     </tr>
@@ -1003,7 +713,6 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                                             <td className="p-2">{item.data.locality || '-'}</td>
                                                             <td className="p-2">{item.data.city || '-'}</td>
                                                             <td className="p-2">{item.data.pincode || '-'}</td>
-                                                            <td className="p-2 text-xs text-gray-500">{item.data.amenities?.join(', ') || '-'}</td>
                                                             <td className="p-2">
                                                                 {item.isDuplicate ? (
                                                                     <span className="inline-flex items-center gap-1 text-yellow-600">
