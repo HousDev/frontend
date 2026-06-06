@@ -48,8 +48,8 @@ export const masterDataAPI = {
     return response.data;
   },
 
+   // ✅ IMPORT MASTER TYPES - Check URL
   importMasterTypes: async (tabId: string, file: File) => {
-    
     const formData = new FormData();
     formData.append('file', file);
     const response = await api.post(`/masters/import/${tabId}`, formData, {
@@ -57,7 +57,6 @@ export const masterDataAPI = {
         'Content-Type': 'multipart/form-data'
       }
     });
-   
     return response.data;
   },
 
@@ -118,7 +117,6 @@ export const masterDataAPI = {
   },
 
   importMasterValues: async (masterTypeId: string, file: File) => {
-
     const formData = new FormData();
     formData.append('file', file);
     const response = await api.post(`/masters/values/import/${masterTypeId}`, formData, {
@@ -126,7 +124,6 @@ export const masterDataAPI = {
         'Content-Type': 'multipart/form-data'
       }
     });
-    
     return response.data;
   }
 };

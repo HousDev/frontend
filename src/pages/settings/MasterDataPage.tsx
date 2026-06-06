@@ -2592,8 +2592,18 @@ export default function MasterDataPage(): JSX.Element {
   const handleImport = async (file: File): Promise<void> => {
     try {
       if (importType === "master") {
-        await masterDataAPI.importMasterTypes(activeId, file);
+        const response = await masterDataAPI.importMasterTypes(activeId, file);
 
+        // Handle response
+        if (response?.imported === 0 && response?.skipped > 0) {
+          toast.warning(response.message || "All records were duplicates");
+        } else if (response?.imported > 0) {
+          toast.success(response.message || "Master types imported successfully ✅");
+        } else {
+          toast.success("Master types imported successfully ✅");
+        }
+
+        // Refresh data
         if (isConnectedRemarkTab) {
           await loadConnectedRemarks();
         } else if (isSocietyTab) {
@@ -2601,22 +2611,30 @@ export default function MasterDataPage(): JSX.Element {
         } else {
           await loadMasterTypes();
         }
-
-        toast.success("Master types imported successfully ✅");
       } else {
+        // Import Values
         if (!selectedMaster) {
           toast.error("Please select a master first ❌");
           return;
         }
 
-        await masterDataAPI.importMasterValues(selectedMaster.id, file);
-        await loadMasterValues(selectedMaster.id);
+        const response = await masterDataAPI.importMasterValues(selectedMaster.id, file);
 
-        toast.success(`Values imported successfully for "${selectedMaster.name}" ✅`);
+        if (response?.imported === 0 && response?.skipped > 0) {
+          toast.warning(response.message || "All values were duplicates");
+        } else if (response?.imported > 0) {
+          toast.success(response.message || "Values imported successfully ✅");
+        } else {
+          toast.success(`Values imported successfully for "${selectedMaster.name}" ✅`);
+        }
+
+        await loadMasterValues(selectedMaster.id);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error importing ${importType}:`, error);
-      toast.error(`Failed to import ${importType} ❌ Please try again.`);
+      const errorMessage = error.response?.data?.error || `Failed to import ${importType}`;
+      toast.error(errorMessage);
+      throw error; // Re-throw so modal knows it failed
     }
   };
 
