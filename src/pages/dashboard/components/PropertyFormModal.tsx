@@ -372,7 +372,7 @@ export function parseBudgetToRupees(text?: any): number {
 }
 
 export function rupeesToCrores(r: number): number {
-  if (!r || r <= 0) return 0.01;
+  if (!r || r <= 0) return 0;
   return r / RUPEE_PER_CRORE;
 }
 
@@ -808,18 +808,6 @@ useEffect(() => {
 
     console.log('Edit mode setting data with societyOptions:', societyOptions);
 
-    // Convert society name to ID
-    // let societyId = initialData.society || '';
-    // if (societyId && !societyId.includes('-') && societyId.length < 36) {
-    //   const matchedSociety = societyOptions.find(opt =>
-    //     opt.label.toLowerCase() === societyId.toLowerCase() ||
-    //     opt.label === societyId
-    //   );
-    //   if (matchedSociety) {
-    //     societyId = matchedSociety.value;
-    //     console.log('Converted society name to ID:', societyId);
-    //   }
-    // }
     let societyId = initialData.society || '';
 
     if (societyId) {
@@ -1188,14 +1176,16 @@ useEffect(() => {
               <label className={LBL}>Sell Price (₹) <span className="text-red-400">*</span></label>
               <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 space-y-2">
                 <PriceRangeSelector
-                  initialMax={rupeesToCrores(parseBudgetToRupees(formData.budget))}
-                  max={10}
+                  initialMax={
+                    formData.budget
+                      ? rupeesToCrores(parseBudgetToRupees(formData.budget))
+                      : 0
+                  }
                   onChange={({ max }) => {
                     const rupeeVal = Math.round(max * 10_000_000);
-                    handleInputChange('budget', String(rupeeVal));
-                    if (formData.priceType === 'Negotiable') handleInputChange('finalPrice', String(rupeeVal));
+
+                    handleInputChange("budget", String(rupeeVal));
                   }}
-                  className="p-0"
                 />
                 <div className="flex items-center gap-4 pt-1">
                   {(['Fixed', 'Negotiable'] as const).map((type) => (
@@ -1211,7 +1201,25 @@ useEffect(() => {
                   <div className="pt-2 border-t border-gray-200">
                     <label className={`${LBL} mb-1`}>Final Price (₹)</label>
                     <div className="flex items-center gap-2">
-                      <input type="text" inputMode="numeric" className={`${INP} max-w-[180px]`} value={formData.finalPrice || ''} onChange={(e) => handleInputChange('finalPrice', e.target.value)} onBlur={(e) => { const rupees = parseBudgetToRupees(e.target.value); handleInputChange('finalPrice', String(rupees)); }} placeholder="e.g. 45,00,000" />
+                      {/* <input type="text" inputMode="numeric" className={`${INP} max-w-[180px]`} value={formData.finalPrice || ''} onChange={(e) => handleInputChange('finalPrice', e.target.value)} onBlur={(e) => { const rupees = parseBudgetToRupees(e.target.value); handleInputChange('finalPrice', String(rupees)); }} placeholder="e.g. 45,00,000" /> */}
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className={`${INP} max-w-[180px]`}
+                        value={formData.finalPrice || ""}
+                        onChange={(e) => {
+                          let value = e.target.value.replace(/\D/g, "");
+
+                          handleInputChange("finalPrice", value);
+                        }}
+                        onBlur={(e) => {
+                          const cleanValue = String(
+                            Number(e.target.value.replace(/\D/g, "") || 0)
+                          );
+
+                          handleInputChange("finalPrice", cleanValue);
+                        }}
+                      />
                       {(() => {
                         const v = parseBudgetToRupees(formData.finalPrice || '');
                         if (!v || v <= 0) return null;

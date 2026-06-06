@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 interface PriceRangeSelectorProps {
   initialMax?: number;     // in Crores
   minLakh?: number;        // default 20L
-  maxCrore?: number; // default 5Cr
+  maxCrore?: number; // default 10Cr
   // ✅ ADD THIS
   max?: number;
   onChange?: (payload: { min: number; max: number; readable: string }) => void;
@@ -41,8 +41,8 @@ const clamp = (v: number, min = 0, max = Infinity) =>
 const snapToStep = (v: number) => Math.round(v / STEP) * STEP;
 
 const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
-  minLakh = 20,
-  maxCrore = 5,
+  minLakh = 0,
+  maxCrore = 10,
   initialMax = minLakh / 100,
   onChange,
   className = "",
@@ -58,22 +58,32 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
   );
 
   const [valueRupees, setValueRupees] = useState(startRupees);
+  const [isFocused, setIsFocused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const sliderRef = useRef<HTMLDivElement | null>(null);
-
+  
+  useEffect(() => {
+    setValueRupees(startRupees);
+  }, [startRupees]);
   const setValueSnapped = (next: number) => {
-    const snapped = clamp(snapToStep(next), minRupees, maxRupees);
+    const snapped = Math.max(
+      snapToStep(next),
+      minRupees
+    );
     setValueRupees((prev) => (prev === snapped ? prev : snapped));
   };
 
   useEffect(() => {
+    if (isFocused) return; // typing ke time reset mat karo
+
     const next = clamp(
       snapToStep(Math.round(initialMax * CRORE_TO_RUPEE)),
       minRupees,
       maxRupees
     );
-    setValueRupees((prev) => (prev === next ? prev : next));
-  }, [initialMax, minRupees, maxRupees]);
+
+    setValueRupees(next);
+  }, [initialMax, minRupees, maxRupees, isFocused]);
 
   const onChangeRef = useRef<typeof onChange>();
   useEffect(() => {
@@ -121,41 +131,56 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
   );
 
   useEffect(() => {
-    setRightInput(numberFormatter.format(valueRupees));
-  }, [valueRupees]);
+    if (!isFocused) {
+      setRightInput(numberFormatter.format(valueRupees));
+    }
+  }, [valueRupees, isFocused]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const txt = e.target.value;
+    let txt = e.target.value;
+
+    // only numbers
+    txt = txt.replace(/[^\d]/g, "");
+
     setRightInput(txt);
 
-    const cleaned = txt.replace(/,/g, "").toLowerCase();
-
-    if (/^\d+$/.test(cleaned)) {
-      setValueSnapped(parseInt(cleaned, 10));
+    if (!txt) {
+      setValueSnapped(0);
       return;
     }
 
-    if (cleaned.endsWith("l")) {
-      setValueSnapped(parseFloat(cleaned) * LAKH_TO_RUPEE);
-      return;
-    }
+    const value = Number(txt);
 
-    if (cleaned.endsWith("cr")) {
-      setValueSnapped(parseFloat(cleaned) * CRORE_TO_RUPEE);
-    }
+    setValueSnapped(value);
   };
-
   return (
     <div className={`w-full ${className}`}>
       <label className="block text-xs text-gray-500 mb-2">Amount (₹)</label>
 
       <div className="flex items-center gap-2">
         <input
+          inputMode="numeric"
           value={rightInput}
+          onFocus={(e) => {
+            setIsFocused(true);
+
+            // raw value while editing
+            setRightInput(String(valueRupees));
+
+            e.target.select();
+          }}
           onChange={handleInputChange}
-          onBlur={() =>
-            setRightInput(numberFormatter.format(valueRupees))
-          }
+          onBlur={() => {
+            setIsFocused(false);
+
+            if (!rightInput.trim()) {
+              setValueSnapped(minRupees);
+              setRightInput(numberFormatter.format(minRupees));
+              return;
+            }
+
+            setRightInput(numberFormatter.format(valueRupees));
+          }}
           className="border px-2 py-1.5 rounded text-sm"
         />
         <span className="text-xs font-medium text-green-700">
