@@ -2708,7 +2708,7 @@ export default function MasterDataPage(): JSX.Element {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className=" bg-gray-50">
       <header className="p-4 border-b bg-white shadow-sm">
         <h1 className="text-xl font-semibold">Master Data Management</h1>
       </header>

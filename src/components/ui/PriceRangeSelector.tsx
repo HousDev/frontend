@@ -199,11 +199,14 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
         >
           <div
             className="absolute h-full bg-orange-500 rounded"
-            style={{ width: `${position}%` }}
+            style={{ width: `${Math.min(position, 100)}%` }}
           />
           <div
-            className="absolute w-4 h-4 bg-orange-600 rounded-full top-1/2 -translate-y-1/2 -translate-x-1/2"
-            style={{ left: `${position}%` }}
+            className="absolute w-4 h-4 bg-orange-600 rounded-full top-1/2 -translate-y-1/2"
+            style={{
+              left: `clamp(8px, calc(${position}% ), calc(100% - 8px))`,
+              transform: `translateY(-50%) translateX(-50%)`,
+            }}
           />
         </div>
 

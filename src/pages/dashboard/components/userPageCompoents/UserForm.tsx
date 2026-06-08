@@ -150,9 +150,9 @@ const UserForm: React.FC<UserFormProps> = ({
       style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }}
       role="dialog"
       aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      // onClick={(e) => {
+      //   if (e.target === e.currentTarget) onClose();
+      // }}
     >
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-full sm:max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" style={{ border: `1px solid ${BD}` }}>
         
