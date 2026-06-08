@@ -195,27 +195,27 @@ export function ImportModal({
     }
   };
 
-  const handleSubmit = async () => {
-    if (!file) {
-      toast.error("Please select a file first");
-      return;
-    }
+ // AFTER
+const handleSubmit = async () => {
+  if (!file) {
+    toast.error("Please select a file first");
+    return;
+  }
 
-    setIsLoading(true);
-    try {
-      await onImport(file);
-      onClose();
-      setFile(null);
-      toast.success("Import completed successfully");
-    } catch (error: any) {
-      console.error("Import error:", error);
-      const errorMessage = error?.response?.data?.error || error?.message || "Import failed";
-      toast.error(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  setIsLoading(true);
+  try {
+    await onImport(file);
+    onClose();
+    setFile(null);
+    // Toast MasterDataPage ke handleImport se aayega - yahan se nahi
+  } catch (error: any) {
+    console.error("Import error:", error);
+    const errorMessage = error?.response?.data?.error || error?.message || "Import failed";
+    toast.error(errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
   // 🔥 Use safeTitle directly
   const downloadTemplate = () => {
     let csvContent = "";
@@ -226,9 +226,9 @@ export function ImportModal({
       safeTitle.toLowerCase().includes("seller") ||
       safeTitle.toLowerCase().includes("lead") ||
       safeTitle.toLowerCase().includes("common")) {
-      csvContent = "name,status\nExample Name,Active";
+      csvContent = "Name,Status\nExample Name,Active";
     } else {
-      csvContent = "value,status\nExample Value,Active";
+      csvContent = "Value,Status\nExample Value,Active";
     }
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
