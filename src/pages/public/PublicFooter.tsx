@@ -7,8 +7,8 @@
 // import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 // import AIChatbot from '@/components/ai/AIChatbot';
 // import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
-// import PrivacyPolicyModal from './PrivacyPolicyModal';
-// import TermsConditionsModal from './TermsConditionsModal';
+// // import PrivacyPolicyModal from './PrivacyPolicyModal';
+// // import TermsConditionsModal from './TermsConditionsModal';
 
 // const PublicFooter = ({ onPageChange }: any) => {
 //   const location = useLocation();
@@ -21,8 +21,8 @@
 //   const currentYear = new Date().getFullYear();
 //   const [masterLoading, setMasterLoading] = useState(true);
 
-//   const [showPrivacy, setShowPrivacy] = useState(false);
-//   const [showTerms, setShowTerms] = useState(false);
+//   // const [showPrivacy, setShowPrivacy] = useState(false);
+//   // const [showTerms, setShowTerms] = useState(false);
 
 //   // ✅ Direct routes for navigation
 //   const quickLinks = [
@@ -115,45 +115,41 @@
 //           </div>
 
 //           {/* Quick Links */}
-//           <div>
-//             <h4 className="text-lg font-semibold mb-6">Quick Links</h4>
-//             <ul className="space-y-3">
-//               {quickLinks.map((link) => (
-//                 <li key={link.id}>
-//                   <Link
-//                     to={link.to}
-//                     className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
-//                     onClick={() => {
-//                       // optional backward-compat:
-//                       // onPageChange?.(link.id);
-//                     }}
-//                   >
-//                     <span className="w-1 h-1 bg-blue-500 rounded-full" />
-//                     <span>{link.label}</span>
-//                   </Link>
-//                 </li>
-//               ))}
-//               <li>
-//                 <button
-//                   onClick={() => setShowPrivacy(true)}
-//                   className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
-//                 >
-//                   <span className="w-1 h-1 bg-blue-500 rounded-full" />
-//                   <span>Privacy Policy</span>
-//                 </button>
-//               </li>
-//               <li>
-//                 <button
-//                   onClick={() => setShowTerms(true)}
-//                   className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
-//                 >
-//                   <span className="w-1 h-1 bg-blue-500 rounded-full" />
-//                   <span>Terms & Conditions</span>
-//                 </button>
-//               </li>
-
-//             </ul>
-//           </div>
+//         {/* Quick Links - Update this section */}
+// <div>
+//   <h4 className="text-lg font-semibold mb-6">Quick Links</h4>
+//   <ul className="space-y-3">
+//     {quickLinks.map((link) => (
+//       <li key={link.id}>
+//         <Link
+//           to={link.to}
+//           className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+//         >
+//           <span className="w-1 h-1 bg-blue-500 rounded-full" />
+//           <span>{link.label}</span>
+//         </Link>
+//       </li>
+//     ))}
+//     <li>
+//       <Link
+//         to="/privacy-policy"
+//         className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+//       >
+//         <span className="w-1 h-1 bg-blue-500 rounded-full" />
+//         <span>Privacy Policy</span>
+//       </Link>
+//     </li>
+//     <li>
+//       <Link
+//         to="/terms-conditions"
+//         className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+//       >
+//         <span className="w-1 h-1 bg-blue-500 rounded-full" />
+//         <span>Terms & Conditions</span>
+//       </Link>
+//     </li>
+//   </ul>
+// </div>
 
 //           {/* Services */}
 //           <div>
@@ -209,18 +205,18 @@
 //           </div>
 //         </div>
 
-//         {/* Popular Locations */}
+//         {/* Popular Locations - Responsive & Compact */}
 //         <div className="mt-4 border-t border-gray-800 pt-6">
-//           <h4 className="text-lg font-semibold mb-6">Popular Locations</h4>
+//           <h4 className="text-lg font-semibold mb-4 md:mb-6">Popular Locations</h4>
 //           {masterLoading ? (
 //             <div className="text-gray-400 text-sm">Loading locations…</div>
 //           ) : Array.isArray(masters.location) && masters.location.length > 0 ? (
-//             <div className="flex flex-wrap gap-3">
+//             <div className="flex flex-wrap gap-2 md:gap-3">
 //               {masters.location.map((loc: MasterOption, idx: number) => (
 //                 <button
 //                   key={idx}
 //                   onClick={() => goToLocation(loc.value)}
-//                   className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-colors text-sm"
+//                   className="px-3 py-1.5 md:px-4 md:py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-colors text-xs md:text-sm whitespace-nowrap"
 //                   title={loc.label}
 //                 >
 //                   {loc.value}
@@ -253,25 +249,39 @@
 //       </div>
 
 //       {/* Bottom Footer */}
-//       <div className="bg-gray-950 border-t border-gray-800">
-//         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-//           <div className="flex flex-col md:flex-row items-center justify-between">
-//             <div className="text-gray-400 text-sm mb-4 md:mb-0 text-center md:text-left">
-//               © {currentYear} {companyName}. All rights reserved.{' '}
-//               <span className="mx-2 text-gray-500">|</span>
-//               <span className="text-gray-400">
-//                 Developed by <span className="font-semibold text-white">Hously Finntech Realty</span>
-//               </span>
-//               <span className="mx-2 text-gray-500">|</span>
-//               <span className="text-gray-400">Real Estate Experience.</span>
-//             </div>
-//           </div>
-//         </div>
+//      <div className="bg-gray-950 border-t border-gray-800">
+//   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+//     <div className="flex flex-col md:flex-row items-center justify-between">
+//       <div className="text-gray-400 text-sm mb-4 md:mb-0 text-center md:text-left">
+//         © {currentYear} {companyName}. All rights reserved.{` `}
+        
+//         <span className="mx-2 text-gray-500">|</span>
+
+//         <span className="text-gray-400">
+//           Developed by{' '}
+//          <a
+//   href="https://hously.in"
+//   target="_blank"
+//   rel="noopener noreferrer"
+//   className="font-semibold text-white underline hover:text-gray-300 transition-colors"
+// >
+//   Hously Finntech Realty
+// </a>
+//         </span>
+
+//         <span className="mx-2 text-gray-500">|</span>
+
+//         <span className="text-gray-400">
+//           Real Estate Experience.
+//         </span>
 //       </div>
+//     </div>
+//   </div>
+// </div>
 
 //       {/* Add these modals near end of component JSX */}
-//               <PrivacyPolicyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
-//               <TermsConditionsModal open={showTerms} onClose={() => setShowTerms(false)} />
+//               {/* <PrivacyPolicyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
+//               <TermsConditionsModal open={showTerms} onClose={() => setShowTerms(false)} /> */}
 //       {/* AI Chatbot */}
 //       <AIChatbot isPropertyDetail={isPropertyDetail} />
 //     </footer>
@@ -279,6 +289,7 @@
 // };
 
 // export default PublicFooter;
+
 import React, { useEffect, useState } from 'react';
 import {
   Home, Phone, Mail, MapPin, Facebook, Twitter, Instagram, Linkedin, Youtube,
@@ -288,6 +299,7 @@ import { Link, useLocation, matchPath, useNavigate } from 'react-router-dom';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import AIChatbot from '@/components/ai/AIChatbot';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
+import propertiesAPI, { PopularLocation } from '@/lib/propertiesAPI';
 // import PrivacyPolicyModal from './PrivacyPolicyModal';
 // import TermsConditionsModal from './TermsConditionsModal';
 
@@ -336,6 +348,10 @@ const PublicFooter = ({ onPageChange }: any) => {
 
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
 
+  // ✅ Popular locations now come from actual property counts in DB, not master data
+  const [popularLocations, setPopularLocations] = useState<PopularLocation[]>([]);
+  const [popularLocationsLoading, setPopularLocationsLoading] = useState(true);
+
   useEffect(() => {
     (async () => {
       try {
@@ -344,6 +360,26 @@ const PublicFooter = ({ onPageChange }: any) => {
         setMasters(data);
       } finally {
         setMasterLoading(false);
+      }
+    })();
+  }, []);
+
+  // ✅ Fetch popular locations sorted by property count (descending)
+  useEffect(() => {
+    (async () => {
+      try {
+        setPopularLocationsLoading(true);
+        const res = await propertiesAPI.getPopularLocations(5); // top 5 locations by count
+        if (res.success && Array.isArray(res.data)) {
+          setPopularLocations(res.data);
+        } else {
+          setPopularLocations([]);
+        }
+      } catch (err) {
+        console.error('Error loading popular locations:', err);
+        setPopularLocations([]);
+      } finally {
+        setPopularLocationsLoading(false);
       }
     })();
   }, []);
@@ -396,41 +432,41 @@ const PublicFooter = ({ onPageChange }: any) => {
           </div>
 
           {/* Quick Links */}
-        {/* Quick Links - Update this section */}
-<div>
-  <h4 className="text-lg font-semibold mb-6">Quick Links</h4>
-  <ul className="space-y-3">
-    {quickLinks.map((link) => (
-      <li key={link.id}>
-        <Link
-          to={link.to}
-          className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
-        >
-          <span className="w-1 h-1 bg-blue-500 rounded-full" />
-          <span>{link.label}</span>
-        </Link>
-      </li>
-    ))}
-    <li>
-      <Link
-        to="/privacy-policy"
-        className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
-      >
-        <span className="w-1 h-1 bg-blue-500 rounded-full" />
-        <span>Privacy Policy</span>
-      </Link>
-    </li>
-    <li>
-      <Link
-        to="/terms-conditions"
-        className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
-      >
-        <span className="w-1 h-1 bg-blue-500 rounded-full" />
-        <span>Terms & Conditions</span>
-      </Link>
-    </li>
-  </ul>
-</div>
+          {/* Quick Links - Update this section */}
+          <div>
+            <h4 className="text-lg font-semibold mb-6">Quick Links</h4>
+            <ul className="space-y-3">
+              {quickLinks.map((link) => (
+                <li key={link.id}>
+                  <Link
+                    to={link.to}
+                    className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+                  >
+                    <span className="w-1 h-1 bg-blue-500 rounded-full" />
+                    <span>{link.label}</span>
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link
+                  to="/privacy-policy"
+                  className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+                >
+                  <span className="w-1 h-1 bg-blue-500 rounded-full" />
+                  <span>Privacy Policy</span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/terms-conditions"
+                  className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+                >
+                  <span className="w-1 h-1 bg-blue-500 rounded-full" />
+                  <span>Terms & Conditions</span>
+                </Link>
+              </li>
+            </ul>
+          </div>
 
           {/* Services */}
           <div>
@@ -486,21 +522,21 @@ const PublicFooter = ({ onPageChange }: any) => {
           </div>
         </div>
 
-        {/* Popular Locations - Responsive & Compact */}
+        {/* Popular Locations - Sorted by property count (most properties first) */}
         <div className="mt-4 border-t border-gray-800 pt-6">
           <h4 className="text-lg font-semibold mb-4 md:mb-6">Popular Locations</h4>
-          {masterLoading ? (
+          {popularLocationsLoading ? (
             <div className="text-gray-400 text-sm">Loading locations…</div>
-          ) : Array.isArray(masters.location) && masters.location.length > 0 ? (
+          ) : popularLocations.length > 0 ? (
             <div className="flex flex-wrap gap-2 md:gap-3">
-              {masters.location.map((loc: MasterOption, idx: number) => (
+              {popularLocations.map((loc: PopularLocation, idx: number) => (
                 <button
                   key={idx}
-                  onClick={() => goToLocation(loc.value)}
+                  onClick={() => goToLocation(loc.location)}
                   className="px-3 py-1.5 md:px-4 md:py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-colors text-xs md:text-sm whitespace-nowrap"
-                  title={loc.label}
+                  title={`${loc.location} (${loc.count} properties)`}
                 >
-                  {loc.value}
+                  {loc.location}
                 </button>
               ))}
             </div>
@@ -530,38 +566,38 @@ const PublicFooter = ({ onPageChange }: any) => {
       </div>
 
       {/* Bottom Footer */}
-     <div className="bg-gray-950 border-t border-gray-800">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <div className="flex flex-col md:flex-row items-center justify-between">
-      <div className="text-gray-400 text-sm mb-4 md:mb-0 text-center md:text-left">
-        © {currentYear} {companyName}. All rights reserved.{` `}
-        
-        <span className="mx-2 text-gray-500">|</span>
+      <div className="bg-gray-950 border-t border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col md:flex-row items-center justify-between">
+            <div className="text-gray-400 text-sm mb-4 md:mb-0 text-center md:text-left">
+              © {currentYear} {companyName}. All rights reserved.{` `}
 
-        <span className="text-gray-400">
-          Developed by{' '}
-         <a
-  href="https://hously.in"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="font-semibold text-white underline hover:text-gray-300 transition-colors"
->
-  Hously Finntech Realty
-</a>
-        </span>
+              <span className="mx-2 text-gray-500">|</span>
 
-        <span className="mx-2 text-gray-500">|</span>
+              <span className="text-gray-400">
+                Developed by{' '}
+                <a
+                  href="https://hously.in"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-white underline hover:text-gray-300 transition-colors"
+                >
+                  Hously Finntech Realty
+                </a>
+              </span>
 
-        <span className="text-gray-400">
-          Real Estate Experience.
-        </span>
+              <span className="mx-2 text-gray-500">|</span>
+
+              <span className="text-gray-400">
+                Real Estate Experience.
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
 
       {/* Add these modals near end of component JSX */}
-              {/* <PrivacyPolicyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
+      {/* <PrivacyPolicyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
               <TermsConditionsModal open={showTerms} onClose={() => setShowTerms(false)} /> */}
       {/* AI Chatbot */}
       <AIChatbot isPropertyDetail={isPropertyDetail} />

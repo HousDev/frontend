@@ -207,6 +207,19 @@ export interface SimilarPropertiesResponse {
   message?: string;
   total?: number;
 }
+/* =======================
+   Types for Popular Locations
+   ======================= */
+export interface PopularLocation {
+  location: string;
+  count: number;
+}
+ 
+export interface PopularLocationsResponse {
+  success: boolean;
+  data: PopularLocation[];
+  message?: string;
+}
 
 /* ==========================
     Main API surface
@@ -707,6 +720,23 @@ getSimilarProperties: async (filters: SimilarPropertiesFilters): Promise<Similar
   }
 },
 
+
+/* ---- Popular Locations (by property count, sorted descending) ---- */
+getPopularLocations: async (limit: number = 24): Promise<PopularLocationsResponse> => {
+  try {
+    const res = await api.get("/properties/popular-locations", {
+      params: { limit },
+    });
+    return res.data as PopularLocationsResponse;
+  } catch (error) {
+    console.error("Error fetching popular locations:", error);
+    return {
+      success: false,
+      data: [],
+      message: "Failed to fetch popular locations",
+    };
+  }
+},
 
 /* ---- Brochure PDF Generation ---- */
  downloadBrochure: (id: string|number, payload?: any) =>

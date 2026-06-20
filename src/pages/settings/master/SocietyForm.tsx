@@ -268,16 +268,13 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
 
     // Filter society options based on search
     useEffect(() => {
-        if (searchSocietyTerm) {
-            const filtered = societyOptions.filter(opt =>
-                opt.label.toLowerCase().includes(searchSocietyTerm.toLowerCase())
-            );
-            setFilteredSocietyOptions(filtered);
-            setShowSocietyDropdown(true);
-        } else {
-            setFilteredSocietyOptions(societyOptions);
-            setShowSocietyDropdown(false);
-        }
+        const filtered = societyOptions.filter(opt =>
+            opt.label.toLowerCase().includes(
+                searchSocietyTerm.toLowerCase()
+            )
+        );
+
+        setFilteredSocietyOptions(filtered);
     }, [searchSocietyTerm, societyOptions]);
 
     // Close dropdown when clicking outside
@@ -766,13 +763,20 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                     name="societyName"
                                     value={searchSocietyTerm}
                                     onChange={handleInputChange}
-                                    onFocus={() => setShowSocietyDropdown(true)}
-                                    placeholder="Search or enter society name"
+                                    onClick={() => {
+                                        setFilteredSocietyOptions(societyOptions);
+                                        setShowSocietyDropdown(true);
+                                    }}
                                     className={getInputClassName('societyName')}
                                     autoComplete="off"
                                 />
-                                <Search size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                            </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSocietyDropdown(true)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                                >
+                                    <Search size={16} className="text-gray-400" />
+                                </button>                            </div>
                             {showSocietyDropdown && filteredSocietyOptions.length > 0 && (
                                 <div ref={societyDropdownRef} className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                                     {filteredSocietyOptions.map((option) => (
