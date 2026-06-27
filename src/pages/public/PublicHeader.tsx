@@ -299,7 +299,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
 
             {/* Actions */}
             <div className="flex items-center space-x-3">
-              <button
+              {/* <button
                 onClick={handleSellPropertyClick}
                 className="hidden sm:flex items-center space-x-2 text-white px-4 py-2.5 rounded-xl transition-all text-sm font-medium shadow-md hover:shadow-lg"
                 style={{ backgroundColor: colors.brand }}
@@ -308,6 +308,27 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                 aria-label="Sell property"
               >
                 <span className="font-semibold"> Post Property</span>
+              </button> */}
+
+              <button
+                onClick={handleSellPropertyClick}
+                className="hidden sm:flex items-center gap-2 text-white px-4 py-2.5 rounded-xl transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                style={{ backgroundColor: colors.brand }}
+                onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                  colors.brandHover)
+                }
+                onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                  colors.brand)
+                }
+                aria-label="Sell property"
+              >
+                <span className="font-semibold">Post Property</span>
+
+                <span className="bg-white text-green-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  FREE
+                </span>
               </button>
 
               {!isAuthenticated ? (
@@ -516,12 +537,26 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
               })}
 
               <div className="pt-4 border-t border-gray-200 space-y-3">
-                <button
+                {/* <button
                   onClick={handleSellPropertyClick}
                   className="w-full flex items-center justify-center space-x-2 text-white px-4 py-3 rounded-xl font-medium text-sm shadow-md"
                   style={{ backgroundColor: colors.brand }}
                 >
                   <span>Post Property</span>
+                  <span className="bg-white text-green-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    FREE
+                  </span>
+                </button> */}
+                <button
+                  onClick={handleSellPropertyClick}
+                  className="w-full flex items-center justify-center gap-2 text-white px-4 py-3 rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all"
+                  style={{ backgroundColor: colors.brand }}
+                >
+                  <span>Post Property</span>
+
+                  <span className="inline-flex items-center bg-white text-green-600 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm">
+                    FREE
+                  </span>
                 </button>
 
                 {!isAuthenticated ? (
