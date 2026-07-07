@@ -1392,7 +1392,6 @@
 // export default PropertyFormModal;
 
 
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown, Image } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
@@ -1836,7 +1835,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
   const [ownershipDocPreview, setOwnershipDocPreview] = useState<FilePreview | null>(null);
   const [photoPreviews, setPhotoPreviews] = useState<FilePreview[]>([]);
-  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [nearbyPlaceForm, setNearbyPlaceForm] = useState({ name: '', distance: '', unit: '', type: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -1922,7 +1920,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     }
   };
 
-  // 🔥 UPDATED: Fetch society details with images and add to photo previews
+  // Fetch society details with images and add to photo previews
   const fetchSocietyDetails = async (societyIdOrName: string) => {
     if (!societyIdOrName || societyIdOrName === '') {
       setSocietyDetails(null);
@@ -1962,7 +1960,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           setFormData(prev => ({ ...prev, city: details.city }));
         }
 
-        // 🔥 Add society images to photo previews
+        // Add society images to photo previews
         if (details.imageUrls && details.imageUrls.length > 0) {
           const societyPreviews = details.imageUrls.map((url, index) => ({
             url: url,
@@ -1975,9 +1973,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             const userPhotos = prev.filter(p => !p.isExisting);
             return [...userPhotos, ...societyPreviews];
           });
-
-          // 🔥 Store existing image URLs for tracking
-          setExistingImageUrls(details.imageUrls);
 
           setFormData(prev => ({
             ...prev,
@@ -2150,7 +2145,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     setFormData(prev => ({ ...prev, ownershipDoc: null }));
   };
 
-  // 🔥 FIXED: Remove photo - updates both photoPreviews and existingImageUrls
+  // Remove photo - updates photoPreviews
   const removePhoto = (index: number) => {
     const next = [...photoPreviews];
     const removed = next.splice(index, 1)[0];
@@ -2158,11 +2153,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     // If it's a new image (not existing), revoke URL
     if (removed && !removed.isExisting) {
       cleanupPreview(removed);
-    }
-
-    // 🔥 If it was an existing image, remove from existingImageUrls as well
-    if (removed && removed.isExisting) {
-      setExistingImageUrls(prev => prev.filter(url => url !== removed.url));
     }
 
     setPhotoPreviews(next);
@@ -2195,7 +2185,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       setOwnershipDocPreview(null);
       setPhotoPreviews([]);
       setSocietyDetails(null);
-      setExistingImageUrls([]);
     };
   }, [isOpen]);
 
@@ -2298,11 +2287,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     const existingPhotos = (initialData.existingPhotos || []).map(p => createExistingFilePreview(p.url, p.name || 'Photo'));
     setPhotoPreviews(existingPhotos);
 
-    // 🔥 Set existingImageUrls from initial data
-    if (initialData.societyImageUrls) {
-      setExistingImageUrls(initialData.societyImageUrls);
-    }
-
     if (societyId) {
       setTimeout(() => {
         fetchSocietyDetails(societyId);
@@ -2337,7 +2321,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     return Object.keys(e).length === 0;
   };
 
-  // 🔥 FIXED: buildPayload - use existingImageUrls state
+  // 🔥 FIXED: buildPayload - derive existing image URLs from photoPreviews directly
   const buildPayload = (): FormData => {
     const fd = new FormData();
     const textFields: (keyof PropertyFormData)[] = [
@@ -2357,15 +2341,16 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     fd.append("furnishingItems", JSON.stringify(formData.furnishingItems || []));
     fd.append("nearby_places", JSON.stringify(formData.nearby_places || []));
 
-    // 🔥 FIX: Use existingImageUrls state directly
-    const allExistingPhotoUrls = existingImageUrls;
+    // 🔥 FIX: Derive existing image URLs from photoPreviews directly
+    const allExistingPhotoUrls = photoPreviews
+      .filter(p => p.isExisting)
+      .map(p => p.url);
 
     // Manual upload files
     const manualPhotoFiles = photoPreviews
       .filter(p => !p.isExisting && p.file)
       .map(p => p.file!);
 
-    // 🔥 Send existing photo URLs (includes society images)
     if (allExistingPhotoUrls.length > 0) {
       fd.append("existingPhotoUrls", JSON.stringify(allExistingPhotoUrls));
     }
@@ -2378,20 +2363,18 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       fd.append("ownershipDoc", formData.ownershipDoc, formData.ownershipDoc.name);
     }
 
-    // Manual upload files
     manualPhotoFiles.forEach((file) => {
       if (file) fd.append("photos", file, file.name);
     });
 
-    // Debug logs
-    console.log("📸 All existing photo URLs:", allExistingPhotoUrls);
+    console.log("📸 All existing photo URLs (from previews):", allExistingPhotoUrls);
     console.log("📤 Manual files:", manualPhotoFiles.length);
 
     return fd;
   };
 
   function buildUiPatchFromForm(fd: PropertyFormData, previews: { ownership?: FilePreview | null, photos: FilePreview[] }) {
-    // 🔥 All photo URLs (both existing and new)
+    // All photo URLs (both existing and new)
     const allPhotoUrls = previews.photos.map(p => p.url);
 
     return {
@@ -2432,7 +2415,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       finalPrice: fd.finalPrice,
       ownershipDocUrl: previews.ownership?.url,
       ownershipDocName: previews.ownership?.name,
-      photos: allPhotoUrls, // ✅ All images combined
+      photos: allPhotoUrls,
       societyImageUrls: fd.societyImageUrls || [],
       updated_at: new Date().toISOString(),
     };
