@@ -1959,9 +1959,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           setFormData(prev => ({ ...prev, city: details.city }));
         }
 
-        // 🔥 Add society images to photo previews (like manual upload)
+        // 🔥 Add society images to photo previews
         if (details.imageUrls && details.imageUrls.length > 0) {
-          // Create preview objects from society images
           const societyPreviews = details.imageUrls.map((url, index) => ({
             url: url,
             type: 'image' as const,
@@ -1969,9 +1968,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             name: `Society Image ${index + 1}`,
           }));
 
-          // Replace existing photos with society images (or merge)
           setPhotoPreviews(prev => {
-            // Remove any existing society images (isExisting: true)
             const userPhotos = prev.filter(p => !p.isExisting);
             return [...userPhotos, ...societyPreviews];
           });
@@ -2147,19 +2144,16 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     setFormData(prev => ({ ...prev, ownershipDoc: null }));
   };
 
-  // 🔥 UPDATED: Remove photo - handles both manual and society images
   const removePhoto = (index: number) => {
     const next = [...photoPreviews];
     const removed = next.splice(index, 1)[0];
 
-    // If it's a new image (not existing), revoke URL
     if (removed && !removed.isExisting) {
       cleanupPreview(removed);
     }
 
     setPhotoPreviews(next);
 
-    // Update photos array (only non-existing files)
     const newFiles = next
       .filter(p => !p.isExisting && p.file)
       .map(p => p.file!);
@@ -2323,6 +2317,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     return Object.keys(e).length === 0;
   };
 
+  // 🔥 FIXED: buildPayload - properly handle society images
   const buildPayload = (): FormData => {
     const fd = new FormData();
     const textFields: (keyof PropertyFormData)[] = [
@@ -2342,17 +2337,45 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     fd.append("furnishingItems", JSON.stringify(formData.furnishingItems || []));
     fd.append("nearby_places", JSON.stringify(formData.nearby_places || []));
 
-    if (mode === 'edit') {
-      const existingPhotoUrls = photoPreviews.filter(p => p.isExisting).map(p => p.url);
-      fd.append("existingPhotoUrls", JSON.stringify(existingPhotoUrls));
-      if (ownershipDocPreview?.isExisting) fd.append("existingOwnershipDocUrl", ownershipDocPreview.url);
+    // 🔥 FIX: Get all existing photo URLs (society images + existing photos)
+    const allExistingPhotoUrls = photoPreviews
+      .filter(p => p.isExisting)
+      .map(p => p.url);
+
+    // Manual upload files
+    const manualPhotoFiles = photoPreviews
+      .filter(p => !p.isExisting && p.file)
+      .map(p => p.file!);
+
+    // 🔥 Send existing photo URLs (includes society images)
+    if (allExistingPhotoUrls.length > 0) {
+      fd.append("existingPhotoUrls", JSON.stringify(allExistingPhotoUrls));
     }
-    if (formData.ownershipDoc) fd.append("ownershipDoc", formData.ownershipDoc, formData.ownershipDoc.name);
-    (formData.photos || []).forEach((file) => file && fd.append("photos", file, file.name));
+
+    if (ownershipDocPreview?.isExisting) {
+      fd.append("existingOwnershipDocUrl", ownershipDocPreview.url);
+    }
+
+    if (formData.ownershipDoc) {
+      fd.append("ownershipDoc", formData.ownershipDoc, formData.ownershipDoc.name);
+    }
+
+    // Manual upload files
+    manualPhotoFiles.forEach((file) => {
+      if (file) fd.append("photos", file, file.name);
+    });
+
+    // Debug logs
+    console.log("📸 All existing photo URLs:", allExistingPhotoUrls);
+    console.log("📤 Manual files:", manualPhotoFiles.length);
+
     return fd;
   };
 
   function buildUiPatchFromForm(fd: PropertyFormData, previews: { ownership?: FilePreview | null, photos: FilePreview[] }) {
+    // 🔥 All photo URLs (both existing and new)
+    const allPhotoUrls = previews.photos.map(p => p.url);
+
     return {
       seller: fd.seller ? { name: fd.seller } : undefined,
       type: fd.propertyType,
@@ -2391,7 +2414,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       finalPrice: fd.finalPrice,
       ownershipDocUrl: previews.ownership?.url,
       ownershipDocName: previews.ownership?.name,
-      photos: previews.photos.map(p => p.url),
+      photos: allPhotoUrls, // ✅ All images combined
       societyImageUrls: fd.societyImageUrls || [],
       updated_at: new Date().toISOString(),
     };
@@ -2739,7 +2762,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             </div>
           </div>
 
-          {/* 🆕 Documents & Photos - Society images show in photo previews like manual upload */}
+          {/* Documents & Photos */}
           <SectionHeader>Documents & Photos</SectionHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Ownership Document */}
@@ -2754,7 +2777,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
               {ownershipDocPreview && <div className="mt-2"><FilePreviewComponent preview={ownershipDocPreview} onRemove={removeOwnershipDoc} /></div>}
             </div>
 
-            {/* 🆕 Property Photos - Same as manual upload (society images appear here) */}
+            {/* Property Photos */}
             <div>
               <label className={LBL}>Property Photos</label>
               <div className="border border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-orange-400 hover:bg-orange-50/20 transition-all cursor-pointer group" onClick={() => document.getElementById('property-photos-input')?.click()}>
