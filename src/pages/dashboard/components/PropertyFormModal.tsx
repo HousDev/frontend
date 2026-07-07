@@ -1391,6 +1391,8 @@
 
 // export default PropertyFormModal;
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown, Image } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
@@ -1834,6 +1836,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
   const [ownershipDocPreview, setOwnershipDocPreview] = useState<FilePreview | null>(null);
   const [photoPreviews, setPhotoPreviews] = useState<FilePreview[]>([]);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [nearbyPlaceForm, setNearbyPlaceForm] = useState({ name: '', distance: '', unit: '', type: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -1972,6 +1975,9 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             const userPhotos = prev.filter(p => !p.isExisting);
             return [...userPhotos, ...societyPreviews];
           });
+
+          // 🔥 Store existing image URLs for tracking
+          setExistingImageUrls(details.imageUrls);
 
           setFormData(prev => ({
             ...prev,
@@ -2144,16 +2150,24 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     setFormData(prev => ({ ...prev, ownershipDoc: null }));
   };
 
+  // 🔥 FIXED: Remove photo - updates both photoPreviews and existingImageUrls
   const removePhoto = (index: number) => {
     const next = [...photoPreviews];
     const removed = next.splice(index, 1)[0];
 
+    // If it's a new image (not existing), revoke URL
     if (removed && !removed.isExisting) {
       cleanupPreview(removed);
     }
 
+    // 🔥 If it was an existing image, remove from existingImageUrls as well
+    if (removed && removed.isExisting) {
+      setExistingImageUrls(prev => prev.filter(url => url !== removed.url));
+    }
+
     setPhotoPreviews(next);
 
+    // Update photos array (only non-existing files)
     const newFiles = next
       .filter(p => !p.isExisting && p.file)
       .map(p => p.file!);
@@ -2181,6 +2195,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       setOwnershipDocPreview(null);
       setPhotoPreviews([]);
       setSocietyDetails(null);
+      setExistingImageUrls([]);
     };
   }, [isOpen]);
 
@@ -2283,6 +2298,11 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     const existingPhotos = (initialData.existingPhotos || []).map(p => createExistingFilePreview(p.url, p.name || 'Photo'));
     setPhotoPreviews(existingPhotos);
 
+    // 🔥 Set existingImageUrls from initial data
+    if (initialData.societyImageUrls) {
+      setExistingImageUrls(initialData.societyImageUrls);
+    }
+
     if (societyId) {
       setTimeout(() => {
         fetchSocietyDetails(societyId);
@@ -2317,7 +2337,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     return Object.keys(e).length === 0;
   };
 
-  // 🔥 FIXED: buildPayload - properly handle society images
+  // 🔥 FIXED: buildPayload - use existingImageUrls state
   const buildPayload = (): FormData => {
     const fd = new FormData();
     const textFields: (keyof PropertyFormData)[] = [
@@ -2337,10 +2357,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     fd.append("furnishingItems", JSON.stringify(formData.furnishingItems || []));
     fd.append("nearby_places", JSON.stringify(formData.nearby_places || []));
 
-    // 🔥 FIX: Get all existing photo URLs (society images + existing photos)
-    const allExistingPhotoUrls = photoPreviews
-      .filter(p => p.isExisting)
-      .map(p => p.url);
+    // 🔥 FIX: Use existingImageUrls state directly
+    const allExistingPhotoUrls = existingImageUrls;
 
     // Manual upload files
     const manualPhotoFiles = photoPreviews
