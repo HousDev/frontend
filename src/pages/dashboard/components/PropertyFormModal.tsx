@@ -1391,8 +1391,6 @@
 
 // export default PropertyFormModal;
 
-
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown, Image } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
@@ -1592,46 +1590,6 @@ const FilePreviewComponent: React.FC<{ preview: any; onRemove: () => void }> = (
   </div>
 );
 
-// 🆕 Society Image Preview Component
-const SocietyImagePreview: React.FC<{ images: string[]; onImageClick?: (url: string) => void }> = ({ images, onImageClick }) => {
-  if (!images || images.length === 0) return null;
-
-  const displayImages = images.slice(0, 6);
-  const remainingCount = images.length - 6;
-
-  return (
-    <div className="mt-2">
-      <div className="flex items-center gap-1.5 text-[10px] text-gray-500 mb-1.5">
-        <Image size={12} className="text-[#e67e22]" />
-        <span className="font-semibold">Society Images ({images.length})</span>
-      </div>
-      <div className="grid grid-cols-6 gap-1.5">
-        {displayImages.map((url, idx) => (
-          <div
-            key={idx}
-            className="aspect-square rounded-md overflow-hidden border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => onImageClick?.(url)}
-          >
-            <img
-              src={url}
-              alt={`Society ${idx + 1}`}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect fill="%23f3f4f6" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E';
-              }}
-            />
-          </div>
-        ))}
-        {remainingCount > 0 && (
-          <div className="aspect-square rounded-md border border-gray-200 flex items-center justify-center bg-gray-50">
-            <span className="text-[10px] font-semibold text-gray-500">+{remainingCount}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
 const N = "#0f2b3d";
 const O = "#e67e22";
 const BD = "#e2e8f0";
@@ -1734,7 +1692,6 @@ interface PropertyFormData {
   facing?: string;
   priceType?: 'Fixed' | 'Negotiable' | '';
   finalPrice?: string;
-  // 🆕 Society images from API
   societyImageUrls?: string[];
 }
 
@@ -1962,7 +1919,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     }
   };
 
-  // 🔥 UPDATED: Fetch society details with images
+  // 🔥 UPDATED: Fetch society details with images and add to photo previews
   const fetchSocietyDetails = async (societyIdOrName: string) => {
     if (!societyIdOrName || societyIdOrName === '') {
       setSocietyDetails(null);
@@ -2002,11 +1959,29 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           setFormData(prev => ({ ...prev, city: details.city }));
         }
 
-        // 🔥 Set society images
+        // 🔥 Add society images to photo previews (like manual upload)
         if (details.imageUrls && details.imageUrls.length > 0) {
-          setFormData(prev => ({ ...prev, societyImageUrls: details.imageUrls }));
-        } else {
-          setFormData(prev => ({ ...prev, societyImageUrls: [] }));
+          // Create preview objects from society images
+          const societyPreviews = details.imageUrls.map((url, index) => ({
+            url: url,
+            type: 'image' as const,
+            isExisting: true,
+            name: `Society Image ${index + 1}`,
+          }));
+
+          // Replace existing photos with society images (or merge)
+          setPhotoPreviews(prev => {
+            // Remove any existing society images (isExisting: true)
+            const userPhotos = prev.filter(p => !p.isExisting);
+            return [...userPhotos, ...societyPreviews];
+          });
+
+          setFormData(prev => ({
+            ...prev,
+            societyImageUrls: details.imageUrls,
+          }));
+
+          toast.info(`Loaded ${details.imageUrls.length} images from society`);
         }
 
         // Set amenities
@@ -2026,10 +2001,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           amenities: amenityIds,
           address: `${details.societyName}, ${details.locality}, ${details.city} ${details.pincode}`,
         }));
-
-        if (details.imageUrls && details.imageUrls.length > 0) {
-          toast.info(`Loaded ${details.imageUrls.length} images for "${details.societyName}"`);
-        }
       }
     } catch (error) {
       console.error('Error fetching society details:', error);
@@ -2176,12 +2147,22 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     setFormData(prev => ({ ...prev, ownershipDoc: null }));
   };
 
+  // 🔥 UPDATED: Remove photo - handles both manual and society images
   const removePhoto = (index: number) => {
     const next = [...photoPreviews];
     const removed = next.splice(index, 1)[0];
-    if (removed && !removed.isExisting) cleanupPreview(removed);
+
+    // If it's a new image (not existing), revoke URL
+    if (removed && !removed.isExisting) {
+      cleanupPreview(removed);
+    }
+
     setPhotoPreviews(next);
-    const newFiles = next.filter(p => !p.isExisting && p.file).map(p => p.file!);
+
+    // Update photos array (only non-existing files)
+    const newFiles = next
+      .filter(p => !p.isExisting && p.file)
+      .map(p => p.file!);
     setFormData(prev => ({ ...prev, photos: newFiles }));
   };
 
@@ -2592,18 +2573,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                 )}
               </Field>
             </div>
-
-            {/* 🆕 Society Images Preview */}
-            {formData.societyImageUrls && formData.societyImageUrls.length > 0 && (
-              <div className="col-span-2 sm:col-span-3 lg:col-span-4">
-                <SocietyImagePreview
-                  images={formData.societyImageUrls}
-                  onImageClick={(url) => {
-                    window.open(url, '_blank');
-                  }}
-                />
-              </div>
-            )}
           </div>
 
           {/* Area & Pricing Section */}
@@ -2770,9 +2739,10 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             </div>
           </div>
 
-          {/* Documents & Photos */}
+          {/* 🆕 Documents & Photos - Society images show in photo previews like manual upload */}
           <SectionHeader>Documents & Photos</SectionHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Ownership Document */}
             <div>
               <label className={LBL}>Ownership Document</label>
               <div className="border border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-orange-400 hover:bg-orange-50/20 transition-all cursor-pointer group" onClick={() => document.getElementById('ownership-doc-input')?.click()}>
@@ -2783,6 +2753,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
               </div>
               {ownershipDocPreview && <div className="mt-2"><FilePreviewComponent preview={ownershipDocPreview} onRemove={removeOwnershipDoc} /></div>}
             </div>
+
+            {/* 🆕 Property Photos - Same as manual upload (society images appear here) */}
             <div>
               <label className={LBL}>Property Photos</label>
               <div className="border border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-orange-400 hover:bg-orange-50/20 transition-all cursor-pointer group" onClick={() => document.getElementById('property-photos-input')?.click()}>
@@ -2794,12 +2766,19 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                   e.target.value = "";
                 }} />
                 <Upload className="h-5 w-5 text-gray-300 group-hover:text-orange-400 mx-auto mb-1 transition-colors" />
-                <p className="text-xs font-medium text-gray-500 group-hover:text-gray-700">{photoPreviews.length > 0 ? `${photoPreviews.length} file(s) — add more` : 'Click to upload'}</p>
+                <p className="text-xs font-medium text-gray-500 group-hover:text-gray-700">
+                  {photoPreviews.length > 0
+                    ? `${photoPreviews.length} file(s) — add more`
+                    : 'Click to upload'
+                  }
+                </p>
                 <p className="text-[10px] text-gray-400">JPG, PNG — 5 MB each</p>
               </div>
               {photoPreviews.length > 0 && (
                 <div className="grid grid-cols-4 gap-1.5 mt-2 max-h-44 overflow-y-auto">
-                  {photoPreviews.map((preview, index) => <FilePreviewComponent key={index} preview={preview} onRemove={() => removePhoto(index)} />)}
+                  {photoPreviews.map((preview, index) => (
+                    <FilePreviewComponent key={index} preview={preview} onRemove={() => removePhoto(index)} />
+                  ))}
                 </div>
               )}
             </div>
