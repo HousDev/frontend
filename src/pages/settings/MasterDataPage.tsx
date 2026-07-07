@@ -830,8 +830,18 @@
 //   const handleImport = async (file: File): Promise<void> => {
 //     try {
 //       if (importType === "master") {
-//         await masterDataAPI.importMasterTypes(activeId, file);
+//         const response = await masterDataAPI.importMasterTypes(activeId, file);
 
+//         // Handle response
+//         if (response?.imported === 0 && response?.skipped > 0) {
+//           toast.warning(response.message || "All records were duplicates");
+//         } else if (response?.imported > 0) {
+//           toast.success(response.message || "Master types imported successfully ✅");
+//         } else {
+//           toast.success("Master types imported successfully ✅");
+//         }
+
+//         // Refresh data
 //         if (isConnectedRemarkTab) {
 //           await loadConnectedRemarks();
 //         } else if (isSocietyTab) {
@@ -839,22 +849,30 @@
 //         } else {
 //           await loadMasterTypes();
 //         }
-
-//         toast.success("Master types imported successfully ✅");
 //       } else {
+//         // Import Values
 //         if (!selectedMaster) {
 //           toast.error("Please select a master first ❌");
 //           return;
 //         }
 
-//         await masterDataAPI.importMasterValues(selectedMaster.id, file);
-//         await loadMasterValues(selectedMaster.id);
+//         const response = await masterDataAPI.importMasterValues(selectedMaster.id, file);
 
-//         toast.success(`Values imported successfully for "${selectedMaster.name}" ✅`);
+//         if (response?.imported === 0 && response?.skipped > 0) {
+//           toast.warning(response.message || "All values were duplicates");
+//         } else if (response?.imported > 0) {
+//           toast.success(response.message || "Values imported successfully ✅");
+//         } else {
+//           toast.success(`Values imported successfully for "${selectedMaster.name}" ✅`);
+//         }
+
+//         await loadMasterValues(selectedMaster.id);
 //       }
-//     } catch (error) {
+//     } catch (error: any) {
 //       console.error(`Error importing ${importType}:`, error);
-//       toast.error(`Failed to import ${importType} ❌ Please try again.`);
+//       const errorMessage = error.response?.data?.error || `Failed to import ${importType}`;
+//       toast.error(errorMessage);
+//       throw error; // Re-throw so modal knows it failed
 //     }
 //   };
 
@@ -928,7 +946,7 @@
 //   });
 
 //   return (
-//     <div className="min-h-screen bg-gray-50">
+//     <div className=" bg-gray-50">
 //       <header className="p-4 border-b bg-white shadow-sm">
 //         <h1 className="text-xl font-semibold">Master Data Management</h1>
 //       </header>
@@ -1057,7 +1075,7 @@
 //                 ) : (
 //                   <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
 //                     <div className="overflow-auto max-h-[380px] sm:max-h-[450px]">
-//                           <table className="min-w-[1200px] w-full border-collapse table-fixed">
+//                       <table className="min-w-[1200px] w-full border-collapse table-fixed">
 
 //                         <thead className="sticky top-0 z-10">
 //                           <tr className="border-b bg-gray-50">
@@ -1119,8 +1137,8 @@
 //                               <td className="p-3">
 //                                 <span
 //                                   className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium border ${remark.status === "Active"
-//                                       ? "bg-green-50 text-green-700 border-green-200"
-//                                       : "bg-red-50 text-red-600 border-red-200"
+//                                     ? "bg-green-50 text-green-700 border-green-200"
+//                                     : "bg-red-50 text-red-600 border-red-200"
 //                                     }`}
 //                                 >
 //                                   <span className={`w-1.5 h-1.5 rounded-full ${remark.status === "Active" ? "bg-green-500" : "bg-red-500"}`} />
@@ -1212,120 +1230,120 @@
 //                               />
 //                             </th>
 //                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">#</th>
-//                                   <th className="w-[22%] text-left p-3 font-medium text-[11px] sm:text-xs">Society Name</th>
+//                             <th className="w-[22%] text-left p-3 font-medium text-[11px] sm:text-xs">Society Name</th>
 //                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Locality</th>
 //                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">City</th>
 //                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Pincode</th>
-//                                   <th className="w-[25%] text-left p-3 font-medium text-[11px] sm:text-xs">Amenities</th>
+//                             <th className="w-[25%] text-left p-3 font-medium text-[11px] sm:text-xs">Amenities</th>
 //                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
 //                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
 //                           </tr>
 //                         </thead>
-//                               <tbody className="bg-white divide-y divide-gray-100">
-//                                 {filteredSocieties.map((society, index) => (
-//                                   <tr
-//                                     key={society.id}
-//                                     className="border-b hover:bg-gray-50 transition-colors"
-//                                   >
-//                                     <td className="p-3">
-//                                       <input
-//                                         type="checkbox"
-//                                         checked={selectedSocietyIds.includes(society.id!)}
-//                                         onChange={() => toggleSelectSociety(society.id!)}
-//                                         className="h-4 w-4 rounded border-gray-300"
-//                                       />
-//                                     </td>
+//                         <tbody className="bg-white divide-y divide-gray-100">
+//                           {filteredSocieties.map((society, index) => (
+//                             <tr
+//                               key={society.id}
+//                               className="border-b hover:bg-gray-50 transition-colors"
+//                             >
+//                               <td className="p-3">
+//                                 <input
+//                                   type="checkbox"
+//                                   checked={selectedSocietyIds.includes(society.id!)}
+//                                   onChange={() => toggleSelectSociety(society.id!)}
+//                                   className="h-4 w-4 rounded border-gray-300"
+//                                 />
+//                               </td>
 
-//                                     <td className="p-3 text-gray-600 text-xs">
-//                                       {index + 1}
-//                                     </td>
+//                               <td className="p-3 text-gray-600 text-xs">
+//                                 {index + 1}
+//                               </td>
 
-//                                     <td className="p-3 font-medium text-xs w-[22%]">
-//                                       {society.societyName}
-//                                     </td>
+//                               <td className="p-3 font-medium text-xs w-[22%]">
+//                                 {society.societyName}
+//                               </td>
 
-//                                     <td className="p-3 font-medium text-xs">
-//                                       {society.locality}
-//                                     </td>
+//                               <td className="p-3 font-medium text-xs">
+//                                 {society.locality}
+//                               </td>
 
-//                                     <td className="p-3 font-medium text-xs">
-//                                       {society.city}
-//                                     </td>
+//                               <td className="p-3 font-medium text-xs">
+//                                 {society.city}
+//                               </td>
 
-//                                     <td className="p-3 font-medium text-xs">
-//                                       {society.pincode}
-//                                     </td>
+//                               <td className="p-3 font-medium text-xs">
+//                                 {society.pincode}
+//                               </td>
 
-//                                     {/* Amenities */}
-//                                     <td className="p-3 min-w-[300px]">
-//                                       {society.amenities?.length > 0 ? (
-//                                         <div className="flex flex-wrap gap-1">
-//                                           {society.amenities.slice(0, 3).map((amenity, idx) => (
-//                                             <span
-//                                               key={idx}
-//                                               className="inline-block px-2 py-1 bg-purple-50 text-purple-600 rounded text-[10px] border border-purple-200"
-//                                             >
-//                                               {amenity}
-//                                             </span>
-//                                           ))}
-//                                           {society.amenities.length > 3 && (
-//                                             <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 rounded text-[10px]">
-//                                               +{society.amenities.length - 3}
-//                                             </span>
-//                                           )}
-//                                         </div>
-//                                       ) : (
-//                                         <span className="text-gray-400 text-xs">—</span>
-//                                       )}
-//                                     </td>
-
-//                                     {/* Status */}
-//                                     <td className="p-3">
+//                               {/* Amenities */}
+//                               <td className="p-3 min-w-[300px]">
+//                                 {society.amenities?.length > 0 ? (
+//                                   <div className="flex flex-wrap gap-1">
+//                                     {society.amenities.slice(0, 3).map((amenity, idx) => (
 //                                       <span
-//                                         className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${society.status === "Active"
-//                                             ? "bg-green-50 text-green-700 border-green-200"
-//                                             : "bg-red-50 text-red-700 border-red-200"
-//                                           }`}
+//                                         key={idx}
+//                                         className="inline-block px-2 py-1 bg-purple-50 text-purple-600 rounded text-[10px] border border-purple-200"
 //                                       >
-//                                         <span
-//                                           className={`w-2 h-2 rounded-full ${society.status === "Active"
-//                                               ? "bg-green-500"
-//                                               : "bg-red-500"
-//                                             }`}
-//                                         />
-//                                         {society.status || "Active"}
+//                                         {amenity}
 //                                       </span>
-//                                     </td>
-
-//                                     {/* Actions */}
-//                                     <td className="p-3">
-//                                       <div className="flex items-center gap-2">
-//                                         <button
-//                                           onClick={() => handleEditSociety(society)}
-//                                           className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded"
-//                                         >
-//                                           <Edit2 size={14} />
-//                                         </button>
-
-//                                         <button
-//                                           onClick={() => handleDeleteSociety(society.id!)}
-//                                           className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
-//                                         >
-//                                           <Trash2 size={14} />
-//                                         </button>
-//                                       </div>
-//                                     </td>
-//                                   </tr>
-//                                 ))}
-
-//                                 {filteredSocieties.length === 0 && (
-//                                   <tr>
-//                                     <td colSpan={9} className="p-6 text-center text-gray-500">
-//                                       No societies found
-//                                     </td>
-//                                   </tr>
+//                                     ))}
+//                                     {society.amenities.length > 3 && (
+//                                       <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 rounded text-[10px]">
+//                                         +{society.amenities.length - 3}
+//                                       </span>
+//                                     )}
+//                                   </div>
+//                                 ) : (
+//                                   <span className="text-gray-400 text-xs">—</span>
 //                                 )}
-//                               </tbody>
+//                               </td>
+
+//                               {/* Status */}
+//                               <td className="p-3">
+//                                 <span
+//                                   className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${society.status === "Active"
+//                                     ? "bg-green-50 text-green-700 border-green-200"
+//                                     : "bg-red-50 text-red-700 border-red-200"
+//                                     }`}
+//                                 >
+//                                   <span
+//                                     className={`w-2 h-2 rounded-full ${society.status === "Active"
+//                                       ? "bg-green-500"
+//                                       : "bg-red-500"
+//                                       }`}
+//                                   />
+//                                   {society.status || "Active"}
+//                                 </span>
+//                               </td>
+
+//                               {/* Actions */}
+//                               <td className="p-3">
+//                                 <div className="flex items-center gap-2">
+//                                   <button
+//                                     onClick={() => handleEditSociety(society)}
+//                                     className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded"
+//                                   >
+//                                     <Edit2 size={14} />
+//                                   </button>
+
+//                                   <button
+//                                     onClick={() => handleDeleteSociety(society.id!)}
+//                                     className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+//                                   >
+//                                     <Trash2 size={14} />
+//                                   </button>
+//                                 </div>
+//                               </td>
+//                             </tr>
+//                           ))}
+
+//                           {filteredSocieties.length === 0 && (
+//                             <tr>
+//                               <td colSpan={9} className="p-6 text-center text-gray-500">
+//                                 No societies found
+//                               </td>
+//                             </tr>
+//                           )}
+//                         </tbody>
 //                       </table>
 //                     </div>
 
@@ -1417,8 +1435,8 @@
 
 //                     <span
 //                       className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium sm:mt-2 ${selectedMaster?.status === "Active"
-//                           ? "bg-green-100 text-green-700"
-//                           : "bg-red-100 text-red-700"
+//                         ? "bg-green-100 text-green-700"
+//                         : "bg-red-100 text-red-700"
 //                         }`}
 //                     >
 //                       {selectedMaster?.status === "Active" ? (
@@ -1557,8 +1575,8 @@
 //                               <td className="p-3">
 //                                 <span
 //                                   className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium border ${value.status === "Active"
-//                                       ? "bg-green-50 text-green-700 border-green-200"
-//                                       : "bg-red-50 text-red-600 border-red-200"
+//                                     ? "bg-green-50 text-green-700 border-green-200"
+//                                     : "bg-red-50 text-red-600 border-red-200"
 //                                     }`}
 //                                 >
 //                                   <span className={`w-1.5 h-1.5 rounded-full ${value.status === "Active" ? "bg-green-500" : "bg-red-500"}`} />
@@ -1670,15 +1688,15 @@
 //                   className="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100 text-xs"
 //                 >
 //                   Cancel
+//                 </button>
+//                 {canManageMaster && (
+//                   <button
+//                     type="submit"
+//                     className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
+//                   >
+//                     {isEditMode ? "Update" : "Create"}
 //                   </button>
-//                   {canManageMaster && (
-//                     <button
-//                       type="submit"
-//                       className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
-//                     >
-//                       {isEditMode ? "Update" : "Create"}
-//                     </button>
-//                   )}
+//                 )}
 //               </div>
 //             </div>
 //           </form>
@@ -1759,7 +1777,6 @@
 //   );
 // }
 
-
 // src/pages/settings/MasterDataPage.tsx
 import React, { useState, useEffect, ChangeEvent } from "react";
 import {
@@ -1772,6 +1789,19 @@ import {
   Upload,
   Download,
   X,
+  Eye,
+  Image as ImageIcon,
+  MapPin,
+  Building2,
+  Tag,
+  List,
+  FileText,
+  Home,
+  Hash,
+  Map,
+  Package,
+  Check,
+  ChevronRight,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { masterDataAPI } from "@/lib/mastersAPI";
@@ -1827,6 +1857,7 @@ interface SocietyData {
   status?: string;
   createdAt?: string;
   amenities?: string[];
+  imageUrls?: string[];
 }
 
 interface ConnectedRemark {
@@ -1924,6 +1955,8 @@ export default function MasterDataPage(): JSX.Element {
 
   const [societies, setSocieties] = useState<SocietyData[]>([]);
   const [currentSociety, setCurrentSociety] = useState<SocietyData | null>(null);
+  const [viewSociety, setViewSociety] = useState<SocietyData | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState<boolean>(false);
 
   const [selectedSocietyIds, setSelectedSocietyIds] = useState<string[]>([]);
   const [isAllSocietiesSelected, setIsAllSocietiesSelected] = useState(false);
@@ -1981,6 +2014,17 @@ export default function MasterDataPage(): JSX.Element {
     setCurrentSociety(society);
     setIsEditMode(true);
     setIsModalOpen(true);
+  };
+
+  // 🆕 View Society Handler
+  const handleViewSociety = (society: SocietyData): void => {
+    setViewSociety(society);
+    setIsViewModalOpen(true);
+  };
+
+  // 🆕 Handle click on society name
+  const handleSocietyNameClick = (society: SocietyData): void => {
+    handleViewSociety(society);
   };
 
   const handleDeleteSociety = async (societyId: string): Promise<void> => {
@@ -2549,7 +2593,7 @@ export default function MasterDataPage(): JSX.Element {
   const handleExport = async (): Promise<void> => {
     if (!selectedMaster) return;
 
-    // Export all values (not just filtered ones) – same as original CSV export
+    // Export all values (not just filtered ones)
     const valuesToExport = selectedMaster.values.map(v => ({
       'Value': v.value,
       'Status': v.status,
@@ -2567,10 +2611,58 @@ export default function MasterDataPage(): JSX.Element {
     toast.success(`Values exported successfully for "${selectedMaster.name}" ✅`);
   };
 
+  // 🔥 UPDATED: Export with amenities for society
   const handleMasterExport = async (): Promise<void> => {
-    if (isConnectedRemarkTab) return;
+    if (isConnectedRemarkTab) {
+      // Export connected remarks
+      const dataToExport = filteredConnectedRemarks.map(remark => ({
+        'Master Tab Id': remark.tab_id || remark.tabId || 'N/A',
+        'Master Type 1': remark.type1Name || 'N/A',
+        'Master Value 1': remark.value1Name || 'N/A',
+        'Master Type 2': remark.type2Name || 'N/A',
+        'Master Value 2': remark.value2Name || 'N/A',
+        'Remarks': typeof remark.remarks === 'string' ? remark.remarks : JSON.stringify(remark.remarks),
+        'Status': remark.status,
+      }));
 
-    // Use the currently filtered master items (respect search)
+      if (dataToExport.length === 0) {
+        toast.warn("No data to export.");
+        return;
+      }
+
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Connected Remarks');
+      XLSX.writeFile(wb, `Connected_Remarks_${Date.now()}.xlsx`);
+      toast.success("Connected remarks exported successfully ✅");
+      return;
+    }
+
+    if (isSocietyTab) {
+      // 🆕 Export societies with amenities
+      const dataToExport = filteredSocieties.map(society => ({
+        'Society Name': society.societyName || '',
+        'Locality': society.locality || '',
+        'City': society.city || '',
+        'Pincode': society.pincode || '',
+        'Amenities': (society.amenities || []).join(', '),
+        'Status': society.status || 'Active',
+      }));
+
+      if (dataToExport.length === 0) {
+        toast.warn("No data to export.");
+        return;
+      }
+
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Societies');
+      XLSX.writeFile(wb, `Societies_${Date.now()}.xlsx`);
+      toast.success(`${dataToExport.length} societies exported successfully ✅`);
+      return;
+    }
+
+    // Master types export
     const dataToExport = filteredMasterItems.map(item => ({
       'Name': item.name,
       'Status': item.status,
@@ -2707,8 +2799,176 @@ export default function MasterDataPage(): JSX.Element {
     );
   });
 
+  // 🆕 View Society Modal Component
+  const ViewSocietyModal = () => {
+    if (!viewSociety) return null;
+
+    return (
+      <Modal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        showHeader={false}
+        showCloseButton={false}
+        width="max-w-2xl"
+      >
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b rounded-t-lg" style={{ background: '#0f2b3d', borderColor: '#e2e8f0' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 rounded-full bg-[#e67e22]" />
+            <div>
+              <h2 className="text-base font-bold text-white">{viewSociety.societyName}</h2>
+              <p className="text-[10px] text-gray-400">Society Details</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsViewModalOpen(false)}
+            className="p-1.5 rounded hover:bg-white/10 transition-colors text-white"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-6">
+          {/* Status Badge */}
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${viewSociety.status === 'Active'
+                  ? 'bg-green-50 text-green-700 border-green-200'
+                  : 'bg-red-50 text-red-700 border-red-200'
+                }`}>
+                <span className={`w-2 h-2 rounded-full ${viewSociety.status === 'Active' ? 'bg-green-500' : 'bg-red-500'
+                  }`} />
+                {viewSociety.status || 'Active'}
+              </span>
+            </div>
+            {viewSociety.createdAt && (
+              <span className="text-[10px] text-gray-400">
+                Created: {new Date(viewSociety.createdAt).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+
+          {/* Details Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Society Name */}
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-1">
+                <Building2 size={14} className="text-[#e67e22]" />
+                Society Name
+              </div>
+              <p className="text-sm font-semibold text-gray-800">{viewSociety.societyName}</p>
+            </div>
+
+            {/* Locality */}
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-1">
+                <MapPin size={14} className="text-[#e67e22]" />
+                Locality
+              </div>
+              <p className="text-sm text-gray-800">{viewSociety.locality}</p>
+            </div>
+
+            {/* City */}
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-1">
+                <Map size={14} className="text-[#e67e22]" />
+                City
+              </div>
+              <p className="text-sm text-gray-800">{viewSociety.city}</p>
+            </div>
+
+            {/* Pincode */}
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-1">
+                <Hash size={14} className="text-[#e67e22]" />
+                Pincode
+              </div>
+              <p className="text-sm text-gray-800">{viewSociety.pincode}</p>
+            </div>
+          </div>
+
+          {/* Amenities Section */}
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+            <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-3">
+              <Package size={14} className="text-[#e67e22]" />
+              Amenities
+            </div>
+            {viewSociety.amenities && viewSociety.amenities.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {viewSociety.amenities.map((amenity, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-medium border border-purple-200"
+                  >
+                    <Check size={12} className="text-purple-400" />
+                    {amenity}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">No amenities added</p>
+            )}
+            <div className="mt-2 text-[10px] text-gray-400">
+              {viewSociety.amenities?.length || 0} amenities
+            </div>
+          </div>
+
+          {/* Images Section */}
+          {viewSociety.imageUrls && viewSociety.imageUrls.length > 0 && (
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+              <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-3">
+                <ImageIcon size={14} className="text-[#e67e22]" />
+                Images
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {viewSociety.imageUrls.slice(0, 6).map((url, idx) => (
+                  <div key={idx} className="aspect-square rounded-lg overflow-hidden border border-gray-200">
+                    <img
+                      src={url}
+                      alt={`${viewSociety.societyName} ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect fill="%23f3f4f6" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E';
+                      }}
+                    />
+                  </div>
+                ))}
+                {viewSociety.imageUrls.length > 6 && (
+                  <div className="aspect-square rounded-lg border border-gray-200 flex items-center justify-center bg-gray-100">
+                    <span className="text-xs font-semibold text-gray-500">+{viewSociety.imageUrls.length - 6}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
+          <button
+            onClick={() => setIsViewModalOpen(false)}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Close
+          </button>
+          <button
+            onClick={() => {
+              setIsViewModalOpen(false);
+              handleEditSociety(viewSociety);
+            }}
+            className="px-4 py-2 text-sm font-medium text-white bg-[#0f2b3d] rounded-lg hover:bg-[#1a3d52] transition-colors flex items-center gap-2"
+          >
+            <Edit2 size={14} />
+            Edit Society
+          </button>
+        </div>
+      </Modal>
+    );
+  };
+
   return (
-    <div className=" bg-gray-50">
+    <div className="bg-gray-50 min-h-screen">
       <header className="p-4 border-b bg-white shadow-sm">
         <h1 className="text-xl font-semibold">Master Data Management</h1>
       </header>
@@ -2777,7 +3037,7 @@ export default function MasterDataPage(): JSX.Element {
                   className="w-full sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
 
-                {/* 🔹 MOBILE: Import + Export in one row */}
+                {/* 🔹 Import + Export */}
                 {!isConnectedRemarkTab && !isSocietyTab && (
                   <div className="flex gap-2 w-full md:w-auto">
                     <button
@@ -2804,7 +3064,35 @@ export default function MasterDataPage(): JSX.Element {
                   </div>
                 )}
 
-                {/* 🔹 DESKTOP: Create button (unchanged) */}
+                {/* 🔹 Society Tab - Export button */}
+                {isSocietyTab && (
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <button
+                      onClick={handleMasterExport}
+                      disabled={!filteredSocieties.length}
+                      className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                    >
+                      <Download size={14} />
+                      <span className="whitespace-nowrap">Export Societies</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 🔹 Connected Remark Tab - Export button */}
+                {isConnectedRemarkTab && (
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <button
+                      onClick={handleMasterExport}
+                      disabled={!filteredConnectedRemarks.length}
+                      className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                    >
+                      <Download size={14} />
+                      <span className="whitespace-nowrap">Export Remarks</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 🔹 DESKTOP: Create button */}
                 <button
                   onClick={() => setIsModalOpen(true)}
                   className="hidden md:flex w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg items-center justify-center gap-2 text-xs"
@@ -2838,7 +3126,6 @@ export default function MasterDataPage(): JSX.Element {
                   <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
                     <div className="overflow-auto max-h-[380px] sm:max-h-[450px]">
                       <table className="min-w-[1200px] w-full border-collapse table-fixed">
-
                         <thead className="sticky top-0 z-10">
                           <tr className="border-b bg-gray-50">
                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">#</th>
@@ -2852,7 +3139,6 @@ export default function MasterDataPage(): JSX.Element {
                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
                           </tr>
                         </thead>
-
                         <tbody className="bg-white divide-y divide-gray-100">
                           {filteredConnectedRemarks.map((remark, index) => (
                             <tr key={remark.id} className="border-b hover:bg-gray-50 transition-colors">
@@ -2925,7 +3211,6 @@ export default function MasterDataPage(): JSX.Element {
                               </td>
                             </tr>
                           ))}
-
                           {filteredConnectedRemarks.length === 0 && (
                             <tr>
                               <td colSpan={9} className="p-3 text-center text-xs text-gray-400">
@@ -2936,7 +3221,6 @@ export default function MasterDataPage(): JSX.Element {
                         </tbody>
                       </table>
                     </div>
-
                     <div className="px-3 py-2 bg-gray-50 border-t border-gray-100">
                       <span className="text-xs text-gray-400">
                         Showing <span className="font-medium text-gray-600">{filteredConnectedRemarks.length}</span> records
@@ -2979,8 +3263,7 @@ export default function MasterDataPage(): JSX.Element {
                 ) : (
                   <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
                     <div className="overflow-auto max-h-[400px] sm:max-h-[450px]">
-                      <table className="min-w-[800px] w-full border-collapse">
-
+                      <table className="min-w-[900px] w-full border-collapse">
                         <thead className="sticky top-0 z-10">
                           <tr className="border-b bg-gray-50">
                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">
@@ -2992,11 +3275,11 @@ export default function MasterDataPage(): JSX.Element {
                               />
                             </th>
                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">#</th>
-                            <th className="w-[22%] text-left p-3 font-medium text-[11px] sm:text-xs">Society Name</th>
+                            <th className="w-[20%] text-left p-3 font-medium text-[11px] sm:text-xs">Society Name</th>
                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Locality</th>
                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">City</th>
                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Pincode</th>
-                            <th className="w-[25%] text-left p-3 font-medium text-[11px] sm:text-xs">Amenities</th>
+                            <th className="w-[20%] text-left p-3 font-medium text-[11px] sm:text-xs">Amenities</th>
                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
                           </tr>
@@ -3020,8 +3303,14 @@ export default function MasterDataPage(): JSX.Element {
                                 {index + 1}
                               </td>
 
-                              <td className="p-3 font-medium text-xs w-[22%]">
-                                {society.societyName}
+                              {/* 🔥 Clickable Society Name */}
+                              <td className="p-3 font-medium text-xs w-[20%]">
+                                <button
+                                  onClick={() => handleSocietyNameClick(society)}
+                                  className="text-blue-600 hover:text-blue-800 hover:underline text-left transition-colors font-medium"
+                                >
+                                  {society.societyName}
+                                </button>
                               </td>
 
                               <td className="p-3 font-medium text-xs">
@@ -3037,7 +3326,7 @@ export default function MasterDataPage(): JSX.Element {
                               </td>
 
                               {/* Amenities */}
-                              <td className="p-3 min-w-[300px]">
+                              <td className="p-3 min-w-[200px] w-[20%]">
                                 {society.amenities?.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
                                     {society.amenities.slice(0, 3).map((amenity, idx) => (
@@ -3079,19 +3368,30 @@ export default function MasterDataPage(): JSX.Element {
 
                               {/* Actions */}
                               <td className="p-3">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  {/* 🆕 View Button */}
+                                  <button
+                                    onClick={() => handleViewSociety(society)}
+                                    className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                    title="View Society"
+                                  >
+                                    <Eye size={15} />
+                                  </button>
+
                                   <button
                                     onClick={() => handleEditSociety(society)}
-                                    className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded"
+                                    className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                                    title="Edit Society"
                                   >
-                                    <Edit2 size={14} />
+                                    <Edit2 size={15} />
                                   </button>
 
                                   <button
                                     onClick={() => handleDeleteSociety(society.id!)}
-                                    className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                    title="Delete Society"
                                   >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={15} />
                                   </button>
                                 </div>
                               </td>
@@ -3190,10 +3490,11 @@ export default function MasterDataPage(): JSX.Element {
                 {/* HEADER */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-2 sm:mb-2">
 
-                  {/* TITLE + STATUS (unchanged for desktop) */}
-                  <div className="flex items-center justify-between w-full sm:w-auto gap-2">        <h2 className="text-sm sm:text-base font-semibold">
-                    {selectedMaster?.name}
-                  </h2>
+                  {/* TITLE + STATUS */}
+                  <div className="flex items-center justify-between w-full sm:w-auto gap-2">
+                    <h2 className="text-sm sm:text-base font-semibold">
+                      {selectedMaster?.name}
+                    </h2>
 
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium sm:mt-2 ${selectedMaster?.status === "Active"
@@ -3213,7 +3514,6 @@ export default function MasterDataPage(): JSX.Element {
                   {/* RIGHT SECTION */}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap w-full sm:w-auto">
 
-                    {/* ✅ MOBILE: BUTTONS FIRST */}
                     <div className="flex flex-row gap-2 w-full sm:w-auto order-1 sm:order-none">
                       {!isConnectedRemarkTab && (
                         <>
@@ -3250,7 +3550,6 @@ export default function MasterDataPage(): JSX.Element {
                       )}
                     </div>
 
-                    {/* ✅ SEARCH + DELETE */}
                     <div className="flex flex-row gap-2 w-full sm:w-auto order-2 sm:order-none">
                       <input
                         type="text"
@@ -3299,7 +3598,6 @@ export default function MasterDataPage(): JSX.Element {
                   <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
                     <div className="overflow-auto max-h-[320px] sm:max-h-[410px]">
                       <table className="min-w-[600px] w-full border-collapse">
-
                         <thead className="sticky top-0 z-10">
                           <tr className="bg-gray-100 border-b border-gray-200">
                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">
@@ -3318,7 +3616,6 @@ export default function MasterDataPage(): JSX.Element {
                             <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
                           </tr>
                         </thead>
-
                         <tbody className="bg-white divide-y divide-gray-100">
                           {filteredValues.map((value, index) => (
                             <tr key={value.id} className="border-b hover:bg-gray-50 transition-colors">
@@ -3363,7 +3660,6 @@ export default function MasterDataPage(): JSX.Element {
                               </td>
                             </tr>
                           ))}
-
                           {filteredValues.length === 0 && (
                             <tr>
                               <td colSpan={4} className="p-3 text-center text-xs text-gray-400">
@@ -3374,7 +3670,6 @@ export default function MasterDataPage(): JSX.Element {
                         </tbody>
                       </table>
                     </div>
-
                     <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
                       <span className="text-xs text-gray-400">
                         Showing <span className="font-medium text-gray-600">{filteredValues.length}</span> values
@@ -3390,13 +3685,17 @@ export default function MasterDataPage(): JSX.Element {
           </>
         )}
       </main>
+
+      {/* View Society Modal */}
+      <ViewSocietyModal />
+
+      {/* Modal for Master Types */}
       <Modal
         isOpen={isModalOpen && !isSocietyTab}
         onClose={resetForm}
         showHeader={false}
         showCloseButton={false}
       >
-        {/* Custom header - same style as SocietyForm */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b rounded-t-lg" style={{ background: '#0f2b3d', borderColor: '#e2e8f0' }}>
           <div className="flex items-center gap-2">
             <div className="w-1 h-5 rounded-full bg-[#e67e22]" />
@@ -3465,7 +3764,7 @@ export default function MasterDataPage(): JSX.Element {
         )}
       </Modal>
 
-      {/* Separate Modal for Society with custom header */}
+      {/* Separate Modal for Society */}
       <Modal
         isOpen={isModalOpen && isSocietyTab}
         onClose={resetSocietyForm}
@@ -3485,9 +3784,10 @@ export default function MasterDataPage(): JSX.Element {
         />
       </Modal>
 
+      {/* Value Modal */}
       <Modal isOpen={isValueModalOpen} onClose={resetValueForm} title={`${editingValue ? "Edit" : "Add"} Value`}>
         <form onSubmit={handleValueSubmit}>
-          <div className="space-y-4 px-5 py-4 ">
+          <div className="space-y-4 px-5 py-4">
             <div>
               <label className="block mb-1 font-medium text-xs">Value</label>
               <input
@@ -3495,7 +3795,7 @@ export default function MasterDataPage(): JSX.Element {
                 value={valueInput}
                 onChange={(e) => setValueInput(e.target.value)}
                 required
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs "
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
               />
             </div>
             <div>
@@ -3528,6 +3828,7 @@ export default function MasterDataPage(): JSX.Element {
         </form>
       </Modal>
 
+      {/* Import Modal */}
       <ImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
