@@ -1568,6 +1568,7 @@ import { buyerAPI } from '@/lib/buyerAPI';
 import { sellerAPI } from '@/lib/sellersAPI';
 import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
+import UserViewModal from './UserViewModal';
 
 // Resale Theme Colors
 const RESALE = {
@@ -1876,7 +1877,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
   const [createAccountTypeLocal, setCreateAccountTypeLocal] = useState<'buyer' | 'seller'>('buyer');
   const [createPrefill, setCreatePrefill] = useState<Partial<User> | null>(null);
   const [localCreating, setLocalCreating] = useState(false);
-
+const [viewingUser, setViewingUser] = useState<User | null>(null);
   // Utility functions
   const formatDateForAPI = (dateValue: string | Date | null | undefined): string | null => {
     if (!dateValue) return null;
@@ -2702,6 +2703,17 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
           </div>
         </div>
       )}
+      {viewingUser && (
+  <UserViewModal 
+    user={viewingUser} 
+    onClose={() => setViewingUser(null)}
+    onEdit={() => { setViewingUser(null); onEditUser(viewingUser); }}
+    getLabelFromValue={getLabelFromValue}
+    formatCurrency={formatCurrency}
+    formatDateTime={formatDateTime}
+    formatDateForDisplay={formatDateForDisplay}
+  />
+)}
 
       {/* Tabs */}
       <nav className="flex overflow-x-auto scrollbar-hide sm:-mt-9 mt-2" aria-label="Tabs">
@@ -3035,6 +3047,12 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
                             </Button>
                           ) : (
                             <div className="flex justify-end gap-1">
+                              <button 
+  onClick={() => setViewingUser(user)} 
+  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-indigo-600"
+>
+  <Eye size={14} />
+</button>
                               <button onClick={() => onEditUser(user)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: RESALE.orange }}>
                                 <Edit size={14} />
                               </button>
