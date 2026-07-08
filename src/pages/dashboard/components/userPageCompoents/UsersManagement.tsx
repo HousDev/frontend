@@ -2775,17 +2775,7 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
               <option value="inactive">Inactive</option>
             </select>
 
-            <select
-              value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(parseInt(e.target.value))}
-              className="min-w-[90px] px-2 py-1.5 text-xs lg:text-sm border border-gray-200 rounded-md bg-white"
-            >
-              {[10, 20, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}/page
-                </option>
-              ))}
-            </select>
+            
           </div>
 
           {/* DESKTOP BULK ACTIONS */}
@@ -2894,8 +2884,14 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
           <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
         ) : (
           <>
-            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] sm:max-h-[calc(100vh-260px)]">
-              <table className="w-full" style={{ minWidth: '1000px' }}>
+<div
+  className="overflow-x-auto overflow-y-auto"
+  style={{
+    height: window.innerWidth < 640
+      ? selectedUsers.length > 0 ? '400px' : '420px'
+      : selectedUsers.length > 0 ? '490px' : '500px',
+  }}
+>              <table className="w-full" style={{ minWidth: '1000px' }}>
                 <thead style={{ position: 'sticky', top: 0 }}>
                   {/* Main Headers */}
                   <tr style={{ backgroundColor: RESALE.navy }}>
@@ -3097,12 +3093,88 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
             </div>
 
             {/* Pagination */}
-            {filteredUsers.length > 0 && (
-              <div className="px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="text-xs text-gray-500">Showing {paginatedUsers.length} of {filteredUsers.length} users</div>
-                <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-              </div>
-            )}
+           {filteredUsers.length > 0 && (
+  <div className="px-2 sm:px-3 py-2 border-t border-gray-100 bg-white">
+    
+    {/* MOBILE */}
+    <div className="flex flex-col gap-2 sm:hidden">
+      
+      {/* Showing Text */}
+      <div className="text-[10px] text-gray-500 text-center">
+        Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}-
+        {Math.min(currentPage * itemsPerPage, filteredUsers.length)}{" "}
+        of {filteredUsers.length} users
+      </div>
+
+      {/* Bottom Row */}
+      <div className="flex items-center justify-between gap-2">
+        
+        {/* Dropdown (only when no selection) */}
+        {selectedUsers.length === 0 && (
+          <select
+            value={itemsPerPage}
+            onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
+            className="min-w-[90px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
+          >
+            {[10, 20, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n} / page
+              </option>
+            ))}
+            <option value={999999}>All</option>
+          </select>
+        )}
+
+        {/* Pagination Wrapper */}
+        <div className="flex-1 overflow-x-auto scrollbar-hide">
+          <div className="flex justify-end min-w-max">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* DESKTOP */}
+    <div className="hidden sm:flex items-center justify-between gap-3">
+      
+      {/* Left Side */}
+      <div className="flex items-center gap-3">
+        
+        <div className="text-[10px] text-gray-500 whitespace-nowrap">
+          Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}-
+          {Math.min(currentPage * itemsPerPage, filteredUsers.length)}{" "}
+          of {filteredUsers.length} users
+        </div>
+
+        {selectedUsers.length === 0 && (
+          <select
+            value={itemsPerPage}
+            onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
+            className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
+          >
+            {[10, 20, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n} / page
+              </option>
+            ))}
+            <option value={999999}>All</option>
+          </select>
+        )}
+      </div>
+
+      {/* Right Side */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
+    </div>
+  </div>
+)}
           </>
         )}
       </div>

@@ -1005,7 +1005,15 @@ const PropertiesPage = () => {
   const [totalViews, setTotalViews] = useState(0);
   const [totalUniqueViews, setTotalUniqueViews] = useState(0);
   const [bulkTagsMenuOpen, setBulkTagsMenuOpen] = useState(false);
-
+const handleSelectAllPages = () => {
+  const allIds = filteredProperties.map(p => p.id);
+  // If all are already selected, clear; else select all
+  if (selectedProperties.length === allIds.length && allIds.length > 0) {
+    setSelectedProperties([]);
+  } else {
+    setSelectedProperties(allIds);
+  }
+};
   const [activeTagPicker, setActiveTagPicker] = useState<'add' | 'remove' | null>(null);
   useEffect(() => {
     async function fetchViewStats() {
@@ -2433,7 +2441,7 @@ style={{ background: theme.orange }}              >
         {selectedProperties.length > 0 && (canUpdate || canAssign || canBulkDelete || canExport) && (
   <div className="bg-blue-50 border border-blue-200 rounded-lg mt-2 overflow-visible">
     {/* Responsive Bulk Actions Bar */}
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:px-4 sm:py-2.5 gap-3">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:px-2 sm:py-2 gap-3">
       <div className="flex flex-wrap items-center gap-2">
         {/* Selected count and Clear button - Same row on mobile */}
          <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto">
@@ -2451,6 +2459,14 @@ style={{ background: theme.orange }}              >
       </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
+          <button
+  onClick={handleSelectAllPages}
+  className="px-2 sm:px-2.5 py-1 bg-blue-600 text-white rounded text-[10px] sm:text-xs hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+>
+  {selectedProperties.length === filteredProperties.length && filteredProperties.length > 0
+    ? 'Unselect All'
+    : 'Select All'}
+</button>
           {canUpdate && (
             <>
               <button

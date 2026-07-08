@@ -1233,6 +1233,7 @@ const matchesColSearch =
               /* ✅ Column divider lines */
   table tbody td {
     border-right: 1px solid rgba(209, 213, 219, 0.5);
+    border-bottom: 1px solid rgba(209, 213, 219, 0.5);
   }
   table tbody td:last-child {
     border-right: none;
@@ -1626,46 +1627,37 @@ const matchesColSearch =
         </div> */}
 
         {/* MAIN TABLE */}
-<div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden h-full">  {loading ? (
-            <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
-          ) : (
-            <>
-              {isExecutive && (
-                <div className="bg-blue-50 border-b border-blue-100 px-3 py-1.5 text-xs text-blue-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                  <div className="flex items-center gap-1.5"><AlertCircle size={10} /><span>You are viewing buyers assigned to you only{showUnassignedToExecutives && <span className="text-blue-600"> (including unassigned)</span>}</span></div>
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-0.5 text-[10px]"><input type="checkbox" checked={showUnassignedToExecutives} onChange={(e) => setShowUnassignedToExecutives(e.target.checked)} className="rounded w-3 h-3" /> Show unassigned</label>
-                    <span>Total: <span className="font-bold">{filteredSortedBuyers.length}</span> buyers</span>
-                  </div>
-                </div>
-              )}
-
-<div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden h-full">  {loading ? (
-            <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
-          ) : (
-            <>
-              {isExecutive && (
-                <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 text-xs text-blue-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center gap-2"><AlertCircle size={12} /><span>You are viewing buyers assigned to you only{showUnassignedToExecutives && <span className="text-blue-600"> (including unassigned)</span>}</span></div>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1 text-[11px]"><input type="checkbox" checked={showUnassignedToExecutives} onChange={(e) => setShowUnassignedToExecutives(e.target.checked)} className="rounded" /> Show unassigned</label>
-                    <span>Total: <span className="font-bold">{filteredSortedBuyers.length}</span> buyers</span>
-                  </div>
-                </div>
-              )}
+<div
+  className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden flex flex-col"
+  style={{
+    height: window.innerWidth < 640
+      ? selectedBuyers.length > 0 ? '460px' : '560px'
+      : selectedBuyers.length > 0 ? '560px' : '620px',
+  }}
+>
+  {loading ? (
+    <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
+  ) : (
+    <>
+      {isExecutive && (
+        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 text-xs text-blue-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex items-center gap-2"><AlertCircle size={12} /><span>You are viewing buyers assigned to you only{showUnassignedToExecutives && <span className="text-blue-600"> (including unassigned)</span>}</span></div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1 text-[11px]"><input type="checkbox" checked={showUnassignedToExecutives} onChange={(e) => setShowUnassignedToExecutives(e.target.checked)} className="rounded" /> Show unassigned</label>
+            <span>Total: <span className="font-bold">{filteredSortedBuyers.length}</span> buyers</span>
+          </div>
+        </div>
+      )}
 
 {/* OUTER: controls max-height + vertical scroll */}
 <div
-  className="scrollbar-custom-vertical"
+  className="scrollbar-custom-vertical flex-1 min-h-0"
   style={{
     overflowY: 'auto',
     overflowX: 'auto',
-   maxHeight:
-  window.innerWidth < 640
-    ? selectedBuyers.length > 0 ? 'calc(100vh - 340px)' : 'calc(100vh - 230px)'
-    : selectedBuyers.length > 0 ? 'calc(100vh - 230px)' : 'calc(100vh - 160px)',
   }}
 >
+
   <table
     className="w-full"
     style={{ minWidth: '1400px', borderCollapse: 'separate', borderSpacing: 0 }}
@@ -2274,7 +2266,7 @@ const matchesColSearch =
         
         {/* Dropdown */}
         {selectedBuyers.length === 0 && (
-          <select
+         <select
             value={itemsPerPage}
             onChange={(e) =>
               setItemsPerPage(parseInt(e.target.value, 10))
@@ -2286,6 +2278,7 @@ const matchesColSearch =
                 {n} / page
               </option>
             ))}
+            <option value={999999}>All</option>
           </select>
         )}
 
@@ -2330,6 +2323,7 @@ const matchesColSearch =
                 {n} / page
               </option>
             ))}
+            <option value={999999}>All</option>
           </select>
         )}
       </div>
@@ -2344,11 +2338,6 @@ const matchesColSearch =
   </div>
 )}
             
-            </>
-          )}
-        </div>
-
-              
             </>
           )}
         </div>

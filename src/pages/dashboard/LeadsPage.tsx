@@ -1492,9 +1492,13 @@ const exportLeads = async () => {
 
         {/* ===================== LEADS TABLE CARD ===================== */}
         {/* flex-col so the pagination sticks to the bottom outside the scroll area */}
-       <div
-  className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden"
-  style={{ display: 'flex', flexDirection: 'column' }}
+    <div
+  className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden flex flex-col"
+  style={{
+    height: window.innerWidth < 640
+      ? selectedLeads.length > 0 ? '500px' : '570px'
+      : selectedLeads.length > 0 ? '570px' : '620px',
+  }}
 >
   {loading ? (
     <div className="flex justify-center py-12">
@@ -1515,15 +1519,10 @@ const exportLeads = async () => {
 
       {/* Scrollable table wrapper with dynamic max-height */}
 <div
-  className="overflow-y-auto overflow-x-auto flex-1 scrollbar-custom-vertical"
-  style={{
-    maxHeight: window.innerWidth < 640
-      ? selectedLeads.length > 0 ? 'calc(100vh - 280px)' : 'calc(100vh - 210px)'
-      : selectedLeads.length > 0 ? 'calc(100vh - 200px)' : 'calc(100vh - 160px)',
-  }}
+  className="overflow-y-auto overflow-x-auto flex-1 min-h-0 scrollbar-custom-vertical"
 >
-        <div className="overflow-x-auto scrollbar-custom">
-          <table className="w-full" style={{ minWidth: '1000px' }}>
+                  <table className="w-full" style={{ minWidth: '1000px' }}>
+
             {/* sticky thead */}
             <thead style={{ position: 'sticky', top: 0, zIndex: 30 }}>
               {/* Main column headers */}
@@ -1629,7 +1628,7 @@ const exportLeads = async () => {
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-100">
               {pageSlice.map((lead) => (
                 <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
             <td className="px-2 py-1">
@@ -1779,14 +1778,13 @@ const exportLeads = async () => {
             </tbody>
           </table>
 
-          {/* Empty State */}
+           {/* Empty State */}
           {pageSlice.length === 0 && (
             <div className="text-center py-6">
               <div className="text-gray-400 mb-1 text-sm">No leads found</div>
               <p className="text-xs text-gray-400">Try adjusting your filters or search criteria</p>
             </div>
           )}
-        </div>
       </div>
 
       {/* Fixed Pagination Footer */}
@@ -1810,6 +1808,7 @@ const exportLeads = async () => {
                   {[10, 20, 50, 100].map((n) => (
                     <option key={n} value={n}>{n} / page</option>
                   ))}
+                  <option value={999999}>All</option>
                 </select>
               )}
               <div className="flex-1 overflow-x-auto scrollbar-hide">
@@ -1841,6 +1840,7 @@ const exportLeads = async () => {
                   {[10, 20, 50, 100].map((n) => (
                     <option key={n} value={n}>{n} / page</option>
                   ))}
+                  <option value={999999}>All</option>
                 </select>
               )}
             </div>
