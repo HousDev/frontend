@@ -1978,8 +1978,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             ...prev,
             societyImageUrls: details.imageUrls,
           }));
-
-          toast.info(`Loaded ${details.imageUrls.length} images from society`);
         }
 
         // Set amenities

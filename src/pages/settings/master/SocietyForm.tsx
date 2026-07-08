@@ -2635,6 +2635,7 @@ import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import Dropdown from '@/components/ui/Dropdown';
 import { toast } from 'react-toastify';
 import { createPortal } from 'react-dom';
+import { SocietyImportModal } from "./SocietyImportModal";
 
 interface SocietyFormData {
     societyName: string;
@@ -2863,6 +2864,7 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
     const [filteredSocietyOptions, setFilteredSocietyOptions] = useState<MasterOption[]>([]);
     const societyInputRef = useRef<HTMLInputElement>(null);
     const societyDropdownRef = useRef<HTMLDivElement>(null);
+    const [showImportModal, setShowImportModal] = useState(false);
 
     // Load master data on mount
     useEffect(() => {
@@ -2989,7 +2991,7 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
             fileInputRef.current.value = '';
         }
 
-        toast.success(`${newFiles.length} image(s) selected`);
+        // toast.success(`${newFiles.length} image(s) selected`);
     };
 
     // 🔧 FIXED: Remove image — correctly handles mismatched indices between
@@ -3209,7 +3211,7 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
             images.forEach(file => uploadFormData.append('images', file));
 
             await societyAPI.uploadSocietyImages(societyId, uploadFormData);
-            toast.success(`${images.length} image(s) uploaded successfully`);
+            // toast.success(`${images.length} image(s) uploaded successfully`);
 
             if (onRefresh) await onRefresh();
         } catch (error) {
@@ -3516,7 +3518,7 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
     const invalidCount = importPreview.filter(v => !v.isValid && !v.isDuplicate).length;
 
     return (
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-2xl mx-auto">
             {/* Custom Header */}
             <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b rounded-t-lg" style={{ background: '#0f2b3d', borderColor: '#e2e8f0' }}>
                 <div className="flex items-center gap-2">
@@ -3526,16 +3528,20 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                     </h2>
                 </div>
                 <div className="flex items-center gap-2">
-                    <label className="p-1.5 rounded text-white hover:bg-white/10 transition-colors cursor-pointer">
+                    {/* <button
+                        type="button"
+                        onClick={() => setShowImportModal(true)}
+                        className="p-1.5 rounded text-white hover:bg-white/10 transition-colors"
+                        title="Import Societies"
+                    >
                         <Upload size={16} />
-                        <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={handleImport} disabled={isImporting} />
-                    </label>
+                    </button>
                     <button type="button" onClick={handleExport} className="p-1.5 rounded text-white hover:bg-white/10 transition-colors">
                         <Download size={16} />
                     </button>
                     <button type="button" onClick={downloadSample} className="p-1.5 rounded text-white hover:bg-white/10 transition-colors">
                         <FileSpreadsheet size={16} />
-                    </button>
+                    </button> */}
                     <button onClick={onClose} className="p-1 rounded hover:bg-white/10 transition-colors ml-2">
                         <X size={16} color="white" />
                     </button>
@@ -3544,35 +3550,35 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
 
             <form onSubmit={handleSubmit}>
                 {isImporting && (
-                    <div className="m-4 p-3 bg-blue-50 rounded-lg text-center">
-                        <div className="animate-spin inline-block h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full mr-2"></div>
-                        <span className="text-sm text-blue-600">Processing...</span>
+                    <div className="m-2 p-2 bg-blue-50 rounded-lg text-center">
+                        <div className="animate-spin inline-block h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full mr-1.5"></div>
+                        <span className="text-xs text-blue-600">Processing...</span>
                     </div>
                 )}
 
                 {isLoadingMaster && (
-                    <div className="mx-6 mt-4 p-2 bg-blue-50 rounded-lg">
-                        <div className="flex items-center justify-center gap-2">
-                            <div className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                            <span className="text-xs text-blue-600">Loading master data...</span>
+                    <div className="mx-4 mt-2 p-1.5 bg-blue-50 rounded-lg">
+                        <div className="flex items-center justify-center gap-1.5">
+                            <div className="animate-spin h-2.5 w-2.5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                            <span className="text-[10px] text-blue-600">Loading master data...</span>
                         </div>
                     </div>
                 )}
 
                 {duplicateError && (
-                    <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-sm text-red-600 flex items-center gap-2">
-                            <X size={16} className="text-red-500" />
+                    <div className="mx-4 mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-xs text-red-600 flex items-center gap-1.5">
+                            <X size={14} className="text-red-500 flex-shrink-0" />
                             {duplicateError}
                         </p>
                     </div>
                 )}
 
-                <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-3 sm:p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                         {/* Society Name - Searchable Dropdown */}
                         <div className="relative">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-[11px] font-medium text-gray-700 mb-0.5">
                                 Society Name <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
@@ -3586,38 +3592,38 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                         setFilteredSocietyOptions(societyOptions);
                                         setShowSocietyDropdown(true);
                                     }}
-                                    className={getInputClassName('societyName')}
+                                    className={getInputClassName('societyName') + ' text-xs py-1.5 px-2.5'}
                                     autoComplete="off"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowSocietyDropdown(true)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2"
                                 >
-                                    <Search size={16} className="text-gray-400" />
+                                    <Search size={13} className="text-gray-400" />
                                 </button>
                             </div>
                             {showSocietyDropdown && filteredSocietyOptions.length > 0 && (
-                                <div ref={societyDropdownRef} className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                <div ref={societyDropdownRef} className="absolute z-50 w-full mt-0.5 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                                     {filteredSocietyOptions.map((option) => (
                                         <button
                                             key={option.value}
                                             type="button"
                                             onClick={() => handleSocietySelect(option)}
-                                            className="w-full text-left px-3 py-2 text-sm hover:bg-orange-50 transition-colors flex items-center gap-2"
+                                            className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-orange-50 transition-colors flex items-center gap-1.5"
                                         >
-                                            <Building2 size={14} className="text-gray-400" />
+                                            <Building2 size={12} className="text-gray-400 flex-shrink-0" />
                                             {option.label}
                                         </button>
                                     ))}
                                 </div>
                             )}
-                            {errors.societyName && <p className="mt-1 text-xs text-red-500">{errors.societyName}</p>}
+                            {errors.societyName && <p className="mt-0.5 text-[10px] text-red-500">{errors.societyName}</p>}
                         </div>
 
                         {/* Locality - Dropdown from Master */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-[11px] font-medium text-gray-700 mb-0.5">
                                 Locality <span className="text-red-500">*</span>
                             </label>
                             <Dropdown
@@ -3625,15 +3631,15 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                 options={localityOptions}
                                 value={formData.locality}
                                 onChange={handleLocalitySelect}
-                                className="w-full"
+                                className="w-full text-xs"
                                 searchable
                             />
-                            {errors.locality && <p className="mt-1 text-xs text-red-500">{errors.locality}</p>}
+                            {errors.locality && <p className="mt-0.5 text-[10px] text-red-500">{errors.locality}</p>}
                         </div>
 
                         {/* City - Dropdown from Master */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-[11px] font-medium text-gray-700 mb-0.5">
                                 City <span className="text-red-500">*</span>
                             </label>
                             <Dropdown
@@ -3641,15 +3647,15 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                 options={cityOptions}
                                 value={formData.city}
                                 onChange={handleCitySelect}
-                                className="w-full"
+                                className="w-full text-xs"
                                 searchable
                             />
-                            {errors.city && <p className="mt-1 text-xs text-red-500">{errors.city}</p>}
+                            {errors.city && <p className="mt-0.5 text-[10px] text-red-500">{errors.city}</p>}
                         </div>
 
                         {/* Pincode - Input */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-[11px] font-medium text-gray-700 mb-0.5">
                                 Pincode <span className="text-red-500">*</span>
                             </label>
                             <input
@@ -3659,15 +3665,15 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                 onChange={handleInputChange}
                                 placeholder="Enter 6-digit pincode"
                                 maxLength={6}
-                                className={getInputClassName('pincode')}
+                                className={getInputClassName('pincode') + ' text-xs py-1.5 px-2.5'}
                             />
-                            {errors.pincode && <p className="mt-1 text-xs text-red-500">{errors.pincode}</p>}
-                            <p className="mt-1 text-xs text-gray-400">Must be a valid 6-digit Indian pincode</p>
+                            {errors.pincode && <p className="mt-0.5 text-[10px] text-red-500">{errors.pincode}</p>}
+                            <p className="mt-0.5 text-[9px] text-gray-400">Must be a valid 6-digit Indian pincode</p>
                         </div>
                     </div>
 
                     {/* Amenities Section - Multi-Select Dropdown */}
-                    <div className="mt-6">
+                    <div className="mt-3">
                         <AmenitiesMultiSelect
                             label="AMENITIES"
                             options={amenitiesOptions}
@@ -3678,16 +3684,16 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
 
                         {/* Selected Amenities Tags */}
                         {formData.amenities && formData.amenities.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-2">
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 {formData.amenities.map(amenity => (
-                                    <span key={amenity} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 rounded-full text-xs text-purple-700 border border-purple-200">
+                                    <span key={amenity} className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 rounded-full text-[10px] text-purple-700 border border-purple-200">
                                         {amenity}
                                         <button
                                             type="button"
                                             onClick={() => handleAmenityToggle(amenity)}
                                             className="text-purple-400 hover:text-purple-600"
                                         >
-                                            <X size={12} />
+                                            <X size={10} />
                                         </button>
                                     </span>
                                 ))}
@@ -3696,21 +3702,21 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                     </div>
 
                     {/* 🆕 IMAGES SECTION */}
-                    <div className="mt-6 pt-4 border-t border-gray-200">
-                        <div className="flex items-center justify-between mb-3">
-                            <label className="block text-sm font-medium text-gray-700">
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-[11px] font-medium text-gray-700">
                                 Society Images
                             </label>
                             <button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isUploadingImages}
-                                className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                                className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-[10px] flex items-center gap-1 transition-colors disabled:opacity-50"
                             >
                                 {isUploadingImages ? (
-                                    <Loader2 size={14} className="animate-spin" />
+                                    <Loader2 size={12} className="animate-spin" />
                                 ) : (
-                                    <Upload size={14} />
+                                    <Upload size={12} />
                                 )}
                                 {isUploadingImages ? 'Uploading...' : 'Upload Images'}
                             </button>
@@ -3727,9 +3733,9 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
 
                         {/* Image Preview Grid */}
                         {imagePreviews.length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-3">
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5 mt-2">
                                 {imagePreviews.map((preview, index) => (
-                                    <div key={preview + index} className="relative group rounded-lg overflow-hidden border border-gray-200 aspect-square">
+                                    <div key={preview + index} className="relative group rounded-md overflow-hidden border border-gray-200 aspect-square">
                                         <img
                                             src={preview}
                                             alt={`Society ${index + 1}`}
@@ -3742,14 +3748,14 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                             <button
                                                 type="button"
                                                 onClick={() => removeImage(index)}
-                                                className="bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 transition-all"
+                                                className="bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-all"
                                             >
-                                                <Trash2 size={14} />
+                                                <Trash2 size={11} />
                                             </button>
                                         </div>
-                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1">
-                                            <p className="text-white text-[10px] truncate">
-                                                Image {index + 1}
+                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-0.5">
+                                            <p className="text-white text-[8px] truncate">
+                                                Img {index + 1}
                                             </p>
                                         </div>
                                     </div>
@@ -3757,31 +3763,40 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                             </div>
                         ) : (
                             <div
-                                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-orange-400 hover:bg-orange-50/20 transition-all cursor-pointer"
+                                className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-orange-400 hover:bg-orange-50/20 transition-all cursor-pointer"
                                 onClick={() => fileInputRef.current?.click()}
                             >
-                                <Image size={32} className="mx-auto text-gray-300 mb-2" />
-                                <p className="text-sm text-gray-500">Click or drag to upload images</p>
-                                <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP (Max 5MB each)</p>
+                                <Image size={24} className="mx-auto text-gray-300 mb-1" />
+                                <p className="text-[11px] text-gray-500">Click or drag to upload images</p>
+                                <p className="text-[9px] text-gray-400 mt-0.5">JPG, PNG, WebP (Max 5MB each)</p>
                             </div>
                         )}
 
                         {isUploadingImages && (
-                            <div className="mt-3 p-2 bg-blue-50 rounded-lg flex items-center gap-2">
-                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent" />
-                                <span className="text-xs text-blue-600">Uploading images...</span>
+                            <div className="mt-2 p-1.5 bg-blue-50 rounded-lg flex items-center gap-1.5">
+                                <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-500 border-t-transparent" />
+                                <span className="text-[10px] text-blue-600">Uploading images...</span>
                             </div>
                         )}
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-                        <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
+                    <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-200">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={isSubmitting}
+                            className="px-3 py-1.5 text-[11px] font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                        >
                             Cancel
                         </button>
-                        <button type="submit" disabled={isSubmitting || isCheckingDuplicate || !!duplicateError} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
-                            {isSubmitting && <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>}
-                            <Save size={16} />
+                        <button
+                            type="submit"
+                            disabled={isSubmitting || isCheckingDuplicate || !!duplicateError}
+                            className="px-3 py-1.5 text-[11px] font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+                        >
+                            {isSubmitting && <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>}
+                            <Save size={13} />
                             {isSubmitting ? (isEditing ? 'Updating...' : 'Saving...') : (isEditing ? 'Update Society' : 'Save Society')}
                         </button>
                     </div>
@@ -3963,6 +3978,13 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                     </div>
                 </div>
             )}
+
+
+            <SocietyImportModal
+                isOpen={showImportModal}
+                onClose={() => setShowImportModal(false)}
+                onImported={async () => { if (onRefresh) await onRefresh(); }}
+            />
         </div>
     );
 };

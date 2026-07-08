@@ -1812,6 +1812,7 @@ import { societyAPI } from "@/lib/societyAPI";
 import { toast, ToastContentProps } from "react-toastify";
 import SocietyForm from "./master/SocietyForm";
 import * as XLSX from 'xlsx';
+import { SocietyImportModal } from "./master/SocietyImportModal";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/utils/permission";
@@ -1931,6 +1932,7 @@ export default function MasterDataPage(): JSX.Element {
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isSocietyImportModalOpen, setIsSocietyImportModalOpen] = useState(false);
   const [importType, setImportType] = useState<ImportType>("master");
 
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -2811,119 +2813,115 @@ export default function MasterDataPage(): JSX.Element {
         showCloseButton={false}
         width="max-w-2xl"
       >
-        {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b rounded-t-lg" style={{ background: '#0f2b3d', borderColor: '#e2e8f0' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-1 h-6 rounded-full bg-[#e67e22]" />
-            <div>
-              <h2 className="text-base font-bold text-white">{viewSociety.societyName}</h2>
-              <p className="text-[10px] text-gray-400">Society Details</p>
+        {/* Header - Compact */}
+        <div className="sticky top-0 z-10 flex items-center justify-between px-3 sm:px-4 py-2 border-b rounded-t-lg" style={{ background: '#0f2b3d', borderColor: '#e2e8f0' }}>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-0.5 h-5 rounded-full bg-[#e67e22] flex-shrink-0" />
+            <div className="min-w-0">
+              <h2 className="text-xs sm:text-sm font-bold text-white truncate">{viewSociety.societyName}</h2>
+              <p className="text-[8px] text-gray-400 leading-none">Society Details</p>
             </div>
           </div>
           <button
             onClick={() => setIsViewModalOpen(false)}
-            className="p-1.5 rounded hover:bg-white/10 transition-colors text-white"
+            className="p-1 rounded hover:bg-white/10 transition-colors text-white flex-shrink-0"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-6">
-          {/* Status Badge */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${viewSociety.status === 'Active'
-                  ? 'bg-green-50 text-green-700 border-green-200'
-                  : 'bg-red-50 text-red-700 border-red-200'
+        {/* Body - Ultra Compact */}
+        <div className="p-3 sm:p-4 space-y-3">
+          {/* Status Badge - Compact */}
+          <div className="flex flex-wrap justify-between items-center gap-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${viewSociety.status === 'Active'
+                ? 'bg-green-50 text-green-700 border-green-200'
+                : 'bg-red-50 text-red-700 border-red-200'
                 }`}>
-                <span className={`w-2 h-2 rounded-full ${viewSociety.status === 'Active' ? 'bg-green-500' : 'bg-red-500'
-                  }`} />
+                <span className={`w-1 h-1 rounded-full ${viewSociety.status === 'Active' ? 'bg-green-500' : 'bg-red-500'}`} />
                 {viewSociety.status || 'Active'}
               </span>
             </div>
             {viewSociety.createdAt && (
-              <span className="text-[10px] text-gray-400">
+              <span className="text-[8px] text-gray-400">
                 Created: {new Date(viewSociety.createdAt).toLocaleDateString()}
               </span>
             )}
           </div>
 
-          {/* Details Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Details Grid - Compact Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {/* Society Name */}
-            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-              <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-1">
-                <Building2 size={14} className="text-[#e67e22]" />
+            <div className="bg-gray-50 rounded-lg p-2 border border-gray-100">
+              <div className="flex items-center gap-1 text-gray-500 text-[8px] font-semibold uppercase tracking-wider mb-0.5">
+                <Building2 size={11} className="text-[#e67e22] flex-shrink-0" />
                 Society Name
               </div>
-              <p className="text-sm font-semibold text-gray-800">{viewSociety.societyName}</p>
+              <p className="text-xs font-semibold text-gray-800 truncate">{viewSociety.societyName}</p>
             </div>
 
             {/* Locality */}
-            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-              <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-1">
-                <MapPin size={14} className="text-[#e67e22]" />
+            <div className="bg-gray-50 rounded-lg p-2 border border-gray-100">
+              <div className="flex items-center gap-1 text-gray-500 text-[8px] font-semibold uppercase tracking-wider mb-0.5">
+                <MapPin size={11} className="text-[#e67e22] flex-shrink-0" />
                 Locality
               </div>
-              <p className="text-sm text-gray-800">{viewSociety.locality}</p>
+              <p className="text-xs text-gray-800 truncate">{viewSociety.locality}</p>
             </div>
 
             {/* City */}
-            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-              <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-1">
-                <Map size={14} className="text-[#e67e22]" />
+            <div className="bg-gray-50 rounded-lg p-2 border border-gray-100">
+              <div className="flex items-center gap-1 text-gray-500 text-[8px] font-semibold uppercase tracking-wider mb-0.5">
+                <Map size={11} className="text-[#e67e22] flex-shrink-0" />
                 City
               </div>
-              <p className="text-sm text-gray-800">{viewSociety.city}</p>
+              <p className="text-xs text-gray-800 truncate">{viewSociety.city}</p>
             </div>
 
             {/* Pincode */}
-            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-              <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-1">
-                <Hash size={14} className="text-[#e67e22]" />
+            <div className="bg-gray-50 rounded-lg p-2 border border-gray-100">
+              <div className="flex items-center gap-1 text-gray-500 text-[8px] font-semibold uppercase tracking-wider mb-0.5">
+                <Hash size={11} className="text-[#e67e22] flex-shrink-0" />
                 Pincode
               </div>
-              <p className="text-sm text-gray-800">{viewSociety.pincode}</p>
+              <p className="text-xs text-gray-800 truncate">{viewSociety.pincode}</p>
             </div>
           </div>
 
-          {/* Amenities Section */}
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-            <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-3">
-              <Package size={14} className="text-[#e67e22]" />
-              Amenities
+          {/* Amenities Section - Compact */}
+          <div className="bg-gray-50 rounded-lg p-2 border border-gray-100">
+            <div className="flex items-center gap-1 text-gray-500 text-[8px] font-semibold uppercase tracking-wider mb-1">
+              <Package size={11} className="text-[#e67e22] flex-shrink-0" />
+              Amenities ({viewSociety.amenities?.length || 0})
             </div>
             {viewSociety.amenities && viewSociety.amenities.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1">
                 {viewSociety.amenities.map((amenity, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-medium border border-purple-200"
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded-full text-[9px] font-medium border border-purple-200"
                   >
-                    <Check size={12} className="text-purple-400" />
+                    <Check size={9} className="text-purple-400 flex-shrink-0" />
                     {amenity}
                   </span>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-400">No amenities added</p>
+              <p className="text-xs text-gray-400">No amenities added</p>
             )}
-            <div className="mt-2 text-[10px] text-gray-400">
-              {viewSociety.amenities?.length || 0} amenities
-            </div>
           </div>
 
-          {/* Images Section */}
+          {/* Images Section - Compact */}
           {viewSociety.imageUrls && viewSociety.imageUrls.length > 0 && (
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-              <div className="flex items-center gap-2 text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-3">
-                <ImageIcon size={14} className="text-[#e67e22]" />
-                Images
+            <div className="bg-gray-50 rounded-lg p-2 border border-gray-100">
+              <div className="flex items-center gap-1 text-gray-500 text-[8px] font-semibold uppercase tracking-wider mb-1">
+                <ImageIcon size={11} className="text-[#e67e22] flex-shrink-0" />
+                Images ({viewSociety.imageUrls.length})
               </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-1">
                 {viewSociety.imageUrls.slice(0, 6).map((url, idx) => (
-                  <div key={idx} className="aspect-square rounded-lg overflow-hidden border border-gray-200">
+                  <div key={idx} className="aspect-square rounded-md overflow-hidden border border-gray-200">
                     <img
                       src={url}
                       alt={`${viewSociety.societyName} ${idx + 1}`}
@@ -2935,8 +2933,8 @@ export default function MasterDataPage(): JSX.Element {
                   </div>
                 ))}
                 {viewSociety.imageUrls.length > 6 && (
-                  <div className="aspect-square rounded-lg border border-gray-200 flex items-center justify-center bg-gray-100">
-                    <span className="text-xs font-semibold text-gray-500">+{viewSociety.imageUrls.length - 6}</span>
+                  <div className="aspect-square rounded-md border border-gray-200 flex items-center justify-center bg-gray-100">
+                    <span className="text-[10px] font-semibold text-gray-500">+{viewSociety.imageUrls.length - 6}</span>
                   </div>
                 )}
               </div>
@@ -2944,11 +2942,11 @@ export default function MasterDataPage(): JSX.Element {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
+        {/* Footer - Compact */}
+        <div className="px-3 sm:px-4 py-2 border-t bg-gray-50 flex flex-col sm:flex-row justify-end gap-1.5 sm:gap-2">
           <button
             onClick={() => setIsViewModalOpen(false)}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors order-2 sm:order-1"
           >
             Close
           </button>
@@ -2957,9 +2955,9 @@ export default function MasterDataPage(): JSX.Element {
               setIsViewModalOpen(false);
               handleEditSociety(viewSociety);
             }}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#0f2b3d] rounded-lg hover:bg-[#1a3d52] transition-colors flex items-center gap-2"
+            className="px-3 py-1.5 text-xs font-medium text-white bg-[#0f2b3d] rounded-lg hover:bg-[#1a3d52] transition-colors flex items-center justify-center gap-1.5 order-1 sm:order-2"
           >
-            <Edit2 size={14} />
+            <Edit2 size={12} className="flex-shrink-0" />
             Edit Society
           </button>
         </div>
@@ -3067,6 +3065,15 @@ export default function MasterDataPage(): JSX.Element {
                 {/* 🔹 Society Tab - Export button */}
                 {isSocietyTab && (
                   <div className="flex gap-2 w-full md:w-auto">
+                    {/* 🆕 IMPORT BUTTON — Export ke bajule, Add Society se pehle */}
+                    <button
+                      onClick={() => setIsSocietyImportModalOpen(true)}
+                      className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
+                    >
+                      <Upload size={14} />
+                      <span className="whitespace-nowrap">Import Societies</span>
+                    </button>
+
                     <button
                       onClick={handleMasterExport}
                       disabled={!filteredSocieties.length}
@@ -3689,6 +3696,12 @@ export default function MasterDataPage(): JSX.Element {
       {/* View Society Modal */}
       <ViewSocietyModal />
 
+      <SocietyImportModal
+        isOpen={isSocietyImportModalOpen}
+        onClose={() => setIsSocietyImportModalOpen(false)}
+        onImported={loadSocieties}
+      />
+
       {/* Modal for Master Types */}
       <Modal
         isOpen={isModalOpen && !isSocietyTab}
@@ -3770,7 +3783,7 @@ export default function MasterDataPage(): JSX.Element {
         onClose={resetSocietyForm}
         showHeader={false}
         showCloseButton={false}
-        width="max-w-3xl"
+        width="max-w-2xl"
       >
         <SocietyForm
           onClose={resetSocietyForm}
