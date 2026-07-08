@@ -2316,9 +2316,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     if (!formData.location) e.location = 'Location is required';
     if (!formData.society) e.society = 'Society is required';
     if (!formData.carpetArea) e.carpetArea = 'Carpet area is required';
-    if (!formData.budget) e.budget = 'Budget is required';
+    const budgetNum = parseBudgetToRupees(formData.budget);
+    if (!formData.budget || budgetNum <= 0) {
+      e.budget = 'Please select a valid price (greater than ₹0)';
+    }
     setErrors(e);
-    return Object.keys(e).length === 0;
+    return e;
   };
 
   // 🔥 FIXED: buildPayload - derive existing image URLs from photoPreviews directly
@@ -2422,7 +2425,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   }
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      const firstError = Object.values(validationErrors)[0];
+      toast.error(firstError as string);
+      return;
+    }
     try {
       setLoading(true);
       setErrorBanner(null);
