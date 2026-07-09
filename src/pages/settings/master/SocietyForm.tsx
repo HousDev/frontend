@@ -3706,6 +3706,11 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                         <div className="flex items-center justify-between mb-2">
                             <label className="block text-[11px] font-medium text-gray-700">
                                 Society Images
+                                {imagePreviews.length > 0 && (
+                                  <span className="ml-1.5 text-[9px] text-gray-400 normal-case font-normal">
+                                    ({existingImageUrls.length} saved · {imagePreviews.length - existingImageUrls.length} new)
+                                  </span>
+                                )}
                             </label>
                             <button
                                 type="button"
@@ -3718,7 +3723,7 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
                                 ) : (
                                     <Upload size={12} />
                                 )}
-                                {isUploadingImages ? 'Uploading...' : 'Upload Images'}
+                                {isUploadingImages ? 'Uploading...' : 'Add Images'}
                             </button>
                         </div>
 
@@ -3733,38 +3738,97 @@ const SocietyForm: React.FC<SocietyFormProps> = ({
 
                         {/* Image Preview Grid */}
                         {imagePreviews.length > 0 ? (
-                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5 mt-2">
-                                {imagePreviews.map((preview, index) => (
-                                    <div key={preview + index} className="relative group rounded-md overflow-hidden border border-gray-200 aspect-square">
-                                        <img
-                                            src={preview}
-                                            alt={`Society ${index + 1}`}
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect fill="%23f3f4f6" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E';
-                                            }}
-                                        />
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                            <button
-                                                type="button"
-                                                onClick={() => removeImage(index)}
-                                                className="bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-all"
-                                            >
-                                                <Trash2 size={11} />
-                                            </button>
-                                        </div>
-                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-0.5">
-                                            <p className="text-white text-[8px] truncate">
-                                                Img {index + 1}
-                                            </p>
-                                        </div>
+                            <div className="space-y-2">
+                                {/* Saved images */}
+                                {existingImageUrls.length > 0 && (
+                                  <div>
+                                    <p className="text-[9px] font-bold uppercase tracking-wider text-blue-500 mb-1">Saved Images</p>
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
+                                        {existingImageUrls.map((url, idx) => (
+                                            <div key={`existing-${idx}`} className="relative group rounded-md overflow-hidden border-2 border-blue-200 aspect-square">
+                                                <img
+                                                    src={url}
+                                                    alt={`Society ${idx + 1}`}
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect fill="%23f3f4f6" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E';
+                                                    }}
+                                                />
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeImage(idx)}
+                                                        className="bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-all"
+                                                    >
+                                                        <Trash2 size={11} />
+                                                    </button>
+                                                </div>
+                                                <div className="absolute top-1 left-1">
+                                                    <span className="bg-blue-500 text-white text-[8px] px-1 py-0.5 rounded font-bold">S</span>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                  </div>
+                                )}
+                                {/* Newly added images (not yet uploaded) */}
+                                {imagePreviews.length > existingImageUrls.length && (
+                                  <div>
+                                    <p className="text-[9px] font-bold uppercase tracking-wider text-orange-500 mb-1">New (to be uploaded)</p>
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
+                                        {imagePreviews.slice(existingImageUrls.length).map((preview, relIdx) => {
+                                            const absIdx = existingImageUrls.length + relIdx;
+                                            return (
+                                              <div key={`new-${relIdx}`} className="relative group rounded-md overflow-hidden border-2 border-orange-200 aspect-square">
+                                                  <img
+                                                      src={preview}
+                                                      alt={`New ${relIdx + 1}`}
+                                                      className="w-full h-full object-cover"
+                                                      onError={(e) => {
+                                                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect fill="%23f3f4f6" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E';
+                                                      }}
+                                                  />
+                                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                      <button
+                                                          type="button"
+                                                          onClick={() => removeImage(absIdx)}
+                                                          className="bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-all"
+                                                      >
+                                                          <Trash2 size={11} />
+                                                      </button>
+                                                  </div>
+                                                  <div className="absolute top-1 left-1">
+                                                      <span className="bg-orange-500 text-white text-[8px] px-1 py-0.5 rounded font-bold">N</span>
+                                                  </div>
+                                              </div>
+                                            );
+                                        })}
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Add more button */}
+                                <div
+                                    className="border border-dashed border-gray-300 rounded-lg p-2 text-center hover:border-orange-400 hover:bg-orange-50/20 transition-all cursor-pointer"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <p className="text-[10px] text-gray-400">+ Add more images</p>
+                                </div>
                             </div>
                         ) : (
                             <div
                                 className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-orange-400 hover:bg-orange-50/20 transition-all cursor-pointer"
                                 onClick={() => fileInputRef.current?.click()}
+                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-orange-400', 'bg-orange-50/20'); }}
+                                onDragLeave={(e) => { e.currentTarget.classList.remove('border-orange-400', 'bg-orange-50/20'); }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.currentTarget.classList.remove('border-orange-400', 'bg-orange-50/20');
+                                    const dropped = e.dataTransfer.files;
+                                    if (dropped && dropped.length > 0) {
+                                        const syntheticEvent = { target: { files: dropped } } as any;
+                                        handleImageUpload(syntheticEvent);
+                                    }
+                                }}
                             >
                                 <Image size={24} className="mx-auto text-gray-300 mb-1" />
                                 <p className="text-[11px] text-gray-500">Click or drag to upload images</p>
