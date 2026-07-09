@@ -337,9 +337,12 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           return bd - ad;
         });
 
-        // ⬇️ एक बार में map + views + tags
+        // ⬇️ Bulk fetch all tags in one request, then map + views
+        const slicedList = rawList.slice(0, 12);
+        const allTagsBulk = await propertyTagsAPI.getBulk(slicedList.map((p: any) => p.id)).catch(() => ({} as Record<number, string[]>));
+
         const mapped: Property[] = await Promise.all(
-          rawList.slice(0, 12).map(async (p: any) => {
+          slicedList.map(async (p: any) => {
             // ✅ Get property type for default image
             const propertyType = p.property_type_name || p.property_type || '';
 
@@ -365,11 +368,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             const state = p.state || p.region || '';
             const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
 
-            // ✅ tags + views दोनों यहीं load करें
-            const [tags, viewData] = await Promise.all([
-              fetchPropertyTags(p.id),
-              fetchPropertyViews(p.id),
-            ]);
+            // ✅ Use bulk-fetched tags + fetch views
+            const tags: string[] = allTagsBulk[p.id] || [];
+            const viewData = await fetchPropertyViews(p.id);
+
 
             const unitType = (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim();
             const subtype = (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim();

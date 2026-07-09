@@ -166,9 +166,23 @@ const ShortlistTab: React.FC<ShortlistTabProps> = ({ buyer }) => {
             ? ((res as any).data as any)
             : [];
 
-        // 2) enrich each row with tags (pull from API if not present)
-        const enriched = await Promise.all(
-          rows.map(async (row) => {
+        // 2) Determine which rows need tags from the API (those without inline tags)
+        const needTagIds = rows
+          .map((row) => {
+            const p: any = row.property ?? {};
+            if (Array.isArray(p?.tags) && p.tags.length > 0) return null;
+            if (typeof p?.tags === "string" && p.tags.trim()) return null;
+            return p?.id ?? row.property_id ?? null;
+          })
+          .filter(Boolean) as number[];
+
+        // Single bulk request for all missing tags (instead of N individual requests)
+        const bulkTagMap: Record<number, string[]> = needTagIds.length
+          ? await propertyTagsAPI.getBulk(needTagIds).catch(() => ({}))
+          : {};
+
+        // 3) enrich each row with tags
+        const enriched = rows.map((row) => {
             const p: any = row.property ?? {};
             let tags: string[] = [];
 
@@ -176,19 +190,10 @@ const ShortlistTab: React.FC<ShortlistTabProps> = ({ buyer }) => {
             if (Array.isArray(p?.tags)) tags = p.tags.filter(Boolean).map(String);
             else if (typeof p?.tags === "string") tags = toArray(p.tags);
 
-            // if still empty, fetch from tag service by property id
+            // if still empty, use bulk-fetched result
             if ((!tags || tags.length === 0) && (p?.id || row.property_id)) {
-              try {
-                const tagRes = await propertyTagsAPI.getById(p?.id ?? row.property_id);
-                const apiTags = Array.isArray(tagRes?.tags)
-                  ? tagRes.tags
-                  : typeof tagRes?.tags === "string"
-                    ? toArray(tagRes.tags)
-                    : [];
-                tags = apiTags;
-              } catch (e) {
-                console.warn(`Could not fetch tags for property ${p?.id ?? row.property_id}`, e);
-              }
+              const pid = p?.id ?? row.property_id;
+              tags = bulkTagMap[pid] || [];
             }
 
             // derive extras from flags (verified/featured/new/resale)
@@ -203,8 +208,8 @@ const ShortlistTab: React.FC<ShortlistTabProps> = ({ buyer }) => {
             // attach back onto property (non-destructive)
             row.property = { ...(row.property as any), tags: finalTags } as any;
             return row;
-          })
-        );
+          });
+
 
         setSavedProps(enriched);
       } catch (err) {

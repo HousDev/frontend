@@ -290,16 +290,9 @@ const DashboardLayout = () => {
       }
 
       let totalUnread = 0;
-      await Promise.all(
-        contacts.map(async (contact: any) => {
-          try {
-            const result = await whatsappAPI.getUnreadCount(contact.id);
-            totalUnread += Number(result?.unread_count) || 0;
-          } catch {
-            // ignore per-contact errors
-          }
-        })
-      );
+      contacts.forEach((contact: any) => {
+        totalUnread += Number(contact.unread_count) || 0;
+      });
 
       if (totalUnread > prevWhatsappCountRef.current) {
         playNotificationSound();
@@ -394,23 +387,25 @@ const DashboardLayout = () => {
   }, [user?.id, fetchNotifications, fetchWhatsappCount, systemSettings?.company_logo]);
 
   // ✅ Fallback polling only when socket is disconnected
+  // 30s interval — each call now only makes 1 request (contacts embeds unread_count)
   useEffect(() => {
     if (!user?.id) return;
 
     let interval: NodeJS.Timeout | null = null;
 
     if (!socketConnected) {
-      console.log("🔄 [Dashboard] Socket disconnected, starting polling fallback");
+      console.log("🔄 [Dashboard] Socket disconnected, starting polling fallback (30s)");
       interval = setInterval(() => {
         fetchNotifications();
         fetchWhatsappCount();
-      }, 5000);
+      }, 30000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [socketConnected, user?.id, fetchNotifications, fetchWhatsappCount]);
+
 
   // Auto-expand menus based on current path
   useEffect(() => {

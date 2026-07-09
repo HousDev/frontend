@@ -60,34 +60,25 @@ export function useConversations(filter: InboxFilter, search: string) {
   try {
     const contacts = await whatsappAPI.getContacts();
     
-    const convs = await Promise.all(
-      (contacts || []).map(async (contact: any) => {
-        let unreadCount = 0;
-        
-        try {
-          const unreadResult = await whatsappAPI.getUnreadCount(contact.id);
-          unreadCount = Number(unreadResult?.unread_count) || 0;
-        } catch (e) {
-          unreadCount = 0;
-        }
-        
-        return {
-          id: `conv_${contact.id}`,
-          contact_id: contact.id,
-          contact: contact,
-          status: 'open',
-          unread_count: unreadCount,
-          last_message: contact.last_message || '',
-          last_message_at: contact.last_contact_time || contact.created_at || new Date().toISOString(),
-          bot_active: false,
-          flow_id: null,
-          current_step_index: 0,
-          assigned_to: contact.assigned_to || null,
-          created_at: contact.created_at,
-          updated_at: contact.updated_at || contact.created_at,
-        };
-      })
-    );
+    const convs = (contacts || []).map((contact: any) => {
+      const unreadCount = Number(contact.unread_count) || 0;
+      
+      return {
+        id: `conv_${contact.id}`,
+        contact_id: contact.id,
+        contact: contact,
+        status: 'open',
+        unread_count: unreadCount,
+        last_message: contact.last_message || '',
+        last_message_at: contact.last_contact_time || contact.created_at || new Date().toISOString(),
+        bot_active: false,
+        flow_id: null,
+        current_step_index: 0,
+        assigned_to: contact.assigned_to || null,
+        created_at: contact.created_at,
+        updated_at: contact.updated_at || contact.created_at,
+      };
+    });
 
     // ✅ Only apply search here, NO tab filter
     let result = convs;
@@ -116,9 +107,11 @@ export function useConversations(filter: InboxFilter, search: string) {
   useEffect(() => {
     fetchConversations();
 
+    // 30s polling — unread_count comes embedded in contacts so no N+1.
+    // Real-time updates happen via socket; this is just a safety fallback.
     intervalRef.current = setInterval(() => {
       fetchConversations();
-    }, 5000);
+    }, 30000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -170,9 +163,11 @@ export function useMessages(contactId: string | null) {
     }
     fetchMessages();
 
+    // 5s polling for active chat — reasonable for real-time feel.
+    // Socket handles instant updates; this is a fallback.
     intervalRef.current = setInterval(() => {
       fetchMessages();
-    }, 3000);
+    }, 5000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -328,15 +323,9 @@ export function useConversationDetail(conversationId: string | null) {
         const contact = await whatsappAPI.getContactById(cleanId);
         
         if (contact) {
-          let unreadCount = 0;
-          try {
-            const msgs = await whatsappAPI.getMessages(contact.id);
-            unreadCount = msgs.filter((m: any) => 
-              m.direction === 'in' && m.is_read === 0
-            ).length;
-          } catch (e) {
-            console.error('Failed to get unread count', e);
-          }
+          // ✅ Use unread_count from contact object directly (embedded by backend)
+          // Avoids fetching all messages just to count unread ones
+          const unreadCount = Number((contact as any).unread_count) || 0;
           
           setConversation({
             id: `conv_${contact.id}`,

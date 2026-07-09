@@ -745,12 +745,16 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       list = list.filter(isPublicProp);
 
       // ---- map → UI + fetch (views & tags) ----
+      // Fetch ALL tags in one bulk request before mapping
+      const allTagsBulk = await propertyTagsAPI.getBulk(list.map((p: any) => p.id)).catch(() => ({} as Record<number, string[]>));
+
       const transformedProperties = await Promise.all(
         list.map(async (p: any, index: number) => {
-          const [viewCounts, tags] = await Promise.all([
+          const [viewCounts] = await Promise.all([
             fetchPropertyViews(p.id),
-            fetchPropertyTags(p.id),
           ]);
+          const tags: string[] = allTagsBulk[p.id] || [];
+
 
           // ✅ Use dynamic parking extraction
           const parkingCount = extractParkingCount(p);

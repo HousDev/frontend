@@ -29,6 +29,17 @@ export const propertyTagsAPI = {
     return unwrap<PropertyTagsRow[]>(api.get("/property-tags/getall"));
   },
 
+  /**
+   * POST /api/property-tags/bulk { ids: number[] }
+   * Returns a map { [propertyId]: string[] } for all requested ids in ONE request.
+   * This eliminates N+1 fetch loops when loading tags for a list of properties.
+   */
+  async getBulk(ids: (number | string)[]): Promise<Record<number, string[]>> {
+    if (!ids.length) return {};
+    return unwrap<Record<number, string[]>>(
+      api.post("/property-tags/bulk", { ids: ids.map(Number) })
+    );
+  },
 
   /** GET /api/property-tags/:id -> one row (creates none if missing) */
   async getById(propertyId: number | string): Promise<PropertyTagsRow> {
@@ -60,5 +71,6 @@ export const propertyTagsAPI = {
     return unwrap<{ changed: number }>(api.delete(`/property-tags/tags/${encodeURIComponent(tag)}`));
   },
 };
+
 
 export default propertyTagsAPI;

@@ -141,20 +141,20 @@ const PublicSimilarProperties: React.FC<PublicSimilarPropertiesProps> = ({
         setTagsLoaded(true);
         return;
       }
-      const map: Record<number, string[]> = {};
-      await Promise.all(
-        displayed.map(async (p) => {
-          try {
-            const row = await propertyTagsAPI.getById(p.id);
-            map[p.id] = row?.tags || [];
-          } catch {
-            map[p.id] = [];
-          }
-        })
-      );
-      if (alive) {
-        setTagsMap(map);
-        setTagsLoaded(true);
+      try {
+        // Single bulk request instead of N individual requests
+        const bulkMap = await propertyTagsAPI.getBulk(displayed.map(p => p.id));
+        if (alive) {
+          setTagsMap(bulkMap);
+          setTagsLoaded(true);
+        }
+      } catch {
+        if (alive) {
+          const empty: Record<number, string[]> = {};
+          displayed.forEach(p => { empty[p.id] = []; });
+          setTagsMap(empty);
+          setTagsLoaded(true);
+        }
       }
     }
     loadTags();
@@ -162,6 +162,7 @@ const PublicSimilarProperties: React.FC<PublicSimilarPropertiesProps> = ({
       alive = false;
     };
   }, [displayed]);
+
 
   const openProperty = (p: Property) => {
     const rawSlug = p.slug || p.raw?.slug;
