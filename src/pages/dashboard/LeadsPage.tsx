@@ -1474,19 +1474,6 @@ const exportLeads = async () => {
 
 
 
-{/* Search Bar */}
-{/* <div className="mb-4">
-  <div className="relative max-w-md">
-    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-    <input
-      type="text"
-      placeholder="Search leads by name, phone, email, location..."
-      value={searchTerm}
-      onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
-    />
-  </div>
-</div> */}
 
        
 
@@ -1803,10 +1790,10 @@ const exportLeads = async () => {
                 <select
                   value={itemsPerPage}
                   onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
-                  className="min-w-[80px] px-2 py-0.5 text-[10px] border border-gray-200 rounded-lg bg-white"
+                  className="min-w-[60px] px-2 py-0.5 text-[10px] border border-gray-200 rounded-lg bg-white"
                 >
                   {[10, 20, 50, 100].map((n) => (
-                    <option key={n} value={n}>{n} / page</option>
+                    <option key={n} value={n}>{n}</option>
                   ))}
                   <option value={999999}>All</option>
                 </select>
@@ -1838,7 +1825,7 @@ const exportLeads = async () => {
                   className="px-2 py-0.5 text-[10px] border border-gray-200 rounded-lg bg-white"
                 >
                   {[10, 20, 50, 100].map((n) => (
-                    <option key={n} value={n}>{n} / page</option>
+                    <option key={n} value={n}>{n} </option>
                   ))}
                   <option value={999999}>All</option>
                 </select>
