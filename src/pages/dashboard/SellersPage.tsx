@@ -1365,8 +1365,9 @@ onEdit={(sellerData) => {
             background: #d35400;
           }
               /* ✅ Column divider lines */
-  table tbody td {
+table tbody td {
     border-right: 1px solid rgba(209, 213, 219, 0.5);
+    border-bottom: 1px solid rgba(209, 213, 219, 0.5);
   }
   table tbody td:last-child {
     border-right: none;
@@ -1759,7 +1760,14 @@ onEdit={(sellerData) => {
    
 
         {/* Table Card */}
-      <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden h-full">
+        <div
+  className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden flex flex-col"
+  style={{
+    height: window.innerWidth < 640
+      ? selectedSellers.length > 0 ? '420px' : '560px'
+      : selectedSellers.length > 0 ? '550px' : '620px',
+  }}
+>
   {loading ? (
     <div className="flex justify-center py-12"><TableLoader message="Loading sellers..." size="lg" colSpan={0} /></div>
   ) : (
@@ -1772,14 +1780,11 @@ onEdit={(sellerData) => {
       )}
 
       {/* OUTER: controls max-height + vertical scroll - DYNAMIC HEIGHT LIKE BUYER TABLE */}
-      <div
-        className="scrollbar-custom-vertical"
+       <div
+        className="scrollbar-custom-vertical flex-1 min-h-0"
         style={{
           overflowY: 'auto',
           overflowX: 'auto',
-          maxHeight: window.innerWidth < 640
-            ? selectedSellers.length > 0 ? 'calc(100vh - 360px)' : 'calc(100vh - 230px)'
-            : selectedSellers.length > 0 ? 'calc(100vh - 230px)' : 'calc(100vh - 160px)',
         }}
       >
         <table
@@ -2079,8 +2084,9 @@ onEdit={(sellerData) => {
             <div className="text-[10px] text-gray-500 text-center">Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredSellers.length)} of {filteredSellers.length} sellers</div>
             <div className="flex items-center justify-between gap-2">
               {selectedSellers.length === 0 && (
-                <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="min-w-[90px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white">
+                  <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="min-w-[90px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white">
                   {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/page</option>)}
+                  <option value={999999}>All</option>
                 </select>
               )}
               <div className="flex-1 overflow-x-auto scrollbar-hide">
@@ -2109,6 +2115,7 @@ onEdit={(sellerData) => {
               {selectedSellers.length === 0 && (
                 <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white">
                   {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/page</option>)}
+                  <option value={999999}>All</option>
                 </select>
               )}
             </div>
