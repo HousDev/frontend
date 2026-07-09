@@ -2084,8 +2084,8 @@ table tbody td {
             <div className="text-[10px] text-gray-500 text-center">Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredSellers.length)} of {filteredSellers.length} sellers</div>
             <div className="flex items-center justify-between gap-2">
               {selectedSellers.length === 0 && (
-                  <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="min-w-[90px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white">
-                  {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/page</option>)}
+                  <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="min-w-[60px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white">
+                  {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
                   <option value={999999}>All</option>
                 </select>
               )}
@@ -2114,7 +2114,7 @@ table tbody td {
               <div className="text-[10px] text-gray-500 whitespace-nowrap">Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredSellers.length)} of {filteredSellers.length} sellers</div>
               {selectedSellers.length === 0 && (
                 <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white">
-                  {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/page</option>)}
+                  {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
                   <option value={999999}>All</option>
                 </select>
               )}

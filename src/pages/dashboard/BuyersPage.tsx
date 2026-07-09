@@ -2271,11 +2271,11 @@ const matchesColSearch =
             onChange={(e) =>
               setItemsPerPage(parseInt(e.target.value, 10))
             }
-            className="min-w-[90px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
+            className="min-w-[60px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
           >
             {[10, 20, 50, 100].map((n) => (
               <option key={n} value={n}>
-                {n} / page
+                {n}
               </option>
             ))}
             <option value={999999}>All</option>
@@ -2320,7 +2320,7 @@ const matchesColSearch =
           >
             {[10, 20, 50, 100].map((n) => (
               <option key={n} value={n}>
-                {n} / page
+                {n}
               </option>
             ))}
             <option value={999999}>All</option>

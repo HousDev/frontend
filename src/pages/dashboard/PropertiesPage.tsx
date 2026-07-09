@@ -1004,6 +1004,7 @@ const PropertiesPage = () => {
   const [hasAutoTagged, setHasAutoTagged] = useState(false);
   const [totalViews, setTotalViews] = useState(0);
   const [totalUniqueViews, setTotalUniqueViews] = useState(0);
+  const [viewsMap, setViewsMap] = useState<Record<string, { total_views: number; unique_views: number }>>({});
   const [bulkTagsMenuOpen, setBulkTagsMenuOpen] = useState(false);
 const handleSelectAllPages = () => {
   const allIds = filteredProperties.map(p => p.id);
@@ -1015,17 +1016,33 @@ const handleSelectAllPages = () => {
   }
 };
   const [activeTagPicker, setActiveTagPicker] = useState<'add' | 'remove' | null>(null);
-  useEffect(() => {
-    async function fetchViewStats() {
-      const res = await viewsAPI.getAll(false); // false → total views
-      const resUnique = await viewsAPI.getAll(true); // true → unique views
 
-      setTotalViews(res?.rows?.reduce((sum: number, row: any) => sum + (row?.total_views || 0), 0));
-      setTotalUniqueViews(resUnique?.rows?.reduce((sum: number, row: any) => sum + (row?.unique_views || 0), 0));
-    }
+useEffect(() => {
+  async function fetchViewStats() {
+    const res = await viewsAPI.getAll(false);
+    const resUnique = await viewsAPI.getAll(true);
 
-    fetchViewStats();
-  }, []);
+    setTotalViews(res?.rows?.reduce((sum: number, row: any) => sum + (row?.total_views || 0), 0));
+    setTotalUniqueViews(resUnique?.rows?.reduce((sum: number, row: any) => sum + (row?.unique_views || 0), 0));
+
+    // ✅ SUM karo, overwrite mat karo — same property_id ke multiple slug-rows ho sakte hain
+    const map: Record<string, { total_views: number; unique_views: number }> = {};
+    (res?.rows || []).forEach((row: any) => {
+      const pid = row?.property_id;
+      if (pid !== undefined && pid !== null) {
+        const key = String(pid);
+        const prev = map[key] || { total_views: 0, unique_views: 0 };
+        map[key] = {
+          total_views: prev.total_views + (Number(row?.total_views) || 0),
+          unique_views: prev.unique_views + (Number(row?.unique_views) || 0),
+        };
+      }
+    });
+    setViewsMap(map);
+  }
+
+  fetchViewStats();
+}, []);
 
 
   // // Fetch sales executives
@@ -1276,7 +1293,7 @@ const handleSelectAllPages = () => {
   }, [properties, currentPropertyView?.id]);
 
   // OPTIMIZED: Load tags only for new properties
-  useEffect(() => {
+ useEffect(() => {
     if (!properties.length) return;
 
     const newProperties = properties.filter(p =>
@@ -1288,18 +1305,17 @@ const handleSelectAllPages = () => {
 
     const loadTagsForNewProperties = async () => {
       try {
+        const ids = newProperties.map(p => p.id);
+        // Single bulk request instead of N individual requests
+        const bulkMap = await propertyTagsAPI.getBulk(ids);
+
         const updates: Record<string, string[]> = {};
         const tagSet = new Set(knownTags);
 
         for (const p of newProperties) {
-          try {
-            const row = await propertyTagsAPI.getById(p.id);
-            const tags: string[] = Array.isArray(row?.tags) ? row.tags : [];
-            updates[String(p.id)] = tags;
-            tags.forEach(t => tagSet.add(t));
-          } catch (error) {
-            console.warn(`Failed to load tags for property ${p.id}:`, error);
-          }
+          const tags: string[] = Array.isArray(bulkMap[p.id]) ? bulkMap[p.id] : [];
+          updates[String(p.id)] = tags;
+          tags.forEach(t => tagSet.add(t));
         }
 
         if (Object.keys(updates).length > 0) {
@@ -1314,12 +1330,12 @@ const handleSelectAllPages = () => {
           });
         }
       } catch (error) {
-        console.error('Error loading tags:', error);
+        console.error('Error loading tags (bulk):', error);
       }
     };
 
     loadTagsForNewProperties();
-  }, [properties.length]); // Only runs when properties array length changes
+  }, [properties.length]) // Only runs when properties array length changes
 
   // OPTIMIZED: Auto-tagging runs only once after initial load
   useEffect(() => {
@@ -1368,6 +1384,7 @@ const handleSelectAllPages = () => {
 
     autoTagNewProperties();
   }, [properties.length, hasAutoTagged]);
+
 
   const tabs = useMemo(
     () => [
@@ -2372,7 +2389,7 @@ style={{ background: theme.orange }}              >
 
       {/* Top bar */}
       {/* Top bar */}
-<div className="bg-white border-b border-gray-200 px-2 sm:px-4 lg:px-4 py-2 sm:py-3 mx-2 sm:mx-6 mt-2 rounded-md overflow-visible">
+<div className="bg-white border-b border-gray-200 px-2 sm:px-2 lg:px-2 py-2 sm:py-3 mx-2 sm:mx-4 mt-2 rounded-md overflow-visible">
 
   <div className="flex flex-col lg:flex-row gap-2 sm:gap-3">
     
@@ -2394,7 +2411,7 @@ style={{ background: theme.orange }}              >
         className="flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-[11px] sm:text-xs"
       >
         <Filter size={12} />
-        <span className="hidden sm:inline">Filters</span>
+        <span className="hidden sm:inline ml-2">Filters</span>
       </button>
 
       <div className="flex items-center gap-1">
@@ -2415,15 +2432,7 @@ style={{ background: theme.orange }}              >
 
     <div className="flex items-center justify-between lg:justify-end gap-1.5 sm:space-x-2">
       
-      <select
-        value={itemsPerPage}
-        onChange={(e) => setItemsPerPage(Number(e.target.value))}
-        className="px-1.5 py-1 border border-gray-300 rounded-md text-[11px] sm:text-xs"
-      >
-        <option value={25}>25</option>
-        <option value={50}>50</option>
-        <option value={100}>100</option>
-      </select>
+    
 
       {canExport && (
         <button
@@ -2431,8 +2440,8 @@ style={{ background: theme.orange }}              >
           disabled={bulkLoading}
           className="flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-[11px] sm:text-xs disabled:opacity-50"
         >
-          <Download size={12} />
-          <span className="hidden sm:inline">Export</span>
+          <Download  size={12} />
+          <span className="hidden sm:inline ml-2">Export</span>
         </button>
       )}
     </div>
@@ -2808,7 +2817,7 @@ style={{ background: theme.orange }}              >
                   {getStageBadge(property.stage)}
                   <div className="flex items-center gap-1 text-[9px] text-gray-400">
                     <Eye size={9} />
-                    <span>{Number(property.visits) || 0} views</span>
+<span>{viewsMap[String(property.id)]?.total_views ?? 0} views</span>
                   </div>
                 </div>
 
@@ -3095,7 +3104,8 @@ style={{ background: theme.orange }}              >
 </td>
               <td className="px-3 py-3">
                 <div className="space-y-0.5 text-[10px] text-gray-500 whitespace-nowrap">
-                  <div className="flex items-center gap-1"><Eye size={9} />{Number(p.visits) || 0} visits</div>
+                  <div className="flex items-center gap-1"><Eye size={9} />{viewsMap[String(p.id)]?.total_views ?? 0} visits
+</div>
                   <div className="flex items-center gap-1"><Users size={9} />{Number(p.interestedBuyers) || 0} buyers</div>
                 </div>
               </td>
@@ -3176,16 +3186,34 @@ style={{ background: theme.orange }}              >
   </div>
 )}
 
-      {/* Pagination */}
+{/* Pagination */}
      {!loading && !error && filteredProperties.length > 0 && (
   <div className="bg-white border-t border-gray-200 px-2 sm:px-4 lg:px-6 py-2 sticky bottom-0 mx-4 rounded-md ">
     
     <div className="flex items-center justify-between gap-2">
       
-      {/* Left Text */}
-      <div className="text-[11px] sm:text-sm text-gray-700 whitespace-nowrap">
-        Showing {filteredProperties.length ? startIndex + 1 : 0}-
-        {Math.min(startIndex + itemsPerPage, filteredProperties.length)} of {filteredProperties.length}
+      {/* Left Text + Per Page Dropdown */}
+      <div className="flex items-center gap-2">
+        <div className="text-[11px] sm:text-sm text-gray-700 whitespace-nowrap">
+          Showing {filteredProperties.length ? startIndex + 1 : 0}-
+          {Math.min(startIndex + itemsPerPage, filteredProperties.length)} of {filteredProperties.length}
+        </div>
+
+       <select
+          value={itemsPerPage}
+          onChange={(e) => {
+            setItemsPerPage(Number(e.target.value));
+            setCurrentPage(1);
+          }}
+          className="px-1.5 py-1 border border-gray-300 rounded-md text-[11px] sm:text-xs bg-white"
+        >
+          <option value={20}>20</option>
+          <option value={40}>40</option>
+          <option value={60}>60</option>
+          <option value={80}>80</option>
+          <option value={100}>100</option>
+          <option value={999999}>All</option>
+        </select>
       </div>
 
       {/* Right Pagination */}
