@@ -345,7 +345,7 @@
 
 
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { X, Filter, Calendar } from "lucide-react";
 import { createPortal } from "react-dom";
 import Button from "@/components/ui/Button";
@@ -422,24 +422,30 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
   executiveOptions = [],
   executivesLoading = false,
 }) => {
+  const [draft, setDraft] = useState<PropertyFilters>({ ...filters });
+  const updateDraft = (patch: Partial<PropertyFilters>) =>
+    setDraft((prev) => ({ ...prev, ...patch }));
+
+  // Sync draft when panel opens
+  useEffect(() => {
+    if (isOpen) setDraft({ ...filters });
+  }, [isOpen]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     if (isOpen) document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [isOpen, onClose]);
 
-  // If ignoreDate toggled on, clear date fields
+  // If ignoreDate toggled on in draft, clear date fields in draft
   useEffect(() => {
-    if (filters?.ignoreDate && (filters.dateFrom || filters.dateTo)) {
-      setFilters({ ...filters, dateFrom: "", dateTo: "" });
+    if (draft?.ignoreDate && (draft.dateFrom || draft.dateTo)) {
+      setDraft((prev) => ({ ...prev, dateFrom: "", dateTo: "" }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters?.ignoreDate]);
+  }, [draft?.ignoreDate]);
 
   if (typeof window === "undefined") return null;
-
-  const update = (patch: Partial<PropertyFilters>) =>
-    setFilters({ ...(filters || {}), ...patch });
 
   // Build exec dropdown options (All, provided list, Unassigned)
   const execOptions = [
@@ -447,6 +453,20 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
     ...(executiveOptions || []),
     { label: "Unassigned", value: "__unassigned__" },
   ];
+
+  const handleApply = () => { setFilters(draft); onClose(); };
+
+  const handleClear = () => {
+    const cleared: PropertyFilters = {
+      type: "all", status: "all", priceRange: "all", location: "all",
+      seller: "all", stage: "all", tags: "all", isPublic: undefined,
+      ignoreDate: false, dateFrom: "", dateTo: "", sortOrder: "created_desc",
+      minBudget: "", maxBudget: "", assignedExecutive: "all",
+    };
+    clearFilters();
+    setFilters(cleared);
+    setDraft(cleared);
+  };
 
   return createPortal(
     <>
@@ -534,8 +554,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 <label style={labelStyle}>Property Type</label>
                 <Dropdown
                   options={[{ label: "All Types", value: "all" }, ...typeOptions]}
-                  value={filters.type ?? "all"}
-                  onChange={(v) => update({ type: v })}
+                  value={draft.type ?? "all"}
+                  onChange={(v) => updateDraft({ type: v })}
                   triggerClassName="w-full text-xs"
                 />
               </div>
@@ -545,8 +565,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 <label style={labelStyle}>Status</label>
                 <Dropdown
                   options={[{ label: "All Status", value: "all" }, ...statusOptions]}
-                  value={filters.status ?? "all"}
-                  onChange={(v) => update({ status: v })}
+                  value={draft.status ?? "all"}
+                  onChange={(v) => updateDraft({ status: v })}
                   triggerClassName="w-full text-xs"
                 />
               </div>
@@ -556,8 +576,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 <label style={labelStyle}>Price Range</label>
                 <Dropdown
                   options={[{ label: "Any", value: "all" }, ...priceRangeOptions]}
-                  value={filters.priceRange ?? "all"}
-                  onChange={(v) => update({ priceRange: v })}
+                  value={draft.priceRange ?? "all"}
+                  onChange={(v) => updateDraft({ priceRange: v })}
                   triggerClassName="w-full text-xs"
                 />
               </div>
@@ -567,8 +587,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 <label style={labelStyle}>Location</label>
                 <Dropdown
                   options={[{ label: "All Locations", value: "all" }, ...locationOptions]}
-                  value={filters.location ?? "all"}
-                  onChange={(v) => update({ location: v })}
+                  value={draft.location ?? "all"}
+                  onChange={(v) => updateDraft({ location: v })}
                   triggerClassName="w-full text-xs"
                 />
               </div>
@@ -578,8 +598,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 <label style={labelStyle}>Seller / Owner</label>
                 <Dropdown
                   options={[{ label: "Any Seller", value: "all" }, ...sellerOptions]}
-                  value={filters.seller ?? "all"}
-                  onChange={(v) => update({ seller: v })}
+                  value={draft.seller ?? "all"}
+                  onChange={(v) => updateDraft({ seller: v })}
                   triggerClassName="w-full text-xs"
                 />
               </div>
@@ -589,8 +609,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 <label style={labelStyle}>Stage</label>
                 <Dropdown
                   options={[{ label: "All Stages", value: "all" }, ...stageOptions]}
-                  value={filters.stage ?? "all"}
-                  onChange={(v) => update({ stage: v })}
+                  value={draft.stage ?? "all"}
+                  onChange={(v) => updateDraft({ stage: v })}
                   triggerClassName="w-full text-xs"
                 />
               </div>
@@ -600,8 +620,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 <label style={labelStyle}>Tags</label>
                 <Dropdown
                   options={[{ label: "Any Tag", value: "all" }, ...tagsOptions]}
-                  value={filters.tags ?? "all"}
-                  onChange={(v) => update({ tags: v })}
+                  value={draft.tags ?? "all"}
+                  onChange={(v) => updateDraft({ tags: v })}
                   triggerClassName="w-full text-xs"
                 />
               </div>
@@ -616,15 +636,15 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                     { label: "Private", value: "private" },
                   ]}
                   value={
-                    filters.isPublic === undefined
+                    draft.isPublic === undefined
                       ? "all"
-                      : filters.isPublic
+                      : draft.isPublic
                       ? "public"
                       : "private"
                   }
                   onChange={(v) => {
-                    if (v === "all") update({ isPublic: undefined });
-                    else update({ isPublic: v === "public" });
+                    if (v === "all") updateDraft({ isPublic: undefined });
+                    else updateDraft({ isPublic: v === "public" });
                   }}
                   triggerClassName="w-full text-xs"
                 />
@@ -635,8 +655,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 <label style={labelStyle}>Min Budget (₹)</label>
                 <Input
                   type="number"
-                  value={filters.minBudget || ""}
-                  onChange={(e) => update({ minBudget: e.target.value })}
+                  value={draft.minBudget || ""}
+                  onChange={(e) => updateDraft({ minBudget: e.target.value })}
                   placeholder="e.g. 500000"
                 />
               </div>
@@ -646,8 +666,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 <label style={labelStyle}>Max Budget (₹)</label>
                 <Input
                   type="number"
-                  value={filters.maxBudget || ""}
-                  onChange={(e) => update({ maxBudget: e.target.value })}
+                  value={draft.maxBudget || ""}
+                  onChange={(e) => updateDraft({ maxBudget: e.target.value })}
                   placeholder="e.g. 25000000"
                 />
               </div>
@@ -657,8 +677,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 <label style={labelStyle}>Executive</label>
                 <Dropdown
                   options={execOptions}
-                  value={filters.assignedExecutive ?? "all"}
-                  onChange={(v) => update({ assignedExecutive: v })}
+                  value={draft.assignedExecutive ?? "all"}
+                  onChange={(v) => updateDraft({ assignedExecutive: v })}
                   triggerClassName="w-full text-xs"
                   disabled={executivesLoading}
                 />
@@ -669,8 +689,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                 <label style={labelStyle}>Sort</label>
                 <Dropdown
                   options={sortOrderOptions}
-                  value={filters.sortOrder ?? "created_desc"}
-                  onChange={(v) => update({ sortOrder: v })}
+                  value={draft.sortOrder ?? "created_desc"}
+                  onChange={(v) => updateDraft({ sortOrder: v })}
                   triggerClassName="w-full text-xs"
                 />
               </div>
@@ -684,8 +704,8 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
               <input
                 id="propIgnoreDate"
                 type="checkbox"
-                checked={!!filters.ignoreDate}
-                onChange={(e) => update({ ignoreDate: e.target.checked })}
+                checked={!!draft.ignoreDate}
+                onChange={(e) => updateDraft({ ignoreDate: e.target.checked })}
                 style={{
                   width: 15,
                   height: 15,
@@ -721,9 +741,9 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                   />
                   <Input
                     type="date"
-                    value={filters.dateFrom || ""}
-                    onChange={(e) => update({ dateFrom: e.target.value })}
-                    disabled={!!filters.ignoreDate}
+                    value={draft.dateFrom || ""}
+                    onChange={(e) => updateDraft({ dateFrom: e.target.value })}
+                    disabled={!!draft.ignoreDate}
                     style={{ paddingLeft: "1.5rem", fontSize: 11 }}
                   />
                 </div>
@@ -745,9 +765,9 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
                   />
                   <Input
                     type="date"
-                    value={filters.dateTo || ""}
-                    onChange={(e) => update({ dateTo: e.target.value })}
-                    disabled={!!filters.ignoreDate}
+                    value={draft.dateTo || ""}
+                    onChange={(e) => updateDraft({ dateTo: e.target.value })}
+                    disabled={!!draft.ignoreDate}
                     style={{ paddingLeft: "1.5rem", fontSize: 11 }}
                   />
                 </div>
@@ -761,26 +781,7 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
             style={{ borderTop: `1px solid ${BD}`, background: "#f8fafc" }}
           >
             <button
-              onClick={() => {
-                clearFilters();
-                setFilters({
-                  type: "all",
-                  status: "all",
-                  priceRange: "all",
-                  location: "all",
-                  seller: "all",
-                  stage: "all",
-                  tags: "all",
-                  isPublic: undefined,
-                  ignoreDate: false,
-                  dateFrom: "",
-                  dateTo: "",
-                  sortOrder: "created_desc",
-                  minBudget: "",
-                  maxBudget: "",
-                  assignedExecutive: "all",
-                });
-              }}
+              onClick={handleClear}
               style={{
                 flex: 1,
                 padding: "7px",
@@ -796,7 +797,7 @@ const PropertyFilterModal: React.FC<PropertyFilterModalProps> = ({
               Clear All
             </button>
             <button
-              onClick={onClose}
+              onClick={handleApply}
               style={{
                 flex: 1,
                 padding: "7px",

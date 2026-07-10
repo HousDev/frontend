@@ -420,6 +420,7 @@ const [showSellerFollowupModal, setShowSellerFollowupModal] = useState(false);
 const [selectedSellerForFollowup, setSelectedSellerForFollowup] = useState<any>(null);
   const [executives, setExecutives] = useState<Executive[]>([UNASSIGNED_EXEC]);
   const [execsLoading, setExecsLoading] = useState(false);
+  const [pendingExec, setPendingExec] = useState<string>("");
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
   const [colSearch, setColSearch] = useState({
@@ -1626,16 +1627,13 @@ table tbody td {
                   <div className="hidden sm:flex items-center gap-1.5 whitespace-nowrap">
                     <span className="text-xs text-gray-500">Assign:</span>
                     <select
-                      onChange={(e) => {
-                        const execId = Number(e.target.value);
-                        if (!isNaN(execId)) handleBulkAssign(execId);
-                        e.target.value = "";
-                      }}
+                      value={pendingExec}
+                      onChange={(e) => setPendingExec(e.target.value)}
                       className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[130px]"
                       disabled={execsLoading}
                     >
                       <option value="">Assign...</option>
-                      <option value={0}>Unassign</option>
+                      <option value="0">Unassign</option>
                       {executives
                         .filter((exec) => exec.id !== 0)
                         .map((exec) => (
@@ -1644,6 +1642,20 @@ table tbody td {
                           </option>
                         ))}
                     </select>
+                    {pendingExec !== "" && (
+                      <button
+                        onClick={() => {
+                          const execId = Number(pendingExec);
+                          if (!isNaN(execId)) {
+                            handleBulkAssign(execId);
+                            setPendingExec('');
+                          }
+                        }}
+                        className="px-2 py-1 text-xs bg-orange-500 text-white rounded-lg whitespace-nowrap hover:bg-orange-600"
+                      >
+                        Apply
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1653,25 +1665,38 @@ table tbody td {
                 {/* Row 1 → Assign + Priority side by side */}
                 <div className="flex gap-2">
                   {canAssign && (
-                    <select
-                      onChange={(e) => {
-                        const execId = Number(e.target.value);
-                        if (!isNaN(execId)) handleBulkAssign(execId);
-                        e.target.value = "";
-                      }}
-                      className="flex-1 border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white"
-                      disabled={execsLoading}
-                    >
-                      <option value="">Assign...</option>
-                      <option value={0}>Unassign</option>
-                      {executives
-                        .filter((exec) => exec.id !== 0)
-                        .map((exec) => (
-                          <option key={exec.id} value={exec.id}>
-                            {exec.name}
-                          </option>
-                        ))}
-                    </select>
+                    <div className="flex-1 flex gap-1">
+                      <select
+                        value={pendingExec}
+                        onChange={(e) => setPendingExec(e.target.value)}
+                        className="flex-1 border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[100px]"
+                        disabled={execsLoading}
+                      >
+                        <option value="">Assign...</option>
+                        <option value="0">Unassign</option>
+                        {executives
+                          .filter((exec) => exec.id !== 0)
+                          .map((exec) => (
+                            <option key={exec.id} value={exec.id}>
+                              {exec.name}
+                            </option>
+                          ))}
+                      </select>
+                      {pendingExec !== "" && (
+                        <button
+                          onClick={() => {
+                            const execId = Number(pendingExec);
+                            if (!isNaN(execId)) {
+                              handleBulkAssign(execId);
+                              setPendingExec('');
+                            }
+                          }}
+                          className="px-2 py-1 text-xs bg-orange-500 text-white rounded-lg whitespace-nowrap hover:bg-orange-600"
+                        >
+                          Apply
+                        </button>
+                      )}
+                    </div>
                   )}
                   {canUpdate && (
                     <select

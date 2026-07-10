@@ -225,7 +225,7 @@
 // export default FilterModal;
 
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { X, Filter, Calendar } from "lucide-react";
 import { createPortal } from "react-dom";
 import Button from "@/components/ui/Button";
@@ -269,6 +269,13 @@ const FilterModal: React.FC<FilterModalProps> = ({
   createdByOptions,
   priorityOptions,
 }) => {
+  const [draft, setDraft] = useState({ ...filters });
+
+  // Sync draft when panel opens (so draft reflects currently applied filters)
+  useEffect(() => {
+    if (isOpen) setDraft({ ...filters });
+  }, [isOpen]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     if (isOpen) document.addEventListener("keydown", onKey);
@@ -276,10 +283,12 @@ const FilterModal: React.FC<FilterModalProps> = ({
   }, [isOpen, onClose]);
 
   useEffect(() => {
-    if (filters?.ignoreDate && (filters.dateFrom || filters.dateTo)) {
-      setFilters({ ...filters, dateFrom: "", dateTo: "" });
+    if (draft?.ignoreDate && (draft.dateFrom || draft.dateTo)) {
+      setDraft((prev: any) => ({ ...prev, dateFrom: "", dateTo: "" }));
     }
-  }, [filters?.ignoreDate]);
+  }, [draft?.ignoreDate]);
+
+  const updateDraft = (patch: any) => setDraft((prev: any) => ({ ...prev, ...patch }));
 
   if (typeof window === "undefined") return null;
 
@@ -351,8 +360,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </label>
               <Dropdown
                 options={statusOptions}
-                value={filters.status}
-                onChange={(value) => setFilters({ ...filters, status: value })}
+                value={draft.status}
+                onChange={(value) => updateDraft({ status: value })}
                 triggerClassName="w-full text-xs"
               />
             </div>
@@ -367,8 +376,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </label>
               <Dropdown
                 options={sourceOptions}
-                value={filters.source}
-                onChange={(value) => setFilters({ ...filters, source: value })}
+                value={draft.source}
+                onChange={(value) => updateDraft({ source: value })}
                 triggerClassName="w-full text-xs"
               />
             </div>
@@ -383,8 +392,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </label>
               <Dropdown
                 options={leadTypeOptions}
-                value={filters.leadType}
-                onChange={(value) => setFilters({ ...filters, leadType: value })}
+                value={draft.leadType}
+                onChange={(value) => updateDraft({ leadType: value })}
                 triggerClassName="w-full text-xs"
               />
             </div>
@@ -399,8 +408,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </label>
               <Dropdown
                 options={priorityOptions}
-                value={filters.priority}
-                onChange={(value) => setFilters({ ...filters, priority: value })}
+                value={draft.priority}
+                onChange={(value) => updateDraft({ priority: value })}
                 triggerClassName="w-full text-xs"
               />
             </div>
@@ -415,10 +424,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </label>
               <Dropdown
                 options={assignedOptions}
-                value={filters.assignedExecutive}
-                onChange={(value) =>
-                  setFilters({ ...filters, assignedExecutive: value })
-                }
+                value={draft.assignedExecutive}
+                onChange={(value) => updateDraft({ assignedExecutive: value })}
                 triggerClassName="w-full text-xs"
               />
             </div>
@@ -433,8 +440,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </label>
               <Dropdown
                 options={createdByOptions}
-                value={filters.createdBy}
-                onChange={(value) => setFilters({ ...filters, createdBy: value })}
+                value={draft.createdBy}
+                onChange={(value) => updateDraft({ createdBy: value })}
                 triggerClassName="w-full text-xs"
               />
             </div>
@@ -449,8 +456,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </label>
               <Dropdown
                 options={sortOrderOptions}
-                value={filters.sortOrder ?? "desc"}
-                onChange={(value) => setFilters({ ...filters, sortOrder: value })}
+                value={draft.sortOrder ?? "desc"}
+                onChange={(value) => updateDraft({ sortOrder: value })}
                 triggerClassName="w-full text-xs"
               />
             </div>
@@ -467,10 +474,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
             <input
               id="ignoreDate"
               type="checkbox"
-              checked={!!filters.ignoreDate}
-              onChange={(e) =>
-                setFilters({ ...filters, ignoreDate: e.target.checked })
-              }
+              checked={!!draft.ignoreDate}
+              onChange={(e) => updateDraft({ ignoreDate: e.target.checked })}
               className="rounded focus:ring-1"
               style={{
                 width: 15,
@@ -504,11 +509,9 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 />
                 <Input
                   type="date"
-                  value={filters.dateFrom}
-                  onChange={(e) =>
-                    setFilters({ ...filters, dateFrom: e.target.value })
-                  }
-                  disabled={!!filters.ignoreDate}
+                  value={draft.dateFrom}
+                  onChange={(e) => updateDraft({ dateFrom: e.target.value })}
+                  disabled={!!draft.ignoreDate}
                   style={{ paddingLeft: "1.5rem", fontSize: "11px" }}
                 />
               </div>
@@ -528,11 +531,9 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 />
                 <Input
                   type="date"
-                  value={filters.dateTo}
-                  onChange={(e) =>
-                    setFilters({ ...filters, dateTo: e.target.value })
-                  }
-                  disabled={!!filters.ignoreDate}
+                  value={draft.dateTo}
+                  onChange={(e) => updateDraft({ dateTo: e.target.value })}
+                  disabled={!!draft.ignoreDate}
                   style={{ paddingLeft: "1.5rem", fontSize: "11px" }}
                 />
               </div>
@@ -548,7 +549,9 @@ const FilterModal: React.FC<FilterModalProps> = ({
           <button
             onClick={() => {
               clearFilters();
-              setFilters((prev: any) => ({ ...prev, sortOrder: "desc" }));
+              const cleared = { ...filters, status: 'all', source: 'all', leadType: 'all', assignedExecutive: 'all', createdBy: 'all', priority: 'all', city: '', location: '', dateFrom: '', dateTo: '', ignoreDate: false, sortOrder: 'desc' };
+              setFilters(cleared);
+              setDraft(cleared);
             }}
             className="flex-1 rounded-md transition-colors"
             style={{
@@ -564,7 +567,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
             Clear All
           </button>
           <button
-            onClick={onClose}
+            onClick={() => { setFilters(draft); onClose(); }}
             className="flex-1 rounded-md transition-opacity hover:opacity-90"
             style={{
               padding: "7px",

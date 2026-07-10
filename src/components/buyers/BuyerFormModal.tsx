@@ -33,6 +33,18 @@ const parseMaybeJSON = (val: any) => {
   return val;
 };
 
+const formatWhatsappValue = (phone: string) => {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('91')) {
+    return `+91 ${digits.slice(2)}`;
+  }
+  if (digits.length === 10) {
+    return `+91 ${digits}`;
+  }
+  return phone.startsWith('+') ? phone : `+${digits}`;
+};
+
 const buildFormStateFromBuyer = (b: any) => {
   const req = parseMaybeJSON(b?.requirements) || b?.requirements || {
     propertyType: '',
@@ -60,8 +72,8 @@ const buildFormStateFromBuyer = (b: any) => {
     salutation: b?.salutation ?? 'Mr.',
     name: b?.name ?? '',
     phone: b?.phone ?? '',
-    dob: b?.dob ?? b?.buyer_dob ?? ISO_18Y_BACK,
-    whatsapp_number: b?.whatsapp_number ?? b?.whatsapp ?? '',
+    dob: b?.dob ?? b?.buyer_dob ?? '',
+    whatsapp_number: b?.whatsapp_number ? formatWhatsappValue(b.whatsapp_number) : (b?.whatsapp ? formatWhatsappValue(b.whatsapp) : ''),
     email: b?.email ?? '',
     state: b?.state ?? '',
     city: b?.city ?? '',
@@ -318,30 +330,14 @@ const BuyerFormModal = ({
   const { user } = useAuth();
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'auto';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   const calcAge = (iso?: string) => {
     if (!iso) return 0;
@@ -382,10 +378,30 @@ const BuyerFormModal = ({
         }
       }
       setFormData(newFormData);
+
+      // Determine sameAsPhone
+      if (newFormData.phone) {
+        const phoneDigits = String(newFormData.phone).replace(/\D/g, '');
+        const waDigits = String(newFormData.whatsapp_number).replace(/\D/g, '');
+        setSameAsPhone(!!waDigits && phoneDigits.slice(-10) === waDigits.slice(-10));
+      } else {
+        setSameAsPhone(false);
+      }
     }
   }, [isOpen, buyer, user]);
 
   const getMasterOptions = (key: string) => dedupeByValue(masters?.[key] || []);
+
+  const stateOptions = masters['state'] || [];
+  const cityOptions = masters['city'] || [];
+  const locationOptions = masters['location'] || [];
+
+  const filteredCities = useMemo(() => cityOptions.filter((c: any) => !formData.state || c.parentValue === formData.state), [cityOptions, formData.state]);
+  const filteredLocations = useMemo(() => locationOptions.filter((l: any) => {
+    if (formData.city && l.parentValue === formData.city) return true;
+    if (!formData.city && formData.state && l.grandParentValue === formData.state) return true;
+    return !formData.state && !formData.city;
+  }), [locationOptions, formData.city, formData.state]);
 
   useEffect(() => {
     if (!isOpen || masterLoading) return;
@@ -436,9 +452,7 @@ const BuyerFormModal = ({
     setFormData(prev => {
       const updated = { ...prev, phone: value };
       if (sameAsPhone) {
-        const digits = String(value).replace(/\D/g, '');
-        const last10 = digits.slice(-10);
-        (updated as any).whatsapp_number = last10;
+        (updated as any).whatsapp_number = formatWhatsappValue(value);
       }
       return updated;
     });
@@ -447,9 +461,7 @@ const BuyerFormModal = ({
   const handleSameAsPhoneToggle = (checked: boolean) => {
     setSameAsPhone(checked);
     if (checked) {
-      const digits = String(formData.phone).replace(/\D/g, '');
-      const last10 = digits.slice(-10);
-      setFormData(prev => ({ ...prev, whatsapp_number: last10 }));
+      setFormData(prev => ({ ...prev, whatsapp_number: formatWhatsappValue(formData.phone) }));
     }
   };
 
@@ -557,7 +569,7 @@ const BuyerFormModal = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4" style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4" style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }}>
       <div
         ref={modalRef}
         className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
@@ -679,9 +691,9 @@ const BuyerFormModal = ({
                     />
                   </FormField>
 
-                  <FormField label="Date of Birth" required>
+                  <FormField label="Date of Birth">
                     <DOBStepCalendar
-                      value={formData.dob || ISO_18Y_BACK}
+                      value={formData.dob}
                       onChange={(iso) => setFormData(prev => ({ ...prev, dob: iso }))}
                       label=""
                       placeholder="Select date of birth"
@@ -700,34 +712,70 @@ const BuyerFormModal = ({
                 </h3>
                 <div className="grid grid-cols-2 gap-1.5">
                   <FormField label="State">
-                    <input
-                      type="text"
-                      value={formData.state}
-                      onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
-                      className="border rounded-lg w-full h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
-                      style={{ borderColor: BD }}
-                      placeholder="State"
-                    />
+                    {stateOptions.length ? (
+                      <select
+                        value={formData.state || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value, city: '', location: '' }))}
+                        className="w-full border rounded-lg h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
+                        style={{ borderColor: BD }}
+                      >
+                        <option value="">Select State</option>
+                        {stateOptions.map((s: any) => (<option key={s.value ?? s.label} value={s.value ?? s.label}>{s.label ?? s.value}</option>))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.state}
+                        onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
+                        className="border rounded-lg w-full h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
+                        style={{ borderColor: BD }}
+                        placeholder="State"
+                      />
+                    )}
                   </FormField>
                   <FormField label="City">
-                    <input
-                      type="text"
-                      value={formData.city}
-                      onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                      className="border rounded-lg w-full h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
-                      style={{ borderColor: BD }}
-                      placeholder="City"
-                    />
+                    {filteredCities.length || cityOptions.length ? (
+                      <select
+                        value={formData.city || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value, location: '' }))}
+                        className="w-full border rounded-lg h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
+                        style={{ borderColor: BD }}
+                      >
+                        <option value="">Select City</option>
+                        {(filteredCities.length ? filteredCities : cityOptions).map((c: any) => (<option key={c.value ?? c.label} value={c.value ?? c.label}>{c.label ?? c.value}</option>))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.city}
+                        onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                        className="border rounded-lg w-full h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
+                        style={{ borderColor: BD }}
+                        placeholder="City"
+                      />
+                    )}
                   </FormField>
                   <FormField label="Location/Area" className="col-span-2">
-                    <input
-                      type="text"
-                      value={formData.location}
-                      onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                      className="border rounded-lg w-full h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
-                      style={{ borderColor: BD }}
-                      placeholder="Location/area"
-                    />
+                    {filteredLocations.length || locationOptions.length ? (
+                      <select
+                        value={formData.location || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                        className="w-full border rounded-lg h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
+                        style={{ borderColor: BD }}
+                      >
+                        <option value="">Select Location</option>
+                        {(filteredLocations.length ? filteredLocations : locationOptions).map((l: any) => (<option key={l.value ?? l.label} value={l.value ?? l.label}>{l.label ?? l.value}</option>))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.location}
+                        onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                        className="border rounded-lg w-full h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
+                        style={{ borderColor: BD }}
+                        placeholder="Location/area"
+                      />
+                    )}
                   </FormField>
                 </div>
               </div>

@@ -153,10 +153,12 @@ const MiniStep1Form: React.FC<{
 
   const whatsappDisplayValue = () => {
     const src = form.sameAsPhone ? form.phone : form.whatsapp;
+    if (!src) return '';
     const d = onlyDigits(src);
     if (!d) return '';
-    if (d.startsWith('91') && d.length === 12) return d.slice(2);
-    return d.slice(-10);
+    if (d.startsWith('91') && d.length === 12) return `+91 ${d.slice(2)}`;
+    if (d.length === 10) return `+91 ${d}`;
+    return `+${d}`;
   };
 
   return (

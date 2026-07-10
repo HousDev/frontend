@@ -208,6 +208,7 @@ const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
   const [bulkPriority, setBulkPriority] = useState<string>('');
   const [bulkAssignee, setBulkAssignee] = useState<string>('');
   const [bulkLoading, setBulkLoading] = useState<boolean>(false);
+  const [pendingExec, setPendingExec] = useState<string>(''); // pending executive before Apply
 
   // Executive state
   const [executives, setExecutives] = useState<Executive[]>([{ id: 0, name: "Not assigned", email: "", phone: "" }]);
@@ -1484,14 +1485,8 @@ const matchesColSearch =
           <div className="hidden sm:flex items-center gap-1.5">
             <span className="text-xs text-gray-500">Assign:</span>
             <select
-              onChange={(e) => {
-                const execId = e.target.value;
-                if (execId) {
-                  const newAssigneeId = execId === "Unassigned" ? null : execId;
-                  handleAssignExecutive(newAssigneeId);
-                  e.target.value = "";
-                }
-              }}
+              value={pendingExec}
+              onChange={(e) => setPendingExec(e.target.value)}
               className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[130px]"
             >
               <option value="">Assign...</option>
@@ -1502,6 +1497,18 @@ const matchesColSearch =
                 </option>
               ))}
             </select>
+            {pendingExec && (
+              <button
+                onClick={() => {
+                  const newAssigneeId = pendingExec === "Unassigned" ? null : pendingExec;
+                  handleAssignExecutive(newAssigneeId);
+                  setPendingExec('');
+                }}
+                className="px-2 py-1 text-xs bg-orange-500 text-white rounded-lg whitespace-nowrap hover:bg-orange-600"
+              >
+                Apply
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1512,14 +1519,8 @@ const matchesColSearch =
         {canAssign && (
           <div className="flex items-center gap-1.5">
             <select
-              onChange={(e) => {
-                const execId = e.target.value;
-                if (execId) {
-                  const newAssigneeId = execId === "Unassigned" ? null : execId;
-                  handleAssignExecutive(newAssigneeId);
-                  e.target.value = "";
-                }
-              }}
+              value={pendingExec}
+              onChange={(e) => setPendingExec(e.target.value)}
               className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[120px]"
             >
               <option value="">Assign...</option>
@@ -1530,6 +1531,18 @@ const matchesColSearch =
                 </option>
               ))}
             </select>
+            {pendingExec && (
+              <button
+                onClick={() => {
+                  const newAssigneeId = pendingExec === "Unassigned" ? null : pendingExec;
+                  handleAssignExecutive(newAssigneeId);
+                  setPendingExec('');
+                }}
+                className="px-2 py-1 text-xs bg-orange-500 text-white rounded-lg whitespace-nowrap hover:bg-orange-600"
+              >
+                Apply
+              </button>
+            )}
           </div>
         )}
 

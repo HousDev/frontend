@@ -156,6 +156,7 @@ const [bulkPriority, setBulkPriority] = useState<string>('');
   const [bulkStatus, setBulkStatus] = useState<string>('');
   const [bulkAssignee, setBulkAssignee] = useState<string>('');
   const [bulkLoading, setBulkLoading] = useState<boolean>(false);
+  const [pendingAssignee, setPendingAssignee] = useState<string>(''); // pending executive before Apply
 
   const statusKey = (s: string | undefined | null) => String(s ?? '').trim().toLowerCase();
   const toOption = (v: string) => ({ label: v.charAt(0).toUpperCase() + v.slice(1), value: v });
@@ -1337,39 +1338,49 @@ const exportLeads = async () => {
 
       {/* Mobile only: Assign dropdown - same row as Status */}
       {canAssign && (
-        <select
-          onChange={async (e) => {
-            const execId = e.target.value;
-            if (!execId) return;
-            e.target.value = "";
-            if (selectedLeads.length === 0) { toast.error('No leads selected'); return; }
-            if (!canAssign) { toast.error('You do not have permission to assign leads'); return; }
-            const newAssigneeId = execId === 'Unassigned' ? null : execId;
-            setBulkLoading(true);
-            try {
-              if ((leadsAPI as any).bulkAssignExecutives) {
-                await (leadsAPI as any).bulkAssignExecutives({ ids: selectedLeads, assigned_executive: newAssigneeId });
-              } else {
-                await (leadsAPI as any).bulkUpdateLeads({ ids: selectedLeads, assigned_executive: newAssigneeId });
-              }
-              await fetchLeads();
-              const assigneeName = newAssigneeId ? resolveUserNameById(newAssigneeId) || 'User' : null;
-              toast.success(newAssigneeId ? `Assigned ${selectedLeads.length} lead(s) to ${assigneeName}` : `Unassigned ${selectedLeads.length} lead(s)`);
-              setSelectedLeads([]);
-            } catch (err) {
-              toast.error('Bulk assignment failed');
-            } finally {
-              setBulkLoading(false);
-            }
-          }}
-          className="sm:hidden border border-gray-300 rounded-md px-1.5 py-0.5 text-[11px] bg-white min-w-[100px] h-6"
-        >
-          <option value="">Assign...</option>
-          <option value="Unassigned">Unassign</option>
-          {assignableExecutives.map((u: any) => (
-            <option key={u.id} value={u.id}>{u.name}</option>
-          ))}
-        </select>
+        <div className="sm:hidden flex items-center gap-1">
+          <select
+            value={pendingAssignee}
+            onChange={(e) => setPendingAssignee(e.target.value)}
+            className="border border-gray-300 rounded-md px-1.5 py-0.5 text-[11px] bg-white min-w-[100px] h-6"
+          >
+            <option value="">Assign...</option>
+            <option value="Unassigned">Unassign</option>
+            {assignableExecutives.map((u: any) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+          {pendingAssignee && (
+            <button
+              onClick={async () => {
+                if (selectedLeads.length === 0) { toast.error('No leads selected'); return; }
+                if (!canAssign) { toast.error('You do not have permission to assign leads'); return; }
+                const newAssigneeId = pendingAssignee === 'Unassigned' ? null : pendingAssignee;
+                setBulkLoading(true);
+                try {
+                  if ((leadsAPI as any).bulkAssignExecutives) {
+                    await (leadsAPI as any).bulkAssignExecutives({ ids: selectedLeads, assigned_executive: newAssigneeId });
+                  } else {
+                    await (leadsAPI as any).bulkUpdateLeads({ ids: selectedLeads, assigned_executive: newAssigneeId });
+                  }
+                  await fetchLeads();
+                  const assigneeName = newAssigneeId ? resolveUserNameById(newAssigneeId) || 'User' : null;
+                  toast.success(newAssigneeId ? `Assigned ${selectedLeads.length} lead(s) to ${assigneeName}` : `Unassigned ${selectedLeads.length} lead(s)`);
+                  setSelectedLeads([]);
+                  setPendingAssignee('');
+                } catch (err) {
+                  toast.error('Bulk assignment failed');
+                } finally {
+                  setBulkLoading(false);
+                }
+              }}
+              disabled={bulkLoading}
+              className="px-2 py-0.5 text-[11px] bg-orange-500 text-white rounded-md h-6 whitespace-nowrap hover:bg-orange-600 disabled:opacity-50"
+            >
+              Apply
+            </button>
+          )}
+        </div>
       )}
 
       {/* Desktop only: Assign dropdown with label */}
@@ -1377,30 +1388,8 @@ const exportLeads = async () => {
         <div className="hidden sm:flex items-center gap-1">
           <span className="text-[11px] text-gray-500">Assign:</span>
           <select
-            onChange={async (e) => {
-              const execId = e.target.value;
-              if (!execId) return;
-              e.target.value = "";
-              if (selectedLeads.length === 0) { toast.error('No leads selected'); return; }
-              if (!canAssign) { toast.error('You do not have permission to assign leads'); return; }
-              const newAssigneeId = execId === 'Unassigned' ? null : execId;
-              setBulkLoading(true);
-              try {
-                if ((leadsAPI as any).bulkAssignExecutives) {
-                  await (leadsAPI as any).bulkAssignExecutives({ ids: selectedLeads, assigned_executive: newAssigneeId });
-                } else {
-                  await (leadsAPI as any).bulkUpdateLeads({ ids: selectedLeads, assigned_executive: newAssigneeId });
-                }
-                await fetchLeads();
-                const assigneeName = newAssigneeId ? resolveUserNameById(newAssigneeId) || 'User' : null;
-                toast.success(newAssigneeId ? `Assigned ${selectedLeads.length} lead(s) to ${assigneeName}` : `Unassigned ${selectedLeads.length} lead(s)`);
-                setSelectedLeads([]);
-              } catch (err) {
-                toast.error('Bulk assignment failed');
-              } finally {
-                setBulkLoading(false);
-              }
-            }}
+            value={pendingAssignee}
+            onChange={(e) => setPendingAssignee(e.target.value)}
             className="border border-gray-300 rounded-md px-1.5 py-0.5 text-[11px] bg-white min-w-[110px] h-6"
           >
             <option value="">Assign...</option>
@@ -1409,6 +1398,36 @@ const exportLeads = async () => {
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
+          {pendingAssignee && (
+            <button
+              onClick={async () => {
+                if (selectedLeads.length === 0) { toast.error('No leads selected'); return; }
+                if (!canAssign) { toast.error('You do not have permission to assign leads'); return; }
+                const newAssigneeId = pendingAssignee === 'Unassigned' ? null : pendingAssignee;
+                setBulkLoading(true);
+                try {
+                  if ((leadsAPI as any).bulkAssignExecutives) {
+                    await (leadsAPI as any).bulkAssignExecutives({ ids: selectedLeads, assigned_executive: newAssigneeId });
+                  } else {
+                    await (leadsAPI as any).bulkUpdateLeads({ ids: selectedLeads, assigned_executive: newAssigneeId });
+                  }
+                  await fetchLeads();
+                  const assigneeName = newAssigneeId ? resolveUserNameById(newAssigneeId) || 'User' : null;
+                  toast.success(newAssigneeId ? `Assigned ${selectedLeads.length} lead(s) to ${assigneeName}` : `Unassigned ${selectedLeads.length} lead(s)`);
+                  setSelectedLeads([]);
+                  setPendingAssignee('');
+                } catch (err) {
+                  toast.error('Bulk assignment failed');
+                } finally {
+                  setBulkLoading(false);
+                }
+              }}
+              disabled={bulkLoading}
+              className="px-2 py-0.5 text-[11px] bg-orange-500 text-white rounded-md h-6 whitespace-nowrap hover:bg-orange-600 disabled:opacity-50"
+            >
+              Apply
+            </button>
+          )}
         </div>
       )}
     </div>

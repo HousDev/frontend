@@ -21,6 +21,18 @@ const MU = "#5a7184";
 /* --------------------------------- Utils --------------------------------- */
 const DEBUG = true;
 
+const formatWhatsappValue = (phone: string) => {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('91')) {
+    return `+91 ${digits.slice(2)}`;
+  }
+  if (digits.length === 10) {
+    return `+91 ${digits}`;
+  }
+  return phone.startsWith('+') ? phone : `+${digits}`;
+};
+
 const norm = (v: any) =>
   String(v ?? '')
     .trim()
@@ -88,7 +100,7 @@ const adaptCoSellers = (arr: any[]): CoSeller[] =>
     coSeller_salutation: cs.coSeller_salutation ?? cs.salutation ?? 'Mr.',
     coSeller_name: cs.coSeller_name ?? cs.name ?? '',
     coSeller_phone: cs.coSeller_phone ?? cs.phone ?? '',
-    coSeller_whatsapp: cs.coSeller_whatsapp ?? cs.whatsapp ?? '',
+    coSeller_whatsapp: cs.coSeller_whatsapp ? formatWhatsappValue(cs.coSeller_whatsapp) : (cs.whatsapp ? formatWhatsappValue(cs.whatsapp) : ''),
     coSeller_email: cs.coSeller_email ?? cs.email ?? '',
     coSeller_dob: cs.coSeller_dob ?? cs.dob ?? '',
     coSeller_sameAsPhone: Boolean(cs.coSeller_sameAsPhone ?? cs.sameAsPhone),
@@ -211,7 +223,7 @@ const adaptIncomingSellerToForm = (
   if (!s) {
     return {
       salutation: 'Mr.',
-      seller_dob: ISO_18Y_BACK,
+      seller_dob: '',
       countryCode: '+91',
       properties: [],
       coSellers: [],
@@ -229,7 +241,7 @@ const adaptIncomingSellerToForm = (
     salutation: s.salutation ?? 'Mr.',
     name: s.name ?? '',
     phone: s.phone ?? '',
-    whatsapp: s.whatsapp ?? '',
+    whatsapp: s.whatsapp ? formatWhatsappValue(s.whatsapp) : '',
     email: s.email ?? '',
     state: s.state ?? '',
     city: s.city ?? '',
@@ -242,7 +254,7 @@ const adaptIncomingSellerToForm = (
     assigned_to: s.assigned_to ?? s.assigned_to_id ?? '',
     assigned_to_name: s.assigned_to_name ?? s.assigned ?? '',
     notes: s.notes ?? '',
-    seller_dob: s.seller_dob ?? s.dob ?? ISO_18Y_BACK,
+    seller_dob: s.seller_dob ?? s.dob ?? '',
     created_at: s.created_at,
     updated_at: s.updated_at,
     lastActivity: s.lastActivity,
@@ -394,9 +406,9 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
 
     if (next.phone) {
       const raw = String(next.phone);
-      const last10 = raw.replace(/\D/g, '').slice(-10);
-      const wa = String(next.whatsapp ?? '').replace(/\D/g, '');
-      setSameWhatsapp(!!wa && (wa === last10 || wa === raw.replace(/^\+?91/, '')));
+      const phoneDigits = raw.replace(/\D/g, '');
+      const waDigits = String(next.whatsapp ?? '').replace(/\D/g, '');
+      setSameWhatsapp(!!waDigits && phoneDigits.slice(-10) === waDigits.slice(-10));
     } else {
       setSameWhatsapp(false);
     }
@@ -440,19 +452,20 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
   const toggleSameWhatsapp = useCallback(() => {
     setSameWhatsapp((prev) => {
       const next = !prev;
-      if (next && formData.phone && phoneCountryData) {
-        const localNumber = extractLocalNumber(String(formData.phone), phoneCountryData);
-        setFormData((p) => ({ ...p, whatsapp: localNumber }));
+      if (next && formData.phone) {
+        setFormData((p) => ({ ...p, whatsapp: formatWhatsappValue(String(formData.phone)) }));
       }
       return next;
     });
-  }, [formData.phone, phoneCountryData]);
+  }, [formData.phone]);
 
   const handlePhoneChange = useCallback((value: string, countryData?: any) => {
     setPhoneCountryData(countryData);
     setFormData((prev) => {
       const updated: Seller = { ...prev, phone: value };
-      if (sameWhatsapp && countryData) updated.whatsapp = extractLocalNumber(String(value), countryData);
+      if (sameWhatsapp) {
+        updated.whatsapp = formatWhatsappValue(String(value));
+      }
       return updated;
     });
   }, [sameWhatsapp]);
@@ -496,7 +509,9 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
       coSellers: (prev.coSellers || []).map((cs, i) => {
         if (i !== index) return cs;
         const updated: CoSeller = { ...cs, coSeller_phone: value };
-        if (cs.coSeller_sameAsPhone && countryData) updated.coSeller_whatsapp = extractLocalNumber(String(value), countryData);
+        if (cs.coSeller_sameAsPhone) {
+          updated.coSeller_whatsapp = formatWhatsappValue(String(value));
+        }
         return updated;
       }),
     }));
@@ -508,7 +523,9 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
       coSellers: (prev.coSellers || []).map((cs, i) => {
         if (i !== index) return cs;
         const updated: CoSeller = { ...cs, coSeller_sameAsPhone: checked };
-        if (checked && cs.coSeller_phone) updated.coSeller_whatsapp = String(cs.coSeller_phone).length > 10 ? String(cs.coSeller_phone).slice(-10) : String(cs.coSeller_phone);
+        if (checked && cs.coSeller_phone) {
+          updated.coSeller_whatsapp = formatWhatsappValue(String(cs.coSeller_phone));
+        }
         return updated;
       }),
     }));
@@ -524,7 +541,7 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
     return a;
   }, [formData.seller_dob]);
 
-  const ageError = age < 18 ? 'Seller must be at least 18 years old' : '';
+  const ageError = formData.seller_dob ? (age < 18 ? 'Seller must be at least 18 years old' : '') : '';
 
   const onlyDigits = (s: string) => (s || '').replace(/\D/g, '');
   const isValidEmail = (s?: string) => isEmpty(s) ? true : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s));
@@ -533,7 +550,7 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
     if (isEmpty(formData.name)) return alert('Please enter seller name');
     if (isEmpty(formData.phone)) return alert('Please enter phone number');
     if (!isValidEmail(formData.email)) return alert('Please enter a valid email');
-    if (age < 18) return alert('Seller must be at least 18 years old');
+    if (formData.seller_dob && age < 18) return alert('Seller must be at least 18 years old');
 
     setIsSubmitting(true);
     try {
@@ -626,8 +643,8 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
                   </div>
                 </div>
                 <div className="mt-2">
-                  <FormField label="Date of Birth" required icon={<Calendar size={7} />}>
-                    <DOBStepCalendar value={formData.seller_dob || ISO_18Y_BACK} onChange={(iso) => setFormData((prev) => ({ ...prev, seller_dob: iso }))} label="" required max={ISO_18Y_BACK} placeholder="Select date of birth" size="sm" />
+                  <FormField label="Date of Birth" icon={<Calendar size={7} />}>
+                    <DOBStepCalendar value={formData.seller_dob} onChange={(iso) => setFormData((prev) => ({ ...prev, seller_dob: iso }))} label="" max={ISO_18Y_BACK} placeholder="Select date of birth" size="sm" />
                   </FormField>
                 </div>
               </div>

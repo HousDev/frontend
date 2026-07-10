@@ -318,6 +318,18 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
     }
   };
 
+  const formatWhatsappValue = (phone: string) => {
+    if (!phone) return '';
+    const digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('91')) {
+      return `+91 ${digits.slice(2)}`;
+    }
+    if (digits.length === 10) {
+      return `+91 ${digits}`;
+    }
+    return phone.startsWith('+') ? phone : `+${digits}`;
+  };
+
   useEffect(() => {
     if (isOpen) {
       fetchMasterData();
@@ -330,7 +342,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
           email: lead.email || '',
           lead_type: lead.lead_type || '',
           lead_source: lead.lead_source || '',
-          whatsapp_number: lead.whatsapp_number || '',
+          whatsapp_number: lead.whatsapp_number ? formatWhatsappValue(lead.whatsapp_number) : '',
           state: lead.state || '',
           city: lead.city || '',
           location: lead.location || '',
@@ -340,7 +352,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
         });
         const phoneDigits = digitsOnly(lead.phone);
         const waDigits = digitsOnly(lead.whatsapp_number);
-        setSameAsPhone(!!waDigits && phoneDigits && waDigits === phoneDigits.replace(/^91/, '') || waDigits === phoneDigits);
+        setSameAsPhone(!!waDigits && phoneDigits && waDigits.slice(-10) === phoneDigits.slice(-10));
       } else {
         const initialLead = { ...emptyLead };
         const userDept = (user?.department || '').toString().toLowerCase();
@@ -370,25 +382,20 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
     setNewLead(prev => {
       const updated = { ...prev, phone: withPlus };
       if (sameAsPhone) {
-        const phoneDigits = digitsOnly(withPlus);
-        const waDigits = phoneDigits.startsWith('91') ? phoneDigits.replace(/^91/, '') : phoneDigits;
-        updated.whatsapp_number = waDigits;
+        updated.whatsapp_number = formatWhatsappValue(withPlus);
       }
       return updated;
     });
   };
 
   const handleWhatsappChange = (value: string) => {
-    const numbers = digitsOnly(value);
-    setNewLead(prev => ({ ...prev, whatsapp_number: numbers }));
+    setNewLead(prev => ({ ...prev, whatsapp_number: value }));
   };
 
   const handleSameAsPhoneToggle = (checked: boolean) => {
     setSameAsPhone(checked);
     if (checked) {
-      const phoneDigits = digitsOnly(newLead.phone || '');
-      const waDigits = phoneDigits.startsWith('91') ? phoneDigits.replace(/^91/, '') : phoneDigits;
-      setNewLead(prev => ({ ...prev, whatsapp_number: waDigits }));
+      setNewLead(prev => ({ ...prev, whatsapp_number: formatWhatsappValue(prev.phone || '') }));
     }
   };
 

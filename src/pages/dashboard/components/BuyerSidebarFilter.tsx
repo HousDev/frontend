@@ -396,7 +396,7 @@
 
 
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Filter } from "lucide-react";
 
@@ -472,6 +472,15 @@ const BuyerSidebarFilter: React.FC<Props> = ({
 }) => {
   if (typeof window === "undefined") return null;
 
+  const [draft, setDraft] = useState<FiltersState>({ ...filters });
+  const updateDraft = (key: keyof FiltersState, value: any) =>
+    setDraft((prev) => ({ ...prev, [key]: value }));
+
+  // Sync draft when panel opens
+  useEffect(() => {
+    if (isOpen) setDraft({ ...filters });
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -487,24 +496,19 @@ const BuyerSidebarFilter: React.FC<Props> = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (filters?.ignoreDate && (filters.dateFrom || filters.dateTo)) {
-      setFilters((prev) => ({ ...prev, dateFrom: "", dateTo: "" }));
+    if (draft?.ignoreDate && (draft.dateFrom || draft.dateTo)) {
+      setDraft((prev) => ({ ...prev, dateFrom: "", dateTo: "" }));
     }
-  }, [filters?.ignoreDate, setFilters]);
-
-  const onChange = (key: keyof FiltersState, value: any) =>
-    setFilters((prev) => ({ ...prev, [key]: value }));
-
-  const applyAndClose = () => onClose();
+  }, [draft?.ignoreDate]);
 
   const activeCount = [
-    filters.source !== "all",
-    filters.stage !== "all",
-    filters.priority !== "all",
-    filters.budgetRange !== "all",
-    filters.propertyType !== "all",
-    filters.assigned_executive !== "all",
-    !filters.ignoreDate && (!!filters.dateFrom || !!filters.dateTo),
+    draft.source !== "all",
+    draft.stage !== "all",
+    draft.priority !== "all",
+    draft.budgetRange !== "all",
+    draft.propertyType !== "all",
+    draft.assigned_executive !== "all",
+    !draft.ignoreDate && (!!draft.dateFrom || !!draft.dateTo),
   ].filter(Boolean).length;
 
   return createPortal(
@@ -589,7 +593,7 @@ const BuyerSidebarFilter: React.FC<Props> = ({
             {/* Source */}
             <div>
               <label style={labelStyle}>Source</label>
-              <select value={filters.source} onChange={(e) => onChange("source", e.target.value)} style={selectStyle}>
+              <select value={draft.source} onChange={(e) => updateDraft("source", e.target.value)} style={selectStyle}>
                 {sources.map((s) => <option key={s} value={s}>{s === "all" ? "All" : s}</option>)}
               </select>
             </div>
@@ -597,7 +601,7 @@ const BuyerSidebarFilter: React.FC<Props> = ({
             {/* Stage */}
             <div>
               <label style={labelStyle}>Stage</label>
-              <select value={filters.stage} onChange={(e) => onChange("stage", e.target.value)} style={selectStyle}>
+              <select value={draft.stage} onChange={(e) => updateDraft("stage", e.target.value)} style={selectStyle}>
                 {stages.map((s) => (
                   <option key={s} value={s}>
                     {s === "all" ? "All" : s.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
@@ -609,7 +613,7 @@ const BuyerSidebarFilter: React.FC<Props> = ({
             {/* Priority */}
             <div>
               <label style={labelStyle}>Priority</label>
-              <select value={filters.priority} onChange={(e) => onChange("priority", e.target.value)} style={selectStyle}>
+              <select value={draft.priority} onChange={(e) => updateDraft("priority", e.target.value)} style={selectStyle}>
                 {priorities.map((p) => (
                   <option key={p} value={p}>{p === "all" ? "All" : p.charAt(0).toUpperCase() + p.slice(1)}</option>
                 ))}
@@ -619,7 +623,7 @@ const BuyerSidebarFilter: React.FC<Props> = ({
             {/* Executive */}
             <div>
               <label style={labelStyle}>Executive</label>
-              <select value={filters.assigned_executive} onChange={(e) => onChange("assigned_executive", e.target.value)} style={selectStyle}>
+              <select value={draft.assigned_executive} onChange={(e) => updateDraft("assigned_executive", e.target.value)} style={selectStyle}>
                 <option value="all">All</option>
                 {executives.map((ex) => (
                   <option key={ex.id} value={String(ex.id)}>{ex.name}</option>
@@ -630,7 +634,7 @@ const BuyerSidebarFilter: React.FC<Props> = ({
             {/* Budget Range — dropdown */}
             <div>
               <label style={labelStyle}>Budget Range</label>
-              <select value={filters.budgetRange} onChange={(e) => onChange("budgetRange", e.target.value)} style={selectStyle}>
+              <select value={draft.budgetRange} onChange={(e) => updateDraft("budgetRange", e.target.value)} style={selectStyle}>
                 {budgetRanges.map((b) => <option key={b} value={b}>{b === "all" ? "All" : b}</option>)}
               </select>
             </div>
@@ -638,7 +642,7 @@ const BuyerSidebarFilter: React.FC<Props> = ({
             {/* Property Type — dropdown */}
             <div>
               <label style={labelStyle}>Property Type</label>
-              <select value={filters.propertyType} onChange={(e) => onChange("propertyType", e.target.value)} style={selectStyle}>
+              <select value={draft.propertyType} onChange={(e) => updateDraft("propertyType", e.target.value)} style={selectStyle}>
                 {propertyTypes.map((t) => <option key={t} value={t}>{t === "all" ? "All" : t}</option>)}
               </select>
             </div>
@@ -648,13 +652,13 @@ const BuyerSidebarFilter: React.FC<Props> = ({
               <label style={labelStyle}>From Date</label>
               <input
                 type="date"
-                value={filters.dateFrom}
-                onChange={(e) => onChange("dateFrom", e.target.value)}
-                disabled={filters.ignoreDate}
+                value={draft.dateFrom}
+                onChange={(e) => updateDraft("dateFrom", e.target.value)}
+                disabled={draft.ignoreDate}
                 style={{
                   ...selectStyle,
-                  opacity: filters.ignoreDate ? 0.4 : 1,
-                  cursor: filters.ignoreDate ? "not-allowed" : "pointer",
+                  opacity: draft.ignoreDate ? 0.4 : 1,
+                  cursor: draft.ignoreDate ? "not-allowed" : "pointer",
                 }}
               />
             </div>
@@ -664,13 +668,13 @@ const BuyerSidebarFilter: React.FC<Props> = ({
               <label style={labelStyle}>To Date</label>
               <input
                 type="date"
-                value={filters.dateTo}
-                onChange={(e) => onChange("dateTo", e.target.value)}
-                disabled={filters.ignoreDate}
+                value={draft.dateTo}
+                onChange={(e) => updateDraft("dateTo", e.target.value)}
+                disabled={draft.ignoreDate}
                 style={{
                   ...selectStyle,
-                  opacity: filters.ignoreDate ? 0.4 : 1,
-                  cursor: filters.ignoreDate ? "not-allowed" : "pointer",
+                  opacity: draft.ignoreDate ? 0.4 : 1,
+                  cursor: draft.ignoreDate ? "not-allowed" : "pointer",
                 }}
               />
             </div>
@@ -686,8 +690,8 @@ const BuyerSidebarFilter: React.FC<Props> = ({
             <input
               id="buyer-ignoreDate"
               type="checkbox"
-              checked={!!filters.ignoreDate}
-              onChange={(e) => onChange("ignoreDate", e.target.checked)}
+              checked={!!draft.ignoreDate}
+              onChange={(e) => updateDraft("ignoreDate", e.target.checked)}
               style={{ width: 14, height: 14, accentColor: O, cursor: "pointer" }}
             />
             <label htmlFor="buyer-ignoreDate" style={{ fontSize: "11px", color: N, cursor: "pointer" }}>
@@ -701,14 +705,19 @@ const BuyerSidebarFilter: React.FC<Props> = ({
           borderTop: `1px solid ${BD}`, background: "#f8fafc",
           padding: "12px 16px", display: "flex", gap: 10, flexShrink: 0,
         }}>
-          <button onClick={resetFilters} style={{
+          <button onClick={() => {
+              const cleared = { ...filters, source: 'all', stage: 'all', priority: 'all', budgetRange: 'all', propertyType: 'all', assigned_executive: 'all', dateFrom: '', dateTo: '', ignoreDate: false };
+              setFilters(() => cleared);
+              resetFilters();
+              setDraft(cleared);
+            }} style={{
             flex: 1, padding: "7px", fontSize: "11px", fontWeight: 600,
             border: `1px solid ${O}`, background: "#fff", color: O,
             borderRadius: 6, cursor: "pointer",
           }}>
             Clear All
           </button>
-          <button onClick={applyAndClose} style={{
+          <button onClick={() => { setFilters(() => draft); onClose(); }} style={{
             flex: 1, padding: "7px", fontSize: "11px", fontWeight: 600,
             background: N, color: "#fff", border: "none",
             borderRadius: 6, cursor: "pointer",
