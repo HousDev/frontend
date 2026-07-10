@@ -41,6 +41,8 @@ import { rssAPI } from '@/lib/rssAPI';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
+import Swal from 'sweetalert2';
+
 
 import { can } from '@/utils/permission';
 
@@ -189,6 +191,8 @@ const BlogManagement: React.FC = () => {
   const [commentsRows, setCommentsRows] = useState<CommentRow[]>([]);
   const [loadingAllComments, setLoadingAllComments] = useState(false);
   const [commentsSearch, setCommentsSearch] = useState('');
+  const [commentsPage, setCommentsPage] = useState<number>(1);
+  const [commentsPageSize, setCommentsPageSize] = useState<number>(10);
   const [commentActionLoading, setCommentActionLoading] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<string | null>(null);
@@ -373,11 +377,36 @@ const BlogManagement: React.FC = () => {
     });
   };
 
-  const bulkDeleteSelected = async () => {
+const bulkDeleteSelected = async () => {
     if (!canBulkDelete) { toast.error('No permission for bulk delete'); return; }
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return toast.info('No posts selected');
-    if (!window.confirm(`Delete ${ids.length} post(s)? This cannot be undone.`)) return;
+
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: `You are about to delete ${ids.length} post(s). This action cannot be undone!`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: `Yes, delete ${ids.length} post(s)!`,
+      cancelButtonText: 'Cancel',
+      background: '#fff',
+      backdrop: 'rgba(0,0,0,0.4)',
+      width: '400px',
+      padding: '1.5rem',
+      customClass: {
+        popup: 'rounded-xl shadow-2xl',
+        title: 'text-lg font-bold text-gray-800',
+        htmlContainer: 'text-sm text-gray-600 my-2',
+        confirmButton: 'px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1',
+        cancelButton: 'px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1',
+        actions: 'flex justify-center gap-2 mt-4',
+      },
+      buttonsStyling: false,
+    });
+    if (!result.isConfirmed) return;
+
     try {
       setPosts((prev) => (prev ?? []).filter((p) => !selectedIds.has(String(p.id))));
       setSelectedIds(new Set());
@@ -385,8 +414,26 @@ const BlogManagement: React.FC = () => {
       if (typeof blogsAPI.deleteMany === 'function') await blogsAPI.deleteMany(ids);
       else if (typeof blogsAPI.bulkDelete === 'function') await blogsAPI.bulkDelete({ ids });
       else if (typeof blogsAPI.deletePost === 'function') await Promise.all(ids.map((id) => blogsAPI.deletePost(id).catch(() => { })));
-      toast.success('Selected posts deleted');
-    } catch (e) { console.error(e); toast.error('Bulk delete failed'); handleRefresh(); }
+
+      Swal.fire({
+        title: 'Deleted!',
+        text: `${ids.length} post(s) have been deleted successfully.`,
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false,
+        width: '350px',
+        padding: '1rem',
+        customClass: {
+          popup: 'rounded-xl shadow-2xl',
+          title: 'text-base font-bold text-green-600',
+          htmlContainer: 'text-xs text-gray-600',
+        },
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error('Bulk delete failed');
+      handleRefresh();
+    }
   };
 
   const bulkPublishSelected = async () => {
@@ -498,9 +545,11 @@ const BlogManagement: React.FC = () => {
     } catch (e) { console.error(e); toast.error('Failed to load comments.'); setCommentsRows([]); } finally { setLoadingAllComments(false); }
   }, [posts, canRead]);
 
-  useEffect(() => {
+useEffect(() => {
     if (activeTab === 'comments' && canRead) loadAllComments();
   }, [activeTab, loadAllComments, canRead]);
+
+  useEffect(() => { setCommentsPage(1); }, [commentsSearch]);
 
   const deleteComment = async (id: string) => {
     if (!canDelete) { toast.error('No permission to delete comments'); return; }
@@ -737,7 +786,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
       </div>
 
       {/* CENTER - Bulk Action Bar (only when posts selected) */}
-      {showBulkBar && selectedIds.size > 0 && (
+      {/* {showBulkBar && selectedIds.size > 0 && (
         <div className="flex-1 flex justify-center">
           <div className="bg-white rounded-full shadow-md px-4 py-1.5 flex items-center gap-3 border" style={{ borderColor: O, borderWidth: '1px' }}>
             <div className="flex items-center gap-2">
@@ -751,7 +800,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
             <div className="flex items-center gap-1">
               {canUpdate && (
                 <button onClick={bulkPublishSelected} className="px-2 py-1 rounded-full text-[10px] font-medium transition-all hover:scale-105 flex items-center gap-1" style={{ background: `${N}10`, color: N }}>
-                  <CheckCircle size={10} /> Publish
+                  <CheckCircle size={10} /> Publi
                 </button>
               )}
               {canBulkDelete && (
@@ -765,7 +814,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* RIGHT - New Post & Refresh Buttons */}
       <div className="flex gap-2 ml-auto">
@@ -783,12 +832,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
         <option value="All">All Categories</option>
         {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
       </select>
-      <div className="flex items-center gap-2">
-        <span className="text-xs" style={{ color: MU }}>Page size</span>
-        <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="px-3 py-2 text-sm rounded-lg border" style={{ borderColor: BD }}>
-          {[5, 10, 15, 20].map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </div>
+    
     </div>
   </div>
 </div>
@@ -836,12 +880,13 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
           </div>
 
 <div
-  className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-440px)] sm:max-h-[calc(100vh-360px)]"
-  style={{ ...scrollbarStyles }}
+  className="overflow-x-auto overflow-y-auto"
+  style={{ height: '370px', ...scrollbarStyles }}
 >
-              <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-white z-10">
-                <tr className="border-b" style={{ borderColor: BD }}>
+              <table className="w-full text-sm border-collapse">
+              <thead className="sticky top-0 bg-gray-100 z-10 "
+              style={{ borderColor: BD }}>
+                <tr className="border-b " style={{ borderColor: BD }}>
                   {(canUpdate || canBulkDelete) && <th className="py-3 px-3 w-8"><input type="checkbox" checked={paginatedPosts.length > 0 && paginatedPosts.every((p) => selectedIds.has(String(p.id)))} onChange={() => toggleSelectAllOnPage(paginatedPosts)} /></th>}
                   <th className="text-left py-3 px-3 font-medium text-xs" style={{ color: MU }}>Title</th>
                   <th className="text-left py-3 px-3 font-medium text-xs hidden sm:table-cell" style={{ color: MU }}>Source</th>
@@ -918,11 +963,22 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
             </table>
           </div>
 
-         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-1 sm:p-2 border-t" style={{ borderColor: BD }}>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-1 sm:p-2 border-t" style={{ borderColor: BD }}>
   
-  {/* Text */}
-  <div className="text-[10px] sm:text-xs text-center sm:text-left" style={{ color: MU }}>
-    Showing {totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, totalItems)} of {totalItems}
+  {/* Text + Page Size Dropdown */}
+  <div className="flex items-center gap-2">
+    <div className="text-[10px] sm:text-xs text-center sm:text-left" style={{ color: MU }}>
+      Showing {totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, totalItems)} of {totalItems}
+    </div>
+    <select
+      value={pageSize}
+      onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+      className="px-2 py-1 text-[10px] sm:text-xs rounded border"
+      style={{ borderColor: BD }}
+    >
+      {[5, 10, 15, 20].map((s) => <option key={s} value={s}>{s}</option>)}
+      <option value={999999}>All</option>
+    </select>
   </div>
 
   {/* Pagination */}
@@ -977,13 +1033,20 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
     );
   };
 
-  const renderCommentsTab = () => {
+const renderCommentsTab = () => {
     const filteredComments = commentsRows.filter(r => !commentsSearch || Object.values(r).some(v => String(v).toLowerCase().includes(commentsSearch.toLowerCase())));
-    
+    const commentsTotalItems = filteredComments.length;
+    const commentsTotalPages = Math.max(1, Math.ceil(commentsTotalItems / commentsPageSize));
+    const commentsCurrentPage = Math.min(commentsPage, commentsTotalPages);
+    const paginatedComments = filteredComments.slice(
+      (commentsCurrentPage - 1) * commentsPageSize,
+      (commentsCurrentPage - 1) * commentsPageSize + commentsPageSize
+    );
+
     return (
       <div className="space-y-4">
-        <div className="bg-white rounded-xl shadow-sm p-4" style={{ border: `1px solid ${BD}` }}>
-          <div className="flex flex-row items-center justify-between gap-2 mb-4">
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: `1px solid ${BD}` }}>
+          <div className="flex flex-row items-center justify-between gap-2 p-4 pb-2">
   {/* Left - Comments Title */}
   <h3 className="text-sm font-bold whitespace-nowrap" style={{ color: N }}>Comments</h3>
   
@@ -1021,41 +1084,98 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
   </div>
 </div>
           
-          <div className="overflow-x-auto  max-h-[calc(100vh-430px)] sm:max-h-[calc(100vh-360px)]" style={{ overflowY: 'auto', ...scrollbarStyles }}>
+          <div className="overflow-x-auto" style={{ height: '490px', overflowY: 'auto', ...scrollbarStyles }}>
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-white z-10">
-                <tr className="border-b" style={{ borderColor: BD }}>
-                  <th className="py-2 px-3 text-left font-medium text-xs" style={{ color: MU }}>Post</th>
-                  <th className="py-2 px-3 text-left font-medium text-xs" style={{ color: MU }}>Author</th>
-                  <th className="py-2 px-3 text-left font-medium text-xs hidden sm:table-cell" style={{ color: MU }}>Email</th>
-                  <th className="py-2 px-3 text-left font-medium text-xs hidden md:table-cell" style={{ color: MU }}>Content</th>
-                  <th className="py-2 px-3 text-left font-medium text-xs hidden lg:table-cell" style={{ color: MU }}>Status</th>
-                  <th className="py-2 px-3 text-left font-medium text-xs" style={{ color: MU }}>Actions</th>
+<thead
+  className="sticky top-0 bg-gray-100 z-10 border-t border-b"
+  style={{ borderColor: BD }}
+>                <tr className="border-b border-t" style={{ borderColor: BD }}>
+                 <th className="py-2 px-3 border-r text-left font-medium text-xs" style={{ color: MU, borderColor: BD }}>Post</th>
+
+<th className="py-2 px-3 border-r text-left font-medium text-xs" style={{ color: MU, borderColor: BD }}>Author</th>
+
+<th className="py-2 px-3 border-r text-left font-medium text-xs hidden sm:table-cell" style={{ color: MU, borderColor: BD }}>Email</th>
+
+<th className="py-2 px-3 border-r text-left font-medium text-xs hidden md:table-cell" style={{ color: MU, borderColor: BD }}>Content</th>
+
+<th className="py-2 px-3 border-r text-left font-medium text-xs hidden lg:table-cell" style={{ color: MU, borderColor: BD }}>Status</th>
+
+<th className="py-2 px-3 text-left font-medium text-xs" style={{ color: MU }}>Actions</th>
                  </tr>
               </thead>
               <tbody>
-                {filteredComments.map((r) => (
-                  <tr key={r.id} className="border-b hover:bg-gray-50 transition-colors" style={{ borderColor: BD }}>
-                    <td className="py-2 px-3 text-xs max-w-[150px] truncate" style={{ color: N }} title={r.postTitle}>{r.postTitle}</td>
-                    <td className="py-2 px-3 text-xs" style={{ color: MU }}>{r.author}</td>
-                    <td className="py-2 px-3 text-xs hidden sm:table-cell" style={{ color: MU }}>{r.email}</td>
+                {paginatedComments.map((r) => (
+                  <tr key={r.id} className="border-b border-l border-r" style={{ borderColor: BD }}>
+                   <td
+  className="py-2 px-3 border-r text-xs max-w-[150px] truncate"
+  style={{ color: N, borderColor: BD }}
+>
+  {r.postTitle}
+</td>
 
-                    <td className="py-2 px-3 text-xs hidden md:table-cell max-w-[200px] truncate" style={{ color: MU }} title={r.content}>{r.content}</td>
-                    <td className="py-2 px-3 hidden lg:table-cell">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] ${r.status === 'approved' ? 'bg-green-100 text-green-800' : r.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-800'}`}>{r.status}</span>
-                    </td>
-                    <td className="py-2 px-3">
-                      <div className="flex gap-1">
-                        {canUpdate && <button onClick={() => editComment(r)} className="p-1 rounded hover:bg-gray-100" title="Edit"><Edit size={12} /></button>}
-                        {canDelete && <button onClick={() => deleteComment(r.id)} className="p-1 rounded hover:bg-red-50" title="Delete"><Trash2 size={12} style={{ color: "#ef4444" }} /></button>}
-                      </div>
-                    </td>
+<td
+  className="py-2 px-3 border-r text-xs"
+  style={{ color: MU, borderColor: BD }}
+>
+  {r.author}
+</td>
+
+<td
+  className="py-2 px-3 border-r text-xs hidden sm:table-cell"
+  style={{ color: MU, borderColor: BD }}
+>
+  {r.email}
+</td>
+
+<td
+  className="py-2 px-3 border-r text-xs hidden md:table-cell max-w-[200px] truncate"
+  style={{ color: MU, borderColor: BD }}
+>
+  {r.content}
+</td>
+
+<td
+  className="py-2 px-3 border-r hidden lg:table-cell"
+  style={{ borderColor: BD }}
+>
+  ...
+</td>
+
+<td className="py-2 px-3">
+  ...
+</td>
                    </tr>
                 ))}
+                {paginatedComments.length === 0 && (
+                  <tr><td colSpan={6} className="py-10 text-center text-gray-500 text-sm">No comments found.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
-          <div className="mt-3 text-xs" style={{ color: MU }}>Showing <span className="font-semibold">{filteredComments.length}</span> comment(s)</div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-2 border-t" style={{ borderColor: BD }}>
+            <div className="flex items-center gap-2">
+              <div className="text-[10px] sm:text-xs" style={{ color: MU }}>
+                Showing {commentsTotalItems === 0 ? 0 : (commentsCurrentPage - 1) * commentsPageSize + 1} - {Math.min(commentsCurrentPage * commentsPageSize, commentsTotalItems)} of {commentsTotalItems}
+              </div>
+              <select
+                value={commentsPageSize}
+                onChange={(e) => { setCommentsPageSize(Number(e.target.value)); setCommentsPage(1); }}
+                className="px-2 py-1 text-[10px] sm:text-xs rounded border"
+                style={{ borderColor: BD }}
+              >
+                {[5, 10, 15, 20].map((s) => <option key={s} value={s}>{s}</option>)}
+                <option value={999999}>All</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCommentsPage(1)} disabled={commentsCurrentPage === 1} className="px-2 py-1 rounded border text-xs disabled:opacity-50 hover:bg-gray-50" style={{ borderColor: BD }}>First</button>
+              <button onClick={() => setCommentsPage((p) => Math.max(1, p - 1))} disabled={commentsCurrentPage === 1} className="px-2 py-1 rounded border text-[10px] sm:text-xs disabled:opacity-50 hover:bg-gray-50" style={{ borderColor: BD }}>Prev</button>
+              <span className="text-[10px] sm:text-xs px-1 sm:px-2" style={{ color: N }}>{commentsCurrentPage}/{commentsTotalPages}</span>
+              <button onClick={() => setCommentsPage((p) => Math.min(commentsTotalPages, p + 1))} disabled={commentsCurrentPage === commentsTotalPages} className="px-2 py-1 rounded border text-[10px] sm:text-xs disabled:opacity-50 hover:bg-gray-50" style={{ borderColor: BD }}>Next</button>
+              <button onClick={() => setCommentsPage(commentsTotalPages)} disabled={commentsCurrentPage === commentsTotalPages} className="px-2 py-1 rounded border text-xs disabled:opacity-50 hover:bg-gray-50" style={{ borderColor: BD }}>Last</button>
+            </div>
+          </div>
         </div>
 
         {/* Delete Comment Confirm Modal */}
