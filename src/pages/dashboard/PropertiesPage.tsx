@@ -460,8 +460,6 @@ const AssignExecutiveModal: React.FC<{
             {executives.map((executive) => (
               <option key={executive.id} value={executive.id}>
                 {executive.name}
-                {executive.department && ` - ${executive.department}`}
-                {executive.role && ` (${executive.role})`}
               </option>
             ))}
           </select>

@@ -1525,11 +1525,31 @@ const FollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, leadId
             return;
         }
 
+        const isConnectedStage = form.leadStage?.toLowerCase().trim() === 'connected' || form.leadStage?.toLowerCase().trim() === 'conected';
+        const isQualifiedStatus = form.leadStatus?.toLowerCase().trim() === 'qualified';
+        const showScheduleFields = !isConnectedStage || isQualifiedStatus;
+
+        if (showScheduleFields) {
+            if (!form.scheduleDate) {
+                toast.error("Please select a Schedule Date.");
+                return;
+            }
+            if (!form.scheduleTime) {
+                toast.error("Please select a Schedule Time.");
+                return;
+            }
+        }
+
         const payload: FollowupFormWithLead = {
             ...form,
             lead_id: leadId,
             ...(initialForm?.id != null ? { id: String(initialForm.id) } : {}),
         };
+
+        if (!showScheduleFields) {
+            payload.scheduleDate = "";
+            payload.scheduleTime = "";
+        }
 
         setSubmitting(true);
 
@@ -1722,35 +1742,37 @@ const FollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, leadId
                         </FormField>
 
                         {/* Schedule Date & Time */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                            <FormField label="Schedule Date" required icon={<Calendar size={10} />}>
-                                {(() => {
-                                    const tomorrow = new Date();
-                                    tomorrow.setDate(tomorrow.getDate() + 1);
-                                    const minDate = tomorrow.toISOString().split("T")[0];
-                                    return (
-                                        <input
-                                            type="date"
-                                            className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all bg-white"
-                                            style={{ borderColor: BD }}
-                                            value={form.scheduleDate}
-                                            onChange={handleChange("scheduleDate")}
-                                            min={minDate}
-                                        />
-                                    );
-                                })()}
-                            </FormField>
+                        {(!form.leadStage || (!form.leadStage.toLowerCase().includes("connected") && !form.leadStage.toLowerCase().includes("conected")) || form.leadStatus?.toLowerCase().trim() === "qualified") && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                                <FormField label="Schedule Date" required icon={<Calendar size={10} />}>
+                                    {(() => {
+                                        const tomorrow = new Date();
+                                        tomorrow.setDate(tomorrow.getDate() + 1);
+                                        const minDate = tomorrow.toISOString().split("T")[0];
+                                        return (
+                                            <input
+                                                type="date"
+                                                className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all bg-white"
+                                                style={{ borderColor: BD }}
+                                                value={form.scheduleDate}
+                                                onChange={handleChange("scheduleDate")}
+                                                min={minDate}
+                                            />
+                                        );
+                                    })()}
+                                </FormField>
 
-                            <FormField label="Schedule Time" required icon={<Clock size={10} />}>
-                                <input
-                                    type="time"
-                                    className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all bg-white"
-                                    style={{ borderColor: BD }}
-                                    value={form.scheduleTime}
-                                    onChange={handleChange("scheduleTime")}
-                                />
-                            </FormField>
-                        </div>
+                                <FormField label="Schedule Time" required icon={<Clock size={10} />}>
+                                    <input
+                                        type="time"
+                                        className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all bg-white"
+                                        style={{ borderColor: BD }}
+                                        value={form.scheduleTime}
+                                        onChange={handleChange("scheduleTime")}
+                                    />
+                                </FormField>
+                            </div>
+                        )}
 
                         {/* Actions */}
                         <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t" style={{ borderColor: BD }}>
