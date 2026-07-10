@@ -428,7 +428,9 @@ if (cs.created) {
 }
       if (f.assignedExecutive !== 'all') {
         if (f.assignedExecutive === 'Unassigned') {
-          if (lead.assigned_executive_name && lead.assigned_executive_name.trim() !== "") return false;
+          const hasExec = (lead.assigned_executive && String(lead.assigned_executive).trim() !== "") ||
+                          (lead.assigned_executive_name && lead.assigned_executive_name.trim() !== "" && lead.assigned_executive_name.toLowerCase() !== "unassigned");
+          if (hasExec) return false;
         } else {
           if (lead.assigned_executive_name !== f.assignedExecutive) return false;
         }
@@ -1008,6 +1010,66 @@ const exportLeads = async () => {
     }
   };
 
+  const handleDistributeEqually = async () => {
+    if (!canAssign) {
+      toast.error('You do not have permission to assign leads');
+      return;
+    }
+
+    if (selectedLeads.length === 0) {
+      toast.error('No leads selected');
+      return;
+    }
+
+    if (assignableExecutives.length === 0) {
+      toast.error('No executives available for assignment');
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const assignments: Record<string, string[]> = {};
+      assignableExecutives.forEach(exec => {
+        assignments[exec.id] = [];
+      });
+
+      selectedLeads.forEach((leadId, index) => {
+        const execIndex = index % assignableExecutives.length;
+        const execId = assignableExecutives[execIndex].id;
+        assignments[execId].push(leadId);
+      });
+
+      for (const [execId, leadIds] of Object.entries(assignments)) {
+        if (leadIds.length > 0) {
+          if ((leadsAPI as any).bulkAssignExecutives) {
+            await (leadsAPI as any).bulkAssignExecutives({
+              ids: leadIds,
+              assigned_executive: execId,
+            });
+          } else if ((leadsAPI as any).bulkUpdateLeads) {
+            await (leadsAPI as any).bulkUpdateLeads({
+              ids: leadIds,
+              assigned_executive: execId,
+            });
+          } else {
+            for (const id of leadIds) {
+              await leadsAPI.updateLead(id, { assigned_executive: execId });
+            }
+          }
+        }
+      }
+
+      await fetchLeads();
+      toast.success(`Successfully distributed ${selectedLeads.length} lead(s) equally among executives`);
+      setSelectedLeads([]);
+    } catch (err) {
+      console.error('Lead distribution failed:', err);
+      toast.error('Lead distribution failed');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const isExecutive = useMemo(() => {
     const userRole = (user?.role || '').toLowerCase();
     const userDept = (user?.department || '').toLowerCase();
@@ -1334,6 +1396,17 @@ const exportLeads = async () => {
           <option value="warm">Warm</option>
           <option value="cold">Cold</option>
         </select>
+      )}
+
+      {canAssign && selectedLeads.length > 0 && (
+        <button
+          onClick={handleDistributeEqually}
+          disabled={bulkLoading}
+          className="border border-gray-300 rounded-md px-1.5 py-0.5 text-[11px] bg-orange-600 text-white hover:bg-orange-700 h-6 flex items-center gap-1 disabled:opacity-50"
+        >
+          <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
+          Distribute Equally
+        </button>
       )}
 
       {/* Mobile only: Assign dropdown - same row as Status */}

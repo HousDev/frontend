@@ -35,6 +35,7 @@ import {
   Clock,
   AlertCircle,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import SellerFormModal from "../../components/sellers/SellerFormModal";
 import SellerViewPage from "../../components/sellers/SellerViewPage";
@@ -413,6 +414,7 @@ const SellersPage: React.FC = () => {
     [],
   );
   const [loading, setLoading] = useState(true);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 // Add with your other useState declarations
@@ -461,27 +463,6 @@ const [selectedSellerForFollowup, setSelectedSellerForFollowup] = useState<any>(
     };
     fetchMasters();
   }, []);
-
-  // useEffect(() => {
-  //   const fetchSellers = async () => {
-  //     try {
-  //       setLoading(true);
-  //       const apiSellers = await sellerAPI.getAll();
-  //       const normalized = Array.isArray(apiSellers)
-  //         ? apiSellers.map(mapApiSellerToUI)
-  //         : [];
-  //       setAllSellers(normalized);
-  //     } catch (err) {
-  //       console.error("Error fetching sellers:", err);
-  //       setAllSellers([]);
-  //       setErrMsg("Failed to load sellers");
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-  //   fetchSellers();
-  // }, []);
-
 
 const loadSellers = useCallback(async () => {
   try {
@@ -641,90 +622,58 @@ useEffect(() => {
   }, [roleFilteredSellers]);
 
   const statuses = ["all", "active", "inactive"];
+
   const assignedUsers = useMemo(() => {
     const set = new Set<string>(["all", "Unassigned"]);
-    roleFilteredSellers.forEach((s) => s.assigned && set.add(s.assigned));
+    roleFilteredSellers.forEach((s) => {
+      if (s.assigned && s.assigned !== "-" && s.assigned !== "Unassigned") {
+        set.add(s.assigned);
+      }
+    });
     return Array.from(set);
   }, [roleFilteredSellers]);
 
   const filteredSellers = useMemo(() => {
     const search = searchTerm.toLowerCase();
     return roleFilteredSellers.filter((seller) => {
-      // Top search bar
       const matchesSearch =
         (seller.name || "").toLowerCase().includes(search) ||
         (seller.phone || "").toLowerCase().includes(search) ||
         (seller.email || "").toLowerCase().includes(search) ||
         (seller.location || "").toLowerCase().includes(search);
 
-      // Column-level search filters (case-insensitive)
-      // Column-level search filters (case-insensitive)
-     const matchesColName =
-  !colSearch.name ||
-  (seller.name || "")
-    .toLowerCase()
-    .includes(colSearch.name.toLowerCase()) ||
-  (seller.id || "")
-    .toString()
-    .toLowerCase()
-    .includes(colSearch.name.toLowerCase()) ||
-  (seller.isActive ? "active" : "inactive")
-    .toLowerCase()
-    .includes(colSearch.name.toLowerCase());
+      const matchesColName =
+        !colSearch.name ||
+        (seller.name || "").toLowerCase().includes(colSearch.name.toLowerCase()) ||
+        (seller.id || "").toString().toLowerCase().includes(colSearch.name.toLowerCase()) ||
+        (seller.isActive ? "active" : "inactive").toLowerCase().includes(colSearch.name.toLowerCase());
 
-      // Contact & Location column - searches phone, email, AND location
       const matchesColContact =
         !colSearch.contact ||
-        (seller.phone || "")
-          .toLowerCase()
-          .includes(colSearch.contact.toLowerCase()) ||
-        (seller.email || "")
-          .toLowerCase()
-          .includes(colSearch.contact.toLowerCase()) ||
-        (seller.location || "")
-          .toLowerCase()
-          .includes(colSearch.contact.toLowerCase());
+        (seller.phone || "").toLowerCase().includes(colSearch.contact.toLowerCase()) ||
+        (seller.email || "").toLowerCase().includes(colSearch.contact.toLowerCase()) ||
+        (seller.location || "").toLowerCase().includes(colSearch.contact.toLowerCase());
 
-      // Business Info column - searches source AND status
-     const matchesColSource =
-  !colSearch.source ||
-  (seller.source || "")
-    .toLowerCase()
-    .includes(colSearch.source.toLowerCase()) ||
-  (seller.status || "")
-    .toLowerCase()
-    .includes(colSearch.source.toLowerCase()) ||
-  (seller.isActive ? "active" : "inactive")
-    .toLowerCase()
-    .includes(colSearch.source.toLowerCase()) ||
-  (seller.stage || "")
-    .replace(/_/g, " ")
-    .toLowerCase()
-    .includes(colSearch.source.toLowerCase()) ||
-  (seller.priority || "")
-    .toLowerCase()
-    .includes(colSearch.source.toLowerCase());
+      const matchesColSource =
+        !colSearch.source ||
+        (seller.source || "").toLowerCase().includes(colSearch.source.toLowerCase()) ||
+        (seller.status || "").toLowerCase().includes(colSearch.source.toLowerCase()) ||
+        (seller.isActive ? "active" : "inactive").toLowerCase().includes(colSearch.source.toLowerCase()) ||
+        (seller.stage || "").replace(/_/g, " ").toLowerCase().includes(colSearch.source.toLowerCase()) ||
+        (seller.priority || "").toLowerCase().includes(colSearch.source.toLowerCase());
 
       const matchesColPriority =
         !colSearch.priority ||
-        (seller.priority || "")
-          .toLowerCase()
-          .includes(colSearch.priority.toLowerCase());
+        (seller.priority || "").toLowerCase().includes(colSearch.priority.toLowerCase());
       const matchesColStage =
         !colSearch.stage ||
-        (seller.stage || "")
-          .toLowerCase()
-          .includes(colSearch.stage.toLowerCase());
+        (seller.stage || "").toLowerCase().includes(colSearch.stage.toLowerCase());
       const matchesColAssigned =
         !colSearch.assigned ||
-        (seller.assigned_to_name || "")
-          .toLowerCase()
-          .includes(colSearch.assigned.toLowerCase());
+        (seller.assigned_to_name || "").toLowerCase().includes(colSearch.assigned.toLowerCase());
       const matchesColCreated =
         !colSearch.created ||
-        (seller.created_at || "")
-          .toLowerCase()
-          .includes(colSearch.created.toLowerCase());
+        (seller.created_at || "").toLowerCase().includes(colSearch.created.toLowerCase());
 
       const isActiveBool =
         typeof seller.isActive === "number"
@@ -747,7 +696,9 @@ useEffect(() => {
         (filters.source === "all" || seller.source === filters.source) &&
         (filters.stage === "all" || seller.stage === filters.stage) &&
         (filters.priority === "all" || seller.priority === filters.priority) &&
-        (filters.assigned === "all" || seller.assigned === filters.assigned) &&
+        (filters.assigned === "all" ||
+         (filters.assigned === "Unassigned" && (seller.assigned === "Unassigned" || seller.assigned === "-" || !seller.assigned || seller.assigned.trim() === "")) ||
+         seller.assigned === filters.assigned) &&
         (filters.status === "all" ||
           (filters.status === "active" && seller.isActive) ||
           (filters.status === "inactive" && !seller.isActive));
@@ -833,11 +784,11 @@ useEffect(() => {
       width: "400px",
       padding: "1.5rem",
       customClass: {
-  popup: "rounded-xl",
-  actions: "flex gap-3",
-  confirmButton: "px-4 py-2 bg-red-600 text-white rounded-lg",
-  cancelButton: "px-4 py-2 bg-gray-500 text-white rounded-lg",
-},
+        popup: "rounded-xl",
+        actions: "flex gap-3",
+        confirmButton: "px-4 py-2 bg-red-600 text-white rounded-lg",
+        cancelButton: "px-4 py-2 bg-gray-500 text-white rounded-lg",
+      },
       buttonsStyling: false,
     });
     if (!result.isConfirmed) return;
@@ -976,6 +927,52 @@ useEffect(() => {
     }
   };
 
+  const handleDistributeEqually = async () => {
+    if (!canAssign) {
+      toast.error('You do not have permission to assign sellers');
+      return;
+    }
+    const realExecutives = executives.filter(e => e.id !== 0);
+    if (selectedSellers.length === 0) {
+      toast.warn("No sellers selected");
+      return;
+    }
+    if (realExecutives.length === 0) {
+      toast.error('No executives available for assignment');
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const assignments: Record<number, number[]> = {};
+      realExecutives.forEach(exec => {
+        assignments[exec.id] = [];
+      });
+
+      selectedSellers.forEach((sellerId, index) => {
+        const execIndex = index % realExecutives.length;
+        const execId = realExecutives[execIndex].id;
+        assignments[execId].push(sellerId);
+      });
+
+      for (const [execIdStr, sellerIds] of Object.entries(assignments)) {
+        const execId = Number(execIdStr);
+        if (sellerIds.length > 0) {
+          await sellerAPI.bulkAssignExecutive(sellerIds, execId);
+        }
+      }
+
+      await loadSellers();
+      toast.success(`Successfully distributed ${selectedSellers.length} seller(s) equally among executives`);
+      setSelectedSellers([]);
+    } catch (error) {
+      console.error("Distribution failed:", error);
+      toast.error("Failed to distribute sellers");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const handleBulkStatusUpdate = async (status: string) => {
     if (selectedSellers.length === 0) {
       toast.info("Please select sellers to update status");
@@ -1079,11 +1076,11 @@ useEffect(() => {
       width: "400px",
       padding: "1.5rem",
       customClass: {
-  popup: "rounded-xl",
-  actions: "flex gap-3",
-  confirmButton: "px-4 py-2 bg-red-600 text-white rounded-lg",
-  cancelButton: "px-4 py-2 bg-gray-500 text-white rounded-lg",
-},
+        popup: "rounded-xl",
+        actions: "flex gap-3",
+        confirmButton: "px-4 py-2 bg-red-600 text-white rounded-lg",
+        cancelButton: "px-4 py-2 bg-gray-500 text-white rounded-lg",
+      },
       buttonsStyling: false,
     });
     if (!result.isConfirmed) return;
@@ -1547,17 +1544,6 @@ table tbody td {
               })}
             </div>
           </div>
-          {/* <select
-            value={itemsPerPage}
-            onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
-            className="flex-shrink-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white"
-          >
-            {[10, 20, 50, 100].map((n) => (
-              <option key={n} value={n}>
-                {n}/pg
-              </option>
-            ))}
-          </select> */}
         </div>
 
         {/* Bulk Action Bar */}
@@ -1604,7 +1590,6 @@ table tbody td {
                         </option>
                       ))}
                     </select>
-                    {/* Hidden on mobile, shown on desktop */}
                     <select
                       onChange={(e) => {
                         if (e.target.value)
@@ -1656,6 +1641,14 @@ table tbody td {
                         Apply
                       </button>
                     )}
+                    <button
+                      onClick={handleDistributeEqually}
+                      disabled={bulkLoading}
+                      className="px-2 py-1 text-xs bg-orange-600 text-white rounded-lg whitespace-nowrap hover:bg-orange-700 disabled:opacity-50 flex items-center gap-1"
+                    >
+                      <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
+                      Distribute Equally
+                    </button>
                   </div>
                 )}
               </div>
@@ -1663,7 +1656,7 @@ table tbody td {
               {/* MOBILE ONLY */}
               <div className="flex flex-col gap-2 w-full sm:hidden">
                 {/* Row 1 → Assign + Priority side by side */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap items-center">
                   {canAssign && (
                     <div className="flex-1 flex gap-1">
                       <select
@@ -1714,6 +1707,16 @@ table tbody td {
                         </option>
                       ))}
                     </select>
+                  )}
+                  {selectedSellers.length > 0 && (
+                    <button
+                      onClick={handleDistributeEqually}
+                      disabled={bulkLoading}
+                      className="w-full text-center px-2 py-1.5 text-xs bg-orange-600 text-white rounded-lg whitespace-nowrap hover:bg-orange-700 disabled:opacity-50 flex items-center justify-center gap-1"
+                    >
+                      <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
+                      Distribute Equally
+                    </button>
                   )}
                 </div>
 

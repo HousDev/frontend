@@ -11,7 +11,7 @@ import {
   TrendingUp, SlidersHorizontal, Clock, AlertCircle, CheckCircle, XCircle,
   Calendar,
   Share2,
-  ShareIcon
+  ShareIcon, RefreshCw
 } from 'lucide-react';
 import { SiWhatsapp } from "react-icons/si";
 import Swal from 'sweetalert2';
@@ -683,7 +683,9 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
   (filters.stage === 'all' || stg === filters.stage) &&
   (filters.priority === 'all' || pri === filters.priority) &&
   (filters.assigned === 'all' || key(buyer.assigned) === key(filters.assigned)) &&
-  (filters.assigned_executive === 'all' || key(buyer.assigned_executive) === key(filters.assigned_executive)) &&
+  (filters.assigned_executive === 'all' ||
+   (filters.assigned_executive === 'unassigned' && (!buyer.assigned_executive || String(buyer.assigned_executive) === '0' || String(buyer.assigned_executive).toLowerCase() === 'null' || String(buyer.assigned_executive).trim() === '')) ||
+   key(buyer.assigned_executive) === key(filters.assigned_executive)) &&
   (filters.status === 'all' || key(buyer.status) === key(filters.status)) &&
   (filters.propertyType === 'all' || key(buyer.requirements?.propertyType) === key(filters.propertyType)) &&
   matchesBudgetRange(buyer, filters.budgetRange); // ← यह नई line add हुई
@@ -918,6 +920,50 @@ const matchesColSearch =
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to assign executive');
+    }
+  };
+
+  const handleDistributeEqually = async () => {
+    if (!canAssign) {
+      toast.error('You do not have permission to assign buyers');
+      return;
+    }
+    if (selectedBuyers.length === 0) {
+      toast.warn("No buyers selected");
+      return;
+    }
+    if (assignableExecutives.length === 0) {
+      toast.error('No executives available for assignment');
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const assignments: Record<string, string[]> = {};
+      assignableExecutives.forEach(exec => {
+        assignments[exec.id] = [];
+      });
+
+      selectedBuyers.forEach((buyerId, index) => {
+        const execIndex = index % assignableExecutives.length;
+        const execId = assignableExecutives[execIndex].id;
+        assignments[execId].push(String(buyerId));
+      });
+
+      for (const [execId, buyerIds] of Object.entries(assignments)) {
+        if (buyerIds.length > 0) {
+          await buyerAPI.bulkAssignExecutive(buyerIds, execId);
+        }
+      }
+
+      await fetchBuyers();
+      toast.success(`Successfully distributed ${selectedBuyers.length} buyer(s) equally among executives`);
+      setSelectedBuyers([]);
+    } catch (error) {
+      console.error("Distribution failed:", error);
+      toast.error("Failed to distribute buyers");
+    } finally {
+      setBulkLoading(false);
     }
   };
 
@@ -1511,6 +1557,16 @@ const matchesColSearch =
             )}
           </div>
         )}
+        {selectedBuyers.length > 0 && (
+          <button
+            onClick={handleDistributeEqually}
+            disabled={bulkLoading}
+            className="px-2 py-1 text-xs bg-orange-600 text-white rounded-lg whitespace-nowrap hover:bg-orange-750 disabled:opacity-50 flex items-center gap-1"
+          >
+            <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
+            Distribute Equally
+          </button>
+        )}
       </div>
 
       {/* MOBILE COMPACT ACTION ROW - EXACTLY AS IT WAS */}
@@ -1541,6 +1597,16 @@ const matchesColSearch =
                 className="px-2 py-1 text-xs bg-orange-500 text-white rounded-lg whitespace-nowrap hover:bg-orange-600"
               >
                 Apply
+              </button>
+            )}
+            {selectedBuyers.length > 0 && (
+              <button
+                onClick={handleDistributeEqually}
+                disabled={bulkLoading}
+                className="px-2 py-1 text-xs bg-orange-600 text-white rounded-lg whitespace-nowrap hover:bg-orange-750 disabled:opacity-50 flex items-center gap-1"
+              >
+                <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
+                Distribute Equally
               </button>
             )}
           </div>

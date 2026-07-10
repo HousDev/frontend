@@ -4,7 +4,7 @@ import {
   Grid, List, MapPin, Building, Users, MoreHorizontal, X,
   ChevronLeft, ChevronRight, Globe, Award, CheckCircle, User,
   UserCheck, UserPlus,
-  UserX
+  UserX, RefreshCw
 } from 'lucide-react';
 import type { LucideIcon } from "lucide-react";
 import PropertyViewPage from '../../components/properties/PropertyViewPage';
@@ -1714,6 +1714,52 @@ count: properties.filter(p => {
     }
   };
 
+  const handleDistributeEqually = async () => {
+    if (!canAssign) {
+      toast.error('You do not have permission to assign properties');
+      return;
+    }
+    if (selectedProperties.length === 0) {
+      toast.warn("No properties selected");
+      return;
+    }
+    if (salesExecutives.length === 0) {
+      toast.error('No executives available for assignment');
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      let successCount = 0;
+      for (let i = 0; i < selectedProperties.length; i++) {
+        const propertyId = selectedProperties[i];
+        const execIndex = i % salesExecutives.length;
+        const executive = salesExecutives[execIndex];
+        const assignedToId = Number(executive.id);
+
+        try {
+          const payload = { assigned_to: assignedToId };
+          const response = await propertiesAPI.updateAssignedTo(propertyId, payload);
+
+          if (response.success) {
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to assign property ${propertyId}:`, error);
+        }
+      }
+
+      await loadProperties();
+      toast.success(`Successfully distributed properties equally among executives (${successCount} assigned)`);
+      setSelectedProperties([]);
+    } catch (error) {
+      console.error("Distribution failed:", error);
+      toast.error("Failed to distribute properties");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const handleAssignSubmit = async (executiveId: number | string, executiveName: string) => {
     if (assigningProperty) {
       await handleSingleAssign(executiveId, executiveName);
@@ -2516,6 +2562,16 @@ style={{ background: theme.orange }}              >
                 <span className="sm:hidden">Unassign</span>
                 <span className="hidden sm:inline">Unassign Executive</span>
               </button>
+              {selectedProperties.length > 0 && (
+                <button
+                  onClick={handleDistributeEqually}
+                  disabled={bulkLoading || executivesLoading || salesExecutives.length === 0}
+                  className="px-2 sm:px-2.5 py-1 bg-orange-600 text-white rounded text-[10px] sm:text-xs hover:bg-orange-700 disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
+                >
+                  <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
+                  <span>Distribute Equally</span>
+                </button>
+              )}
             </>
           )}
           {canUpdate && (

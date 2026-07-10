@@ -34,17 +34,17 @@ export function getAssignableExecutives(user: any, salesUsers: any[]) {
   };
 
   // Presales Executive - can only assign to themselves
-  if (role === "executive" && (dept === "presales" || dept === "presale")) {
+  if (role.includes("executive") && (dept === "presales" || dept === "presale")) {
     return [toExecutive(user, true)];
   }
 
   // Presales Manager - can assign to all presales executives
-  if (role === "manager" && (dept === "presales" || dept === "presale")) {
+  if (role.includes("manager") && (dept === "presales" || dept === "presale")) {
     return salesUsers.map(u => toExecutive(u, false));
   }
 
   // Admin - can assign to all presales executives
-  if (role === "admin") {
+  if (role.includes("admin")) {
     return salesUsers.map(u => toExecutive(u, false));
   }
 

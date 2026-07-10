@@ -17,6 +17,7 @@ import { leadsAPI, usersAPI } from "@/lib/api";
 import { masterDataAPI } from "@/lib/mastersAPI";
 import { followupAPI } from "@/lib/followupAPI";
 import { notificationAPI } from "@/lib/notificationAPI";
+import { getAssignableExecutives } from "@/utils/roleBasedOptions";
 
 import FollowupModal, { FOLLOWUP_TYPES, FollowupForm } from "@/pages/dashboard/components/FollowupModal";
 import BuyerFormModal from "./components/BuyerFormModal";
@@ -151,51 +152,12 @@ const normalizeString = (str: any): string => {
   return (str ?? "").toString().trim().toLowerCase().replace(/[\s-_/]+/g, "");
 };
 
-const getAssignableExecutives = (user: any, presalesUsers: any[]) => {
-  const norm = (s: any) => (s ?? "").toString().trim().toLowerCase().replace(/[\s-_/]+/g, "");
-  const role = norm(user?.role);
-  const dept = norm(user?.department);
-
-  const toExecutive = (u: any) => ({
-    id: u.id ?? u.user_id ?? u._id,
-    name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || "Executive",
-    department: u.department,
-    role: u.role,
-    selfOnly: false,
-    salutation: u.salutation || "",
-  });
-
-  if (role === "executive" && (dept === "presales" || dept === "presale")) {
-    const selfExecutive = {
-      ...toExecutive(user),
-      selfOnly: true,
-      name: `${(user as AuthUser)?.salutation ? (user as AuthUser).salutation + " " : ""}${(user as AuthUser)?.first_name || (user as AuthUser)?.name || "You"}${(user as AuthUser)?.last_name ? " " + (user as AuthUser).last_name : ""} (Self)`,
-    };
-    return [selfExecutive];
-  }
-
-  if (role === "manager" && (dept === "presales" || dept === "presale")) {
-    return presalesUsers.map(toExecutive);
-  }
-
-  if (role === "admin") {
-    return presalesUsers.map(toExecutive);
-  }
-
-  const selfExecutive = {
-    ...toExecutive(user),
-    selfOnly: true,
-    name: `${(user as AuthUser)?.salutation ? (user as AuthUser).salutation + " " : ""}${(user as AuthUser)?.first_name || (user as AuthUser)?.name || "You"}${(user as AuthUser)?.last_name ? " " + (user as AuthUser).last_name : ""} (Self)`,
-  };
-  return [selfExecutive];
-};
-
 const getFilteredLeads = (allLeads: Lead[], user: AuthUser | null): Lead[] => {
   if (!user) return allLeads;
   const userRole = normalizeString(user.role);
   const userId = user.id || user.user_id;
-  if (userRole === "admin" || userRole === "manager") return allLeads;
-  if (userRole === "executive") {
+  if (userRole.includes("admin") || userRole.includes("manager")) return allLeads;
+  if (userRole.includes("executive")) {
     return allLeads.filter(lead => lead.assigned_executive && String(lead.assigned_executive) === String(userId));
   }
   return allLeads;
@@ -204,7 +166,7 @@ const getFilteredLeads = (allLeads: Lead[], user: AuthUser | null): Lead[] => {
 const fetchUsersSafely = async (user: AuthUser | null): Promise<any[]> => {
   const userRole = normalizeString(user?.role);
   const userDept = normalizeString(user?.department);
-  if (userRole === "admin" || userRole === "manager" || (userRole === "manager" && (userDept === "presales" || userDept === "presale"))) {
+  if (userRole.includes("admin") || userRole.includes("manager")) {
     try {
       const resp = await usersAPI.getAllUsers?.();
       const raw = resp?.data ?? resp?.items ?? resp ?? [];
@@ -270,7 +232,7 @@ const LeadDetailPage: React.FC = () => {
           .filter((u: any) => {
             const role = normalizeString(u?.role);
             const dept = normalizeString(u?.department);
-            return role === "executive" && (dept === "presales" || dept === "presale");
+            return role.includes("executive") && (dept === "presales" || dept === "presale");
           })
           .map((u: any) => ({
             id: String(u.id ?? u.user_id ?? u._id ?? ""),
