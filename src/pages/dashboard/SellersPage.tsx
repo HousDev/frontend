@@ -407,7 +407,7 @@ const SellersPage: React.FC = () => {
   const [editingSeller, setEditingSeller] = useState<UISeller | null>(null);
   const [currentSellerIndex, setCurrentSellerIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [allSellers, setAllSellers] = useState<UISeller[]>([]);
   const [roleFilteredSellers, setRoleFilteredSellers] = useState<UISeller[]>(
     [],

@@ -978,7 +978,7 @@ const PropertiesPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [editingProperty, setEditingProperty] = useState<UIProperty | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedProperty, setSelectedProperty] = useState<UIProperty | null>(null);
 

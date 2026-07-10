@@ -10,8 +10,9 @@ const API_BASE = (API_FORCE || (isProdHost ? API_BASE_PROD : API_BASE_LOCAL)).re
 
 export const api = axios.create({
   baseURL: API_BASE,
-  timeout: 60000, // ✅ 60 seconds instead of 10 s  
+  timeout: 60000,
   headers: { "Content-Type": "application/json" },
+  withCredentials: true,   // ✅ ADD THIS — session cookie ke liye zaroori
 });
 
 api.interceptors.request.use((config) => {
