@@ -53,6 +53,7 @@ interface AuthUser {
 
 export interface Lead {
   id: string;
+  lead_number?: number;
   salutation?: string;
   name?: string;
   phone?: string;
@@ -232,7 +233,8 @@ const LeadDetailPage: React.FC = () => {
           .filter((u: any) => {
             const role = normalizeString(u?.role);
             const dept = normalizeString(u?.department);
-            return role.includes("executive") && (dept === "presales" || dept === "presale");
+            const isActive = u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null && u.is_active !== undefined;
+            return role.includes("executive") && (dept === "presales" || dept === "presale") && isActive;
           })
           .map((u: any) => ({
             id: String(u.id ?? u.user_id ?? u._id ?? ""),
@@ -391,6 +393,7 @@ const LeadDetailPage: React.FC = () => {
           const lastContactedByName = data.last_contacted_by_name || data.updated_by_name || null;
           const leadData: Lead = {
             id: String(data.id || data._id || ""),
+            lead_number: data.lead_number,
             salutation: data.salutation || "",
             name: data.name || "",
             phone: data.phone || "",
@@ -501,7 +504,8 @@ const LeadDetailPage: React.FC = () => {
     try {
       const prevExec = lead?.assigned_executive || "";
       const newExec = updatedLead.assigned_executive || "";
-      const response = await leadsAPI.updateLead(updatedLead.id!, updatedLead);
+      const { lead_number: _ln, ...updatePayload } = updatedLead as any; // 🔒 strip system field
+      const response = await leadsAPI.updateLead(updatedLead.id!, updatePayload);
       const savedLead = response?.data || response;
       setLead((prev) => ({ ...(prev || {} as Lead), ...savedLead }));
       setAllLeads((prev) => prev.map((l) => (String(l.id) === String(savedLead.id) ? { ...l, ...savedLead } : l)));
@@ -738,7 +742,7 @@ const LeadDetailPage: React.FC = () => {
                       {lead.salutation} {lead.name}
                     </h2>
                     <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                      <span className="text-[11px]" style={{ color: TEXT_MUTED }}>ID: {String(lead.id).slice(0, 8)}</span>
+                      <span className="text-[11px]" style={{ color: TEXT_MUTED }}>ID: {lead.lead_number ?? String(lead.id).slice(0, 6)}</span>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${getLeadTypeColor(lead.lead_type || "")}`}>
                         {lead.lead_type || "Lead"}
                       </span>

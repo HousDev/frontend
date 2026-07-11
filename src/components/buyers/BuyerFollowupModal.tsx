@@ -493,8 +493,8 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
         custom_remark: form.customRemark,
         next_action: form.nextAction,
         priority: form.priority,
-        schedule_date: form.scheduleDate,
-        schedule_time: form.scheduleTime,
+        schedule_date: shouldHideSchedule ? null : form.scheduleDate,
+        schedule_time: shouldHideSchedule ? null : form.scheduleTime,
         ...(created_by ? { created_by } : {}),
         ...(created_at ? { created_at } : {}),
         ...(updated_by ? { updated_by } : {}),
@@ -521,6 +521,14 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
   };
 
   const selectedType = FOLLOWUP_TYPES.find((t) => t.value === form.followupType) || FOLLOWUP_TYPES[0];
+
+  const isStageInitialContact = form.buyerLeadStage?.trim().toLowerCase() === "initial contact";
+  const isStatusInProgress = form.buyerLeadStatus?.trim().toLowerCase() === "in progress" || form.buyerLeadStatus?.trim().toLowerCase() === "in-progress";
+  const isRemarkHideCondition = 
+    form.remark?.trim().toLowerCase() === "not interested" || 
+    form.remark?.trim().toLowerCase() === "final in another project";
+
+  const shouldHideSchedule = isStageInitialContact && isStatusInProgress && isRemarkHideCondition;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }}>
@@ -646,35 +654,37 @@ const BuyerFollowupModal: React.FC<Props> = ({ isOpen, onClose, onSave, tabId, b
               />
             </FormField>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <FormField label="Schedule Date" required icon={<Calendar size={8} />}>
-                {(() => {
-                  const tomorrow = new Date();
-                  tomorrow.setDate(tomorrow.getDate() + 1);
-                  const minDate = tomorrow.toISOString().split("T")[0];
-                  return (
-                    <input
-                      type="date"
-                      className="w-full border rounded-lg px-2.5 py-1.5 text-[10px] focus:outline-none focus:ring-1 bg-white"
-                      style={{ borderColor: BD }}
-                      value={form.scheduleDate}
-                      onChange={handleChange("scheduleDate")}
-                      min={minDate}
-                    />
-                  );
-                })()}
-              </FormField>
+            {!shouldHideSchedule && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <FormField label="Schedule Date" required icon={<Calendar size={8} />}>
+                  {(() => {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const minDate = tomorrow.toISOString().split("T")[0];
+                    return (
+                      <input
+                        type="date"
+                        className="w-full border rounded-lg px-2.5 py-1.5 text-[10px] focus:outline-none focus:ring-1 bg-white"
+                        style={{ borderColor: BD }}
+                        value={form.scheduleDate}
+                        onChange={handleChange("scheduleDate")}
+                        min={minDate}
+                      />
+                    );
+                  })()}
+                </FormField>
 
-              <FormField label="Schedule Time" required icon={<Clock size={8} />}>
-                <input
-                  type="time"
-                  className="w-full border rounded-lg px-2.5 py-1.5 text-[10px] focus:outline-none focus:ring-1 bg-white"
-                  style={{ borderColor: BD }}
-                  value={form.scheduleTime}
-                  onChange={handleChange("scheduleTime")}
-                />
-              </FormField>
-            </div>
+                <FormField label="Schedule Time" required icon={<Clock size={8} />}>
+                  <input
+                    type="time"
+                    className="w-full border rounded-lg px-2.5 py-1.5 text-[10px] focus:outline-none focus:ring-1 bg-white"
+                    style={{ borderColor: BD }}
+                    value={form.scheduleTime}
+                    onChange={handleChange("scheduleTime")}
+                  />
+                </FormField>
+              </div>
+            )}
 
             {/* Footer */}
             <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t" style={{ borderColor: BD }}>

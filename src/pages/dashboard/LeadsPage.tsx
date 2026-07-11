@@ -41,6 +41,7 @@ const RESALE = {
 
 interface Lead {
   id: string;
+  lead_number?: number;
   salutation: string;
   name: string;
   phone: string;
@@ -540,6 +541,7 @@ if (cs.created) {
     try {
       const cleanPayload = { ...updatedLeadData, assigned_executive: updatedLeadData.assigned_executive };
       delete (cleanPayload as any).assigned_executive_name;
+      delete (cleanPayload as any).lead_number; // 🔒 system-managed, never update manually
 
       const response = await leadsAPI.updateLead(cleanPayload.id, cleanPayload);
       const updated = response?.data ?? response?.data?.data;
@@ -1737,7 +1739,7 @@ const exportLeads = async () => {
                         </p>
                         <div className="flex items-center gap-1 mt-0 flex-wrap">
                           <p className="text-[9px] text-gray-400">{lead.lead_type?.toUpperCase() || 'LEAD'}</p>
-                          <p className="text-[9px] text-gray-400">ID: {String(lead.id).slice(0, 6)}</p>
+                          <p className="text-[9px] text-gray-400">ID: {lead.lead_number ?? String(lead.id).slice(0, 6)}</p>
                         </div>
                       </div>
                     </Link>
