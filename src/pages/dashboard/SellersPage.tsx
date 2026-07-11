@@ -544,6 +544,8 @@ useEffect(() => {
             } catch (err) {}
           }
         }
+        executivesList = executivesList.filter((u: any) => u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null);
+
         const processedExecutives: Executive[] = executivesList.map(
           (user: any) => ({
             id: Number(user.id || user.userId || user._id || 0),

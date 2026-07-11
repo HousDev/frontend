@@ -1094,9 +1094,10 @@ useEffect(() => {
           limit: 50,
         });
 
-        const items = res?.items ?? res?.data ?? res ?? [];
+        let items = res?.items ?? res?.data ?? res ?? [];
 
         if (Array.isArray(items)) {
+          items = items.filter((u: any) => u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null);
           const executives: SalesExecutive[] = items.map((user: any) => ({
             id: user.id || user.userId,
             name: getDisplayName(user),

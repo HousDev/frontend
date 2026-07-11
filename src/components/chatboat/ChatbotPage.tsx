@@ -1151,7 +1151,8 @@ export default function ChatbotPage() {
     const fetchUsers = async () => {
         try {
             const data = await whatsappAPI.getSalesExecutives();
-            setUsers(data as any);
+            const activeData = (data || []).filter((u: any) => u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null);
+            setUsers(activeData as any);
         } catch (error) {
             console.error('Failed to fetch users:', error);
         }

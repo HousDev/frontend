@@ -1,7 +1,3 @@
-
-
-
-
 import React, {
   useState,
   useEffect,
@@ -60,7 +56,8 @@ import { io } from "socket.io-client";
 
 // Socket connection function (same as ChatWindow)
 function connectSocket(userId: string | number) {
-  return io(import.meta.env.VITE_API_URL || "https://resaleexpert.in", {
+  const socketUrl = import.meta.env.VITE_API_URL || (typeof window !== "undefined" && window.location.hostname === "localhost" ? "http://localhost:3000" : "https://resaleexpert.in");
+  return io(socketUrl, {
     path: "/socket.io",
     transports: ["websocket", "polling"],
     query: { userId: String(userId) },
@@ -132,15 +129,21 @@ const mapRawToUI = (n: RawNotification): NotificationItem => {
   const title =
     type === "lead_assign"
       ? "Lead Assigned"
-      : type === "property_inquiry"
-        ? "Property Inquiry"
-        : type === "visit_scheduled"
-          ? "Visit Scheduled"
-          : type === "price_suggestion"
-            ? "Price Suggestion"
-            : type === "document_ready"
-              ? "Document Ready"
-              : type;
+      : type === "buyer_assign"
+        ? "Buyer Assigned"
+        : type === "seller_assign"
+          ? "Seller Assigned"
+          : type === "property_assign"
+            ? "Property Assigned"
+            : type === "property_inquiry"
+              ? "Property Inquiry"
+              : type === "visit_scheduled"
+                ? "Visit Scheduled"
+                : type === "price_suggestion"
+                  ? "Price Suggestion"
+                  : type === "document_ready"
+                    ? "Document Ready"
+                    : type;
 
   return {
     id,

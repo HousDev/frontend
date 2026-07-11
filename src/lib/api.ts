@@ -120,7 +120,8 @@ export const usersAPI = {
   const response = await api.get('/users/filter', {
     params: {
       department: 'Sales',         // EXACT MATCH
-      role: 'Sales Executive'      // EXACT MATCH
+      role: 'Sales Executive',      // EXACT MATCH
+      status: 'active'
     }
   });
   return response.data;

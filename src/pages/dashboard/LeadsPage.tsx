@@ -227,7 +227,8 @@ const [bulkPriority, setBulkPriority] = useState<string>('');
     return (presalesUsers || []).filter((u) => {
       const role = n(u.role);
       const dept = n(u.department);
-      return dept === "presales" && role === "presales executive";
+      const isActive = u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null;
+      return dept === "presales" && role === "presales executive" && isActive;
     });
   }, [presalesUsers]);
 

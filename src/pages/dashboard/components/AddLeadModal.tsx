@@ -253,7 +253,8 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
           .filter((u: any) => {
             const dept = normalizeText(u?.department || u?.department_name);
             const role = normalizeText(u?.role || u?.role_name || u?.title);
-            return dept.includes('presale') && role.includes('executive');
+            const isActive = u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null;
+            return dept.includes('presale') && role.includes('executive') && isActive;
           })
           .map((u: any) => ({
             id: String(u.id || u._id || u.user_id),

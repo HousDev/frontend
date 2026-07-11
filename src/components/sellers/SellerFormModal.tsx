@@ -355,6 +355,7 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
             return department.includes('sales') && role.includes('executive');
           });
         }
+        executivesData = executivesData.filter((u: any) => u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null);
 
         const formattedExecutives = executivesData.map((user: any) => ({
           id: user.id || user.userId || user._id,

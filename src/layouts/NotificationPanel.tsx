@@ -186,6 +186,12 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
           const title =
             type === "lead_assign"
               ? "Lead Assigned"
+              : type === "buyer_assign"
+              ? "Buyer Assigned"
+              : type === "seller_assign"
+              ? "Seller Assigned"
+              : type === "property_assign"
+              ? "Property Assigned"
               : type === "property_inquiry"
               ? "Property Inquiry"
               : type === "visit_scheduled"
@@ -283,6 +289,9 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
       case "document_ready":
         return <FileText className="text-orange-600" size={16} />;
       case "lead_assign":
+      case "buyer_assign":
+      case "seller_assign":
+      case "property_assign":
         return <Users className="text-indigo-600" size={16} />;
       default:
         return <Bell className="text-gray-600" size={16} />;
