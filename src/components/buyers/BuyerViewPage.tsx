@@ -340,7 +340,7 @@ ResaleExpert Team`;
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 md:py-4 sticky top-0 z-50 text-xs">
 <>

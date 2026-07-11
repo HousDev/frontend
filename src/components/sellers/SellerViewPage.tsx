@@ -2027,7 +2027,7 @@ const renderActivitiesTab = () => (
 };
 
   return (
-    <div className=" flex flex-col bg-gray-50 h-screen  ">
+    <div className=" flex flex-col bg-gray-50 h-[calc(100vh-3.5rem)]  ">
       {/* Top Bar */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-200">
         <div className="px-4 py-3">
