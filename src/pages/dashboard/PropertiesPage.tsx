@@ -2563,16 +2563,7 @@ style={{ background: theme.orange }}              >
                 <span className="sm:hidden">Unassign</span>
                 <span className="hidden sm:inline">Unassign Executive</span>
               </button>
-              {selectedProperties.length > 0 && (
-                <button
-                  onClick={handleDistributeEqually}
-                  disabled={bulkLoading || executivesLoading || salesExecutives.length === 0}
-                  className="px-2 sm:px-2.5 py-1 bg-orange-600 text-white rounded text-[10px] sm:text-xs hover:bg-orange-700 disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
-                >
-                  <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
-                  <span>Distribute Equally</span>
-                </button>
-              )}
+
             </>
           )}
           {canUpdate && (

@@ -1643,14 +1643,7 @@ table tbody td {
                         Apply
                       </button>
                     )}
-                    <button
-                      onClick={handleDistributeEqually}
-                      disabled={bulkLoading}
-                      className="px-2 py-1 text-xs bg-orange-600 text-white rounded-lg whitespace-nowrap hover:bg-orange-700 disabled:opacity-50 flex items-center gap-1"
-                    >
-                      <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
-                      Distribute Equally
-                    </button>
+
                   </div>
                 )}
               </div>
@@ -1710,16 +1703,7 @@ table tbody td {
                       ))}
                     </select>
                   )}
-                  {selectedSellers.length > 0 && (
-                    <button
-                      onClick={handleDistributeEqually}
-                      disabled={bulkLoading}
-                      className="w-full text-center px-2 py-1.5 text-xs bg-orange-600 text-white rounded-lg whitespace-nowrap hover:bg-orange-700 disabled:opacity-50 flex items-center justify-center gap-1"
-                    >
-                      <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
-                      Distribute Equally
-                    </button>
-                  )}
+
                 </div>
 
                 {/* Row 2 → Export / Delete / Clear in equal grid */}

@@ -1558,16 +1558,7 @@ const matchesColSearch =
             )}
           </div>
         )}
-        {selectedBuyers.length > 0 && (
-          <button
-            onClick={handleDistributeEqually}
-            disabled={bulkLoading}
-            className="px-2 py-1 text-xs bg-orange-600 text-white rounded-lg whitespace-nowrap hover:bg-orange-750 disabled:opacity-50 flex items-center gap-1"
-          >
-            <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
-            Distribute Equally
-          </button>
-        )}
+
       </div>
 
       {/* MOBILE COMPACT ACTION ROW - EXACTLY AS IT WAS */}
@@ -1600,16 +1591,7 @@ const matchesColSearch =
                 Apply
               </button>
             )}
-            {selectedBuyers.length > 0 && (
-              <button
-                onClick={handleDistributeEqually}
-                disabled={bulkLoading}
-                className="px-2 py-1 text-xs bg-orange-600 text-white rounded-lg whitespace-nowrap hover:bg-orange-750 disabled:opacity-50 flex items-center gap-1"
-              >
-                <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
-                Distribute Equally
-              </button>
-            )}
+
           </div>
         )}
 

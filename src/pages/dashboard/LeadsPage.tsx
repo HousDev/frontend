@@ -1399,16 +1399,7 @@ const exportLeads = async () => {
         </select>
       )}
 
-      {canAssign && selectedLeads.length > 0 && (
-        <button
-          onClick={handleDistributeEqually}
-          disabled={bulkLoading}
-          className="border border-gray-300 rounded-md px-1.5 py-0.5 text-[11px] bg-orange-600 text-white hover:bg-orange-700 h-6 flex items-center gap-1 disabled:opacity-50"
-        >
-          <RefreshCw size={11} className={bulkLoading ? "animate-spin" : ""} />
-          Distribute Equally
-        </button>
-      )}
+
 
       {/* Mobile only: Assign dropdown - same row as Status */}
       {canAssign && (
