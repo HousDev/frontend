@@ -165,12 +165,11 @@ export const societyAPI = {
   // ============================================
 
   // 🆕 Upload images for a society
-  uploadSocietyImages: async (societyId: string, formData: FormData) => {
-    const response = await api.post(`/societies/${societyId}/images`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+ uploadSocietyImages: async (societyId: string, formData: FormData) => {
+    // 🔧 FIX: Content-Type header manually mat set karo — axios FormData dekh kar
+    // khud sahi boundary ke saath multipart/form-data set karta hai. Manual header
+    // se boundary missing hota hai → backend 400 deta hai.
+    const response = await api.post(`/societies/${societyId}/images`, formData);
     return response.data;
   },
 

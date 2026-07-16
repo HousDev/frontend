@@ -26,6 +26,7 @@ import { toast } from 'react-toastify';
 import { can } from "@/utils/permission";
 import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 import Swal from 'sweetalert2';
+import FollowupModal from '../../pages/dashboard/components/FollowupModal'; // or wherever your modal is located
 
 import * as XLSX from 'xlsx';
 
@@ -126,6 +127,8 @@ const [bulkPriority, setBulkPriority] = useState<string>('');
     created: "",
     priority: "",
   });
+  const [showLeadFollowupModal, setShowLeadFollowupModal] = useState(false);
+const [selectedLeadForFollowup, setSelectedLeadForFollowup] = useState<Lead | null>(null);
 
   // Column-level search filters (inline under table headers)
   const [colSearch, setColSearch] = useState({
@@ -1599,125 +1602,226 @@ const exportLeads = async () => {
             {/* sticky thead */}
             <thead style={{ position: 'sticky', top: 0, zIndex: 30 }}>
               {/* Main column headers */}
-              <tr style={{ backgroundColor: RESALE.navy }}>
-           <th className="w-6 px-2 py-1.5">
-  <input
-    type="checkbox"
-    checked={pageSlice.length > 0 && pageSlice.every(l => selectedLeads.includes(l.id))}
-    onChange={handleSelectAll}
-    className="rounded w-3 h-3"
-    style={{ 
-      accentColor: '#e5e7eb',
-      borderColor: '#d1d5db',
-      borderWidth: '1px',
-      borderStyle: 'solid'
-    }}
-  />
-</th>
-                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">NAME</th>
-                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">CONTACT</th>
-                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">LOCATION</th>
-                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">SOURCE</th>
-                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">PRIORITY</th>
-                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">STATUS</th>
-                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">CREATED / ASSIGNED</th>
-                <th className="px-2 py-1.5 text-center text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">ACTIONS</th>
-              </tr>
+             <tr style={{ backgroundColor: RESALE.navy }}>
+  {/* CHECKBOX */}
+  <th className="w-6 px-2 py-1.5">
+    <input
+      type="checkbox"
+      checked={pageSlice.length > 0 && pageSlice.every(l => selectedLeads.includes(l.id))}
+      onChange={handleSelectAll}
+      className="rounded w-3 h-3"
+      style={{ accentColor: '#e5e7eb', borderColor: '#d1d5db', borderWidth: '1px', borderStyle: 'solid' }}
+    />
+  </th>
+
+  {/* 🆕 COMMUNICATE column header */}
+  <th className="px-2 py-1.5 text-center text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
+    COMMUNICATE
+  </th>
+
+  {/* NAME (was previously first) */}
+  <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
+    NAME
+  </th>
+
+  <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
+    CONTACT
+  </th>
+  <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
+    LOCATION
+  </th>
+  <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
+    SOURCE
+  </th>
+  <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
+    PRIORITY
+  </th>
+  <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
+    STATUS
+  </th>
+  <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
+    CREATED / ASSIGNED
+  </th>
+  <th className="px-2 py-1.5 text-center text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
+    ACTIONS
+  </th>
+</tr>
 
               {/* Column-level search row */}
-              <tr className='text-gray-500' style={{ backgroundColor: RESALE.navyLight }}>
-                <th className="px-2 py-0.5" />
-                <th className="px-1.5 py-0.5">
-                  <input
-                    type="text"
-                    placeholder="Search name…"
-                    value={colSearch.name}
-                    onChange={e => setColSearch(p => ({ ...p, name: e.target.value }))}
-                    style={colSearchInputStyle}
-                    className="text-[9px] w-24"
-                  />
-                </th>
-                <th className="px-1.5 py-0.5">
-                  <input
-                    type="text"
-                    placeholder="Search contact…"
-                    value={colSearch.contact}
-                    onChange={e => setColSearch(p => ({ ...p, contact: e.target.value }))}
-                    style={colSearchInputStyle}
-                    className="text-[9px] w-28"
-                  />
-                </th>
-                <th className="px-1.5 py-0.5">
-                  <input
-                    type="text"
-                    placeholder="Search location…"
-                    value={colSearch.location}
-                    onChange={e => setColSearch(p => ({ ...p, location: e.target.value }))}
-                    style={colSearchInputStyle}
-                    className="text-[9px] w-24"
-                  />
-                </th>
-                <th className="px-1.5 py-0.5">
-                  <input
-                    type="text"
-                    placeholder="Search source…"
-                    value={colSearch.source}
-                    onChange={e => setColSearch(p => ({ ...p, source: e.target.value }))}
-                    style={colSearchInputStyle}
-                    className="text-[9px] w-24"
-                  />
-                </th>
-                <th className="px-1.5 py-0.5">
-                  <input
-                    type="text"
-                    placeholder="Search priority…"
-                    value={colSearch.priority}
-                    onChange={e => setColSearch(p => ({ ...p, priority: e.target.value }))}
-                    style={colSearchInputStyle}
-                    className="text-[9px] w-20"
-                  />
-                </th>
-                <th className="px-1.5 py-0.5">
-                  <input
-                    type="text"
-                    placeholder="Search status…"
-                    value={colSearch.status}
-                    onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))}
-                    style={colSearchInputStyle}
-                    className="text-[9px] w-20"
-                  />
-                </th>
-               <th className="px-1.5 py-0.5">
-  <input
-    type="text"
-    placeholder="Search date/assigned…"
-    value={colSearch.created}
-    onChange={e => setColSearch(p => ({ ...p, created: e.target.value }))}
-    style={colSearchInputStyle}
-    className="text-[9px] w-28"
-  />
-</th>
-                <th className="px-1.5 py-0.5" />
-              </tr>
+             <tr className='text-gray-500' style={{ backgroundColor: RESALE.navyLight }}>
+  {/* CHECKBOX – no search */}
+  <th className="px-2 py-0.5" />
+
+  {/* 🆕 empty th for COMMUNICATE column */}
+  <th className="px-1.5 py-0.5" />
+
+  {/* NAME search */}
+  <th className="px-1.5 py-0.5">
+    <input
+      type="text"
+      placeholder="Search name…"
+      value={colSearch.name}
+      onChange={e => setColSearch(p => ({ ...p, name: e.target.value }))}
+      style={colSearchInputStyle}
+      className="text-[9px] w-24"
+    />
+  </th>
+  <th className="px-1.5 py-0.5">
+    <input
+      type="text"
+      placeholder="Search contact…"
+      value={colSearch.contact}
+      onChange={e => setColSearch(p => ({ ...p, contact: e.target.value }))}
+      style={colSearchInputStyle}
+      className="text-[9px] w-28"
+    />
+  </th>
+  <th className="px-1.5 py-0.5">
+    <input
+      type="text"
+      placeholder="Search location…"
+      value={colSearch.location}
+      onChange={e => setColSearch(p => ({ ...p, location: e.target.value }))}
+      style={colSearchInputStyle}
+      className="text-[9px] w-24"
+    />
+  </th>
+  <th className="px-1.5 py-0.5">
+    <input
+      type="text"
+      placeholder="Search source…"
+      value={colSearch.source}
+      onChange={e => setColSearch(p => ({ ...p, source: e.target.value }))}
+      style={colSearchInputStyle}
+      className="text-[9px] w-24"
+    />
+  </th>
+  <th className="px-1.5 py-0.5">
+    <input
+      type="text"
+      placeholder="Search priority…"
+      value={colSearch.priority}
+      onChange={e => setColSearch(p => ({ ...p, priority: e.target.value }))}
+      style={colSearchInputStyle}
+      className="text-[9px] w-20"
+    />
+  </th>
+  <th className="px-1.5 py-0.5">
+    <input
+      type="text"
+      placeholder="Search status…"
+      value={colSearch.status}
+      onChange={e => setColSearch(p => ({ ...p, status: e.target.value }))}
+      style={colSearchInputStyle}
+      className="text-[9px] w-20"
+    />
+  </th>
+  <th className="px-1.5 py-0.5">
+    <input
+      type="text"
+      placeholder="Search date/assigned…"
+      value={colSearch.created}
+      onChange={e => setColSearch(p => ({ ...p, created: e.target.value }))}
+      style={colSearchInputStyle}
+      className="text-[9px] w-28"
+    />
+  </th>
+  <th className="px-1.5 py-0.5" />
+</tr>
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-              {pageSlice.map((lead) => (
-                <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
-            <td className="px-2 py-1">
-  <input
-    type="checkbox"
-    checked={selectedLeads.includes(lead.id)}
-    onChange={() => handleSelectLead(lead.id)}
-    className="rounded w-3 h-3"
-    style={{ 
-      accentColor: '#e5e7eb',
-      borderColor: '#d1d5db',
-      borderWidth: '1px',
-      borderStyle: 'solid'
-    }}
-  />
-</td>
+            {pageSlice.map((lead) => (
+  <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+    {/* CHECKBOX */}
+    <td className="px-2 py-1">
+      <input
+        type="checkbox"
+        checked={selectedLeads.includes(lead.id)}
+        onChange={() => handleSelectLead(lead.id)}
+        className="rounded w-3 h-3"
+        style={{ accentColor: '#e5e7eb', borderColor: '#d1d5db', borderWidth: '1px', borderStyle: 'solid' }}
+      />
+    </td>
+
+    {/* 🆕 COMMUNICATE column with icons */}
+    <td className="px-2 py-1 text-center">
+      <div className="flex items-center justify-center gap-1">
+        {/* Phone */}
+        <button
+          onClick={() => {
+            const phoneNumber = lead.phone?.replace(/\D/g, '');
+            if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
+              window.location.href = `tel:${phoneNumber}`;
+            } else {
+              toast.error("No phone number available");
+            }
+          }}
+          className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
+          title="Call"
+        >
+          <Phone size={11} />
+        </button>
+
+        {/* WhatsApp */}
+        <button
+          onClick={() => {
+            const phoneNumber = lead.phone?.replace(/\D/g, '');
+            if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
+const userName = formatUserName(user) || user?.username || user?.email?.split('@')[0] || 'Team';
+              const message = encodeURIComponent(
+                `Hi ${lead.salutation || ''} ${lead.name || 'Lead'},\n\n` +
+                `We have some properties that might interest you.\n\n` +
+                `Best Regards,\n${userName}`
+              );
+              window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+            } else {
+              toast.error("No phone number available for WhatsApp");
+            }
+          }}
+          className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
+          title="WhatsApp"
+        >
+          <SiWhatsapp size={11} />
+        </button>
+
+        {/* Email */}
+        <button
+          onClick={() => {
+            const email = lead.email;
+            if (email && email !== '-' && email !== '') {
+const userName = formatUserName(user) || user?.username || user?.email?.split('@')[0] || 'Team';
+              const subject = encodeURIComponent("Property Recommendations");
+              const body = encodeURIComponent(
+                `Dear ${lead.salutation || ''} ${lead.name || 'Lead'},\n\n` +
+                `We have some great properties that match your requirements.\n\n` +
+                `Best Regards,\n${userName}`
+              );
+              window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+            } else {
+              toast.error("No email address available");
+            }
+          }}
+          className="p-1 rounded hover:bg-blue-100 transition-colors text-blue-600"
+          title="Email"
+        >
+          <Mail size={11} />
+        </button>
+
+        {/* Follow-up (opens modal) */}
+        <button
+          onClick={() => {
+            setSelectedLeadForFollowup(lead);
+            setShowLeadFollowupModal(true);
+          }}
+          className="p-1 rounded hover:bg-purple-100 transition-colors text-purple-600"
+          title="Follow-up"
+        >
+          <Calendar size={11} />
+        </button>
+      </div>
+    </td>
+
 
                   {/* NAME */}
                   <td className="px-2 py-1">
@@ -1977,6 +2081,34 @@ const exportLeads = async () => {
           onSuccess={fetchLeads} 
         />
       )}
+
+
+      {/* Lead Follow-up Modal */}
+{showLeadFollowupModal && selectedLeadForFollowup && (
+  <FollowupModal
+    isOpen={showLeadFollowupModal}
+    onClose={() => {
+      setShowLeadFollowupModal(false);
+      setSelectedLeadForFollowup(null);
+    }}
+    onSave={async (payload) => {
+      // 👇 Replace with actual API call if you have one
+      try {
+        console.log('Follow-up payload:', payload);
+        toast.success('Follow-up saved successfully');
+        // Optionally refresh leads
+        await fetchLeads();
+        setShowLeadFollowupModal(false);
+        setSelectedLeadForFollowup(null);
+      } catch (error) {
+        toast.error('Failed to save follow-up');
+      }
+    }}
+    tabId="lead"
+    leadId={selectedLeadForFollowup.id}
+    initialForm={undefined}
+  />
+)}
     </div>
   </>
   );

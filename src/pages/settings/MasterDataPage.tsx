@@ -1816,6 +1816,10 @@ import { SocietyImportModal } from "./master/SocietyImportModal";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/utils/permission";
+const getYouTubeEmbedUrl = (url: string): string | null => {
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+};
 
 type ImportType = "master" | "values";
 
@@ -1858,7 +1862,7 @@ interface SocietyData {
   status?: string;
   createdAt?: string;
   amenities?: string[];
-  imageUrls?: string[];
+  imageUrls?: (string | { url: string; label: string; type: 'image' | 'video' })[];
 }
 
 interface ConnectedRemark {
@@ -2920,18 +2924,37 @@ export default function MasterDataPage(): JSX.Element {
                 Images ({viewSociety.imageUrls.length})
               </div>
               <div className="grid grid-cols-4 sm:grid-cols-6 gap-1">
-                {viewSociety.imageUrls.slice(0, 6).map((url, idx) => (
-                  <div key={idx} className="aspect-square rounded-md overflow-hidden border border-gray-200">
-                    <img
-                      src={url}
-                      alt={`${viewSociety.societyName} ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect fill="%23f3f4f6" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E';
-                      }}
-                    />
-                  </div>
-                ))}
+            {viewSociety.imageUrls.slice(0, 6).map((img: any, idx) => {
+  const url = typeof img === 'string' ? img : img.url;
+  const label = typeof img === 'string' ? '' : img.label;
+  const mediaType = typeof img === 'string' ? 'image' : (img.type === 'video' ? 'video' : 'image');
+  const ytEmbed = mediaType === 'video' ? getYouTubeEmbedUrl(url) : null;
+  return (
+    <div key={idx} className="relative aspect-square rounded-md overflow-hidden border border-gray-200">
+      {mediaType === 'video' ? (
+        ytEmbed ? (
+          <iframe src={ytEmbed} className="w-full h-full" frameBorder="0" allow="autoplay; encrypted-media" />
+        ) : (
+          <video src={url} className="w-full h-full object-cover" muted controls />
+        )
+      ) : (
+        <img
+          src={url}
+          alt={`${viewSociety.societyName} ${idx + 1}`}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect fill="%23f3f4f6" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E';
+          }}
+        />
+      )}
+      {label && (
+        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[7px] px-1 py-0.5 truncate text-center">
+          {label}
+        </div>
+      )}
+    </div>
+  );
+})}
                 {viewSociety.imageUrls.length > 6 && (
                   <div className="aspect-square rounded-md border border-gray-200 flex items-center justify-center bg-gray-100">
                     <span className="text-[10px] font-semibold text-gray-500">+{viewSociety.imageUrls.length - 6}</span>

@@ -15,6 +15,7 @@ import { propertiesAPI } from '../../lib/propertiesAPI';
 import { toast } from 'react-toastify';
 import PropertyFormModal from './components/PropertyFormModal';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
+import Swal from 'sweetalert2';
 
 import { getImageUrl } from "@/lib/helpers";
 
@@ -139,6 +140,29 @@ interface SalesExecutive {
 const dash = (v: any) => (v === null || v === undefined || v === '' ? ' - ' : v);
 const toNum = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
+const getPhotoUrl = (photo: any): string => {
+  if (!photo) return '';
+  return typeof photo === 'string' ? photo : (photo.url || '');
+};
+
+// ✅ Thumbnail ke liye hamesha first ACTUAL IMAGE dhoondo, video ko skip karo
+const getFirstDisplayPhotoUrl = (photos: any[]): string => {
+  if (!Array.isArray(photos) || photos.length === 0) return '';
+
+  const firstImage = photos.find((p) => {
+    if (typeof p === 'string') return true; // legacy string entries = image
+    return p?.type !== 'video';
+  });
+  if (firstImage) return getPhotoUrl(firstImage);
+
+  // Agar sab video hi hain, YouTube thumbnail try karo
+  const first = photos[0];
+  const firstUrl = getPhotoUrl(first);
+  const ytMatch = firstUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) return `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+
+  return ''; // koi usable image nahi mila
+};
 const getDisplayName = (u: any): string => {
   const pick = [
     u?.assigned_to_full_name,
@@ -702,18 +726,25 @@ function normalizeFurnishingItems(r: any): string[] {
 
 /* ---------------------- Normalizer: API -> UI ---------------------- */
 function normalizeProperty(r: any, idx: number): UIProperty {
-  const serverPhotoUrls: string[] = Array.isArray(r?.photoUrls) ? r.photoUrls : [];
-
-  const rawPhotos: string[] =
-    serverPhotoUrls.length
-      ? serverPhotoUrls
-      : Array.isArray(r?.photos) && r.photos.length
-        ? r.photos
-        : coerceStringArray(r?.photos);
-
-  const normalizedPhotos = rawPhotos
-    .map((ph) => serverPhotoUrls.length ? ph : (getImageUrl(ph) || ''))
-    .filter(Boolean);
+  // 🔥 FIX: Handle both old (string[]) and new ({url,label,isSociety}[]) formats
+  const rawPhotos = r?.photos || r?.photoUrls || [];
+  
+  const normalizedPhotos = rawPhotos.map((photo: any) => {
+    // If it's a string (old format) → just URL
+    if (typeof photo === 'string') {
+      return getImageUrl(photo) || '';
+    }
+    // If it's an object (new format) → keep full object
+    return {
+      url: getImageUrl(photo.url) || '',
+      label: photo.label || '',
+      isSociety: !!photo.isSociety,
+      type: photo.type === 'video' ? 'video' : 'image', // 🆕 preserve type
+    };
+  }).filter((p: any) => {
+    if (typeof p === 'string') return !!p;
+    return !!p.url;
+  });
 
   const furnishingItems = normalizeFurnishingItems(r);
 
@@ -900,11 +931,23 @@ const buildInitialData = (p: UIProperty) => {
     existingOwnershipDocUrl: clean(p.ownershipDocUrl),
     existingOwnershipDocName: clean(p.ownershipDocName),
     existingOwnershipDocId: clean(p.ownershipDocId),
-    existingPhotos: (p.photos || []).map((url, idx) => ({
-      id: String(idx + 1),
-      url,
-      name: `photo-${idx + 1}.jpg`,
-    })),
+    // ✅ FIXED: existingPhotos now carries label + isSociety
+  existingPhotos: (p.photos || []).map((photo: any, idx: number) => {
+      const isObj = photo && typeof photo === 'object';
+      const url = isObj ? photo.url : photo;
+      const label = isObj ? (photo.label || '') : '';
+      const isSociety = isObj ? !!photo.isSociety : false;
+      const type: 'video' | 'image' | undefined = isObj ? (photo.type === 'video' ? 'video' : 'image') : undefined;
+      const name = label || `photo-${idx + 1}`;
+      return {
+        id: String(idx + 1),
+        url,
+        name,
+        label,
+        isSociety,
+        type,
+      };
+    }),
   };
 };
 
@@ -1559,25 +1602,55 @@ count: properties.filter(p => {
   }, [loading, error, properties]);
     
 
-  const handleDeleteProperty = async (propertyId: number | string) => {
-    if (window.confirm("Are you sure you want to delete this property?")) {
-      try {
-        await propertiesAPI.deleteProperty(propertyId.toString());
-        setProperties((prev) => prev.filter((p) => p.id !== propertyId));
-        toast.success("Property deleted successfully!");
+ const handleDeleteProperty = async (propertyId: number | string, propertyName?: string) => {
+  // Find the property name if not provided
+  const prop = properties.find(p => p.id === propertyId);
+  const displayName = propertyName || prop?.title || `Property #${propertyId}`;
 
-        // Remove from loaded property IDs
-        setLoadedPropertyIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(String(propertyId));
-          return newSet;
-        });
-      } catch (error) {
-        console.error("Failed to delete property:", error);
-        toast.error("Error deleting property. Please try again.");
-      }
-    }
-  };
+  const result = await Swal.fire({
+    title: 'Are you sure?',
+    text: `You are about to delete "${displayName}". This action cannot be undone!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Yes, delete it!',
+    cancelButtonText: 'Cancel',
+    background: '#fff',
+    backdrop: 'rgba(0,0,0,0.4)',
+    width: '400px',
+    padding: '1.5rem',
+    customClass: {
+      popup: 'rounded-xl shadow-2xl',
+      title: 'text-lg font-bold text-gray-800',
+      htmlContainer: 'text-sm text-gray-600 my-2',
+      confirmButton: 'px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1',
+      cancelButton: 'px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1',
+      actions: 'flex justify-center gap-2 mt-4'
+    },
+    buttonsStyling: false,
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await propertiesAPI.deleteProperty(propertyId.toString());
+    setProperties((prev) => prev.filter((p) => p.id !== propertyId));
+    // Remove from loaded IDs
+    setLoadedPropertyIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(String(propertyId));
+      return newSet;
+    });
+    toast.success("Property deleted successfully!");
+
+    // Optional: show a success Swal (like Leads page) – or keep the toast only
+    // Swal.fire({ title: 'Deleted!', text: 'Property has been deleted.', icon: 'success', timer: 1500, showConfirmButton: false });
+  } catch (error) {
+    console.error("Failed to delete property:", error);
+    toast.error("Error deleting property. Please try again.");
+  }
+};
 
   const handlePropertySelection = (propertyId: number | string) => {
     setSelectedProperties(prev => prev.includes(propertyId) ? prev.filter(id => id !== propertyId) : [...prev, propertyId]);
@@ -2030,49 +2103,69 @@ count: properties.filter(p => {
       setBulkLoading(false);
     }
   };
+const handleBulkDelete = async () => {
+  if (selectedProperties.length === 0) {
+    toast.warn("No properties selected");
+    return;
+  }
 
-  const handleBulkDelete = async () => {
-    if (selectedProperties.length === 0) {
-      toast.warn("No properties selected");
-      return;
-    }
+  const count = selectedProperties.length;
+  const result = await Swal.fire({
+    title: 'Are you sure?',
+    text: `You are about to delete ${count} propert${count > 1 ? 'ies' : 'y'}. This action cannot be undone!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: `Yes, delete ${count} propert${count > 1 ? 'ies' : 'y'}!`,
+    cancelButtonText: 'Cancel',
+    background: '#fff',
+    backdrop: 'rgba(0,0,0,0.4)',
+    width: '400px',
+    padding: '1.5rem',
+    customClass: {
+      popup: 'rounded-xl shadow-2xl',
+      title: 'text-lg font-bold text-gray-800',
+      htmlContainer: 'text-sm text-gray-600 my-2',
+      confirmButton: 'px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1',
+      cancelButton: 'px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1',
+      actions: 'flex justify-center gap-2 mt-4'
+    },
+    buttonsStyling: false,
+  });
 
-    const ok = window.confirm(`Delete ${selectedProperties.length} selected propert${selectedProperties.length > 1 ? 'ies' : 'y'}? This cannot be undone.`);
-    if (!ok) return;
+  if (!result.isConfirmed) return;
 
-    setBulkLoading(true);
-    try {
-      const response = await propertiesAPI.bulkDelete({
-        propertyIds: selectedProperties,
-        updatedBy: 'User'
+  setBulkLoading(true);
+  try {
+    const response = await propertiesAPI.bulkDelete({
+      propertyIds: selectedProperties,
+      updatedBy: 'User'
+    });
+
+    if (response.success) {
+      setProperties(prev => prev.filter(p => !selectedProperties.includes(p.id)));
+      // Remove from loaded IDs
+      setLoadedPropertyIds(prev => {
+        const newSet = new Set(prev);
+        selectedProperties.forEach(id => newSet.delete(String(id)));
+        return newSet;
       });
-
-      if (response.success) {
-        setProperties(prev => prev.filter(p => !selectedProperties.includes(p.id)));
-
-        // Remove from loaded property IDs
-        setLoadedPropertyIds(prev => {
-          const newSet = new Set(prev);
-          selectedProperties.forEach(id => newSet.delete(String(id)));
-          return newSet;
-        });
-
-        setSelectedProperties([]);
-        toast.success(`${response.data.summary.successful} properties deleted`);
-
-        if (response.data.summary.failed > 0) {
-          toast.warn(`${response.data.summary.failed} properties failed to delete`);
-        }
-      } else {
-        toast.error("Failed to delete properties");
+      setSelectedProperties([]);
+      toast.success(`${response.data.summary.successful} properties deleted`);
+      if (response.data.summary.failed > 0) {
+        toast.warn(`${response.data.summary.failed} properties failed to delete`);
       }
-    } catch (error: any) {
-      console.error("Bulk delete failed:", error);
-      toast.error(error?.response?.data?.message || "Error deleting properties");
-    } finally {
-      setBulkLoading(false);
+    } else {
+      toast.error("Failed to delete properties");
     }
-  };
+  } catch (error: any) {
+    console.error("Bulk delete failed:", error);
+    toast.error(error?.response?.data?.message || "Error deleting properties");
+  } finally {
+    setBulkLoading(false);
+  }
+};
 
   const handleTogglePublic = async (propertyId: number | string) => {
     const property = properties.find(p => p.id === propertyId);
@@ -2770,7 +2863,7 @@ style={{ background: theme.orange }}              >
                 }}
               >
                 <ImageWithDebug
-                  srcCandidate={Array.isArray(property.photos) && property.photos.length > 0 ? property.photos[0] : ''}
+srcCandidate={getFirstDisplayPhotoUrl(property.photos)}
                   alt={dash(property.title)}
                   className="w-full h-40 sm:h-48  rounded-md transition-transform duration-300 ease-out group-hover:scale-105 object-cover object-center"
                   propertyCtx={{ title: property.title, propertyId: property.propertyId }}
@@ -2968,11 +3061,11 @@ style={{ background: theme.orange }}              >
                           </button>
                           {canDelete && (
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteProperty(property.id);
-                                setOpenDropdownId(null);
-                              }}
+  onClick={(e) => {
+    e.stopPropagation();
+    handleDeleteProperty(property.id, property.title);
+    setOpenDropdownId(null);
+  }}
                               className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-red-600 hover:bg-red-50 w-full text-left"
                             >
                               <Trash2 size={10} />
@@ -3044,11 +3137,7 @@ style={{ background: theme.orange }}              >
     >
       <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
         <ImageWithDebug
-          srcCandidate={
-            Array.isArray(p.photos) && p.photos.length > 0
-              ? p.photos[0]
-              : ""
-          }
+          srcCandidate={getFirstDisplayPhotoUrl(p.photos)}
           alt={dash(p.title)}
           className="w-full h-full object-cover"
           propertyCtx={{ title: p.title, propertyId: p.propertyId }}
@@ -3150,7 +3239,7 @@ style={{ background: theme.orange }}              >
 </td>
               <td className="px-3 py-3">
                 <div className="space-y-0.5 text-[10px] text-gray-500 whitespace-nowrap">
-                  <div className="flex items-center gap-1"><Eye size={9} />{viewsMap[String(p.id)]?.total_views ?? 0} visits
+                  <div className="flex items-center gap-1"><Eye size={9} />{viewsMap[String(p.id)]?.total_views ?? 0} views
 </div>
                   <div className="flex items-center gap-1"><Users size={9} />{Number(p.interestedBuyers) || 0} buyers</div>
                 </div>
@@ -3205,10 +3294,10 @@ style={{ background: theme.orange }}              >
                             </button>
                             {canDelete && (
                               <button 
-                                onClick={() => { 
-                                  handleDeleteProperty(p.id); 
-                                  setOpenDropdownId(null); 
-                                }} 
+  onClick={() => { 
+    handleDeleteProperty(p.id, p.title); 
+    setOpenDropdownId(null); 
+  }} 
                                 className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-red-600 hover:bg-red-50 w-full text-left"
                               >
                                 <Trash2 size={10} />
