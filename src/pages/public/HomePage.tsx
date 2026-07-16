@@ -80,7 +80,8 @@ interface Property {
   tags?: string[];
   featured?: boolean;
 }
-
+const isVideoUrl = (u: string) =>
+  /\.(mp4|mov|webm|mkv)$/i.test(u) || /youtube\.com|youtu\.be/i.test(u);
 // ✅ Default images by property type
 const DEFAULT_IMAGES = {
   APARTMENT: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800',
@@ -347,32 +348,30 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             const propertyType = p.property_type_name || p.property_type || '';
 
             // ✅ Create images array with proper fallback
-            let images: string[] = [];
+          // ✅ Create images array with proper fallback
+let images: string[] = [];
 
-            // First check p.photos
-          // ✅ Helper (file ke top pe ek baar add karo)
-const isVideoUrl = (u: string) =>
-  /\.(mp4|mov|webm|mkv)$/i.test(u) || /youtube\.com|youtu\.be/i.test(u);
-
-// ✅ FIX inside mapping — sirf images lo, videos skip karo:
+// 1️⃣ Handle p.photos (filter out videos)
 if (Array.isArray(p.photos) && p.photos.length > 0) {
   images = p.photos
-    .map((ph: any) => (typeof ph === 'string' ? ph : ph?.url) || '')
-    .map((u: string) => u.replace(/\\/g, '/'))
-    .filter((u: string) => u && !isVideoUrl(u));   // 🔑 video ko chhod do
+    .map((ph: any) => {
+      const url = typeof ph === 'string' ? ph : (ph?.url ?? '');
+      return (url || '').replace(/\\/g, '/');
+    })
+    .filter((u: string) => u && !isVideoUrl(u));
 }
+
+// 2️⃣ If still empty, try p.photoUrls (also filter videos)
+if (!images.length && Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
+  images = p.photoUrls
+    .map((u: string) => (u || '').replace(/\\/g, '/'))
+    .filter((u: string) => u && !isVideoUrl(u));
+}
+
+// 3️⃣ Final fallback to default image based on property type
 if (!images.length) {
-  images = [getDefaultImageByType(propertyType)];  // fallback
+  images = [getDefaultImageByType(propertyType)];
 }
-            // Then check p.photoUrls
-            else if (Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
-              images = p.photoUrls;
-            }
-            // If no images from backend, use default based on property type
-            else {
-              const defaultImage = getDefaultImageByType(propertyType);
-              images = [defaultImage];
-            }
 
             const city = p.city_name || p.city || p.town || p.cityName || '';
             const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
@@ -465,26 +464,29 @@ setFeaturedProperties(featuredOnly.length ? featuredOnly : mapped);
 
   // ---------- ✅ HERO: fetch & build slides ----------
   useEffect(() => {
-    const fetchHero = async () => {
-      try {
-        const blocks = await homeHeroAPI.list();
-        setHeroBlocks(blocks || []);
-        const slides: { url: string; title?: string; description?: string }[] = [];
-        for (const b of blocks || []) {
-          const photos = Array.isArray(b.photos) ? b.photos as PhotoPreview[] : [];
-          photos.forEach((p) => {
-            const url = (p?.url || '').replace(/\\/g, '/');
-            if (url) slides.push({ url, title: b.title, description: b.description });
-          });
-        }
-        setHeroSlides(slides);
-        setHeroIndex(0);
-      } catch (e) {
-        console.warn('[HomePage] homeHeroAPI.list() failed, will fallback to featured images', e);
-        setHeroBlocks([]);
-        setHeroSlides([]);
-      }
-    };
+   const fetchHero = async () => {
+  try {
+    const blocks = await homeHeroAPI.list();
+    // ✅ keep only active blocks
+    const activeBlocks = blocks.filter(b => b.is_active !== false);
+    setHeroBlocks(activeBlocks);
+
+    const slides: { url: string; title?: string; description?: string }[] = [];
+    for (const b of activeBlocks) {
+      const photos = Array.isArray(b.photos) ? b.photos as PhotoPreview[] : [];
+      photos.forEach((p) => {
+        const url = (p?.url || '').replace(/\\/g, '/');
+        if (url) slides.push({ url, title: b.title, description: b.description });
+      });
+    }
+    setHeroSlides(slides);
+    setHeroIndex(0);
+  } catch (e) {
+    console.warn('[HomePage] homeHeroAPI.list() failed, will fallback to featured images', e);
+    setHeroBlocks([]);
+    setHeroSlides([]);
+  }
+};
     fetchHero();
   }, []);
 

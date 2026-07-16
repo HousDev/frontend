@@ -2167,23 +2167,23 @@ const matchesColSearch =
               </div>
             </td>
 
-            {/* PROGRESS */}
-            <td className="px-2 py-1">
-              <div className="space-y-0.5 whitespace-nowrap">
-                {getStageBadge(buyer.stage)}
-                <div className="w-20">
-                  <div className="flex justify-between text-[8px] text-gray-500 mb-0">
-                    <span>{buyer.stageProgress || 0}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-1">
-                    <div
-                      className="bg-orange-500 h-1 rounded-full"
-                      style={{ width: `${buyer.stageProgress || 0}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </td>
+           {/* PROGRESS */}
+<td className="px-2 py-1">
+  <div className="space-y-0.5 whitespace-nowrap">
+    {getStageBadge(buyer.stage)}
+    <div className="w-20">
+      <div className="flex justify-between text-[8px] text-gray-500 mb-0">
+        <span>{getStageProgressPercent(buyer.stage)}%</span>
+      </div>
+      <div className="w-full bg-gray-200 rounded-full h-1">
+        <div
+          className="bg-orange-500 h-1 rounded-full"
+          style={{ width: `${getStageProgressPercent(buyer.stage)}%` }}
+        />
+      </div>
+    </div>
+  </div>
+</td>
 
             {/* ACTIVITY */}
             <td className="px-2 py-1">
@@ -2458,6 +2458,7 @@ function getLeadScore(score: number) {
 function getStageBadge(stageOrBuyer: string | any) {
   const raw = typeof stageOrBuyer === 'string' ? stageOrBuyer : stageOrBuyer?.buyer_lead_stage ?? stageOrBuyer?.stage ?? '';
   const stageConfig: Record<string, any> = {
+    connected: { bg: 'bg-cyan-100', text: 'text-cyan-700', label: 'Connected', icon: '🔗' },   // 👈 YEH LINE ADD KARO
     initial_contact: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Initial Contact', icon: '📞' },
     requirement_gathering: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Requirement Gathering', icon: '📋' },
     property_hunting: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Property Hunting', icon: '🔍' },
@@ -2469,6 +2470,21 @@ function getStageBadge(stageOrBuyer: string | any) {
   const keyS = raw.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
   const config = stageConfig[keyS] || stageConfig.initial_contact;
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}><span className="mr-1 text-xs">{config.icon}</span><span className="text-[10px] font-normal">{config.label}</span></span>;
+}
+
+function getStageProgressPercent(stage: string | null): number {
+  const stageProgressMap: Record<string, number> = {
+    connected: 15,
+    initial_contact: 15,
+    requirement_gathering: 30,
+    property_hunting: 50,
+    loan_processing: 65,
+    property_finalization: 80,
+    deal_closure: 95,
+    completed: 100,
+  };
+  const keyS = (stage ?? '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  return stageProgressMap[keyS] ?? 0;
 }
 
 

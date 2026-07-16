@@ -137,6 +137,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   // Add this state near your other useState declarations (around line 60)
   const [showPhotoGallery, setShowPhotoGallery] = useState(false);
   const [photoGalleryStartIndex, setPhotoGalleryStartIndex] = useState(0);
+
+  const [galleryFilter, setGalleryFilter] = useState<'all' | 'image' | 'video'>('all');
   // route param
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -151,7 +153,12 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   const [interestRate, setInterestRate] = useState<number>(8.5); // Default 8.5%
   const [tenureYears, setTenureYears] = useState<number>(30); // Default 20 years
 
-
+const getGalleryPhotos = () => {
+  if (!property) return [];
+  const all = property.mediaItems || [];
+  if (galleryFilter === 'all') return all;
+  return all.filter((m: any) => galleryFilter === 'image' ? m.type !== 'video' : m.type === 'video');
+};
   // NEW: auth
   const { currentUser, user } = useAuth() as any;
 
@@ -726,11 +733,16 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       return Number.isFinite(n) && n > 0 ? n : acc;
     }, undefined);
 
-  const rawMediaList: any[] = Array.isArray(p?.images) ? p.images
-  : Array.isArray(p?.photos) ? p.photos
-    : Array.isArray(p?.photoUrls) ? p.photoUrls
+ // ✅ FIX: 'photos' ko pehle check karo (same priority jo HomePage/PublicPropertiesPage/dashboard
+  // sab jagah use karte hain). Pehle 'images' pehle check hota tha jo kabhi-kabhi alag/stale order
+  // wala hota tha aur carousel + gallery modal (dono isi array se data lete hain) card se mismatch
+  // dikhate the.
+  const rawMediaList: any[] = Array.isArray(p?.photos) ? p.photos
+  : Array.isArray(p?.photoUrls) ? p.photoUrls
+    : Array.isArray(p?.images) ? p.images
       : Array.isArray(p?.media) ? p.media : [];
 
+      
 // object {url,label,type} aur plain string dono handle karo
 const mediaItems = rawMediaList.map((m: any) => {
   if (typeof m === 'string') {
@@ -1292,8 +1304,14 @@ const images: string[] = imageOnlyMediaItems.length
           {/* Main Content */}
 <div className="lg:col-span-2 space-y-4 sm:space-y-5 lg:space-y-6 flex flex-col">            {/* Image Carousel - Responsive */}
 <div
-  onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
-  className="relative w-full h-72 sm:h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl ring-1 ring-black/10 group cursor-pointer"
+onClick={() => {
+  const currentMedia = imageOnlyMediaItems[currentImageIndex];
+  const fullList = property.mediaItems || [];
+  const idx = fullList.findIndex((m: any) => m.url === currentMedia?.url);
+  setPhotoGalleryStartIndex(idx >= 0 ? idx : 0);
+  setGalleryFilter('all');
+  setShowPhotoGallery(true);
+}}  className="relative w-full h-72 sm:h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl ring-1 ring-black/10 group cursor-pointer"
 >
               {(() => {
 const currentMedia = imageOnlyMediaItems[currentImageIndex];
@@ -1374,6 +1392,7 @@ return (
 
 
            {/* Property Tags + Image Label */}
+{/* Property Tags + Image Label */}
 <div className="absolute top-0 left-4 right-4 flex items-center justify-between">
   {/* Left - Image Label */}
   {imageOnlyMediaItems[currentImageIndex]?.label && (
@@ -1383,7 +1402,7 @@ return (
   )}
 
   {/* Right - Property Tags */}
-  <div className="hidden sm:block">
+  <div className="hidden sm:block ml-auto">
     <PropertyTags tags={propertyTags} />
   </div>
 </div>
@@ -1480,11 +1499,20 @@ onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
 
               {/* View Options Buttons - Responsive */}
               <div className="absolute bottom-14 sm:bottom-16 right-2 sm:right-3 md:right-4 z-20 flex flex-col sm:flex-row space-y-1.5 sm:space-y-0 sm:space-x-1.5">
-  <button
-    onClick={() => {
-      setPhotoGalleryStartIndex(currentImageIndex);
-      setShowPhotoGallery(true);
-    }}
+ <button
+   onClick={(e) => {
+  e.stopPropagation(); // ✅ FIX: parent hero-carousel div ke onClick tak bubble hone se roko
+  e.preventDefault();
+  const imageList = property.mediaItems?.filter((m: any) => m.type !== 'video') || [];
+  if (imageList.length === 0) {
+    toast.info('No images available');
+    return;
+  }
+  const start = Math.min(currentImageIndex, imageList.length - 1);
+  setPhotoGalleryStartIndex(start);
+  setGalleryFilter('image');
+  setShowPhotoGallery(true);
+}}
     className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-black px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60"
   >
     <Camera size={12} className="sm:w-3.5 sm:h-3.5" />
@@ -1492,7 +1520,8 @@ onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
   </button>
 {showPhotoGallery && (
   <PropertyGalleryPage
-    photos={property.mediaItems || []}
+  key={galleryFilter} 
+photos={getGalleryPhotos()}
     title={[property?.type, property?.unitType, property?.subtype].filter(Boolean).join(' ')}
     price={formatCurrency(property?.price)}
     pricePerSqft={pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ''}
@@ -1508,8 +1537,18 @@ onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
   />
 )}
 <button
-  onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
-  className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-black px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60"
+onClick={(e) => {
+  e.stopPropagation(); // ✅ FIX: yahi bubbling issue tha, isse video filter bhi override ho jaata tha
+  e.preventDefault();
+  const videoList = property.mediaItems?.filter((m: any) => m.type === 'video') || [];
+  if (videoList.length === 0) {
+    toast.info('No videos available');
+    return;
+  }
+  setPhotoGalleryStartIndex(0);
+  setGalleryFilter('video');
+  setShowPhotoGallery(true);
+}}  className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-black px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60"
 >
   <Video size={12} className="sm:w-3.5 sm:h-3.5" />
   <span className="hidden xs:inline">Tour</span>
