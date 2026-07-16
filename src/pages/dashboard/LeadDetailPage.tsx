@@ -330,8 +330,8 @@ const LeadDetailPage: React.FC = () => {
         ...f,
       }));
       followupsData.sort((a, b) => {
-        const da = new Date(a.scheduledDate || a.createdAt || 0).getTime();
-        const db = new Date(b.scheduledDate || b.createdAt || 0).getTime();
+        const da = new Date(a.createdAt || 0).getTime();
+        const db = new Date(b.createdAt || 0).getTime();
         if (db !== da) return db - da;
         if (a.id && b.id) return a.id > b.id ? -1 : 1;
         return 0;
@@ -900,7 +900,6 @@ const LeadDetailPage: React.FC = () => {
                 <div className="space-y-2 max-h-[calc(100vh-320px)] overflow-y-auto pr-1">
                   {followups.map((f) => {
                     const Ico = typeIcon(f.type);
-                    const scheduledLabel = formatDateShort(f.scheduledDate || f.createdAt || "");
                     const color = followupCardClasses(f.type);
                     return (
                       <div key={f.id} className={`border rounded-lg p-2.5 transition-all ${color.container} border-l-3 ${color.leftBar}`}>
@@ -921,7 +920,7 @@ const LeadDetailPage: React.FC = () => {
                             </div>
                             {(f.customRemark || f.remark) && <p className="text-[10px] text-gray-600"><span className="font-medium">Remark:</span> {f.customRemark || f.remark}</p>}
                             {f.nextAction && <p className="text-[10px] text-gray-600"><span className="font-medium">Next Action:</span> {f.nextAction}</p>}
-                            {f.status?.toLowerCase() === 'qualified' && f.scheduledDate && (() => {
+                            {f.status?.toLowerCase() === 'qualified' && f.scheduledDate && new Date(f.scheduledDate).getFullYear() > 1970 && (() => {
                               const sched = formatDateTime(f.scheduledDate);
                               return (
                                 <div className="text-[10px] text-gray-600 bg-slate-50 border border-slate-100 rounded-md p-1.5 flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
@@ -934,9 +933,23 @@ const LeadDetailPage: React.FC = () => {
                                 </div>
                               );
                             })()}
-                            <div className="flex flex-wrap justify-between gap-1 pt-1 text-[9px] text-gray-400">
-                              <div className="flex items-center gap-1"><Calendar size={8} />{scheduledLabel}</div>
-                              <div className="flex items-center gap-1"><User size={8} />{`${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || "System"}</div>
+                            <div className="flex flex-col gap-1 pt-1 text-[9px] text-gray-400">
+                              {f.scheduledDate && new Date(f.scheduledDate).getFullYear() > 1970 && (
+                                <div className="flex items-center gap-1 text-orange-600 font-medium">
+                                  <Calendar size={8} className="text-orange-500" />
+                                  <span>Next Follow-up: {formatDateShort(f.scheduledDate)}</span>
+                                </div>
+                              )}
+                              <div className="flex flex-wrap justify-between gap-1 pt-0.5 border-t border-gray-100/50">
+                                <div className="flex items-center gap-1">
+                                  <Clock size={8} />
+                                  <span>Done: {formatDateShort(f.createdAt || "")}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <User size={8} />
+                                  <span>{`${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || "System"}</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
