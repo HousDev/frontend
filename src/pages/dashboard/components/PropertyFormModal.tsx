@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown, Image } from 'lucide-react';
+import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown, Image, GripVertical } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import Modal from '@/components/ui/Modal';
 import Dropdown from '@/components/ui/Dropdown';
@@ -9,6 +9,10 @@ import { toast } from 'react-toastify';
 import PropertyDescriptionAI from './PropertyDescriptionAI';
 import PriceRangeSelector from '@/components/ui/PriceRangeSelector';
 import { createPortal } from 'react-dom';
+const getYouTubeEmbedUrl = (url: string): string | null => {
+  const match = url.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+};
 
 /* ---------- DESIGN TOKENS ---------- */
 const BRAND = '#E6761D';
@@ -131,8 +135,31 @@ const MultiSelectDropdown: React.FC<{
   const Z = isModalPortal ? 1050 : 9999999;
 
   const popupStyle: any = rect
-    ? { position: 'fixed', zIndex: Z, top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, minWidth: rect.width, maxHeight: '40vh', overflow: 'hidden', pointerEvents: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.10)' }
-    : { position: 'fixed', zIndex: Z, top: 0, left: 0, minWidth: 200, pointerEvents: 'auto' };
+  ? (() => {
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const DROPDOWN_HEIGHT = 300; // Approximate max height
+      
+      // If space below is less than dropdown height AND space above is more,
+      // open upward; otherwise open downward
+      const shouldOpenUpward = spaceBelow < DROPDOWN_HEIGHT && spaceAbove > DROPDOWN_HEIGHT;
+      
+      return {
+        position: 'fixed',
+        zIndex: Z,
+        top: shouldOpenUpward 
+          ? rect.top + window.scrollY - Math.min(spaceAbove - 10, DROPDOWN_HEIGHT) 
+          : rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        minWidth: rect.width,
+        maxHeight: shouldOpenUpward ? Math.min(spaceAbove - 10, DROPDOWN_HEIGHT) : Math.min(spaceBelow - 10, DROPDOWN_HEIGHT),
+        overflow: 'hidden',
+        pointerEvents: 'auto',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+        borderRadius: '8px'
+      };
+    })()
+  : { position: 'fixed', zIndex: Z, top: 0, left: 0, minWidth: 200, pointerEvents: 'auto' };
 
   const popup = (
     <div ref={dropdownRef} className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden" style={popupStyle}>
@@ -175,23 +202,196 @@ const MultiSelectDropdown: React.FC<{
   );
 };
 
-const FilePreviewComponent: React.FC<{ preview: any; onRemove: () => void }> = ({ preview, onRemove }) => (
+
+const ImageLabelDropdown: React.FC<{
+  value: string;
+  options: MasterOption[];
+  onChange: (label: string) => void;
+}> = ({ value, options, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (dropdownRef.current?.contains(target)) return;
+      if (buttonRef.current?.contains(target)) return;
+      setIsOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [isOpen]);
+
+  const updateRect = () => {
+    if (!buttonRef.current) return setRect(null);
+    setRect(buttonRef.current.getBoundingClientRect());
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    updateRect();
+    const onResize = () => updateRect();
+    const onScroll = () => updateRect();
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onScroll, true);
+    const parents = getScrollParents(buttonRef.current);
+    parents.forEach((p) => p.addEventListener('scroll', onScroll, true));
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll, true);
+      parents.forEach((p) => p.removeEventListener('scroll', onScroll, true));
+    };
+  }, [isOpen]);
+
+  const getPortalTarget = () => {
+    if (typeof document === 'undefined') return null;
+    return document.getElementById('modal-portal') || document.body;
+  };
+
+  const isModalPortal = typeof document !== 'undefined' && !!document.getElementById('modal-portal');
+  const Z = isModalPortal ? 1050 : 9999999;
+
+  // Increase MAX_H to show more options
+  const MAX_H = 300;
+ const popupStyle: React.CSSProperties = rect
+  ? (() => {
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const shouldOpenUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
+      return {
+        position: 'fixed',
+        zIndex: Z,
+        top: shouldOpenUpward
+          ? rect.top + window.scrollY - Math.min(spaceAbove - 10, MAX_H) - 4
+          : rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        minWidth: 110,  // 👈 Changed from 120 to 80 (smaller)
+        maxWidth: 110, // 👈 Changed from 150 to 100 (smaller)
+        maxHeight: shouldOpenUpward ? Math.min(spaceAbove - 10, MAX_H) : Math.min(spaceBelow - 10, MAX_H),
+        overflow: 'hidden',
+        pointerEvents: 'auto',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+        borderRadius: '8px',
+      };
+    })()
+  : { position: 'fixed', zIndex: Z, top: 0, left: 0, minWidth: 100, maxWidth: 120, pointerEvents: 'auto' };
+
+  const selectedLabel = options.find((o) => o.label === value)?.label || (value || 'No label');
+
+  const popup = (
+    <div 
+      ref={dropdownRef} 
+      className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden"
+      style={popupStyle}
+    >
+      {/* ✅ FIX: This inner div has overflow-y-auto to enable scrolling */}
+      <div className="overflow-y-auto max-h-[280px] py-1">
+        <button 
+          type="button" 
+          onClick={(e) => { e.stopPropagation(); onChange(''); setIsOpen(false); }}
+          className="w-full text-left px-3 py-1.5 text-xs text-gray-500 hover:bg-orange-50 transition-colors"
+        >
+          No label
+        </button>
+        {options.map((opt) => (
+          <button 
+            key={String(opt.value)} 
+            type="button" 
+            onClick={(e) => { e.stopPropagation(); onChange(opt.label); setIsOpen(false); }}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-orange-50 transition-colors truncate"
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const portalTarget = typeof document !== 'undefined' ? getPortalTarget() : null;
+
+  const hasLabel = !!value;
+ 
+   return (
+     <>
+       <button ref={buttonRef} type="button"
+         onClick={(e) => { e.stopPropagation(); setIsOpen((p) => !p); setTimeout(updateRect, 0); }}
+         className={`w-full flex items-center justify-between gap-1 px-1.5 py-[2px] rounded-md text-[9px] font-semibold outline-none border transition-all ${
+           hasLabel
+             ? 'bg-orange-50 border-[#dbb393] text-gray-500 hover:bg-[#f6c195]'
+             : 'bg-white/15 border-white/25 text-white/90 hover:bg-white/25'
+         }`}
+       >
+         <span className="flex items-center gap-1 min-w-0">
+           <span className="truncate">{selectedLabel}</span>
+         </span>
+         <ChevronDown size={10} className="flex-shrink-0 opacity-80" />
+       </button>
+       {isOpen && buttonRef.current && portalTarget && createPortal(popup, portalTarget)}
+     </>
+   );
+ };
+const FilePreviewComponent: React.FC<{
+  preview: any;
+  onRemove: () => void;
+  labelOptions?: MasterOption[];
+  onLabelChange?: (label: string) => void;
+}> = ({ preview, onRemove, labelOptions = [], onLabelChange }) => (
   <div className="relative group rounded-lg overflow-hidden border border-gray-200">
-    {preview.type === 'image' ? (
-      <>
-        <img src={preview.url} alt={preview.name || preview.file?.name || 'Image'} className="w-full h-20 object-cover" />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
-          <button onClick={onRemove} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all hover:bg-red-600"><X size={12} /></button>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">
-          <p className="text-white text-[9px] truncate">{preview.name || preview.file?.name}</p>
-        </div>
-      </>
+   {preview.type === 'video' ? (
+  <>
+    {getYouTubeEmbedUrl(preview.url) ? (
+<iframe draggable={false} src={getYouTubeEmbedUrl(preview.url)!} className="w-full h-20 pointer-events-none" frameBorder="0" allow="autoplay; encrypted-media" />
     ) : (
-      <div className="bg-gray-50 p-2 h-20 flex flex-col items-center justify-center gap-1">
+      <video draggable={false} src={preview.url} className="w-full h-20 object-cover pointer-events-none" muted />
+    )}
+ <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center pointer-events-none">
+          <button onClick={onRemove} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all hover:bg-red-600 pointer-events-auto"><X size={12} /></button>
+        </div>
+        {onLabelChange && (
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-1 pt-3 pb-1">
+            <ImageLabelDropdown value={preview.label || ''} options={labelOptions} onChange={(label) => onLabelChange(label)} />
+          </div>
+        )}
+      </>
+    ) : preview.type === 'image' ? (
+      <>
+      <img draggable={false} src={preview.url} alt={preview.name || preview.file?.name || 'Image'} className="w-full h-20 object-cover pointer-events-none" />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center pointer-events-none">
+          <button onClick={onRemove} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all hover:bg-red-600 pointer-events-auto"><X size={12} /></button>
+        </div>
+        {/* 🆕 Per-image label dropdown for manual uploads */}
+       {onLabelChange && (
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-1 pt-3 pb-1">
+          <ImageLabelDropdown value={preview.label || ''} options={labelOptions} onChange={(label) => onLabelChange(label)} />
+
+          </div>
+        )}
+      </>
+  ) : (
+      <div className="bg-gray-50 p-2 h-20 flex flex-col items-center justify-center gap-1 relative">
         <FileText className="text-orange-400" size={18} />
         <span className="text-[10px] text-gray-600 text-center truncate w-full px-1">{preview.name || preview.file?.name || 'Document'}</span>
         <button onClick={onRemove} className="absolute top-1.5 right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"><X size={10} /></button>
+        {onLabelChange && (
+          <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-0.5 py-0.5">
+            <select
+              value={preview.label || ''}
+              onChange={(e) => onLabelChange(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full bg-transparent text-white text-[8px] outline-none border-none"
+            >
+              <option value="" className="text-black">No label</option>
+              {labelOptions.map((opt) => (
+                <option key={String(opt.value)} value={opt.label} className="text-black">
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
     )}
   </div>
@@ -254,10 +454,11 @@ export interface NearbyPlace {
 interface FilePreview {
   file?: File;
   url: string;
-  type: 'image' | 'document';
+  type: 'image' | 'document' | 'video';
   isExisting?: boolean;
   name?: string;
   isSociety?: boolean;
+  label?: string; // 🆕
 }
 
 interface PropertyFormData {
@@ -337,7 +538,7 @@ interface InitialDataFromParent {
   existingOwnershipDocUrl?: string;
   existingOwnershipDocName?: string;
   existingOwnershipDocId?: string;
-  existingPhotos?: Array<{ id: string; url: string; name?: string }>;
+existingPhotos?: Array<{ id: string; url: string; name?: string; label?: string; isSociety?: boolean; type?: 'image' | 'video' }>;
   bedrooms?: string;
   bathrooms?: string;
   balcony?: string;
@@ -440,8 +641,21 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     societyImageUrls: [],
   }));
 
-  const [ownershipDocPreview, setOwnershipDocPreview] = useState<FilePreview | null>(null);
+ const [ownershipDocPreview, setOwnershipDocPreview] = useState<FilePreview | null>(null);
   const [photoPreviews, setPhotoPreviews] = useState<FilePreview[]>([]);
+  // ✅ Ref jo photoPreviews ke saath hamesha sync rahe — koi race/lag nahi
+  const photoPreviewsRef = useRef<FilePreview[]>([]);
+  const setPhotoPreviewsSynced = (updater: FilePreview[] | ((prev: FilePreview[]) => FilePreview[])) => {
+    setPhotoPreviews(prev => {
+      const next = typeof updater === 'function' ? (updater as any)(prev) : updater;
+      photoPreviewsRef.current = next; // 🔑 turant update, render ka wait nahi
+      return next;
+    });
+  };
+  const [photoUrlInput, setPhotoUrlInput] = useState('');
+  const [photoUrlType, setPhotoUrlType] = useState<'image' | 'video'>('image');
+  const [draggedSocietyIdx, setDraggedSocietyIdx] = useState<number | null>(null);
+  const [draggedManualIdx, setDraggedManualIdx] = useState<number | null>(null);
   const [nearbyPlaceForm, setNearbyPlaceForm] = useState({ name: '', distance: '', unit: '', type: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -454,7 +668,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     city: string;
     pincode: string;
     amenities: string[];
-    imageUrls?: string[];
+     imageUrls?: { url: string; label: string }[];
   } | null>(null);
   const [isLoadingSociety, setIsLoadingSociety] = useState(false);
   const [isEditDataLoaded, setIsEditDataLoaded] = useState(false);
@@ -487,15 +701,24 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     return '';
   };
 
-  const createFilePreview = (file: File): FilePreview => {
+ const createFilePreview = (file: File): FilePreview => {
     const url = URL.createObjectURL(file);
-    const type = file.type.startsWith('image/') ? 'image' : 'document';
+    const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'document';
     return { file, url, type, isExisting: false };
   };
 
-  const createExistingFilePreview = (url: string, name: string): FilePreview => {
-    const type = /\.(jpg|jpeg|png|gif|webp)$/i.test(url) ? 'image' : 'document';
-    return { url, type, isExisting: true, name };
+const createExistingFilePreview = (url: string, name: string, knownType?: 'image' | 'video'): FilePreview => {
+    const safeUrl = url || '';
+    const type = knownType
+      ? knownType
+      : /\.(jpg|jpeg|png|gif|webp)$/i.test(safeUrl)
+      ? 'image'
+      : /\.(mp4|mov|webm|mkv)$/i.test(safeUrl)
+      ? 'video'
+      : getYouTubeEmbedUrl(safeUrl)
+      ? 'video'
+      : 'document';
+    return { url: safeUrl, type, isExisting: true, name };
   };
 
   const cleanupPreview = (p: FilePreview) => {
@@ -559,21 +782,30 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
       if (societyIdOrName.includes('-') && societyIdOrName.length > 30) {
         actualSociety = await societyAPI.getSocietyByIdentifier(societyIdOrName);
-      } else {
+     } else {
         const allSocieties = await societyAPI.getAllSocieties();
+        const targetName = String(societyIdOrName).trim().toLowerCase();
         actualSociety = allSocieties.find((s: any) =>
-          (s.societyName || s.society_name) === societyIdOrName
+          String(s.societyName || s.society_name || '').trim().toLowerCase() === targetName
         );
       }
 
-      if (actualSociety) {
+     if (actualSociety) {
+        // 🆕 Normalize: backend may return {url,label}[] (new) or plain string[] (legacy records)
+      const rawImageUrls: any[] = actualSociety.imageUrls || [];
+        const normalizedImageUrls = rawImageUrls.map((img: any) =>
+          typeof img === 'string'
+            ? { url: img, label: '', type: 'image' }
+            : { url: img.url, label: img.label || '', type: img.type === 'video' ? 'video' : 'image' } // 🆕
+        );
+
         const details = {
           societyName: actualSociety.societyName || actualSociety.society_name,
           locality: actualSociety.locality || '',
           city: actualSociety.city || '',
           pincode: actualSociety.pincode || '',
           amenities: actualSociety.amenities || [],
-          imageUrls: actualSociety.imageUrls || [],
+          imageUrls: normalizedImageUrls, // 🆕 {url,label}[]
         };
 
         setSocietyDetails(details);
@@ -581,46 +813,41 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
         if (details.locality) setFormData(prev => ({ ...prev, location: details.locality }));
         if (details.city) setFormData(prev => ({ ...prev, city: details.city }));
 
-        if (details.imageUrls && details.imageUrls.length > 0) {
+     if (details.imageUrls && details.imageUrls.length > 0) {
           // In EDIT mode: only show society images that were actually saved on the property.
-          // This prevents re-appearance of society images the user removed in a previous save.
-          let societyUrlsToShow = details.imageUrls;
+          let societyImagesToShow = details.imageUrls; // {url,label}[]
           if (savedPropertyPhotoUrls && savedPropertyPhotoUrls.length >= 0) {
             const normalizedSaved = new Set(savedPropertyPhotoUrls.map(normalizeUrl));
-            societyUrlsToShow = details.imageUrls.filter(url => normalizedSaved.has(normalizeUrl(url)));
+            societyImagesToShow = details.imageUrls.filter(img => normalizedSaved.has(normalizeUrl(img.url)));
           }
 
-          if (societyUrlsToShow.length > 0) {
-            const societyPreviews = societyUrlsToShow.map((url, index) => ({
-              url,
-              type: 'image' as const,
+          if (societyImagesToShow.length > 0) {
+          const societyPreviews = societyImagesToShow.map((img, index) => ({
+              url: img.url,
+              label: img.label,
+              type: (img.type === 'video' ? 'video' : 'image') as 'image' | 'video', // 🆕
               isExisting: true,
-              name: `Society Image ${index + 1}`,
+              name: img.label || `Society Media ${index + 1}`,
               isSociety: true,
             }));
 
-            setPhotoPreviews(prev => {
-              // Build a set of the incoming society URLs so we can strip both:
-              // 1. Photos already flagged as isSociety: true (from a previous fetch)
-              // 2. Photos loaded from initialData without isSociety flag but whose URL matches
-              const incomingSocietyUrlSet = new Set(societyUrlsToShow.map(normalizeUrl));
-              const trueNonSocietyPhotos = prev.filter(
-                p => !p.isSociety && !incomingSocietyUrlSet.has(normalizeUrl(p.url))
-              );
-              // Now add new society images with proper isSociety: true flag
-              return [...trueNonSocietyPhotos, ...societyPreviews];
-            });
+           setPhotoPreviewsSynced(prev => {
+  const incomingSocietyUrlSet = new Set(societyImagesToShow.map(img => normalizeUrl(img.url)));
+  const trueNonSocietyPhotos = prev.filter(
+    p => !p.isSociety && !incomingSocietyUrlSet.has(normalizeUrl(p.url))
+  );
+  return [...trueNonSocietyPhotos, ...societyPreviews];
+});
 
             setFormData(prev => ({
               ...prev,
-              societyImageUrls: societyUrlsToShow,
+              societyImageUrls: societyImagesToShow.map(img => img.url), // keep string[] for the property payload
             }));
           }
-        } else {
-          // Society has no images — clear ALL society-related previews (flagged + URL-matched)
-          setPhotoPreviews(prev => prev.filter(p => !p.isSociety));
-          setFormData(prev => ({ ...prev, societyImageUrls: [] }));
-        }
+       } else {
+  setPhotoPreviewsSynced(prev => prev.filter(p => !p.isSociety));
+  setFormData(prev => ({ ...prev, societyImageUrls: [] }));
+}
 
         // Set amenities
         const amenityIds = (details.amenities || []).map((amenityName: string) => {
@@ -711,10 +938,11 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field as string]) setErrors(prev => ({ ...prev, [field as string]: '' }));
 
-    if (field === 'society') {
-      // Build set of current society image URLs (covers both flagged and unflagged variants)
+   if (field === 'society') {
+      // 🆕 societyDetails.imageUrls is now {url,label}[] — pull .url before normalizing
       const currentSocietyImageUrls = new Set(
-        (societyDetails?.imageUrls || []).map((u: string) => {
+        (societyDetails?.imageUrls || []).map((img: { url: string; label: string }) => {
+          const u = img?.url;
           if (!u) return '';
           try {
             if (u.includes('://')) return new URL(u).pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
@@ -723,7 +951,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
         })
       );
       // Remove all photos that are either flagged as society OR whose URL is a known society image
-      setPhotoPreviews(prev => prev.filter(
+      setPhotoPreviewsSynced(prev => prev.filter(
         p => !p.isSociety && !currentSocietyImageUrls.has(
           (() => {
             if (!p.url) return '';
@@ -798,12 +1026,58 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
   const handlePhotosUpload = (files: File[]) => {
     const newPreviews = files.map(createFilePreview);
-    setPhotoPreviews(prev => [...prev, ...newPreviews]);
+    setPhotoPreviewsSynced(prev => [...prev, ...newPreviews]);
     setFormData(prev => ({
       ...prev,
       photos: [...(prev.photos || []), ...files]
     }));
   };
+
+const handleAddPhotoUrl = () => {
+  const url = photoUrlInput.trim();
+  console.log('🔍 Add URL clicked, input:', url); // debug
+
+  if (!url) {
+    toast.warning('Please paste a URL first');
+    return;
+  }
+
+  // Auto-add http:// if missing (but keep https)
+  let finalUrl = url;
+  if (!/^https?:\/\//i.test(url)) {
+    finalUrl = 'https://' + url;
+    console.log('🔄 Added https:// prefix:', finalUrl);
+  }
+
+  // Validate URL format (basic)
+  try {
+    new URL(finalUrl);
+  } catch (_) {
+    toast.error('Invalid URL format. Please enter a valid URL.');
+    return;
+  }
+
+  // Check duplicate
+  if (photoPreviews.some(p => p.url === finalUrl)) {
+    toast.info('This URL is already added');
+    return;
+  }
+
+  const isYouTube = !!getYouTubeEmbedUrl(finalUrl);
+  const looksLikeVideo = isYouTube || /\.(mp4|mov|webm|mkv)(\?.*)?$/i.test(finalUrl);
+  const resolvedType: 'image' | 'video' = looksLikeVideo ? 'video' : photoUrlType;
+
+  const preview: FilePreview = {
+    url: finalUrl,
+    type: resolvedType,
+    isExisting: true,
+    name: finalUrl.split('/').pop() || 'Media',
+  };
+
+   setPhotoPreviewsSynced(prev => [...prev, preview]);
+  setPhotoUrlInput('');
+  toast.success('URL added successfully!');
+};
 
   const removeOwnershipDoc = () => {
     if (ownershipDocPreview && !ownershipDocPreview.isExisting) cleanupPreview(ownershipDocPreview);
@@ -811,7 +1085,75 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     setFormData(prev => ({ ...prev, ownershipDoc: null }));
   };
 
-  // Remove photo - updates photoPreviews and keeps societyImageUrls in sync
+
+    const updatePhotoLabel = (index: number, label: string) => {
+    setPhotoPreviewsSynced(prev => {
+      const next = [...prev];
+      if (next[index]) next[index] = { ...next[index], label };
+      return next;
+    });
+  };
+
+  // 🆕 Drag-and-drop reorder — society photos among themselves
+  const reorderSocietyPhoto = (fromRelIdx: number, toRelIdx: number) => {
+    if (fromRelIdx === toRelIdx) return;
+    setPhotoPreviewsSynced(prev => {
+      const groupAbs = prev.map((p, i) => (p.isSociety ? i : -1)).filter(i => i !== -1);
+      const fromAbs = groupAbs[fromRelIdx];
+      const toAbs = groupAbs[toRelIdx];
+      if (fromAbs === undefined || toAbs === undefined) return prev;
+      const next = [...prev];
+      const [item] = next.splice(fromAbs, 1);
+      next.splice(toAbs, 0, item);
+      return next;
+    });
+  };
+
+  // 🆕 Drag-and-drop reorder — manual photos among themselves
+  const reorderManualPhoto = (fromRelIdx: number, toRelIdx: number) => {
+    if (fromRelIdx === toRelIdx) return;
+    setPhotoPreviewsSynced(prev => {
+      const groupAbs = prev.map((p, i) => (!p.isSociety ? i : -1)).filter(i => i !== -1);
+      const fromAbs = groupAbs[fromRelIdx];
+      const toAbs = groupAbs[toRelIdx];
+      if (fromAbs === undefined || toAbs === undefined) return prev;
+      const next = [...prev];
+      const [item] = next.splice(fromAbs, 1);
+      next.splice(toAbs, 0, item);
+      return next;
+    });
+  };
+// 🆕 Cross-section drag: move photo between "From Society" and "Manual Uploads"
+const movePhotoAcrossSections = (
+  sourceGroup: 'society' | 'manual',
+  fromRelIdx: number,
+  targetGroup: 'society' | 'manual',
+  toRelIdx: number,
+) => {
+  setPhotoPreviewsSynced(prev => {
+    const sourceAbsList = prev
+      .map((p, i) => ((sourceGroup === 'society' ? p.isSociety : !p.isSociety) ? i : -1))
+      .filter(i => i !== -1);
+    const fromAbs = sourceAbsList[fromRelIdx];
+    if (fromAbs === undefined) return prev;
+
+    const next = [...prev];
+    const [item] = next.splice(fromAbs, 1);
+    const movedItem = { ...item, isSociety: targetGroup === 'society' };
+
+    const targetAbsList = next
+      .map((p, i) => ((targetGroup === 'society' ? p.isSociety : !p.isSociety) ? i : -1))
+      .filter(i => i !== -1);
+    const insertAbs =
+      targetAbsList[toRelIdx] ??
+      (targetAbsList.length > 0 ? targetAbsList[targetAbsList.length - 1] + 1 : next.length);
+
+    next.splice(insertAbs, 0, movedItem);
+    return next;
+  });
+};
+
+
   const removePhoto = (index: number) => {
     const next = [...photoPreviews];
     const removed = next.splice(index, 1)[0];
@@ -821,7 +1163,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       cleanupPreview(removed);
     }
 
-    setPhotoPreviews(next);
+    setPhotoPreviewsSynced(next);
 
     // Update manual photos file list
     const newFiles = next
@@ -854,11 +1196,11 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     initializeForm();
 
     return () => {
-      cleanupAllPreviews();
-      setOwnershipDocPreview(null);
-      setPhotoPreviews([]);
-      setSocietyDetails(null);
-    };
+  cleanupAllPreviews();
+  setOwnershipDocPreview(null);
+  setPhotoPreviews([]);   // 👈 ye bhi
+  setSocietyDetails(null);
+};
   }, [isOpen]);
 
   // Convert stored labels to dropdown IDs after master data loads
@@ -957,8 +1299,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       setOwnershipDocPreview(createExistingFilePreview(initialData.existingOwnershipDocUrl, initialData.existingOwnershipDocName || 'Ownership Document'));
     }
 
-    const existingPhotos = (initialData.existingPhotos || []).map(p => createExistingFilePreview(p.url, p.name || 'Photo'));
-    setPhotoPreviews(existingPhotos);
+   const existingPhotos = (initialData.existingPhotos || []).map((p: any) => ({
+      ...createExistingFilePreview(p.url, p.name || 'Photo', p.type),
+      label: p.label || '',
+      isSociety: !!p.isSociety,
+    }));
+    setPhotoPreviewsSynced(existingPhotos);
 
     if (societyId) {
       // Pass the saved property photo URLs so fetchSocietyDetails only shows
@@ -1020,15 +1366,31 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     fd.append("furnishingItems", JSON.stringify(formData.furnishingItems || []));
     fd.append("nearby_places", JSON.stringify(formData.nearby_places || []));
 
-    // 🔥 FIX: Derive existing image URLs from photoPreviews directly
-    const allExistingPhotoUrls = photoPreviews
+   // ✅ FIX: ref se padho — race-proof, kabhi bhi stale nahi hoga
+    const currentPhotoPreviews = photoPreviewsRef.current;
+
+    const allExistingPhotoUrls = currentPhotoPreviews
       .filter(p => p.isExisting)
-      .map(p => p.url);
+      .map(p => ({ url: p.url, label: p.label || '', isSociety: !!p.isSociety, type: p.type === 'video' ? 'video' : 'image' }));
 
     // Manual upload files
-    const manualPhotoFiles = photoPreviews
+    const manualPhotoFiles = currentPhotoPreviews
       .filter(p => !p.isExisting && p.file)
       .map(p => p.file!);
+
+    // Labels aligned by index with manualPhotoFiles order
+   const manualPhotoLabels = currentPhotoPreviews
+      .filter(p => !p.isExisting && p.file)
+      .map(p => p.label || '');
+
+    const manualPhotoTypes = currentPhotoPreviews
+      .filter(p => !p.isExisting && p.file)
+      .map(p => p.type === 'video' ? 'video' : 'image');
+
+    if (manualPhotoLabels.some(l => l)) {
+      fd.append("photoLabels", JSON.stringify(manualPhotoLabels));
+    }
+    fd.append("photoTypes", JSON.stringify(manualPhotoTypes)); // 🆕
 
     if (allExistingPhotoUrls.length > 0) {
       fd.append("existingPhotoUrls", JSON.stringify(allExistingPhotoUrls));
@@ -1484,7 +1846,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                   if (dropped.length > 0) handlePhotosUpload(dropped);
                 }}
               >
-                <input id="property-photos-input" type="file" accept=".jpg,.jpeg,.png,.webp" multiple className="hidden" onChange={(e) => {
+                <input id="property-photos-input" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.webm" multiple className="hidden" onChange={(e) => {
                   const selected = Array.from(e.target.files || []);
                   if (selected.length > 0) handlePhotosUpload(selected);
                   e.target.value = "";
@@ -1496,8 +1858,38 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                     : 'Click or drag to upload photos'
                   }
                 </p>
-                <p className="text-[10px] text-gray-400">JPG, PNG, WebP — 5 MB each</p>
+                <p className="text-[10px] text-gray-400">JPG, PNG, WebP, MP4, MOV, WebM — 5 MB each</p>
               </div>
+
+
+           {/* 🆕 Add via URL */}
+{/* 🆕 Add via URL */}
+<div className="flex items-center gap-1.5 mt-2">
+  <input
+    type="text"
+    placeholder="Paste image/video URL (YouTube, direct media)..."
+    value={photoUrlInput}
+    onChange={(e) => setPhotoUrlInput(e.target.value)}
+    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); handleAddPhotoUrl(); } }}
+    className="h-8 px-2.5 rounded-md text-xs border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E6761D]/20 focus:border-[#E6761D] transition-colors placeholder:text-gray-400 flex-1 min-w-0"
+  />
+  <select
+    value={photoUrlType}
+    onChange={(e) => setPhotoUrlType(e.target.value as 'image' | 'video')}
+    className="h-8 px-2 rounded-md text-xs border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E6761D]/20 focus:border-[#E6761D] transition-colors w-16 flex-shrink-0"
+  >
+    <option value="image">Image</option>
+    <option value="video">Video</option>
+  </select>
+  <button
+    type="button"
+    onClick={(e) => { e.preventDefault(); handleAddPhotoUrl(); }}
+    className="h-8 px-3 rounded-md text-white text-xs font-semibold flex items-center gap-1 whitespace-nowrap flex-shrink-0 hover:opacity-90 transition-opacity"
+    style={{ background: BRAND }}
+  >
+    Add
+  </button>
+</div>
               {photoPreviews.length > 0 && (
                 <div className="mt-2 max-h-52 overflow-y-auto">
                   {/* Society images section */}
@@ -1505,15 +1897,44 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                     <div className="mb-2">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-blue-500 mb-1">From Society</p>
                       <div className="grid grid-cols-4 gap-1.5">
-                        {photoPreviews.map((preview, index) =>
-                          preview.isSociety ? (
-                            <div key={`society-${index}`} className="relative group rounded-lg overflow-hidden border-2 border-blue-200">
-                              <img src={preview.url} alt={preview.name || `Society ${index + 1}`} className="w-full h-20 object-cover" />
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center">
+                                          {photoPreviews.filter(p => p.isSociety).map((preview, relIdx) => {
+    const index = photoPreviews.indexOf(preview);
+    return (
+    <div key={`society-${index}`}
+     draggable
+      onDragStart={(e) => {
+        console.log("DRAG START", relIdx); 
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", String(relIdx));
+        setDraggedSocietyIdx(relIdx);
+      }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (draggedSocietyIdx !== null) {
+          reorderSocietyPhoto(draggedSocietyIdx, relIdx);
+        } else if (draggedManualIdx !== null) {
+          movePhotoAcrossSections('manual', draggedManualIdx, 'society', relIdx);
+        }
+        setDraggedSocietyIdx(null);
+        setDraggedManualIdx(null);
+      }}
+      onDragEnd={() => { setDraggedSocietyIdx(null); setDraggedManualIdx(null); }}
+      className={`relative group rounded-lg overflow-hidden border-2 border-blue-200 cursor-grab active:cursor-grabbing ${draggedSocietyIdx === relIdx ? 'opacity-40' : ''}`}>
+      {preview.type === 'video' ? (
+        getYouTubeEmbedUrl(preview.url) ? (
+<iframe draggable={false} src={getYouTubeEmbedUrl(preview.url)!} className="w-full h-20 pointer-events-none" frameBorder="0" allow="autoplay; encrypted-media" />
+        ) : (
+          <video draggable={false} src={preview.url} className="w-full h-20 object-cover pointer-events-none" muted />
+        )
+      ) : (
+        <img draggable={false} src={preview.url} alt={preview.name || `Society ${index + 1}`} className="w-full h-20 object-cover pointer-events-none" />
+      )}
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center pointer-events-none">
                                 <button
                                   type="button"
                                   onClick={() => removePhoto(index)}
-                                  className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all hover:bg-red-600"
+                                  className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all hover:bg-red-600 pointer-events-auto"
                                 >
                                   <X size={12} />
                                 </button>
@@ -1521,25 +1942,67 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">
                                 <p className="text-white text-[9px] truncate">{preview.name}</p>
                               </div>
-                              <div className="absolute top-1 left-1">
+                               <div className="absolute top-1 left-1 flex items-center gap-1 pointer-events-none">
                                 <span className="bg-blue-500 text-white text-[8px] px-1 py-0.5 rounded font-bold">S</span>
+                                <span className="bg-black/70 text-white text-[8px] px-1 py-0.5 rounded font-bold">#{relIdx + 1}</span>
+                              </div>
+                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded p-0.5 pointer-events-none" title="Drag to reorder">
+                                <GripVertical size={12} className="text-gray-600" />
                               </div>
                             </div>
-                          ) : null
-                        )}
+                          );
+                        })}
+
                       </div>
                     </div>
                   )}
                   {/* Manual upload images section */}
+                 {/* Manual upload images section */}
                   {photoPreviews.some(p => !p.isSociety) && (
                     <div>
                       <p className="text-[9px] font-bold uppercase tracking-wider text-orange-500 mb-1">Manual Uploads</p>
                       <div className="grid grid-cols-4 gap-1.5">
-                        {photoPreviews.map((preview, index) =>
-                          !preview.isSociety ? (
-                            <FilePreviewComponent key={`manual-${index}`} preview={preview} onRemove={() => removePhoto(index)} />
-                          ) : null
-                        )}
+                     
+                       {photoPreviews.filter(p => !p.isSociety).map((preview, relIdx) => {
+                          const index = photoPreviews.indexOf(preview);
+                          const societyCount = photoPreviews.filter(p => p.isSociety).length;
+                          return (
+                            <div key={`manual-${index}`}
+                             draggable
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", String(relIdx));
+                setDraggedManualIdx(relIdx);
+              }}
+            onDragOver={(e) => e.preventDefault()}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                if (draggedManualIdx !== null) {
+                                  reorderManualPhoto(draggedManualIdx, relIdx);
+                                } else if (draggedSocietyIdx !== null) {
+                                  movePhotoAcrossSections('society', draggedSocietyIdx, 'manual', relIdx);
+                                }
+                                setDraggedManualIdx(null);
+                                setDraggedSocietyIdx(null);
+                              }}
+                              onDragEnd={() => { setDraggedManualIdx(null); setDraggedSocietyIdx(null); }}
+                              className={`relative group cursor-grab active:cursor-grabbing ${draggedManualIdx === relIdx ? 'opacity-40' : ''}`}
+                            >
+                              <FilePreviewComponent
+                                preview={preview}
+                                onRemove={() => removePhoto(index)}
+                                labelOptions={getOptions('media label')}
+                                onLabelChange={(label) => updatePhotoLabel(index, label)}
+                              />
+                              <div className="absolute top-1 left-1 pointer-events-none">
+                                <span className="bg-black/70 text-white text-[8px] px-1 py-0.5 rounded font-bold">#{societyCount + relIdx + 1}</span>
+                              </div>
+                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded p-0.5 pointer-events-none" title="Drag to reorder">
+                                <GripVertical size={12} className="text-gray-600" />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

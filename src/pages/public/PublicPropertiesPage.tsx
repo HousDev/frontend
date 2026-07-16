@@ -93,6 +93,10 @@ const getDefaultImageByType = (propertyType: string): string => {
   return DEFAULT_IMAGES.DEFAULT;
 };
 
+// ✅ ADD this helper near getDefaultImageByType
+const isVideoUrl = (u: string) =>
+  /\.(mp4|mov|webm|mkv)$/i.test(u) || /youtube\.com|youtu\.be/i.test(u);
+
 // ✅ Public gate — client-side hard guard
 const isPublicProp = (p: any): boolean => {
   // accept typical shapes: booleans, 0/1, strings
@@ -766,18 +770,25 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           let images: string[] = [];
 
           // First check p.photos
-          if (Array.isArray(p.photos) && p.photos.length > 0) {
-            images = p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'));
-          }
-          // Then check p.photoUrls
-          else if (Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
-            images = p.photoUrls;
-          }
-          // If no images from backend, use default based on property type
-          else {
-            const defaultImage = getDefaultImageByType(propertyType);
-            images = [defaultImage];
-          }
+        // ✅ FIX:
+if (Array.isArray(p.photos) && p.photos.length > 0) {
+  images = p.photos
+    .map((ph: any) => {
+      const url = typeof ph === 'string' ? ph : (ph?.url ?? '');
+      return (url || '').replace(/\\/g, '/');
+    })
+    .filter((u: string) => u && !isVideoUrl(u));   // 🔑 video hatao
+}
+// Then check p.photoUrls
+else if (Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
+  images = p.photoUrls.filter((u: string) => u && !isVideoUrl(u));
+}
+
+// If still empty (all were videos, or none existed) → fallback
+if (!images.length) {
+  const defaultImage = getDefaultImageByType(propertyType);
+  images = [defaultImage];
+}
 
           const propertyData: Property = {
             id: p.id,

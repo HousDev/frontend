@@ -987,13 +987,14 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-3">
-        {activeTab === 'overview' && (
-          <OverviewTab
-            key={`ov-${propertyData.id}-${overviewKey}`}
-            property={propertyData}
-            onUpdate={setPropertyData}
-          />
-        )}
+      {activeTab === 'overview' && (
+  <OverviewTab
+    key={`ov-${propertyData.id}-${overviewKey}`}
+    property={propertyData}
+    onUpdate={setPropertyData}
+    onOpenGallery={() => setShowMediaModal(true)}
+  />
+)}
 
         {activeTab === 'stages' && (
           <StagesTab
@@ -1183,7 +1184,7 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
 };
 
 // Overview Tab Component - ALL FIELDS PRESERVED
-const OverviewTab = ({ property, onUpdate }: any) => {
+const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
   const [editingPrice, setEditingPrice] = useState(false);
   const [quotePrice, setQuotePrice] = useState(property.budget || 0);
   const [negotiablePrice, setNegotiablePrice] = useState(property.negotiablePrice || property.budget * 0.95);
@@ -1225,9 +1226,7 @@ const OverviewTab = ({ property, onUpdate }: any) => {
     toast.success('Pricing updated successfully!');
   };
 
-  function setShowMediaModal(arg0: boolean): void {
-    throw new Error('Function not implemented.');
-  }
+  
 
   return (
     <div className="space-y-3">
@@ -1246,17 +1245,27 @@ const OverviewTab = ({ property, onUpdate }: any) => {
       navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
       className="mySwiper w-full"
     >
-      {(property.photos?.length ? property.photos : [
-        'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'
-      ]).map((photo: string, index: number) => (
-        <SwiperSlide key={index}>
-          <div className="relative w-full">
-            <ImageZoom
-              src={photo}
-              alt={`${property.title || 'Property'} - ${index + 1}`}
-              className="w-full h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px]"
-              imgClassName="rounded-lg object-cover object-center"
-            />
+
+{(() => {
+    const getUrl = (p: any) => (typeof p === 'string' ? p : p?.url || '');
+    const isVideo = (p: any) => {
+      if (typeof p === 'object' && p?.type === 'video') return true;
+      const u = getUrl(p);
+      return /\.(mp4|mov|webm|mkv)$/i.test(u) || /youtube\.com|youtu\.be/i.test(u);
+    };
+    const onlyImages = (property.photos || []).filter((p: any) => getUrl(p) && !isVideo(p));
+    const list = onlyImages.length
+      ? onlyImages
+      : ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'];
+    return list.map((photo: any, index: number) => (
+      <SwiperSlide key={index}>
+        <div className="relative w-full" onClick={() => onOpenGallery?.()}>
+          <ImageZoom
+            src={getUrl(photo)}
+            alt={`${property.title || 'Property'} - ${index + 1}`}
+            className="w-full h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px] cursor-pointer"
+            imgClassName="rounded-lg object-cover object-center"
+          />
             <div className="absolute top-2 right-2 flex flex-wrap gap-1 justify-end z-20">
               <PropertyTags tags={property.tags || []} />
               {(property.aiScore ?? 0) >= 90 && (
@@ -1267,7 +1276,8 @@ const OverviewTab = ({ property, onUpdate }: any) => {
             </div>
           </div>
         </SwiperSlide>
-      ))}
+      ));
+  })()}
       <button
         ref={prevRef}
         className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 transition"
@@ -1304,11 +1314,11 @@ const OverviewTab = ({ property, onUpdate }: any) => {
     {/* Camera Button - BOTTOM RIGHT CORNER - FIXED WITH INLINE STYLE */}
     <div className="absolute z-20" style={{ bottom: '12px', right: '12px' }}>
       <button 
-        className="p-1.5 bg-black/60 text-white rounded-lg hover:bg-black/70 transition backdrop-blur-sm"
-        onClick={() => setShowMediaModal?.(true)}
-      >
-        <Camera size={14} />
-      </button>
+  className="p-1.5 bg-black/60 text-white rounded-lg hover:bg-black/70 transition backdrop-blur-sm"
+  onClick={() => onOpenGallery?.()}
+>
+  <Camera size={14} />
+</button>
     </div>
   </div>
 </div>

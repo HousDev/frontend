@@ -72,6 +72,7 @@ import { buyerSavedAPI } from '@/lib/buyerSavedPropertiesAPI';
 import { toast } from 'react-toastify'; // if not already imported
 import { getMasterDropdownOptions } from '@/lib/useMasterData';
 import { buyerAPI } from '@/lib/buyerAPI';
+import PropertyGalleryPage from '../../components/properties/PropertyGalleryPage';
 
 
 type RawProperty = any;
@@ -547,6 +548,22 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     if (typeof window !== "undefined") window.location.href = `tel:${phone}`;
   };
 
+
+  const openWhatsAppFromGallery = (e?: React.MouseEvent) => {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const phone = getexecutiveToPhone().replace(/\D/g, '');
+  if (!phone) return;
+  const cc = phone.startsWith('91') || phone.length > 10 ? '' : '91';
+  const title = property?.title || [property?.unitType, property?.type].filter(Boolean).join(' ') || 'a property';
+  const loc = property?.locationNormalized || property?.location || property?.city || 'your listed property location';
+  const priceValue = Number(property?.price || 0);
+  const priceText = !isNaN(priceValue) ? `₹${priceValue.toLocaleString('en-IN')}` : 'Price on request';
+  const slugValue = property?.slug || property?.raw?.slug || (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '') || '';
+  const link = `${window.location.origin}/properties/${encodeURIComponent(String(slugValue))}`;
+  const message = `Hi! I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you provide more details?\n${link}`;
+  window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+};
+
   // Normalize amenities into array
   const normalizeAmenities = (p: RawProperty): string[] => {
     if (Array.isArray(p?.amenities) && p.amenities.length) return p.amenities.map(String);
@@ -557,6 +574,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     if (Array.isArray(p?.amenityList) && p.amenityList.length) return p.amenityList.map(String);
     return [];
   };
+
+  
 
   // put above PropertyTags (same place where old extractLocalityCity lived)
   const isPin = (s: string) => /^\d{5,6}$/.test((s || "").replace(/\s+/g, ""));
@@ -707,10 +726,20 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       return Number.isFinite(n) && n > 0 ? n : acc;
     }, undefined);
 
-    const images: string[] = Array.isArray(p?.images) ? p.images
-      : Array.isArray(p?.photos) ? p.photos
-        : Array.isArray(p?.photoUrls) ? p.photoUrls
-          : Array.isArray(p?.media) ? p.media.map((m: any) => m?.url ?? m) : [];
+  const rawMediaList: any[] = Array.isArray(p?.images) ? p.images
+  : Array.isArray(p?.photos) ? p.photos
+    : Array.isArray(p?.photoUrls) ? p.photoUrls
+      : Array.isArray(p?.media) ? p.media : [];
+
+// object {url,label,type} aur plain string dono handle karo
+const mediaItems = rawMediaList.map((m: any) => {
+  if (typeof m === 'string') {
+    return { url: m, type: /\.(mp4|mov|webm|mkv)$/i.test(m) ? 'video' : 'image' };
+  }
+  return { url: m?.url ?? '', type: m?.type === 'video' ? 'video' : 'image', label: m?.label };
+}).filter((m: any) => m.url);
+
+const images: string[] = mediaItems.map((m: any) => m.url); // backward compatible string array
 
     // const rawLocation = p?.location ?? p?.address ?? p?.place ?? p?.locality ?? p;
     const rawLocation =
@@ -812,6 +841,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       amenities: normalizeAmenities(p),
       images: images.length ? images : undefined,
       photos: images.length ? images : undefined,
+      mediaItems: mediaItems.length ? mediaItems : undefined, 
       description: p?.description ?? p?.desc ?? p?.about ?? '',
       verified: Boolean(p?.verified ?? p?.is_verified ?? p?.isVerified),
       featured: Boolean(p?.featured ?? p?.is_featured ?? p?.isFeatured),
@@ -1161,11 +1191,11 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     );
   }
 
-  const images: string[] = Array.isArray(property?.images) && property.images.length
-    ? property.images
-    : Array.isArray(property?.photos) && property.photos.length
-      ? property.photos
-      : [
+const imageOnlyMediaItems = (property?.mediaItems || []).filter((m: any) => m.type !== 'video');
+
+const images: string[] = imageOnlyMediaItems.length
+    ? imageOnlyMediaItems.map((m: any) => m.url)
+    : [
         'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg',
         'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg',
         'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg'
@@ -1236,35 +1266,73 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header (hidden on mobile) */}
-      <div
-        className=" bg-white shadow-sm border-b pt-20 sticky top-0 z-40 mb-1"
-        style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between ">
-            <button
-              onClick={handleBack}
-              className="flex items-center text-white hover:text-[#CC6A1A] transition-colors text-sm font-medium"
-            >
-              <ArrowLeft size={18} className="mr-1" />
-              Back to Properties
-            </button>
+     {/* Header (hidden on mobile) */}
+      {!showPhotoGallery && (
+        <div
+          className=" bg-white shadow-sm border-b pt-20 sticky top-0 z-40 mb-1"
+          style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between ">
+              <button
+                onClick={handleBack}
+                className="flex items-center text-white hover:text-[#CC6A1A] transition-colors text-sm font-medium"
+              >
+                <ArrowLeft size={18} className="mr-1" />
+                Back to Properties
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-6 py-6 pb-4 md:pb-6 pt-0 bg-gradient-to-b from-white via-slate-50 to-white">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Main Content */}
 <div className="lg:col-span-2 space-y-4 sm:space-y-5 lg:space-y-6 flex flex-col">            {/* Image Carousel - Responsive */}
-            <div className="relative w-full h-72 sm:h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl ring-1 ring-black/10 group">
-              <img
-                src={images[currentImageIndex]}
-                alt={property?.title || "Property Image"}
-                className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-[1.02]"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+<div
+  onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
+  className="relative w-full h-72 sm:h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl ring-1 ring-black/10 group cursor-pointer"
+>
+              {(() => {
+const currentMedia = imageOnlyMediaItems[currentImageIndex];
+const isVideo = false; // ab yahan kabhi video nahi aayegi
+const currentUrl = images[currentImageIndex];
+
+return (
+  <img
+    src={currentUrl}
+    alt={property?.title || "Property Image"}
+    onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
+    className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-[1.02] cursor-pointer"
+  />
+);
+
+  if (isVideo) {
+    const yt = currentUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return yt ? (
+      <iframe
+        src={`https://www.youtube.com/embed/${yt[1]}`}
+        className="w-full h-full"
+        frameBorder="0"
+        allow="autoplay; encrypted-media"
+      />
+    ) : (
+      <video src={currentUrl} className="w-full h-full object-cover" controls muted />
+    );
+  }
+
+ return (
+  <img
+    src={currentUrl}
+    alt={property?.title || "Property Image"}
+    onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
+    className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-[1.02] cursor-pointer"
+  />
+);
+})()}
+<div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent pointer-events-none" />
 
               {/* Watermark Overlay */}
               <div className="absolute inset-0 pointer-events-none select-none z-10">
@@ -1286,7 +1354,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     {subtype && <span className="mr-1 sm:mr-2">{subtype}</span>}
                   </div>
 
-                  {/* 🔹 REX ID Badge (right side of title) */}
+                  {/*  REX ID Badge (right side of title) */}
                   <span
                     className="text-white "
                   >
@@ -1303,17 +1371,27 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
   <PropertyTags tags={propertyTags} />
 </div>
 
-              {/* Property Tags - Display fetched tags */}
-              <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 ">
-                <div className="absolute top-0 right-3 z-20 hidden sm:block ">
-                  <PropertyTags tags={propertyTags} />
-                </div>
-              </div>
+
+
+           {/* Property Tags + Image Label */}
+<div className="absolute top-0 left-4 right-4 flex items-center justify-between">
+  {/* Left - Image Label */}
+  {imageOnlyMediaItems[currentImageIndex]?.label && (
+    <div className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-gray-700 px-2 py-0   mt-0 mb-2 text-sm rounded-sm shadow-lg ring-1 ring-white/20">
+      {imageOnlyMediaItems[currentImageIndex].label}
+    </div>
+  )}
+
+  {/* Right - Property Tags */}
+  <div className="hidden sm:block">
+    <PropertyTags tags={propertyTags} />
+  </div>
+</div>
 
               {/* Top-Right Action Buttons - Responsive */}
               <div className="absolute top-2 sm:top-3 md:top-8 right-2 sm:right-3 md:right-4 z-20 flex flex-col space-y-1.5 sm:space-y-2">
                 <button
-                  onClick={() => setOpen(true)}
+onClick={(e) => { e.stopPropagation(); setOpen(true); }}
                   className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/70 hover:bg-white/80 backdrop-blur-md text-white  shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
                   aria-label="Share property"
                 >
@@ -1360,7 +1438,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               {images.length > 1 && (
                 <>
                   <button
-                    onClick={() => setCurrentImageIndex((p) => (p - 1 + images.length) % images.length)}
+onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((p) => (p - 1 + images.length) % images.length); }}
                     className="absolute left-2 sm:left-3 md:left-4 top-1/2 -translate-y-1/2
                     bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-2 sm:p-2.5 md:p-3 rounded-full z-20 
                     transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110"
@@ -1368,7 +1446,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                     <ChevronLeft size={12} className="sm:w-4 sm:h-4" />
                   </button>
                   <button
-                    onClick={() => setCurrentImageIndex((p) => (p + 1) % images.length)}
+onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((p) => (p + 1) % images.length); }}
                     className="absolute right-2 sm:right-3 md:right-4 top-1/2 -translate-y-1/2
                     bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-2 sm:p-2.5 md:p-3 rounded-full z-20 
                     transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110"
@@ -1378,17 +1456,19 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
                 </>
               )}
 
-              {/* Image Counter - Responsive */}
-              <div className="absolute bottom-3 sm:bottom-4 right-2 sm:right-3 md:right-4 z-20 bg-gradient-to-r from-slate-900/70 to-black/60 backdrop-blur-md text-white px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs shadow-lg ring-1 ring-white/20">
-                {currentImageIndex + 1} / {images.length}
-              </div>
+
+
+{/* Image Counter - Responsive */}
+<div className="absolute bottom-3 sm:bottom-4 right-2 sm:right-3 md:right-4 z-20 bg-gradient-to-r from-slate-900/70 to-black/60 backdrop-blur-md text-white px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs shadow-lg ring-1 ring-white/20">
+  {currentImageIndex + 1} / {images.length}
+</div>
 
               {/* Dot Indicators - Responsive */}
               {images.length > 1 && images.length <= 8 && (
 <div className="absolute bottom-2 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 flex space-x-1.5 sm:space-x-2">                  {images.map((_, idx) => (
                     <button
                       key={idx}
-                      onClick={() => setCurrentImageIndex(idx)}
+onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
                       className={`w-1.5 h-1.5 sm:w-2 sm:h-2 md:w-2.5 md:h-2.5 rounded-full transition-all duration-300 ${idx === currentImageIndex
                         ? "bg-white w-6 sm:w-8 shadow-lg"
                         : "bg-white/50 hover:bg-white/75"
@@ -1410,18 +1490,30 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
     <Camera size={12} className="sm:w-3.5 sm:h-3.5" />
     <span className="hidden xs:inline">Photos</span>
   </button>
-  {showPhotoGallery && (
-    <PhotoGalleryModal
-      images={images}
-      isOpen={showPhotoGallery}
-      onClose={() => setShowPhotoGallery(false)}
-      initialIndex={photoGalleryStartIndex}
-    />
-  )}
-  <button className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-black px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60">
-    <Video size={12} className="sm:w-3.5 sm:h-3.5" />
-    <span className="hidden xs:inline">Tour</span>
-  </button>
+{showPhotoGallery && (
+  <PropertyGalleryPage
+    photos={property.mediaItems || []}
+    title={[property?.type, property?.unitType, property?.subtype].filter(Boolean).join(' ')}
+    price={formatCurrency(property?.price)}
+    pricePerSqft={pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ''}
+    initialIndex={photoGalleryStartIndex}
+    liked={liked}
+    onToggleSave={handleSaveClick}
+    executive={property?.executiveTo}
+    onClose={() => setShowPhotoGallery(false)}
+    onCall={callexecutiveTo}
+    onWhatsapp={openWhatsAppFromGallery}
+    onMessage={() => setShowContactForm(true)}
+    onSchedule={() => setShowContactForm(true)}
+  />
+)}
+<button
+  onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
+  className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-black px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60"
+>
+  <Video size={12} className="sm:w-3.5 sm:h-3.5" />
+  <span className="hidden xs:inline">Tour</span>
+</button>
 </div>
             </div>
 
@@ -2536,9 +2628,9 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
       
 
       {/* Contact Form Modal */}
-      {showContactForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5">
+    {showContactForm && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
+    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-[#0b3856]">Call Back Request</h3>
               <button
@@ -2665,12 +2757,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
               ? property.description
               : (property?.raw?.description ?? property?.raw?.short_description ?? '');
 
-          const shareImage =
-            (Array.isArray(property?.images) && property.images[0]) ||
-            (Array.isArray(property?.photos) && property.photos[0]) ||
-            property?.raw?.image ||
-            property?.raw?.photo ||
-            '';
+         const firstImageMedia = (property?.mediaItems || []).find((m: any) => m.type !== 'video');
+const shareImage = firstImageMedia?.url || property?.raw?.image || property?.raw?.photo || '';
 
           const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 

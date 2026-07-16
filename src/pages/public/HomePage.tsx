@@ -350,9 +350,20 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             let images: string[] = [];
 
             // First check p.photos
-            if (Array.isArray(p.photos) && p.photos.length > 0) {
-              images = p.photos.map((ph: string) => (ph || '').replace(/\\/g, '/'));
-            }
+          // ✅ Helper (file ke top pe ek baar add karo)
+const isVideoUrl = (u: string) =>
+  /\.(mp4|mov|webm|mkv)$/i.test(u) || /youtube\.com|youtu\.be/i.test(u);
+
+// ✅ FIX inside mapping — sirf images lo, videos skip karo:
+if (Array.isArray(p.photos) && p.photos.length > 0) {
+  images = p.photos
+    .map((ph: any) => (typeof ph === 'string' ? ph : ph?.url) || '')
+    .map((u: string) => u.replace(/\\/g, '/'))
+    .filter((u: string) => u && !isVideoUrl(u));   // 🔑 video ko chhod do
+}
+if (!images.length) {
+  images = [getDefaultImageByType(propertyType)];  // fallback
+}
             // Then check p.photoUrls
             else if (Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
               images = p.photoUrls;
@@ -437,8 +448,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         );
 
         // ✅ सिर्फ featured pick करें
-        const featuredOnly = mapped.filter(isFeatured);
-        setFeaturedProperties(featuredOnly.length ? featuredOnly : []);
+      const featuredOnly = mapped.filter(isFeatured);
+setFeaturedProperties(featuredOnly.length ? featuredOnly : mapped);
 
       } catch (err) {
         console.error('Error fetching featured properties (public-only):', err);

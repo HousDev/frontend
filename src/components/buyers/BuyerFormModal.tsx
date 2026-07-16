@@ -273,6 +273,128 @@ const MultiSelectDropdown = ({
   );
 };
 
+// ---------- Single-select Searchable Dropdown ----------
+const SearchableSelectDropdown = ({
+  label,
+  options = [],
+  value,
+  onChange,
+  placeholder = "Select",
+  required = false,
+}: {
+  label: string;
+  options?: any[];
+  value: any;
+  onChange: (val: any) => void;
+  placeholder?: string;
+  required?: boolean;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const safeOptions = Array.isArray(options) ? options : [];
+
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm) return safeOptions;
+    const t = searchTerm.toLowerCase();
+    return safeOptions.filter((o) =>
+      (o?.label || '').toLowerCase().includes(t)
+    );
+  }, [safeOptions, searchTerm]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setIsOpen(false); setSearchTerm(''); }
+      if (event.key === 'Tab' && isOpen) { setIsOpen(false); setSearchTerm(''); }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const handleSelect = (val: any) => {
+    onChange(val);
+    setIsOpen(false);
+    setSearchTerm('');
+  };
+
+  // Find the label for the current value
+  const selectedLabel = safeOptions.find(o => o.value === value)?.label || '';
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <label className="block text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: MU }}>
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <button
+        type="button"
+        className="border rounded-lg w-full h-8 px-2.5 text-[11px] text-left focus:outline-none focus:ring-1 transition-all flex items-center justify-between bg-white"
+        style={{ borderColor: BD }}
+        onClick={() => setIsOpen(prev => !prev)}
+      >
+        <span className="truncate" style={{ color: value ? N : MU }}>
+          {value ? selectedLabel : placeholder}
+        </span>
+        <ChevronDown size={12} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} style={{ color: MU }} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-hidden" style={{ borderColor: BD }}>
+          <div className="p-1.5 border-b sticky top-0 bg-white z-10" style={{ borderColor: BD }}>
+            <div className="relative">
+              <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: MU }} />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-7 pr-2 py-1 text-[10px] border rounded-md focus:outline-none focus:ring-1"
+                style={{ borderColor: BD }}
+              />
+            </div>
+          </div>
+          <div className="overflow-y-auto max-h-32">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => (
+                <div
+                  key={option.value}
+                  className={`flex items-center p-1.5 hover:bg-gray-50 cursor-pointer gap-2 transition-colors ${
+                    value === option.value ? 'bg-orange-50' : ''
+                  }`}
+                  onClick={() => handleSelect(option.value)}
+                >
+                  <span className="text-[10px]" style={{ color: N }}>{option.label}</span>
+                </div>
+              ))
+            ) : (
+              <div className="p-2 text-[10px] text-center" style={{ color: MU }}>No options found</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ---------- date helpers ----------
 const TODAY = new Date();
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -755,28 +877,29 @@ const BuyerFormModal = ({
                       />
                     )}
                   </FormField>
-                  <FormField label="Location/Area" className="col-span-2">
-                    {filteredLocations.length || locationOptions.length ? (
-                      <select
-                        value={formData.location || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                        className="w-full border rounded-lg h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
-                        style={{ borderColor: BD }}
-                      >
-                        <option value="">Select Location</option>
-                        {(filteredLocations.length ? filteredLocations : locationOptions).map((l: any) => (<option key={l.value ?? l.label} value={l.value ?? l.label}>{l.label ?? l.value}</option>))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={formData.location}
-                        onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                        className="border rounded-lg w-full h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
-                        style={{ borderColor: BD }}
-                        placeholder="Location/area"
-                      />
-                    )}
-                  </FormField>
+                <FormField label="Location/Area" className="col-span-2">
+  {(filteredLocations.length || locationOptions.length) ? (
+    <SearchableSelectDropdown
+      label=""
+      options={(filteredLocations.length ? filteredLocations : locationOptions).map((l: any) => ({
+        value: l.value ?? l.label,
+        label: l.label ?? l.value
+      }))}
+      value={formData.location}
+      onChange={(val) => setFormData(prev => ({ ...prev, location: val }))}
+      placeholder="Select Location"
+    />
+  ) : (
+    <input
+      type="text"
+      value={formData.location}
+      onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+      className="border rounded-lg w-full h-7 px-2 text-[10px] focus:outline-none focus:ring-1 bg-white"
+      style={{ borderColor: BD }}
+      placeholder="Location/area"
+    />
+  )}
+</FormField>
                 </div>
               </div>
 
