@@ -526,7 +526,19 @@ const LeadDetailPage: React.FC = () => {
     if (!editingFollowup && !canCreateFollowups) { toast.error("You do not have permission to create follow-ups"); return; }
     let saved: any = null;
     const scheduledISO = data.scheduleDate ? `${data.scheduleDate}T${(data.scheduleTime || "00:00")}:00` : null;
-    const followupPayload = { leadId: data.lead_id ?? lead.id, type: data.followupType, stage: data.leadStage, status: data.leadStatus, remark: data.remark, customRemark: data.customRemark, nextAction: data.nextAction, scheduledDate: scheduledISO, priority: data.priority, updated_by: (user as AuthUser)?.id ?? (user as AuthUser)?.user_id };
+    const followupPayload = { 
+      leadId: data.lead_id ?? lead.id, 
+      type: data.followupType, 
+      stage: data.leadStage, 
+      status: data.leadStatus, 
+      remark: data.remark, 
+      customRemark: data.customRemark, 
+      nextAction: data.nextAction, 
+      scheduledDate: scheduledISO, 
+      priority: data.priority, 
+      createdBy: Number((user as AuthUser)?.id ?? (user as AuthUser)?.user_id),
+      updatedBy: Number((user as AuthUser)?.id ?? (user as AuthUser)?.user_id)
+    };
     try {
       if (editingFollowup) {
         await followupAPI.updateFollowup(String(editingFollowup.id), followupPayload);
