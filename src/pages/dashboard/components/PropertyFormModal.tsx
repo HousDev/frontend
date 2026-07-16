@@ -452,6 +452,7 @@ export interface NearbyPlace {
 }
 
 interface FilePreview {
+  id: string;
   file?: File;
   url: string;
   type: 'image' | 'document' | 'video';
@@ -461,7 +462,11 @@ interface FilePreview {
   label?: string; // 🆕
 }
 
+const genPreviewId = () =>
+  (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `p_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
 interface PropertyFormData {
+
   seller: string;
   propertyType: string;
   propertySubtype: string;
@@ -654,8 +659,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   };
   const [photoUrlInput, setPhotoUrlInput] = useState('');
   const [photoUrlType, setPhotoUrlType] = useState<'image' | 'video'>('image');
-  const [draggedSocietyIdx, setDraggedSocietyIdx] = useState<number | null>(null);
-  const [draggedManualIdx, setDraggedManualIdx] = useState<number | null>(null);
+    const [draggedPhotoIdx, setDraggedPhotoIdx] = useState<number | null>(null);
+
   const [nearbyPlaceForm, setNearbyPlaceForm] = useState({ name: '', distance: '', unit: '', type: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -701,10 +706,10 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     return '';
   };
 
- const createFilePreview = (file: File): FilePreview => {
+const createFilePreview = (file: File): FilePreview => {
     const url = URL.createObjectURL(file);
     const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'document';
-    return { file, url, type, isExisting: false };
+    return { id: genPreviewId(), file, url, type, isExisting: false };
   };
 
 const createExistingFilePreview = (url: string, name: string, knownType?: 'image' | 'video'): FilePreview => {
@@ -718,7 +723,7 @@ const createExistingFilePreview = (url: string, name: string, knownType?: 'image
       : getYouTubeEmbedUrl(safeUrl)
       ? 'video'
       : 'document';
-    return { url: safeUrl, type, isExisting: true, name };
+     return { id: genPreviewId(), url: safeUrl, type, isExisting: true, name };
   };
 
   const cleanupPreview = (p: FilePreview) => {
@@ -759,12 +764,16 @@ const createExistingFilePreview = (url: string, name: string, knownType?: 'image
     }
 
     // URL normalizer — strips protocol/host so we can compare relative vs absolute URLs
+   // URL normalizer — strips protocol/host so we can compare relative vs absolute URLs
+    // ✅ FIX: pathname ke saath search (query string) bhi rakho, warna alag YouTube URLs
+    // (jaise ?v=abc vs ?v=xyz) dono "watch" pe collide ho jaate the aur galat photo drop ho jaati thi
     const normalizeUrl = (u: string) => {
       if (!u) return '';
       let pathStr = u;
       if (u.includes('://')) {
         try {
-          pathStr = new URL(u).pathname;
+          const parsed = new URL(u);
+          pathStr = parsed.pathname + parsed.search;
         } catch {
           const parts = u.split('//')[1];
           if (parts) {
@@ -775,7 +784,6 @@ const createExistingFilePreview = (url: string, name: string, knownType?: 'image
       }
       return pathStr.toLowerCase().replace(/^\/+|\/+$/g, '').replace(/\/+/g, '/');
     };
-
     try {
       setIsLoadingSociety(true);
       let actualSociety = null;
@@ -823,6 +831,7 @@ const createExistingFilePreview = (url: string, name: string, knownType?: 'image
 
           if (societyImagesToShow.length > 0) {
           const societyPreviews = societyImagesToShow.map((img, index) => ({
+              id: genPreviewId(),
               url: img.url,
               label: img.label,
               type: (img.type === 'video' ? 'video' : 'image') as 'image' | 'video', // 🆕
@@ -831,12 +840,28 @@ const createExistingFilePreview = (url: string, name: string, knownType?: 'image
               isSociety: true,
             }));
 
-           setPhotoPreviewsSynced(prev => {
+         setPhotoPreviewsSynced(prev => {
   const incomingSocietyUrlSet = new Set(societyImagesToShow.map(img => normalizeUrl(img.url)));
-  const trueNonSocietyPhotos = prev.filter(
-    p => !p.isSociety && !incomingSocietyUrlSet.has(normalizeUrl(p.url))
-  );
-  return [...trueNonSocietyPhotos, ...societyPreviews];
+  const societyByUrl = new Map(societyPreviews.map(sp => [normalizeUrl(sp.url), sp]));
+
+  // ✅ FIX: purani order (saved photoOrder se aayi hui) preserve karo — society photos ko
+  // end mein append karne ke bajaye unki current position pe hi fresh data (label/type) se update karo.
+  // Non-society (manual) photos ko kabhi filter mat karo — pehle wahi galti se drop ho rahe the.
+  const merged = prev
+    .filter(p => !p.isSociety || incomingSocietyUrlSet.has(normalizeUrl(p.url)))
+    .map(p => {
+      if (p.isSociety) {
+        const fresh = societyByUrl.get(normalizeUrl(p.url));
+        return fresh ? { ...fresh, id: p.id } : p; // id same rakho taaki React key/position na tute
+      }
+      return p;
+    });
+
+  // Agar koi bilkul naya society image hai jo prev mein tha hi nahi, use end mein add karo
+  const existingUrls = new Set(merged.map(p => normalizeUrl(p.url)));
+  const newlyAdded = societyPreviews.filter(sp => !existingUrls.has(normalizeUrl(sp.url)));
+
+  return [...merged, ...newlyAdded];
 });
 
             setFormData(prev => ({
@@ -1037,8 +1062,8 @@ const handleAddPhotoUrl = () => {
   const url = photoUrlInput.trim();
   console.log('🔍 Add URL clicked, input:', url); // debug
 
-  if (!url) {
-    toast.warning('Please paste a URL first');
+ if (!url) {
+    toast.warn('Please paste a URL first');
     return;
   }
 
@@ -1057,8 +1082,8 @@ const handleAddPhotoUrl = () => {
     return;
   }
 
-  // Check duplicate
-  if (photoPreviews.some(p => p.url === finalUrl)) {
+  const normalizeForDup = (u: string) => u.trim().replace(/\/+$/, '').toLowerCase();
+  if (photoPreviews.some(p => normalizeForDup(p.url) === normalizeForDup(finalUrl))) {
     toast.info('This URL is already added');
     return;
   }
@@ -1068,6 +1093,7 @@ const handleAddPhotoUrl = () => {
   const resolvedType: 'image' | 'video' = looksLikeVideo ? 'video' : photoUrlType;
 
   const preview: FilePreview = {
+    id: genPreviewId(),
     url: finalUrl,
     type: resolvedType,
     isExisting: true,
@@ -1086,97 +1112,61 @@ const handleAddPhotoUrl = () => {
   };
 
 
-    const updatePhotoLabel = (index: number, label: string) => {
-    setPhotoPreviewsSynced(prev => {
-      const next = [...prev];
-      if (next[index]) next[index] = { ...next[index], label };
-      return next;
-    });
+     const updatePhotoLabelById = (id: string, label: string) => {
+    setPhotoPreviewsSynced(prev => prev.map(p => (p.id === id ? { ...p, label } : p)));
+  };
+
+  const updatePhotoLabel = (index: number, label: string) => {
+    const target = photoPreviews[index];
+    if (!target) return;
+    updatePhotoLabelById(target.id, label);
   };
 
   // 🆕 Drag-and-drop reorder — society photos among themselves
-  const reorderSocietyPhoto = (fromRelIdx: number, toRelIdx: number) => {
-    if (fromRelIdx === toRelIdx) return;
+const reorderPhoto = (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
     setPhotoPreviewsSynced(prev => {
-      const groupAbs = prev.map((p, i) => (p.isSociety ? i : -1)).filter(i => i !== -1);
-      const fromAbs = groupAbs[fromRelIdx];
-      const toAbs = groupAbs[toRelIdx];
-      if (fromAbs === undefined || toAbs === undefined) return prev;
+      if (fromIdx < 0 || fromIdx >= prev.length || toIdx < 0 || toIdx >= prev.length) return prev;
       const next = [...prev];
-      const [item] = next.splice(fromAbs, 1);
-      next.splice(toAbs, 0, item);
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
       return next;
     });
   };
 
-  // 🆕 Drag-and-drop reorder — manual photos among themselves
-  const reorderManualPhoto = (fromRelIdx: number, toRelIdx: number) => {
-    if (fromRelIdx === toRelIdx) return;
+
+  const removePhotoById = (id: string) => {
     setPhotoPreviewsSynced(prev => {
-      const groupAbs = prev.map((p, i) => (!p.isSociety ? i : -1)).filter(i => i !== -1);
-      const fromAbs = groupAbs[fromRelIdx];
-      const toAbs = groupAbs[toRelIdx];
-      if (fromAbs === undefined || toAbs === undefined) return prev;
-      const next = [...prev];
-      const [item] = next.splice(fromAbs, 1);
-      next.splice(toAbs, 0, item);
+      const removedIdx = prev.findIndex(p => p.id === id);
+      if (removedIdx === -1) return prev;
+      const removed = prev[removedIdx];
+
+      if (removed && !removed.isExisting) {
+        cleanupPreview(removed);
+      }
+
+      const next = prev.filter(p => p.id !== id);
+
+      const newFiles = next
+        .filter(p => !p.isExisting && p.file)
+        .map(p => p.file!);
+      setFormData(fd => ({
+        ...fd,
+        photos: newFiles,
+        societyImageUrls: removed?.isSociety
+          ? (fd.societyImageUrls || []).filter(u => u !== removed.url)
+          : fd.societyImageUrls,
+      }));
+
       return next;
     });
   };
-// 🆕 Cross-section drag: move photo between "From Society" and "Manual Uploads"
-const movePhotoAcrossSections = (
-  sourceGroup: 'society' | 'manual',
-  fromRelIdx: number,
-  targetGroup: 'society' | 'manual',
-  toRelIdx: number,
-) => {
-  setPhotoPreviewsSynced(prev => {
-    const sourceAbsList = prev
-      .map((p, i) => ((sourceGroup === 'society' ? p.isSociety : !p.isSociety) ? i : -1))
-      .filter(i => i !== -1);
-    const fromAbs = sourceAbsList[fromRelIdx];
-    if (fromAbs === undefined) return prev;
 
-    const next = [...prev];
-    const [item] = next.splice(fromAbs, 1);
-    const movedItem = { ...item, isSociety: targetGroup === 'society' };
-
-    const targetAbsList = next
-      .map((p, i) => ((targetGroup === 'society' ? p.isSociety : !p.isSociety) ? i : -1))
-      .filter(i => i !== -1);
-    const insertAbs =
-      targetAbsList[toRelIdx] ??
-      (targetAbsList.length > 0 ? targetAbsList[targetAbsList.length - 1] + 1 : next.length);
-
-    next.splice(insertAbs, 0, movedItem);
-    return next;
-  });
-};
-
-
+  // Backward-compatible wrapper kept in case anything still calls by index
   const removePhoto = (index: number) => {
-    const next = [...photoPreviews];
-    const removed = next.splice(index, 1)[0];
-
-    // If it's a new image (not existing), revoke its blob URL
-    if (removed && !removed.isExisting) {
-      cleanupPreview(removed);
-    }
-
-    setPhotoPreviewsSynced(next);
-
-    // Update manual photos file list
-    const newFiles = next
-      .filter(p => !p.isExisting && p.file)
-      .map(p => p.file!);
-    setFormData(prev => ({
-      ...prev,
-      photos: newFiles,
-      // If a society image was removed, also remove it from societyImageUrls
-      societyImageUrls: removed?.isSociety
-        ? (prev.societyImageUrls || []).filter(u => u !== removed.url)
-        : prev.societyImageUrls,
-    }));
+    const target = photoPreviews[index];
+    if (!target) return;
+    removePhotoById(target.id);
   };
 
   // Initialize form when modal opens
@@ -1299,8 +1289,9 @@ const movePhotoAcrossSections = (
       setOwnershipDocPreview(createExistingFilePreview(initialData.existingOwnershipDocUrl, initialData.existingOwnershipDocName || 'Ownership Document'));
     }
 
-   const existingPhotos = (initialData.existingPhotos || []).map((p: any) => ({
+const existingPhotos = (initialData.existingPhotos || []).map((p: any) => ({
       ...createExistingFilePreview(p.url, p.name || 'Photo', p.type),
+      id: genPreviewId(),
       label: p.label || '',
       isSociety: !!p.isSociety,
     }));
@@ -1367,11 +1358,21 @@ const movePhotoAcrossSections = (
     fd.append("nearby_places", JSON.stringify(formData.nearby_places || []));
 
    // ✅ FIX: ref se padho — race-proof, kabhi bhi stale nahi hoga
-    const currentPhotoPreviews = photoPreviewsRef.current;
+   const currentPhotoPreviews = photoPreviewsRef.current;
 
     const allExistingPhotoUrls = currentPhotoPreviews
       .filter(p => p.isExisting)
       .map(p => ({ url: p.url, label: p.label || '', isSociety: !!p.isSociety, type: p.type === 'video' ? 'video' : 'image' }));
+
+    // 🆕 Full visual order manifest — backend ko batata hai exact final sequence
+    // 'existing' entries url se match honge, 'new' entries sequentially uploaded files se match honge
+    const photoOrder = currentPhotoPreviews.map(p => {
+      if (p.isExisting) {
+        return { kind: 'existing', url: p.url };
+      }
+      return { kind: 'new' };
+    });
+    fd.append('photoOrder', JSON.stringify(photoOrder));
 
     // Manual upload files
     const manualPhotoFiles = currentPhotoPreviews
@@ -1892,120 +1893,45 @@ const movePhotoAcrossSections = (
 </div>
               {photoPreviews.length > 0 && (
                 <div className="mt-2 max-h-52 overflow-y-auto">
-                  {/* Society images section */}
-                  {photoPreviews.some(p => p.isSociety) && (
-                    <div className="mb-2">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-blue-500 mb-1">From Society</p>
-                      <div className="grid grid-cols-4 gap-1.5">
-                                          {photoPreviews.filter(p => p.isSociety).map((preview, relIdx) => {
-    const index = photoPreviews.indexOf(preview);
-    return (
-    <div key={`society-${index}`}
-     draggable
-      onDragStart={(e) => {
-        console.log("DRAG START", relIdx); 
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", String(relIdx));
-        setDraggedSocietyIdx(relIdx);
-      }}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        if (draggedSocietyIdx !== null) {
-          reorderSocietyPhoto(draggedSocietyIdx, relIdx);
-        } else if (draggedManualIdx !== null) {
-          movePhotoAcrossSections('manual', draggedManualIdx, 'society', relIdx);
-        }
-        setDraggedSocietyIdx(null);
-        setDraggedManualIdx(null);
-      }}
-      onDragEnd={() => { setDraggedSocietyIdx(null); setDraggedManualIdx(null); }}
-      className={`relative group rounded-lg overflow-hidden border-2 border-blue-200 cursor-grab active:cursor-grabbing ${draggedSocietyIdx === relIdx ? 'opacity-40' : ''}`}>
-      {preview.type === 'video' ? (
-        getYouTubeEmbedUrl(preview.url) ? (
-<iframe draggable={false} src={getYouTubeEmbedUrl(preview.url)!} className="w-full h-20 pointer-events-none" frameBorder="0" allow="autoplay; encrypted-media" />
-        ) : (
-          <video draggable={false} src={preview.url} className="w-full h-20 object-cover pointer-events-none" muted />
-        )
-      ) : (
-        <img draggable={false} src={preview.url} alt={preview.name || `Society ${index + 1}`} className="w-full h-20 object-cover pointer-events-none" />
-      )}
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center pointer-events-none">
-                                <button
-                                  type="button"
-                                  onClick={() => removePhoto(index)}
-                                  className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all hover:bg-red-600 pointer-events-auto"
-                                >
-                                  <X size={12} />
-                                </button>
-                              </div>
-                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">
-                                <p className="text-white text-[9px] truncate">{preview.name}</p>
-                              </div>
-                               <div className="absolute top-1 left-1 flex items-center gap-1 pointer-events-none">
-                                <span className="bg-blue-500 text-white text-[8px] px-1 py-0.5 rounded font-bold">S</span>
-                                <span className="bg-black/70 text-white text-[8px] px-1 py-0.5 rounded font-bold">#{relIdx + 1}</span>
-                              </div>
-                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded p-0.5 pointer-events-none" title="Drag to reorder">
-                                <GripVertical size={12} className="text-gray-600" />
-                              </div>
-                            </div>
-                          );
-                        })}
-
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {photoPreviews.map((preview, idx) => (
+                      <div
+                        key={preview.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", String(idx));
+                          setDraggedPhotoIdx(idx);
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggedPhotoIdx !== null) {
+                            reorderPhoto(draggedPhotoIdx, idx);
+                          }
+                          setDraggedPhotoIdx(null);
+                        }}
+                        onDragEnd={() => setDraggedPhotoIdx(null)}
+                        className={`relative group cursor-grab active:cursor-grabbing ${draggedPhotoIdx === idx ? 'opacity-40' : ''}`}
+                      >
+                        <FilePreviewComponent
+                          preview={preview}
+                          onRemove={() => removePhotoById(preview.id)}
+                          labelOptions={getOptions('media label')}
+                          onLabelChange={(label) => updatePhotoLabelById(preview.id, label)}
+                        />
+                        <div className="absolute top-1 left-1 flex items-center gap-1 pointer-events-none">
+                          <span className={`text-white text-[8px] px-1 py-0.5 rounded font-bold ${preview.isSociety ? 'bg-blue-500' : 'bg-orange-500'}`}>
+                            {preview.isSociety ? 'S' : 'M'}
+                          </span>
+                          <span className="bg-black/70 text-white text-[8px] px-1 py-0.5 rounded font-bold">#{idx + 1}</span>
+                        </div>
+                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded p-0.5 pointer-events-none" title="Drag to reorder">
+                          <GripVertical size={12} className="text-gray-600" />
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {/* Manual upload images section */}
-                 {/* Manual upload images section */}
-                  {photoPreviews.some(p => !p.isSociety) && (
-                    <div>
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-orange-500 mb-1">Manual Uploads</p>
-                      <div className="grid grid-cols-4 gap-1.5">
-                     
-                       {photoPreviews.filter(p => !p.isSociety).map((preview, relIdx) => {
-                          const index = photoPreviews.indexOf(preview);
-                          const societyCount = photoPreviews.filter(p => p.isSociety).length;
-                          return (
-                            <div key={`manual-${index}`}
-                             draggable
-              onDragStart={(e) => {
-                e.dataTransfer.effectAllowed = "move";
-                e.dataTransfer.setData("text/plain", String(relIdx));
-                setDraggedManualIdx(relIdx);
-              }}
-            onDragOver={(e) => e.preventDefault()}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                if (draggedManualIdx !== null) {
-                                  reorderManualPhoto(draggedManualIdx, relIdx);
-                                } else if (draggedSocietyIdx !== null) {
-                                  movePhotoAcrossSections('society', draggedSocietyIdx, 'manual', relIdx);
-                                }
-                                setDraggedManualIdx(null);
-                                setDraggedSocietyIdx(null);
-                              }}
-                              onDragEnd={() => { setDraggedManualIdx(null); setDraggedSocietyIdx(null); }}
-                              className={`relative group cursor-grab active:cursor-grabbing ${draggedManualIdx === relIdx ? 'opacity-40' : ''}`}
-                            >
-                              <FilePreviewComponent
-                                preview={preview}
-                                onRemove={() => removePhoto(index)}
-                                labelOptions={getOptions('media label')}
-                                onLabelChange={(label) => updatePhotoLabel(index, label)}
-                              />
-                              <div className="absolute top-1 left-1 pointer-events-none">
-                                <span className="bg-black/70 text-white text-[8px] px-1 py-0.5 rounded font-bold">#{societyCount + relIdx + 1}</span>
-                              </div>
-                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded p-0.5 pointer-events-none" title="Drag to reorder">
-                                <GripVertical size={12} className="text-gray-600" />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

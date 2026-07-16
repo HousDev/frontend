@@ -13,6 +13,7 @@ export type HeroBlock = {
   title: string;
   description: string;
   photos: PhotoPreview[];
+  is_active: boolean;
   created_at: string; // ISO
   updated_at: string; // ISO
 };
@@ -27,6 +28,7 @@ function normalizeRow(r: any): HeroBlock {
     title: r?.title ?? "",
     description: r?.description ?? "",
     photos: Array.isArray(r?.photos) ? r.photos : [],
+    is_active: r?.is_active === undefined ? true : Boolean(Number(r.is_active)),
     created_at,
     updated_at,
   };
@@ -114,6 +116,23 @@ const homeHeroAPI = {
 
   async remove(id: string | number) {
     const { data } = await api.delete(`/home-hero/${id}`);
+    return data;
+  },
+
+  async toggleActive(id: string | number): Promise<HeroBlock> {
+    const { data } = await api.patch(`/home-hero/${id}/toggle-active`);
+    const rows = pickRows(data);
+    const row = rows[0] ?? data.row ?? data.item ?? data.data ?? data;
+    return normalizeRow(row);
+  },
+
+  async bulkToggleActive(ids: Array<string | number>, is_active: boolean) {
+    const { data } = await api.post(`/home-hero/bulk/toggle-active`, { ids, is_active });
+    return data;
+  },
+
+  async bulkDelete(ids: Array<string | number>) {
+    const { data } = await api.post(`/home-hero/bulk/delete`, { ids });
     return data;
   },
 };
