@@ -217,6 +217,7 @@ const LeadDetailPage: React.FC = () => {
   const [showBuyerComponent, setShowBuyerComponent] = useState(false);
   const [showSellerComponent, setShowSellerComponent] = useState(false);
   const [editingFollowup, setEditingFollowup] = useState<Followup | null>(null);
+  const [followupToDelete, setFollowupToDelete] = useState<string | number | null>(null);
 
   useEffect(() => {
     if (!canReadLeads) setLoading(false);
@@ -572,13 +573,25 @@ const LeadDetailPage: React.FC = () => {
     setIsFollowupModalOpen(true);
   };
 
-  const handleDeleteFollowup = async (followupId: string | number) => {
+  const handleDeleteFollowup = (followupId: string | number) => {
     if (!canDeleteFollowups) { toast.error("You do not have permission to delete follow-ups"); return; }
-    if (!confirm("Are you sure you want to delete this follow-up?")) return;
+    setFollowupToDelete(followupId);
+  };
+
+  const handleConfirmDeleteFollowup = async () => {
+    if (followupToDelete === null) return;
+    const followupId = followupToDelete;
+    setFollowupToDelete(null);
     const prevFollowups = [...followups];
     setFollowups((prev) => prev.filter((f) => f.id !== followupId));
-    try { await followupAPI.deleteFollowup(String(followupId)); toast.success("Follow-up deleted successfully"); }
-    catch (err) { console.error("Error deleting followup:", err); setFollowups(prevFollowups); toast.error("Failed to delete follow-up"); }
+    try {
+      await followupAPI.deleteFollowup(String(followupId));
+      toast.success("Follow-up deleted successfully");
+    } catch (err) {
+      console.error("Error deleting followup:", err);
+      setFollowups(prevFollowups);
+      toast.error("Failed to delete follow-up");
+    }
   };
 
   const handlePreviousLead = () => {
@@ -968,6 +981,38 @@ const LeadDetailPage: React.FC = () => {
       {showBuyerComponent && lead && <BuyerFormModal lead={lead} followups={followups} onClose={() => setShowBuyerComponent(false)} />}
       {showSellerComponent && lead && <SellerFormModal lead={lead} followups={followups} onClose={() => setShowSellerComponent(false)} />}
       <AddLeadModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSave={handleSaveLead} lead={lead || undefined} />
+
+      {/* Delete Followup Confirmation Modal */}
+      {followupToDelete !== null && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setFollowupToDelete(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="p-3 rounded-full bg-red-50 text-red-500 mb-4">
+                <Trash2 size={28} />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">Delete Follow-up</h3>
+              <p className="text-xs text-gray-500 mt-2">
+                Are you sure you want to delete this follow-up? This action cannot be undone.
+              </p>
+              <div className="flex gap-3 w-full mt-6">
+                <button
+                  onClick={() => setFollowupToDelete(null)}
+                  className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDeleteFollowup}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
