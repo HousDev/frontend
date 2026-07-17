@@ -34,12 +34,7 @@ import AnalyticsPage from '@/pages/dashboard/AnalyticsPage';
 import UsersPage from '@/pages/dashboard/UsersPage';
 import SettingsPage from '@/pages/dashboard/SettingsPage';
 
-// Role-specific Dashboards
-import AdminDashboard from '@/pages/dashboards/AdminDashboard';
-import ManagerDashboard from '@/pages/dashboards/ManagerDashboard';
-import AgentDashboard from '@/pages/dashboards/AgentDashboard';
-import SellerDashboard from '@/pages/dashboards/SellerDashboard';
-import BuyerDashboard from '@/pages/dashboards/BuyerDashboard';
+
 
 // Settings Pages
 import RolesPermissionsPage from '@/pages/settings/RolesPermissionsPage';
@@ -181,13 +176,7 @@ function App() {
                       </ProtectedRoute>
                     }
                   >
-                    {/* Role-specific dashboards */}
                     <Route index element={<DashboardPage />} />
-                    <Route path="admin" element={<AdminDashboard />} />
-                    <Route path="manager" element={<ManagerDashboard />} />
-                    <Route path="agent" element={<AgentDashboard />} />
-                    {/* <Route path="seller" element={<SellerDashboard />} /> */}
-                    {/* <Route path="buyer" element={<BuyerDashboard />} /> */}
 
                     {/* Core CRM/CMS features */}
                     <Route path="leads" element={<LeadsPage />} />

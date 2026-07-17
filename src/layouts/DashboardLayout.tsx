@@ -480,39 +480,6 @@ const DashboardLayout = () => {
 required: "overview.access",      },
     ];
 
-    if (hasRole("admin")) {
-      structure.push({
-        name: "Admin Dashboard",
-        href: "/dashboard/admin",
-        icon: Home,
-        exact: true,
-        colorClass: navTextClass,
-        type: "single",
-required: "dashboard.admin",
-      });
-    }
-    if (hasRole(["admin", "manager"])) {
-      structure.push({
-        name: "Manager Dashboard",
-        href: "/dashboard/manager",
-        icon: UserCheck,
-        exact: true,
-        colorClass: navTextClass,
-        type: "single",
-required: "dashboard.manager",
-      });
-    }
-    if (hasRole(["admin", "manager", "agent"])) {
-      structure.push({
-        name: "Agent Dashboard",
-        href: "/dashboard/agent",
-        icon: Briefcase,
-        exact: true,
-        colorClass: navTextClass,
-        type: "single",
-required: "dashboard.agent",
-      });
-    }
 
     structure.push(
       {
@@ -813,10 +780,7 @@ required: "dashboard.agent",
     "Import/Export": { title: "Import/Export Data", subtitle: "Bulk data operations" },
     "Settings": { title: "System Settings", subtitle: "Configure application settings" },
     "Users": { title: "User Management", subtitle: "Manage system users" },
-    "Admin Dashboard": { title: "Admin Dashboard", subtitle: "System administration overview" },
-    "Manager Dashboard": { title: "Manager Dashboard", subtitle: "Team performance overview" },
-    "Agent Dashboard": { title: "Agent Dashboard", subtitle: "Your performance metrics" },
-  };
+   };
 
   const getCurrentModuleInfo = useCallback((pathname: string) => {
     for (const item of navigationStructure) {

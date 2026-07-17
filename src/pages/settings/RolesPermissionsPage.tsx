@@ -2462,16 +2462,6 @@ const overviewGroup: PermissionGroup = {
   ],
 };
 
-// 2. Dashboard
-const dashboardGroup: PermissionGroup = {
-  label: "Dashboard",
-  resource: "dashboard",
-  permissions: [
-    perm("db_1", "dashboard", "admin", "Admin Dashboard", "Access the admin dashboard"),
-    perm("db_2", "dashboard", "manager", "Manager Dashboard", "Access the manager dashboard"),
-    perm("db_3", "dashboard", "agent", "Agent Dashboard", "Access the agent dashboard"),
-  ],
-};
 
 // 3. CMS – Home + Blog
 const homeGroup: PermissionGroup = {
@@ -2732,12 +2722,7 @@ const PERMISSION_SECTIONS: PermissionSection[] = [
     groups: [overviewGroup],
     showSectionSelectAll: false,
   },
-  {
-    section: "Dashboard",
-    icon: <BarChart2 className="h-4 w-4" />,
-    groups: [dashboardGroup],
-    showSectionSelectAll: false,
-  },
+
   {
     section: "CMS",
     icon: <BookOpen className="h-4 w-4" />,
