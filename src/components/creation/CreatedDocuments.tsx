@@ -13,6 +13,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { documentsGeneratedAPI } from "@/lib/documentsGeneratedAPI";
+import Swal from "sweetalert2";
 
 type GeneratedDoc = {
   id: number | string;
@@ -171,7 +172,30 @@ const CreatedDocuments: React.FC = () => {
   }, [fetchData]);
 
   const handleDelete = async (docId: number | string) => {
-    if (!window.confirm("Delete this document? This cannot be undone.")) return;
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You are about to delete this document. This action cannot be undone!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+      background: "#fff",
+      backdrop: `rgba(15, 43, 61, 0.45)`,
+      width: "400px",
+      padding: "1.5rem",
+      customClass: {
+        popup: "rounded-xl shadow-2xl",
+        title: "text-lg font-bold text-gray-800",
+        htmlContainer: "text-sm text-gray-600 my-2",
+        confirmButton: "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
+        cancelButton: "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
+      },
+      buttonsStyling: false,
+    });
+    if (!result.isConfirmed) return;
+
     try {
       if (typeof (documentsGeneratedAPI as any).remove === "function") {
         await (documentsGeneratedAPI as any).remove(docId);

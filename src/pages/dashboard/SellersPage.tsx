@@ -1912,10 +1912,10 @@ table tbody td {
                 {/* COMMUNICATE */}
                 <td className="px-2 py-1 bg-white">
                   <div className="flex items-center gap-1">
-                    <button onClick={() => { const p = seller.phone?.replace(/\D/g, ''); if (p && p !== '-') window.open(`tel:${p}`); else toast.error("No phone"); }} className="p-1 rounded hover:bg-green-100 text-green-600"><Phone size={11} /></button>
-                    <button onClick={() => { const p = seller.phone?.replace(/\D/g, ''); if (p && p !== '-') { const u = user?.username || 'Team'; window.open(`https://wa.me/${p}?text=${encodeURIComponent(`Hi ${seller.name},\n\nBest Regards,\n${u}`)}`, '_blank'); } else toast.error("No phone"); }} className="p-1 rounded hover:bg-green-100 text-green-600"><SiWhatsapp size={11} /></button>
-                    <button onClick={() => { if (seller.email && seller.email !== '-') { const u = user?.username || 'Team'; window.open(`mailto:${seller.email}?subject=Property Inquiry&body=Best Regards,${u}`, '_blank'); } else toast.error("No email"); }} className="p-1 rounded hover:bg-blue-100 text-blue-600"><Mail size={11} /></button>
-                    <button onClick={() => { setSelectedSellerForFollowup(seller); setShowSellerFollowupModal(true); }} className="p-1 rounded hover:bg-purple-100 text-purple-600"><Calendar size={11} /></button>
+                    <button onClick={() => { const p = seller.phone?.replace(/\D/g, ''); if (p && p !== '-') window.open(`tel:${p}`); else toast.error("No phone"); }} className="p-1 rounded hover:bg-green-100 text-green-600"><Phone size={13} /></button>
+                    <button onClick={() => { const p = seller.phone?.replace(/\D/g, ''); if (p && p !== '-') { const u = user?.username || 'Team'; window.open(`https://wa.me/${p}?text=${encodeURIComponent(`Hi ${seller.name},\n\nBest Regards,\n${u}`)}`, '_blank'); } else toast.error("No phone"); }} className="p-1 rounded hover:bg-green-100 text-green-600"><SiWhatsapp size={13} /></button>
+                    <button onClick={() => { if (seller.email && seller.email !== '-') { const u = user?.username || 'Team'; window.open(`mailto:${seller.email}?subject=Property Inquiry&body=Best Regards,${u}`, '_blank'); } else toast.error("No email"); }} className="p-1 rounded hover:bg-blue-100 text-blue-600"><Mail size={13} /></button>
+                    <button onClick={() => { setSelectedSellerForFollowup(seller); setShowSellerFollowupModal(true); }} className="p-1 rounded hover:bg-purple-100 text-purple-600"><Calendar size={13} /></button>
                   </div>
                  </td>
 
@@ -2044,10 +2044,10 @@ table tbody td {
                 {/* MANAGE */}
                 <td className="px-2 py-1 text-center">
                   <div className="flex items-center justify-center gap-1">
-                    <button onClick={() => handleViewSeller(seller)} className="p-1 rounded hover:bg-gray-100 text-gray-500"><Eye size={11} /></button>
-                    <button onClick={() => handleSellerAccount(seller.id)} className="p-1 rounded hover:bg-gray-100 text-green-600"><UserCheck size={11} /></button>
-                    {canUpdate && canEditSeller(user, seller) && <button onClick={() => handleEditSeller(seller)} className="p-1 rounded hover:bg-gray-100 text-orange-500"><Edit size={11} /></button>}
-                    {canDelete && canDeleteSeller(user, seller) && <button onClick={() => handleDeleteSeller(seller.id)} className="p-1 rounded hover:bg-red-100 text-red-600"><Trash2 size={11} /></button>}
+                    <button onClick={() => handleViewSeller(seller)} className="p-1 rounded hover:bg-gray-100 text-gray-500"><Eye size={13} /></button>
+                    <button onClick={() => handleSellerAccount(seller.id)} className="p-1 rounded hover:bg-gray-100 text-green-600"><UserCheck size={13} /></button>
+                    {canUpdate && canEditSeller(user, seller) && <button onClick={() => handleEditSeller(seller)} className="p-1 rounded hover:bg-gray-100 text-orange-500"><Edit size={13} /></button>}
+                    {canDelete && canDeleteSeller(user, seller) && <button onClick={() => handleDeleteSeller(seller.id)} className="p-1 rounded hover:bg-red-100 text-red-600"><Trash2 size={13} /></button>}
                   </div>
                  </td>
 

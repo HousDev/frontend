@@ -4,6 +4,7 @@ import TemplateEditor from './TemplateEditor';
 import { documentsTemplateAPI } from '@/lib/documentsTemplateAPI';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/contexts/AuthContext';
+import Swal from 'sweetalert2';
 export type Template = {
   id: number | string;
   name: string;
@@ -106,7 +107,30 @@ const TemplateCreation: React.FC<Props> = ({ currentUserId: currentUserIdProp })
   };
 
   const handleDeleteTemplate = async (templateId: number | string) => {
-    if (!window.confirm('Are you sure you want to delete this template?')) return;
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You are about to delete this template. This action cannot be undone!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+      background: "#fff",
+      backdrop: `rgba(15, 43, 61, 0.45)`,
+      width: "400px",
+      padding: "1.5rem",
+      customClass: {
+        popup: "rounded-xl shadow-2xl",
+        title: "text-lg font-bold text-gray-800",
+        htmlContainer: "text-sm text-gray-600 my-2",
+        confirmButton: "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
+        cancelButton: "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
+      },
+      buttonsStyling: false,
+    });
+    if (!result.isConfirmed) return;
+
     try {
       await documentsTemplateAPI.delete(templateId);
       setTemplates((prev) => prev.filter((t) => t.id !== templateId));
