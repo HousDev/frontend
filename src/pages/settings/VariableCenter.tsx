@@ -875,6 +875,7 @@ import Modal from '@/components/ui/Modal';
 import { variableAPI } from '@/lib/variableAPI';
 import { toast } from 'react-toastify';
 import TableLoader from '@/components/ui/TableLoader';
+import Swal from 'sweetalert2';
 
 /** ----------------------------- Types ----------------------------- **/
 type Status = 'active' | 'inactive';
@@ -1196,7 +1197,30 @@ const VariableCenter: FC = () => {
 
   /** ----------------------- Row Actions ------------------------- **/
   const remove = async (id: number) => {
-    if (!window.confirm('Delete this variable?')) return;
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You are about to delete this variable. This action cannot be undone!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+      background: "#fff",
+      backdrop: `rgba(15, 43, 61, 0.45)`,
+      width: "400px",
+      padding: "1.5rem",
+      customClass: {
+        popup: "rounded-xl shadow-2xl",
+        title: "text-lg font-bold text-gray-800",
+        htmlContainer: "text-sm text-gray-600 my-2",
+        confirmButton: "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
+        cancelButton: "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
+      },
+      buttonsStyling: false,
+    });
+    if (!result.isConfirmed) return;
+
     try {
       const res = await variableAPI.delete(id);
       if (res?.success) {
@@ -1213,7 +1237,30 @@ const VariableCenter: FC = () => {
 
   const removeSelected = async () => {
     if (!selectedIds.size) return;
-    if (!window.confirm(`Delete ${selectedIds.size} selected variable(s)?`)) return;
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: `You are about to delete ${selectedIds.size} selected variable(s). This action cannot be undone!`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete them!",
+      cancelButtonText: "Cancel",
+      background: "#fff",
+      backdrop: `rgba(15, 43, 61, 0.45)`,
+      width: "400px",
+      padding: "1.5rem",
+      customClass: {
+        popup: "rounded-xl shadow-2xl",
+        title: "text-lg font-bold text-gray-800",
+        htmlContainer: "text-sm text-gray-600 my-2",
+        confirmButton: "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
+        cancelButton: "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
+      },
+      buttonsStyling: false,
+    });
+    if (!result.isConfirmed) return;
+
     try {
       const res = await variableAPI.bulkDelete(Array.from(selectedIds));
       if (res?.success) {

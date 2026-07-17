@@ -74,6 +74,7 @@ const DARK = "#1e293b";
 // ---- Permission helpers ----
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/utils/permission";
+import Swal from "sweetalert2";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                              */
@@ -1377,12 +1378,34 @@ useEffect(() => { sellerRef.current = seller; }, [seller]);
       setFuLoading(false);
     }
   };
-  const handleDeleteFollowup = async (f: Followup) => {
+ const handleDeleteFollowup = async (f: Followup) => {
     if (!canDeleteFollowups) {
       toast.error("No permission to delete");
       return;
     }
-    if (!confirm("Delete this follow-up?")) return;
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You are about to delete this follow-up. This action cannot be undone!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+      background: "#fff",
+      backdrop: `rgba(15, 43, 61, 0.45)`,
+      width: "400px",
+      padding: "1.5rem",
+      customClass: {
+        popup: "rounded-xl shadow-2xl",
+        title: "text-lg font-bold text-gray-800",
+        htmlContainer: "text-sm text-gray-600 my-2",
+        confirmButton: "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
+        cancelButton: "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
+      },
+      buttonsStyling: false,
+    });
+    if (!result.isConfirmed) return;
     try {
       setFuError(null);
       setFuLoading(true);
