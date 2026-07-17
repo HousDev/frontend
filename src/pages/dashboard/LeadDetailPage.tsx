@@ -217,8 +217,8 @@ const LeadDetailPage: React.FC = () => {
   const [showBuyerComponent, setShowBuyerComponent] = useState(false);
   const [showSellerComponent, setShowSellerComponent] = useState(false);
   const [editingFollowup, setEditingFollowup] = useState<Followup | null>(null);
-  const [followupToDelete, setFollowupToDelete] = useState<string | number | null>(null);
-
+const [followupToDelete, setFollowupToDelete] = useState<string | number | null>(null);
+  const [showDeleteLeadModal, setShowDeleteLeadModal] = useState<boolean>(false);
   useEffect(() => {
     if (!canReadLeads) setLoading(false);
   }, [canReadLeads]);
@@ -471,16 +471,20 @@ const LeadDetailPage: React.FC = () => {
     }
   }, [presalesUsers, lead?.assigned_executive]);
 
-  const handleDelete = async () => {
+ const handleDelete = () => {
     if (!id) return;
     if (!canDeleteLeads) { toast.error("You do not have permission to delete leads"); return; }
-    if (confirm("Are you sure you want to delete this lead?")) {
-      try {
-        const response = await leadsAPI.deleteLead(id);
-        if (response.success) { toast.success("Lead deleted ✅"); navigate("/dashboard/leads"); }
-        else toast.error("Failed to delete lead ❌");
-      } catch (err) { console.error("Error deleting lead:", err); toast.error("Error deleting lead"); }
-    }
+    setShowDeleteLeadModal(true);
+  };
+
+  const handleConfirmDeleteLead = async () => {
+    if (!id) return;
+    setShowDeleteLeadModal(false);
+    try {
+      const response = await leadsAPI.deleteLead(id);
+      if (response.success) { toast.success("Lead deleted ✅"); navigate("/dashboard/leads"); }
+      else toast.error("Failed to delete lead ❌");
+    } catch (err) { console.error("Error deleting lead:", err); toast.error("Error deleting lead"); }
   };
 
   const handleExecAssign = async (execId: string, execName: string) => {
@@ -983,6 +987,7 @@ const LeadDetailPage: React.FC = () => {
       <AddLeadModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSave={handleSaveLead} lead={lead || undefined} />
 
       {/* Delete Followup Confirmation Modal */}
+    {/* Delete Followup Confirmation Modal */}
       {followupToDelete !== null && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setFollowupToDelete(null)} />
@@ -1013,8 +1018,41 @@ const LeadDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Lead Confirmation Modal */}
+      {showDeleteLeadModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDeleteLeadModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="p-3 rounded-full bg-red-50 text-red-500 mb-4">
+                <Trash2 size={28} />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">Delete Lead</h3>
+              <p className="text-xs text-gray-500 mt-2">
+                Are you sure you want to delete <span className="font-semibold">{lead?.salutation} {lead?.name}</span>? This action cannot be undone.
+              </p>
+              <div className="flex gap-3 w-full mt-6">
+                <button
+                  onClick={() => setShowDeleteLeadModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDeleteLead}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+    
 
 export default LeadDetailPage;

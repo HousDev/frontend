@@ -29,6 +29,7 @@ import Swal from 'sweetalert2';
 import FollowupModal from '../../pages/dashboard/components/FollowupModal'; // or wherever your modal is located
 
 import * as XLSX from 'xlsx';
+import { FaWhatsapp } from 'react-icons/fa6';
 
 // Resale Theme Colors
 const RESALE = {
@@ -1760,7 +1761,7 @@ const exportLeads = async () => {
           className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
           title="Call"
         >
-          <Phone size={11} />
+          <Phone size={13} />
         </button>
 
         {/* WhatsApp */}
@@ -1782,7 +1783,7 @@ const userName = formatUserName(user) || user?.username || user?.email?.split('@
           className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
           title="WhatsApp"
         >
-          <SiWhatsapp size={11} />
+          <FaWhatsapp size={13} />
         </button>
 
         {/* Email */}
@@ -1805,7 +1806,7 @@ const userName = formatUserName(user) || user?.username || user?.email?.split('@
           className="p-1 rounded hover:bg-blue-100 transition-colors text-blue-600"
           title="Email"
         >
-          <Mail size={11} />
+          <Mail size={13} />
         </button>
 
         {/* Follow-up (opens modal) */}
@@ -1817,7 +1818,7 @@ const userName = formatUserName(user) || user?.username || user?.email?.split('@
           className="p-1 rounded hover:bg-purple-100 transition-colors text-purple-600"
           title="Follow-up"
         >
-          <Calendar size={11} />
+          <Calendar size={13} />
         </button>
       </div>
     </td>
@@ -1927,8 +1928,8 @@ const userName = formatUserName(user) || user?.username || user?.email?.split('@
                     <div className="flex items-center justify-center gap-1">
                       {canRead && (
                         <Link to={`/dashboard/leads/${lead.id}`}>
-                          <button className="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500" title="View">
-                            <Eye size={10} />
+                          <button className="p-1 rounded hover:bg-gray-100 transition-colors text-blue-500" title="View">
+                            <Eye size={13} />
                           </button>
                         </Link>
                       )}
@@ -1937,7 +1938,7 @@ const userName = formatUserName(user) || user?.username || user?.email?.split('@
                           onClick={() => { setSelectedLead(lead); setShowEditLeadModal(true); }}
                           className="p-1 rounded hover:bg-gray-100 transition-colors text-orange-500" title="Edit"
                         >
-                          <Edit size={10} />
+                          <Edit size={13} />
                         </button>
                       )}
                       {canDelete && (
@@ -1945,7 +1946,7 @@ const userName = formatUserName(user) || user?.username || user?.email?.split('@
                           onClick={() => handleDeleteLead(lead.id, lead.name)}
                           className="p-1 rounded hover:bg-red-100 transition-colors text-red-500" title="Delete"
                         >
-                          <Trash2 size={10} />
+                          <Trash2 size={13} />
                         </button>
                       )}
                     </div>

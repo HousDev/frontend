@@ -1148,6 +1148,7 @@ import { rssAPI } from '@/lib/rssAPI';
 import RSSSourceCard from './RSSSourceCard';
 import { RSSSource as SharedRSSSource } from '../../types/blog';
 import RSSSourceFormModal from './RSSSourceFormModal';
+import Swal from 'sweetalert2';
 
 // Theme Colors
 const N = "#0f2b3d";
@@ -1418,8 +1419,31 @@ const RSSSourceManager: React.FC<RSSSourceManagerProps> = ({ isOpen, onClose }) 
   };
 
   const handleDeleteSource = async (id: string) => {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You are about to delete this RSS source. This action cannot be undone!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+      background: "#fff",
+      backdrop: `rgba(15, 43, 61, 0.45)`,
+      width: "400px",
+      padding: "1.5rem",
+      customClass: {
+        popup: "rounded-xl shadow-2xl",
+        title: "text-lg font-bold text-gray-800",
+        htmlContainer: "text-sm text-gray-600 my-2",
+        confirmButton: "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
+        cancelButton: "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
+      },
+      buttonsStyling: false,
+    });
+    if (!result.isConfirmed) return;
+
     try {
-      if (!confirm('Are you sure you want to delete this source?')) return;
       await rssAPI.delete(Number(id));
       setSources((prev) => prev.filter((s) => s.id !== id));
       toast.success('RSS source deleted');

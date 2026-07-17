@@ -1976,7 +1976,7 @@ const matchesColSearch =
                     className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
                     title="Call"
                   >
-                    <Phone size={11} />
+                    <Phone size={13} />
                   </button>
 
                   {/* WhatsApp */}
@@ -2000,7 +2000,7 @@ const matchesColSearch =
                     className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
                     title="WhatsApp"
                   >
-                    <SiWhatsapp size={11} />
+                    <SiWhatsapp size={13} />
                   </button>
 
                   {/* Email */}
@@ -2028,7 +2028,7 @@ const matchesColSearch =
                     className="p-1 rounded hover:bg-blue-100 transition-colors text-blue-600"
                     title="Email"
                   >
-                    <Mail size={11} strokeWidth={1.8} />
+                    <Mail size={13} strokeWidth={1.8} />
                   </button>
 
                   {/* Send Properties */}
@@ -2053,7 +2053,7 @@ const matchesColSearch =
                     className="p-1 rounded hover:bg-yellow-100 transition-colors text-yellow-600"
                     title="Send Properties"
                   >
-                    <ShareIcon size={11} />
+                    <ShareIcon size={13} />
                   </button>
 
                   {/* Follow-up */}
@@ -2065,7 +2065,7 @@ const matchesColSearch =
                     className="p-1 rounded hover:bg-purple-100 transition-colors text-purple-600"
                     title="Follow-up"
                   >
-                    <Calendar size={11} />
+                    <Calendar size={13} />
                   </button>
                 </div>
               </td>
@@ -2237,14 +2237,14 @@ const matchesColSearch =
                     className="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500"
                     title="View"
                   >
-                    <Eye size={11} />
+                    <Eye size={13} />
                   </button>
                   <button
                     onClick={() => handleBuyerAccount(buyer)}
                     className="p-1 rounded hover:bg-gray-100 transition-colors text-green-600"
                     title="Account"
                   >
-                    <UserCheck size={11} />
+                    <UserCheck size={13} />
                   </button>
                   {canEditBuyer(buyer) && (
                     <button
@@ -2252,7 +2252,7 @@ const matchesColSearch =
                       className="p-1 rounded hover:bg-gray-100 transition-colors text-orange-500"
                       title="Edit"
                     >
-                      <Edit size={11} />
+                      <Edit size={13} />
                     </button>
                   )}
                   {canDeleteBuyer(buyer) && (
@@ -2261,7 +2261,7 @@ const matchesColSearch =
                       className="p-1 rounded hover:bg-red-100 transition-colors text-red-600"
                       title="Delete"
                     >
-                      <Trash2 size={11} />
+                      <Trash2 size={13} />
                     </button>
                   )}
                 </div>
