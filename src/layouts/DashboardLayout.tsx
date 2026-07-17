@@ -469,15 +469,23 @@ const DashboardLayout = () => {
   }, []);
 
   const navigationStructure: NavigationItem[] = useMemo(() => {
+    const showOverview = 
+      hasRole("admin") || 
+      hasRole("presales") || 
+      hasRole("sales") || 
+      (user?.role || "").toLowerCase().includes("presales") || 
+      (user?.role || "").toLowerCase().includes("sales");
+
     const structure: NavigationItem[] = [
       {
-        name: "Overview",
+        name: "Dashboard",
         href: "/dashboard",
         icon: Home,
         exact: true,
         colorClass: navTextClass,
         type: "single",
-required: "overview.access",      },
+        required: showOverview ? undefined : "overview.access",
+      },
     ];
 
 
@@ -750,7 +758,7 @@ required: "overview.access",      },
   }, [hasRole, navTextClass, userCan]);
 
   const moduleConfigs: Record<string, { title: string; subtitle: string }> = {
-    "Overview": { title: "Dashboard Overview", subtitle: "Key metrics and performance indicators" },
+    "Dashboard": { title: "Dashboard Overview", subtitle: "Key metrics and performance indicators" },
     "Home Manager": { title: "Home Page Management", subtitle: "Manage hero sections and banners" },
     "Blog Manager": { title: "Blog Management", subtitle: "Create, edit and manage blog posts" },
     "CMS": { title: "Content Management", subtitle: "Manage your website content" },

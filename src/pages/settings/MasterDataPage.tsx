@@ -2489,6 +2489,8 @@ export default function MasterDataPage(): JSX.Element {
 
   const [connectedRemarks, setConnectedRemarks] = useState<ConnectedRemark[]>([]);
   const [currentConnectedRemark, setCurrentConnectedRemark] = useState<ConnectedRemark | null>(null);
+  const [selectedRemarkIds, setSelectedRemarkIds] = useState<string[]>([]);
+  const [isAllRemarksSelected, setIsAllRemarksSelected] = useState(false);
 
   const [societies, setSocieties] = useState<SocietyData[]>([]);
   const [currentSociety, setCurrentSociety] = useState<SocietyData | null>(null);
@@ -2877,6 +2879,97 @@ const handleBulkDeleteSocieties = async () => {
       Swal.fire({
         title: "Error!",
         text: errorMessage,
+        icon: "error",
+        confirmButtonColor: "#3085d6",
+        confirmButtonText: "OK",
+        width: "350px",
+        padding: "1rem",
+        customClass: {
+          popup: "rounded-xl shadow-2xl",
+          title: "text-base font-bold text-red-600",
+          htmlContainer: "text-xs text-gray-600",
+          confirmButton: "px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors",
+        },
+        buttonsStyling: false,
+      });
+    }
+  };
+
+  // Toggle select all connected remarks
+  const toggleSelectAllRemarks = () => {
+    if (isAllRemarksSelected) {
+      setSelectedRemarkIds([]);
+      setIsAllRemarksSelected(false);
+    } else {
+      setSelectedRemarkIds(filteredConnectedRemarks.map(r => r.id));
+      setIsAllRemarksSelected(true);
+    }
+  };
+
+  // Toggle single connected remark selection
+  const toggleSelectRemark = (id: string) => {
+    setSelectedRemarkIds(prev => {
+      const next = prev.includes(id) ? prev.filter(rid => rid !== id) : [...prev, id];
+      setIsAllRemarksSelected(next.length === filteredConnectedRemarks.length);
+      return next;
+    });
+  };
+
+  // Bulk delete connected remarks
+  const handleBulkDeleteRemarks = async () => {
+    if (selectedRemarkIds.length === 0) return;
+
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: `You are about to delete ${selectedRemarkIds.length} selected connected remarks. This action cannot be undone!`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: `Yes, delete ${selectedRemarkIds.length} remark(s)!`,
+      cancelButtonText: "Cancel",
+      background: "#fff",
+      backdrop: `rgba(0,0,0,0.4)`,
+      width: "400px",
+      padding: "1.5rem",
+      customClass: {
+        popup: "rounded-xl shadow-2xl",
+        title: "text-lg font-bold text-gray-800",
+        htmlContainer: "text-sm text-gray-600 my-2",
+        confirmButton: "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
+        cancelButton: "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
+        actions: "flex justify-center gap-2 mt-4",
+      },
+      buttonsStyling: false,
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      await Promise.all(selectedRemarkIds.map(id => connectedRemarkAPI.deleteRemark(id)));
+      await loadConnectedRemarks();
+      const count = selectedRemarkIds.length;
+      setSelectedRemarkIds([]);
+      setIsAllRemarksSelected(false);
+      Swal.fire({
+        title: "Deleted!",
+        text: `${count} connected remarks have been deleted successfully.`,
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+        width: "350px",
+        padding: "1rem",
+        customClass: {
+          popup: "rounded-xl shadow-2xl",
+          title: "text-base font-bold text-green-600",
+          htmlContainer: "text-xs text-gray-600",
+        },
+      });
+    } catch (error: any) {
+      console.error("Error deleting connected remarks:", error);
+      Swal.fire({
+        title: "Error!",
+        text: error.response?.data?.error || "Error deleting connected remarks ❌",
         icon: "error",
         confirmButtonColor: "#3085d6",
         confirmButtonText: "OK",
@@ -3807,6 +3900,10 @@ const handleBulkDelete = async (): Promise<void> => {
                 setCurrentView("list");
                 setSelectedMaster(null);
                 setSelectedValueIds([]);
+                setSelectedRemarkIds([]);
+                setIsAllRemarksSelected(false);
+                setSelectedSocietyIds([]);
+                setIsAllSocietiesSelected(false);
                 setSearchTerm("");
                 setAppliedFilters(initialFilters);
                 setDraftFilters(initialFilters);
@@ -3971,6 +4068,30 @@ const handleBulkDelete = async (): Promise<void> => {
                   </div>
                 ) : isConnectedRemarkTab ? (
                   <div className="bg-white rounded-lg shadow-sm">
+                    {/* Bulk Actions Bar */}
+                    {selectedRemarkIds.length > 0 && (
+                      <div className="flex items-center justify-between p-3 bg-blue-50 border-b">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isAllRemarksSelected}
+                            onChange={toggleSelectAllRemarks}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <span className="text-sm text-gray-700 font-medium">
+                            {selectedRemarkIds.length} connected remark(s) selected
+                          </span>
+                        </div>
+                        <button
+                          onClick={handleBulkDeleteRemarks}
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs font-medium transition-colors"
+                        >
+                          <Trash2 size={14} />
+                          Delete Selected ({selectedRemarkIds.length})
+                        </button>
+                      </div>
+                    )}
+
                     {filteredConnectedRemarks.length === 0 ? (
                       <div className="text-center py-10 sm:py-12 text-gray-500">
                         <Plus size={40} className="mx-auto mb-3 opacity-50" />
@@ -3982,7 +4103,15 @@ const handleBulkDelete = async (): Promise<void> => {
                           <table className="min-w-[1200px] w-full border-collapse table-fixed">
                             <thead className="sticky top-0 z-10">
                               <tr className="border-b bg-gray-50 divide-x divide-gray-200">
-                                <th className="text-left p-3 font-medium text-[11px] sm:text-xs">#</th>
+                                <th className="text-left p-3 font-medium text-[11px] sm:text-xs w-[50px]">
+                                  <input
+                                    type="checkbox"
+                                    checked={isAllRemarksSelected}
+                                    onChange={toggleSelectAllRemarks}
+                                    className="h-4 w-4 rounded border-gray-300"
+                                  />
+                                </th>
+                                <th className="text-left p-3 font-medium text-[11px] sm:text-xs w-[60px]">#</th>
                                 <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Tab Id</th>
                                 <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Type 1</th>
                                 <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Master Value 1</th>
@@ -3996,7 +4125,15 @@ const handleBulkDelete = async (): Promise<void> => {
                             <tbody className="bg-white divide-y divide-gray-100">
                               {filteredConnectedRemarks.map((remark, index) => (
                                 <tr key={remark.id} className="border-b hover:bg-gray-50 transition-colors divide-x divide-gray-200">
-                                  <td className="p-3 text-gray-600 text-xs">{index + 1}</td>
+                                  <td className="p-3 w-[50px]">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedRemarkIds.includes(remark.id)}
+                                      onChange={() => toggleSelectRemark(remark.id)}
+                                      className="h-4 w-4 rounded border-gray-300"
+                                    />
+                                  </td>
+                                  <td className="p-3 text-gray-600 text-xs w-[60px]">{index + 1}</td>
                                   <td className="p-3 font-medium text-xs">{remark.tab_id || remark.tabId || "N/A"}</td>
                                   <td className="p-3 font-medium text-xs">{remark.type1Name || "N/A"}</td>
                                   <td className="p-3 font-medium text-xs">{remark.value1Name || "N/A"}</td>
@@ -4067,7 +4204,7 @@ const handleBulkDelete = async (): Promise<void> => {
                               ))}
                               {filteredConnectedRemarks.length === 0 && (
                                 <tr>
-                                  <td colSpan={9} className="p-3 text-center text-xs text-gray-400">
+                                  <td colSpan={10} className="p-3 text-center text-xs text-gray-400">
                                     No data found
                                   </td>
                                 </tr>
@@ -4075,10 +4212,13 @@ const handleBulkDelete = async (): Promise<void> => {
                             </tbody>
                           </table>
                         </div>
-                        <div className="px-3 py-2 bg-gray-50 border-t border-gray-100">
+                        <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
                           <span className="text-xs text-gray-400">
                             Showing <span className="font-medium text-gray-600">{filteredConnectedRemarks.length}</span> records
                           </span>
+                          {selectedRemarkIds.length > 0 && (
+                            <span className="text-xs text-blue-600 font-medium">{selectedRemarkIds.length} selected</span>
+                          )}
                         </div>
                       </div>
                     )}
@@ -4193,9 +4333,13 @@ const handleBulkDelete = async (): Promise<void> => {
                                           </span>
                                         ))}
                                         {society.amenities.length > 3 && (
-                                          <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 rounded text-[10px]">
+                                          <button
+                                            onClick={() => handleViewSociety(society)}
+                                            className="inline-block px-2 py-1 bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 rounded text-[10px] cursor-pointer transition-colors font-medium border border-transparent hover:border-gray-300"
+                                            title="View all amenities"
+                                          >
                                             +{society.amenities.length - 3}
-                                          </span>
+                                          </button>
                                         )}
                                       </div>
                                     ) : (

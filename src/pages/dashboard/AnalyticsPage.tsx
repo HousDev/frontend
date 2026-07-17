@@ -268,10 +268,12 @@ const AnalyticsPage: React.FC = () => {
             onChange={(e) => setDateRange(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-auto"
           >
-            <option value="last_7_days">Last 7 Days</option>
-            <option value="last_30_days">Last 30 Days</option>
-            <option value="last_90_days">Last 90 Days</option>
-            <option value="last_year">Last Year</option>
+            <option value="today">Today (Daily)</option>
+            <option value="last_7_days">Last 7 Days (Weekly)</option>
+            <option value="last_30_days">Last 30 Days (Monthly)</option>
+            <option value="last_90_days">Last 90 Days (Quarterly)</option>
+            <option value="last_year">Last Year (Yearly)</option>
+            <option value="all_time">All Time</option>
           </select>
           <Button
             variant="outline"

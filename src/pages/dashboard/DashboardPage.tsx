@@ -1,18 +1,21 @@
 
 
 // src/pages/dashboard/DashboardPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users, Building, Activity, TrendingUp, Calendar, ArrowRight, Plus,
   Clock, Sparkles, Zap, Target, Trophy, Bell, Heart, Star, Award,
   Coffee, Sun, Moon, Brain, Briefcase, DollarSign, Home, Smile,
   Lightbulb, Shield, Gem, Crown, MessageSquare, ThumbsUp, LogOut,
-  X, ChevronRight, Gift, PieChart, Building2, DoorOpen, CreditCard
+  X, ChevronRight, Gift, PieChart, Building2, DoorOpen, CreditCard,
+  Phone, Mail, MapPin, Search, FileText, CheckCircle, XCircle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { leadsAPI } from '@/lib/leadAPI';
 import { propertiesAPI } from '@/lib/propertiesAPI';
+import { buyerAPI } from '@/lib/buyerAPI';
+import { sellerAPI } from '@/lib/sellersAPI';
 import Button from '@/components/ui/Button';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { toast } from '@/hooks/useToast';
@@ -116,18 +119,18 @@ interface Notification {
   message: string; timestamp: Date; read: boolean; forManager?: boolean;
 }
 const StatCard = ({ icon, label, value, sub, iconBg, cardBg, subColor }: {
-  icon: React.ReactNode; label: string; value: string | number; 
+  icon: React.ReactNode; label: string; value: string | number;
   sub: string; iconBg: string; cardBg?: string; subColor?: string;
 }) => (
   <div className="rounded-xl p-2.5 border flex items-center gap-2.5 hover:shadow-md transition-shadow shrink-0 flex-1 min-w-[150px]"
-  style={{ borderColor: '#dce5ee', background: cardBg || 'white' }}>
-  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" 
-    style={{ background: iconBg }}>
+    style={{ borderColor: '#dce5ee', background: cardBg || 'white' }}>
+    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+      style={{ background: iconBg }}>
       {icon}
     </div>
     <div className="min-w-0">
       <p className="text-xs font-medium uppercase tracking-wide" style={{ color: '#7a95a8' }}>{label}</p>
-<p className="text-lg font-bold leading-tight" style={{ color: NAVY }}>{value}</p>
+      <p className="text-lg font-bold leading-tight" style={{ color: NAVY }}>{value}</p>
       <p className="text-xs mt-0.5 font-medium" style={{ color: subColor || '#7a95a8' }}>{sub}</p>
     </div>
   </div>
@@ -147,6 +150,18 @@ const DashboardPage: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [energyLevel, setEnergyLevel] = useState(75);
   const [dailyGoal, setDailyGoal] = useState({ completed: 3, target: 10 });
+
+  // Tabbed dashboard states
+  const [activeDashboardTab, setActiveDashboardTab] = useState<'lead' | 'seller' | 'buyer' | 'property'>('lead');
+  const [allLeads, setAllLeads] = useState<RecentItem[]>([]);
+  const [allProperties, setAllProperties] = useState<RecentItem[]>([]);
+  const [buyersList, setBuyersList] = useState<any[]>([]);
+  const [sellersList, setSellersList] = useState<any[]>([]);
+  const [leadSearch, setLeadSearch] = useState('');
+  const [sellerSearch, setSellerSearch] = useState('');
+  const [buyerSearch, setBuyerSearch] = useState('');
+  const [propertySearch, setPropertySearch] = useState('');
+  const [skippedLeadIds, setSkippedLeadIds] = useState<string[]>([]);
 
   // ─── All logic unchanged ──────────────────────────────────────────────────
   useEffect(() => {
@@ -220,39 +235,136 @@ const DashboardPage: React.FC = () => {
     return `Lead ${normalizeValue(l.id) || ''}`.trim();
   };
 
+  const fetchData = async () => {
+    setLoading(true);
+    let leadsList: any[] | null = null, propsList: any[] | null = null;
+    let buyersData: any[] | null = null, sellersData: any[] | null = null;
+    try {
+      const [leadsResp, propsResp, buyersResp, sellersResp] = await Promise.all([
+        leadsAPI.getLeads({ limit: 100 }).catch(() => null),
+        propertiesAPI.getProperties({ limit: 100 }).catch(() => null),
+        buyerAPI.getAll().catch(() => null),
+        sellerAPI.getAll().catch(() => null),
+      ]);
+
+      if (leadsResp) { const d = leadsResp.data ?? leadsResp; if (Array.isArray(d)) leadsList = d; else if (Array.isArray(d?.rows)) leadsList = d.rows; else if (Array.isArray(d?.data)) leadsList = d.data; }
+      if (propsResp) { const d = propsResp.data ?? propsResp; if (Array.isArray(d)) propsList = d; else if (Array.isArray(d?.rows)) propsList = d.rows; else if (Array.isArray(d?.data)) propsList = d.data; }
+
+      if (buyersResp) {
+        const d = buyersResp.success && Array.isArray(buyersResp.data) ? buyersResp.data : (Array.isArray(buyersResp) ? buyersResp : []);
+        buyersData = d;
+      }
+      if (sellersResp) {
+        sellersData = Array.isArray(sellersResp) ? sellersResp : (Array.isArray(sellersResp?.data) ? sellersResp.data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching dashboard datasets:", err);
+    }
+
+    if (Array.isArray(leadsList)) {
+      const sorted = sortDescBy(leadsList, ['updated_at', 'created_at', 'updatedAt', 'createdAt']);
+      setAllLeads(sorted);
+      setRecentLeads(sorted.slice(0, 5));
+    }
+    if (Array.isArray(propsList)) {
+      const sorted = sortDescBy(propsList, ['updated_at', 'created_at', 'updatedAt', 'createdAt']);
+      setAllProperties(sorted);
+      setRecentProperties(sorted.slice(0, 5));
+    }
+    if (Array.isArray(buyersData)) setBuyersList(buyersData);
+    if (Array.isArray(sellersData)) setSellersList(sellersData);
+
+    const nextStats: DashboardStats = JSON.parse(JSON.stringify(emptyStats));
+    if (Array.isArray(leadsList)) {
+      nextStats.leads.total_leads = leadsList.length;
+      nextStats.leads.today_leads = leadsList.reduce((acc, l) => { const d = safeParseDate((l.created_at ?? l.createdAt) as string | undefined); return acc + (d && isSameDayLocal(d) ? 1 : 0); }, 0);
+      nextStats.leads.new_leads = leadsList.reduce((acc, l) => acc + (String(l.status ?? '').trim().toLowerCase() === 'new' ? 1 : 0), 0);
+      nextStats.leads.converted_leads = leadsList.reduce((acc, l) => acc + (String(l.status ?? '').trim().toLowerCase() === 'converted' ? 1 : 0), 0);
+    }
+    if (Array.isArray(propsList)) {
+      const toLower = (v: unknown) => String(v ?? '').trim().toLowerCase();
+      nextStats.properties.total_properties = propsList.length;
+      nextStats.properties.available_properties = propsList.filter(p => toLower(p.status) === 'available').length;
+      nextStats.properties.sold_properties = propsList.filter(p => toLower(p.status) === 'sold').length;
+      nextStats.properties.today_listings = propsList.reduce((acc, p) => { const d = safeParseDate((p.created_at ?? p.createdAt) as string | undefined); return acc + (d && isSameDayLocal(d) ? 1 : 0); }, 0);
+    }
+    setStats(nextStats);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    let isMounted = true;
-    const fetchData = async () => {
-      if (isMounted) setLoading(true);
-      let leadsList: any[] | null = null, propsList: any[] | null = null;
-      try {
-        const [leadsResp, propsResp] = await Promise.all([leadsAPI.getLeads({ limit: 50 }).catch(() => null), propertiesAPI.getProperties({ limit: 50 }).catch(() => null)]);
-        if (leadsResp) { const d = leadsResp.data ?? leadsResp; if (Array.isArray(d)) leadsList = d; else if (Array.isArray(d?.rows)) leadsList = d.rows; else if (Array.isArray(d?.data)) leadsList = d.data; }
-        if (propsResp) { const d = propsResp.data ?? propsResp; if (Array.isArray(d)) propsList = d; else if (Array.isArray(d?.rows)) propsList = d.rows; else if (Array.isArray(d?.data)) propsList = d.data; }
-      } catch { /* swallow */ }
-      if (isMounted) {
-        if (Array.isArray(leadsList)) setRecentLeads(sortDescBy(leadsList, ['updated_at', 'created_at', 'updatedAt', 'createdAt']).slice(0, 5));
-        if (Array.isArray(propsList)) setRecentProperties(sortDescBy(propsList, ['updated_at', 'created_at', 'updatedAt', 'createdAt']).slice(0, 5));
-      }
-      const nextStats: DashboardStats = JSON.parse(JSON.stringify(emptyStats));
-      if (Array.isArray(leadsList)) {
-        nextStats.leads.total_leads = leadsList.length;
-        nextStats.leads.today_leads = leadsList.reduce((acc, l) => { const d = safeParseDate((l.created_at ?? l.createdAt) as string | undefined); return acc + (d && isSameDayLocal(d) ? 1 : 0); }, 0);
-        nextStats.leads.new_leads = leadsList.reduce((acc, l) => acc + (String(l.status ?? '').trim().toLowerCase() === 'new' ? 1 : 0), 0);
-        nextStats.leads.converted_leads = leadsList.reduce((acc, l) => acc + (String(l.status ?? '').trim().toLowerCase() === 'converted' ? 1 : 0), 0);
-      }
-      if (Array.isArray(propsList)) {
-        const toLower = (v: unknown) => String(v ?? '').trim().toLowerCase();
-        nextStats.properties.total_properties = propsList.length;
-        nextStats.properties.available_properties = propsList.filter(p => toLower(p.status) === 'available').length;
-        nextStats.properties.sold_properties = propsList.filter(p => toLower(p.status) === 'sold').length;
-        nextStats.properties.today_listings = propsList.reduce((acc, p) => { const d = safeParseDate((p.created_at ?? p.createdAt) as string | undefined); return acc + (d && isSameDayLocal(d) ? 1 : 0); }, 0);
-      }
-      if (isMounted) { setStats(nextStats); if (!Array.isArray(leadsList) && !Array.isArray(propsList)) toast.error('Failed to load dashboard data'); setLoading(false); }
-    };
-    if (user) fetchData(); else setLoading(false);
-    return () => { isMounted = false; };
+    if (user) {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
   }, [user]);
+
+  const handleUpdateLeadStatus = async (leadId: string | number, newStatus: string) => {
+    try {
+      await leadsAPI.updateStatus(String(leadId), { status: newStatus });
+      toast.success(`Lead status updated to ${newStatus}`);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Error updating lead status');
+    }
+  };
+
+  const nextLeadToCall = useMemo(() => {
+    return allLeads.find(l => String(l.status ?? '').toLowerCase() === 'new' && !skippedLeadIds.includes(String(l.id)));
+  }, [allLeads, skippedLeadIds]);
+
+  const filteredLeads = useMemo(() => {
+    return allLeads.filter(l => {
+      const s = leadSearch.toLowerCase();
+      return (
+        getLeadName(l).toLowerCase().includes(s) ||
+        String(l.email ?? '').toLowerCase().includes(s) ||
+        String(l.phone ?? '').toLowerCase().includes(s) ||
+        String(l.status ?? '').toLowerCase().includes(s)
+      );
+    });
+  }, [allLeads, leadSearch]);
+
+  const filteredSellers = useMemo(() => {
+    return sellersList.filter(s => {
+      const search = sellerSearch.toLowerCase();
+      return (
+        String(s.name ?? '').toLowerCase().includes(search) ||
+        String(s.phone ?? '').toLowerCase().includes(search) ||
+        String(s.email ?? '').toLowerCase().includes(search) ||
+        String(s.city ?? '').toLowerCase().includes(search) ||
+        String(s.status ?? '').toLowerCase().includes(search)
+      );
+    });
+  }, [sellersList, sellerSearch]);
+
+  const filteredBuyers = useMemo(() => {
+    return buyersList.filter(b => {
+      const search = buyerSearch.toLowerCase();
+      return (
+        String(b.name ?? '').toLowerCase().includes(search) ||
+        String(b.phone ?? '').toLowerCase().includes(search) ||
+        String(b.email ?? '').toLowerCase().includes(search) ||
+        String(b.locality ?? '').toLowerCase().includes(search) ||
+        String(b.budget ?? '').toLowerCase().includes(search) ||
+        String(b.status ?? '').toLowerCase().includes(search)
+      );
+    });
+  }, [buyersList, buyerSearch]);
+
+  const filteredProperties = useMemo(() => {
+    return allProperties.filter(p => {
+      const search = propertySearch.toLowerCase();
+      return (
+        getPropertyTitle(p).toLowerCase().includes(search) ||
+        String(p.city ?? '').toLowerCase().includes(search) ||
+        String(p.location ?? '').toLowerCase().includes(search) ||
+        String(p.status ?? '').toLowerCase().includes(search) ||
+        String(p.unit_type ?? '').toLowerCase().includes(search)
+      );
+    });
+  }, [allProperties, propertySearch]);
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return '-'; const d = new Date(dateString); if (isNaN(d.getTime())) return '-';
@@ -334,122 +446,518 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* ── Stats Grid ───────────────────────────────────────────────── */}
-{/* ── Stats Grid ───────────────────────────────────────────────── */}
-<div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-  <StatCard 
-    icon={<Users className="h-5 w-5 text-white" />} 
-    label="Total Leads" value={stats.leads.total_leads} 
-    sub={`+${stats.leads.today_leads} today`} 
-    iconBg={NAVY} 
-    cardBg="#e8eef5"
-    subColor={ORANGE} 
-  />
-  <StatCard 
-    icon={<Building className="h-5 w-5 text-white" />} 
-    label="Properties" value={stats.properties.total_properties} 
-    sub={`${stats.properties.available_properties} available`} 
-    iconBg="#7c3aed"
-    cardBg="#f0ebff"
-    subColor="#15803d" 
-  />
-  <StatCard 
-    icon={<Activity className="h-5 w-5 text-white" />} 
-    label="Activities" value={stats.activities.pending_activities} 
-    sub={`${stats.activities.today_activities} today`} 
-    iconBg="#16a34a"
-    cardBg="#e8f5eb"
-    subColor={ORANGE} 
-  />
-  <StatCard 
-    icon={<TrendingUp className="h-5 w-5 text-white" />} 
-    label="Conversions" value={stats.leads.converted_leads} 
-    sub="This month" 
-    iconBg={ORANGE}
-    cardBg="#fff0e6"
-    subColor="#7c3aed" 
-  />
-</div>
-          {/* ── Quick Actions ─────────────────────────────────────────────── */}
-          <div className="bg-white rounded-xl p-4 sm:p-5 border" style={{ borderColor: '#dce5ee' }}>
-            <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: '#7a95a8' }}>Quick Actions</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { to: '/dashboard/leads', icon: <Users className="h-4 w-4" />, label: 'Manage Leads', color: NAVY },
-                { to: '/dashboard/properties', icon: <Building className="h-4 w-4" />, label: 'View Properties', color: '#15803d' },
-                { to: '/dashboard/activities', icon: <Calendar className="h-4 w-4" />, label: 'Schedule Activity', color: ORANGE },
-                { to: '/dashboard/analytics', icon: <TrendingUp className="h-4 w-4" />, label: 'View Analytics', color: '#7c3aed' },
-              ].map(item => (
-                <Link key={item.to} to={item.to}
-                  className="flex items-center gap-2.5 p-3 rounded-xl border text-sm font-medium transition-all hover:shadow-sm"
-                  style={{ borderColor: '#dce5ee', color: item.color }}>
-                  <span className="p-1.5 rounded-lg shrink-0" style={{ background: `${item.color}15` }}>
-                    {item.icon}
-                  </span>
-                  <span className="truncate" style={{ color: NAVY }}>{item.label}</span>
-                </Link>
-              ))}
-            </div>
+          {/* ── Tabs Navigation ───────────────────────────────────────────── */}
+          <div className="flex border-b border-gray-200" style={{ borderColor: '#dce5ee' }}>
+            {[
+              { id: 'lead', label: 'Leads' },
+              { id: 'seller', label: 'Sellers' },
+              { id: 'buyer', label: 'Buyers' },
+              { id: 'property', label: 'Properties' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveDashboardTab(tab.id as any)}
+                className={`py-3 px-6 font-semibold text-sm border-b-2 transition-all ${activeDashboardTab === tab.id
+                  ? 'border-[#e87722] text-[#e87722]'
+                  : 'border-transparent text-gray-500 hover:text-[#0c3854] hover:border-gray-300'
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          {/* ── Recent Items ──────────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
-            {/* Recent Leads */}
-            <div className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: '#dce5ee' }}>
-              <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#dce5ee' }}>
-                <h3 className="font-semibold text-sm" style={{ color: NAVY }}>Recent Leads</h3>
-                <Link to="/dashboard/leads" className="flex items-center gap-1 text-xs font-medium hover:opacity-80 transition-opacity" style={{ color: ORANGE }}>
-                  View all <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+          {/* ── Tab Views ─────────────────────────────────────────────────── */}
+          {activeDashboardTab === 'lead' && (
+            <div className="space-y-4">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatCard
+                  icon={<Users className="h-5 w-5 text-white" />}
+                  label="Total Leads" value={stats.leads.total_leads}
+                  sub={`+${stats.leads.today_leads} today`}
+                  iconBg={NAVY}
+                  cardBg="#e8eef5"
+                  subColor={ORANGE}
+                />
+                <StatCard
+                  icon={<Target className="h-5 w-5 text-white" />}
+                  label="New Leads" value={stats.leads.new_leads}
+                  sub="Awaiting Dial"
+                  iconBg="#7c3aed"
+                  cardBg="#f0ebff"
+                  subColor="#7c3aed"
+                />
+                <StatCard
+                  icon={<Activity className="h-5 w-5 text-white" />}
+                  label="Activities" value={stats.activities.pending_activities}
+                  sub={`${stats.activities.today_activities} today`}
+                  iconBg="#16a34a"
+                  cardBg="#e8f5eb"
+                  subColor={ORANGE}
+                />
+                <StatCard
+                  icon={<TrendingUp className="h-5 w-5 text-white" />}
+                  label="Conversions" value={stats.leads.converted_leads}
+                  sub="This month"
+                  iconBg={ORANGE}
+                  cardBg="#fff0e6"
+                  subColor="#15803d"
+                />
               </div>
-              <div className="divide-y" style={{ borderColor: '#f0f4f8' }}>
-                {recentLeads.length > 0 ? recentLeads.map(lead => (
-                  <Link key={String(lead.id)} to={`/dashboard/leads/${lead.id}`}
-                    className="flex items-center justify-between px-5 py-3.5 hover:bg-[#f8fafc] transition-colors group">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: NAVY }}>{getLeadName(lead)}</p>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1"
-                        style={statusBadgeStyle(lead.status)}>{lead.status ?? 'New'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <span className="text-xs" style={{ color: '#7a95a8' }}>{formatDate(lead.created_at ?? lead.createdAt)}</span>
-                      <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: ORANGE }} />
-                    </div>
-                  </Link>
-                )) : (
-                  <p className="text-center py-8 text-sm" style={{ color: '#7a95a8' }}>No recent leads</p>
-                )}
-              </div>
-            </div>
 
-            {/* Recent Properties */}
-            <div className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: '#dce5ee' }}>
-              <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#dce5ee' }}>
-                <h3 className="font-semibold text-sm" style={{ color: NAVY }}>Recent Properties</h3>
-                <Link to="/dashboard/properties" className="flex items-center gap-1 text-xs font-medium hover:opacity-80 transition-opacity" style={{ color: ORANGE }}>
-                  View all <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-              <div className="divide-y" style={{ borderColor: '#f0f4f8' }}>
-                {recentProperties.length > 0 ? recentProperties.map(property => (
-                  <Link key={String(property.id)} to={`/dashboard/properties/${property.id}`}
-                    className="flex items-center justify-between px-5 py-3.5 hover:bg-[#f8fafc] transition-colors group">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: NAVY }}>{getPropertyTitle(property)}</p>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1"
-                        style={statusBadgeStyle(property.status)}>{property.status ?? 'Active'}</span>
+              {/* Auto Dialer Call Queue Card */}
+              {nextLeadToCall ? (
+                <div className="bg-white rounded-xl p-4 sm:p-5 border border-l-4 flex flex-wrap items-center justify-between gap-4"
+                  style={{ borderColor: '#dce5ee', borderLeftColor: ORANGE }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${ORANGE}15` }}>
+                      <Phone className="h-5 w-5" style={{ color: ORANGE }} />
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <span className="text-xs" style={{ color: '#7a95a8' }}>{formatDate(property.created_at ?? property.createdAt)}</span>
-                      <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: ORANGE }} />
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Next Call Queue</span>
+                      <h4 className="text-sm sm:text-base font-bold" style={{ color: NAVY }}>{getLeadName(nextLeadToCall)}</h4>
+                      <p className="text-xs text-gray-500">Source: {nextLeadToCall.source || 'Direct Website'} • Sourced: {formatDate(nextLeadToCall.created_at || nextLeadToCall.createdAt)}</p>
                     </div>
-                  </Link>
-                )) : (
-                  <p className="text-center py-8 text-sm" style={{ color: '#7a95a8' }}>No recent properties</p>
-                )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href={`tel:${nextLeadToCall.phone || ''}`}
+                      onClick={() => setDailyGoal(prev => ({ ...prev, completed: prev.completed + 1 }))}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors"
+                    >
+                      <Phone size={14} /> Call Now
+                    </a>
+                    <button
+                      onClick={() => handleUpdateLeadStatus(nextLeadToCall.id, 'contacted')}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                    >
+                      Mark Connected
+                    </button>
+                    <button
+                      onClick={() => handleUpdateLeadStatus(nextLeadToCall.id, 'converted')}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors"
+                      style={{ background: NAVY }}
+                    >
+                      Mark Qualified
+                    </button>
+                    <button
+                      onClick={() => setSkippedLeadIds(prev => [...prev, String(nextLeadToCall.id)])}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors"
+                    >
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl p-4 sm:p-5 border border-l-4 text-center" style={{ borderColor: '#dce5ee', borderLeftColor: '#16a34a' }}>
+                  <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                  <p className="text-sm font-semibold text-gray-600">Great job! All fresh leads have been called for today.</p>
+                </div>
+              )}
+
+              {/* Leads List Table */}
+              <div className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: '#dce5ee' }}>
+                <div className="p-4 border-b flex flex-wrap items-center justify-between gap-3" style={{ borderColor: '#dce5ee' }}>
+                  <h3 className="font-semibold text-sm" style={{ color: NAVY }}>Active Leads</h3>
+                  <div className="relative w-full sm:w-60">
+                    <input
+                      type="text"
+                      placeholder="Search leads..."
+                      value={leadSearch}
+                      onChange={e => setLeadSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b text-gray-500 font-semibold" style={{ borderColor: '#dce5ee' }}>
+                        <th className="p-3">Name</th>
+                        <th className="p-3">Contact</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Sourced Date</th>
+                        <th className="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredLeads.slice(0, 10).map(lead => (
+                        <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="p-3 font-semibold text-[#0c3854]">{getLeadName(lead)}</td>
+                          <td className="p-3">
+                            <div className="flex flex-col text-[11px] text-gray-500">
+                              <span>{lead.phone || 'No phone'}</span>
+                              <span>{lead.email || 'No email'}</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold" style={statusBadgeStyle(lead.status)}>
+                              {lead.status || 'New'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-gray-500">{formatDate(lead.created_at || lead.createdAt)}</td>
+                          <td className="p-3 text-right">
+                            <Link to={`/dashboard/leads/${lead.id}`} className="text-[#e87722] hover:underline font-semibold">
+                              View Detail
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredLeads.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="p-6 text-center text-gray-400">No leads found matching query.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {activeDashboardTab === 'seller' && (
+            <div className="space-y-4">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatCard
+                  icon={<Users className="h-5 w-5 text-white" />}
+                  label="Total Sellers" value={sellersList.length}
+                  sub="Sourced Sellers"
+                  iconBg={NAVY}
+                  cardBg="#e8eef5"
+                  subColor={ORANGE}
+                />
+                <StatCard
+                  icon={<CheckCircle className="h-5 w-5 text-white" />}
+                  label="Active Listings" value={stats.properties.available_properties}
+                  sub="Available on portals"
+                  iconBg="#16a34a"
+                  cardBg="#e8f5eb"
+                  subColor="#16a34a"
+                />
+                <StatCard
+                  icon={<Award className="h-5 w-5 text-white" />}
+                  label="Awaiting Approval" value={sellersList.filter(s => s.status === 'Pending').length}
+                  sub="Listing raw status"
+                  iconBg={ORANGE}
+                  cardBg="#fff0e6"
+                  subColor={ORANGE}
+                />
+                <StatCard
+                  icon={<TrendingUp className="h-5 w-5 text-white" />}
+                  label="Sold Listings" value={stats.properties.sold_properties}
+                  sub="Completed Deals"
+                  iconBg="#7c3aed"
+                  cardBg="#f0ebff"
+                  subColor="#7c3aed"
+                />
+              </div>
+
+              {/* Sellers List Table */}
+              <div className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: '#dce5ee' }}>
+                <div className="p-4 border-b flex flex-wrap items-center justify-between gap-3" style={{ borderColor: '#dce5ee' }}>
+                  <h3 className="font-semibold text-sm" style={{ color: NAVY }}>Sourced Sellers</h3>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="relative w-full sm:w-60">
+                      <input
+                        type="text"
+                        placeholder="Search sellers..."
+                        value={sellerSearch}
+                        onChange={e => setSellerSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                    </div>
+                    <Link to="/dashboard/sellers" className="shrink-0">
+                      <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#e87722] hover:bg-[#d0671c] transition-colors">
+                        <Plus size={14} /> Add Seller
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b text-gray-500 font-semibold" style={{ borderColor: '#dce5ee' }}>
+                        <th className="p-3">Name</th>
+                        <th className="p-3">Contact Info</th>
+                        <th className="p-3">Location/City</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredSellers.slice(0, 10).map(seller => (
+                        <tr key={seller.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="p-3 font-semibold text-[#0c3854]">{seller.name}</td>
+                          <td className="p-3">
+                            <div className="flex flex-col text-[11px] text-gray-500">
+                              <span>{seller.phone || 'No phone'}</span>
+                              <span>{seller.email || 'No email'}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 text-gray-500">{seller.city || 'N/A'}</td>
+                          <td className="p-3">
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+                              style={{
+                                background: seller.status === 'Active' ? '#dcfce7' : '#fee2e2',
+                                color: seller.status === 'Active' ? '#15803d' : '#dc2626',
+                                borderColor: seller.status === 'Active' ? '#bbf7d0' : '#fca5a5'
+                              }}>
+                              {seller.status || 'Active'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <Link to="/dashboard/sellers" className="text-[#e87722] hover:underline font-semibold">
+                              Manage
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredSellers.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="p-6 text-center text-gray-400">No sellers found matching query.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeDashboardTab === 'buyer' && (
+            <div className="space-y-4">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatCard
+                  icon={<Users className="h-5 w-5 text-white" />}
+                  label="Total Buyers" value={buyersList.length}
+                  sub="Active Buyer Accounts"
+                  iconBg={NAVY}
+                  cardBg="#e8eef5"
+                  subColor={ORANGE}
+                />
+                <StatCard
+                  icon={<CreditCard className="h-5 w-5 text-white" />}
+                  label="Loan Referrals" value={buyersList.filter(b => b.home_loan_required || b.loan_status).length}
+                  sub="Financing Integrations"
+                  iconBg="#7c3aed"
+                  cardBg="#f0ebff"
+                  subColor="#7c3aed"
+                />
+                <StatCard
+                  icon={<Target className="h-5 w-5 text-white" />}
+                  label="Pre-Approved" value={buyersList.filter(b => b.loan_status === 'Approved').length}
+                  sub="Confirmed Credit Line"
+                  iconBg="#16a34a"
+                  cardBg="#e8f5eb"
+                  subColor="#16a34a"
+                />
+                <StatCard
+                  icon={<MessageSquare className="h-5 w-5 text-white" />}
+                  label="Hot Enquiries" value={buyersList.filter(b => b.status === 'Active').length}
+                  sub="Awaiting Match Sourcing"
+                  iconBg={ORANGE}
+                  cardBg="#fff0e6"
+                  subColor={ORANGE}
+                />
+              </div>
+
+              {/* Buyers List Table */}
+              <div className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: '#dce5ee' }}>
+                <div className="p-4 border-b flex flex-wrap items-center justify-between gap-3" style={{ borderColor: '#dce5ee' }}>
+                  <h3 className="font-semibold text-sm" style={{ color: NAVY }}>Active Buyers</h3>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="relative w-full sm:w-60">
+                      <input
+                        type="text"
+                        placeholder="Search buyers..."
+                        value={buyerSearch}
+                        onChange={e => setBuyerSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                    </div>
+                    <Link to="/dashboard/buyers" className="shrink-0">
+                      <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#e87722] hover:bg-[#d0671c] transition-colors">
+                        <Plus size={14} /> Add Buyer
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b text-gray-500 font-semibold" style={{ borderColor: '#dce5ee' }}>
+                        <th className="p-3">Buyer Name</th>
+                        <th className="p-3">Contact</th>
+                        <th className="p-3">Budget Details</th>
+                        <th className="p-3">Preferred Locality</th>
+                        <th className="p-3">Loan Status</th>
+                        <th className="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredBuyers.slice(0, 10).map(buyer => (
+                        <tr key={buyer.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="p-3 font-semibold text-[#0c3854]">{buyer.name}</td>
+                          <td className="p-3">
+                            <div className="flex flex-col text-[11px] text-gray-500">
+                              <span>{buyer.phone || 'No phone'}</span>
+                              <span>{buyer.email || 'No email'}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 font-medium text-gray-700">{buyer.budget ? `₹ ${buyer.budget}` : 'N/A'}</td>
+                          <td className="p-3 text-gray-500">{buyer.locality || 'N/A'}</td>
+                          <td className="p-3">
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold"
+                              style={{
+                                background: buyer.home_loan_required ? '#fff0e6' : '#f0f4f8',
+                                color: buyer.home_loan_required ? '#e87722' : '#7a95a8'
+                              }}>
+                              {buyer.home_loan_required ? 'Loan Required' : 'Self-Financed'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <Link to={`/dashboard/buyers`} className="text-[#e87722] hover:underline font-semibold">
+                              Match Properties
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredBuyers.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-6 text-center text-gray-400">No buyers found matching query.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeDashboardTab === 'property' && (
+            <div className="space-y-4">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatCard
+                  icon={<Building className="h-5 w-5 text-white" />}
+                  label="Total Listings" value={stats.properties.total_properties}
+                  sub={`+${stats.properties.today_listings} today`}
+                  iconBg={NAVY}
+                  cardBg="#e8eef5"
+                  subColor={ORANGE}
+                />
+                <StatCard
+                  icon={<CheckCircle className="h-5 w-5 text-white" />}
+                  label="Available Flats" value={stats.properties.available_properties}
+                  sub="Active Resale Portfolio"
+                  iconBg="#16a34a"
+                  cardBg="#e8f5eb"
+                  subColor="#16a34a"
+                />
+                <StatCard
+                  icon={<XCircle className="h-5 w-5 text-white" />}
+                  label="Sold Out" value={stats.properties.sold_properties}
+                  sub="Closed Resale Deals"
+                  iconBg="#dc2626"
+                  cardBg="#fee2e2"
+                  subColor="#dc2626"
+                />
+                <StatCard
+                  icon={<Sparkles className="h-5 w-5 text-white" />}
+                  label="Unverified Localities" value={allProperties.filter(p => !p.city || !p.location).length}
+                  sub="Needs Data Verification"
+                  iconBg={ORANGE}
+                  cardBg="#fff0e6"
+                  subColor={ORANGE}
+                />
+              </div>
+
+              {/* Properties Sourced & Verification Table */}
+              <div className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: '#dce5ee' }}>
+                <div className="p-4 border-b flex flex-wrap items-center justify-between gap-3" style={{ borderColor: '#dce5ee' }}>
+                  <h3 className="font-semibold text-sm" style={{ color: NAVY }}>Properties Verification Queue</h3>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="relative w-full sm:w-60">
+                      <input
+                        type="text"
+                        placeholder="Search properties..."
+                        value={propertySearch}
+                        onChange={e => setPropertySearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                    </div>
+                    <Link to="/dashboard/properties" className="shrink-0">
+                      <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#e87722] hover:bg-[#d0671c] transition-colors">
+                        <Plus size={14} /> Add Property
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b text-gray-500 font-semibold" style={{ borderColor: '#dce5ee' }}>
+                        <th className="p-3">Title / Configuration</th>
+                        <th className="p-3">Location & City</th>
+                        <th className="p-3">Price asking</th>
+                        <th className="p-3">Verification Status</th>
+                        <th className="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredProperties.slice(0, 10).map(property => {
+                        const isUnverified = !property.city || !property.location;
+                        return (
+                          <tr key={property.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="p-3 font-semibold text-[#0c3854]">
+                              <div className="flex flex-col">
+                                <span>{getPropertyTitle(property)}</span>
+                                <span className="text-[10px] text-gray-400 font-normal">ID: {property.id}</span>
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex flex-col text-[11px] text-gray-500">
+                                <span>{property.location || 'No Location'}</span>
+                                <span className="font-semibold">{property.city || 'No City'}</span>
+                              </div>
+                            </td>
+                            <td className="p-3 font-medium text-gray-700">{property.price ? `₹ ${property.price}` : 'N/A'}</td>
+                            <td className="p-3">
+                              <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold border"
+                                style={{
+                                  background: isUnverified ? '#fff0e6' : '#dcfce7',
+                                  color: isUnverified ? '#e87722' : '#15803d',
+                                  borderColor: isUnverified ? '#ffd8be' : '#bbf7d0'
+                                }}>
+                                {isUnverified ? 'Pending Verification' : 'Verified Data'}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <Link to={`/dashboard/properties/${property.id}`} className="text-[#e87722] hover:underline font-semibold">
+                                Validate & Edit
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {filteredProperties.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="p-6 text-center text-gray-400">No properties found matching query.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
