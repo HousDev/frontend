@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown, Image, GripVertical } from 'lucide-react';
+import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown, Image, GripVertical, Search } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import Modal from '@/components/ui/Modal';
 import Dropdown from '@/components/ui/Dropdown';
@@ -209,8 +209,10 @@ const ImageLabelDropdown: React.FC<{
   onChange: (label: string) => void;
 }> = ({ value, options, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
@@ -220,6 +222,7 @@ const ImageLabelDropdown: React.FC<{
       if (dropdownRef.current?.contains(target)) return;
       if (buttonRef.current?.contains(target)) return;
       setIsOpen(false);
+      setSearchTerm('');
     };
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
@@ -246,6 +249,13 @@ const ImageLabelDropdown: React.FC<{
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => searchInputRef.current?.focus(), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   const getPortalTarget = () => {
     if (typeof document === 'undefined') return null;
     return document.getElementById('modal-portal') || document.body;
@@ -254,58 +264,80 @@ const ImageLabelDropdown: React.FC<{
   const isModalPortal = typeof document !== 'undefined' && !!document.getElementById('modal-portal');
   const Z = isModalPortal ? 1050 : 9999999;
 
-  // Increase MAX_H to show more options
   const MAX_H = 300;
- const popupStyle: React.CSSProperties = rect
-  ? (() => {
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      const shouldOpenUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
-      return {
-        position: 'fixed',
-        zIndex: Z,
-        top: shouldOpenUpward
-          ? rect.top + window.scrollY - Math.min(spaceAbove - 10, MAX_H) - 4
-          : rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
-        minWidth: 110,  // 👈 Changed from 120 to 80 (smaller)
-        maxWidth: 110, // 👈 Changed from 150 to 100 (smaller)
-        maxHeight: shouldOpenUpward ? Math.min(spaceAbove - 10, MAX_H) : Math.min(spaceBelow - 10, MAX_H),
-        overflow: 'hidden',
-        pointerEvents: 'auto',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-        borderRadius: '8px',
-      };
-    })()
-  : { position: 'fixed', zIndex: Z, top: 0, left: 0, minWidth: 100, maxWidth: 120, pointerEvents: 'auto' };
+  const popupStyle: React.CSSProperties = rect
+    ? (() => {
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const shouldOpenUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
+        return {
+          position: 'fixed',
+          zIndex: Z,
+          top: shouldOpenUpward
+            ? rect.top + window.scrollY - Math.min(spaceAbove - 10, MAX_H) - 4
+            : rect.bottom + window.scrollY + 4,
+          left: rect.left + window.scrollX,
+          minWidth: 140,
+          maxWidth: 170,
+          maxHeight: shouldOpenUpward ? Math.min(spaceAbove - 10, MAX_H) : Math.min(spaceBelow - 10, MAX_H),
+          overflow: 'hidden',
+          pointerEvents: 'auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+          borderRadius: '8px',
+        };
+      })()
+    : { position: 'fixed', zIndex: Z, top: 0, left: 0, minWidth: 140, maxWidth: 170, pointerEvents: 'auto' };
 
   const selectedLabel = options.find((o) => o.label === value)?.label || (value || 'No label');
+
+  const filteredOptions = useMemo(
+    () => options.filter((o) => (o.label || '').toLowerCase().includes(searchTerm.toLowerCase())),
+    [options, searchTerm]
+  );
+
+  const showNoLabel = !searchTerm || 'no label'.includes(searchTerm.toLowerCase());
 
   const popup = (
     <div 
       ref={dropdownRef} 
-      className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden"
+      className="bg-white border border-gray-200 rounded-lg shadow-xl flex flex-col overflow-hidden"
       style={popupStyle}
     >
-      {/* ✅ FIX: This inner div has overflow-y-auto to enable scrolling */}
-      <div className="overflow-y-auto max-h-[280px] py-1">
-        <button 
-          type="button" 
-          onClick={(e) => { e.stopPropagation(); onChange(''); setIsOpen(false); }}
-          className="w-full text-left px-3 py-1.5 text-xs text-gray-500 hover:bg-orange-50 transition-colors"
-        >
-          No label
-        </button>
-        {options.map((opt) => (
+      <div className="p-1.5 border-b border-gray-100 bg-gray-50 flex items-center shrink-0">
+        <input
+          ref={searchInputRef}
+          type="text"
+          placeholder="Search label..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full px-1.5 py-0.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+        />
+      </div>
+      <div className="overflow-y-auto max-h-[240px] py-1 flex-1">
+        {showNoLabel && (
           <button 
-            key={String(opt.value)} 
             type="button" 
-            onClick={(e) => { e.stopPropagation(); onChange(opt.label); setIsOpen(false); }}
-            className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-orange-50 transition-colors truncate"
+            onClick={(e) => { e.stopPropagation(); onChange(''); setIsOpen(false); setSearchTerm(''); }}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-500 hover:bg-orange-50 transition-colors"
           >
-            {opt.label}
+            No label
           </button>
-        ))}
+        )}
+        {filteredOptions.length === 0 && !showNoLabel ? (
+          <p className="px-3 py-2 text-[11px] text-gray-400 text-center">No options found</p>
+        ) : (
+          filteredOptions.map((opt) => (
+            <button 
+              key={String(opt.value)} 
+              type="button" 
+              onClick={(e) => { e.stopPropagation(); onChange(opt.label); setIsOpen(false); setSearchTerm(''); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-orange-50 transition-colors truncate"
+            >
+              {opt.label}
+            </button>
+          ))
+        )}
       </div>
     </div>
   );
@@ -313,26 +345,26 @@ const ImageLabelDropdown: React.FC<{
   const portalTarget = typeof document !== 'undefined' ? getPortalTarget() : null;
 
   const hasLabel = !!value;
- 
-   return (
-     <>
-       <button ref={buttonRef} type="button"
-         onClick={(e) => { e.stopPropagation(); setIsOpen((p) => !p); setTimeout(updateRect, 0); }}
-         className={`w-full flex items-center justify-between gap-1 px-1.5 py-[2px] rounded-md text-[9px] font-semibold outline-none border transition-all ${
-           hasLabel
-             ? 'bg-orange-50 border-[#dbb393] text-gray-500 hover:bg-[#f6c195]'
-             : 'bg-white/15 border-white/25 text-white/90 hover:bg-white/25'
-         }`}
-       >
-         <span className="flex items-center gap-1 min-w-0">
-           <span className="truncate">{selectedLabel}</span>
-         </span>
-         <ChevronDown size={10} className="flex-shrink-0 opacity-80" />
-       </button>
-       {isOpen && buttonRef.current && portalTarget && createPortal(popup, portalTarget)}
-     </>
-   );
- };
+
+  return (
+    <>
+      <button ref={buttonRef} type="button"
+        onClick={(e) => { e.stopPropagation(); setIsOpen((p) => !p); setTimeout(updateRect, 0); }}
+        className={`w-full flex items-center justify-between gap-1 px-1.5 py-[2px] rounded-md text-[9px] font-semibold outline-none border transition-all ${
+          hasLabel
+            ? 'bg-orange-50 border-[#dbb393] text-gray-500 hover:bg-[#f6c195]'
+            : 'bg-white/15 border-white/25 text-white/90 hover:bg-white/25'
+        }`}
+      >
+        <span className="flex items-center gap-1 min-w-0">
+          <span className="truncate">{selectedLabel}</span>
+        </span>
+        <ChevronDown size={10} className="flex-shrink-0 opacity-80" />
+      </button>
+      {isOpen && buttonRef.current && portalTarget && createPortal(popup, portalTarget)}
+    </>
+  );
+};
 const FilePreviewComponent: React.FC<{
   preview: any;
   onRemove: () => void;
@@ -376,20 +408,8 @@ const FilePreviewComponent: React.FC<{
         <span className="text-[10px] text-gray-600 text-center truncate w-full px-1">{preview.name || preview.file?.name || 'Document'}</span>
         <button onClick={onRemove} className="absolute top-1.5 right-1.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"><X size={10} /></button>
         {onLabelChange && (
-          <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-0.5 py-0.5">
-            <select
-              value={preview.label || ''}
-              onChange={(e) => onLabelChange(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full bg-transparent text-white text-[8px] outline-none border-none"
-            >
-              <option value="" className="text-black">No label</option>
-              {labelOptions.map((opt) => (
-                <option key={String(opt.value)} value={opt.label} className="text-black">
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-1 pt-3 pb-1">
+            <ImageLabelDropdown value={preview.label || ''} options={labelOptions} onChange={(label) => onLabelChange(label)} />
           </div>
         )}
       </div>

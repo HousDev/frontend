@@ -282,11 +282,22 @@ const buildInitialData = (p: UIProperty) => {
     existingOwnershipDocUrl: p.ownershipDocUrl || '',
     existingOwnershipDocName: p.ownershipDocName || '',
     existingOwnershipDocId: p.ownershipDocId || '',
-    existingPhotos: (p.photos || []).map((url, idx) => ({
-      id: String(idx + 1),
-      url,
-      name: `photo-${idx + 1}.jpg`,
-    })),
+    existingPhotos: (p.photos || []).map((photo: any, idx: number) => {
+      const isObj = photo && typeof photo === 'object';
+      const url = isObj ? photo.url : photo;
+      const label = isObj ? (photo.label || '') : '';
+      const isSociety = isObj ? !!photo.isSociety : false;
+      const type: 'video' | 'image' | undefined = isObj ? (photo.type === 'video' ? 'video' : 'image') : undefined;
+      const name = label || `photo-${idx + 1}.jpg`;
+      return {
+        id: String(idx + 1),
+        url,
+        name,
+        label,
+        isSociety,
+        type,
+      };
+    }),
   };
 };
 
@@ -691,6 +702,10 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
     const updatedProperty = {
       ...propertyData,
       ...result,
+      seller: result.seller ? {
+        ...propertyData.seller,
+        ...result.seller
+      } : propertyData.seller,
       updated_at: new Date().toISOString(),
       activities: [
         ...(activities || []),
