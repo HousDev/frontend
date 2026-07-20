@@ -496,16 +496,10 @@ useEffect(() => {
       try {
         setExecsLoading(true);
         const formatName = (u: any): string => {
-          const salutation = u?.salutation ? `${u.salutation} ` : "";
           const firstName = u?.first_name || u?.firstName || "";
           const lastName = u?.last_name || u?.lastName || "";
-          const fullName = `${salutation}${firstName} ${lastName}`.trim();
-          if (fullName) return fullName;
-          if (u?.name) return u.name;
-          if (u?.full_name) return u.full_name;
-          if (u?.username) return u.username;
-          if (u?.email) return u.email.split("@")[0];
-          return "Sales Executive";
+          const fullName = `${firstName} ${lastName}`.trim() || u?.name || u?.full_name || u?.username || u?.email?.split("@")[0] || "Sales Executive";
+          return fullName.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "").trim();
         };
         let executivesList: any[] = [];
         try {
@@ -1786,13 +1780,6 @@ table tbody td {
     <div className="flex justify-center py-12"><TableLoader message="Loading sellers..." size="lg" colSpan={0} /></div>
   ) : (
     <>
-      {isExecutive && (
-        <div className="bg-blue-50 border-b border-blue-100 px-3 py-1.5 text-xs text-blue-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-          <div className="flex items-center gap-1.5"><AlertCircle size={10} /><span>You are viewing sellers assigned to you only</span></div>
-          <div>Total: <span className="font-bold">{filteredSellers.length}</span> sellers</div>
-        </div>
-      )}
-
       {/* OUTER: controls max-height + vertical scroll - DYNAMIC HEIGHT LIKE BUYER TABLE */}
        <div
         className="scrollbar-custom-vertical flex-1 min-h-0"
@@ -2055,17 +2042,10 @@ table tbody td {
                 <td className="px-2 py-1">
   <div className="space-y-0.5">
     <div className="flex items-center gap-2">
-      <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-[9px] text-gray-600 flex-shrink-0">
-        {seller.assigned_to_name
-          ?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")
-          ?.charAt(0) || "U"}
-      </div>
-
       <div className="font-semibold text-gray-900 text-[10px]">
         {seller.assigned_to_name
           ? seller.assigned_to_name
               .replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")
-              .split(" ")[0]
           : "Unassigned"}
       </div>
     </div>

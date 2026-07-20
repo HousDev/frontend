@@ -294,14 +294,10 @@ const [selectedBuyerForFollowup, setSelectedBuyerForFollowup] = useState<UIBuyer
       try {
         setExecsLoading(true);
         const formatName = (u: any): string => {
-          const salutation = u?.salutation ? `${u.salutation} ` : '';
           const firstName = u?.first_name || u?.firstName || '';
           const lastName = u?.last_name || u?.lastName || '';
-          const fullName = `${salutation}${firstName} ${lastName}`.trim();
-          if (fullName) return fullName;
-          if (u?.name) return u.name;
-          if (u?.username) return u.username;
-          return 'Sales Executive';
+          const fullName = `${firstName} ${lastName}`.trim() || u?.name || u?.username || 'Sales Executive';
+          return fullName.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, '').trim();
         };
 
         let executivesList: any[] = [];
@@ -1701,16 +1697,6 @@ const matchesColSearch =
     <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
   ) : (
     <>
-      {isExecutive && (
-        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 text-xs text-blue-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div className="flex items-center gap-2"><AlertCircle size={12} /><span>You are viewing buyers assigned to you only{showUnassignedToExecutives && <span className="text-blue-600"> (including unassigned)</span>}</span></div>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1 text-[11px]"><input type="checkbox" checked={showUnassignedToExecutives} onChange={(e) => setShowUnassignedToExecutives(e.target.checked)} className="rounded" /> Show unassigned</label>
-            <span>Total: <span className="font-bold">{filteredSortedBuyers.length}</span> buyers</span>
-          </div>
-        </div>
-      )}
-
 {/* OUTER: controls max-height + vertical scroll */}
 <div
   className="scrollbar-custom-vertical flex-1 min-h-0"
@@ -2272,15 +2258,9 @@ const matchesColSearch =
             <td className="px-2 py-1">
               {buyer.assigned_executive ? (
                 <div className="flex items-center gap-2 whitespace-nowrap">
-                  <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-[9px] text-gray-600 flex-shrink-0">
-                    {execName
-                      ?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")
-                      ?.charAt(0) || "U"}
-                  </div>
                   <div className="font-semibold text-gray-900 text-[10px]">
                     {execName
-                      ?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")
-                      ?.split(" ")[0]}
+                      ?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")}
                   </div>
                   {isCurrentUser && (
                     <span className="text-[7px] bg-green-100 text-green-700 px-1 rounded">

@@ -62,16 +62,18 @@ interface DropdownProps {
 
 const formatUserName = (u: any): string => {
   if (!u) return '';
-  if (u.display_name && u.display_name.trim()) return u.display_name.trim();
-  if (u.full_name && u.full_name.trim()) return u.full_name.trim();
-  const sal = u.salutation ? `${u.salutation}. ` : '';
-  const fn = u.first_name || '';
-  const ln = u.last_name || '';
-  const name = `${sal}${fn}${ln ? ' ' + ln : ''}`.trim();
-  if (name) return name;
-  if (u.username && u.username.trim()) return u.username.trim();
-  if (u.email && u.email.trim()) return u.email.split('@')[0];
-  return 'Unknown User';
+  let name = '';
+  if (u.display_name && u.display_name.trim()) name = u.display_name.trim();
+  else if (u.full_name && u.full_name.trim()) name = u.full_name.trim();
+  else {
+    const fn = u.first_name || '';
+    const ln = u.last_name || '';
+    name = `${fn}${ln ? ' ' + ln : ''}`.trim();
+  }
+  if (!name && u.username && u.username.trim()) name = u.username.trim();
+  if (!name && u.email && u.email.trim()) name = u.email.split('@')[0];
+  if (!name) return 'Unknown User';
+  return name.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, '').trim();
 };
 
 const Dropdown: React.FC<DropdownProps> = ({

@@ -15,7 +15,8 @@ export function getAssignableExecutives(user: any, salesUsers: any[]) {
     const firstName = u.first_name || u.name || "You";
     const lastName = u.last_name || "";
     
-    let name = `${salutation ? salutation + " " : ""}${firstName}${lastName ? " " + lastName : ""}`;
+    let rawName = `${firstName}${lastName ? " " + lastName : ""}`.trim();
+    let name = rawName.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "").trim();
     if (isSelf) {
       name += " (Self)";
     }

@@ -237,13 +237,17 @@ const [followupToDelete, setFollowupToDelete] = useState<string | number | null>
             const isActive = u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null && u.is_active !== undefined;
             return role.includes("executive") && (dept === "presales" || dept === "presale") && isActive;
           })
-          .map((u: any) => ({
-            id: String(u.id ?? u.user_id ?? u._id ?? ""),
-            name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || "Executive",
-            department: u.department,
-            role: u.role,
-            salutation: u.salutation || "",
-          }));
+          .map((u: any) => {
+            const rawName = `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || "Executive";
+            const cleanName = rawName.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "").trim();
+            return {
+              id: String(u.id ?? u.user_id ?? u._id ?? ""),
+              name: cleanName,
+              department: u.department,
+              role: u.role,
+              salutation: u.salutation || "",
+            };
+          });
         setPreSalesUsers(presalesExecs);
       } catch (err) {
         console.error("Failed to load presales executives:", err);
@@ -269,16 +273,18 @@ const [followupToDelete, setFollowupToDelete] = useState<string | number | null>
 
   const getAssignedExecName = (): string => {
     if (!lead) return "Unassigned";
-    if (lead.assigned_executive_name && lead.assigned_executive_name !== "Unassigned") return lead.assigned_executive_name;
-    if (lead.assigned_executive && presalesUsers.length > 0) {
+    let name = "";
+    if (lead.assigned_executive_name && lead.assigned_executive_name !== "Unassigned") name = lead.assigned_executive_name;
+    else if (lead.assigned_executive && presalesUsers.length > 0) {
       const exec = presalesUsers.find((u) => String(u.id) === String(lead.assigned_executive));
-      if (exec) return exec.name;
+      if (exec) name = exec.name;
     }
     const currentUserId = user?.id ?? (user as AuthUser)?.user_id;
-    if (lead.assigned_executive && String(lead.assigned_executive) === String(currentUserId)) {
-      return `${(user as AuthUser)?.salutation ? (user as AuthUser).salutation + " " : ""}${(user as AuthUser)?.first_name || (user as AuthUser)?.name || "You"}${(user as AuthUser)?.last_name ? " " + (user as AuthUser).last_name : ""} (Self)`;
+    if (!name && lead.assigned_executive && String(lead.assigned_executive) === String(currentUserId)) {
+      name = `${(user as AuthUser)?.first_name || (user as AuthUser)?.name || "You"}${(user as AuthUser)?.last_name ? " " + (user as AuthUser).last_name : ""}`;
     }
-    return "Unassigned";
+    if (!name) return "Unassigned";
+    return name.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "").trim();
   };
 
   useEffect(() => {
@@ -797,7 +803,7 @@ const [followupToDelete, setFollowupToDelete] = useState<string | number | null>
                         <div className="max-h-60 overflow-y-auto">
                           {assignableExecs.length === 0 ? <div className="px-3 py-2 text-xs text-gray-500">No executives available</div> : assignableExecs.map((exec: PresalesUser) => (
                             <button key={exec.id} onClick={() => handleExecAssign(String(exec.id), exec.name)} className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${String(lead.assigned_executive) === String(exec.id) ? "bg-orange-50 text-orange-600 font-medium" : "hover:bg-gray-50 text-gray-700"}`}>
-                              {exec.name}
+                              {exec.name?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "").trim()}
                             </button>
                           ))}
                         </div>

@@ -169,10 +169,10 @@ const [selectedLeadForFollowup, setSelectedLeadForFollowup] = useState<Lead | nu
   // ---------- names ----------
   const formatUserName = (u: any) => {
     if (!u) return '';
-    const sal = u?.salutation ? `${u.salutation} ` : '';
     const fn = u?.first_name || u?.name || '';
     const ln = u?.last_name || '';
-    return `${sal}${fn}${ln ? ' ' + ln : ''}`.trim();
+    const full = `${fn}${ln ? ' ' + ln : ''}`.trim();
+    return full.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, '').trim();
   };
 
   const currentActorName = useMemo(() => formatUserName(user) || 'Admin', [user]);
@@ -293,6 +293,11 @@ const [selectedLeadForFollowup, setSelectedLeadForFollowup] = useState<Lead | nu
         if (lead.assigned_executive) {
           const exec = usersMap[String(lead.assigned_executive)];
           if (exec) enhancedLead.assigned_executive_name = formatUserName(exec);
+        }
+        if (enhancedLead.assigned_executive_name) {
+          enhancedLead.assigned_executive_name = enhancedLead.assigned_executive_name
+            .replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, '')
+            .trim();
         }
         if (lead.created_by) {
           const creator = usersMap[String(lead.created_by)];
@@ -1583,17 +1588,6 @@ const exportLeads = async () => {
     </div>
   ) : (
     <>
-      {/* Role-based visibility hint */}
-      {isExecutive && (
-        <div className="bg-blue-50 border-b border-blue-100 px-3 py-1.5 text-xs text-blue-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-          <div className="flex items-center gap-1.5">
-            <AlertCircle size={10} />
-            <span>You are viewing leads assigned to you only</span>
-          </div>
-          <div>Total: <span className="font-bold">{filteredLeads.length}</span> leads</div>
-        </div>
-      )}
-
       {/* Scrollable table wrapper with dynamic max-height */}
 <div
   className="overflow-y-auto overflow-x-auto flex-1 min-h-0 scrollbar-custom-vertical"

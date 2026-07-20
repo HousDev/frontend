@@ -169,13 +169,14 @@ const getDisplayName = (u: any): string => {
     u?.full_name,
     u?.fullName,
     (u?.first_name && u?.last_name)
-      ? `${u.salutation ? u.salutation + ' ' : ''}${u.first_name} ${u.last_name}`
+      ? `${u.first_name} ${u.last_name}`
       : '',
     u?.name,
     u?.username,
     u?.email,
   ].find(v => typeof v === 'string' && v.trim());
-  return (pick || 'Unnamed Executive').trim();
+  const rawName = (pick || 'Unnamed Executive').trim();
+  return rawName.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, '').trim();
 };
 
 /* ---------------------- Multi-select Tag Picker ---------------------- */
