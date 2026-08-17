@@ -45,6 +45,9 @@ import {
   MessageSquare,
   Mail as MailIcon,
   MoreVertical,
+  Link2,
+  Search,
+  X,
 } from "lucide-react";
 
 import SellerStageUpdateModal from "./SellerStageUpdateModal";
@@ -53,6 +56,8 @@ import ActivityModal from "../buyers/ActivityModal";
 import VisitModal from "../buyers/VisitModal";
 import PropertyFormModal from "@/pages/dashboard/components/PropertyFormModal";
 import { sellerFollowupAPI } from "@/lib/sellerFollowupAPI";
+import { sellerAPI } from "@/lib/sellersAPI";
+import { useProperties } from "@/hooks/properties";
 import SellerFollowupModal, {
   SellerFollowupPayload,
 } from "./SellerFollowupModal";
@@ -867,17 +872,20 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showVisitModal, setShowVisitModal] = useState(false);
   const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const [showLinkPropertyModal, setShowLinkPropertyModal] = useState(false);
+  const [linkPropertySearch, setLinkPropertySearch] = useState("");
   const [editingActivity, setEditingActivity] = useState<any>(null);
   const [editingProperty, setEditingProperty] = useState<any>(null);
   const [showFollowupModal, setShowFollowupModal] = useState(false);
   const [editingFollowup, setEditingFollowup] = useState<Followup | null>(null);
   const [fuLoading, setFuLoading] = useState(false);
   const [fuError, setFuError] = useState<string | null>(null);
-const sellerRef = React.useRef(seller);
-useEffect(() => { sellerRef.current = seller; }, [seller]);
+  const { properties: availableProperties = [], loadingProps } = useProperties({ autoLog: false });
+  const sellerRef = React.useRef(seller);
+  useEffect(() => { sellerRef.current = seller; }, [seller]);
+
   const tabs = [
     { id: "overview", label: "Overview", icon: UserIcon },
-    { id: "details", label: "Details", icon: FileText },
     {
       id: "buyers",
       label: "Buyers",
@@ -1301,15 +1309,139 @@ useEffect(() => { sellerRef.current = seller; }, [seller]);
     onUpdateSeller(updatedSeller);
     setShowVisitModal(false);
   };
-  const handleAddProperty = (propertyData: AnyObj) => {
+  const filteredLinkableProperties = useMemo(() => {
+    const currentPropertyIds = new Set(
+      ((seller as any).properties || []).map((p: any) =>
+        String(p.id || p.property_id || p._id || "")
+      )
+    );
+    const q = linkPropertySearch.toLowerCase().trim();
+    return (availableProperties || []).filter((p: any) => {
+      const pid = String(p.id || p.property_id || p._id || "");
+      if (pid && currentPropertyIds.has(pid)) return false;
+      if (!q) return true;
+      const title = (
+        p.title ||
+        p.property_type_name ||
+        p.unit_type ||
+        ""
+      ).toLowerCase();
+      const address = (
+        p.address ||
+        p.location_name ||
+        p.locality_name ||
+        p.city_name ||
+        p.city ||
+        ""
+      ).toLowerCase();
+      const society = (p.society_name || p.society || "").toLowerCase();
+      return (
+        title.includes(q) ||
+        address.includes(q) ||
+        society.includes(q) ||
+        pid.includes(q)
+      );
+    });
+  }, [availableProperties, seller, linkPropertySearch]);
+
+  const handleLinkProperty = async (property: any) => {
+    const currentProps = (seller as any).properties || [];
+    const pid = String(property.id || property.property_id || property._id);
+    const alreadyLinked = currentProps.some(
+      (p: any) => String(p.id || p.property_id || p._id) === pid
+    );
+    if (alreadyLinked) {
+      toast.info("Property is already linked to this seller");
+      return;
+    }
+    const updatedProps = [...currentProps, property];
     const updatedSeller = {
       ...(seller as AnyObj),
-      properties: [...((seller as AnyObj).properties || []), propertyData],
+      properties: updatedProps,
+    };
+    onUpdateSeller(updatedSeller);
+    setShowLinkPropertyModal(false);
+    setLinkPropertySearch("");
+    toast.success("Property linked to seller successfully");
+    if (sellerIdVal) {
+      try {
+        const res = await sellerAPI.update(String(sellerIdVal), {
+          ...updatedSeller,
+          properties: updatedProps,
+          property_ids: updatedProps
+            .map((p: any) => p.id || p.property_id || p._id)
+            .filter(Boolean),
+        });
+        if (res && res.data) {
+          onUpdateSeller(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to update seller properties on server:", err);
+      }
+    }
+  };
+
+  const handleUnlinkProperty = async (propertyIndex: number) => {
+    const currentProps = (seller as any).properties || [];
+    const updatedProps = currentProps.filter(
+      (_: any, idx: number) => idx !== propertyIndex
+    );
+    const updatedSeller = {
+      ...(seller as AnyObj),
+      properties: updatedProps,
+    };
+    onUpdateSeller(updatedSeller);
+    toast.success("Property unlinked from seller");
+    if (sellerIdVal) {
+      try {
+        const res = await sellerAPI.update(String(sellerIdVal), {
+          ...updatedSeller,
+          properties: updatedProps,
+          property_ids: updatedProps
+            .map((p: any) => p.id || p.property_id || p._id)
+            .filter(Boolean),
+        });
+        if (res && res.data) {
+          onUpdateSeller(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to update seller properties on server:", err);
+      }
+    }
+  };
+
+  const handleAddProperty = async (propertyData: AnyObj) => {
+    const currentProps = (seller as any).properties || [];
+    const updatedProps = [
+      ...currentProps,
+      propertyData,
+    ];
+    const updatedSeller = {
+      ...(seller as AnyObj),
+      properties: updatedProps,
     };
     onUpdateSeller(updatedSeller);
     setShowPropertyForm(false);
     setEditingProperty(null);
+    toast.success("Property added to seller");
+    if (sellerIdVal) {
+      try {
+        const res = await sellerAPI.update(String(sellerIdVal), {
+          ...updatedSeller,
+          properties: updatedProps,
+          property_ids: updatedProps
+            .map((p: any) => p.id || p.property_id || p._id)
+            .filter(Boolean),
+        });
+        if (res && res.data) {
+          onUpdateSeller(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to update seller properties on server:", err);
+      }
+    }
   };
+
   const normalizeToFollowup = (data: SellerFollowupPayload): Followup => {
     const mkId = () =>
       data.id
@@ -1336,6 +1468,7 @@ useEffect(() => { sellerRef.current = seller; }, [seller]);
       category: "sales",
     };
   };
+
   const handleModalSave = async (payload: SellerFollowupPayload) => {
     if (!sellerIdVal) {
       alert("Missing seller id.");
@@ -1359,7 +1492,7 @@ useEffect(() => { sellerRef.current = seller; }, [seller]);
       if (editingFollowup?.id) {
         const res = await sellerFollowupAPI.update(
           editingFollowup.id,
-          apiPayload,
+          apiPayload
         );
         const normalized = normalizeFromApi(res ?? apiPayload);
         upsertFollowupLocal(normalized);
@@ -1378,7 +1511,8 @@ useEffect(() => { sellerRef.current = seller; }, [seller]);
       setFuLoading(false);
     }
   };
- const handleDeleteFollowup = async (f: Followup) => {
+
+  const handleDeleteFollowup = async (f: Followup) => {
     if (!canDeleteFollowups) {
       toast.error("No permission to delete");
       return;
@@ -1400,8 +1534,10 @@ useEffect(() => { sellerRef.current = seller; }, [seller]);
         popup: "rounded-xl shadow-2xl",
         title: "text-lg font-bold text-gray-800",
         htmlContainer: "text-sm text-gray-600 my-2",
-        confirmButton: "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
-        cancelButton: "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
+        confirmButton:
+          "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
+        cancelButton:
+          "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
       },
       buttonsStyling: false,
     });
@@ -1421,333 +1557,409 @@ useEffect(() => { sellerRef.current = seller; }, [seller]);
     }
   };
 
-  const renderOverviewTab = () => (
-    <div className="space-y-4">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl border border-gray-200 p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[9px] font-medium text-gray-500 uppercase">
-                Visits
-              </p>
-              <p className="text-lg font-bold text-gray-900">
-                {(seller as any).visits ?? 0}
-              </p>
-            </div>
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Eye size={14} className="text-blue-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[9px] font-medium text-gray-500 uppercase">
-                Buyers
-              </p>
-              <p className="text-lg font-bold text-gray-900">
-                {(seller as any).interestedBuyers ?? 0}
-              </p>
-            </div>
-            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Users size={14} className="text-purple-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[9px] font-medium text-gray-500 uppercase">
-                Properties
-              </p>
-              <p className="text-lg font-bold text-gray-900">
-                {((seller as any).properties || []).length}
-              </p>
-            </div>
-            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-              <Building size={14} className="text-green-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[9px] font-medium text-gray-500 uppercase">
-                Activities
-              </p>
-              <p className="text-lg font-bold text-gray-900">
-                {((seller as any).activities || []).length}
-              </p>
-            </div>
-            <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-              <Activity size={14} className="text-orange-600" />
-            </div>
-          </div>
-        </div>
-      </div>
+  const renderOverviewTab = () => {
+    const sellerProps = ((seller as any).properties || []) as AnyObj[];
 
-      {/* Stage Progress */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-gray-500">
-            Stage Progress
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">
-              {currentStage.label}
-            </span>
-            <span className="text-xs font-bold text-blue-600">
-              {(seller as any).stageProgress ?? 0}%
-            </span>
-          </div>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all bg-blue-600"
-            style={{ width: `${(seller as any).stageProgress ?? 0}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Property Images */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-semibold text-gray-900">
-            Property Images
-          </h3>
-          <button className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 hover:bg-gray-200">
-            <Camera size={12} />
-            <span>Add Photos</span>
-          </button>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {(((seller as any).properties?.[0]?.photos ?? []) as string[])
-            .slice(0, 3)
-            .map((photo: string, index: number) => (
-              <div
-                key={index}
-                className="relative group aspect-video bg-gray-100 rounded-lg overflow-hidden"
-              >
-                <img
-                  src={photo}
-                  alt={`Property ${index + 1}`}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                  <Eye
-                    size={16}
-                    className="text-white opacity-0 group-hover:opacity-100"
-                  />
-                </div>
+    return (
+      <div className="space-y-4">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white rounded-xl border border-gray-200 p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[9px] font-medium text-gray-500 uppercase">
+                  Visits
+                </p>
+                <p className="text-lg font-bold text-gray-900">
+                  {(seller as any).visits ?? 0}
+                </p>
               </div>
-            ))}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg aspect-video flex items-center justify-center cursor-pointer hover:border-blue-400 transition-colors">
-            <div className="text-center">
-              <Camera size={20} className="mx-auto mb-1 text-gray-400" />
-              <span className="text-[10px] text-gray-500">Add Photo</span>
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Eye size={14} className="text-blue-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[9px] font-medium text-gray-500 uppercase">
+                  Buyers
+                </p>
+                <p className="text-lg font-bold text-gray-900">
+                  {(seller as any).interestedBuyers ?? 0}
+                </p>
+              </div>
+              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Users size={14} className="text-purple-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[9px] font-medium text-gray-500 uppercase">
+                  Properties
+                </p>
+                <p className="text-lg font-bold text-gray-900">
+                  {sellerProps.length}
+                </p>
+              </div>
+              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                <Building size={14} className="text-green-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[9px] font-medium text-gray-500 uppercase">
+                  Activities
+                </p>
+                <p className="text-lg font-bold text-gray-900">
+                  {((seller as any).activities || []).length}
+                </p>
+              </div>
+              <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Activity size={14} className="text-orange-600" />
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Property Details & Seller Info */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Stage Progress */}
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <h3 className="text-xs font-semibold text-gray-900 mb-3">
-            Property Details
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-[10px] text-gray-500">Type</p>
-              <p className="text-xs font-semibold text-gray-900">
-                {(seller as any).properties?.[0]?.unit_type ||
-                  (seller as any).properties?.[0]?.property_type ||
-                  "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-500">Carpet Area</p>
-              <p className="text-xs font-semibold text-gray-900">
-                {(seller as any).properties?.[0]?.carpet_area ?? "—"} sq ft
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-500">Floor</p>
-              <p className="text-xs font-semibold text-gray-900">
-                {(seller as any).properties?.[0]?.floor ?? "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-500">Parking</p>
-              <p className="text-xs font-semibold text-gray-900">
-                {(seller as any).properties?.[0]?.parking_type
-                  ? `${(seller as any).properties?.[0]?.parking_qty || ""} ${(seller as any).properties?.[0]?.parking_type}`
-                  : "—"}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <h3 className="text-xs font-semibold text-gray-900 mb-3">
-            Seller Information
-          </h3>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-              <UserIcon size={16} className="text-gray-600" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-900">
-                {(seller as any).name ?? "—"}
-              </p>
-              <p className="text-[10px] text-gray-500">
-                {(seller as any).phone ?? "—"}
-              </p>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-[10px] text-gray-500">
-              <Mail size={10} />
-              <span>{(seller as any).email ?? "—"}</span>
-            </div>
-            <div className="flex items-center gap-2 text-[10px] text-gray-500">
-              <MapPin size={10} />
-              <span>Lead Source: {(seller as any).source ?? "—"}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderDetailsTab = () => (
-    <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <h3 className="text-xs font-semibold text-gray-900 mb-3">
-          Personal Information
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-3">
-            <div>
-              <p className="text-[10px] font-medium text-gray-500">Full Name</p>
-              <p className="text-sm font-semibold text-gray-900">
-                {(seller as any).salutation} {(seller as any).name}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-medium text-gray-500">
-                Phone Number
-              </p>
-              <p className="text-sm font-semibold text-gray-900">
-                {(seller as any).phone}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-medium text-gray-500">
-                Email Address
-              </p>
-              <p className="text-sm font-semibold text-gray-900">
-                {(seller as any).email}
-              </p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <p className="text-[10px] font-medium text-gray-500">Location</p>
-              <p className="text-sm font-semibold text-gray-900">
-                {(seller as any).location}, {(seller as any).city}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-medium text-gray-500">
-                Lead Source
-              </p>
-              <p className="text-sm font-semibold text-gray-900">
-                {(seller as any).source}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-medium text-gray-500">Status</p>
-              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
-                {(seller as any).status ?? "Active"}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-gray-500">
+              Stage Progress
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">
+                {currentStage.label}
+              </span>
+              <span className="text-xs font-bold text-blue-600">
+                {(seller as any).stageProgress ?? 0}%
               </span>
             </div>
           </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all bg-blue-600"
+              style={{ width: `${(seller as any).stageProgress ?? 0}%` }}
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-semibold text-gray-900">
-            Properties Portfolio
-          </h3>
-          <button
-            onClick={openPropertyFormForCreate}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] bg-blue-600 text-white hover:bg-blue-700"
-          >
-            <Plus size={12} />
-            <span>Add Property</span>
-          </button>
-        </div>
-        {(seller as any).properties && (seller as any).properties.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {(seller as any).properties.map(
-              (property: AnyObj, index: number) => (
-                <div
-                  key={index}
-                  className="border border-gray-200 rounded-lg p-2 hover:shadow-sm transition-shadow"
+        {/* Personal & Contact Information */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3 border-b pb-2">
+            <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
+              <UserIcon size={13} className="text-orange-500" />
+              <span>Seller Personal & Contact Information</span>
+            </h3>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                (seller as any).isActive
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              {(seller as any).status ?? ((seller as any).isActive ? "Active" : "Inactive")}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2.5 text-xs">
+              <div>
+                <p className="text-[10px] font-medium text-gray-500">Full Name</p>
+                <p className="text-xs font-semibold text-gray-900">
+                  {(seller as any).salutation ? `${(seller as any).salutation} ` : ""}
+                  {(seller as any).name || "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-medium text-gray-500">Phone Number</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-900">
+                    {(seller as any).phone || "—"}
+                  </span>
+                  {(seller as any).phone && (seller as any).phone !== "-" && (
+                    <a
+                      href={`tel:${String((seller as any).phone).replace(/\D/g, "")}`}
+                      className="p-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
+                      title="Call"
+                    >
+                      <Phone size={10} />
+                    </a>
+                  )}
+                </div>
+              </div>
+              {(seller as any).whatsapp && (
+                <div>
+                  <p className="text-[10px] font-medium text-gray-500">WhatsApp</p>
+                  <p className="text-xs font-semibold text-gray-900">
+                    {(seller as any).whatsapp}
+                  </p>
+                </div>
+              )}
+              <div>
+                <p className="text-[10px] font-medium text-gray-500">Email Address</p>
+                <p className="text-xs font-semibold text-gray-900 truncate">
+                  {(seller as any).email || "—"}
+                </p>
+              </div>
+              {(seller as any).seller_dob && (
+                <div>
+                  <p className="text-[10px] font-medium text-gray-500">Date of Birth</p>
+                  <p className="text-xs font-semibold text-gray-900">
+                    {fmtDateDDMMYYYY(parseSqlish((seller as any).seller_dob) as Date) || (seller as any).seller_dob}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div>
+                <p className="text-[10px] font-medium text-gray-500">Location / Address</p>
+                <p className="text-xs font-semibold text-gray-900">
+                  {[
+                    (seller as any).location,
+                    (seller as any).city,
+                    (seller as any).state,
+                  ]
+                    .filter((x) => x && x !== "-")
+                    .join(", ") || "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-medium text-gray-500">Lead Source</p>
+                <p className="text-xs font-semibold text-gray-900">
+                  {(seller as any).source || "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-medium text-gray-500">Priority</p>
+                <span
+                  className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${
+                    priorityBadge((seller as any).priority)
+                  }`}
                 >
-                  <div className="flex gap-2">
-                    <img
-                      src={
-                        property.photos?.[0] ?? "https://placehold.co/200x150"
-                      }
-                      alt="property"
-                      className="w-14 h-12 object-cover rounded-md"
-                    />
-                    <div className="flex-1">
-                      <h4 className="text-[10px] font-semibold truncate text-gray-900">
-                        {property.title ??
-                          property.slug ??
-                          (property.unit_type || "Untitled")}
-                      </h4>
-                      <p className="text-[9px] truncate text-gray-500">
-                        {property.address ?? property.location}
-                      </p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[9px] font-medium text-green-600">
-                          {property.price ?? property.budget ?? ""}
-                        </span>
-                        <button
-                          onClick={() => openPropertyFormForEdit(property)}
-                          className="p-0.5 rounded hover:bg-gray-100"
-                        >
-                          <Edit size={10} className="text-gray-500" />
-                        </button>
+                  {(seller as any).priority || "—"}
+                </span>
+              </div>
+              <div>
+                <p className="text-[10px] font-medium text-gray-500">Assigned Executive</p>
+                <p className="text-xs font-semibold text-gray-900">
+                  {(seller as any).assigned_to_name || (seller as any).assigned || "Unassigned"}
+                </p>
+              </div>
+              {(seller as any).notes && (
+                <div>
+                  <p className="text-[10px] font-medium text-gray-500">Notes</p>
+                  <p className="text-xs text-gray-700 whitespace-pre-wrap">
+                    {(seller as any).notes}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Properties Portfolio with 2 Options (Link Property & Add Property) */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
+                <Building size={13} className="text-blue-600" />
+                <span>Properties Portfolio</span>
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                {sellerProps.length}
+              </span>
+            </div>
+
+            {/* TWO OPTIONS: LINK PROPERTY & ADD PROPERTY */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setLinkPropertySearch("");
+                  setShowLinkPropertyModal(true);
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-colors shadow-sm"
+              >
+                <Link2 size={12} />
+                <span>Link Property</span>
+              </button>
+              <button
+                onClick={openPropertyFormForCreate}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                <Plus size={12} />
+                <span>Add Property</span>
+              </button>
+            </div>
+          </div>
+
+          {sellerProps.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {sellerProps.map((property: AnyObj, index: number) => {
+                const title =
+                  property.title ??
+                  property.slug ??
+                  property.unit_type ??
+                  property.property_type ??
+                  "Untitled Property";
+                const address =
+                  property.address ??
+                  property.location ??
+                  ([property.location_name, property.city_name || property.city]
+                    .filter(Boolean)
+                    .join(", ") ||
+                  "—");
+                const photo =
+                  property.photos?.[0]?.url ||
+                  property.photos?.[0] ||
+                  property.image ||
+                  property.photo;
+                const price =
+                  property.price ?? property.budget ?? property.expected_price;
+
+                return (
+                  <div
+                    key={index}
+                    className="border border-gray-200 rounded-lg p-2.5 hover:shadow-sm transition-shadow bg-white flex gap-2.5 items-center justify-between"
+                  >
+                    <div className="flex gap-2.5 items-center min-w-0 flex-1">
+                      {photo ? (
+                        <img
+                          src={typeof photo === "string" ? photo : photo?.url}
+                          alt={title}
+                          className="w-14 h-12 object-cover rounded-md flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-14 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0">
+                          No Pic
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[11px] font-semibold truncate text-gray-900">
+                          {title}
+                        </h4>
+                        <p className="text-[10px] truncate text-gray-500">
+                          {address}
+                        </p>
+                        {price && (
+                          <span className="text-[10px] font-bold text-emerald-600">
+                            {typeof price === "number" ? `₹${price.toLocaleString("en-IN")}` : `₹${price}`}
+                          </span>
+                        )}
                       </div>
                     </div>
+
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => openPropertyFormForEdit(property)}
+                        className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-orange-600 transition-colors"
+                        title="Edit Property"
+                      >
+                        <Edit size={12} />
+                      </button>
+                      <button
+                        onClick={() => handleUnlinkProperty(index)}
+                        className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                        title="Unlink Property"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ),
-            )}
-          </div>
-        ) : (
-          <div className="text-center py-6">
-            <Building size={28} className="mx-auto mb-2 text-gray-300" />
-            <p className="text-[10px] text-gray-500 mb-2">
-              No properties added
-            </p>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+              <Building size={32} className="mx-auto mb-2 text-gray-300" />
+              <p className="text-xs text-gray-500 font-medium mb-1">
+                No properties linked yet
+              </p>
+              <p className="text-[10px] text-gray-400 mb-3 max-w-sm mx-auto">
+                You can link an existing property from your catalog or create a fresh new property for this seller.
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={() => {
+                    setLinkPropertySearch("");
+                    setShowLinkPropertyModal(true);
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg font-medium bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-colors"
+                >
+                  <Link2 size={12} />
+                  <span>Link Existing Property</span>
+                </button>
+                <button
+                  onClick={openPropertyFormForCreate}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                >
+                  <Plus size={12} />
+                  <span>Add New Property</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Property Photos Gallery */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
+              <Camera size={13} className="text-purple-600" />
+              <span>Property Photos</span>
+            </h3>
             <button
               onClick={openPropertyFormForCreate}
-              className="px-2 py-1 text-[9px] rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
             >
-              Add First Property
+              <Camera size={12} />
+              <span>Add Photos</span>
             </button>
           </div>
-        )}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {(((seller as any).properties?.[0]?.photos ?? []) as any[])
+              .slice(0, 3)
+              .map((photo: any, index: number) => {
+                const src = typeof photo === "string" ? photo : photo?.url || photo?.path;
+                return (
+                  <div
+                    key={index}
+                    className="relative group aspect-video bg-gray-100 rounded-lg overflow-hidden"
+                  >
+                    <img
+                      src={src}
+                      alt={`Property ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                      <Eye
+                        size={16}
+                        className="text-white opacity-0 group-hover:opacity-100"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            <div
+              onClick={openPropertyFormForCreate}
+              className="border-2 border-dashed border-gray-300 rounded-lg aspect-video flex items-center justify-center cursor-pointer hover:border-blue-400 transition-colors"
+            >
+              <div className="text-center">
+                <Camera size={20} className="mx-auto mb-1 text-gray-400" />
+                <span className="text-[10px] text-gray-500">Add Photo</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 const renderActivitiesTab = () => (
   <div className="space-y-3 p-3">
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2227,7 +2439,6 @@ const renderActivitiesTab = () => (
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {activeTab === "overview" && renderOverviewTab()}
-        {activeTab === "details" && renderDetailsTab()}
         {activeTab === "activities" && renderActivitiesTab()}
         {activeTab === "followups" &&
           (!canViewFollowups ? (
@@ -2490,6 +2701,194 @@ const renderActivitiesTab = () => (
               seller: `${(seller as any)?.salutation ?? ""} ${(seller as any)?.name ?? ""}`,
             }
           }
+        />
+      )}
+
+      {/* Link Property Modal */}
+      {showLinkPropertyModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-2 sm:p-4"
+          style={{ background: "rgba(15,43,61,0.6)", backdropFilter: "blur(4px)" }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            style={{ border: `1px solid ${BD}` }}
+          >
+            <div className="px-4 py-3 flex items-center justify-between" style={{ background: N }}>
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-lg" style={{ background: `${O}20` }}>
+                  <Link2 size={15} style={{ color: O }} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Link Property to Seller</h3>
+                  <p className="text-[10px] text-white/70">
+                    Select an existing property from your catalog to associate with {(seller as any)?.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowLinkPropertyModal(false);
+                  setLinkPropertySearch("");
+                }}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-3 border-b" style={{ borderColor: BD, background: BG }}>
+              <div className="relative">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={linkPropertySearch}
+                  onChange={(e) => setLinkPropertySearch(e.target.value)}
+                  placeholder="Search by title, location, unit type, society, property ID..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-1 bg-white"
+                  style={{ borderColor: BD }}
+                  autoFocus
+                />
+              </div>
+              <div className="mt-1.5 text-[10px] text-gray-500 flex justify-between">
+                <span>Available properties to link: {filteredLinkableProperties.length}</span>
+                {loadingProps && <span className="text-orange-500 font-medium">Loading properties...</span>}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ scrollbarWidth: "thin" }}>
+              {filteredLinkableProperties.length === 0 ? (
+                <div className="text-center py-8 text-xs text-gray-500">
+                  {linkPropertySearch
+                    ? `No available properties match "${linkPropertySearch}"`
+                    : "No unlinked properties available in catalog."}
+                </div>
+              ) : (
+                filteredLinkableProperties.map((property: any) => {
+                  const title =
+                    property.title ||
+                    property.property_type_name ||
+                    property.unit_type ||
+                    property.property_type ||
+                    "Property";
+                  const address =
+                    property.address ||
+                    [property.location_name || property.locality_name, property.city_name || property.city]
+                      .filter(Boolean)
+                      .join(", ") ||
+                    "Location not specified";
+                  const price = property.price || property.budget || property.expected_price;
+                  const photo =
+                    property.photos?.[0]?.url ||
+                    property.photos?.[0] ||
+                    property.photo ||
+                    property.image;
+                  const pid = String(property.id || property.property_id || property._id || "");
+
+                  return (
+                    <div
+                      key={pid}
+                      className="flex items-center justify-between gap-3 p-2.5 rounded-lg border hover:shadow-sm transition-shadow bg-white"
+                      style={{ borderColor: BD }}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        {photo ? (
+                          <img
+                            src={typeof photo === "string" ? photo : photo?.url}
+                            alt={title}
+                            className="w-12 h-12 object-cover rounded-md flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0">
+                            No Pic
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-xs text-gray-900 truncate">
+                              {title}
+                            </span>
+                            {pid && (
+                              <span
+                                className="px-1.5 py-0.5 rounded text-[8px] font-bold"
+                                style={{ background: `${O}15`, color: O }}
+                              >
+                                REX {pid}
+                              </span>
+                            )}
+                          </div>
+                          {Number(price) > 0 ? (
+                            <span className="text-[10px] font-bold text-emerald-600">
+                              {typeof price === "number" ? `₹${price.toLocaleString("en-IN")}` : `₹${Number(price).toLocaleString("en-IN")}`}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleLinkProperty(property)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg text-white shadow-sm transition-all hover:opacity-90 flex-shrink-0"
+                        style={{ background: O }}
+                      >
+                        <Link2 size={12} />
+                        <span>Link</span>
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div
+              className="px-4 py-2.5 border-t flex items-center justify-between text-xs"
+              style={{ background: BG, borderColor: BD }}
+            >
+              <span className="text-[10px] text-gray-500">
+                Want to create a new property instead?
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setShowLinkPropertyModal(false);
+                    setLinkPropertySearch("");
+                  }}
+                  className="px-3 py-1 text-xs rounded-lg border text-gray-600 hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLinkPropertyModal(false);
+                    setLinkPropertySearch("");
+                    openPropertyFormForCreate();
+                  }}
+                  className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg text-white bg-blue-600 hover:bg-blue-700 font-medium"
+                >
+                  <Plus size={11} />
+                  <span>Create New</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Property Create/Edit Modal */}
+      {showPropertyForm && (
+        <PropertyFormModal
+          isOpen={showPropertyForm}
+          onClose={() => {
+            setShowPropertyForm(false);
+            setEditingProperty(null);
+          }}
+          mode={editingProperty?.id ? "edit" : "create"}
+          propertyId={editingProperty?.id || editingProperty?.property_id}
+          initialData={{
+            seller: (seller as any)?.name || "",
+            sellerId: (seller as any)?.id || "",
+            ...(editingProperty || {}),
+          }}
+          onSubmit={handleAddProperty}
         />
       )}
     </div>
