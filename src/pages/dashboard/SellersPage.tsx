@@ -36,10 +36,12 @@ import {
   AlertCircle,
   Calendar,
   RefreshCw,
+  Link2,
 } from "lucide-react";
 import SellerFormModal from "../../components/sellers/SellerFormModal";
 import SellerViewPage from "../../components/sellers/SellerViewPage";
 import SellerAccountPage from "../../components/sellers/SellerAccountPage";
+import SellerViewModal from "../../components/sellers/SellerViewModal";
 import ImportSellersLeadsModal from "../../components/sellers/ImportSellersLeadsModal";
 import { sellerAPI } from "@/lib/sellersAPI";
 import { toast } from "react-toastify";
@@ -55,6 +57,7 @@ import * as XLSX from 'xlsx';
 import SellerFollowupModal from "@/components/sellers/SellerFollowupModal";
 import sellerFollowupAPI from "@/lib/sellerFollowupAPI";
 import { SiWhatsapp } from "react-icons/si";
+import { useProperties } from "@/hooks/properties";
 
 
 // Resale Theme Colors (matching LeadsPage)
@@ -417,9 +420,16 @@ const SellersPage: React.FC = () => {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
-// Add with your other useState declarations
-const [showSellerFollowupModal, setShowSellerFollowupModal] = useState(false);
-const [selectedSellerForFollowup, setSelectedSellerForFollowup] = useState<any>(null);
+  const [quickViewSeller, setQuickViewSeller] = useState<UISeller | null>(null);
+  const [showQuickViewModal, setShowQuickViewModal] = useState(false);
+  const [linkingSeller, setLinkingSeller] = useState<UISeller | null>(null);
+  const [showLinkPropertyModal, setShowLinkPropertyModal] = useState(false);
+  const [linkPropertySearch, setLinkPropertySearch] = useState("");
+  const { properties: catalogProperties = [], loadingProps: catalogLoading } = useProperties({ autoLog: false });
+
+  // Add with your other useState declarations
+  const [showSellerFollowupModal, setShowSellerFollowupModal] = useState(false);
+  const [selectedSellerForFollowup, setSelectedSellerForFollowup] = useState<any>(null);
   const [executives, setExecutives] = useState<Executive[]>([UNASSIGNED_EXEC]);
   const [execsLoading, setExecsLoading] = useState(false);
   const [pendingExec, setPendingExec] = useState<string>("");
@@ -630,30 +640,67 @@ useEffect(() => {
   }, [roleFilteredSellers]);
 
   const filteredSellers = useMemo(() => {
-    const search = searchTerm.toLowerCase();
+    const search = searchTerm.toLowerCase().trim();
     return roleFilteredSellers.filter((seller) => {
       const matchesSearch =
+        !search ||
         (seller.name || "").toLowerCase().includes(search) ||
+        (seller.salutation || "").toLowerCase().includes(search) ||
         (seller.phone || "").toLowerCase().includes(search) ||
+        (seller.whatsapp || "").toLowerCase().includes(search) ||
         (seller.email || "").toLowerCase().includes(search) ||
-        (seller.location || "").toLowerCase().includes(search);
+        (seller.location || "").toLowerCase().includes(search) ||
+        (seller.city || "").toLowerCase().includes(search) ||
+        (seller.state || "").toLowerCase().includes(search) ||
+        String(seller.id || "").toLowerCase().includes(search) ||
+        (seller.source || "").toLowerCase().includes(search) ||
+        (seller.priority || "").toLowerCase().includes(search) ||
+        (seller.stage || "").replace(/_/g, " ").toLowerCase().includes(search) ||
+        (seller.status || "").toLowerCase().includes(search) ||
+        (seller.leadType || "").toLowerCase().includes(search) ||
+        (seller.assigned_to_name || "").toLowerCase().includes(search) ||
+        (seller.assigned || "").toLowerCase().includes(search) ||
+        (seller.notes || "").toLowerCase().includes(search) ||
+        (seller.dealPotential || "").toLowerCase().includes(search) ||
+        String(seller.dealValue || "").toLowerCase().includes(search) ||
+        (Array.isArray(seller.properties) &&
+          seller.properties.some((p: any) =>
+            (p.title || "").toLowerCase().includes(search) ||
+            (p.address || "").toLowerCase().includes(search) ||
+            (p.unit_type || p.unitType || "").toLowerCase().includes(search) ||
+            (p.property_type || p.propertyType || "").toLowerCase().includes(search) ||
+            (p.society || p.society_name || "").toLowerCase().includes(search) ||
+            (p.location || p.location_name || "").toLowerCase().includes(search) ||
+            String(p.id || p.property_id || "").toLowerCase().includes(search)
+          )) ||
+        (Array.isArray(seller.coSellers) &&
+          seller.coSellers.some((cs: any) =>
+            (cs.coSeller_name || cs.name || "").toLowerCase().includes(search) ||
+            (cs.coSeller_phone || cs.phone || "").toLowerCase().includes(search) ||
+            (cs.coSeller_email || cs.email || "").toLowerCase().includes(search)
+          ));
 
       const matchesColName =
         !colSearch.name ||
         (seller.name || "").toLowerCase().includes(colSearch.name.toLowerCase()) ||
+        (seller.salutation || "").toLowerCase().includes(colSearch.name.toLowerCase()) ||
         (seller.id || "").toString().toLowerCase().includes(colSearch.name.toLowerCase()) ||
         (seller.isActive ? "active" : "inactive").toLowerCase().includes(colSearch.name.toLowerCase());
 
       const matchesColContact =
         !colSearch.contact ||
         (seller.phone || "").toLowerCase().includes(colSearch.contact.toLowerCase()) ||
+        (seller.whatsapp || "").toLowerCase().includes(colSearch.contact.toLowerCase()) ||
         (seller.email || "").toLowerCase().includes(colSearch.contact.toLowerCase()) ||
-        (seller.location || "").toLowerCase().includes(colSearch.contact.toLowerCase());
+        (seller.location || "").toLowerCase().includes(colSearch.contact.toLowerCase()) ||
+        (seller.city || "").toLowerCase().includes(colSearch.contact.toLowerCase()) ||
+        (seller.state || "").toLowerCase().includes(colSearch.contact.toLowerCase());
 
       const matchesColSource =
         !colSearch.source ||
         (seller.source || "").toLowerCase().includes(colSearch.source.toLowerCase()) ||
         (seller.status || "").toLowerCase().includes(colSearch.source.toLowerCase()) ||
+        (seller.leadType || "").toLowerCase().includes(colSearch.source.toLowerCase()) ||
         (seller.isActive ? "active" : "inactive").toLowerCase().includes(colSearch.source.toLowerCase()) ||
         (seller.stage || "").replace(/_/g, " ").toLowerCase().includes(colSearch.source.toLowerCase()) ||
         (seller.priority || "").toLowerCase().includes(colSearch.source.toLowerCase());
@@ -663,10 +710,12 @@ useEffect(() => {
         (seller.priority || "").toLowerCase().includes(colSearch.priority.toLowerCase());
       const matchesColStage =
         !colSearch.stage ||
-        (seller.stage || "").toLowerCase().includes(colSearch.stage.toLowerCase());
+        (seller.stage || "").toLowerCase().includes(colSearch.stage.toLowerCase()) ||
+        (seller.stage || "").replace(/_/g, " ").toLowerCase().includes(colSearch.stage.toLowerCase());
       const matchesColAssigned =
         !colSearch.assigned ||
-        (seller.assigned_to_name || "").toLowerCase().includes(colSearch.assigned.toLowerCase());
+        (seller.assigned_to_name || "").toLowerCase().includes(colSearch.assigned.toLowerCase()) ||
+        (seller.assigned || "").toLowerCase().includes(colSearch.assigned.toLowerCase());
       const matchesColCreated =
         !colSearch.created ||
         (seller.created_at || "").toLowerCase().includes(colSearch.created.toLowerCase());
@@ -730,6 +779,80 @@ useEffect(() => {
     startIndex + itemsPerPage,
   );
 
+  const filteredLinkableProperties = useMemo(() => {
+    if (!linkingSeller) return [];
+    const currentPropertyIds = new Set(
+      ((linkingSeller as any).properties || []).map((p: any) =>
+        String(p.id || p.property_id || p._id || "")
+      )
+    );
+    const q = linkPropertySearch.toLowerCase().trim();
+    return (catalogProperties || []).filter((p: any) => {
+      const pid = String(p.id || p.property_id || p._id || "");
+      if (pid && currentPropertyIds.has(pid)) return false;
+      if (!q) return true;
+      const title = (
+        p.title ||
+        p.property_type_name ||
+        p.unit_type ||
+        ""
+      ).toLowerCase();
+      const address = (
+        p.address ||
+        p.location_name ||
+        p.locality_name ||
+        p.city_name ||
+        p.city ||
+        ""
+      ).toLowerCase();
+      const society = (p.society_name || p.society || "").toLowerCase();
+      return (
+        title.includes(q) ||
+        address.includes(q) ||
+        society.includes(q) ||
+        pid.includes(q)
+      );
+    });
+  }, [catalogProperties, linkingSeller, linkPropertySearch]);
+
+  const handleLinkPropertyToSeller = async (property: any) => {
+    if (!linkingSeller) return;
+    const currentProps = (linkingSeller as any).properties || [];
+    const pid = String(property.id || property.property_id || property._id);
+    const alreadyLinked = currentProps.some(
+      (p: any) => String(p.id || p.property_id || p._id) === pid
+    );
+    if (alreadyLinked) {
+      toast.info("Property is already linked to this seller");
+      return;
+    }
+    const updatedProps = [...currentProps, property];
+    const updatedSeller = {
+      ...linkingSeller,
+      properties: updatedProps,
+    };
+
+    setAllSellers((prev) =>
+      prev.map((s) => (s.id === linkingSeller.id ? updatedSeller : s))
+    );
+    setShowLinkPropertyModal(false);
+    toast.success("Property linked to seller successfully");
+
+    try {
+      await sellerAPI.update(String(linkingSeller.id), {
+        ...updatedSeller,
+        properties: updatedProps,
+        property_ids: updatedProps
+          .map((p: any) => p.id || p.property_id || p._id)
+          .filter(Boolean),
+      });
+      await loadSellers();
+    } catch (err) {
+      console.error("Failed to update seller properties on server:", err);
+      toast.error("Failed to save linked property on server");
+    }
+  };
+
   const handleAddSeller = () => {
     setEditingSeller(null);
     setShowSellerForm(true);
@@ -741,6 +864,14 @@ useEffect(() => {
     }
     setEditingSeller(seller);
     setShowSellerForm(true);
+  };
+  const handleQuickViewSeller = (seller: UISeller) => {
+    if (!canViewSeller(user, seller)) {
+      toast.error("You do not have permission to view this seller");
+      return;
+    }
+    setQuickViewSeller(seller);
+    setShowQuickViewModal(true);
   };
   const handleViewSeller = (seller: UISeller) => {
     if (!canViewSeller(user, seller)) {
@@ -1899,30 +2030,105 @@ table tbody td {
                 {/* COMMUNICATE */}
                 <td className="px-2 py-1 bg-white">
                   <div className="flex items-center gap-1">
-                    <button onClick={() => { const p = seller.phone?.replace(/\D/g, ''); if (p && p !== '-') window.open(`tel:${p}`); else toast.error("No phone"); }} className="p-1 rounded hover:bg-green-100 text-green-600"><Phone size={13} /></button>
-                    <button onClick={() => { const p = seller.phone?.replace(/\D/g, ''); if (p && p !== '-') { const u = user?.username || 'Team'; window.open(`https://wa.me/${p}?text=${encodeURIComponent(`Hi ${seller.name},\n\nBest Regards,\n${u}`)}`, '_blank'); } else toast.error("No phone"); }} className="p-1 rounded hover:bg-green-100 text-green-600"><SiWhatsapp size={13} /></button>
-                    <button onClick={() => { if (seller.email && seller.email !== '-') { const u = user?.username || 'Team'; window.open(`mailto:${seller.email}?subject=Property Inquiry&body=Best Regards,${u}`, '_blank'); } else toast.error("No email"); }} className="p-1 rounded hover:bg-blue-100 text-blue-600"><Mail size={13} /></button>
-                    <button onClick={() => { setSelectedSellerForFollowup(seller); setShowSellerFollowupModal(true); }} className="p-1 rounded hover:bg-purple-100 text-purple-600"><Calendar size={13} /></button>
+                    <button
+                      onClick={() => {
+                        const p = seller.phone?.replace(/\D/g, "");
+                        if (p && p !== "-") window.open(`tel:${p}`);
+                        else toast.error("No phone");
+                      }}
+                      className="p-1 rounded hover:bg-green-100 text-green-600 transition-colors"
+                      title="Call"
+                    >
+                      <Phone size={13} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const p = seller.phone?.replace(/\D/g, "");
+                        if (p && p !== "-") {
+                          const u = user?.username || "Team";
+                          window.open(
+                            `https://wa.me/${p}?text=${encodeURIComponent(
+                              `Hi ${seller.name},\n\nBest Regards,\n${u}`
+                            )}`,
+                            "_blank"
+                          );
+                        } else toast.error("No phone");
+                      }}
+                      className="p-1 rounded hover:bg-green-100 text-green-600 transition-colors"
+                      title="WhatsApp"
+                    >
+                      <SiWhatsapp size={13} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (seller.email && seller.email !== "-") {
+                          const u = user?.username || "Team";
+                          window.open(
+                            `mailto:${seller.email}?subject=Property Inquiry&body=Best Regards,${u}`,
+                            "_blank"
+                          );
+                        } else toast.error("No email");
+                      }}
+                      className="p-1 rounded hover:bg-blue-100 text-blue-600 transition-colors"
+                      title="Email"
+                    >
+                      <Mail size={13} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedSellerForFollowup(seller);
+                        setShowSellerFollowupModal(true);
+                      }}
+                      className="p-1 rounded hover:bg-purple-100 text-purple-600 transition-colors"
+                      title="Schedule Follow-up"
+                    >
+                      <Calendar size={13} />
+                    </button>
                   </div>
-                 </td>
+                </td>
 
                 {/* SELLER DETAILS */}
                 <td className="px-2 py-1 bg-white">
-                  <button onClick={() => handleViewSeller(seller)} className="flex items-center gap-2 group w-full text-left">
-                    <div className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[9px] font-medium shadow-sm" style={{ backgroundColor: RESALE.orange }}>
-                      {(() => { const f = seller.name?.split(" ")[0] || ""; const l = seller.name?.split(" ")[1] || ""; return (f.charAt(0) + l.charAt(0)).toUpperCase().slice(0, 2) || seller.name?.charAt(0)?.toUpperCase() || "S"; })()}
+                  <button
+                    onClick={() => handleViewSeller(seller)}
+                    className="flex items-center gap-2 group w-full text-left"
+                    title="Open Seller Details"
+                  >
+                    <div
+                      className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[9px] font-medium shadow-sm"
+                      style={{ backgroundColor: RESALE.orange }}
+                    >
+                      {(() => {
+                        const f = seller.name?.split(" ")[0] || "";
+                        const l = seller.name?.split(" ")[1] || "";
+                        return (
+                          (f.charAt(0) + l.charAt(0)).toUpperCase().slice(0, 2) ||
+                          seller.name?.charAt(0)?.toUpperCase() ||
+                          "S"
+                        );
+                      })()}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-[11px] text-gray-900 hover:text-orange-500 truncate">{seller.salutation} {seller.name}</p>
+                      <p className="font-medium text-[11px] text-gray-900 group-hover:text-orange-500 truncate">
+                        {seller.salutation} {seller.name}
+                      </p>
                       <div className="flex items-center gap-1 mt-0 flex-wrap">
-                        <span className="text-[9px] text-gray-400">ID: {seller.id}</span>
-                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-[8px] font-medium ${seller.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                        <span className="text-[9px] text-gray-400">
+                          ID: {seller.id}
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-1 py-0.5 rounded-full text-[8px] font-medium ${
+                            seller.isActive
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
                           {seller.isActive ? "● Active" : "● Inactive"}
                         </span>
                       </div>
                     </div>
                   </button>
-                 </td>
+                </td>
 
                 {/* CONTACT & LOCATION */}
                 <td className="px-2 py-1">
@@ -2031,10 +2237,49 @@ table tbody td {
                 {/* MANAGE */}
                 <td className="px-2 py-1 text-center">
                   <div className="flex items-center justify-center gap-1">
-                    <button onClick={() => handleViewSeller(seller)} className="p-1 rounded hover:bg-gray-100 text-gray-500"><Eye size={13} /></button>
-                    <button onClick={() => handleSellerAccount(seller.id)} className="p-1 rounded hover:bg-gray-100 text-green-600"><UserCheck size={13} /></button>
-                    {canUpdate && canEditSeller(user, seller) && <button onClick={() => handleEditSeller(seller)} className="p-1 rounded hover:bg-gray-100 text-orange-500"><Edit size={13} /></button>}
-                    {canDelete && canDeleteSeller(user, seller) && <button onClick={() => handleDeleteSeller(seller.id)} className="p-1 rounded hover:bg-red-100 text-red-600"><Trash2 size={13} /></button>}
+                    <button
+                      onClick={() => handleQuickViewSeller(seller)}
+                      className="p-1 rounded hover:bg-gray-100 text-gray-500 transition-colors"
+                      title="Quick View"
+                    >
+                      <Eye size={13} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setLinkingSeller(seller);
+                        setShowLinkPropertyModal(true);
+                        setLinkPropertySearch("");
+                      }}
+                      className="p-1 rounded hover:bg-blue-50 text-blue-600 transition-colors"
+                      title="Link Property"
+                    >
+                      <Link2 size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleSellerAccount(seller.id)}
+                      className="p-1 rounded hover:bg-gray-100 text-green-600 transition-colors"
+                      title="Seller Account"
+                    >
+                      <UserCheck size={13} />
+                    </button>
+                    {canUpdate && canEditSeller(user, seller) && (
+                      <button
+                        onClick={() => handleEditSeller(seller)}
+                        className="p-1 rounded hover:bg-gray-100 text-orange-500 transition-colors"
+                        title="Edit Seller"
+                      >
+                        <Edit size={13} />
+                      </button>
+                    )}
+                    {canDelete && canDeleteSeller(user, seller) && (
+                      <button
+                        onClick={() => handleDeleteSeller(seller.id)}
+                        className="p-1 rounded hover:bg-red-100 text-red-600 transition-colors"
+                        title="Delete Seller"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                  </td>
 
@@ -2170,37 +2415,212 @@ table tbody td {
 
 
       {/* Seller Follow-up Modal */}
-{/* Seller Follow-up Modal */}
-{showSellerFollowupModal && selectedSellerForFollowup && (
-  <SellerFollowupModal
-    isOpen={showSellerFollowupModal}
-    onClose={() => {
-      setShowSellerFollowupModal(false);
-      setSelectedSellerForFollowup(null);
-    }}
-    onSave={async (payload) => {
-      try {
-        // Call API to save follow-up
-        await sellerFollowupAPI.create(payload);
-        toast.success("Follow-up added successfully");
-        setShowSellerFollowupModal(false);
-        setSelectedSellerForFollowup(null);
-        // Refresh sellers to show updated follow-ups count
-        const apiSellers = await sellerAPI.getAll();
-        const normalized = Array.isArray(apiSellers)
-          ? apiSellers.map(mapApiSellerToUI)
-          : [];
-        setAllSellers(normalized);
-      } catch (error) {
-        console.error("Error adding follow-up:", error);
-        toast.error("Failed to add follow-up");
-      }
-    }}
-    tabId="seller"
-    sellerId={selectedSellerForFollowup.id}
-    initialForm={undefined}
-  />
-)}
+      {showSellerFollowupModal && selectedSellerForFollowup && (
+        <SellerFollowupModal
+          isOpen={showSellerFollowupModal}
+          onClose={() => {
+            setShowSellerFollowupModal(false);
+            setSelectedSellerForFollowup(null);
+          }}
+          onSave={async (payload) => {
+            try {
+              // Call API to save follow-up
+              await sellerFollowupAPI.create(payload);
+              toast.success("Follow-up added successfully");
+              setShowSellerFollowupModal(false);
+              setSelectedSellerForFollowup(null);
+              // Refresh sellers to show updated follow-ups count
+              const apiSellers = await sellerAPI.getAll();
+              const normalized = Array.isArray(apiSellers)
+                ? apiSellers.map(mapApiSellerToUI)
+                : [];
+              setAllSellers(normalized);
+            } catch (error) {
+              console.error("Error adding follow-up:", error);
+              toast.error("Failed to add follow-up");
+            }
+          }}
+          tabId="seller"
+          sellerId={selectedSellerForFollowup.id}
+          initialForm={undefined}
+        />
+      )}
+
+      {/* Seller Quick View Modal */}
+      {showQuickViewModal && quickViewSeller && (
+        <SellerViewModal
+          isOpen={showQuickViewModal}
+          seller={quickViewSeller}
+          onClose={() => {
+            setShowQuickViewModal(false);
+            setQuickViewSeller(null);
+          }}
+          onViewFull={(seller) => {
+            handleViewSeller(seller);
+          }}
+          onEdit={(seller) => {
+            handleEditSeller(seller);
+          }}
+          onAccount={(sellerId) => {
+            handleSellerAccount(sellerId);
+          }}
+          canEdit={canUpdate && canEditSeller(user, quickViewSeller)}
+        />
+      )}
+
+      {/* Link Property Modal from SellersPage Table Action */}
+      {showLinkPropertyModal && linkingSeller && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => {
+            setShowLinkPropertyModal(false);
+            setLinkingSeller(null);
+            setLinkPropertySearch("");
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            style={{ border: "1px solid #e2e8f0" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 flex items-center justify-between bg-[#0f2b3d]">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-[#e67e22]/20">
+                  <Link2 size={15} className="text-[#e67e22]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Link Property to Seller</h3>
+                  <p className="text-[10px] text-white/70">
+                    Select an existing property to associate with {linkingSeller.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowLinkPropertyModal(false);
+                  setLinkingSeller(null);
+                  setLinkPropertySearch("");
+                }}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-3 border-b border-gray-200 bg-gray-50">
+              <div className="relative">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={linkPropertySearch}
+                  onChange={(e) => setLinkPropertySearch(e.target.value)}
+                  placeholder="Search by title, location, unit type, society, property ID..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-1 bg-white border-gray-200"
+                  autoFocus
+                />
+              </div>
+              <div className="mt-1.5 text-[10px] text-gray-500 flex justify-between">
+                <span>Available properties to link: {filteredLinkableProperties.length}</span>
+                {catalogLoading && <span className="text-orange-500 font-medium">Loading properties...</span>}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ scrollbarWidth: "thin" }}>
+              {filteredLinkableProperties.length === 0 ? (
+                <div className="text-center py-8 text-xs text-gray-500">
+                  {linkPropertySearch
+                    ? `No available properties match "${linkPropertySearch}"`
+                    : "No unlinked properties available in catalog."}
+                </div>
+              ) : (
+                filteredLinkableProperties.map((property: any) => {
+                  const title =
+                    property.title ||
+                    property.property_type_name ||
+                    property.unit_type ||
+                    property.property_type ||
+                    "Property";
+                  const address =
+                    property.address ||
+                    [property.location_name || property.locality_name, property.city_name || property.city]
+                      .filter(Boolean)
+                      .join(", ") ||
+                    "Location not specified";
+                  const price = property.price || property.budget || property.expected_price;
+                  const photo =
+                    property.photos?.[0]?.url ||
+                    property.photos?.[0] ||
+                    property.photo ||
+                    property.image;
+                  const pid = String(property.id || property.property_id || property._id || "");
+
+                  return (
+                    <div
+                      key={pid}
+                      className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-gray-200 hover:shadow-sm transition-shadow bg-white"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        {photo ? (
+                          <img
+                            src={typeof photo === "string" ? photo : photo?.url}
+                            alt={title}
+                            className="w-12 h-12 object-cover rounded-md flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0">
+                            No Pic
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-xs text-gray-900 truncate">
+                              {title}
+                            </span>
+                            {pid && (
+                              <span
+                                className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange-100 text-orange-700"
+                              >
+                                REX {pid}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-gray-500 truncate">{address}</p>
+                          {Number(price) > 0 && (
+                            <span className="text-[10px] font-bold text-emerald-600">
+                              ₹{typeof price === "number" ? price.toLocaleString("en-IN") : Number(price).toLocaleString("en-IN")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleLinkPropertyToSeller(property)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg text-white shadow-sm transition-all hover:opacity-90 flex-shrink-0 bg-[#e67e22]"
+                      >
+                        <Link2 size={12} />
+                        <span>Link</span>
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="px-4 py-2.5 border-t border-gray-200 bg-gray-50 flex items-center justify-end text-xs">
+              <button
+                onClick={() => {
+                  setShowLinkPropertyModal(false);
+                  setLinkingSeller(null);
+                  setLinkPropertySearch("");
+                }}
+                className="px-3 py-1 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );

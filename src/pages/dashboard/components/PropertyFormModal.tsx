@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown, Image, GripVertical, Search } from 'lucide-react';
+import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown, Image, GripVertical, Search, Phone, MapPin, Check, User } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import Modal from '@/components/ui/Modal';
 import Dropdown from '@/components/ui/Dropdown';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { societyAPI } from '@/lib/societyAPI';
+import { sellerAPI } from '@/lib/sellersAPI';
 import { toast } from 'react-toastify';
 import PropertyDescriptionAI from './PropertyDescriptionAI';
 import PriceRangeSelector from '@/components/ui/PriceRangeSelector';
@@ -527,11 +528,14 @@ interface PropertyFormData {
   priceType?: 'Fixed' | 'Negotiable' | '';
   finalPrice?: string;
   societyImageUrls?: string[];
+  sellerId?: string | number;
 }
 
 interface InitialDataFromParent {
   id?: string | number;
   seller?: string;
+  sellerId?: string | number;
+  seller_id?: string | number;
   propertyType?: string;
   propertySubtype?: string;
   unitType?: string;
@@ -697,6 +701,82 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   } | null>(null);
   const [isLoadingSociety, setIsLoadingSociety] = useState(false);
   const [isEditDataLoaded, setIsEditDataLoaded] = useState(false);
+
+  // Seller Searchable Dropdown States
+  const [sellersList, setSellersList] = useState<any[]>([]);
+  const [isSellerDropdownOpen, setIsSellerDropdownOpen] = useState(false);
+  const [loadingSellers, setLoadingSellers] = useState(false);
+  const sellerInputContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    (async () => {
+      try {
+        setLoadingSellers(true);
+        const data = await sellerAPI.getAll();
+        if (isMounted && Array.isArray(data)) {
+          setSellersList(data);
+        }
+      } catch (err) {
+        console.warn("Failed to load sellers list in PropertyFormModal:", err);
+      } finally {
+        if (isMounted) setLoadingSellers(false);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isSellerDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        sellerInputContainerRef.current &&
+        !sellerInputContainerRef.current.contains(e.target as Node)
+      ) {
+        setIsSellerDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isSellerDropdownOpen]);
+
+  const filteredSellers = useMemo(() => {
+    const query = (formData.seller || "").toLowerCase().trim();
+    const queryDigits = (formData.seller || "").replace(/\D/g, "");
+    if (!query) return sellersList.slice(0, 30);
+
+    return sellersList.filter((s: any) => {
+      const fullName = `${s.salutation || ""} ${s.name || ""}`.toLowerCase();
+      const phone = String(s.phone || "");
+      const phoneDigits = phone.replace(/\D/g, "");
+      const whatsapp = String(s.whatsapp || "").replace(/\D/g, "");
+      const email = String(s.email || "").toLowerCase();
+      const location = `${s.location || ""} ${s.city || ""}`.toLowerCase();
+      const id = String(s.id || s.seller_id || "");
+
+      return (
+        fullName.includes(query) ||
+        (queryDigits && phoneDigits.includes(queryDigits)) ||
+        (queryDigits && whatsapp.includes(queryDigits)) ||
+        phone.toLowerCase().includes(query) ||
+        email.includes(query) ||
+        location.includes(query) ||
+        id.includes(query)
+      );
+    }).slice(0, 40);
+  }, [sellersList, formData.seller]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (mode === 'create' && initialData) {
+      setFormData(prev => ({
+        ...prev,
+        seller: initialData.seller || prev.seller || '',
+        sellerId: initialData.sellerId || (initialData as any).seller_id || prev.sellerId || '',
+      }));
+    }
+  }, [isOpen, mode, initialData]);
 
   // ========== HELPER: convert dropdown label to ID ==========
   const resolveDropdownField = (
@@ -1373,6 +1453,9 @@ const existingPhotos = (initialData.existingPhotos || []).map((p: any) => ({
     const societyLabel = getLabelFromValue(societyOptions, formData.society);
     const finalSocietyName = societyLabel || formData.society || '';
     fd.append('society_name', finalSocietyName);
+    if (formData.sellerId) {
+      fd.append('seller_id', String(formData.sellerId));
+    }
     fd.append("amenities", JSON.stringify(formData.amenities || []));
     fd.append("furnishingItems", JSON.stringify(formData.furnishingItems || []));
     fd.append("nearby_places", JSON.stringify(formData.nearby_places || []));
@@ -1438,9 +1521,22 @@ const existingPhotos = (initialData.existingPhotos || []).map((p: any) => ({
   function buildUiPatchFromForm(fd: PropertyFormData, previews: { ownership?: FilePreview | null, photos: FilePreview[] }) {
     // All photo URLs (both existing and new)
     const allPhotoUrls = previews.photos.map(p => p.url);
+    const propTypeLabel = getLabelFromValue(masterOptions['property type'] || [], fd.propertyType) || fd.propertyType;
+    const propSubtypeLabel = getLabelFromValue(masterOptions['property subtype'] || [], fd.propertySubtype) || fd.propertySubtype;
+    const unitTypeLabel = getLabelFromValue(masterOptions['unit type'] || [], fd.unitType) || fd.unitType;
+    const societyLabel = getLabelFromValue(societyOptions, fd.society) || fd.society;
+    const titleParts = [propTypeLabel, unitTypeLabel, propSubtypeLabel].filter(Boolean).join(' ');
+    const computedTitle = titleParts ? (societyLabel ? `${titleParts} — ${societyLabel}` : titleParts) : 'Property';
 
     return {
       seller: fd.seller ? { name: fd.seller } : undefined,
+      title: computedTitle,
+      property_type_name: propTypeLabel,
+      property_subtype_name: propSubtypeLabel,
+      unit_type: unitTypeLabel,
+      society_name: societyLabel,
+      location_name: fd.location,
+      city_name: fd.city,
       type: fd.propertyType,
       subtype: fd.propertySubtype,
       unitType: fd.unitType,
@@ -1458,6 +1554,9 @@ const existingPhotos = (initialData.existingPhotos || []).map((p: any) => ({
       carpetArea: fd.carpetArea,
       builtupArea: fd.builtupArea,
       budget: fd.budget,
+      price: fd.budget || fd.finalPrice || 0,
+      expected_price: fd.budget || fd.finalPrice || 0,
+      final_price: fd.finalPrice || fd.budget || 0,
       address: fd.address,
       status: fd.status,
       leadSource: fd.leadSource,
@@ -1494,14 +1593,16 @@ const existingPhotos = (initialData.existingPhotos || []).map((p: any) => ({
       setLoading(true);
       setErrorBanner(null);
       const payload = buildPayload();
+      let createdId = propertyId;
       if (mode === "edit" && propertyId) {
         await propertiesAPI.updateProperty(String(propertyId), payload);
       } else {
-        await propertiesAPI.createProperty(payload);
+        const createRes = await propertiesAPI.createProperty(payload);
+        createdId = createRes?.data?.id || createRes?.id || createRes?.data?.propertyId;
       }
       await loadProperties();
       const uiPatch = buildUiPatchFromForm(formData, { ownership: ownershipDocPreview, photos: photoPreviews });
-      onSubmit(uiPatch);
+      onSubmit({ ...uiPatch, id: createdId || (uiPatch as any).id });
       window.dispatchEvent(new CustomEvent("overview:refresh", { detail: { id: propertyId } }));
       toast.success(`Property ${mode === 'edit' ? 'updated' : 'created'} successfully!`);
       onClose?.();
@@ -1557,8 +1658,113 @@ const existingPhotos = (initialData.existingPhotos || []).map((p: any) => ({
           {/* Property Details Section */}
           <SectionHeader>Property Details</SectionHeader>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
-            <Field label="Seller (optional)">
-              <input type="text" placeholder="Enter Seller" value={formData.seller} onChange={(e) => handleInputChange('seller', e.target.value)} className={INP} />
+            <Field label="Seller (optional)" className="relative">
+              <div ref={sellerInputContainerRef} className="relative w-full">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Select or enter seller..."
+                    value={formData.seller}
+                    onChange={(e) => {
+                      handleInputChange('seller', e.target.value);
+                      setIsSellerDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsSellerDropdownOpen(true)}
+                    className={`${INP} pr-6`}
+                  />
+                  {formData.seller ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleInputChange('seller', '');
+                        setIsSellerDropdownOpen(true);
+                      }}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+                    >
+                      <X size={11} />
+                    </button>
+                  ) : (
+                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                      <ChevronDown size={11} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Seller Searchable Dropdown Popup */}
+                {isSellerDropdownOpen && (
+                  <div
+                    className="absolute left-0 top-full mt-1 w-full sm:w-[280px] bg-white rounded-lg shadow-xl border z-50 max-h-60 overflow-y-auto py-1 text-left animate-in fade-in zoom-in-95 duration-100"
+                    style={{ borderColor: BD }}
+                  >
+                    <div className="px-2.5 py-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b flex justify-between items-center bg-gray-50">
+                      <span>Select / Search Seller</span>
+                      {loadingSellers && <span className="text-orange-500 font-medium">Loading...</span>}
+                    </div>
+
+                    {filteredSellers.length > 0 ? (
+                      filteredSellers.map((sellerItem: any) => {
+                        const fullName = `${sellerItem.salutation ? sellerItem.salutation + ' ' : ''}${sellerItem.name || ''}`.trim();
+                        const isSelected = formData.seller.trim().toLowerCase() === fullName.toLowerCase();
+
+                        return (
+                          <div
+                            key={sellerItem.id || sellerItem.seller_id}
+                            onClick={() => {
+                              handleInputChange('seller', fullName);
+                              setFormData(prev => ({
+                                ...prev,
+                                seller: fullName,
+                                sellerId: sellerItem.id || sellerItem.seller_id || '',
+                              }));
+                              setIsSellerDropdownOpen(false);
+                            }}
+                            className={`px-2.5 py-1.5 cursor-pointer flex items-center justify-between transition-colors hover:bg-orange-50 border-b border-gray-50 ${
+                              isSelected ? 'bg-orange-50/80 font-semibold' : ''
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-semibold text-gray-900 truncate">
+                                  {fullName}
+                                </span>
+                                {sellerItem.id && (
+                                  <span className="text-[8px] font-bold px-1 rounded bg-gray-100 text-gray-600">
+                                    #{sellerItem.id}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5">
+                                {sellerItem.phone && (
+                                  <span className="flex items-center gap-0.5 text-emerald-700 font-medium">
+                                    <Phone size={8} />
+                                    {sellerItem.phone}
+                                  </span>
+                                )}
+                                {(sellerItem.location || sellerItem.city) && (
+                                  <span className="truncate flex items-center gap-0.5">
+                                    <MapPin size={8} />
+                                    {[sellerItem.location, sellerItem.city].filter(Boolean).join(', ')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {isSelected && <Check size={12} className="text-orange-600 flex-shrink-0" />}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-3 text-center text-xs text-gray-500">
+                        <p className="text-[10px] font-semibold text-gray-800">
+                          Use "{formData.seller}"
+                        </p>
+                        <p className="text-[9px] text-gray-400 mt-0.5">
+                          Not found in list. It will be saved as custom seller text.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </Field>
             <Field label="Property Type" required error={errors.propertyType}>
               <SafeDropdown placeholder="Select Property Type" options={getOptions('property type')} value={formData.propertyType} onChange={handleDropdownChange('propertyType')} className="w-full" />
@@ -1676,7 +1882,7 @@ const existingPhotos = (initialData.existingPhotos || []).map((p: any) => ({
               <input type="text" placeholder="e.g. 1050" value={formData.builtupArea} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value) || e.target.value === '') handleInputChange('builtupArea', e.target.value); }} className={INP} />
             </Field>
             <Field label="Lead Source">
-              <SafeDropdown placeholder="Lead Source" options={getOptions('lead source')} value={formData.leadSource} onChange={handleDropdownChange('leadSource')} className="w-full" />
+              <SafeDropdown placeholder="Lead Source" options={getOptions('lead source')} value={formData.leadSource} onChange={handleDropdownChange('leadSource')} className="w-full" searchable />
             </Field>
             <div className="col-span-2 sm:col-span-3 lg:col-span-4">
               <label className={LBL}>Sell Price (₹) <span className="text-red-400">*</span></label>

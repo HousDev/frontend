@@ -1,7 +1,7 @@
 
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, Save, User, Phone, MapPin, Building, Star, Trash2, Home, Handshake, Search, Briefcase, Mail, Calendar, Award, Flag, Users, CreditCard, FileText } from 'lucide-react';
+import { X, Save, User, Phone, MapPin, Building, Star, Trash2, Home, Handshake, Search, Briefcase, Mail, Calendar, Award, Flag, Users, CreditCard, FileText, Plus, Link2 } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
@@ -10,6 +10,7 @@ import { FaWhatsapp } from 'react-icons/fa';
 import DOBStepCalendar from '../ui/DOBStepCalendar';
 import { usersAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import PropertyFormModal from '@/pages/dashboard/components/PropertyFormModal';
 
 // ESALE Theme Colors
 const N = "#0f2b3d";
@@ -80,13 +81,22 @@ const adaptProperties = (arr: any[]): MiniProperty[] =>
   (Array.isArray(arr) ? arr : []).map((p: any) => {
     const pid = getPropertyId(p);
     const uniqueId = pid || `P-${Math.random().toString(36).slice(2, 11)}`;
+    const rawPrice = p.finalPrice ?? p.budget ?? p.price ?? p.expected_price ?? p.final_price ?? '';
     return {
       id: uniqueId,
       title: composePropertyTitle(p),
-      address: p.address || [p.location_name || p.locality_name, p.city_name || p.city].filter(Boolean).join(', '),
-      price: p.budget ?? p.price ?? p.expected_price ?? '',
-      size: p.carpet_area ?? p.area ?? p.super_builtup_area ?? '',
-      image: p.image || p.photo || (Array.isArray(p.photos) ? p.photos[0]?.url || p.photos[0] : ''),
+      address:
+        p.address ||
+        [p.location_name || p.locality_name || p.location, p.city_name || p.city]
+          .filter(Boolean)
+          .join(', ') ||
+        'Address not set',
+      price: rawPrice !== null && rawPrice !== undefined && String(rawPrice).trim() !== '' ? rawPrice : '',
+      size: p.carpet_area ?? p.carpetArea ?? p.area ?? p.super_builtup_area ?? '',
+      image:
+        p.image ||
+        p.photo ||
+        (Array.isArray(p.photos) ? p.photos[0]?.url || p.photos[0] : ''),
       _rxpBadge: formatRxpId(p),
       _pid: pid,
       _rawProperty: p,
@@ -295,11 +305,21 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
   const [sameWhatsapp, setSameWhatsapp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPropertySelector, setShowPropertySelector] = useState(false);
+  const [showPropertyCreateModal, setShowPropertyCreateModal] = useState(false);
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
   const [phoneCountryData, setPhoneCountryData] = useState<any>(null);
   const [salesUsers, setSalesUsers] = useState<any[]>([]);
   const [propertySearchQuery, setPropertySearchQuery] = useState('');
+
+  const handleCreatePropertySubmit = (createdProp: any) => {
+    const formattedProperty = adaptProperties([createdProp])[0];
+    setFormData((prev) => ({
+      ...prev,
+      properties: [...(prev.properties || []), formattedProperty],
+    }));
+    setShowPropertyCreateModal(false);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -417,20 +437,25 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
 
   const availableProperties: MiniProperty[] = useMemo(() => {
     if (!Array.isArray(properties) || !properties.length) return [];
-    return properties
-      .filter((p: any) => toBool(p.is_public ?? p.isPublic ?? p.public) && !(p.seller_id ?? p.sellerId ?? p.owner_seller_id))
-      .slice(0, 50)
-      .map((p: any) => adaptProperties([p])[0]);
+    return adaptProperties(properties);
   }, [properties]);
 
   const filteredAvailableProperties = useMemo(() => {
-    if (!propertySearchQuery.trim()) return availableProperties;
+    const currentSelectedIds = new Set((formData.properties || []).map((p) => String(p.id)));
+    const unselected = availableProperties.filter((p) => !currentSelectedIds.has(String(p.id)));
+    if (!propertySearchQuery.trim()) return unselected;
     const query = propertySearchQuery.toLowerCase().trim();
-    return availableProperties.filter((property) => {
-      const searchableFields = [property.title || '', property.address || '', property._rxpBadge || '', property._pid || ''];
-      return searchableFields.some(field => field.toLowerCase().includes(query));
+    return unselected.filter((property) => {
+      const searchableFields = [
+        property.title || '',
+        property.address || '',
+        property._rxpBadge || '',
+        property._pid || '',
+        String(property.id || ''),
+      ];
+      return searchableFields.some((field) => field.toLowerCase().includes(query));
     });
-  }, [availableProperties, propertySearchQuery]);
+  }, [availableProperties, propertySearchQuery, formData.properties]);
 
   const filteredCities = useMemo(() => cityOptions.filter((c: any) => !formData.state || c.parentValue === formData.state), [cityOptions, formData.state]);
   const locationOptions: MasterOption[] = masters['location'] || [];
@@ -761,7 +786,36 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
 
           {/* Properties */}
           <div className="mt-3 rounded-lg p-2.5" style={{ background: BG, border: `1px solid ${BD}` }}>
-            <h3 className="text-[10px] font-bold mb-2 flex items-center gap-1" style={{ color: N }}><Building size={10} style={{ color: O }} /> Properties</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-[10px] font-bold flex items-center gap-1" style={{ color: N }}>
+                <Building size={10} style={{ color: O }} /> Properties
+                {formData.properties && formData.properties.length > 0 && (
+                  <span className="px-1.5 py-0.25 rounded-full text-[8px] font-bold" style={{ background: `${O}15`, color: O }}>
+                    {formData.properties.length}
+                  </span>
+                )}
+              </h3>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowPropertySelector(true)}
+                  disabled={loadingProps}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[8px] font-medium transition-all hover:opacity-80 border"
+                  style={{ borderColor: `${O}40`, background: `${O}10`, color: O }}
+                >
+                  <Link2 size={9} /> Link Property
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPropertyCreateModal(true)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[8px] font-medium text-white transition-all hover:opacity-80 shadow-sm"
+                  style={{ background: O }}
+                >
+                  <Plus size={9} /> Add Property
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-2">
               {(formData.properties || []).map((property) => (
                 <div key={property.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'white', border: `1px solid ${BD}` }}>
@@ -769,14 +823,21 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1"><div className="font-medium text-[9px] truncate">{property.title}</div>{property._rxpBadge && (<span className="px-1 py-0.25 rounded-full text-[7px]" style={{ background: `${O}15`, color: O }}>{property._rxpBadge}</span>)}</div>
                     <div className="text-[7px] truncate" style={{ color: MU }}>{property.address}</div>
-                    {property.price && <div className="text-[8px] font-semibold" style={{ color: O }}>₹ {numberToINR(property.price)}</div>}
+                    {Number(property.price) > 0 ? (
+                      <div className="text-[8px] font-semibold" style={{ color: O }}>
+                        ₹ {numberToINR(property.price)}
+                      </div>
+                    ) : null}
                   </div>
                   <button onClick={() => removeProperty(property.id)} className="p-1 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#dc2626' }}><Trash2 size={10} /></button>
                 </div>
               ))}
-              <button onClick={() => setShowPropertySelector(true)} disabled={loadingProps} className="flex items-center justify-center gap-1 w-full py-1.5 rounded-lg text-[9px] font-medium transition-all hover:opacity-80" style={{ background: `${O}10`, color: O }}>
-                <Home size={10} /> {loadingProps ? 'Loading...' : 'Add Property'}
-              </button>
+
+              {(!formData.properties || formData.properties.length === 0) && (
+                <div className="text-center py-3 text-[9px]" style={{ color: MU }}>
+                  No properties attached. Use <span className="font-semibold text-orange-600">Link Property</span> to select existing, or <span className="font-semibold text-orange-600">Add Property</span> to create new.
+                </div>
+              )}
             </div>
           </div>
 
@@ -867,6 +928,22 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
             </div>
           </div>
         </div>
+      )}
+
+      {/* Property Create Modal */}
+      {showPropertyCreateModal && (
+        <PropertyFormModal
+          isOpen={showPropertyCreateModal}
+          onClose={() => setShowPropertyCreateModal(false)}
+          onSubmit={handleCreatePropertySubmit}
+          mode="create"
+          initialData={{
+            seller: `${formData.salutation || ''} ${formData.name || ''}`.trim(),
+            address: formData.location ? `${formData.location}, ${formData.city || ''}` : formData.city || '',
+            city: formData.city || '',
+            location: formData.location || '',
+          }}
+        />
       )}
     </div>
   );
