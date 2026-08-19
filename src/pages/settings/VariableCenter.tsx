@@ -1389,7 +1389,7 @@ const VariableCenter: FC = () => {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -1638,7 +1638,8 @@ const VariableCenter: FC = () => {
                       }}
                       className="min-w-[70px] px-2 py-1 text-[10px] border border-gray-200 rounded bg-white"
                     >
-                      {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                      {[50, 100, 200, 500, 700].map(n => <option key={n} value={n}>{n}</option>)}
+                      <option value={999999}>All</option>
                     </select>
                   )}
                   <div className="flex-1 overflow-x-auto scrollbar-hide">
@@ -1702,7 +1703,8 @@ const VariableCenter: FC = () => {
                       }}
                       className="px-2 py-1 text-[11px] border border-gray-200 rounded bg-white"
                     >
-                      {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n} / page</option>)}
+                      {[50, 100, 200, 500, 700].map(n => <option key={n} value={n}>{n} / page</option>)}
+                      <option value={999999}>All</option>
                     </select>
                   )}
                 </div>

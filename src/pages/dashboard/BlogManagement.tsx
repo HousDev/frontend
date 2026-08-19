@@ -888,6 +888,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
               style={{ borderColor: BD }}>
                 <tr className="border-b " style={{ borderColor: BD }}>
                   {(canUpdate || canBulkDelete) && <th className="py-3 px-3 w-8"><input type="checkbox" checked={paginatedPosts.length > 0 && paginatedPosts.every((p) => selectedIds.has(String(p.id)))} onChange={() => toggleSelectAllOnPage(paginatedPosts)} /></th>}
+                  <th className="text-center py-3 px-3 font-medium text-xs w-10" style={{ color: MU }}>S.No.</th>
                   <th className="text-left py-3 px-3 font-medium text-xs" style={{ color: MU }}>Title</th>
                   <th className="text-left py-3 px-3 font-medium text-xs hidden sm:table-cell" style={{ color: MU }}>Source</th>
                   <th className="text-left py-3 px-3 font-medium text-xs hidden md:table-cell" style={{ color: MU }}>Category</th>
@@ -898,13 +899,16 @@ const StatCard = ({ icon: Icon, label, value, subValue, color }: any) => (
                  </tr>
               </thead>
               <tbody>
-                {paginatedPosts.map((post) => {
+                {paginatedPosts.map((post, idx) => {
                   const qualityScore = getQualityScore(post.content || '');
                   const plagiarismScore = getPlagiarismScore(post.content || '');
                   const srcName = getPostSourceName(post);
                   return (
                     <tr key={post.id} className="border-b hover:bg-gray-50 transition-colors" style={{ borderColor: BD }}>
                       {(canUpdate || canBulkDelete) && <td className="py-3 px-3"><input type="checkbox" checked={selectedIds.has(String(post.id))} onChange={() => toggleSelectOne(post.id!)} /></td>}
+                      <td className="py-3 px-3 text-center text-xs font-semibold text-gray-500 font-mono">
+                        {(currentPage - 1) * pageSize + idx + 1}
+                      </td>
                       <td className="py-3 px-3">
                         <div className="flex items-center gap-2">
                           {post.featuredImage ? <img src={post.featuredImage} alt="" className="w-8 h-8 object-cover rounded" /> : <div className="w-8 h-8 rounded flex items-center justify-center" style={{ background: `${N}10` }}><FileText size={12} style={{ color: MU }} /></div>}

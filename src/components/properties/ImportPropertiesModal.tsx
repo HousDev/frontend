@@ -274,6 +274,7 @@ const ImportPropertiesModal = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [rows, setRows] = useState<ImportPreview[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [failedRows, setFailedRows] = useState<{ row: number; reason: string; data: CleanRow }[]>([]);
   const [importing, setImporting] = useState(false);
   const [paused, setPaused] = useState(false);
   const [progress, setProgress] = useState({ total: 0, done: 0, ok: 0, fail: 0 });
@@ -647,6 +648,7 @@ return;
     }
 
     setImporting(true);
+    setFailedRows([]);
     setPaused(false);
     abortRef.current.abort = false;
 
@@ -666,6 +668,8 @@ return;
       } catch (e: any) {
         console.error("Import row error:", { row: row.__row, error: e });
         fail++;
+        const errMsg = e?.response?.data?.message || e?.message || String(e);
+        setFailedRows(prev => [...prev, { row: row.__row, reason: `API Error: ${errMsg}`, data: row }]);
       } finally {
         const done = ok + fail;
         setProgress({ total: toImport.length, done, ok, fail });
@@ -704,6 +708,39 @@ return;
 
   const togglePause = () => setPaused((p) => !p);
   const cancelImport = () => { abortRef.current.abort = true; setPaused(false); };
+
+  const exportImportIssues = () => {
+    const localInvalids = rows.filter(r => !isRowValid(r)).map(r => ({
+      "Row Number": r.__row,
+      "Status": "Skipped / Invalid",
+      "Issue / Error": r.__errors.join(" | "),
+      ...Object.fromEntries(
+        Object.entries(r).filter(([key]) => !key.startsWith("__"))
+      )
+    }));
+
+    const apiValids = failedRows.map(r => ({
+      "Row Number": r.row,
+      "Status": "API Error",
+      "Issue / Error": r.reason,
+      ...Object.fromEntries(
+        Object.entries(r.data).filter(([key]) => !key.startsWith("__"))
+      )
+    }));
+
+    const allIssues = [...localInvalids, ...apiValids];
+
+    if (allIssues.length === 0) {
+      toast.info("No import issues or errors found to export.");
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(allIssues);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Import Issues");
+    XLSX.writeFile(wb, `properties_import_issues_${Date.now()}.xlsx`);
+    toast.success("Successfully exported import issues to Excel.");
+  };
 
   // Template headers
  const TEMPLATE_HEADERS_READABLE: string[] = [
@@ -1073,10 +1110,18 @@ const data = [TEMPLATE_HEADERS_READABLE, sample1, sample2, sample3];
                   <Building2 size={10} style={{ color: O }} />
                   <span className="text-[9px] font-medium" style={{ color: N }}>Preview</span>
                 </div>
-                <div className="flex gap-3 text-[8px]">
+                <div className="flex gap-3 text-[8px] items-center">
                   <span style={{ color: MU }}>Total: <span className="font-medium" style={{ color: N }}>{rows.length}</span></span>
                   <span style={{ color: "green" }}>Valid: <span className="font-medium">{validCount}</span></span>
                   <span style={{ color: "red" }}>Invalid: <span className="font-medium">{invalidCount}</span></span>
+                  {invalidCount > 0 && (
+                    <button
+                      onClick={exportImportIssues}
+                      className="px-2 py-0.5 rounded text-[8px] bg-red-100 text-red-700 hover:bg-red-200 transition-colors font-medium ml-1 flex items-center gap-1"
+                    >
+                      <Download size={8} /> Export Invalid Rows
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1152,6 +1197,15 @@ const data = [TEMPLATE_HEADERS_READABLE, sample1, sample2, sample3];
             <span className="text-[8px] ml-1" style={{ color: MU }}>Fields marked with * are required</span>
           </div>
           <div className="flex items-center gap-2">
+            {(invalidCount > 0 || failedRows.length > 0) && (
+              <button
+                onClick={exportImportIssues}
+                className="mr-2 px-3 py-1.5 text-[10px] font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-all flex items-center gap-1"
+              >
+                <Download size={10} />
+                Export Issues ({invalidCount + failedRows.length})
+              </button>
+            )}
             {!importing ? (
               <>
                 <button

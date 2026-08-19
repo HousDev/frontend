@@ -3,13 +3,14 @@ import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown, Image, GripVertic
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import Modal from '@/components/ui/Modal';
 import Dropdown from '@/components/ui/Dropdown';
-import { propertiesAPI } from '@/lib/propertiesAPI';
+import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import { societyAPI } from '@/lib/societyAPI';
 import { sellerAPI } from '@/lib/sellersAPI';
 import { toast } from 'react-toastify';
 import PropertyDescriptionAI from './PropertyDescriptionAI';
-import PriceRangeSelector from '@/components/ui/PriceRangeSelector';
 import { createPortal } from 'react-dom';
+import { usersAPI } from '@/lib/api';
+
 const getYouTubeEmbedUrl = (url: string): string | null => {
   const match = url.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   return match ? `https://www.youtube.com/embed/${match[1]}` : null;
@@ -27,7 +28,7 @@ const Field: React.FC<{ label: string; required?: boolean; error?: string; child
   label, required, error, children, className = '',
 }) => (
   <div className={`flex flex-col gap-0.5 ${className}`}>
-    <label className={LBL}>{label}{required && <span className="text-red-400 ml-0.5 normal-case">*</span>}</label>
+    <label className={`${LBL} min-h-[24px] flex items-end pb-0.5`}>{label}{required && <span className="text-red-400 ml-0.5 normal-case">*</span>}</label>
     {children}
     {error && <p className="text-red-400 text-[10px] leading-tight">{error}</p>}
   </div>
@@ -139,10 +140,8 @@ const MultiSelectDropdown: React.FC<{
     ? (() => {
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
-      const DROPDOWN_HEIGHT = 300; // Approximate max height
+      const DROPDOWN_HEIGHT = 300;
 
-      // If space below is less than dropdown height AND space above is more,
-      // open upward; otherwise open downward
       const shouldOpenUpward = spaceBelow < DROPDOWN_HEIGHT && spaceAbove > DROPDOWN_HEIGHT;
 
       return {
@@ -202,7 +201,6 @@ const MultiSelectDropdown: React.FC<{
     </div>
   );
 };
-
 
 const ImageLabelDropdown: React.FC<{
   value: string;
@@ -365,6 +363,7 @@ const ImageLabelDropdown: React.FC<{
     </>
   );
 };
+
 const FilePreviewComponent: React.FC<{
   preview: any;
   onRemove: () => void;
@@ -375,9 +374,9 @@ const FilePreviewComponent: React.FC<{
     {preview.type === 'video' ? (
       <>
         {getYouTubeEmbedUrl(preview.url) ? (
-          <iframe draggable={false} src={getYouTubeEmbedUrl(preview.url)!} className="w-full h-20 pointer-events-none" frameBorder="0" allow="autoplay; encrypted-media" />
+          <iframe src={getYouTubeEmbedUrl(preview.url)!} className="w-full h-20 pointer-events-none" frameBorder="0" allow="autoplay; encrypted-media" />
         ) : (
-          <video draggable={false} src={preview.url} className="w-full h-20 object-cover pointer-events-none" muted />
+          <video src={preview.url} className="w-full h-20 object-cover pointer-events-none" muted />
         )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center pointer-events-none">
           <button onClick={onRemove} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all hover:bg-red-600 pointer-events-auto"><X size={12} /></button>
@@ -390,15 +389,13 @@ const FilePreviewComponent: React.FC<{
       </>
     ) : preview.type === 'image' ? (
       <>
-        <img draggable={false} src={preview.url} alt={preview.name || preview.file?.name || 'Image'} className="w-full h-20 object-cover pointer-events-none" />
+        <img src={preview.url} alt={preview.name || preview.file?.name || 'Image'} className="w-full h-20 object-cover pointer-events-none" />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center pointer-events-none">
           <button onClick={onRemove} className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition-all hover:bg-red-600 pointer-events-auto"><X size={12} /></button>
         </div>
-        {/* 🆕 Per-image label dropdown for manual uploads */}
         {onLabelChange && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-1 pt-3 pb-1">
             <ImageLabelDropdown value={preview.label || ''} options={labelOptions} onChange={(label) => onLabelChange(label)} />
-
           </div>
         )}
       </>
@@ -421,49 +418,6 @@ const N = "#0f2b3d";
 const O = "#e67e22";
 const BD = "#e2e8f0";
 
-const PossessionDropdown: React.FC<{
-  possessionMonth: string; possessionYear: string;
-  onMonthChange: (month: string) => void; onYearChange: (year: string) => void; title: string;
-}> = ({ possessionMonth, possessionYear, onMonthChange, onYearChange, title }) => {
-  const now = new Date();
-  const CURRENT_YEAR = now.getFullYear();
-  const CURRENT_MONTH = now.getMonth() + 1;
-
-  const monthNames = useMemo(() =>
-    ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'], []);
-
-  const currentYear = parseInt(possessionYear) || CURRENT_YEAR;
-  const currentMonth = parseInt(possessionMonth) || CURRENT_MONTH;
-
-  useEffect(() => {
-    if (currentYear === CURRENT_YEAR && currentMonth > CURRENT_MONTH) onMonthChange(CURRENT_MONTH.toString());
-  }, [currentYear, currentMonth, CURRENT_MONTH, CURRENT_YEAR, onMonthChange]);
-
-  const yearOptions = Array.from({ length: 40 }, (_, i) => { const y = (CURRENT_YEAR - i).toString(); return { value: y, label: y }; });
-  const monthOptions = monthNames.map((name, idx) => {
-    const m = idx + 1;
-    const disabled = currentYear === CURRENT_YEAR && m > CURRENT_MONTH;
-    return { value: m.toString(), label: name, disabled };
-  });
-
-  const SafeDropdown: React.FC<any> = (props) => <Dropdown {...props} />;
-
-  return (
-    <div>
-      <label className={LBL}>{title}</label>
-      <div className="flex gap-1.5">
-        <div className="flex-1"><SafeDropdown placeholder="Year" options={yearOptions} value={possessionYear} onChange={onYearChange} className="w-full" /></div>
-        <div className="flex-1"><SafeDropdown placeholder="Month" options={monthOptions.filter((o) => !o.disabled)} value={possessionMonth} onChange={onMonthChange} className="w-full" /></div>
-      </div>
-      {possessionMonth && possessionYear && (
-        <p className="mt-1 text-[10px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded inline-block">
-          {monthNames[parseInt(possessionMonth) - 1]} {possessionYear}
-        </p>
-      )}
-    </div>
-  );
-};
-
 export interface NearbyPlace {
   name: string;
   distance?: string;
@@ -479,14 +433,13 @@ interface FilePreview {
   isExisting?: boolean;
   name?: string;
   isSociety?: boolean;
-  label?: string; // 🆕
+  label?: string;
 }
 
 const genPreviewId = () =>
   (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `p_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-interface PropertyFormData {
-
+interface RentalPropertyFormData {
   seller: string;
   propertyType: string;
   propertySubtype: string;
@@ -503,16 +456,10 @@ interface PropertyFormData {
   totalFloors: string;
   carpetArea: string;
   builtupArea: string;
-  budget: string;
   address: string;
   status: string;
   leadSource: string;
   source_url?: string;
-  possessionMonth: string;
-  possessionYear: string;
-  purchaseMonth: string;
-  purchaseYear: string;
-  sellingRights: string;
   amenities: string[];
   furnishingItems: string[];
   description: string;
@@ -525,22 +472,21 @@ interface PropertyFormData {
   bathrooms?: string;
   balcony?: string;
   facing?: string;
-  priceType?: 'Fixed' | 'Negotiable' | '';
-  finalPrice?: string;
   societyImageUrls?: string[];
   sellerId?: string | number;
+  assigned_to?: string | number;
 
   // Renting Fields
-  listing_type?: 'sell' | 'rent';
-  monthly_rent?: string;
-  security_deposit?: string;
-  maintenance_included?: boolean;
-  maintenance_extra?: boolean;
-  maintenance_charge?: string;
-  preferred_tenants?: string;
-  lock_in_period?: string;
-  agreement_duration?: string;
-  available_from?: string;
+  listing_type: 'rent';
+  monthly_rent: string;
+  security_deposit: string;
+  maintenance_extra: boolean;
+  maintenance_charge: string;
+  preferred_tenants: string;
+  lock_in_period: string;
+  agreement_duration: string;
+  available_from: string;
+  budget: string;
 }
 
 interface InitialDataFromParent {
@@ -548,6 +494,7 @@ interface InitialDataFromParent {
   seller?: string;
   sellerId?: string | number;
   seller_id?: string | number;
+  assigned_to?: string | number;
   propertyType?: string;
   propertySubtype?: string;
   unitType?: string;
@@ -559,6 +506,7 @@ interface InitialDataFromParent {
   city?: string;
   location?: string;
   society?: string;
+  society_name?: string;
   floor?: string;
   totalFloors?: string;
   carpetArea?: string;
@@ -569,11 +517,6 @@ interface InitialDataFromParent {
   leadSource?: string;
   source_url?: string;
   sourceUrl?: string;
-  possessionMonth?: string;
-  possessionYear?: string;
-  purchaseMonth?: string;
-  purchaseYear?: string;
-  sellingRights?: string;
   amenities?: string[];
   furnishingItems?: string[];
   description?: string;
@@ -586,15 +529,12 @@ interface InitialDataFromParent {
   bathrooms?: string;
   balcony?: string;
   facing?: string;
-  priceType?: 'Fixed' | 'Negotiable' | '';
-  finalPrice?: string;
   societyImageUrls?: string[];
 
   // Renting Fields
-  listing_type?: 'sell' | 'rent';
+  listing_type?: 'rent';
   monthly_rent?: string;
   security_deposit?: string;
-  maintenance_included?: boolean;
   maintenance_extra?: boolean;
   maintenance_charge?: string;
   preferred_tenants?: string;
@@ -677,7 +617,7 @@ const TenantMultiSelect: React.FC<{
   );
 };
 
-interface PropertyFormModalProps {
+interface RentalPropertyFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (property: any) => void;
@@ -686,30 +626,7 @@ interface PropertyFormModalProps {
   initialData?: InitialDataFromParent | null;
 }
 
-const RUPEE_PER_CRORE = 10_000_000;
-const RUPEE_PER_LAKH = 100_000;
-
-export function parseBudgetToRupees(text?: any): number {
-  if (text === null || text === undefined) return 0;
-  const raw = String(text).trim().toLowerCase();
-  if (!raw) return 0;
-  const cleaned = raw.replace(/₹/g, "").replace(/\s+/g, "");
-  const digitsOnly = cleaned.replace(/,/g, "");
-  if (/^\d+$/.test(digitsOnly)) return parseInt(digitsOnly, 10) || 0;
-  const lakhMatch = cleaned.match(/^([\d,.]+)l$/);
-  if (lakhMatch) return Math.round(parseFloat(lakhMatch[1].replace(/,/g, "")) * RUPEE_PER_LAKH) || 0;
-  const croreMatch = cleaned.match(/^([\d,.]+)(cr|c)$/);
-  if (croreMatch) return Math.round(parseFloat(croreMatch[1].replace(/,/g, "")) * RUPEE_PER_CRORE) || 0;
-  const n = parseFloat(digitsOnly);
-  return Number.isNaN(n) ? 0 : Math.round(n);
-}
-
-export function rupeesToCrores(r: number): number {
-  if (!r || r <= 0) return 0;
-  return r / RUPEE_PER_CRORE;
-}
-
-const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
+const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
@@ -717,10 +634,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   propertyId,
   initialData = null
 }) => {
-  const now = new Date();
-  const CURRENT_YEAR = now.getFullYear();
-  const CURRENT_MONTH = now.getMonth() + 1;
-
   const sortNumericOptions = (options: MasterOption[] = []) => {
     return [...options].sort((a, b) => {
       const numA = parseInt(a.label || a.value || '0', 10);
@@ -729,7 +642,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     });
   };
 
-  const [formData, setFormData] = useState<PropertyFormData>(() => ({
+  const [formData, setFormData] = useState<RentalPropertyFormData>(() => ({
     seller: '',
     propertyType: '',
     propertySubtype: '',
@@ -746,16 +659,10 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     totalFloors: '',
     carpetArea: '',
     builtupArea: '',
-    budget: '',
     address: '',
     status: '',
     leadSource: '',
     source_url: '',
-    possessionMonth: String(CURRENT_MONTH),
-    possessionYear: String(CURRENT_YEAR),
-    purchaseMonth: String(CURRENT_MONTH),
-    purchaseYear: String(CURRENT_YEAR),
-    sellingRights: 'Standard',
     amenities: [],
     furnishingItems: [],
     description: '',
@@ -766,34 +673,35 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     bathrooms: '',
     balcony: '',
     facing: '',
-    priceType: '',
-    finalPrice: '',
     societyImageUrls: [],
+    sellerId: '',
+    assigned_to: '',
 
     // Renting Fields
-    listing_type: 'sell',
+    listing_type: 'rent',
     monthly_rent: '',
     security_deposit: '',
-    maintenance_included: false,
     maintenance_extra: false,
     maintenance_charge: '',
     preferred_tenants: '',
     lock_in_period: '',
     agreement_duration: '',
     available_from: '',
+    budget: '',
   }));
 
   const [ownershipDocPreview, setOwnershipDocPreview] = useState<FilePreview | null>(null);
   const [photoPreviews, setPhotoPreviews] = useState<FilePreview[]>([]);
-  // ✅ Ref jo photoPreviews ke saath hamesha sync rahe — koi race/lag nahi
   const photoPreviewsRef = useRef<FilePreview[]>([]);
+
   const setPhotoPreviewsSynced = (updater: FilePreview[] | ((prev: FilePreview[]) => FilePreview[])) => {
     setPhotoPreviews(prev => {
       const next = typeof updater === 'function' ? (updater as any)(prev) : updater;
-      photoPreviewsRef.current = next; // 🔑 turant update, render ka wait nahi
+      photoPreviewsRef.current = next;
       return next;
     });
   };
+
   const [photoUrlInput, setPhotoUrlInput] = useState('');
   const [photoUrlType, setPhotoUrlType] = useState<'image' | 'video'>('image');
   const [draggedPhotoIdx, setDraggedPhotoIdx] = useState<number | null>(null);
@@ -815,8 +723,9 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   const [isLoadingSociety, setIsLoadingSociety] = useState(false);
   const [isEditDataLoaded, setIsEditDataLoaded] = useState(false);
 
-  // Seller Searchable Dropdown States
+  // Seller & Executive list
   const [sellersList, setSellersList] = useState<any[]>([]);
+  const [executivesList, setExecutivesList] = useState<any[]>([]);
   const [isSellerDropdownOpen, setIsSellerDropdownOpen] = useState(false);
   const [loadingSellers, setLoadingSellers] = useState(false);
   const sellerInputContainerRef = useRef<HTMLDivElement | null>(null);
@@ -827,12 +736,21 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     (async () => {
       try {
         setLoadingSellers(true);
-        const data = await sellerAPI.getAll();
-        if (isMounted && Array.isArray(data)) {
-          setSellersList(data);
+        const [sellersData, usersRes] = await Promise.all([
+          sellerAPI.getAll(),
+          usersAPI.getAllUsers().catch(() => ({ success: false, data: [] }))
+        ]);
+        if (isMounted && Array.isArray(sellersData)) {
+          setSellersList(sellersData);
+        }
+        if (isMounted && usersRes.success && Array.isArray(usersRes.data)) {
+          const execs = usersRes.data.filter((u: any) =>
+            u.role === 'sales_executive' || u.role_name === 'sales_executive' || u.role_name === 'admin'
+          );
+          setExecutivesList(execs);
         }
       } catch (err) {
-        console.warn("Failed to load sellers list in PropertyFormModal:", err);
+        console.warn("Failed to load metadata in RentalPropertyFormModal:", err);
       } finally {
         if (isMounted) setLoadingSellers(false);
       }
@@ -887,11 +805,11 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
         ...prev,
         seller: initialData.seller || prev.seller || '',
         sellerId: initialData.sellerId || (initialData as any).seller_id || prev.sellerId || '',
+        assigned_to: initialData.assigned_to || prev.assigned_to || '',
       }));
     }
   }, [isOpen, mode, initialData]);
 
-  // ========== HELPER: convert dropdown label to ID ==========
   const resolveDropdownField = (
     fieldValue: string | undefined,
     options: MasterOption[]
@@ -948,7 +866,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     photoPreviews.forEach(p => { if (!p.isExisting) cleanupPreview(p); });
   };
 
-  // Fetch fresh society list directly from API
   const fetchFreshSocietyList = async () => {
     try {
       const societies = await societyAPI.getAllSocieties();
@@ -968,18 +885,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     }
   };
 
-  // Fetch society details with images and add to photo previews
-  // savedPropertyPhotoUrls: if provided (edit mode), only society images present in this list are shown
   const fetchSocietyDetails = async (societyIdOrName: string, savedPropertyPhotoUrls?: string[]) => {
     if (!societyIdOrName || societyIdOrName === '') {
       setSocietyDetails(null);
       return;
     }
 
-    // URL normalizer — strips protocol/host so we can compare relative vs absolute URLs
-    // URL normalizer — strips protocol/host so we can compare relative vs absolute URLs
-    // ✅ FIX: pathname ke saath search (query string) bhi rakho, warna alag YouTube URLs
-    // (jaise ?v=abc vs ?v=xyz) dono "watch" pe collide ho jaate the aur galat photo drop ho jaati thi
     const normalizeUrl = (u: string) => {
       if (!u) return '';
       let pathStr = u;
@@ -1012,12 +923,11 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       }
 
       if (actualSociety) {
-        // 🆕 Normalize: backend may return {url,label}[] (new) or plain string[] (legacy records)
         const rawImageUrls: any[] = actualSociety.imageUrls || [];
         const normalizedImageUrls = rawImageUrls.map((img: any) =>
           typeof img === 'string'
             ? { url: img, label: '', type: 'image' }
-            : { url: img.url, label: img.label || '', type: img.type === 'video' ? 'video' : 'image' } // 🆕
+            : { url: img.url, label: img.label || '', type: img.type === 'video' ? 'video' : 'image' }
         );
 
         const details = {
@@ -1026,7 +936,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           city: actualSociety.city || '',
           pincode: actualSociety.pincode || '',
           amenities: actualSociety.amenities || [],
-          imageUrls: normalizedImageUrls, // 🆕 {url,label}[]
+          imageUrls: normalizedImageUrls,
         };
 
         setSocietyDetails(details);
@@ -1035,8 +945,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
         if (details.city) setFormData(prev => ({ ...prev, city: details.city }));
 
         if (details.imageUrls && details.imageUrls.length > 0) {
-          // In EDIT mode: only show society images that were actually saved on the property.
-          let societyImagesToShow = details.imageUrls; // {url,label}[]
+          let societyImagesToShow = details.imageUrls;
           if (savedPropertyPhotoUrls && savedPropertyPhotoUrls.length >= 0) {
             const normalizedSaved = new Set(savedPropertyPhotoUrls.map(normalizeUrl));
             societyImagesToShow = details.imageUrls.filter(img => normalizedSaved.has(normalizeUrl(img.url)));
@@ -1047,7 +956,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
               id: genPreviewId(),
               url: img.url,
               label: img.label,
-              type: (img.type === 'video' ? 'video' : 'image') as 'image' | 'video', // 🆕
+              type: (img.type === 'video' ? 'video' : 'image') as 'image' | 'video',
               isExisting: true,
               name: img.label || `Society Media ${index + 1}`,
               isSociety: true,
@@ -1057,20 +966,16 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
               const incomingSocietyUrlSet = new Set(societyImagesToShow.map(img => normalizeUrl(img.url)));
               const societyByUrl = new Map(societyPreviews.map(sp => [normalizeUrl(sp.url), sp]));
 
-              // ✅ FIX: purani order (saved photoOrder se aayi hui) preserve karo — society photos ko
-              // end mein append karne ke bajaye unki current position pe hi fresh data (label/type) se update karo.
-              // Non-society (manual) photos ko kabhi filter mat karo — pehle wahi galti se drop ho rahe the.
               const merged = prev
                 .filter(p => !p.isSociety || incomingSocietyUrlSet.has(normalizeUrl(p.url)))
                 .map(p => {
                   if (p.isSociety) {
                     const fresh = societyByUrl.get(normalizeUrl(p.url));
-                    return fresh ? { ...fresh, id: p.id } : p; // id same rakho taaki React key/position na tute
+                    return fresh ? { ...fresh, id: p.id } : p;
                   }
                   return p;
                 });
 
-              // Agar koi bilkul naya society image hai jo prev mein tha hi nahi, use end mein add karo
               const existingUrls = new Set(merged.map(p => normalizeUrl(p.url)));
               const newlyAdded = societyPreviews.filter(sp => !existingUrls.has(normalizeUrl(sp.url)));
 
@@ -1079,7 +984,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
             setFormData(prev => ({
               ...prev,
-              societyImageUrls: societyImagesToShow.map(img => img.url), // keep string[] for the property payload
+              societyImageUrls: societyImagesToShow.map(img => img.url),
             }));
           }
         } else {
@@ -1087,7 +992,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           setFormData(prev => ({ ...prev, societyImageUrls: [] }));
         }
 
-        // Set amenities
         const amenityIds = (details.amenities || []).map((amenityName: string) => {
           const match = getOptions("amenities").find(
             opt =>
@@ -1158,12 +1062,11 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
   const loadProperties = async () => {
     try {
-      const apiAny = propertiesAPI as any;
+      const apiAny = rentalPropertiesAPI as any;
       if (typeof apiAny.list === 'function') await apiAny.list();
-      else if (typeof apiAny.listProperties === 'function') await apiAny.listProperties();
-      else if (typeof apiAny.getAll === 'function') await apiAny.getAll();
+      else if (typeof apiAny.getProperties === 'function') await apiAny.getProperties();
     } catch (err) {
-      console.warn('loadProperties: propertiesAPI listing call failed', err);
+      console.warn('loadProperties: rentalPropertiesAPI listing call failed', err);
     }
     try {
       window.dispatchEvent(new CustomEvent('properties:reload'));
@@ -1172,12 +1075,11 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     }
   };
 
-  const handleDropdownChange = (field: keyof PropertyFormData) => (value: string) => {
+  const handleDropdownChange = (field: keyof RentalPropertyFormData) => (value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field as string]) setErrors(prev => ({ ...prev, [field as string]: '' }));
 
     if (field === 'society') {
-      // 🆕 societyDetails.imageUrls is now {url,label}[] — pull .url before normalizing
       const currentSocietyImageUrls = new Set(
         (societyDetails?.imageUrls || []).map((img: { url: string; label: string }) => {
           const u = img?.url;
@@ -1188,7 +1090,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           return u.toLowerCase().replace(/^\/+|\/+$/g, '');
         })
       );
-      // Remove all photos that are either flagged as society OR whose URL is a known society image
       setPhotoPreviewsSynced(prev => prev.filter(
         p => !p.isSociety && !currentSocietyImageUrls.has(
           (() => {
@@ -1203,12 +1104,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       setFormData(prev => ({ ...prev, societyImageUrls: [] }));
       setSocietyDetails(null);
       if (value) {
-        fetchSocietyDetails(value); // no savedPropertyPhotoUrls → show all images of new society
+        fetchSocietyDetails(value);
       }
     }
   };
 
-  const handleInputChange = (field: keyof PropertyFormData, value: any) => {
+  const handleInputChange = (field: keyof RentalPropertyFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field as string]) setErrors(prev => ({ ...prev, [field as string]: '' }));
   };
@@ -1273,21 +1174,16 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
   const handleAddPhotoUrl = () => {
     const url = photoUrlInput.trim();
-    console.log('🔍 Add URL clicked, input:', url); // debug
-
     if (!url) {
       toast.warn('Please paste a URL first');
       return;
     }
 
-    // Auto-add http:// if missing (but keep https)
     let finalUrl = url;
     if (!/^https?:\/\//i.test(url)) {
       finalUrl = 'https://' + url;
-      console.log('🔄 Added https:// prefix:', finalUrl);
     }
 
-    // Validate URL format (basic)
     try {
       new URL(finalUrl);
     } catch (_) {
@@ -1324,18 +1220,10 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     setFormData(prev => ({ ...prev, ownershipDoc: null }));
   };
 
-
   const updatePhotoLabelById = (id: string, label: string) => {
     setPhotoPreviewsSynced(prev => prev.map(p => (p.id === id ? { ...p, label } : p)));
   };
 
-  const updatePhotoLabel = (index: number, label: string) => {
-    const target = photoPreviews[index];
-    if (!target) return;
-    updatePhotoLabelById(target.id, label);
-  };
-
-  // 🆕 Drag-and-drop reorder — society photos among themselves
   const reorderPhoto = (fromIdx: number, toIdx: number) => {
     if (fromIdx === toIdx) return;
     setPhotoPreviewsSynced(prev => {
@@ -1346,7 +1234,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       return next;
     });
   };
-
 
   const removePhotoById = (id: string) => {
     setPhotoPreviewsSynced(prev => {
@@ -1375,14 +1262,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     });
   };
 
-  // Backward-compatible wrapper kept in case anything still calls by index
-  const removePhoto = (index: number) => {
-    const target = photoPreviews[index];
-    if (!target) return;
-    removePhotoById(target.id);
-  };
-
-  // Initialize form when modal opens
   useEffect(() => {
     if (!isOpen) {
       setIsEditDataLoaded(false);
@@ -1401,24 +1280,23 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     return () => {
       cleanupAllPreviews();
       setOwnershipDocPreview(null);
-      setPhotoPreviews([]);   // 👈 ye bhi
+      setPhotoPreviews([]);
       setSocietyDetails(null);
     };
   }, [isOpen]);
 
-  // Convert stored labels to dropdown IDs after master data loads
   useEffect(() => {
     const needed = [
       "property subtype", "property type", "unit type", "furnishing",
-      "parking type", "property status", "lead source", "selling rights",
-      "bedrooms", "bathrooms", "facing", "balcony"
+      "parking type", "property status", "lead source", "bedrooms",
+      "bathrooms", "facing", "balcony"
     ];
     const optionsLoaded = needed.every(key => masterOptions[key] && masterOptions[key].length > 0);
     if (!optionsLoaded) return;
 
     if (mode !== 'edit' || !initialData || !isEditDataLoaded) return;
 
-    const updates: Partial<PropertyFormData> = {};
+    const updates: Partial<RentalPropertyFormData> = {};
 
     updates.propertyType = resolveDropdownField(formData.propertyType, masterOptions["property type"]);
     updates.propertySubtype = resolveDropdownField(formData.propertySubtype, masterOptions["property subtype"]);
@@ -1427,7 +1305,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     updates.parkingType = resolveDropdownField(formData.parkingType, masterOptions["parking type"]);
     updates.status = resolveDropdownField(formData.status, masterOptions["property status"]);
     updates.leadSource = resolveDropdownField(formData.leadSource, masterOptions["lead source"]);
-    updates.sellingRights = resolveDropdownField(formData.sellingRights, masterOptions["selling rights"]);
     updates.bedrooms = resolveDropdownField(formData.bedrooms, masterOptions["bedrooms"]);
     updates.bathrooms = resolveDropdownField(formData.bathrooms, masterOptions["bathrooms"]);
     updates.facing = resolveDropdownField(formData.facing, masterOptions["facing"]);
@@ -1436,9 +1313,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     if (Object.values(updates).some(v => v !== undefined && v !== "")) {
       setFormData(prev => ({ ...prev, ...updates }));
     }
-  }, [masterOptions, mode, initialData, isEditDataLoaded, formData.propertyType, formData.propertySubtype, formData.unitType, formData.furnishing, formData.parkingType, formData.status, formData.leadSource, formData.sellingRights, formData.bedrooms, formData.bathrooms, formData.facing, formData.balcony]);
+  }, [masterOptions, mode, initialData, isEditDataLoaded, formData.propertyType, formData.propertySubtype, formData.unitType, formData.furnishing, formData.parkingType, formData.status, formData.leadSource, formData.bedrooms, formData.bathrooms, formData.facing, formData.balcony]);
 
-  // Separate effect for edit mode - runs after societyOptions is loaded
   useEffect(() => {
     if (!isOpen) return;
     if (mode !== 'edit' || !initialData) return;
@@ -1461,6 +1337,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     setFormData(prev => ({
       ...prev,
       seller: initialData.seller || '',
+      sellerId: initialData.sellerId || initialData.seller_id || '',
+      assigned_to: initialData.assigned_to || '',
       propertyType: initialData.propertyType || '',
       propertySubtype: initialData.propertySubtype || '',
       unitType: initialData.unitType || '',
@@ -1476,16 +1354,10 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       totalFloors: initialData.totalFloors || '',
       carpetArea: initialData.carpetArea || '',
       builtupArea: initialData.builtupArea || '',
-      budget: initialData.budget || '',
       address: initialData.address || '',
       status: initialData.status || '',
       leadSource: initialData.leadSource || '',
       source_url: initialData.source_url || initialData.sourceUrl || '',
-      possessionMonth: initialData.possessionMonth || String(CURRENT_MONTH),
-      possessionYear: initialData.possessionYear || String(CURRENT_YEAR),
-      purchaseMonth: initialData.purchaseMonth || String(CURRENT_MONTH),
-      purchaseYear: initialData.purchaseYear || String(CURRENT_YEAR),
-      sellingRights: initialData.sellingRights || 'Standard',
       amenities: initialData.amenities || [],
       furnishingItems: initialData.furnishingItems || [],
       description: initialData.description || '',
@@ -1494,21 +1366,19 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       bathrooms: initialData.bathrooms || '',
       balcony: initialData.balcony || '',
       facing: initialData.facing || '',
-      priceType: (initialData.priceType as 'Fixed' | 'Negotiable') || '',
-      finalPrice: initialData.finalPrice || '',
       societyImageUrls: initialData.societyImageUrls || [],
 
       // Renting Fields
-      listing_type: initialData.listing_type || (initialData as any).listingType || 'sell',
-      monthly_rent: initialData.monthly_rent || (initialData as any).monthlyRent || '',
-      security_deposit: initialData.security_deposit || (initialData as any).securityDeposit || '',
-      maintenance_included: !!(initialData.maintenance_included ?? (initialData as any).maintenanceIncluded ?? false),
-      maintenance_extra: !!(initialData.maintenance_extra ?? (initialData as any).maintenanceExtra ?? false),
-      maintenance_charge: initialData.maintenance_charge || (initialData as any).maintenanceCharge || '',
-      preferred_tenants: initialData.preferred_tenants || (initialData as any).preferredTenants || '',
-      lock_in_period: initialData.lock_in_period || (initialData as any).lockInPeriod || '',
-      agreement_duration: initialData.agreement_duration || (initialData as any).agreementDuration || '',
-      available_from: initialData.available_from || (initialData as any).availableFrom || '',
+      listing_type: 'rent',
+      monthly_rent: initialData.monthly_rent || '',
+      security_deposit: initialData.security_deposit || '',
+      maintenance_extra: !!initialData.maintenance_extra,
+      maintenance_charge: initialData.maintenance_charge || '',
+      preferred_tenants: initialData.preferred_tenants || '',
+      lock_in_period: initialData.lock_in_period || '',
+      agreement_duration: initialData.agreement_duration || '',
+      available_from: initialData.available_from ? initialData.available_from.split('T')[0] : '',
+      budget: initialData.monthly_rent || '',
     }));
 
     if (initialData.existingOwnershipDocUrl) {
@@ -1524,8 +1394,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     setPhotoPreviewsSynced(existingPhotos);
 
     if (societyId) {
-      // Pass the saved property photo URLs so fetchSocietyDetails only shows
-      // society images that were actually saved — removed ones won't come back.
       const savedPhotoUrls = (initialData.existingPhotos || []).map(p => p.url);
       setTimeout(() => {
         fetchSocietyDetails(societyId, savedPhotoUrls);
@@ -1535,7 +1403,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     setIsEditDataLoaded(true);
   }, [isOpen, mode, initialData, societyOptions]);
 
-  // Auto-generate address (only for create mode)
   useEffect(() => {
     if (!isOpen) return;
     if (mode !== 'create') return;
@@ -1549,39 +1416,37 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   const validateForm = () => {
     const e: Record<string, string> = {};
     if (!formData.propertyType) e.propertyType = 'Property type is required';
-    if (!formData.propertySubtype) e.propertySubtype = 'Property subtype is required';
-    if (!formData.unitType) e.unitType = 'Unit type is required';
     if (!formData.city) e.city = 'City is required';
     if (!formData.location) e.location = 'Location is required';
     if (!formData.society) e.society = 'Society is required';
     if (!formData.carpetArea) e.carpetArea = 'Carpet area is required';
-    const budgetNum = parseBudgetToRupees(formData.budget);
-    if (!formData.budget || budgetNum <= 0) {
-      e.budget = 'Please select a valid price (greater than ₹0)';
+    if (!formData.monthly_rent || Number(formData.monthly_rent) <= 0) {
+      e.monthly_rent = 'Please enter a valid monthly rent (greater than ₹0)';
     }
     setErrors(e);
     return e;
   };
 
-  // 🔥 FIXED: buildPayload - derive existing image URLs from photoPreviews directly
   const buildPayload = (): FormData => {
     const fd = new FormData();
-    const textFields: (keyof PropertyFormData)[] = [
+    const textFields = [
       "seller", "propertyType", "propertySubtype", "unitType", "wing", "unitNo",
       "furnishing", "parkingType", "parkingQty", "city", "location", "society",
       "floor", "totalFloors", "carpetArea", "builtupArea", "budget", "address",
-      "status", "leadSource", "possessionMonth", "possessionYear",
-      "purchaseMonth", "purchaseYear", "sellingRights", "description",
-      "bedrooms", "bathrooms", "facing", "balcony", "priceType", "finalPrice",
-      "listing_type", "monthly_rent", "security_deposit", "maintenance_included",
-      "maintenance_extra", "maintenance_charge", "preferred_tenants", "lock_in_period",
+      "status", "leadSource", "description",
+      "bedrooms", "bathrooms", "facing", "balcony", "assigned_to",
+      "listing_type", "monthly_rent", "security_deposit",
+      "maintenance_charge", "preferred_tenants", "lock_in_period",
       "agreement_duration", "available_from", "source_url"
     ];
     textFields.forEach((k) => fd.append(k, String((formData as any)[k] ?? "")));
 
+    fd.append("maintenance_extra", formData.maintenance_extra ? "1" : "0");
+
     const societyLabel = getLabelFromValue(societyOptions, formData.society);
     const finalSocietyName = societyLabel || formData.society || '';
     fd.append('society_name', finalSocietyName);
+
     if (formData.sellerId) {
       fd.append('seller_id', String(formData.sellerId));
     }
@@ -1589,15 +1454,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     fd.append("furnishingItems", JSON.stringify(formData.furnishingItems || []));
     fd.append("nearby_places", JSON.stringify(formData.nearby_places || []));
 
-    // ✅ FIX: ref se padho — race-proof, kabhi bhi stale nahi hoga
     const currentPhotoPreviews = photoPreviewsRef.current;
 
     const allExistingPhotoUrls = currentPhotoPreviews
       .filter(p => p.isExisting)
       .map(p => ({ url: p.url, label: p.label || '', isSociety: !!p.isSociety, type: p.type === 'video' ? 'video' : 'image' }));
 
-    // 🆕 Full visual order manifest — backend ko batata hai exact final sequence
-    // 'existing' entries url se match honge, 'new' entries sequentially uploaded files se match honge
     const photoOrder = currentPhotoPreviews.map(p => {
       if (p.isExisting) {
         return { kind: 'existing', url: p.url };
@@ -1606,12 +1468,10 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     });
     fd.append('photoOrder', JSON.stringify(photoOrder));
 
-    // Manual upload files
     const manualPhotoFiles = currentPhotoPreviews
       .filter(p => !p.isExisting && p.file)
       .map(p => p.file!);
 
-    // Labels aligned by index with manualPhotoFiles order
     const manualPhotoLabels = currentPhotoPreviews
       .filter(p => !p.isExisting && p.file)
       .map(p => p.label || '');
@@ -1623,7 +1483,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     if (manualPhotoLabels.some(l => l)) {
       fd.append("photoLabels", JSON.stringify(manualPhotoLabels));
     }
-    fd.append("photoTypes", JSON.stringify(manualPhotoTypes)); // 🆕
+    fd.append("photoTypes", JSON.stringify(manualPhotoTypes));
 
     if (allExistingPhotoUrls.length > 0) {
       fd.append("existingPhotoUrls", JSON.stringify(allExistingPhotoUrls));
@@ -1641,21 +1501,17 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       if (file) fd.append("photos", file, file.name);
     });
 
-    console.log("📸 All existing photo URLs (from previews):", allExistingPhotoUrls);
-    console.log("📤 Manual files:", manualPhotoFiles.length);
-
-    return fd;
+    return fd as any;
   };
 
-  function buildUiPatchFromForm(fd: PropertyFormData, previews: { ownership?: FilePreview | null, photos: FilePreview[] }) {
-    // All photo URLs (both existing and new)
+  function buildUiPatchFromForm(fd: RentalPropertyFormData, previews: { ownership?: FilePreview | null, photos: FilePreview[] }) {
     const allPhotoUrls = previews.photos.map(p => p.url);
     const propTypeLabel = getLabelFromValue(masterOptions['property type'] || [], fd.propertyType) || fd.propertyType;
     const propSubtypeLabel = getLabelFromValue(masterOptions['property subtype'] || [], fd.propertySubtype) || fd.propertySubtype;
     const unitTypeLabel = getLabelFromValue(masterOptions['unit type'] || [], fd.unitType) || fd.unitType;
     const societyLabel = getLabelFromValue(societyOptions, fd.society) || fd.society;
     const titleParts = [propTypeLabel, unitTypeLabel, propSubtypeLabel].filter(Boolean).join(' ');
-    const computedTitle = titleParts ? (societyLabel ? `${titleParts} — ${societyLabel}` : titleParts) : 'Property';
+    const computedTitle = titleParts ? (societyLabel ? `${titleParts} — ${societyLabel}` : titleParts) : 'Rental Property';
 
     return {
       seller: fd.seller ? { name: fd.seller } : undefined,
@@ -1683,18 +1539,10 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       carpetArea: fd.carpetArea,
       builtupArea: fd.builtupArea,
       budget: fd.budget,
-      price: fd.budget || fd.finalPrice || 0,
-      expected_price: fd.budget || fd.finalPrice || 0,
-      final_price: fd.finalPrice || fd.budget || 0,
       address: fd.address,
       status: fd.status,
       leadSource: fd.leadSource,
       source_url: fd.source_url,
-      possessionMonth: fd.possessionMonth,
-      possessionYear: fd.possessionYear,
-      purchaseMonth: fd.purchaseMonth,
-      purchaseYear: fd.purchaseYear,
-      selling_rights: fd.sellingRights,
       amenities: fd.amenities,
       nearby_places: fd.nearby_places,
       description: fd.description,
@@ -1702,19 +1550,17 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       bathrooms: fd.bathrooms,
       balcony: fd.balcony,
       facing: fd.facing,
-      priceType: fd.priceType,
-      finalPrice: fd.finalPrice,
       ownershipDocUrl: previews.ownership?.url,
       ownershipDocName: previews.ownership?.name,
       photos: allPhotoUrls,
       societyImageUrls: fd.societyImageUrls || [],
       updated_at: new Date().toISOString(),
+      assigned_to: fd.assigned_to,
 
       // Renting Fields
       listing_type: fd.listing_type,
       monthly_rent: fd.monthly_rent,
       security_deposit: fd.security_deposit,
-      maintenance_included: fd.maintenance_included,
       maintenance_extra: fd.maintenance_extra,
       maintenance_charge: fd.maintenance_charge,
       preferred_tenants: fd.preferred_tenants,
@@ -1737,20 +1583,20 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       const payload = buildPayload();
       let createdId = propertyId;
       if (mode === "edit" && propertyId) {
-        await propertiesAPI.updateProperty(String(propertyId), payload);
+        await rentalPropertiesAPI.updateProperty(String(propertyId), payload);
       } else {
-        const createRes = await propertiesAPI.createProperty(payload);
+        const createRes = await rentalPropertiesAPI.createProperty(payload);
         createdId = createRes?.data?.id || createRes?.id || createRes?.data?.propertyId;
       }
       await loadProperties();
       const uiPatch = buildUiPatchFromForm(formData, { ownership: ownershipDocPreview, photos: photoPreviews });
       onSubmit({ ...uiPatch, id: createdId || (uiPatch as any).id });
       window.dispatchEvent(new CustomEvent("overview:refresh", { detail: { id: propertyId } }));
-      toast.success(`Property ${mode === 'edit' ? 'updated' : 'created'} successfully!`);
+      toast.success(`Rental property ${mode === 'edit' ? 'updated' : 'created'} successfully!`);
       onClose?.();
     } catch (e: any) {
       console.error('❌ SUBMISSION ERROR:', e);
-      const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === "edit" ? "update" : "create"} property`;
+      const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === "edit" ? "update" : "create"} rental property`;
       setErrorBanner(msg);
       toast.error(msg);
     } finally {
@@ -1765,7 +1611,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     return masterOptions[key] || masterOptions[key.toLowerCase()] || [];
   };
 
-  const modalTitle = mode === 'edit' ? 'Edit Property' : 'Add New Property';
+  const modalTitle = mode === 'edit' ? 'Edit Rental Property' : 'Add New Rental Property';
   const submitButtonText = mode === 'edit' ? 'Update Property' : 'Add Property';
   const SubmitIcon = mode === 'edit' ? Edit : Plus;
   const SafeDropdown: React.FC<any> = (props) => <Dropdown {...props} />;
@@ -1800,12 +1646,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           {/* Property Details Section */}
           <SectionHeader>Property Details</SectionHeader>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
-            <Field label="Seller (optional)" className="relative">
+            <Field label="Owner (optional)" className="relative">
               <div ref={sellerInputContainerRef} className="relative w-full">
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Select or enter seller..."
+                    placeholder="Select or enter owner..."
                     value={formData.seller}
                     onChange={(e) => {
                       handleInputChange('seller', e.target.value);
@@ -1832,14 +1678,14 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                   )}
                 </div>
 
-                {/* Seller Searchable Dropdown Popup */}
+                {/* Owner Searchable Dropdown Popup */}
                 {isSellerDropdownOpen && (
                   <div
-                    className="absolute left-0 top-full mt-1 w-full sm:w-[200px] bg-white rounded-lg shadow-xl border z-50 max-h-60 overflow-y-auto py-1 text-left animate-in fade-in zoom-in-95 duration-100"
+                    className="absolute left-0 top-full mt-1 w-full sm:w-[280px] bg-white rounded-lg shadow-xl border z-50 max-h-60 overflow-y-auto py-1 text-left animate-in fade-in zoom-in-95 duration-100"
                     style={{ borderColor: BD }}
                   >
                     <div className="px-2.5 py-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b flex justify-between items-center bg-gray-50">
-                      <span>Select / Search Seller</span>
+                      <span>Select / Search Owner</span>
                       {loadingSellers && <span className="text-orange-500 font-medium">Loading...</span>}
                     </div>
 
@@ -1899,7 +1745,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                           Use "{formData.seller}"
                         </p>
                         <p className="text-[9px] text-gray-400 mt-0.5">
-                          Not found in list. It will be saved as custom seller text.
+                          Not found in list. It will be saved as custom owner text.
                         </p>
                       </div>
                     )}
@@ -1951,6 +1797,20 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             </Field>
             <Field label="Property Status">
               <SafeDropdown placeholder="Select Status" options={getOptions('property status')} value={formData.status} onChange={handleDropdownChange('status')} className="w-full" />
+            </Field>
+            <Field label="Assigned Executive">
+              <select
+                value={formData.assigned_to}
+                onChange={(e) => handleInputChange('assigned_to', e.target.value)}
+                className={INP}
+              >
+                <option value="">Unassigned</option>
+                {executivesList.map((exec) => (
+                  <option key={exec.id} value={exec.id}>
+                    {`${exec.salutation ? exec.salutation + ' ' : ''}${exec.first_name || ''} ${exec.last_name || ''}`.trim()}
+                  </option>
+                ))}
+              </select>
             </Field>
           </div>
 
@@ -2014,7 +1874,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
           </div>
 
           {/* Area & Pricing Section */}
-          <SectionHeader>Area & Pricing</SectionHeader>
+          <SectionHeader>Area & Pricing (Rent)</SectionHeader>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             <Field label="Carpet Area (sq.ft)" required error={errors.carpetArea}>
               <input type="text" placeholder="e.g. 850" value={formData.carpetArea} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value) || e.target.value === '') handleInputChange('carpetArea', e.target.value); }} className={`${INP} ${errors.carpetArea ? 'border-red-400' : ''}`} />
@@ -2039,72 +1899,94 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                   />
                 </Field>
               )}
-            <div className="col-span-2 sm:col-span-3 lg:col-span-4">
-              <label className={LBL}>Sell Price (₹) <span className="text-red-400">*</span></label>
-              <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 space-y-2">
-                <PriceRangeSelector
-                  initialMax={
-                    formData.budget
-                      ? rupeesToCrores(parseBudgetToRupees(formData.budget))
-                      : 0
-                  }
-                  onChange={({ max }) => {
-                    const rupeeVal = Math.round(max * 10_000_000);
-                    handleInputChange("budget", String(rupeeVal));
-                  }}
-                />
-                <div className="flex items-center gap-4 pt-1">
-                  {(['Fixed', 'Negotiable'] as const).map((type) => (
-                    <label key={type} className="flex items-center gap-1.5 cursor-pointer">
-                      <input type="checkbox" className="h-3 w-3 rounded accent-orange-500"
-                        checked={(formData.priceType) === type}
-                        onChange={(e) => handleInputChange('priceType', e.target.checked ? type : "")} />
-                      <span className={`text-xs font-semibold ${(formData.priceType) === type ? 'text-gray-800' : 'text-gray-400'}`}>{type}</span>
-                    </label>
-                  ))}
-                </div>
-                {formData.priceType === 'Negotiable' && (
-                  <div className="pt-2 border-t border-gray-200">
-                    <label className={`${LBL} mb-1`}>Final Price (₹)</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        className={`${INP} max-w-[180px]`}
-                        value={formData.finalPrice || ""}
-                        onChange={(e) => {
-                          let value = e.target.value.replace(/\D/g, "");
-                          handleInputChange("finalPrice", value);
-                        }}
-                        onBlur={(e) => {
-                          const cleanValue = String(
-                            Number(e.target.value.replace(/\D/g, "") || 0)
-                          );
-                          handleInputChange("finalPrice", cleanValue);
-                        }}
-                      />
-                      {(() => {
-                        const v = parseBudgetToRupees(formData.finalPrice || '');
-                        if (!v || v <= 0) return null;
-                        const label = v < 10_000_000 ? `${Math.round(v / 100_000)}L` : `${(v / 10_000_000).toFixed(2)}Cr`;
-                        return <span className="text-xs font-bold text-green-700">≈ ₹{label}</span>;
-                      })()}
-                    </div>
-                  </div>
-                )}
-                {errors.budget && <p className="text-red-400 text-[10px]">{errors.budget}</p>}
-              </div>
-            </div>
           </div>
 
-          {/* Timeline & Selling Rights */}
-          <SectionHeader>Timeline & Selling Rights</SectionHeader>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-            <PossessionDropdown title="Purchase Month & Year" possessionMonth={formData.purchaseMonth} possessionYear={formData.purchaseYear} onMonthChange={(m) => handleInputChange('purchaseMonth', m)} onYearChange={(y) => handleInputChange('purchaseYear', y)} />
-            <PossessionDropdown title="Possession Month & Year" possessionMonth={formData.possessionMonth} possessionYear={formData.possessionYear} onMonthChange={(m) => handleInputChange('possessionMonth', m)} onYearChange={(y) => handleInputChange('possessionYear', y)} />
-            <Field label="Selling Rights">
-              <SafeDropdown placeholder="Select Selling Rights" options={getOptions('selling rights')} value={formData.sellingRights} onChange={handleDropdownChange('sellingRights')} className="w-full" />
-            </Field>
+          <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 flex flex-col gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+              <Field label="Monthly Rent (₹)" required error={errors.monthly_rent}>
+                <input
+                  type="text"
+                  placeholder="e.g. 25000"
+                  value={formData.monthly_rent}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    handleInputChange("monthly_rent", val);
+                    handleInputChange("budget", val);
+                  }}
+                  className={INP}
+                />
+              </Field>
+              <Field label="Security Deposit (₹)">
+                <input
+                  type="text"
+                  placeholder="e.g. 75000"
+                  value={formData.security_deposit}
+                  onChange={(e) => handleInputChange("security_deposit", e.target.value.replace(/\D/g, ""))}
+                  className={INP}
+                />
+              </Field>
+              <Field label="Available From">
+                <input
+                  type="date"
+                  value={formData.available_from || ""}
+                  onChange={(e) => handleInputChange("available_from", e.target.value)}
+                  className={INP}
+                />
+              </Field>
+              <Field label="Lock-in Period (Months)">
+                <input
+                  type="number"
+                  placeholder="e.g. 6"
+                  value={formData.lock_in_period}
+                  onChange={(e) => handleInputChange("lock_in_period", e.target.value)}
+                  className={INP}
+                />
+              </Field>
+              <Field label="Agreement Duration (Months)">
+                <input
+                  type="number"
+                  placeholder="e.g. 11"
+                  value={formData.agreement_duration}
+                  onChange={(e) => handleInputChange("agreement_duration", e.target.value)}
+                  className={INP}
+                />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+              <Field label="Preferred Tenants" className="relative">
+                <TenantMultiSelect
+                  value={formData.preferred_tenants || ""}
+                  onChange={(val) => handleInputChange("preferred_tenants", val)}
+                />
+              </Field>
+              <div className="flex items-center gap-2 h-8">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formData.maintenance_extra}
+                    onChange={(e) => {
+                      handleInputChange("maintenance_extra", e.target.checked);
+                      if (!e.target.checked) {
+                        handleInputChange("maintenance_charge", "");
+                      }
+                    }}
+                    className="h-3.5 w-3.5 rounded border-gray-300 accent-orange-500"
+                  />
+                  <span className="text-xs font-semibold text-gray-700">Maintenance is Extra</span>
+                </label>
+              </div>
+              <Field label="Maintenance Charges (₹)">
+                <input
+                  type="text"
+                  placeholder={formData.maintenance_extra ? "e.g. 2000" : "Included in Rent"}
+                  value={formData.maintenance_extra ? formData.maintenance_charge : "Included in Rent"}
+                  disabled={!formData.maintenance_extra}
+                  onChange={(e) => handleInputChange("maintenance_charge", e.target.value.replace(/\D/g, ""))}
+                  className={`${INP} disabled:bg-gray-100 disabled:text-gray-400 disabled:font-medium disabled:cursor-not-allowed`}
+                />
+              </Field>
+            </div>
           </div>
 
           {/* Amenities & Furnishings */}
@@ -2197,8 +2079,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
             {/* Ownership Document */}
             <div>
               <label className={LBL}>Ownership Document</label>
-              <div className="border border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-orange-400 hover:bg-orange-50/20 transition-all cursor-pointer group" onClick={() => document.getElementById('ownership-doc-input')?.click()}>
-                <input id="ownership-doc-input" type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={(e) => handleOwnershipDocUpload(e.target.files?.[0] || null)} />
+              <div className="border border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-orange-400 hover:bg-orange-50/20 transition-all cursor-pointer group" onClick={() => document.getElementById('rental-ownership-doc-input')?.click()}>
+                <input id="rental-ownership-doc-input" type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={(e) => handleOwnershipDocUpload(e.target.files?.[0] || null)} />
                 <Upload className="h-5 w-5 text-gray-300 group-hover:text-orange-400 mx-auto mb-1 transition-colors" />
                 <p className="text-xs font-medium text-gray-500 group-hover:text-gray-700">Click to upload</p>
                 <p className="text-[10px] text-gray-400">PDF, JPG, PNG — 10 MB max</p>
@@ -2218,7 +2100,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
               </div>
               <div
                 className="border border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-orange-400 hover:bg-orange-50/20 transition-all cursor-pointer group"
-                onClick={() => document.getElementById('property-photos-input')?.click()}
+                onClick={() => document.getElementById('rental-property-photos-input')?.click()}
                 onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-orange-400', 'bg-orange-50/20'); }}
                 onDragLeave={(e) => { e.currentTarget.classList.remove('border-orange-400', 'bg-orange-50/20'); }}
                 onDrop={(e) => {
@@ -2228,7 +2110,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                   if (dropped.length > 0) handlePhotosUpload(dropped);
                 }}
               >
-                <input id="property-photos-input" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.webm" multiple className="hidden" onChange={(e) => {
+                <input id="rental-property-photos-input" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.webm" multiple className="hidden" onChange={(e) => {
                   const selected = Array.from(e.target.files || []);
                   if (selected.length > 0) handlePhotosUpload(selected);
                   e.target.value = "";
@@ -2243,9 +2125,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                 <p className="text-[10px] text-gray-400">JPG, PNG, WebP, MP4, MOV, WebM — 5 MB each</p>
               </div>
 
-
-              {/* 🆕 Add via URL */}
-              {/* 🆕 Add via URL */}
+              {/* Add via URL */}
               <div className="flex items-center gap-1.5 mt-2">
                 <input
                   type="text"
@@ -2343,4 +2223,4 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   );
 };
 
-export default PropertyFormModal;
+export default RentalPropertyFormModal;

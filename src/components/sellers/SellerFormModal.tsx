@@ -11,6 +11,10 @@ import DOBStepCalendar from '../ui/DOBStepCalendar';
 import { usersAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import PropertyFormModal from '@/pages/dashboard/components/PropertyFormModal';
+import LinkPropertyModal from './LinkPropertyModal';
+import Swal from 'sweetalert2';
+import { toast } from 'react-toastify';
+import { getImageUrl } from '@/lib/helpers';
 
 // ESALE Theme Colors
 const N = "#0f2b3d";
@@ -59,17 +63,19 @@ const pick = (...vals: any[]) => vals.find((x) => x !== undefined && x !== null 
 const getPropertyId = (p: any) => String(p.property_id ?? p.id ?? p._id ?? '');
 
 const composePropertyTitle = (p: any) => {
-  const propertyType = pick(p.property_type_name, p.property_type, p.type, p.category, p.type_name, p.propertyType) ?? '';
-  const unitType = pick(p.unit_type, p.unitType, p.unit_type_name, p.flat_type, p.configuration, p.bhk, p.bhk_label) ?? '';
-  const subType = pick(p.property_subtype_name, p.property_sub_type, p.property_subtype, p.subtype, p.propertySubType, p.segment, p.property_subtype_name) ?? '';
-  const society = pick(p.society_name, p.society, p.project_name, p.societyName, p.project, p.location_name) ?? '';
+  const unitType = String(
+    pick(p.unit_type, p.unitType, p.unit_type_name, p.flat_type, p.configuration, p.bhk, p.bhk_label) ?? ''
+  ).trim();
+  const propertyType = String(
+    pick(p.property_type_name, p.property_type, p.type, p.category, p.type_name, p.propertyType) ?? ''
+  ).trim();
+  const society = String(
+    pick(p.society_name, p.society, p.project_name, p.societyName, p.project) ?? ''
+  ).trim();
 
-  const parts = [propertyType, unitType, subType].map((s: any) => String(s || '').trim()).filter(Boolean);
-  const left = parts.length ? parts.join('  ') : (p.title || 'Property');
-  const withSociety = society ? `${left} — ${String(society).trim()}` : left;
-  if (withSociety) return withSociety;
-  const fallback = p.title || p.society_name || p.name || p.location_name;
-  return fallback ? String(fallback) : 'Property';
+  const titleLead = unitType || propertyType || 'Property';
+  if (society) return `${titleLead} - ${society}`;
+  return p.title || titleLead;
 };
 
 const formatRxpId = (p: any) => {
@@ -82,15 +88,27 @@ const adaptProperties = (arr: any[]): MiniProperty[] =>
     const pid = getPropertyId(p);
     const uniqueId = pid || `P-${Math.random().toString(36).slice(2, 11)}`;
     const rawPrice = p.finalPrice ?? p.budget ?? p.price ?? p.expected_price ?? p.final_price ?? '';
+    const subtype = String(
+      pick(p.property_subtype_name, p.property_sub_type, p.property_subtype, p.subtype, p.propertySubType, p.segment) ?? ''
+    ).trim();
+    const rawExec =
+      p.assigned_to_name ||
+      p.assignedTo?.name ||
+      p.assigned_to?.name ||
+      p.executive_name ||
+      p.sales_executive_name ||
+      p.assigned_executive ||
+      (typeof p.assignedTo === 'string' ? p.assignedTo : '') ||
+      '';
+    const executiveName = rawExec
+      ? String(rawExec).replace(/^(Mr\.|Mrs\.|Ms\.|Dr\.)\s+/i, '').trim()
+      : 'Unassigned';
+
     return {
       id: uniqueId,
       title: composePropertyTitle(p),
-      address:
-        p.address ||
-        [p.location_name || p.locality_name || p.location, p.city_name || p.city]
-          .filter(Boolean)
-          .join(', ') ||
-        'Address not set',
+      subtype,
+      executiveName,
       price: rawPrice !== null && rawPrice !== undefined && String(rawPrice).trim() !== '' ? rawPrice : '',
       size: p.carpet_area ?? p.carpetArea ?? p.area ?? p.super_builtup_area ?? '',
       image:
@@ -145,6 +163,8 @@ type CoSeller = {
 type MiniProperty = {
   id: string;
   title: string;
+  subtype?: string;
+  executiveName?: string;
   address?: string;
   price?: number | string;
   size?: string | number;
@@ -188,6 +208,83 @@ type Props = {
   onClose: () => void;
   seller?: Seller | null;
   onSave: (data: Seller) => Promise<void> | void;
+};
+
+const SearchableSelect: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+}> = ({ value, onChange, options, placeholder }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const clickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", clickOutside);
+    return () => document.removeEventListener("mousedown", clickOutside);
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!search) return options;
+    return options.filter(o =>
+      String(o.label || "").toLowerCase().includes(search.toLowerCase()) ||
+      String(o.value || "").toLowerCase().includes(search.toLowerCase())
+    );
+  }, [options, search]);
+
+  const displayLabel = options.find(o => o.value === value)?.label || value || "";
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div
+        onClick={() => { setIsOpen(true); setSearch(""); }}
+        className="w-full border border-gray-300 rounded px-2.5 py-1 text-[10px] bg-white cursor-pointer flex justify-between items-center h-[28px]"
+      >
+        <span className={value ? "text-gray-800" : "text-gray-400"}>
+          {displayLabel || placeholder}
+        </span>
+        <span className="text-gray-400 text-[8px]">▼</span>
+      </div>
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 p-1.5 space-y-1.5">
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search location..."
+            className="w-full border border-gray-300 rounded px-2 py-0.5 text-[10px] focus:outline-none"
+            autoFocus
+          />
+          <div className="max-h-36 overflow-y-auto space-y-1 text-[10px]">
+            {filtered.length === 0 ? (
+              <div className="p-1.5 text-gray-400 text-center">No options found</div>
+            ) : (
+              filtered.map(o => (
+                <div
+                  key={o.value}
+                  onClick={() => {
+                    onChange(o.value);
+                    setIsOpen(false);
+                  }}
+                  className={`p-1.5 rounded hover:bg-orange-50 hover:text-orange-600 cursor-pointer ${
+                    o.value === value ? "bg-orange-100 text-orange-700 font-semibold" : "text-gray-700"
+                  }`}
+                >
+                  {o.label}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 // Form Field Component
@@ -442,18 +539,75 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
 
   const filteredAvailableProperties = useMemo(() => {
     const currentSelectedIds = new Set((formData.properties || []).map((p) => String(p.id)));
-    const unselected = availableProperties.filter((p) => !currentSelectedIds.has(String(p.id)));
-    if (!propertySearchQuery.trim()) return unselected;
-    const query = propertySearchQuery.toLowerCase().trim();
-    return unselected.filter((property) => {
-      const searchableFields = [
-        property.title || '',
-        property.address || '',
-        property._rxpBadge || '',
-        property._pid || '',
-        String(property.id || ''),
-      ];
-      return searchableFields.some((field) => field.toLowerCase().includes(query));
+    const query = (propertySearchQuery || "").toLowerCase().trim();
+    const qKeywords = query.split(/\s+/).filter(Boolean);
+    const qClean = query.replace(/[^a-z0-9]/gi, "");
+    const qDigits = query.replace(/\D/g, "");
+    const qNum = parseInt(qDigits, 10);
+    const qTrimmed = qDigits.replace(/^0+/, "");
+    const qWithoutRex = qClean.replace(/^rex/i, "");
+
+    const all = availableProperties.filter((property) => {
+      if (!query) return true;
+
+      const pid = String(property._pid || property.id || "");
+      const repId = String(property._rxpBadge || "").toLowerCase();
+      const pidDigits = pid.replace(/\D/g, "");
+      const pidNum = parseInt(pidDigits, 10);
+      const pidTrimmed = pidDigits.replace(/^0+/, "");
+      const pidClean = pid.replace(/[^a-z0-9]/gi, "").toLowerCase();
+      const repIdClean = repId.replace(/[^a-z0-9]/gi, "").toLowerCase();
+
+      // 1. Check ID / Badge specific matches
+      if (!isNaN(qNum) && !isNaN(pidNum) && qNum === pidNum) {
+        return true;
+      }
+      if (qTrimmed && pidTrimmed && (pidTrimmed === qTrimmed || pidTrimmed.includes(qTrimmed))) {
+        return true;
+      }
+      if (qClean) {
+        if (pidClean && (pidClean === qClean || pidClean.includes(qClean))) return true;
+        if (repIdClean && (repIdClean === qClean || repIdClean.includes(qClean))) return true;
+        if (qWithoutRex && pidClean && (pidClean === qWithoutRex || pidClean.includes(qWithoutRex))) return true;
+        if (qWithoutRex && repIdClean && (repIdClean === qWithoutRex || repIdClean.includes(qWithoutRex))) return true;
+      }
+
+      // 2. Comprehensive text search
+      const raw = property._rawProperty || {};
+      const pool = [
+        property.title,
+        property.address,
+        property._rxpBadge,
+        property._pid,
+        String(property.id || ""),
+        raw.property_type_name,
+        raw.unit_type,
+        raw.property_type,
+        raw.location_name,
+        raw.locality_name,
+        raw.location,
+        raw.city_name,
+        raw.city,
+        raw.society_name,
+        raw.society,
+        pid,
+        repId,
+        `rex ${pid}`,
+        `rex-${pid}`,
+        `rex${pid}`,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return qKeywords.every((kw) => pool.includes(kw));
+    });
+
+    return all.sort((a, b) => {
+      const aLinked = currentSelectedIds.has(String(a.id));
+      const bLinked = currentSelectedIds.has(String(b.id));
+      if (aLinked === bLinked) return 0;
+      return aLinked ? 1 : -1;
     });
   }, [availableProperties, propertySearchQuery, formData.properties]);
 
@@ -497,22 +651,17 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
   }, [sameWhatsapp]);
 
   const handleWhatsappChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setFormData((prev) => ({ ...prev, whatsapp: e.target.value })), []);
-  const handlePropertySelection = useCallback((propertyId: string) => {
-    const property = availableProperties.find((p) => String(p.id) === String(propertyId));
-    if (!property) return;
-    const existingProperty = (formData.properties || []).find((p) => String(p.id) === String(propertyId));
+  const handlePropertySelection = useCallback((rawProperty: any) => {
+    const adapted = adaptProperties([rawProperty])[0];
+    if (!adapted) return;
+    const existingProperty = (formData.properties || []).find((p) => String(p.id) === String(adapted.id));
     if (existingProperty) {
       setShowPropertySelector(false);
       return;
     }
-    setFormData((prev) => ({ ...prev, properties: [...(prev.properties || []), { ...property, id: String(property.id) }] }));
+    setFormData((prev) => ({ ...prev, properties: [...(prev.properties || []), adapted] }));
     setShowPropertySelector(false);
-    setPropertySearchQuery('');
-  }, [availableProperties, formData.properties]);
-
-  const removeProperty = useCallback((propertyId: string) => {
-    setFormData((prev) => ({ ...prev, properties: (prev.properties || []).filter((p) => String(p.id) !== String(propertyId)) }));
-  }, []);
+  }, [formData.properties]);
 
   const addCoSeller = useCallback(() => {
     setFormData((prev) => ({
@@ -528,6 +677,36 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
   const removeCoSeller = useCallback((index: number) => {
     setFormData((prev) => ({ ...prev, coSellers: (prev.coSellers || []).filter((_, i) => i !== index) }));
   }, []);
+
+  const removeProperty = useCallback(async (propertyId: string | number) => {
+    const prop = (formData.properties || []).find((p) => String(p.id) === String(propertyId));
+    const title = prop?.title || 'this property';
+    const result = await Swal.fire({
+      title: 'Unlink Property?',
+      text: `Are you sure you want to remove/unlink "${title}" from this seller?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Unlink',
+      cancelButtonText: 'Cancel',
+      width: '380px',
+      customClass: {
+        popup: 'rounded-xl shadow-2xl',
+        title: 'text-base font-bold text-gray-800',
+        htmlContainer: 'text-xs text-gray-600',
+        confirmButton: 'px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 mx-1',
+        cancelButton: 'px-3 py-1.5 bg-gray-500 text-white text-xs font-semibold rounded-lg hover:bg-gray-600 mx-1',
+      },
+      buttonsStyling: false,
+    });
+    if (!result.isConfirmed) return;
+    setFormData((prev) => ({
+      ...prev,
+      properties: (prev.properties || []).filter((p) => String(p.id) !== String(propertyId)),
+    }));
+    toast.info('Property unlinked');
+  }, [formData.properties]);
 
   const handleCoSellerPhoneChange = useCallback((index: number, value: string, countryData?: any) => {
     setFormData((prev) => ({
@@ -728,10 +907,15 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
                   </FormField>
                   <FormField label="Location/Area">
                     {filteredLocations.length || locationOptions.length ? (
-                      <select value={formData.location || ''} onChange={(e) => handleInputChange('location', e.target.value)} className="w-full border rounded-lg px-2 py-1.5 text-[10px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }}>
-                        <option value="">Select Location</option>
-                        {(filteredLocations.length ? filteredLocations : locationOptions).map((l: any) => (<option key={l.value ?? l.label} value={l.value ?? l.label}>{l.label ?? l.value}</option>))}
-                      </select>
+                      <SearchableSelect
+                        value={formData.location || ''}
+                        onChange={(v) => handleInputChange('location', v)}
+                        options={(filteredLocations.length ? filteredLocations : locationOptions).map((l: any) => ({
+                          value: l.value ?? l.label,
+                          label: l.label ?? l.value
+                        }))}
+                        placeholder="Select Location"
+                      />
                     ) : (<input type="text" value={formData.location || ''} onChange={(e) => handleInputChange('location', e.target.value)} className="w-full border rounded-lg px-2 py-1.5 text-[10px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }} placeholder="Location/Area" />)}
                   </FormField>
                 </div>
@@ -819,15 +1003,53 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
             <div className="space-y-2">
               {(formData.properties || []).map((property) => (
                 <div key={property.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'white', border: `1px solid ${BD}` }}>
-                  {property.image ? (<img src={property.image} alt={property.title} className="w-12 h-12 object-cover rounded-lg" />) : (<div className="w-12 h-12 rounded-lg flex items-center justify-center text-[8px]" style={{ background: BG, color: MU }}>No Image</div>)}
+                  {property.image && getImageUrl(property.image) ? (
+                    <img
+                      src={getImageUrl(property.image) || ""}
+                      alt={property.title}
+                      className="w-12 h-12 object-cover rounded-lg flex-shrink-0 bg-gray-50 border border-gray-100"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = "none";
+                        if (e.currentTarget.nextElementSibling) {
+                          (e.currentTarget.nextElementSibling as HTMLElement).style.display = "flex";
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className="w-12 h-12 rounded-lg items-center justify-center text-[8px] flex-shrink-0"
+                    style={{
+                      background: BG,
+                      color: MU,
+                      display: property.image && getImageUrl(property.image) ? "none" : "flex",
+                    }}
+                  >
+                    No Image
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1"><div className="font-medium text-[9px] truncate">{property.title}</div>{property._rxpBadge && (<span className="px-1 py-0.25 rounded-full text-[7px]" style={{ background: `${O}15`, color: O }}>{property._rxpBadge}</span>)}</div>
-                    <div className="text-[7px] truncate" style={{ color: MU }}>{property.address}</div>
-                    {Number(property.price) > 0 ? (
-                      <div className="text-[8px] font-semibold" style={{ color: O }}>
-                        ₹ {numberToINR(property.price)}
-                      </div>
-                    ) : null}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <div className="font-semibold text-[10px] truncate">{property.title}</div>
+                      {property.subtype && (
+                        <span className="px-1.5 py-0.25 rounded text-[7px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">{property.subtype}</span>
+                      )}
+                      {property._rxpBadge && (
+                        <span className="px-1 py-0.25 rounded text-[7px] font-bold" style={{ background: `${O}15`, color: O }}>{property._rxpBadge}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      {Number(property.price) > 0 ? (
+                        <div className="text-[8px] font-bold text-emerald-600">
+                          ₹ {numberToINR(property.price)}
+                        </div>
+                      ) : null}
+                      {property.executiveName && (
+                        <div className="flex items-center gap-1 text-[8px] text-gray-600 bg-gray-50 px-1.5 py-0.25 rounded border border-gray-100">
+                          <User size={8} className="text-gray-400" />
+                          <span>Executive:</span>
+                          <span className="font-semibold text-gray-800">{property.executiveName}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <button onClick={() => removeProperty(property.id)} className="p-1 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#dc2626' }}><Trash2 size={10} /></button>
                 </div>
@@ -904,31 +1126,12 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
       </div>
 
       {/* Property Selector Modal */}
-      {showPropertySelector && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-2" style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" style={{ border: `1px solid ${BD}` }}>
-            <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: N }}>
-              <h3 className="text-sm font-bold text-white">Select Property</h3>
-              <button onClick={() => { setShowPropertySelector(false); setPropertySearchQuery(''); }} className="p-1 rounded-lg hover:bg-white/10 transition-colors text-white"><X size={16} /></button>
-            </div>
-            <div className="p-3 border-b" style={{ borderColor: BD }}>
-              <div className="relative"><Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: MU }} /><input type="text" value={propertySearchQuery} onChange={(e) => setPropertySearchQuery(e.target.value)} placeholder="Search properties by title, address, RXP ID..." className="w-full pl-7 pr-3 py-1.5 text-[10px] border rounded-lg focus:outline-none focus:ring-1" style={{ borderColor: BD }} autoFocus /></div>
-              <div className="mt-1 text-[8px]" style={{ color: MU }}>Found {filteredAvailableProperties.length} properties</div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {filteredAvailableProperties.length === 0 ? (<div className="text-center py-6 text-[9px]" style={{ color: MU }}>{propertySearchQuery ? `No properties found for "${propertySearchQuery}"` : "No public, unassigned properties available."}</div>) : (
-                filteredAvailableProperties.map((property) => (
-                  <button key={property.id} onClick={() => handlePropertySelection(property.id)} className="w-full flex items-center gap-2 p-2 rounded-lg text-left transition-all hover:shadow-md" style={{ border: `1px solid ${BD}`, background: BG }}>
-                    {property.image ? (<img src={property.image} alt={property.title} className="w-12 h-12 object-cover rounded-lg" />) : (<div className="w-12 h-12 rounded-lg flex items-center justify-center text-[8px]" style={{ background: BG, color: MU }}>No Image</div>)}
-                    <div className="flex-1 min-w-0"><div className="flex items-center gap-1"><div className="font-medium text-[9px] truncate">{property.title}</div>{property._rxpBadge && (<span className="px-1 py-0.25 rounded-full text-[7px]" style={{ background: `${O}15`, color: O }}>{property._rxpBadge}</span>)}</div>
-                    <div className="text-[7px] truncate" style={{ color: MU }}>{property.address}</div>{property.price && (<div className="text-[8px] font-semibold" style={{ color: O }}>₹ {Number(property.price).toLocaleString('en-IN')}</div>)}</div>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <LinkPropertyModal
+        isOpen={showPropertySelector}
+        onClose={() => setShowPropertySelector(false)}
+        onSelectProperty={handlePropertySelection}
+        linkingSeller={formData}
+      />
 
       {/* Property Create Modal */}
       {showPropertyCreateModal && (

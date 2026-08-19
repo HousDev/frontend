@@ -108,7 +108,7 @@ const LeadsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(
-    () => Number(localStorage.getItem('leads_rows_per_page')) || 10
+    () => Number(localStorage.getItem('leads_rows_per_page')) || 25
   );
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [showEditLeadModal, setShowEditLeadModal] = useState(false);
@@ -1609,6 +1609,11 @@ const exportLeads = async () => {
     />
   </th>
 
+  {/* S.NO */}
+  <th className="px-1.5 py-1.5 text-center text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap w-10">
+    S.No.
+  </th>
+
   {/* 🆕 COMMUNICATE column header */}
   <th className="px-2 py-1.5 text-center text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
     COMMUNICATE
@@ -1726,7 +1731,7 @@ const exportLeads = async () => {
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-            {pageSlice.map((lead) => (
+            {pageSlice.map((lead, index) => (
   <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
     {/* CHECKBOX */}
     <td className="px-2 py-1">
@@ -1737,6 +1742,11 @@ const exportLeads = async () => {
         className="rounded w-3 h-3"
         style={{ accentColor: '#e5e7eb', borderColor: '#d1d5db', borderWidth: '1px', borderStyle: 'solid' }}
       />
+    </td>
+
+    {/* S.NO */}
+    <td className="px-1.5 py-1 text-center text-xs font-semibold text-gray-500">
+      {(currentPage - 1) * itemsPerPage + index + 1}
     </td>
 
     {/* 🆕 COMMUNICATE column with icons */}
@@ -1977,7 +1987,7 @@ const userName = formatUserName(user) || user?.username || user?.email?.split('@
                   onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
                   className="min-w-[60px] px-2 py-0.5 text-[10px] border border-gray-200 rounded-lg bg-white"
                 >
-                  {[10, 20, 50, 100].map((n) => (
+                  {[25, 50, 100, 200, 300, 400, 500, 1000].map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                   <option value={999999}>All</option>
@@ -2009,7 +2019,7 @@ const userName = formatUserName(user) || user?.username || user?.email?.split('@
                   onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
                   className="px-2 py-0.5 text-[10px] border border-gray-200 rounded-lg bg-white"
                 >
-                  {[10, 20, 50, 100].map((n) => (
+                  {[25, 50, 100, 200, 300, 400, 500, 1000].map((n) => (
                     <option key={n} value={n}>{n} </option>
                   ))}
                   <option value={999999}>All</option>

@@ -1191,7 +1191,7 @@ const renderCell = (v: any) => {
 };
 
 /* ========================== Summary Modal ========================== */
-function SummaryModal({ isOpen, onClose, title = "Import Summary", duplicates, skippedRows, updatedRows }: any) {
+function SummaryModal({ isOpen, onClose, title = "Import Summary", duplicates, skippedRows, updatedRows, onExport }: any) {
   if (!isOpen) return null;
   const allKeys = Array.from(new Set(
     [...duplicates.map((r: any) => r.data), ...skippedRows.map((r: any) => r.data), ...updatedRows.map((r: any) => r.data)]
@@ -1214,7 +1214,14 @@ function SummaryModal({ isOpen, onClose, title = "Import Summary", duplicates, s
         {updatedRows.length > 0 && (
           <div><h4 className="font-semibold text-green-700 mb-2">Updated</h4><div className="max-h-60 overflow-auto border rounded"><table className="w-full text-xs"><thead className="bg-green-50 sticky top-0"><td><th>Row</th><th>ID</th><th>Note</th>{allKeys.map(k => <th key={k}>{k}</th>)}</td></thead><tbody>{updatedRows.map((row: any, i: number) => (<tr key={i}><td>{row.row}</td><td>{row.id}</td><td>{row.note}</td>{allKeys.map(k => <td key={k}>{renderCell(row.data?.[k])}</td>)}</tr>))}</tbody></table></div></div>
         )}
-        <div className="flex justify-end"><Button variant="outline" onClick={onClose}>Close</Button></div>
+        <div className="flex justify-end gap-2">
+          {onExport && (duplicates.length > 0 || skippedRows.length > 0) && (
+            <Button onClick={onExport} style={{ background: O, color: 'white' }} className="flex items-center gap-1">
+              <Download size={12} /> Export Issues Report
+            </Button>
+          )}
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </div>
       </div>
     </Modal>
   );
@@ -1285,6 +1292,37 @@ export default function ImportSellersModal({ isOpen, onClose, onImportComplete }
   const [execSearch, setExecSearch] = useState<string>("");
   const [selectedExecIds, setSelectedExecIds] = useState<Set<string | number>>(new Set());
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>("none");
+
+  const exportSkippedRows = () => {
+    const listSkipped = skippedRows.length > 0 ? skippedRows : previewSkipped;
+    const listDuplicates = duplicates.length > 0 ? duplicates : previewDuplicates;
+
+    if (!listSkipped.length && !listDuplicates.length) {
+      toast.info("No skipped rows or duplicates to export");
+      return;
+    }
+
+    const rowsToExport = [
+      ...listSkipped.map(r => ({
+        "Row Number": r.row,
+        "Status": "Skipped / Invalid",
+        "Issue / Error": r.reason,
+        ...r.data
+      })),
+      ...listDuplicates.map(r => ({
+        "Row Number": r.row,
+        "Status": "Duplicate",
+        "Issue / Error": r.reason,
+        ...r.data
+      }))
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(rowsToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Import Issues");
+    XLSX.writeFile(wb, `sellers_import_issues_${Date.now()}.xlsx`);
+    toast.success("Successfully exported import issues to Excel.");
+  };
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const sheetDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1697,8 +1735,8 @@ export default function ImportSellersModal({ isOpen, onClose, onImportComplete }
                   <div className="flex items-start gap-1.5"><AlertCircle size={10} className="shrink-0 mt-0.5" style={{ color: O }} /><div><p className="text-[9px] font-medium mb-0.5" style={{ color: N }}>Required fields:</p><div className="flex gap-1.5"><span className="px-1.5 py-0.5 rounded text-[8px] font-medium" style={{ background: `${O}20`, color: O }}>Name*</span><span className="px-1.5 py-0.5 rounded text-[8px] font-medium" style={{ background: `${O}20`, color: O }}>Phone*</span></div></div></div>
                 </div>
 
-                {skippedRows.length > 0 && (
-                  <button onClick={() => { /* optional export */ }} className="w-full rounded-lg py-1.5 text-[10px] font-medium transition-all border flex items-center justify-center gap-1" style={{ borderColor: BD, color: O }}><FileWarning size={10} /> Export Error Report ({skippedRows.length})</button>
+                {(skippedRows.length > 0 || previewSkipped.length > 0 || previewDuplicates.length > 0) && (
+                  <button onClick={exportSkippedRows} className="w-full rounded-lg py-1.5 text-[10px] font-medium transition-all border flex items-center justify-center gap-1" style={{ borderColor: BD, color: O }}><FileWarning size={10} /> Export Error Report ({skippedRows.length || (previewSkipped.length + previewDuplicates.length)})</button>
                 )}
               </div>
             </div>
@@ -1755,7 +1793,7 @@ export default function ImportSellersModal({ isOpen, onClose, onImportComplete }
           </div>
         </div>
       </div>
-      <SummaryModal isOpen={showSummary} onClose={() => setShowSummary(false)} duplicates={duplicates} skippedRows={skippedRows} updatedRows={updatedRows} />
+      <SummaryModal isOpen={showSummary} onClose={() => setShowSummary(false)} duplicates={duplicates} skippedRows={skippedRows} updatedRows={updatedRows} onExport={exportSkippedRows} />
     </>
   );
 }
