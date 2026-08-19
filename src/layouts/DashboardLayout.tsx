@@ -40,6 +40,7 @@ import {
   Edit3,
   Target,
   TrendingUp,
+  KeyRound,
 } from "lucide-react";
 import { FaEarthAsia, FaWhatsapp } from "react-icons/fa6";
 import { useAuth } from "@/contexts/AuthContext";
@@ -419,7 +420,11 @@ const DashboardLayout = () => {
         "/dashboard/leads",
         "/dashboard/buyers",
         "/dashboard/sellers",
+        "/dashboard/owners",
+        "/dashboard/owners-account",
         "/dashboard/properties",
+        "/dashboard/rental-properties",
+        "/dashboard/tenants",
         "/dashboard/contact-messages",
       ],
       administrator: [
@@ -549,9 +554,23 @@ const DashboardLayout = () => {
             required: "seller.read",
           },
           {
+            name: "Owners",
+            href: "/dashboard/owners",
+            icon: KeyRound,
+            colorClass: navTextClass,
+            required: "owner.read",
+          },
+          {
             name: "Properties",
             href: "/dashboard/properties",
             icon: Building,
+            colorClass: navTextClass,
+            required: "property.read",
+          },
+          {
+            name: "Tenants",
+            href: "/dashboard/tenants",
+            icon: Users,
             colorClass: navTextClass,
             required: "property.read",
           },

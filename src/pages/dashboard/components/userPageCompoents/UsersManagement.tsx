@@ -1851,7 +1851,7 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
   const [selectedUsers, setSelectedUsers] = useState<Array<string | number>>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   const [showFilterSidebar, setShowFilterSidebar] = useState(false);
 
   // Column search filters
@@ -2893,7 +2893,7 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
   }}
 >              <table className="w-full" style={{ minWidth: '1000px' }}>
                 <thead style={{ position: 'sticky', top: 0 }}>
-                  {/* Main Headers */}
+                  {/* Main Header */}
                   <tr style={{ backgroundColor: RESALE.navy }}>
                     {(activeTab !== 'buyers' && activeTab !== 'sellers') && (
                       <th className="w-8 px-3 py-3">
@@ -2905,6 +2905,7 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
                         />
                       </th>
                     )}
+                    <th className="px-2 py-3 text-center text-xs font-medium text-black uppercase tracking-wider w-10">S.No.</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">User</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-Black uppercase tracking-wider">Contact</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-Black uppercase tracking-wider">Role</th>
@@ -2916,6 +2917,7 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
                   {/* Column Search Row */}
                   <tr className='text-gray-500' style={{ backgroundColor: RESALE.navyLight }}>
                     {(activeTab !== 'buyers' && activeTab !== 'sellers') && <th className="px-2 py-1.5" />}
+                    <th className="px-2 py-1.5 text-center text-[9px] text-gray-400 font-normal">#</th>
                     <th className="px-2 py-1.5">
                       <input type="text" placeholder="Search name..." value={colSearch.name} onChange={e => setColSearch(p => ({ ...p, name: e.target.value }))} style={colSearchInputStyle} />
                     </th>
@@ -2939,7 +2941,7 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
                 </thead>
 
                 <tbody className="divide-y divide-gray-100">
-                  {paginatedUsers.length > 0 ? paginatedUsers.map(user => {
+                  {paginatedUsers.length > 0 ? paginatedUsers.map((user, index) => {
                     const accountAlreadyExists = (activeTab === 'buyers' || activeTab === 'sellers') &&
                       hasAccountCreated(user.id!, activeTab === 'buyers' ? 'buyer' : 'seller');
 
@@ -2949,12 +2951,15 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
                           <td className="px-3 py-3">
                             <input
                               type="checkbox"
-                              checked={selectedUsers.some(x => String(x) === String(user.id))}
+                              checked={selectedUsers.includes(user.id!)}
                               onChange={() => handleSelectUser(user.id)}
                               className="rounded border-gray-300 accent-orange-500"
                             />
                           </td>
                         )}
+                        <td className="px-2 py-3 text-center text-xs font-semibold text-gray-500">
+                          {(currentPage - 1) * itemsPerPage + index + 1}
+                        </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             {user.avatar ? (
@@ -3115,7 +3120,7 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
             onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
             className="min-w-[60px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
           >
-            {[10, 20, 50, 100].map((n) => (
+            {[50, 100, 200, 500, 700].map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
@@ -3155,7 +3160,7 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
             onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
             className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
           >
-            {[10, 20, 50, 100].map((n) => (
+            {[50, 100, 200, 500, 700].map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>

@@ -3193,7 +3193,7 @@ const toCanonicalPhone = (raw: any): { display: string; key: string } => {
 const parsePhoneNumber = (val: any) => toCanonicalPhone(val).display;
 
 // Summary Modal (unchanged – kept as before)
-function SummaryModal({ isOpen, onClose, title = "Import Summary", duplicates, skippedRows, updatedRows }: any) {
+function SummaryModal({ isOpen, onClose, title = "Import Summary", duplicates, skippedRows, updatedRows, onExport }: any) {
   if (!isOpen) return null;
   const allKeys = Array.from(new Set(
     [...duplicates.map((r: any) => r.data), ...skippedRows.map((r: any) => r.data), ...updatedRows.map((r: any) => r.data)]
@@ -3210,13 +3210,20 @@ function SummaryModal({ isOpen, onClose, title = "Import Summary", duplicates, s
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg" style={{ background: `${O}10` }}><Users size={16} style={{ color: O }} /><span className="text-sm font-semibold" style={{ color: N }}>Duplicates: {duplicates.length}</span></div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg" style={{ background: `${O}10` }}><XCircle size={16} style={{ color: O }} /><span className="text-sm font-semibold" style={{ color: N }}>Skipped: {skippedRows.length}</span></div>
-            {updatedRows.length > 0 && <div className="flex items-center gap-2 px-4 py-2 rounded-lg" style={{ background: `${O}10` }}><CheckCircle size={16} style={{ color: O }} /><span className="text-sm font-semibold" style={{ color: N }}>Updated: {updatedRows.length}</span></div>}
+            {updatedRows.length > 0 && <div className="flex items-center gap-2 px-4 py-2 rounded-lg" style={{ background: `${O}10` }}><CheckCircle size={16} style={{ color: N }} /><span className="text-sm font-semibold" style={{ color: N }}>Updated: {updatedRows.length}</span></div>}
           </div>
           {duplicates.length > 0 && (<div><h4 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: O }}><AlertCircle size={14} /> Duplicates</h4><div className="max-h-[260px] overflow-auto border rounded-lg"><table className="w-full text-xs border-collapse"><thead className="sticky top-0" style={{ background: BG }}><tr><th className="border px-2 py-1.5">Row</th><th className="border px-2 py-1.5">Duplicate Fields</th><th className="border px-2 py-1.5">Existing ID</th><th className="border px-2 py-1.5">Reason</th>{allKeys.map((k: string) => <th key={k} className="border px-2 py-1.5">{k}</th>)}</tr></thead><tbody>{duplicates.map((row: any, idx: number) => (<tr key={idx}><td className="border px-2 py-1.5 text-center">{row.row ?? "-"}</td><td className="border px-2 py-1.5">{row.duplicateFields?.join(", ") || "-"}</td><td className="border px-2 py-1.5 text-center">{row.existingId ?? "-"}</td><td className="border px-2 py-1.5" style={{ color: O }}>{row.reason}</td>{allKeys.map((k: string) => <td key={k} className="border px-2 py-1.5">{row.data?.[k]}</td>)}</tr>))}</tbody></table></div></div>)}
           {skippedRows.length > 0 && (<div><h4 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: MU }}>Skipped</h4><div className="max-h-[240px] overflow-auto border rounded-lg"><table className="w-full text-xs border-collapse"><thead className="sticky top-0" style={{ background: BG }}><tr><th className="border px-2 py-1.5">Row</th><th className="border px-2 py-1.5">Reason</th>{allKeys.map((k: string) => <th key={k} className="border px-2 py-1.5">{k}</th>)}</tr></thead><tbody>{skippedRows.map((row: any, idx: number) => (<tr key={idx}><td className="border px-2 py-1.5 text-center">{row.row}</td><td className="border px-2 py-1.5" style={{ color: MU }}>{row.reason}</td>{allKeys.map((k: string) => <td key={k} className="border px-2 py-1.5">{row.data[k]}</td>)}</tr>))}</tbody></table></div></div>)}
           {updatedRows.length > 0 && (<div><h4 className="text-sm font-semibold mb-3 flex-items-center gap-2" style={{ color: O }}>Updated</h4><div className="max-h-[240px] overflow-auto border rounded-lg"><table className="w-full text-xs border-collapse"><thead className="sticky top-0" style={{ background: BG }}><tr><th className="border px-2 py-1.5">Row</th><th className="border px-2 py-1.5">ID</th><th className="border px-2 py-1.5">Note</th>{allKeys.map((k: string) => <th key={k} className="border px-2 py-1.5">{k}</th>)}</tr></thead><tbody>{updatedRows.map((row: any, idx: number) => (<tr key={idx}><td className="border px-2 py-1.5 text-center">{row.row ?? "-"}</td><td className="border px-2 py-1.5 text-center">{row.id ?? "-"}</td><td className="border px-2 py-1.5" style={{ color: O }}>{row.note || "Updated"}</td>{allKeys.map((k: string) => <td key={k} className="border px-2 py-1.5">{row.data?.[k]}</td>)}</tr>))}</tbody></table></div></div>)}
         </div>
-        <div className="px-5 py-3 border-t flex justify-end" style={{ borderColor: BD, background: BG }}><button onClick={onClose} className="px-4 py-1.5 text-sm border rounded-lg hover:bg-gray-50" style={{ borderColor: BD, color: N }}>Close</button></div>
+        <div className="px-5 py-3 border-t flex justify-end gap-2" style={{ borderColor: BD, background: BG }}>
+          {onExport && (duplicates.length > 0 || skippedRows.length > 0) && (
+            <button onClick={onExport} className="px-4 py-1.5 text-sm font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-all flex items-center gap-1">
+              <Download size={14} /> Export Issues Report
+            </button>
+          )}
+          <button onClick={onClose} className="px-4 py-1.5 text-sm border rounded-lg hover:bg-gray-50" style={{ borderColor: BD, color: N }}>Close</button>
+        </div>
       </div>
     </div>
   );
@@ -3266,6 +3273,37 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
   const [execSearch, setExecSearch] = useState<string>("");
   const [selectedExecIds, setSelectedExecIds] = useState<Set<string | number>>(new Set());
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>("none");
+
+  const exportSkippedRows = () => {
+    const listSkipped = skippedRows.length > 0 ? skippedRows : previewSkipped;
+    const listDuplicates = duplicates.length > 0 ? duplicates : previewDuplicates;
+
+    if (!listSkipped.length && !listDuplicates.length) {
+      toast.info("No skipped rows or duplicates to export");
+      return;
+    }
+
+    const rowsToExport = [
+      ...listSkipped.map(r => ({
+        "Row Number": r.row,
+        "Status": "Skipped / Invalid",
+        "Issue / Error": r.reason,
+        ...r.data
+      })),
+      ...listDuplicates.map(r => ({
+        "Row Number": r.row,
+        "Status": "Duplicate",
+        "Issue / Error": r.reason,
+        ...r.data
+      }))
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(rowsToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Import Issues");
+    XLSX.writeFile(wb, `leads_import_issues_${Date.now()}.xlsx`);
+    toast.success("Successfully exported import issues to Excel.");
+  };
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const sheetDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);   // ✅ Added
@@ -3623,8 +3661,9 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
                   <div className="flex items-start gap-1.5"><AlertCircle size={10} className="shrink-0 mt-0.5" style={{ color: O }} /><div><p className="text-[9px] font-medium mb-0.5" style={{ color: N }}>Required fields:</p><div className="flex gap-1.5"><span className="px-1.5 py-0.5 rounded text-[8px] font-medium" style={{ background: `${O}20`, color: O }}>Salutation*</span><span className="px-1.5 py-0.5 rounded text-[8px] font-medium" style={{ background: `${O}20`, color: O }}>Name*</span><span className="px-1.5 py-0.5 rounded text-[8px] font-medium" style={{ background: `${O}20`, color: O }}>Phone*</span></div></div></div>
                 </div>
 
-                {/* Export Error Button - not used in leads but kept for consistency */}
-                {skippedRows.length > 0 && (<button onClick={() => { /* optional export */ }} className="w-full rounded-lg py-1.5 text-[10px] font-medium transition-all border flex items-center justify-center gap-1" style={{ borderColor: BD, color: O }}><FileWarning size={10} /> Export Error Report ({skippedRows.length})</button>)}
+                {(skippedRows.length > 0 || previewSkipped.length > 0 || previewDuplicates.length > 0) && (
+                  <button onClick={exportSkippedRows} className="w-full rounded-lg py-1.5 text-[10px] font-medium transition-all border flex items-center justify-center gap-1" style={{ borderColor: BD, color: O }}><FileWarning size={10} /> Export Error Report ({skippedRows.length || (previewSkipped.length + previewDuplicates.length)})</button>
+                )}
               </div>
             </div>
 
@@ -3672,7 +3711,7 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
           </div>
         </div>
       </div>
-      <SummaryModal isOpen={showSummary} onClose={() => setShowSummary(false)} duplicates={duplicates} skippedRows={skippedRows} updatedRows={updatedRows} />
+      <SummaryModal isOpen={showSummary} onClose={() => setShowSummary(false)} duplicates={duplicates} skippedRows={skippedRows} updatedRows={updatedRows} onExport={exportSkippedRows} />
     </>
   );
 }

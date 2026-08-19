@@ -49,7 +49,11 @@ import CommunicationHubPage from '@/pages/communication/CommunicationHubPage';
 // Additional Dashboard Pages
 import BuyersPage from '@/pages/dashboard/BuyersPage';
 import PropertiesPage from '@/pages/dashboard/PropertiesPage';
+import RentalPropertiesPage from '@/pages/dashboard/RentalPropertiesPage';
 import SellersPage from '@/pages/dashboard/SellersPage';
+import OwnersPage from '@/pages/dashboard/OwnersPage';
+import StandaloneOwnerAccountPage from './components/owners/StandaloneOwnerAccountPage';
+import TenantsPage from '@/pages/dashboard/TenantsPage';
 import DocumentCenter from '@/pages/dashboard/DocumentCenter';
 import AccountsPage from '@/pages/dashboard/AccountsPage';
 import VendorDirectoryPage from '@/pages/dashboard/VendorDirectoryPage';
@@ -184,9 +188,13 @@ function App() {
                     <Route path="buyers" element={<BuyersPage />} />
                     <Route path="buyers-account/:id" element={<StandaloneBuyerAccountPage />} />
                     <Route path="properties" element={<PropertiesPage />} />
+                    <Route path="rental-properties" element={<RentalPropertiesPage />} />
                     <Route path="properties/:id" element={<PropertyDetailPage />} />
                     <Route path="sellers" element={<SellersPage />} />
                     <Route path="sellers-account/:id" element={<StandaloneSellerAccountPage />} />
+                    <Route path="owners" element={<OwnersPage />} />
+                    <Route path="owners-account/:id" element={<StandaloneOwnerAccountPage />} />
+                    <Route path="tenants" element={<TenantsPage />} />
                     <Route path="document-center" element={<DocumentCenter />} />
 
                     {/* CMS Features */}

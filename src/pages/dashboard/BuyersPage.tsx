@@ -184,7 +184,7 @@ const [activeTab, setActiveTab] = useState('uncontacts');  const [searchTerm, se
   const [editingBuyer, setEditingBuyer] = useState<UIBuyer | null>(null);
   const [currentBuyerIndex, setCurrentBuyerIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
@@ -1732,6 +1732,11 @@ const matchesColSearch =
           </th>
         )}
 
+        {/* S.NO */}
+        <th className="px-1.5 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50 w-10">
+          S.No.
+        </th>
+
         {/* STICKY COL 1: COMMUNICATE */}
         {shouldShowActionsColumn && (
          <th
@@ -1790,6 +1795,9 @@ const matchesColSearch =
     style={isDesktop ? { position: 'sticky', left: 0, zIndex: 31 } : {}}
   />
 )}
+
+        {/* S.NO - empty placeholder */}
+        <th className="px-1.5 py-0.5 bg-gray-100 w-10" />
 
         {/* COMMUNICATE - sticky placeholder */}
       {shouldShowActionsColumn && (
@@ -1916,7 +1924,7 @@ const matchesColSearch =
 
     {/* ── TBODY: only this scrolls ── */}
     <tbody className="bg-white divide-y divide-gray-100">
-      {paginatedBuyers.map((buyer) => {
+      {paginatedBuyers.map((buyer, index) => {
         const { name: execName, isCurrentUser } = resolveExecutiveName(buyer.assigned_executive);
         const initials = getInitials(buyer.name);
         return (
@@ -1936,6 +1944,11 @@ const matchesColSearch =
                 />
               </td>
             )}
+
+            {/* S.NO */}
+            <td className="px-1.5 py-1 text-center text-xs font-semibold text-gray-500 bg-white">
+              {(currentPage - 1) * itemsPerPage + index + 1}
+            </td>
 
             {/* STICKY COL 1: COMMUNICATE */}
             {shouldShowActionsColumn && (
@@ -2315,7 +2328,7 @@ const matchesColSearch =
             }
             className="min-w-[60px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
           >
-            {[10, 20, 50, 100].map((n) => (
+            {[25, 50, 100, 200, 300, 400, 500, 1000].map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
@@ -2360,7 +2373,7 @@ const matchesColSearch =
             }
             className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
           >
-            {[10, 20, 50, 100].map((n) => (
+            {[25, 50, 100, 200, 300, 400, 500, 1000].map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>

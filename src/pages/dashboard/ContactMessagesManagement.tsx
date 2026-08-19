@@ -339,7 +339,7 @@ const ContactMessagesManagement = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   const [colSearch, setColSearch] = useState({
     name: "",
     contact: "",
@@ -1440,7 +1440,8 @@ const FilterSidebar = ({ isOpen, onClose, filters, setFilters, onReset }) => {
               onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
               className="min-w-[90px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
             >
-              {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/page</option>)}
+              {[50, 100, 200, 500, 700].map(n => <option key={n} value={n}>{n}/page</option>)}
+              <option value={999999}>All</option>
             </select>
           )}
           <div className="flex-1 overflow-x-auto scrollbar-hide">
@@ -1486,7 +1487,8 @@ const FilterSidebar = ({ isOpen, onClose, filters, setFilters, onReset }) => {
               onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
               className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
             >
-              {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/page</option>)}
+              {[50, 100, 200, 500, 700].map(n => <option key={n} value={n}>{n}/page</option>)}
+              <option value={999999}>All</option>
             </select>
           )}
         </div>

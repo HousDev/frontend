@@ -48,6 +48,7 @@ import {
   Link2,
   Search,
   X,
+  UserCheck,
 } from "lucide-react";
 
 import SellerStageUpdateModal from "./SellerStageUpdateModal";
@@ -55,6 +56,7 @@ import SellerSharingModal from "./SellerSharingModal";
 import ActivityModal from "../buyers/ActivityModal";
 import VisitModal from "../buyers/VisitModal";
 import PropertyFormModal from "@/pages/dashboard/components/PropertyFormModal";
+import LinkPropertyModal from "./LinkPropertyModal";
 import { sellerFollowupAPI } from "@/lib/sellerFollowupAPI";
 import { sellerAPI } from "@/lib/sellersAPI";
 import { useProperties } from "@/hooks/properties";
@@ -62,6 +64,7 @@ import SellerFollowupModal, {
   SellerFollowupPayload,
 } from "./SellerFollowupModal";
 import { toast } from "react-toastify";
+import Swal from "sweetalert2";
 
 // Modern Color Scheme
 const N = "#0f2b3d"; // Navy - used sparingly for headers
@@ -79,7 +82,6 @@ const DARK = "#1e293b";
 // ---- Permission helpers ----
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/utils/permission";
-import Swal from "sweetalert2";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                              */
@@ -720,9 +722,9 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
                     <div className="p-1.5 bg-gray-100 rounded-lg">
                       {typeIcon(
                         f.followupType ||
-                          f.followup_type ||
-                          f.type ||
-                          undefined,
+                        f.followup_type ||
+                        f.type ||
+                        undefined,
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -849,14 +851,14 @@ export interface SellerViewPageProps {
 
 const SellerViewPage: React.FC<SellerViewPageProps> = ({
   seller = {},
-  onBack = () => {},
-  onEdit = (..._args: any[]) => {},
-  onAccount = (..._args: any[]) => {},
-  onNext = () => {},
-  onPrevious = () => {},
+  onBack = () => { },
+  onEdit = (..._args: any[]) => { },
+  onAccount = (..._args: any[]) => { },
+  onNext = () => { },
+  onPrevious = () => { },
   currentIndex = 0,
   totalSellers = 1,
-  onUpdateSeller = () => {},
+  onUpdateSeller = () => { },
   sellerId,
 }) => {
   const { user } = useAuth() as { user: any | null };
@@ -987,9 +989,9 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
         undefined,
       followup_time: ensureTime(
         row?.schedule_time ??
-          row?.followup_time ??
-          row?.scheduleTime ??
-          undefined,
+        row?.followup_time ??
+        row?.scheduleTime ??
+        undefined,
       ),
       followup_type: row?.followup_type ?? row?.followupType,
       status: row?.seller_lead_status ?? row?.sellerLeadStatus ?? row?.status,
@@ -1025,17 +1027,17 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     };
   };
 
- const pushFollowupsIntoSeller = useCallback(
-  (rows: any[]) => {
-    const mapped = (rows || []).map(normalizeFromApi);
-    const updatedSeller: AnyObj = {
-      ...sellerRef.current,  // ← seller ki jagah sellerRef.current
-      followups: mapped,
-    };
-    onUpdateSeller(updatedSeller);
-  },
-  [onUpdateSeller],  // ← seller dependency hata do
-);
+  const pushFollowupsIntoSeller = useCallback(
+    (rows: any[]) => {
+      const mapped = (rows || []).map(normalizeFromApi);
+      const updatedSeller: AnyObj = {
+        ...sellerRef.current,  // ← seller ki jagah sellerRef.current
+        followups: mapped,
+      };
+      onUpdateSeller(updatedSeller);
+    },
+    [onUpdateSeller],  // ← seller dependency hata do
+  );
   const fetchFollowups = useCallback(async () => {
     if (!sellerIdVal) return;
     try {
@@ -1066,35 +1068,35 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     if (!property) return null;
     const mappedPhotos = Array.isArray(property.photos)
       ? property.photos
-          .map((p: any, idx: number) => {
-            if (!p) return null;
-            if (typeof p === "string")
-              return {
-                id: `${property.id ?? "p"}-${idx}`,
-                url: p,
-                name: `photo-${idx + 1}`,
-              };
+        .map((p: any, idx: number) => {
+          if (!p) return null;
+          if (typeof p === "string")
             return {
-              id: p.id ?? `${property.id ?? "p"}-${idx}`,
-              url: p.url ?? p.path ?? "",
-              name: p.name ?? `photo-${idx + 1}`,
+              id: `${property.id ?? "p"}-${idx}`,
+              url: p,
+              name: `photo-${idx + 1}`,
             };
-          })
-          .filter(Boolean)
+          return {
+            id: p.id ?? `${property.id ?? "p"}-${idx}`,
+            url: p.url ?? p.path ?? "",
+            name: p.name ?? `photo-${idx + 1}`,
+          };
+        })
+        .filter(Boolean)
       : Array.isArray(property.photoUrls)
         ? property.photoUrls.map((u: string, idx: number) => ({
-            id: `${property.id ?? "p"}-${idx}`,
-            url: u,
-            name: `photo-${idx + 1}`,
-          }))
+          id: `${property.id ?? "p"}-${idx}`,
+          url: u,
+          name: `photo-${idx + 1}`,
+        }))
         : [];
     const mappedNearby = Array.isArray(property.nearby_places)
       ? property.nearby_places.map((n: any) => ({
-          name: n.name ?? n.place ?? "",
-          type: n.type ?? n.category ?? "",
-          distance: n.distance ?? "",
-          unit: n.unit ?? "",
-        }))
+        name: n.name ?? n.place ?? "",
+        type: n.type ?? n.category ?? "",
+        distance: n.distance ?? "",
+        unit: n.unit ?? "",
+      }))
       : [];
     return {
       id: property.id ?? property._id,
@@ -1265,11 +1267,11 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       ...(seller as AnyObj),
       followups: ((seller as AnyObj).followups as Followup[] | undefined)
         ? ((seller as AnyObj).followups as Followup[]).some(
-            (f) => f.id === followupData.id,
-          )
+          (f) => f.id === followupData.id,
+        )
           ? ((seller as AnyObj).followups as Followup[]).map((f) =>
-              f.id === followupData.id ? followupData : f,
-            )
+            f.id === followupData.id ? followupData : f,
+          )
           : [...((seller as AnyObj).followups as Followup[]), followupData]
         : [followupData],
     };
@@ -1315,32 +1317,62 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
         String(p.id || p.property_id || p._id || "")
       )
     );
-    const q = linkPropertySearch.toLowerCase().trim();
-    return (availableProperties || []).filter((p: any) => {
-      const pid = String(p.id || p.property_id || p._id || "");
-      if (pid && currentPropertyIds.has(pid)) return false;
+    const q = (linkPropertySearch || "").toLowerCase().trim();
+    const qClean = q.replace(/[^a-z0-9]/gi, "");
+    const qDigits = q.replace(/\D/g, "");
+    const qNum = parseInt(qDigits, 10);
+    const qTrimmed = qDigits.replace(/^0+/, "");
+
+    const all = (availableProperties || []).filter((p: any) => {
       if (!q) return true;
-      const title = (
-        p.title ||
-        p.property_type_name ||
-        p.unit_type ||
-        ""
-      ).toLowerCase();
-      const address = (
-        p.address ||
-        p.location_name ||
-        p.locality_name ||
-        p.city_name ||
-        p.city ||
-        ""
-      ).toLowerCase();
-      const society = (p.society_name || p.society || "").toLowerCase();
-      return (
+
+      const title = String(p.title || p.property_type_name || p.unit_type || p.property_type || "").toLowerCase();
+      const address = String(p.address || p.location_name || p.locality_name || p.location || p.city_name || p.city || "").toLowerCase();
+      const society = String(p.society_name || p.society || "").toLowerCase();
+      const pid = String(p.id || p.property_id || p._id || "");
+      const repId = String(p.propertyId || p.rep_id || p._rxpBadge || "").toLowerCase();
+      const pidDigits = pid.replace(/\D/g, "");
+      const pidNum = parseInt(pidDigits, 10);
+      const pidTrimmed = pidDigits.replace(/^0+/, "");
+      const pidClean = pid.replace(/[^a-z0-9]/gi, "");
+      const repIdClean = repId.replace(/[^a-z0-9]/gi, "");
+
+      // Direct text matching
+      if (
         title.includes(q) ||
         address.includes(q) ||
         society.includes(q) ||
-        pid.includes(q)
-      );
+        pid.toLowerCase().includes(q) ||
+        repId.includes(q)
+      ) {
+        return true;
+      }
+
+      // Alphanumeric clean match (e.g. 'rex0388' vs 'rex388')
+      if (qClean && (pidClean.includes(qClean) || repIdClean.includes(qClean) || qClean.includes(pidClean) || qClean.includes(repIdClean))) {
+        return true;
+      }
+
+      // Number comparison ignoring leading zeros
+      if (!isNaN(qNum) && !isNaN(pidNum) && qNum === pidNum) {
+        return true;
+      }
+
+      // Trimmed digit match
+      if (qTrimmed && pidTrimmed && (pidTrimmed.includes(qTrimmed) || qTrimmed.includes(pidTrimmed))) {
+        return true;
+      }
+
+      return false;
+    });
+
+    return all.sort((a: any, b: any) => {
+      const aPid = String(a.id || a.property_id || a._id || "");
+      const bPid = String(b.id || b.property_id || b._id || "");
+      const aLinked = currentPropertyIds.has(aPid);
+      const bLinked = currentPropertyIds.has(bPid);
+      if (aLinked === bLinked) return 0;
+      return aLinked ? 1 : -1;
     });
   }, [availableProperties, seller, linkPropertySearch]);
 
@@ -1383,6 +1415,31 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
 
   const handleUnlinkProperty = async (propertyIndex: number) => {
     const currentProps = (seller as any).properties || [];
+    const propToUnlink = currentProps[propertyIndex];
+    const title = propToUnlink?.title || propToUnlink?.property_type_name || 'this property';
+
+    const result = await Swal.fire({
+      title: 'Unlink Property?',
+      text: `Are you sure you want to unlink "${title}" from this seller?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Unlink',
+      cancelButtonText: 'Cancel',
+      width: '380px',
+      customClass: {
+        popup: 'rounded-xl shadow-2xl',
+        title: 'text-base font-bold text-gray-800',
+        htmlContainer: 'text-xs text-gray-600',
+        confirmButton: 'px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 mx-1',
+        cancelButton: 'px-3 py-1.5 bg-gray-500 text-white text-xs font-semibold rounded-lg hover:bg-gray-600 mx-1',
+      },
+      buttonsStyling: false,
+    });
+
+    if (!result.isConfirmed) return;
+
     const updatedProps = currentProps.filter(
       (_: any, idx: number) => idx !== propertyIndex
     );
@@ -1657,11 +1714,10 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
               <span>Seller Personal & Contact Information</span>
             </h3>
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                (seller as any).isActive
+              className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${(seller as any).isActive
                   ? "bg-green-100 text-green-700"
                   : "bg-gray-100 text-gray-600"
-              }`}
+                }`}
             >
               {(seller as any).status ?? ((seller as any).isActive ? "Active" : "Inactive")}
             </span>
@@ -1739,9 +1795,8 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
               <div>
                 <p className="text-[10px] font-medium text-gray-500">Priority</p>
                 <span
-                  className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${
-                    priorityBadge((seller as any).priority)
-                  }`}
+                  className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${priorityBadge((seller as any).priority)
+                    }`}
                 >
                   {(seller as any).priority || "—"}
                 </span>
@@ -1814,7 +1869,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
                   ([property.location_name, property.city_name || property.city]
                     .filter(Boolean)
                     .join(", ") ||
-                  "—");
+                    "—");
                 const photo =
                   property.photos?.[0]?.url ||
                   property.photos?.[0] ||
@@ -1960,72 +2015,72 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       </div>
     );
   };
-const renderActivitiesTab = () => (
-  <div className="space-y-3 p-3">
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <h3 className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: N }}>
-        Activity Timeline
-      </h3>
-      <button
-        onClick={() => setShowActivityModal(true)}
-        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-medium text-white transition-all hover:opacity-80"
-        style={{ background: O }}
-      >
-        <Plus size={10} />
-        <span>Add Activity</span>
-      </button>
-    </div>
-
-    {(seller as any).activities && (seller as any).activities.length > 0 ? (
-      <div className="space-y-2">
-        {(seller as any).activities.map((activity: any, index: number) => (
-          <div
-            key={index}
-            className="rounded-lg p-2.5 transition-all hover:shadow-sm"
-            style={{ background: 'white', border: `1px solid ${BD}` }}
-          >
-            <div className="flex items-start gap-2.5">
-              <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: `${O}10` }}>
-                <Activity size={11} style={{ color: O }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-start justify-between gap-1">
-                  <h4 className="text-[9px] font-semibold" style={{ color: N }}>
-                    {activity.description}
-                  </h4>
-                  <span className="text-[8px]" style={{ color: MU }}>
-                    {activity.date}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-1 text-[8px]" style={{ color: MU }}>
-                  <span>Stage: {activity.stage}</span>
-                  <span>By: {activity.executedBy}</span>
-                </div>
-                {activity.outcome && (
-                  <p className="text-[8px] mt-1" style={{ color: MU }}>
-                    <span className="font-medium" style={{ color: N }}>Outcome:</span> {activity.outcome}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <div className="rounded-xl p-6 text-center" style={{ background: 'white', border: `1px solid ${BD}` }}>
-        <Activity size={28} className="mx-auto mb-2" style={{ color: MU }} />
-        <p className="text-[9px]" style={{ color: MU }}>No activities recorded</p>
+  const renderActivitiesTab = () => (
+    <div className="space-y-3 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: N }}>
+          Activity Timeline
+        </h3>
         <button
           onClick={() => setShowActivityModal(true)}
-          className="mt-2 px-3 py-1 text-[8px] font-medium rounded-lg text-white transition-all hover:opacity-80"
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-medium text-white transition-all hover:opacity-80"
           style={{ background: O }}
         >
-          Add First Activity
+          <Plus size={10} />
+          <span>Add Activity</span>
         </button>
       </div>
-    )}
-  </div>
-);
+
+      {(seller as any).activities && (seller as any).activities.length > 0 ? (
+        <div className="space-y-2">
+          {(seller as any).activities.map((activity: any, index: number) => (
+            <div
+              key={index}
+              className="rounded-lg p-2.5 transition-all hover:shadow-sm"
+              style={{ background: 'white', border: `1px solid ${BD}` }}
+            >
+              <div className="flex items-start gap-2.5">
+                <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: `${O}10` }}>
+                  <Activity size={11} style={{ color: O }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-start justify-between gap-1">
+                    <h4 className="text-[9px] font-semibold" style={{ color: N }}>
+                      {activity.description}
+                    </h4>
+                    <span className="text-[8px]" style={{ color: MU }}>
+                      {activity.date}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-1 text-[8px]" style={{ color: MU }}>
+                    <span>Stage: {activity.stage}</span>
+                    <span>By: {activity.executedBy}</span>
+                  </div>
+                  {activity.outcome && (
+                    <p className="text-[8px] mt-1" style={{ color: MU }}>
+                      <span className="font-medium" style={{ color: N }}>Outcome:</span> {activity.outcome}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl p-6 text-center" style={{ background: 'white', border: `1px solid ${BD}` }}>
+          <Activity size={28} className="mx-auto mb-2" style={{ color: MU }} />
+          <p className="text-[9px]" style={{ color: MU }}>No activities recorded</p>
+          <button
+            onClick={() => setShowActivityModal(true)}
+            className="mt-2 px-3 py-1 text-[8px] font-medium rounded-lg text-white transition-all hover:opacity-80"
+            style={{ background: O }}
+          >
+            Add First Activity
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
   const renderDocumentsTab = () => (
     <div className="space-y-4">
@@ -2214,7 +2269,7 @@ const renderActivitiesTab = () => (
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium ${(seller as any).stage === stage.id ? "bg-blue-600 text-white" : sellerStages.findIndex((s) => s.id === (seller as any).stage) > index ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500"}`}
               >
                 {sellerStages.findIndex((s) => s.id === (seller as any).stage) >
-                index ? (
+                  index ? (
                   <CheckCircle size={12} />
                 ) : (
                   index + 1
@@ -2232,8 +2287,8 @@ const renderActivitiesTab = () => (
                         (seller as any).stage === stage.id
                           ? `${(seller as any).stageProgress ?? 0}%`
                           : sellerStages.findIndex(
-                                (s) => s.id === (seller as any).stage,
-                              ) > index
+                            (s) => s.id === (seller as any).stage,
+                          ) > index
                             ? "100%"
                             : "0%",
                     }}
@@ -2247,19 +2302,19 @@ const renderActivitiesTab = () => (
     </div>
   );
   const getTabColor = (tabId: string) => {
-  const colors: Record<string, string> = {
-    overview: 'bg-blue-600 text-white',
-    details: 'bg-indigo-600 text-white',
-    buyers: 'bg-purple-600 text-white',
-    activities: 'bg-green-600 text-white',
-    followups: 'bg-orange-600 text-white',
-    documents: 'bg-cyan-600 text-white',
-    visits: 'bg-pink-600 text-white',
-    deal: 'bg-amber-600 text-white',
-    analytics: 'bg-teal-600 text-white',
+    const colors: Record<string, string> = {
+      overview: 'bg-blue-600 text-white',
+      details: 'bg-indigo-600 text-white',
+      buyers: 'bg-purple-600 text-white',
+      activities: 'bg-green-600 text-white',
+      followups: 'bg-orange-600 text-white',
+      documents: 'bg-cyan-600 text-white',
+      visits: 'bg-pink-600 text-white',
+      deal: 'bg-amber-600 text-white',
+      analytics: 'bg-teal-600 text-white',
+    };
+    return colors[tabId] || 'bg-blue-600 text-white';
   };
-  return colors[tabId] || 'bg-blue-600 text-white';
-};
 
   return (
     <div className=" flex flex-col bg-gray-50 h-[calc(100vh-3.5rem)]  ">
@@ -2348,18 +2403,18 @@ const renderActivitiesTab = () => (
                 <Mail size={14} />
               </button>
               <button
-  onClick={() => {
-    if (!canUpdateSeller) {
-      toast.error("No permission to edit");
-      return;
-    }
-    onEdit(seller);
-  }}
-  disabled={!canUpdateSeller}
-  className={`p-1.5 rounded-lg ${canUpdateSeller ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
->
-  <Edit size={14} />
-</button>
+                onClick={() => {
+                  if (!canUpdateSeller) {
+                    toast.error("No permission to edit");
+                    return;
+                  }
+                  onEdit(seller);
+                }}
+                disabled={!canUpdateSeller}
+                className={`p-1.5 rounded-lg ${canUpdateSeller ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
+              >
+                <Edit size={14} />
+              </button>
             </div>
           </div>
           {(fuLoading || fuError) && (
@@ -2372,67 +2427,65 @@ const renderActivitiesTab = () => (
           )}
 
           {/* Tabs */}
-         {/* Tabs - With Background Colors */}
-<div className="mt-3 overflow-x-auto">
-  <div className="flex gap-2 min-w-max">
-    {tabs.map(tab => { 
-      const Icon = tab.icon; 
-      const isActive = activeTab === tab.id; 
-      
-      const getActiveStyles = (tabId: string) => {
-        const styles: Record<string, string> = {
-          overview: 'bg-blue-100 text-blue-700 border-blue-200',
-          details: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-          buyers: 'bg-purple-100 text-purple-700 border-purple-200',
-          activities: 'bg-green-100 text-green-700 border-green-200',
-          followups: 'bg-orange-100 text-orange-700 border-orange-200',
-          documents: 'bg-cyan-100 text-cyan-700 border-cyan-200',
-          visits: 'bg-pink-100 text-pink-700 border-pink-200',
-          deal: 'bg-amber-100 text-amber-700 border-amber-200',
-          analytics: 'bg-teal-100 text-teal-700 border-teal-200',
-        };
-        return styles[tabId] || 'bg-blue-100 text-blue-700 border-blue-200';
-      };
-      
-      const getInactiveStyles = (tabId: string) => {
-        const styles: Record<string, string> = {
-          overview: 'hover:bg-blue-50 hover:text-blue-600',
-          details: 'hover:bg-indigo-50 hover:text-indigo-600',
-          buyers: 'hover:bg-purple-50 hover:text-purple-600',
-          activities: 'hover:bg-green-50 hover:text-green-600',
-          followups: 'hover:bg-orange-50 hover:text-orange-600',
-          documents: 'hover:bg-cyan-50 hover:text-cyan-600',
-          visits: 'hover:bg-pink-50 hover:text-pink-600',
-          deal: 'hover:bg-amber-50 hover:text-amber-600',
-          analytics: 'hover:bg-teal-50 hover:text-teal-600',
-        };
-        return styles[tabId] || 'hover:bg-blue-50 hover:text-blue-600';
-      };
-      
-      return (
-        <button 
-          key={tab.id} 
-          onClick={() => setActiveTab(tab.id)} 
-          className={`flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-all rounded-lg border ${
-            isActive 
-              ? getActiveStyles(tab.id)
-              : `text-gray-500 border-transparent ${getInactiveStyles(tab.id)}`
-          }`}
-        >
-          <Icon size={14} />
-          <span>{tab.label}</span>
-          {tab.count !== undefined && tab.count > 0 && (
-            <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-              isActive ? 'bg-white/50 text-inherit' : 'bg-gray-100 text-gray-600'
-            }`}>
-              {tab.count}
-            </span>
-          )}
-        </button>
-      );
-    })}
-  </div>
-</div>
+          {/* Tabs - With Background Colors */}
+          <div className="mt-3 overflow-x-auto">
+            <div className="flex gap-2 min-w-max">
+              {tabs.map(tab => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+
+                const getActiveStyles = (tabId: string) => {
+                  const styles: Record<string, string> = {
+                    overview: 'bg-blue-100 text-blue-700 border-blue-200',
+                    details: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+                    buyers: 'bg-purple-100 text-purple-700 border-purple-200',
+                    activities: 'bg-green-100 text-green-700 border-green-200',
+                    followups: 'bg-orange-100 text-orange-700 border-orange-200',
+                    documents: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+                    visits: 'bg-pink-100 text-pink-700 border-pink-200',
+                    deal: 'bg-amber-100 text-amber-700 border-amber-200',
+                    analytics: 'bg-teal-100 text-teal-700 border-teal-200',
+                  };
+                  return styles[tabId] || 'bg-blue-100 text-blue-700 border-blue-200';
+                };
+
+                const getInactiveStyles = (tabId: string) => {
+                  const styles: Record<string, string> = {
+                    overview: 'hover:bg-blue-50 hover:text-blue-600',
+                    details: 'hover:bg-indigo-50 hover:text-indigo-600',
+                    buyers: 'hover:bg-purple-50 hover:text-purple-600',
+                    activities: 'hover:bg-green-50 hover:text-green-600',
+                    followups: 'hover:bg-orange-50 hover:text-orange-600',
+                    documents: 'hover:bg-cyan-50 hover:text-cyan-600',
+                    visits: 'hover:bg-pink-50 hover:text-pink-600',
+                    deal: 'hover:bg-amber-50 hover:text-amber-600',
+                    analytics: 'hover:bg-teal-50 hover:text-teal-600',
+                  };
+                  return styles[tabId] || 'hover:bg-blue-50 hover:text-blue-600';
+                };
+
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-all rounded-lg border ${isActive
+                        ? getActiveStyles(tab.id)
+                        : `text-gray-500 border-transparent ${getInactiveStyles(tab.id)}`
+                      }`}
+                  >
+                    <Icon size={14} />
+                    <span>{tab.label}</span>
+                    {tab.count !== undefined && tab.count > 0 && (
+                      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${isActive ? 'bg-white/50 text-inherit' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2477,127 +2530,127 @@ const renderActivitiesTab = () => (
       </div>
 
       {/* Bottom Actions */}
-     <div className="sticky bottom-0 z-20 bg-white border-t border-gray-200 mt-5">
-  <div className="px-4 py-2 sm:py-2.5">
-    
-    {/* DESKTOP VIEW - unchanged */}
-    <div className="hidden sm:flex flex-wrap items-center justify-between gap-2">
-      <div className="flex gap-1.5">
-        <button
-          onClick={() => setShowStageUpdateModal(true)}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-purple-600 text-white hover:bg-purple-700"
-        >
-          <TrendingUp size={12} />
-          <span>Update Stage</span>
-        </button>
-        <button
-          onClick={() => setShowSharingModal(true)}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-blue-600 text-white hover:bg-blue-700"
-        >
-          <Share size={12} />
-          <span>Share</span>
-        </button>
-        <button className="flex items-center space-x-2 px-4 py-1.5 text-[10px] bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-          <Eye size={12} />
-          <span>Track</span>
-        </button>
-      </div>
-      <div className="flex gap-1.5">
-        <button
-          onClick={() => {
-            if (!canCreateFollowups) {
-              toast.error("No permission");
-              return;
-            }
-            setShowFollowupModal(true);
-          }}
-          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium ${canCreateFollowups ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
-        >
-          <CalendarIcon size={12} />
-          <span>Follow-up</span>
-        </button>
-        <button
-          onClick={() => {
-            setEditingActivity(null);
-            setShowActivityModal(true);
-          }}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-green-600 text-white hover:bg-green-700"
-        >
-          <Plus size={12} />
-          <span>Add Activity</span>
-        </button>
-        <button
-          onClick={() => setShowVisitModal(true)}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-orange-600 text-white hover:bg-orange-700"
-        >
-          <CalendarIcon size={12} />
-          <span>Schedule Visit</span>
-        </button>
-      </div>
-    </div>
+      <div className="sticky bottom-0 z-20 bg-white border-t border-gray-200 mt-5">
+        <div className="px-4 py-2 sm:py-2.5">
 
-    {/* MOBILE VIEW */}
-    <div className="flex flex-col gap-1.5 sm:hidden">
-      
-      {/* Row 1 - Left buttons centered */}
-      <div className="flex items-center justify-center gap-1.5">
-        <button
-          onClick={() => setShowStageUpdateModal(true)}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-purple-600 text-white"
-        >
-          <TrendingUp size={11} />
-          <span>Update Stage</span>
-        </button>
-        <button
-          onClick={() => setShowSharingModal(true)}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-blue-600 text-white"
-        >
-          <Share size={11} />
-          <span>Share</span>
-        </button>
-        <button className="flex items-center gap-1 px-2.5 py-1 text-[10px] bg-gray-600 text-white rounded-lg">
-          <Eye size={11} />
-          <span>Track</span>
-        </button>
-      </div>
+          {/* DESKTOP VIEW - unchanged */}
+          <div className="hidden sm:flex flex-wrap items-center justify-between gap-2">
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setShowStageUpdateModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-purple-600 text-white hover:bg-purple-700"
+              >
+                <TrendingUp size={12} />
+                <span>Update Stage</span>
+              </button>
+              <button
+                onClick={() => setShowSharingModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-blue-600 text-white hover:bg-blue-700"
+              >
+                <Share size={12} />
+                <span>Share</span>
+              </button>
+              <button className="flex items-center space-x-2 px-4 py-1.5 text-[10px] bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                <Eye size={12} />
+                <span>Track</span>
+              </button>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => {
+                  if (!canCreateFollowups) {
+                    toast.error("No permission");
+                    return;
+                  }
+                  setShowFollowupModal(true);
+                }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium ${canCreateFollowups ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
+              >
+                <CalendarIcon size={12} />
+                <span>Follow-up</span>
+              </button>
+              <button
+                onClick={() => {
+                  setEditingActivity(null);
+                  setShowActivityModal(true);
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-green-600 text-white hover:bg-green-700"
+              >
+                <Plus size={12} />
+                <span>Add Activity</span>
+              </button>
+              <button
+                onClick={() => setShowVisitModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-orange-600 text-white hover:bg-orange-700"
+              >
+                <CalendarIcon size={12} />
+                <span>Schedule Visit</span>
+              </button>
+            </div>
+          </div>
 
-      {/* Row 2 - Right buttons full width */}
-      <div className="grid grid-cols-3 gap-1.5">
-        <button
-          onClick={() => {
-            if (!canCreateFollowups) {
-              toast.error("No permission");
-              return;
-            }
-            setShowFollowupModal(true);
-          }}
-          className={`flex items-center justify-center gap-1 px-1 py-1 rounded-lg text-[10px] font-medium ${canCreateFollowups ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
-        >
-          <CalendarIcon size={11} />
-          <span>Follow-up</span>
-        </button>
-        <button
-          onClick={() => {
-            setEditingActivity(null);
-            setShowActivityModal(true);
-          }}
-          className="flex items-center justify-center gap-1 px-1 py-1 rounded-lg text-[10px] font-medium bg-green-600 text-white"
-        >
-          <Plus size={11} />
-          <span>Add Activity</span>
-        </button>
-        <button
-          onClick={() => setShowVisitModal(true)}
-          className="flex items-center justify-center gap-1 px-1 py-1 rounded-lg text-[10px] font-medium bg-orange-600 text-white"
-        >
-          <CalendarIcon size={11} />
-          <span>Schedule Visit</span>
-        </button>
-      </div>
+          {/* MOBILE VIEW */}
+          <div className="flex flex-col gap-1.5 sm:hidden">
 
-    </div>
-  </div>
-</div>
+            {/* Row 1 - Left buttons centered */}
+            <div className="flex items-center justify-center gap-1.5">
+              <button
+                onClick={() => setShowStageUpdateModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-purple-600 text-white"
+              >
+                <TrendingUp size={11} />
+                <span>Update Stage</span>
+              </button>
+              <button
+                onClick={() => setShowSharingModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-blue-600 text-white"
+              >
+                <Share size={11} />
+                <span>Share</span>
+              </button>
+              <button className="flex items-center gap-1 px-2.5 py-1 text-[10px] bg-gray-600 text-white rounded-lg">
+                <Eye size={11} />
+                <span>Track</span>
+              </button>
+            </div>
+
+            {/* Row 2 - Right buttons full width */}
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                onClick={() => {
+                  if (!canCreateFollowups) {
+                    toast.error("No permission");
+                    return;
+                  }
+                  setShowFollowupModal(true);
+                }}
+                className={`flex items-center justify-center gap-1 px-1 py-1 rounded-lg text-[10px] font-medium ${canCreateFollowups ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
+              >
+                <CalendarIcon size={11} />
+                <span>Follow-up</span>
+              </button>
+              <button
+                onClick={() => {
+                  setEditingActivity(null);
+                  setShowActivityModal(true);
+                }}
+                className="flex items-center justify-center gap-1 px-1 py-1 rounded-lg text-[10px] font-medium bg-green-600 text-white"
+              >
+                <Plus size={11} />
+                <span>Add Activity</span>
+              </button>
+              <button
+                onClick={() => setShowVisitModal(true)}
+                className="flex items-center justify-center gap-1 px-1 py-1 rounded-lg text-[10px] font-medium bg-orange-600 text-white"
+              >
+                <CalendarIcon size={11} />
+                <span>Schedule Visit</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
 
       {/* Modals */}
       {showStageUpdateModal && (
@@ -2629,34 +2682,34 @@ const renderActivitiesTab = () => (
           initialForm={
             editingFollowup
               ? {
-                  id: String(editingFollowup.id),
-                  created_by: (editingFollowup as any).created_by,
-                  created_at: editingFollowup.created_at,
-                  followupType: editingFollowup.followup_type ?? "Phone Call",
-                  followup_type: editingFollowup.followup_type ?? "Phone Call",
-                  sellerLeadStatus: editingFollowup.status ?? "",
-                  seller_lead_status: editingFollowup.status ?? "",
-                  sellerLeadStage:
-                    (seller as any)?.stage_label ??
-                    (seller as any)?.stage ??
-                    "",
-                  seller_lead_stage:
-                    (seller as any)?.stage_label ??
-                    (seller as any)?.stage ??
-                    "",
-                  remark: editingFollowup.notes ?? "",
-                  customRemark: editingFollowup.notes ?? "",
-                  custom_remark: editingFollowup.notes ?? "",
-                  nextAction: editingFollowup.next_action ?? "",
-                  next_action: editingFollowup.next_action ?? "",
-                  scheduleDate: editingFollowup.followup_date ?? "",
-                  schedule_date: editingFollowup.followup_date ?? "",
-                  scheduleTime:
-                    editingFollowup.followup_time?.slice(0, 5) ?? "",
-                  schedule_time:
-                    editingFollowup.followup_time?.slice(0, 5) ?? "",
-                  priority: editingFollowup.priority ?? "",
-                }
+                id: String(editingFollowup.id),
+                created_by: (editingFollowup as any).created_by,
+                created_at: editingFollowup.created_at,
+                followupType: editingFollowup.followup_type ?? "Phone Call",
+                followup_type: editingFollowup.followup_type ?? "Phone Call",
+                sellerLeadStatus: editingFollowup.status ?? "",
+                seller_lead_status: editingFollowup.status ?? "",
+                sellerLeadStage:
+                  (seller as any)?.stage_label ??
+                  (seller as any)?.stage ??
+                  "",
+                seller_lead_stage:
+                  (seller as any)?.stage_label ??
+                  (seller as any)?.stage ??
+                  "",
+                remark: editingFollowup.notes ?? "",
+                customRemark: editingFollowup.notes ?? "",
+                custom_remark: editingFollowup.notes ?? "",
+                nextAction: editingFollowup.next_action ?? "",
+                next_action: editingFollowup.next_action ?? "",
+                scheduleDate: editingFollowup.followup_date ?? "",
+                schedule_date: editingFollowup.followup_date ?? "",
+                scheduleTime:
+                  editingFollowup.followup_time?.slice(0, 5) ?? "",
+                schedule_time:
+                  editingFollowup.followup_time?.slice(0, 5) ?? "",
+                priority: editingFollowup.priority ?? "",
+              }
               : undefined
           }
         />
@@ -2705,173 +2758,13 @@ const renderActivitiesTab = () => (
       )}
 
       {/* Link Property Modal */}
-      {showLinkPropertyModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-2 sm:p-4"
-          style={{ background: "rgba(15,43,61,0.6)", backdropFilter: "blur(4px)" }}
-        >
-          <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
-            style={{ border: `1px solid ${BD}` }}
-          >
-            <div className="px-4 py-3 flex items-center justify-between" style={{ background: N }}>
-              <div className="flex items-center gap-2">
-                <div className="p-1 rounded-lg" style={{ background: `${O}20` }}>
-                  <Link2 size={15} style={{ color: O }} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Link Property to Seller</h3>
-                  <p className="text-[10px] text-white/70">
-                    Select an existing property from your catalog to associate with {(seller as any)?.name}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowLinkPropertyModal(false);
-                  setLinkPropertySearch("");
-                }}
-                className="p-1.5 rounded-lg hover:bg-white/10 text-white transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="p-3 border-b" style={{ borderColor: BD, background: BG }}>
-              <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={linkPropertySearch}
-                  onChange={(e) => setLinkPropertySearch(e.target.value)}
-                  placeholder="Search by title, location, unit type, society, property ID..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-1 bg-white"
-                  style={{ borderColor: BD }}
-                  autoFocus
-                />
-              </div>
-              <div className="mt-1.5 text-[10px] text-gray-500 flex justify-between">
-                <span>Available properties to link: {filteredLinkableProperties.length}</span>
-                {loadingProps && <span className="text-orange-500 font-medium">Loading properties...</span>}
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ scrollbarWidth: "thin" }}>
-              {filteredLinkableProperties.length === 0 ? (
-                <div className="text-center py-8 text-xs text-gray-500">
-                  {linkPropertySearch
-                    ? `No available properties match "${linkPropertySearch}"`
-                    : "No unlinked properties available in catalog."}
-                </div>
-              ) : (
-                filteredLinkableProperties.map((property: any) => {
-                  const title =
-                    property.title ||
-                    property.property_type_name ||
-                    property.unit_type ||
-                    property.property_type ||
-                    "Property";
-                  const address =
-                    property.address ||
-                    [property.location_name || property.locality_name, property.city_name || property.city]
-                      .filter(Boolean)
-                      .join(", ") ||
-                    "Location not specified";
-                  const price = property.price || property.budget || property.expected_price;
-                  const photo =
-                    property.photos?.[0]?.url ||
-                    property.photos?.[0] ||
-                    property.photo ||
-                    property.image;
-                  const pid = String(property.id || property.property_id || property._id || "");
-
-                  return (
-                    <div
-                      key={pid}
-                      className="flex items-center justify-between gap-3 p-2.5 rounded-lg border hover:shadow-sm transition-shadow bg-white"
-                      style={{ borderColor: BD }}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        {photo ? (
-                          <img
-                            src={typeof photo === "string" ? photo : photo?.url}
-                            alt={title}
-                            className="w-12 h-12 object-cover rounded-md flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0">
-                            No Pic
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-xs text-gray-900 truncate">
-                              {title}
-                            </span>
-                            {pid && (
-                              <span
-                                className="px-1.5 py-0.5 rounded text-[8px] font-bold"
-                                style={{ background: `${O}15`, color: O }}
-                              >
-                                REX {pid}
-                              </span>
-                            )}
-                          </div>
-                          {Number(price) > 0 ? (
-                            <span className="text-[10px] font-bold text-emerald-600">
-                              {typeof price === "number" ? `₹${price.toLocaleString("en-IN")}` : `₹${Number(price).toLocaleString("en-IN")}`}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleLinkProperty(property)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg text-white shadow-sm transition-all hover:opacity-90 flex-shrink-0"
-                        style={{ background: O }}
-                      >
-                        <Link2 size={12} />
-                        <span>Link</span>
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <div
-              className="px-4 py-2.5 border-t flex items-center justify-between text-xs"
-              style={{ background: BG, borderColor: BD }}
-            >
-              <span className="text-[10px] text-gray-500">
-                Want to create a new property instead?
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    setShowLinkPropertyModal(false);
-                    setLinkPropertySearch("");
-                  }}
-                  className="px-3 py-1 text-xs rounded-lg border text-gray-600 hover:bg-gray-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setShowLinkPropertyModal(false);
-                    setLinkPropertySearch("");
-                    openPropertyFormForCreate();
-                  }}
-                  className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg text-white bg-blue-600 hover:bg-blue-700 font-medium"
-                >
-                  <Plus size={11} />
-                  <span>Create New</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <LinkPropertyModal
+        isOpen={showLinkPropertyModal}
+        onClose={() => setShowLinkPropertyModal(false)}
+        onSelectProperty={handleLinkProperty}
+        linkingSeller={seller}
+        onCreatePropertyClick={openPropertyFormForCreate}
+      />
 
       {/* Property Create/Edit Modal */}
       {showPropertyForm && (

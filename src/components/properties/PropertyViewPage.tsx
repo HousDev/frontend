@@ -37,7 +37,8 @@ import {
   Share2,
   IndianRupee,
   Bot,
-  ArrowRight
+  ArrowRight,
+  X
 } from 'lucide-react';
 import AmenityPill from "../properties/AmenityPill";
 import FurnishingPill from '../properties/FurnishingPill'
@@ -115,6 +116,7 @@ interface UIProperty {
   builtupArea: number | string;
   status: string;
   leadSource: string;
+  source_url?: string;
   purchaseMonth: string | number;
   purchaseYear: string | number;
   possessionMonth: string | number;
@@ -270,6 +272,7 @@ const buildInitialData = (p: UIProperty) => {
     address: p.address || '',
     status: p.status || '',
     leadSource: p.seller?.leadSource ?? p.leadSource ?? '',
+    source_url: p.source_url || (p as any).sourceUrl || '',
     possessionMonth: String(p.possessionMonth ?? ''),
     possessionYear: String(p.possessionYear ?? ''),
     purchaseMonth: String(p.purchaseMonth ?? ''),
@@ -308,11 +311,16 @@ const ImageZoom: React.FC<{
   imgClassName?: string;
 }> = ({ src, alt = 'image', className = '', imgClassName = '' }) => {
   return (
-    <div className={`group relative overflow-hidden rounded-xl ${className}`}>
+    <div className={`group relative overflow-hidden rounded-xl bg-slate-900 ${className}`}>
+      {/* Blurred glassmorphic background */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center blur-xl scale-110 opacity-30 pointer-events-none"
+        style={{ backgroundImage: `url(${src})` }}
+      />
       <img
         src={src}
         alt={alt}
-        className={`block w-full h-full object-cover transition-transform duration-300 ease-out will-change-transform group-hover:scale-[1.06] ${imgClassName}`}
+        className={`relative z-10 block w-full h-full object-contain transition-transform duration-300 ease-out will-change-transform group-hover:scale-[1.02] ${imgClassName}`}
         loading="eager"
         decoding="async"
         style={{ display: 'block' }}
@@ -1198,14 +1206,70 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
   );
 };
 
+// Fullscreen Image Lightbox Gallery Viewer Modal
+const ImageViewerModal = ({ isOpen, onClose, photos, title }: { isOpen: boolean; onClose: () => void; photos: string[]; title: string }) => {
+  const [activeIdx, setActiveIdx] = useState(0);
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black/95 z-[99999] flex flex-col p-4">
+      <div className="flex items-center justify-between text-white mb-4">
+        <h3 className="font-bold text-sm truncate max-w-[80%]">{title} - Photo Gallery</h3>
+        <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/10 text-white transition-colors">
+          <X size={20} />
+        </button>
+      </div>
+      {/* Large Featured Photo */}
+      <div className="flex-1 min-h-0 relative flex items-center justify-center mb-6">
+        {photos[activeIdx] ? (
+          <img src={photos[activeIdx]} alt={`Photo ${activeIdx + 1}`} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+        ) : (
+          <div className="text-white/60 text-sm">No photo available</div>
+        )}
+        {photos.length > 1 && (
+          <>
+            <button
+              onClick={() => setActiveIdx((prev) => (prev > 0 ? prev - 1 : photos.length - 1))}
+              className="absolute left-4 w-12 h-12 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center text-2xl transition-all shadow-md"
+            >
+              ‹
+            </button>
+            <button
+              onClick={() => setActiveIdx((prev) => (prev < photos.length - 1 ? prev + 1 : 0))}
+              className="absolute right-4 w-12 h-12 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center text-2xl transition-all shadow-md"
+            >
+              ›
+            </button>
+          </>
+        )}
+      </div>
+      {/* Scrollable Thumbnails Grid */}
+      <div className="h-20 flex-shrink-0 flex items-center justify-center gap-2 overflow-x-auto py-1 scrollbar-thin max-w-full">
+        {photos.map((url, idx) => (
+          <div
+            key={idx}
+            onClick={() => setActiveIdx(idx)}
+            className={`w-16 h-12 rounded-md overflow-hidden cursor-pointer border-2 transition-all flex-shrink-0 ${
+              idx === activeIdx ? 'border-[#e67e22] scale-[1.05]' : 'border-transparent opacity-60 hover:opacity-100'
+            }`}
+          >
+            <img src={url} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // Overview Tab Component - ALL FIELDS PRESERVED
 const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
   const [editingPrice, setEditingPrice] = useState(false);
   const [quotePrice, setQuotePrice] = useState(property.budget || 0);
   const [negotiablePrice, setNegotiablePrice] = useState(property.negotiablePrice || property.budget * 0.95);
+  const [selectedMediaIdx, setSelectedMediaIdx] = useState(0);
   const prevRef = React.useRef<HTMLButtonElement | null>(null);
   const nextRef = React.useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [showGalleryViewer, setShowGalleryViewer] = useState(false);
 
   useEffect(() => {
     setQuotePrice(property.budget || 0);
@@ -1241,7 +1305,99 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
     toast.success('Pricing updated successfully!');
   };
 
-  
+  const getUrl = (p: any) => (typeof p === 'string' ? p : p?.url || '');
+  const isVideo = (p: any) => {
+    if (typeof p === 'object' && p?.type === 'video') return true;
+    const u = getUrl(p);
+    return /\.(mp4|mov|webm|mkv)$/i.test(u) || /youtube\.com|youtu\.be/i.test(u);
+  };
+  const getYouTubeEmbedUrl = (url: string) => {
+    if (!url) return '';
+    const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
+    return match && match[2].length === 11 ? `https://www.youtube.com/embed/${match[2]}` : url;
+  };
+
+  const rawPhotos = Array.isArray(property.photos) ? property.photos : [];
+  const mediaList = rawPhotos.filter((p: any) => getUrl(p));
+  const effectiveMediaList = mediaList.length
+    ? mediaList
+    : ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'];
+  const currentMedia = effectiveMediaList[selectedMediaIdx] || effectiveMediaList[0];
+  const isCurrentVideo = isVideo(currentMedia);
+
+  const renderThumbnail = (mediaIdx: number, className = "", isLastWithMore = false) => {
+    const item = effectiveMediaList[mediaIdx];
+    const isSelected = mediaIdx === selectedMediaIdx;
+
+    if (!item) {
+      return (
+        <div
+          key={mediaIdx}
+          className="rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center bg-slate-50/50 text-slate-400 gap-1 h-full min-h-[90px] sm:min-h-[110px] lg:min-h-0"
+        >
+          <Home size={14} className="opacity-40 text-slate-400" />
+          <span className="text-[8px] uppercase tracking-wider font-semibold opacity-50">No Photo</span>
+        </div>
+      );
+    }
+
+    const url = getUrl(item);
+    const isVid = isVideo(item);
+    const hasMoreOverlay = isLastWithMore && effectiveMediaList.length > 7;
+    const remainingCount = effectiveMediaList.length - 6;
+
+    return (
+      <div
+        key={mediaIdx}
+        onClick={() => {
+          if (hasMoreOverlay) {
+            setShowGalleryViewer(true);
+          } else {
+            setSelectedMediaIdx(mediaIdx);
+          }
+        }}
+        className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 group border-2 ${
+          isSelected && !hasMoreOverlay
+            ? 'border-[#e67e22] ring-2 ring-[#e67e22]/30 shadow-md scale-[1.01]'
+            : 'border-slate-100 hover:border-slate-200 opacity-90 hover:opacity-100 hover:shadow-sm'
+        } ${className} bg-slate-900`}
+      >
+        {/* Blurred glassmorphic background */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center blur-lg scale-110 opacity-30 pointer-events-none"
+          style={{ backgroundImage: `url(${url})` }}
+        />
+        <img
+          src={url}
+          alt={`Media card ${mediaIdx + 1}`}
+          className="relative z-10 w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+        />
+
+        {isVid && (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-full bg-white/90 shadow-md flex items-center justify-center text-[10px] text-slate-900 font-bold pl-0.5">
+              ▶
+            </div>
+          </div>
+        )}
+
+        {hasMoreOverlay ? (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/60 to-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center text-white transition-all group-hover:bg-black/75">
+            <span className="text-sm sm:text-base font-extrabold tracking-tight text-white drop-shadow">
+              +{remainingCount}
+            </span>
+            <span className="text-[8px] font-semibold text-white/90 flex items-center gap-0.5 mt-0.5">
+              <Camera size={9} /> View All
+            </span>
+          </div>
+        ) : isSelected ? (
+          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-[#e67e22] text-white rounded-md text-[7.5px] font-bold shadow-sm tracking-wide uppercase">
+            Active
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-3">
@@ -1249,94 +1405,210 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
         {/* Left Column */}
         <div className="flex-1 space-y-3 min-w-0">
         
-<div className="bg-white rounded-lg border overflow-hidden" style={{ borderColor: BD }}>
-  <div className="relative">
-    <Swiper
-      modules={[Navigation]}
-      onBeforeInit={(swiper:any) => {
-        swiper.params.navigation.prevEl = prevRef.current;
-        swiper.params.navigation.nextEl = nextRef.current;
-      }}
-      navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
-      className="mySwiper w-full"
-    >
+          {/* Modern Split-View Featured Media Showcase */}
+          <div className="bg-white rounded-xl border p-2.5 shadow-sm" style={{ borderColor: BD }}>
+            <div className={`flex flex-col ${effectiveMediaList.length > 1 ? 'lg:grid lg:grid-cols-4 gap-2.5' : ''}`}>
+              {/* Left Side: Main Large Featured Image / Video Player */}
+              <div
+                onClick={() => {
+                  if (effectiveMediaList.length === 1 || !isCurrentVideo) {
+                    setShowGalleryViewer(true);
+                  }
+                }}
+                className={`relative min-w-0 h-[240px] sm:h-[300px] md:h-[350px] lg:h-[380px] rounded-lg overflow-hidden bg-slate-900 group ${
+                  effectiveMediaList.length > 1 ? 'lg:col-span-2 cursor-pointer' : 'w-full cursor-pointer'
+                }`}
+              >
+                {isCurrentVideo ? (
+                  <div className="w-full h-full flex items-center justify-center bg-black">
+                    <iframe
+                      src={getYouTubeEmbedUrl(getUrl(currentMedia))}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title="Property Video"
+                    />
+                  </div>
+                ) : (
+                  <div className="relative w-full h-full">
+                    <ImageZoom
+                      src={getUrl(currentMedia)}
+                      alt={`${property.title || 'Property'} - ${selectedMediaIdx + 1}`}
+                      className="w-full h-full"
+                      imgClassName="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                )}
 
-{(() => {
-    const getUrl = (p: any) => (typeof p === 'string' ? p : p?.url || '');
-    const isVideo = (p: any) => {
-      if (typeof p === 'object' && p?.type === 'video') return true;
-      const u = getUrl(p);
-      return /\.(mp4|mov|webm|mkv)$/i.test(u) || /youtube\.com|youtu\.be/i.test(u);
-    };
-    const onlyImages = (property.photos || []).filter((p: any) => getUrl(p) && !isVideo(p));
-    const list = onlyImages.length
-      ? onlyImages
-      : ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'];
-    return list.map((photo: any, index: number) => (
-      <SwiperSlide key={index}>
-        <div className="relative w-full" onClick={() => onOpenGallery?.()}>
-          <ImageZoom
-            src={getUrl(photo)}
-            alt={`${property.title || 'Property'} - ${index + 1}`}
-            className="w-full h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px] cursor-pointer"
-            imgClassName="rounded-lg object-cover object-center"
-          />
-            <div className="absolute top-2 right-2 flex flex-wrap gap-1 justify-end z-20">
-              <PropertyTags tags={property.tags || []} />
-              {(property.aiScore ?? 0) >= 90 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-white flex items-center gap-0.5 shadow-sm" style={{ background: N }}>
-                  <Bot size={10} /> AI {Math.round(property.aiScore ?? 0)}
-                </span>
+                {/* Top Left Badges */}
+                <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1.5 z-20 pointer-events-none">
+                  {property.isPublic ? (
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-green-600 text-white shadow-sm backdrop-blur-sm">
+                      PUBLIC
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-red-600 text-white shadow-sm backdrop-blur-sm">
+                      PRIVATE
+                    </span>
+                  )}
+                  {property.hotLeads > 2 && (
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold text-white shadow-sm" style={{ background: O }}>
+                      HOT
+                    </span>
+                  )}
+                  {property.verified && (
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold text-white flex items-center gap-0.5 shadow-sm bg-blue-600">
+                      <Shield size={9} /> VERIFIED
+                    </span>
+                  )}
+                </div>
+
+                {/* Top Right Badges */}
+                <div className="absolute top-2.5 right-2.5 flex flex-wrap gap-1 justify-end z-20">
+                  <PropertyTags tags={property.tags || []} />
+                  {(property.aiScore ?? 0) >= 90 && (
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold text-white flex items-center gap-0.5 shadow-sm" style={{ background: N }}>
+                      <Bot size={10} /> AI {Math.round(property.aiScore ?? 0)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Navigation Arrows on Main Image */}
+                {effectiveMediaList.length > 1 && (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMediaIdx((prev) => (prev > 0 ? prev - 1 : effectiveMediaList.length - 1));
+                      }}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 hover:bg-black/80 transition-all shadow-md text-lg"
+                      type="button"
+                      title="Previous Image"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMediaIdx((prev) => (prev < effectiveMediaList.length - 1 ? prev + 1 : 0));
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 hover:bg-black/80 transition-all shadow-md text-lg"
+                      type="button"
+                      title="Next Image"
+                    >
+                      ›
+                    </button>
+                  </>
+                )}
+
+                {/* Bottom info & Full Gallery Button */}
+                <div className="absolute bottom-2.5 right-2.5 z-20 flex items-center gap-2">
+                  <span className="px-2 py-1 bg-black/60 text-white text-[10px] font-medium rounded-lg backdrop-blur-sm shadow-sm">
+                    {selectedMediaIdx + 1} / {effectiveMediaList.length}
+                  </span>
+                  <button
+                    className="flex items-center gap-1 px-2.5 py-1 bg-black/60 hover:bg-black/85 text-white text-[10px] font-semibold rounded-lg transition backdrop-blur-sm shadow-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowGalleryViewer(true);
+                    }}
+                    title="Open Full Media Gallery"
+                  >
+                    <Camera size={12} />
+                    <span>Gallery</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Side: Dynamic Media Grid */}
+              {effectiveMediaList.length > 1 && (
+                <div className="lg:col-span-2 flex flex-col gap-2 h-full max-h-[380px]">
+                  {(() => {
+                    const totalThumbnails = effectiveMediaList.length - 1;
+
+                    // 1 thumbnail
+                    if (totalThumbnails === 1) {
+                      return (
+                        <div className="h-full">
+                          {renderThumbnail(1, "h-full")}
+                        </div>
+                      );
+                    }
+
+                    // 2 thumbnails (stacked vertically, 1 column of 2 rows)
+                    if (totalThumbnails === 2) {
+                      return (
+                        <div className="grid grid-rows-2 gap-2 h-full">
+                          {renderThumbnail(1, "h-full")}
+                          {renderThumbnail(2, "h-full")}
+                        </div>
+                      );
+                    }
+
+                    // 3 thumbnails (1 row of 3)
+                    if (totalThumbnails === 3) {
+                      return (
+                        <div className="grid grid-cols-3 gap-2 h-full">
+                          {renderThumbnail(1, "h-full")}
+                          {renderThumbnail(2, "h-full")}
+                          {renderThumbnail(3, "h-full")}
+                        </div>
+                      );
+                    }
+
+                    // 4 thumbnails (2x2 grid)
+                    if (totalThumbnails === 4) {
+                      return (
+                        <div className="flex flex-col gap-2 h-full">
+                          <div className="grid grid-cols-2 gap-2 h-[186px]">
+                            {renderThumbnail(1, "h-full")}
+                            {renderThumbnail(2, "h-full")}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 h-[186px]">
+                            {renderThumbnail(3, "h-full")}
+                            {renderThumbnail(4, "h-full")}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // 5 thumbnails (top row of 2, bottom row of 3)
+                    if (totalThumbnails === 5) {
+                      return (
+                        <div className="flex flex-col gap-2 h-full">
+                          <div className="grid grid-cols-2 gap-2 h-[186px]">
+                            {renderThumbnail(1, "h-full")}
+                            {renderThumbnail(2, "h-full")}
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 h-[186px]">
+                            {renderThumbnail(3, "h-full")}
+                            {renderThumbnail(4, "h-full")}
+                            {renderThumbnail(5, "h-full")}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // 6 or more thumbnails (top row of 3, bottom row of 3)
+                    return (
+                      <div className="flex flex-col gap-2 h-full">
+                        <div className="grid grid-cols-3 gap-2 h-[186px]">
+                          {renderThumbnail(1, "h-full")}
+                          {renderThumbnail(2, "h-full")}
+                          {renderThumbnail(3, "h-full")}
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 h-[186px]">
+                          {renderThumbnail(4, "h-full")}
+                          {renderThumbnail(5, "h-full")}
+                          {renderThumbnail(6, "h-full", true)}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               )}
             </div>
           </div>
-        </SwiperSlide>
-      ));
-  })()}
-      <button
-        ref={prevRef}
-        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 transition"
-        type="button"
-      >
-        ‹
-      </button>
-      <button
-        ref={nextRef}
-        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 transition"
-        type="button"
-      >
-        ›
-      </button>
-    </Swiper>
-
-    {/* Top Left Badges */}
-    <div className="absolute top-2 left-2 flex flex-wrap gap-1 z-20">
-      {property.isPublic ? (
-        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-green-50 text-green-700 ring-1 ring-green-200">PUBLIC</span>
-      ) : (
-        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-red-50 text-red-700 ring-1 ring-red-200">PRIVATE</span>
-      )}
-      {property.hotLeads > 2 && (
-        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white" style={{ background: O }}>HOT</span>
-      )}
-      {property.verified && (
-        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white flex items-center gap-0.5" style={{ background: '#3b82f6' }}>
-          <Shield size={9} /> VERIFIED
-        </span>
-      )}
-    </div>
-
-    {/* Camera Button - BOTTOM RIGHT CORNER - FIXED WITH INLINE STYLE */}
-    <div className="absolute z-20" style={{ bottom: '12px', right: '12px' }}>
-      <button 
-  className="p-1.5 bg-black/60 text-white rounded-lg hover:bg-black/70 transition backdrop-blur-sm"
-  onClick={() => onOpenGallery?.()}
->
-  <Camera size={14} />
-</button>
-    </div>
-  </div>
-</div>
 
           {/* Quick Info Cards */}
           <div className="bg-white rounded-lg border p-2" style={{ borderColor: BD }}>
@@ -1545,6 +1817,24 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
       <div className="text-[8px] font-medium" style={{ color: '#f43f5e' }}>Lead Source</div>
       <div className="font-medium truncate" style={{ color: N }}>{property?.leadSource || "-"}</div>
     </div>
+
+    {/* Source URL - Indigo */}
+    {property?.source_url && (
+      <div className="p-1.5 rounded" style={{ background: '#6366f110', border: '1px solid #6366f120' }}>
+        <div className="text-[8px] font-medium" style={{ color: '#6366f1' }}>Source URL</div>
+        <div className="font-medium truncate" style={{ color: N }}>
+          <a
+            href={property.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-650 hover:text-blue-800 underline inline-flex items-center gap-0.5 cursor-pointer font-semibold"
+            title={property.source_url}
+          >
+            Open Source Link ↗
+          </a>
+        </div>
+      </div>
+    )}
     
     {/* Status - Green (if Available) or Orange */}
     <div className="p-1.5 rounded" style={{ background: property.status === 'Available' ? '#10b98110' : '#f59e0b10', border: `1px solid ${property.status === 'Available' ? '#10b98120' : '#f59e0b20'}` }}>
@@ -1731,6 +2021,15 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
           const shareUrl = buildPublicPropertyUrl(property);
           return <ShareModal url={shareUrl} title={shareTitle} description={shareDescription} image={shareImage} propertyId={property.id} slug={`${property.id}-${toSlug(property.slug || shareTitle)}`} onClose={() => setOpen(false)} />;
         })()
+      )}
+
+      {showGalleryViewer && (
+        <ImageViewerModal
+          isOpen={showGalleryViewer}
+          onClose={() => setShowGalleryViewer(false)}
+          photos={effectiveMediaList.map(item => getUrl(item))}
+          title={property.title || 'Property'}
+        />
       )}
     </div>
   );
