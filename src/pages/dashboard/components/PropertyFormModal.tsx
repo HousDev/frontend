@@ -649,7 +649,7 @@ const TenantMultiSelect: React.FC<{
         <span className="truncate text-gray-700">
           {selectedList.length > 0 ? selectedList.join(", ") : "Select Preferred Tenants"}
         </span>
-        <span className="text-gray-400">▼</span>
+        <ChevronDown size={11} className="text-gray-400 flex-shrink-0" />
       </button>
 
       {isOpen && (
@@ -1061,11 +1061,15 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
               // end mein append karne ke bajaye unki current position pe hi fresh data (label/type) se update karo.
               // Non-society (manual) photos ko kabhi filter mat karo — pehle wahi galti se drop ho rahe the.
               const merged = prev
-                .filter(p => !p.isSociety || incomingSocietyUrlSet.has(normalizeUrl(p.url)))
+                .filter(p => {
+                  const isSoc = p.isSociety || incomingSocietyUrlSet.has(normalizeUrl(p.url));
+                  return !isSoc || incomingSocietyUrlSet.has(normalizeUrl(p.url));
+                })
                 .map(p => {
-                  if (p.isSociety) {
+                  const isSoc = p.isSociety || incomingSocietyUrlSet.has(normalizeUrl(p.url));
+                  if (isSoc) {
                     const fresh = societyByUrl.get(normalizeUrl(p.url));
-                    return fresh ? { ...fresh, id: p.id } : p; // id same rakho taaki React key/position na tute
+                    return fresh ? { ...fresh, label: fresh.label || '', id: p.id, isSociety: true } : p; // prioritize society master label over saved stale label
                   }
                   return p;
                 });
@@ -2067,22 +2071,28 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                   <div className="pt-2 border-t border-gray-200">
                     <label className={`${LBL} mb-1`}>Final Price (₹)</label>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        className={`${INP} max-w-[180px]`}
-                        value={formData.finalPrice || ""}
-                        onChange={(e) => {
-                          let value = e.target.value.replace(/\D/g, "");
-                          handleInputChange("finalPrice", value);
-                        }}
-                        onBlur={(e) => {
-                          const cleanValue = String(
-                            Number(e.target.value.replace(/\D/g, "") || 0)
-                          );
-                          handleInputChange("finalPrice", cleanValue);
-                        }}
-                      />
+                      <div className="relative flex items-center max-w-[200px] flex-1">
+                        <span className="absolute left-2.5 text-[10px] text-gray-400 font-semibold">₹</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className={`${INP} pl-6 pr-12`}
+                          value={formData.finalPrice || ""}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/\D/g, "");
+                            handleInputChange("finalPrice", value);
+                          }}
+                          onBlur={(e) => {
+                            const cleanValue = String(
+                              Number(e.target.value.replace(/\D/g, "") || 0)
+                            );
+                            handleInputChange("finalPrice", cleanValue);
+                          }}
+                        />
+                        {formData.finalPrice && (
+                          <span className="absolute right-2.5 text-[9px] text-gray-400 font-semibold">Rupees</span>
+                        )}
+                      </div>
                       {(() => {
                         const v = parseBudgetToRupees(formData.finalPrice || '');
                         if (!v || v <= 0) return null;

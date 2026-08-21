@@ -5,7 +5,7 @@ import Modal from '@/components/ui/Modal';
 import Dropdown from '@/components/ui/Dropdown';
 import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import { societyAPI } from '@/lib/societyAPI';
-import { sellerAPI } from '@/lib/sellersAPI';
+import { ownerAPI } from '@/lib/ownerAPI';
 import { toast } from 'react-toastify';
 import PropertyDescriptionAI from './PropertyDescriptionAI';
 import { createPortal } from 'react-dom';
@@ -22,6 +22,42 @@ const BRAND_DARK = '#CC6A1A';
 const INP = 'w-full h-8 px-2.5 rounded-md text-xs border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E6761D]/20 focus:border-[#E6761D] transition-colors placeholder:text-gray-400';
 const LBL = 'block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1';
 const SECTION_HDR = 'flex items-center gap-2 mb-3 mt-1';
+
+/** Convert number → words (Indian system) */
+const numberToWords = (num: number | null): string => {
+  if (num === null || num === undefined || Number.isNaN(num) || num === 0)
+    return "";
+
+  const a = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"
+  ];
+  const b = [
+    "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"
+  ];
+
+  const makeWords = (n: number): string => {
+    if (n < 20) return a[n];
+    if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? " " + a[n % 10] : "");
+    if (n < 1000) return a[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + makeWords(n % 100) : "");
+    return "";
+  };
+
+  let str = "";
+  const crore = Math.floor(num / 10000000);
+  const lakh = Math.floor((num / 100000) % 100);
+  const thousand = Math.floor((num / 1000) % 100);
+  const hundred = Math.floor((num / 100) % 10);
+  const rest = num % 100;
+
+  if (crore) str += makeWords(crore) + " Crore ";
+  if (lakh) str += makeWords(lakh) + " Lakh ";
+  if (thousand) str += makeWords(thousand) + " Thousand ";
+  if (hundred) str += makeWords(hundred) + " Hundred ";
+  if (rest) str += makeWords(rest);
+
+  return str.trim();
+};
 
 /* ---------- Helper Components ---------- */
 const Field: React.FC<{ label: string; required?: boolean; error?: string; children: React.ReactNode; className?: string }> = ({
@@ -589,7 +625,7 @@ const TenantMultiSelect: React.FC<{
         <span className="truncate text-gray-700">
           {selectedList.length > 0 ? selectedList.join(", ") : "Select Preferred Tenants"}
         </span>
-        <span className="text-gray-400">▼</span>
+        <ChevronDown size={11} className="text-gray-400 flex-shrink-0" />
       </button>
 
       {isOpen && (
@@ -737,7 +773,7 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
       try {
         setLoadingSellers(true);
         const [sellersData, usersRes] = await Promise.all([
-          sellerAPI.getAll(),
+          ownerAPI.getAll(),
           usersAPI.getAllUsers().catch(() => ({ success: false, data: [] }))
         ]);
         if (isMounted && Array.isArray(sellersData)) {
@@ -967,11 +1003,15 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
               const societyByUrl = new Map(societyPreviews.map(sp => [normalizeUrl(sp.url), sp]));
 
               const merged = prev
-                .filter(p => !p.isSociety || incomingSocietyUrlSet.has(normalizeUrl(p.url)))
+                .filter(p => {
+                  const isSoc = p.isSociety || incomingSocietyUrlSet.has(normalizeUrl(p.url));
+                  return !isSoc || incomingSocietyUrlSet.has(normalizeUrl(p.url));
+                })
                 .map(p => {
-                  if (p.isSociety) {
+                  const isSoc = p.isSociety || incomingSocietyUrlSet.has(normalizeUrl(p.url));
+                  if (isSoc) {
                     const fresh = societyByUrl.get(normalizeUrl(p.url));
-                    return fresh ? { ...fresh, id: p.id } : p;
+                    return fresh ? { ...fresh, label: fresh.label || '', id: p.id, isSociety: true } : p; // prioritize society master label over saved stale label
                   }
                   return p;
                 });
@@ -1289,7 +1329,7 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
     const needed = [
       "property subtype", "property type", "unit type", "furnishing",
       "parking type", "property status", "lead source", "bedrooms",
-      "bathrooms", "facing", "balcony"
+      "bathrooms", "facing", "balcony", "lock-in period", "agreement duration"
     ];
     const optionsLoaded = needed.every(key => masterOptions[key] && masterOptions[key].length > 0);
     if (!optionsLoaded) return;
@@ -1309,11 +1349,13 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
     updates.bathrooms = resolveDropdownField(formData.bathrooms, masterOptions["bathrooms"]);
     updates.facing = resolveDropdownField(formData.facing, masterOptions["facing"]);
     updates.balcony = resolveDropdownField(formData.balcony, masterOptions["balcony"]);
+    updates.lock_in_period = resolveDropdownField(formData.lock_in_period, masterOptions["lock-in period"]);
+    updates.agreement_duration = resolveDropdownField(formData.agreement_duration, masterOptions["agreement duration"]);
 
     if (Object.values(updates).some(v => v !== undefined && v !== "")) {
       setFormData(prev => ({ ...prev, ...updates }));
     }
-  }, [masterOptions, mode, initialData, isEditDataLoaded, formData.propertyType, formData.propertySubtype, formData.unitType, formData.furnishing, formData.parkingType, formData.status, formData.leadSource, formData.bedrooms, formData.bathrooms, formData.facing, formData.balcony]);
+  }, [masterOptions, mode, initialData, isEditDataLoaded, formData.propertyType, formData.propertySubtype, formData.unitType, formData.furnishing, formData.parkingType, formData.status, formData.leadSource, formData.bedrooms, formData.bathrooms, formData.facing, formData.balcony, formData.lock_in_period, formData.agreement_duration]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1902,29 +1944,54 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
           </div>
 
           <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 flex flex-col gap-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            {/* ROW 1: Monthly Rent, Security Deposit, Available From, Lock-in Period, Agreement Duration */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[1fr_1fr_1fr_1fr_1.3fr] gap-3 items-start">
               <Field label="Monthly Rent (₹)" required error={errors.monthly_rent}>
-                <input
-                  type="text"
-                  placeholder="e.g. 25000"
-                  value={formData.monthly_rent}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "");
-                    handleInputChange("monthly_rent", val);
-                    handleInputChange("budget", val);
-                  }}
-                  className={INP}
-                />
+                <div className="relative flex items-center">
+                  <span className="absolute left-2.5 text-[10px] text-gray-400 font-semibold">₹</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. 25000"
+                    value={formData.monthly_rent}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "");
+                      handleInputChange("monthly_rent", val);
+                      handleInputChange("budget", val);
+                    }}
+                    className={`${INP} pl-6 pr-12`}
+                  />
+                  {formData.monthly_rent && (
+                    <span className="absolute right-2.5 text-[9px] text-gray-400 font-semibold">Rupees</span>
+                  )}
+                </div>
+                {formData.monthly_rent && Number(formData.monthly_rent) > 0 && (
+                  <p className="text-[10px] text-green-600 font-semibold mt-1 leading-tight">
+                    {numberToWords(Number(formData.monthly_rent))} Rupees
+                  </p>
+                )}
               </Field>
+
               <Field label="Security Deposit (₹)">
-                <input
-                  type="text"
-                  placeholder="e.g. 75000"
-                  value={formData.security_deposit}
-                  onChange={(e) => handleInputChange("security_deposit", e.target.value.replace(/\D/g, ""))}
-                  className={INP}
-                />
+                <div className="relative flex items-center">
+                  <span className="absolute left-2.5 text-[10px] text-gray-400 font-semibold">₹</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. 75000"
+                    value={formData.security_deposit}
+                    onChange={(e) => handleInputChange("security_deposit", e.target.value.replace(/\D/g, ""))}
+                    className={`${INP} pl-6 pr-12`}
+                  />
+                  {formData.security_deposit && (
+                    <span className="absolute right-2.5 text-[9px] text-gray-400 font-semibold">Rupees</span>
+                  )}
+                </div>
+                {formData.security_deposit && Number(formData.security_deposit) > 0 && (
+                  <p className="text-[10px] text-green-600 font-semibold mt-1 leading-tight">
+                    {numberToWords(Number(formData.security_deposit))} Rupees
+                  </p>
+                )}
               </Field>
+
               <Field label="Available From">
                 <input
                   type="date"
@@ -1933,59 +2000,84 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
                   className={INP}
                 />
               </Field>
+
               <Field label="Lock-in Period (Months)">
-                <input
-                  type="number"
-                  placeholder="e.g. 6"
+                <SafeDropdown
+                  placeholder="Select"
+                  options={getOptions('lock-in period')}
                   value={formData.lock_in_period}
-                  onChange={(e) => handleInputChange("lock_in_period", e.target.value)}
-                  className={INP}
+                  onChange={handleDropdownChange('lock_in_period')}
+                  className="w-full"
                 />
               </Field>
+
               <Field label="Agreement Duration (Months)">
-                <input
-                  type="number"
-                  placeholder="e.g. 11"
+                <SafeDropdown
+                  placeholder="Select"
+                  options={getOptions('agreement duration')}
                   value={formData.agreement_duration}
-                  onChange={(e) => handleInputChange("agreement_duration", e.target.value)}
-                  className={INP}
+                  onChange={handleDropdownChange('agreement_duration')}
+                  className="w-full"
                 />
               </Field>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-              <Field label="Preferred Tenants" className="relative">
-                <TenantMultiSelect
-                  value={formData.preferred_tenants || ""}
-                  onChange={(val) => handleInputChange("preferred_tenants", val)}
-                />
-              </Field>
-              <div className="flex items-center gap-2 h-8">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={formData.maintenance_extra}
-                    onChange={(e) => {
-                      handleInputChange("maintenance_extra", e.target.checked);
-                      if (!e.target.checked) {
-                        handleInputChange("maintenance_charge", "");
-                      }
-                    }}
-                    className="h-3.5 w-3.5 rounded border-gray-300 accent-orange-500"
-                  />
-                  <span className="text-xs font-semibold text-gray-700">Maintenance is Extra</span>
-                </label>
+            {/* ROW 2: Preferred Tenants, Maintenance Charges */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-stretch">
+              <div className="flex flex-col">
+                <Field label="Preferred Tenants" className="relative flex flex-col h-full">
+                  <div className="mt-auto">
+                    <TenantMultiSelect
+                      value={formData.preferred_tenants || ""}
+                      onChange={(val) => handleInputChange("preferred_tenants", val)}
+                    />
+                  </div>
+                </Field>
               </div>
-              <Field label="Maintenance Charges (₹)">
-                <input
-                  type="text"
-                  placeholder={formData.maintenance_extra ? "e.g. 2000" : "Included in Rent"}
-                  value={formData.maintenance_extra ? formData.maintenance_charge : "Included in Rent"}
-                  disabled={!formData.maintenance_extra}
-                  onChange={(e) => handleInputChange("maintenance_charge", e.target.value.replace(/\D/g, ""))}
-                  className={`${INP} disabled:bg-gray-100 disabled:text-gray-400 disabled:font-medium disabled:cursor-not-allowed`}
-                />
-              </Field>
+
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                    Maintenance Charges (₹)
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none whitespace-nowrap shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={formData.maintenance_extra}
+                      onChange={(e) => {
+                        handleInputChange("maintenance_extra", e.target.checked);
+                        if (!e.target.checked) {
+                          handleInputChange("maintenance_charge", "");
+                        }
+                      }}
+                      className="h-3 w-3 rounded border-gray-300 accent-orange-500 shrink-0"
+                    />
+                    <span className="text-[10px] text-gray-500 font-semibold whitespace-nowrap">Extra Charges</span>
+                  </label>
+                </div>
+
+                <div className="mt-auto">
+                  <div className="relative flex items-center">
+                    <span className="absolute left-2.5 text-[10px] text-gray-400 font-semibold">₹</span>
+                    <input
+                      type="text"
+                      placeholder={formData.maintenance_extra ? "e.g. 2000" : "Included"}
+                      value={formData.maintenance_extra ? formData.maintenance_charge : "Included in Rent"}
+                      disabled={!formData.maintenance_extra}
+                      onChange={(e) => handleInputChange("maintenance_charge", e.target.value.replace(/\D/g, ""))}
+                      className={`${INP} pl-6 pr-12 disabled:bg-gray-100 disabled:text-gray-400 disabled:font-medium disabled:cursor-not-allowed`}
+                    />
+                    {formData.maintenance_extra && formData.maintenance_charge && (
+                      <span className="absolute right-2.5 text-[9px] text-gray-400 font-semibold">Rupees</span>
+                    )}
+                  </div>
+                  {formData.maintenance_extra && formData.maintenance_charge && Number(formData.maintenance_charge) > 0 && (
+                    <p className="text-[10px] text-green-600 font-semibold mt-1 leading-tight">
+                      {numberToWords(Number(formData.maintenance_charge))} Rupees
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

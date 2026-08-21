@@ -49,6 +49,7 @@ import { toast } from "react-toastify";
 import SellerSidebarFilter from "./components/SellerSidebarFilter";
 import { useNavigate } from "react-router-dom";
 import TableLoader from "@/components/ui/TableLoader";
+import Dropdown from "@/components/ui/Dropdown";
 import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
 import { useAuth } from "@/contexts/AuthContext";
 import { usersAPI } from "@/lib/api";
@@ -59,6 +60,7 @@ import SellerFollowupModal from "@/components/sellers/SellerFollowupModal";
 import sellerFollowupAPI from "@/lib/sellerFollowupAPI";
 import { SiWhatsapp } from "react-icons/si";
 import { useProperties } from "@/hooks/properties";
+import { propertiesAPI } from "@/lib/propertiesAPI";
 
 
 // Resale Theme Colors (matching LeadsPage)
@@ -434,6 +436,7 @@ const SellersPage: React.FC = () => {
   const [executives, setExecutives] = useState<Executive[]>([UNASSIGNED_EXEC]);
   const [execsLoading, setExecsLoading] = useState(false);
   const [pendingExec, setPendingExec] = useState<string>("");
+  const [pendingSource, setPendingSource] = useState<string>("");
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
   const [colSearch, setColSearch] = useState({
@@ -849,26 +852,41 @@ const SellersPage: React.FC = () => {
 
   const handleLinkPropertyToSeller = async (property: any) => {
     if (!linkingSeller) return;
+    const propertiesToLink = Array.isArray(property) ? property : [property];
     const currentProps = (linkingSeller as any).properties || [];
-    const pid = String(property.id || property.property_id || property._id);
-    const alreadyLinked = currentProps.some(
-      (p: any) => String(p.id || p.property_id || p._id) === pid
-    );
-    if (alreadyLinked) {
-      toast.info("Property is already linked to this seller");
+    
+    const updatedProps = [...currentProps];
+    let newlyLinkedCount = 0;
+
+    for (const prop of propertiesToLink) {
+      const pid = String(prop.id || prop.property_id || prop._id);
+      const alreadyLinked = updatedProps.some(
+        (p: any) => String(p.id || p.property_id || p._id) === pid
+      );
+      if (!alreadyLinked) {
+        updatedProps.push(prop);
+        newlyLinkedCount++;
+      }
+    }
+
+    if (newlyLinkedCount === 0) {
+      toast.info("Selected properties are already linked to this seller");
       return;
     }
-    const updatedProps = [...currentProps, property];
+
     const updatedSeller = {
       ...linkingSeller,
       properties: updatedProps,
     };
 
+    setLinkingSeller(updatedSeller);
+    if (quickViewSeller && quickViewSeller.id === linkingSeller.id) {
+      setQuickViewSeller(updatedSeller);
+    }
     setAllSellers((prev) =>
       prev.map((s) => (s.id === linkingSeller.id ? updatedSeller : s))
     );
-    setShowLinkPropertyModal(false);
-    toast.success("Property linked to seller successfully");
+    toast.success(`${newlyLinkedCount} properties linked to seller successfully`);
 
     try {
       await sellerAPI.update(String(linkingSeller.id), {
@@ -878,10 +896,83 @@ const SellersPage: React.FC = () => {
           .map((p: any) => p.id || p.property_id || p._id)
           .filter(Boolean),
       });
+      // Also set seller_id on the property itself for bidirectional sync
+      for (const prop of propertiesToLink) {
+        try {
+          await propertiesAPI.patchSeller(String(prop.id || prop.property_id || prop._id), 'link', linkingSeller.id);
+        } catch (e) {
+          console.warn('patchSeller(link) note:', e);
+        }
+      }
       await loadSellers();
     } catch (err) {
       console.error("Failed to update seller properties on server:", err);
       toast.error("Failed to save linked property on server");
+    }
+  };
+
+  const handleUnlinkPropertyFromSeller = async (property: any) => {
+    if (!linkingSeller) return;
+    const currentProps = (linkingSeller as any).properties || [];
+    const pid = String(property.id || property.property_id || property._id);
+
+    const result = await Swal.fire({
+      title: 'Unlink Property?',
+      text: `Are you sure you want to unlink this property from this seller?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Unlink',
+      cancelButtonText: 'Cancel',
+      width: '380px',
+      customClass: {
+        popup: 'rounded-xl shadow-2xl',
+        title: 'text-base font-bold text-gray-800',
+        htmlContainer: 'text-xs text-gray-600',
+        confirmButton: 'px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 mx-1',
+        cancelButton: 'px-3 py-1.5 bg-gray-500 text-white text-xs font-semibold rounded-lg hover:bg-gray-600 mx-1',
+      },
+      buttonsStyling: false,
+    });
+
+    if (!result.isConfirmed) return;
+
+    const updatedProps = currentProps.filter(
+      (p: any) => String(p.id || p.property_id || p._id) !== pid
+    );
+    const updatedSeller = {
+      ...linkingSeller,
+      properties: updatedProps,
+    };
+
+    setLinkingSeller(updatedSeller);
+    if (quickViewSeller && quickViewSeller.id === linkingSeller.id) {
+      setQuickViewSeller(updatedSeller);
+    }
+    setAllSellers((prev) =>
+      prev.map((s) => (s.id === linkingSeller.id ? updatedSeller : s))
+    );
+    toast.success("Property unlinked successfully");
+
+    try {
+      await sellerAPI.update(String(linkingSeller.id), {
+        ...updatedSeller,
+        properties: updatedProps,
+        property_ids: updatedProps
+          .map((p: any) => p.id || p.property_id || p._id)
+          .filter(Boolean),
+      });
+      // Also clear seller_id on the property itself for bidirectional sync
+      try {
+        await propertiesAPI.patchSeller(String(property.id || property.property_id || property._id), 'unlink');
+      } catch (e) {
+        console.warn('patchSeller(unlink) note:', e);
+      }
+      await loadSellers();
+    } catch (err) {
+      console.error("Failed to update seller properties on server:", err);
+      toast.error("Failed to save unlinked property on server");
     }
   };
 
@@ -1789,21 +1880,30 @@ table tbody td {
                           </option>
                         ))}
                       </select>
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value)
-                            handleBulkSourceUpdate(e.target.value);
-                          e.target.value = "";
-                        }}
-                        className="hidden sm:block border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white"
-                      >
-                        <option value="">Assign Source...</option>
-                        {sources.filter(s => s !== "all").map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="hidden sm:block min-w-[130px]">
+                        <Dropdown
+                          value={pendingSource}
+                          onChange={(val) => setPendingSource(val)}
+                          options={(masters['lead source'] || masters['Lead Source'] || []).map((opt) => ({
+                            value: opt.value ?? opt.label,
+                            label: opt.label ?? opt.value,
+                          }))}
+                          placeholder="Assign Source..."
+                          searchable={true}
+                          triggerClassName="!h-[28px] !py-1 !px-2.5 rounded-lg text-xs !shadow-none font-normal"
+                        />
+                      </div>
+                      {pendingSource !== "" && (
+                        <button
+                          onClick={() => {
+                            handleBulkSourceUpdate(pendingSource);
+                            setPendingSource('');
+                          }}
+                          className="hidden sm:block px-2 py-1 text-xs bg-orange-500 text-white rounded-lg whitespace-nowrap hover:bg-orange-600"
+                        >
+                          Apply
+                        </button>
+                      )}
                     </div>
                   )}
                   <div className="hidden sm:block h-5 w-px bg-gray-200" />
@@ -1901,21 +2001,32 @@ table tbody td {
                       </select>
                     )}
                     {canUpdate && (
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value)
-                            handleBulkSourceUpdate(e.target.value);
-                          e.target.value = "";
-                        }}
-                        className="flex-1 border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white"
-                      >
-                        <option value="">Source...</option>
-                        {sources.filter(s => s !== "all").map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <Dropdown
+                            value={pendingSource}
+                            onChange={(val) => setPendingSource(val)}
+                            options={(masters['lead source'] || masters['Lead Source'] || []).map((opt) => ({
+                              value: opt.value ?? opt.label,
+                              label: opt.label ?? opt.value,
+                            }))}
+                            placeholder="Source..."
+                            searchable={true}
+                            triggerClassName="!h-[28px] !py-1 !px-2.5 rounded-lg text-xs !shadow-none font-normal"
+                          />
+                        </div>
+                        {pendingSource !== "" && (
+                          <button
+                            onClick={() => {
+                              handleBulkSourceUpdate(pendingSource);
+                              setPendingSource('');
+                            }}
+                            className="px-2 py-1 text-xs bg-orange-500 text-white rounded-lg whitespace-nowrap hover:bg-orange-600"
+                          >
+                            Apply
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -2563,6 +2674,39 @@ table tbody td {
               handleSellerAccount(sellerId);
             }}
             canEdit={canUpdate && canEditSeller(user, quickViewSeller)}
+            onUnlinkProperties={async (propertyIds) => {
+              const currentProps = quickViewSeller.properties || [];
+              const updatedProps = currentProps.filter(
+                (p: any) => !propertyIds.includes(String(p.id || p.property_id || p._id))
+              );
+              const updatedSeller = {
+                ...quickViewSeller,
+                properties: updatedProps,
+              };
+              setQuickViewSeller(updatedSeller);
+              setAllSellers((prev) =>
+                prev.map((s) => (s.id === quickViewSeller.id ? updatedSeller : s))
+              );
+              try {
+                await sellerAPI.update(String(quickViewSeller.id), {
+                  ...updatedSeller,
+                  properties: updatedProps,
+                  property_ids: updatedProps.map((p: any) => p.id || p.property_id || p._id).filter(Boolean),
+                });
+                for (const pid of propertyIds) {
+                  try {
+                    await propertiesAPI.patchSeller(String(pid), 'unlink');
+                  } catch (e) {
+                    console.warn('patchSeller unlink bulk note:', e);
+                  }
+                }
+                await loadSellers();
+                toast.success("Properties unlinked successfully");
+              } catch (err) {
+                console.error("Failed to update seller properties on server:", err);
+                toast.error("Failed to save unlinked properties on server");
+              }
+            }}
           />
         )}
 
@@ -2574,6 +2718,7 @@ table tbody td {
             setLinkingSeller(null);
           }}
           onSelectProperty={handleLinkPropertyToSeller}
+          onUnlinkProperty={handleUnlinkPropertyFromSeller}
           linkingSeller={linkingSeller}
         />
       </div>

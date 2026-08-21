@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import PublicPropertyDetailPage from './PublicPropertyDetailPage';
 import { propertiesAPI } from '@/lib/propertiesAPI';
+import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -537,6 +538,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     const cityFromUrl = qp.get('city') || 'Pune';
     setSelectedLocation(cityFromUrl);
 
+    const transactionFromUrl = qp.get('transaction') || 'buy';
+    setTransactionType(transactionFromUrl === 'rent' ? 'rent' : 'buy');
+
     let locs: string[] = [];
     const repeated = qp.getAll('location');
     if (repeated.length > 0) {
@@ -673,12 +677,13 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
       let response: any = null;
       let list: any[] = [];
+      const activeAPI = transactionType === 'rent' ? rentalPropertiesAPI : propertiesAPI;
 
       if (hasAdvanced) {
         // 1) strict advanced
         const advParams = buildAdvancedParams();
         try {
-          response = await propertiesAPI.searchProperties(advParams);
+          response = await activeAPI.searchProperties(advParams);
           list = normalizeResponse(response);
 
         } catch (e) {
@@ -697,7 +702,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           if ('bedrooms' in relaxed && !Number(relaxed.bedrooms)) delete relaxed.bedrooms;
 
           try {
-            const resp2 = await propertiesAPI.getSearch(relaxed);
+            const resp2 = await activeAPI.getSearch(relaxed);
             list = normalizeResponse(resp2);
           } catch (e2) {
             console.warn('Relaxed advanced failed, will try simple list. Error:', e2);
@@ -709,7 +714,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         if (!list.length) {
           try {
             const simpleParams = buildSimpleParams();
-            const resp3 = await propertiesAPI.PublicgetProperties(simpleParams);
+            const resp3 = await activeAPI.PublicgetProperties(simpleParams);
             list = normalizeResponse(resp3);
           } catch (e3) {
             console.warn('PublicgetProperties failed after advanced attempts', e3);
@@ -722,12 +727,12 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           try {
             const noPT = buildAdvancedParams();
             delete noPT.propertyType; delete noPT.property_type;
-            const resp4 = await propertiesAPI.getSearch(noPT);
+            const resp4 = await activeAPI.getSearch(noPT);
             list = normalizeResponse(resp4);
 
             if (!list.length) {
               const simpleNoPT = buildSimpleParams(); // already no PT
-              const resp5 = await propertiesAPI.PublicgetProperties(simpleNoPT);
+              const resp5 = await activeAPI.PublicgetProperties(simpleNoPT);
               list = normalizeResponse(resp5);
             }
           } catch (e4) {
@@ -737,7 +742,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       } else {
         // Basic header search
         try {
-          response = await propertiesAPI.PublicgetProperties(buildSimpleParams());
+          response = await activeAPI.PublicgetProperties(buildSimpleParams());
           list = normalizeResponse(response);
         } catch (err) {
           console.warn('PublicgetProperties failed, fallback to empty', err);
@@ -795,7 +800,7 @@ if (!images.length) {
             slug: p.slug || p.url_slug || p.generated_slug,
             propertyId: (p.property_id && String(p.property_id).trim()) || `REX${String(p.id ?? '').padStart(4, '0')}`,
             title: p.title || `${p.unit_type || ''} ${p.property_type_name || ''}`.trim() || `Property ${p.id}`,
-            price: Number(p.budget) || Number(p.price) || 0,
+            price: Number(p.monthly_rent) || Number(p.budget) || Number(p.price) || 0,
             bedrooms: Number(p.bedrooms) || 0,
             bathrooms: Number(p.bathrooms) || 0,
             square_feet: Number(p.carpet_area) || Number(p.builtup_area) || 0,
@@ -858,7 +863,7 @@ if (!images.length) {
     } finally {
       setLoading(false);
     }
-  }, [location.search, filterParamKey, filterTokenFromUrl]);
+  }, [location.search, filterParamKey, filterTokenFromUrl, transactionType]);
 
   // run loader
   useEffect(() => {
@@ -1184,20 +1189,18 @@ if (!images.length) {
                   type="button"
                   onClick={() => setTransactionType("buy")}
                   className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70
-                    ${"buy" === "buy" ? "bg-[#E6761D] text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-                  aria-pressed={true}
+                    ${transactionType === "buy" ? "bg-[#E6761D] text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                  aria-pressed={transactionType === "buy"}
                 >
                   Buy
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => { }}
-                  className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base transition bg-gray-100 text-gray-700 opacity-60 cursor-not-allowed"
-                  title="Launching Soon !"
-                  disabled
-                  aria-disabled="true"
-                  aria-pressed={false}
+                  onClick={() => setTransactionType("rent")}
+                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70
+                    ${transactionType === "rent" ? "bg-[#E6761D] text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                  aria-pressed={transactionType === "rent"}
                 >
                   Rent
                 </button>

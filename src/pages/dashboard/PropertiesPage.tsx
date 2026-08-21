@@ -5,7 +5,8 @@ import {
   Grid, List, MapPin, Building, Users, MoreHorizontal, X,
   ChevronLeft, ChevronRight, Globe, Award, CheckCircle, User,
   UserCheck, UserPlus,
-  UserX, RefreshCw, Layers, Link2, Phone, Sparkles
+  UserX, RefreshCw, Layers, Link2, Phone, Sparkles,
+  Mail
 } from 'lucide-react';
 import type { LucideIcon } from "lucide-react";
 import PropertyViewPage from '../../components/properties/PropertyViewPage';
@@ -1508,9 +1509,9 @@ const PropertiesPage = () => {
         (p.city || '').toLowerCase().includes(q) ||
         (p.society || '').toLowerCase().includes(q) ||
         (p.seller?.name || '').toLowerCase().includes(q) ||
-        (qClean && (pidClean.includes(qClean) || repIdClean.includes(qClean) || qClean.includes(pidClean) || qClean.includes(repIdClean))) ||
+        (qClean && (pidClean.includes(qClean) || repIdClean.includes(qClean))) ||
         (!isNaN(qNum) && !isNaN(pidNum) && qNum === pidNum) ||
-        (qTrimmed && pidTrimmed && (pidTrimmed.includes(qTrimmed) || qTrimmed.includes(pidTrimmed)));
+        (qTrimmed && pidTrimmed && pidTrimmed.includes(qTrimmed));
 
       const matchesTab =
         activeTab === 'all' ||
@@ -1540,11 +1541,14 @@ const PropertiesPage = () => {
       })();
 
       const matchesBudgetRange = (() => {
-        const price = Number(p.budget);
-        if (!price || price <= 0) return false;
-
         const minBudget = filters.minBudget ? Number(filters.minBudget) : 0;
         const maxBudget = filters.maxBudget ? Number(filters.maxBudget) : Infinity;
+
+        // If no filter is active, return true
+        if (minBudget === 0 && maxBudget === Infinity) return true;
+
+        const price = Number(p.budget);
+        if (!price || price <= 0) return false;
 
         return price >= minBudget && price <= maxBudget;
       })();
@@ -2279,23 +2283,15 @@ const PropertiesPage = () => {
 
       const updatedProps = alreadyLinked ? currentProps : [...currentProps, linkingPropertyForSeller];
 
-      // Update seller on server
+      // 1. Update seller's property list on server
       await sellerAPI.update(String(seller.id || seller.seller_id || seller._id), {
         ...seller,
         properties: updatedProps,
         property_ids: updatedProps.map((p: any) => p.id || p.property_id || p._id).filter(Boolean),
       });
 
-      // Update property seller in local state and propertiesAPI
-      try {
-        await propertiesAPI.updateProperty(String(linkingPropertyForSeller.id), {
-          seller: seller.name,
-          seller_id: seller.id,
-          seller_phone: seller.phone,
-        });
-      } catch (e) {
-        console.warn("Property seller patch note:", e);
-      }
+      // 2. Patch seller_id directly on property (new dedicated endpoint)
+      await propertiesAPI.patchSeller(String(linkingPropertyForSeller.id), 'link', seller.id || seller.seller_id);
 
       setProperties(prev => prev.map(p => {
         if (p.id === linkingPropertyForSeller.id) {
@@ -2316,8 +2312,86 @@ const PropertiesPage = () => {
       setShowLinkSellerModal(false);
       setLinkingPropertyForSeller(null);
     } catch (err: any) {
-      console.error("Failed to link seller:", err);
-      toast.error(err?.response?.data?.message || "Failed to link seller to property");
+      console.error('Failed to link seller:', err);
+      toast.error(err?.response?.data?.message || 'Failed to link seller to property');
+    } finally {
+      setSavingSellerLink(false);
+    }
+  };
+
+  const handleUnlinkSellerFromProperty = async () => {
+    if (!linkingPropertyForSeller) return;
+    const linkedSellerId = linkingPropertyForSeller.seller?.id || (linkingPropertyForSeller as any).seller_id;
+    const linkedSellerName = linkingPropertyForSeller.seller?.name || (linkingPropertyForSeller as any).seller_name;
+
+    const result = await Swal.fire({
+      title: 'Unlink Seller?',
+      text: `Are you sure you want to unlink seller "${linkedSellerName}" from this property?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Unlink',
+      cancelButtonText: 'Cancel',
+      width: '380px',
+      customClass: {
+        popup: 'rounded-xl shadow-2xl',
+        title: 'text-base font-bold text-gray-800',
+        htmlContainer: 'text-xs text-gray-600',
+        confirmButton: 'px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 mx-1',
+        cancelButton: 'px-3 py-1.5 bg-gray-500 text-white text-xs font-semibold rounded-lg hover:bg-gray-600 mx-1',
+      },
+      buttonsStyling: false,
+    });
+
+    if (!result.isConfirmed) return;
+
+    setSavingSellerLink(true);
+    try {
+      // 1. Clear seller_id on property via dedicated endpoint
+      await propertiesAPI.patchSeller(String(linkingPropertyForSeller.id), 'unlink');
+
+      // 2. Remove this property from the seller's properties list
+      if (linkedSellerId) {
+        try {
+          // getById returns { success, data: { seller, properties, cosellers, ... } }
+          const resp = await sellerAPI.getById(String(linkedSellerId));
+          const sellerData = resp?.data?.seller ?? resp?.seller ?? resp;
+          const currentProps: any[] = Array.isArray(resp?.data?.properties)
+            ? resp.data.properties
+            : Array.isArray(resp?.properties)
+              ? resp.properties
+              : [];
+
+          const pid = String(linkingPropertyForSeller.id);
+          const updatedProps = currentProps.filter(
+            (p: any) => String(p.id || p.property_id || p._id) !== pid
+          );
+
+          await sellerAPI.update(String(linkedSellerId), {
+            ...(sellerData || {}),
+            properties: updatedProps,
+            property_ids: updatedProps.map((p: any) => p.id || p.property_id || p._id).filter(Boolean),
+          });
+        } catch (err) {
+          console.error('Failed to update seller properties on server during unlink:', err);
+        }
+      }
+
+      // 3. Update local state
+      setProperties(prev => prev.map(p => {
+        if (p.id === linkingPropertyForSeller.id) {
+          return { ...p, seller: null };
+        }
+        return p;
+      }));
+
+      setLinkingPropertyForSeller(prev => prev ? { ...prev, seller: null } : null);
+
+      toast.success('Seller unlinked from property successfully!');
+    } catch (err: any) {
+      console.error('Failed to unlink seller:', err);
+      toast.error('Failed to unlink seller from property');
     } finally {
       setSavingSellerLink(false);
     }
@@ -3219,6 +3293,7 @@ const PropertiesPage = () => {
                               }}
                               className="p-1.5 rounded-lg transition-all border border-slate-200 hover:bg-slate-50 flex items-center justify-center"
                               style={{ color: '#64748b' }}
+                              title="More Options"
                             >
                               <MoreHorizontal size={12} />
                             </button>
@@ -3748,116 +3823,220 @@ const PropertiesPage = () => {
         )}
 
         {/* Link Seller to Property Modal */}
-        {showLinkSellerModal && linkingPropertyForSeller && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden border border-gray-200">
-              {/* Header */}
-              <div className="px-4 py-3 bg-[#0f2b3d] text-white flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-orange-500/20 text-orange-400">
-                    <UserPlus size={16} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold">Link Seller to Property</h3>
-                    <p className="text-[10px] text-white/70">
-                      Property: <span className="font-semibold text-white">{linkingPropertyForSeller.title || `${linkingPropertyForSeller.unitType || ''} ${linkingPropertyForSeller.subtype || ''}`.trim() || 'Property'}</span>
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowLinkSellerModal(false);
-                    setLinkingPropertyForSeller(null);
-                  }}
-                  className="p-1 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+        {showLinkSellerModal && linkingPropertyForSeller && (() => {
+          const linkedSellerName = linkingPropertyForSeller.seller?.name || (linkingPropertyForSeller as any).seller_name;
+          const linkedSellerId = linkingPropertyForSeller.seller?.id || (linkingPropertyForSeller as any).seller_id;
+          const linkedSellerPhone = linkingPropertyForSeller.seller?.phone || (linkingPropertyForSeller as any).seller_phone || '';
+          const linkedSellerEmail = linkingPropertyForSeller.seller?.email || (linkingPropertyForSeller as any).seller_email || '';
 
-              {/* Search */}
-              <div className="p-3 border-b border-gray-100 bg-gray-50">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    value={sellerSearchQuery}
-                    onChange={(e) => setSellerSearchQuery(e.target.value)}
-                    placeholder="Search sellers by name, phone, email, location..."
-                    className="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white"
-                    autoFocus
-                  />
-                </div>
-              </div>
+          const cleanSellerId = String(linkedSellerId || '').trim();
+          const cleanSellerName = String(linkedSellerName || '').trim().replace(/\s+/g, '');
+          const hasLinkedSeller = Boolean(
+            cleanSellerId &&
+            cleanSellerId !== '0' &&
+            cleanSellerId !== 'null' &&
+            cleanSellerId !== 'undefined' &&
+            cleanSellerName &&
+            cleanSellerName !== '-' &&
+            cleanSellerName !== '—'
+          );
 
-              {/* Sellers List */}
-              <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[50vh]">
-                {loadingSellers ? (
-                  <div className="py-8 text-center text-xs text-gray-500">Loading sellers...</div>
-                ) : filteredSellersForLink.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-gray-500">
-                    {sellerSearchQuery ? 'No sellers found matching your search.' : 'No sellers available.'}
+          const getInitials = (name: string) => {
+            const cleaned = String(name || '').replace(/^(mr|mrs|ms|dr|miss)\.?\s+/i, '').trim();
+            const parts = cleaned.split(/\s+/).filter(Boolean);
+            if (parts.length === 0) return 'S';
+            if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+            return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+          };
+
+          // Format phone with +91 country code
+          const formatPhone = (phone: string) => {
+            if (!phone) return '';
+            const digits = String(phone).replace(/\D/g, '');
+            const last10 = digits.slice(-10);
+            return `+91 ${last10}`;
+          };
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden border border-gray-200">
+                {/* Header */}
+                <div className="px-4 py-3 bg-[#0f2b3d] text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="p-1.5 rounded-lg bg-orange-500/20 text-orange-400 flex-shrink-0">
+                      <UserPlus size={16} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {hasLinkedSeller ? (
+                        <>
+                          <h3 className="text-sm font-bold truncate">Linked Seller: {linkedSellerName}</h3>
+                          <p className="text-[9px] text-emerald-400 font-medium">Currently Associated</p>
+                        </>
+                      ) : (
+                        <>
+                          <h3 className="text-sm font-bold">Link Seller to Property</h3>
+                          <p className="text-[10px] text-white/70 truncate">
+                            Property: <span className="font-semibold text-white">{linkingPropertyForSeller.title || `${linkingPropertyForSeller.unitType || ''} ${linkingPropertyForSeller.subtype || ''}`.trim() || 'Property'}</span>
+                          </p>
+                        </>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  filteredSellersForLink.map((s: any) => {
-                    const sId = s.id || s.seller_id || s._id;
-                    const isCurrent = linkingPropertyForSeller.seller?.name && String(linkingPropertyForSeller.seller?.name).toLowerCase() === String(s.name || '').toLowerCase();
 
-                    return (
-                      <div
-                        key={sId}
-                        className="p-2.5 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50/30 transition-all flex items-center justify-between gap-3 bg-white"
+                  <div className="flex items-center gap-2 ml-3">
+                    {hasLinkedSeller && (
+                      <button
+                        onClick={handleUnlinkSellerFromProperty}
+                        disabled={savingSellerLink}
+                        className="px-2.5 py-1 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 hover:text-red-300 rounded-lg transition-all flex items-center gap-1 disabled:opacity-50 flex-shrink-0"
                       >
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-700 font-bold flex items-center justify-center text-xs flex-shrink-0">
-                            {(s.name || 'S').charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-semibold text-xs text-gray-800 truncate">{s.name || 'Unnamed Seller'}</span>
-                              {isCurrent && (
-                                <span className="px-1.5 py-0.2 rounded-full text-[8px] font-bold bg-green-100 text-green-700">
-                                  Currently Linked
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[10px] text-gray-500 flex items-center gap-2 mt-0.5 flex-wrap">
-                              {s.phone && <span>📞 {s.phone}</span>}
-                              {s.location && <span>📍 {s.location}</span>}
-                              {s.email && <span className="truncate max-w-[160px]">✉️ {s.email}</span>}
-                            </div>
+                        <UserX size={12} />
+                        <span>Unlink Seller</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setShowLinkSellerModal(false);
+                        setLinkingPropertyForSeller(null);
+                      }}
+                      className="p-1 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors flex-shrink-0"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {hasLinkedSeller ? (
+                  /* Linked Seller Details Card - Property ID, phone, email all in one row */
+                  <div className="p-3 border-b border-gray-100">
+                    <div className="p-3 rounded-lg border border-gray-100 bg-white shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-sm shadow-inner flex-shrink-0">
+                          {getInitials(linkedSellerName)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold text-sm text-gray-800 block truncate">{linkedSellerName}</span>
+                          <div className="flex items-center gap-3 text-[11px] text-gray-600 flex-wrap mt-0.5">
+                            <span className="text-gray-500">
+                              Property ID: <span className="font-semibold text-[#e67e22]">{linkingPropertyForSeller.propertyId || `REX${String(linkingPropertyForSeller.id).padStart(4, "0")}`}</span>
+                            </span>
+                            {linkedSellerPhone && (
+                              <span className="flex items-center gap-1">
+                                <Phone size={12} className="text-gray-400 flex-shrink-0" />
+                                <span className="font-medium text-gray-700">{formatPhone(linkedSellerPhone)}</span>
+                              </span>
+                            )}
+                            {linkedSellerEmail && (
+                              <span className="flex items-center gap-1 truncate">
+                                <Mail size={12} className="text-gray-400 flex-shrink-0" />
+                                <span className="font-medium text-gray-700 truncate">{linkedSellerEmail}</span>
+                              </span>
+                            )}
                           </div>
                         </div>
-
-                        <button
-                          onClick={() => handleLinkSellerToProperty(s)}
-                          disabled={savingSellerLink}
-                          className="px-3 py-1.5 bg-[#e67e22] hover:bg-[#d35400] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 flex-shrink-0 disabled:opacity-50"
-                        >
-                          <Link2 size={12} />
-                          <span>{isCurrent ? 'Re-link' : 'Link'}</span>
-                        </button>
                       </div>
-                    );
-                  })
-                )}
-              </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Search */}
+                    <div className="p-3 border-b border-gray-100 bg-gray-50">
+                      <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          value={sellerSearchQuery}
+                          onChange={(e) => setSellerSearchQuery(e.target.value)}
+                          placeholder="Search sellers by name, phone, email, location..."
+                          className="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
 
-              {/* Footer */}
-              <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 flex justify-end">
-                <button
-                  onClick={() => {
-                    setShowLinkSellerModal(false);
-                    setLinkingPropertyForSeller(null);
-                  }}
-                  className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 font-medium"
-                >
-                  Close
-                </button>
+                    {/* Sellers List */}
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[50vh]">
+                      {loadingSellers ? (
+                        <div className="py-8 text-center text-xs text-gray-500">Loading sellers...</div>
+                      ) : filteredSellersForLink.length === 0 ? (
+                        <div className="py-8 text-center text-xs text-gray-500">
+                          {sellerSearchQuery ? 'No sellers found matching your search.' : 'No sellers available.'}
+                        </div>
+                      ) : (
+                        filteredSellersForLink.map((s: any) => {
+                          const sId = s.id || s.seller_id || s._id;
+                          const isCurrent = linkingPropertyForSeller.seller?.name && String(linkingPropertyForSeller.seller?.name).toLowerCase() === String(s.name || '').toLowerCase();
+
+                          return (
+                            <div
+                              key={sId}
+                              className="p-2.5 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50/30 transition-all flex items-center justify-between gap-3 bg-white"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-700 font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                  {getInitials(s.name)}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-semibold text-xs text-gray-800 truncate">{s.name || 'Unnamed Seller'}</span>
+                                    {isCurrent && (
+                                      <span className="px-1.5 py-0.2 rounded-full text-[8px] font-bold bg-green-100 text-green-700">
+                                        Currently Linked
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-gray-500 flex items-center gap-2 mt-0.5 flex-wrap">
+                                    {s.phone && (
+                                      <span className="flex items-center gap-1">
+                                        <Phone size={10} className="text-gray-400" /> {formatPhone(s.phone)}
+                                      </span>
+                                    )}
+                                    {s.location && (
+                                      <span className="flex items-center gap-1">
+                                        <MapPin size={10} className="text-gray-400" /> {s.location}
+                                      </span>
+                                    )}
+                                    {s.email && (
+                                      <span className="flex items-center gap-1 truncate max-w-[160px]">
+                                        <Mail size={10} className="text-gray-400" /> {s.email}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => handleLinkSellerToProperty(s)}
+                                disabled={savingSellerLink}
+                                className="px-3 py-1.5 bg-[#e67e22] hover:bg-[#d35400] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 flex-shrink-0 disabled:opacity-50"
+                              >
+                                <Link2 size={12} />
+                                <span>{isCurrent ? 'Re-link' : 'Link'}</span>
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Footer */}
+                <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 flex justify-end">
+                  <button
+                    onClick={() => {
+                      setShowLinkSellerModal(false);
+                      setLinkingPropertyForSeller(null);
+                    }}
+                    className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 font-medium"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </>
   );

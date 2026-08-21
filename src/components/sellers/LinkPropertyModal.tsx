@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { X, Search, Link2, UserCheck, Plus } from "lucide-react";
 import { useProperties } from "@/hooks/properties";
+import { getImageUrl } from "@/lib/helpers";
 
 // ESALE/RESALE Theme Colors matching other components
 const N = "#0f2b3d";
@@ -12,6 +13,7 @@ interface LinkPropertyModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectProperty: (property: any) => void;
+  onUnlinkProperty?: (property: any) => void;
   linkingSeller: any; // The seller object (or formData) to check already linked properties
   onCreatePropertyClick?: () => void; // Optional callback for "Create Property" footer action
 }
@@ -20,13 +22,16 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
   isOpen,
   onClose,
   onSelectProperty,
+  onUnlinkProperty,
   linkingSeller,
   onCreatePropertyClick,
 }) => {
   const [linkPropertySearch, setLinkPropertySearch] = useState("");
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const {
     properties: catalogProperties = [],
     loadingProps: catalogLoading,
+    utils,
   } = useProperties({ autoLog: false });
 
   const filteredLinkableProperties = useMemo(() => {
@@ -41,7 +46,7 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
 
     const q = (linkPropertySearch || "").toLowerCase().trim();
     const qClean = q.replace(/[^a-z0-9]/gi, "");
-    
+
     // Check if user is searching for property ID specifically (digits only or rex + digits)
     const isIdSearch = /^(rex)?\d+$/i.test(qClean);
 
@@ -139,7 +144,15 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
 
   const handleClose = () => {
     setLinkPropertySearch("");
+    setSelectedPropertyIds([]);
     onClose();
+  };
+
+  const handleToggleSelect = (property: any) => {
+    const pid = String(property.id || property.property_id || property._id);
+    setSelectedPropertyIds((prev) =>
+      prev.includes(pid) ? prev.filter((id) => id !== pid) : [...prev, pid]
+    );
   };
 
   const sellerName = linkingSeller?.name || "Seller";
@@ -163,7 +176,7 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
             <div>
               <h3 className="text-sm font-bold text-white">Link Property to Seller</h3>
               <p className="text-[10px] text-white/70">
-                Select an existing property to associate with {sellerName}
+                Select one or more existing properties to associate with {sellerName}
               </p>
             </div>
           </div>
@@ -206,22 +219,36 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
             filteredLinkableProperties.map((property: any) => {
               const propType = property.property_type_name || property.property_type || "";
               const unitType = property.unit_type || property.bhk || property.configuration || "";
-              const titleParts = [propType, unitType].filter(Boolean).join(" • ");
-              const displayTitle = titleParts || property.title || "Property";
+              const subtype = property.property_subtype_name || property.property_sub_type || property.property_subtype || property.subtype || "";
 
+              const pid = String(property.id || property.property_id || property._id || "");
+              const formattedRexId = property.propertyId || `REX${String(pid).padStart(4, "0")}`;
+
+              // Clean title: "Commercial 5BHK Flat" in a straight line, space separated
+              const mainTitle = [propType, unitType, subtype].map(s => String(s).trim()).filter(Boolean).join(" ");
+              // If no real title data at all, show the REX ID as placeholder
+              const displayTitle = mainTitle || property.title || formattedRexId;
+
+              // Address — suppress "Location not specified" for empty properties, show nothing instead
               const address =
+                (utils?.addressFrom ? utils.addressFrom(property) : null) ||
                 property.address ||
                 [property.location_name || property.locality_name, property.city_name || property.city]
                   .filter(Boolean)
                   .join(", ") ||
-                "Location not specified";
-              const price = property.price || property.budget || property.expected_price;
-              const photo =
-                property.photos?.[0]?.url ||
-                property.photos?.[0] ||
-                property.photo ||
-                property.image;
-              const pid = String(property.id || property.property_id || property._id || "");
+                "";
+
+              // Resolve price
+              const price = utils?.priceFrom
+                ? utils.priceFrom(property)
+                : (property.price || property.budget || property.final_price || property.expected_price || 0);
+
+              // Resolve photo — pick first available, run through getImageUrl for relative paths
+              const rawPhoto = utils?.photoFrom
+                ? utils.photoFrom(property)
+                : (property.photos?.[0]?.url || (typeof property.photos?.[0] === 'string' ? property.photos?.[0] : null) || property.photo || property.image || "");
+              const photo = getImageUrl(rawPhoto) || null;
+
               const isAlreadyLinked = Boolean(
                 pid &&
                 ((linkingSeller as any).properties || []).some(
@@ -229,29 +256,46 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
                 )
               );
 
-              const formattedRexId = property.propertyId || `REX${String(pid).padStart(4, "0")}`;
+              const isChecked = selectedPropertyIds.includes(pid);
 
               return (
                 <div
                   key={pid}
-                  className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border transition-shadow bg-white ${
-                    isAlreadyLinked
+                  className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border transition-shadow bg-white ${isAlreadyLinked
                       ? "border-emerald-200 bg-emerald-50/20"
-                      : "border-gray-200 hover:shadow-sm"
-                  }`}
+                      : isChecked
+                        ? "border-orange-300 bg-orange-50/10 shadow-sm"
+                        : "border-gray-200 hover:shadow-sm"
+                    }`}
+                  onClick={() => {
+                    if (!isAlreadyLinked) {
+                      handleToggleSelect(property);
+                    }
+                  }}
+                  style={{ cursor: isAlreadyLinked ? "default" : "pointer" }}
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    {/* Checkbox for Multi-select */}
+                    {!isAlreadyLinked && (
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleToggleSelect(property)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                      />
+                    )}
                     {photo ? (
                       <img
-                        src={typeof photo === "string" ? photo : photo?.url}
+                        src={photo}
                         alt={displayTitle}
                         className="w-12 h-12 object-cover rounded-md flex-shrink-0"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling && ((e.target as HTMLImageElement).nextElementSibling as HTMLElement)?.classList?.remove('hidden'); }}
                       />
-                    ) : (
-                      <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0">
-                        No Pic
-                      </div>
-                    )}
+                    ) : null}
+                    <div className={`w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0 ${photo ? 'hidden' : ''}`}>
+                      No Pic
+                    </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-semibold text-xs text-gray-900 truncate">
@@ -271,26 +315,40 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
                       <p className="text-[10px] text-gray-500 truncate">{address}</p>
                       {Number(price) > 0 && (
                         <span className="text-[10px] font-bold text-emerald-600">
-                          ₹
-                          {typeof price === "number"
-                            ? price.toLocaleString("en-IN")
-                            : Number(price).toLocaleString("en-IN")}
+                          ₹{Number(price).toLocaleString("en-IN")}
                         </span>
                       )}
                     </div>
                   </div>
 
                   {isAlreadyLinked ? (
-                    <button
-                      disabled
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-emerald-700 bg-emerald-100 border border-emerald-200 cursor-default flex-shrink-0"
-                    >
-                      <UserCheck size={12} />
-                      <span>Linked</span>
-                    </button>
+                    onUnlinkProperty ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUnlinkProperty(property);
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-red-700 bg-red-100 border border-red-200 hover:bg-red-200 flex-shrink-0 transition-colors"
+                      >
+                        <X size={12} className="text-red-500" />
+                        <span>Unlink</span>
+                      </button>
+                    ) : (
+                      <button
+                        disabled
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-emerald-700 bg-emerald-100 border border-emerald-200 cursor-default flex-shrink-0"
+                      >
+                        <UserCheck size={12} />
+                        <span>Linked</span>
+                      </button>
+                    )
                   ) : (
                     <button
-                      onClick={() => onSelectProperty(property)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectProperty(property);
+                        handleClose();
+                      }}
                       className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg text-white shadow-sm transition-all hover:opacity-90 flex-shrink-0 bg-[#e67e22]"
                     >
                       <Link2 size={12} />
@@ -304,46 +362,80 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
         </div>
 
         {/* Footer */}
-        {onCreatePropertyClick ? (
-          <div
-            className="px-4 py-2.5 border-t flex items-center justify-between text-xs"
-            style={{ background: BG, borderColor: BD }}
-          >
-            <span className="text-[10px] text-gray-500">
-              Want to create a new property instead?
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleClose}
-                className="px-3 py-1 text-xs rounded-lg border text-gray-600 hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  handleClose();
-                  onCreatePropertyClick();
-                }}
-                className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg text-white bg-blue-600 hover:bg-blue-700 font-medium"
-              >
-                <Plus size={11} />
-                <span>Create Property</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div
-            className="px-4 py-2.5 border-t flex items-center justify-end text-xs"
-            style={{ background: BG, borderColor: BD }}
-          >
-            <button
-              onClick={handleClose}
-              className="px-4 py-1.5 text-xs rounded-lg border text-gray-600 hover:bg-gray-100 font-medium"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
+        <div
+          className="px-4 py-2.5 border-t flex items-center justify-between text-xs"
+          style={{ background: BG, borderColor: BD }}
+        >
+          {onCreatePropertyClick ? (
+            <>
+              <span className="text-[10px] text-gray-500">
+                Want to create a new property instead?
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleClose}
+                  className="px-3 py-1 text-xs rounded-lg border text-gray-600 hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                {selectedPropertyIds.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const toSelect = filteredLinkableProperties.filter((p: any) =>
+                        selectedPropertyIds.includes(String(p.id || p.property_id || p._id))
+                      );
+                      onSelectProperty(toSelect);
+                      handleClose();
+                    }}
+                    className="px-3 py-1 text-xs rounded-lg text-white bg-[#e67e22] hover:bg-[#d35400] font-medium"
+                  >
+                    <span>Link Selected ({selectedPropertyIds.length})</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    handleClose();
+                    onCreatePropertyClick();
+                  }}
+                  className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg text-white bg-blue-600 hover:bg-blue-700 font-medium"
+                >
+                  <Plus size={11} />
+                  <span>Create Property</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="text-[10px] text-gray-500">
+                {selectedPropertyIds.length > 0
+                  ? `${selectedPropertyIds.length} properties selected`
+                  : "Select checkbox next to property to link multiple"}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleClose}
+                  className="px-4 py-1.5 text-xs rounded-lg border text-gray-600 hover:bg-gray-100 font-medium"
+                >
+                  Cancel
+                </button>
+                {selectedPropertyIds.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const toSelect = filteredLinkableProperties.filter((p: any) =>
+                        selectedPropertyIds.includes(String(p.id || p.property_id || p._id))
+                      );
+                      onSelectProperty(toSelect);
+                      handleClose();
+                    }}
+                    className="px-4 py-1.5 text-xs rounded-lg text-white bg-[#e67e22] hover:bg-[#d35400] font-medium"
+                  >
+                    <span>Link Selected ({selectedPropertyIds.length})</span>
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

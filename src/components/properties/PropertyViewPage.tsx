@@ -1370,11 +1370,11 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
         <img
           src={url}
           alt={`Media card ${mediaIdx + 1}`}
-          className="relative z-10 w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+          className="relative z-10 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
         />
 
         {isVid && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+          <div className="absolute inset-0 z-20 bg-black/40 flex items-center justify-center">
             <div className="w-6 h-6 rounded-full bg-white/90 shadow-md flex items-center justify-center text-[10px] text-slate-900 font-bold pl-0.5">
               ▶
             </div>
@@ -1382,7 +1382,7 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
         )}
 
         {hasMoreOverlay ? (
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/60 to-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center text-white transition-all group-hover:bg-black/75">
+          <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/85 via-black/60 to-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center text-white transition-all group-hover:bg-black/75">
             <span className="text-sm sm:text-base font-extrabold tracking-tight text-white drop-shadow">
               +{remainingCount}
             </span>
@@ -1391,7 +1391,7 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
             </span>
           </div>
         ) : isSelected ? (
-          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-[#e67e22] text-white rounded-md text-[7.5px] font-bold shadow-sm tracking-wide uppercase">
+          <div className="absolute top-1.5 left-1.5 z-20 bg-[#e67e22] text-white rounded-md text-[7.5px] font-bold shadow-sm tracking-wide uppercase">
             Active
           </div>
         ) : null}

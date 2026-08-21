@@ -20,6 +20,11 @@ import RentalPropertyFormModal from './components/RentalPropertyFormModal';
 import RentalPropertyFilterModal, { RentalPropertyFilters } from './RentalPropertyFilterModal';
 import ImportRentalPropertiesModal from '../../components/properties/ImportRentalPropertiesModal';
 import RentalPropertyViewPage from '../../components/properties/RentalPropertyViewPage';
+import { OwnerViewPage } from '../../components/owners/OwnerViewPage';
+import propertyTagsAPI from '@/lib/propertyTagsAPI';
+import getTagStyle, { DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
+import { LucideIcon } from 'lucide-react';
+import ownerAPI from '@/lib/ownerAPI';
 
 const BRAND = '#E6761D'; // Orange accent
 const NAVY = '#0f2b3d';  // Navy
@@ -56,7 +61,179 @@ interface UIProperty {
   matchedBuyers?: any[];
   furnishing?: string;
   preferred_tenants?: string;
+  owner?: { id: number; name: string } | null;
 }
+
+function Emoji({ emoji, size = 12, className = "" }: { emoji?: string | LucideIcon; size?: number; className?: string }) {
+  if (!emoji) return null;
+  if (typeof emoji === "string") return <span className={`${className} font-bold uppercase leading-none`} aria-hidden="true">{emoji}</span>;
+  const Icon = emoji;
+  return <Icon size={size} className={className} aria-hidden="true" />;
+}
+
+const TagPickerRow: React.FC<{
+  label: "Add" | "Remove";
+  knownTags: string[];
+  selectedPropertyIds: (number | string)[];
+  propTags: Record<string, string[]>;
+  onApply: (tags: string[]) => void;
+  isOpen: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}> = ({ label, knownTags, selectedPropertyIds, propTags, onApply, isOpen, onToggle, onClose }) => {
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const currentTags = useMemo(() => {
+    const allTags = new Set<string>();
+    selectedPropertyIds.forEach(id => {
+      const tags = propTags[String(id)] || [];
+      tags.forEach(tag => allTags.add(tag));
+    });
+    return Array.from(allTags);
+  }, [selectedPropertyIds, propTags]);
+
+  const options = useMemo(() => {
+    const base = (knownTags?.length ? knownTags : Object.keys(DEFAULT_TAG_STYLE))
+      .map(t => String(t).trim())
+      .filter(Boolean);
+    const uniq = Array.from(new Map(base.map(t => [t.toLowerCase(), t])).values());
+    return uniq.sort((a, b) => a.localeCompare(b));
+  }, [knownTags]);
+
+  useEffect(() => {
+    if (label === "Remove" && isOpen) {
+      setSelected(currentTags.filter(tag => options.includes(tag)));
+    } else if (label === "Add" && isOpen) {
+      setSelected([]);
+    }
+  }, [isOpen, label, currentTags, options]);
+
+  const toggle = (t: string) => {
+    setSelected(prev => (prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]));
+  };
+
+  const selectAll = () => setSelected(options);
+  const clearAll = () => setSelected([]);
+
+  const apply = () => {
+    if (!selected.length) {
+      toast.warn(`Please select at least one tag to ${label.toLowerCase()}`);
+      return;
+    }
+    onApply(selected);
+    onClose();
+  };
+
+  return (
+    <div className="mb-1.5 relative">
+      <button
+        className="w-full text-left text-[10px] px-2 py-1 rounded-lg font-medium transition-all duration-200 flex items-center justify-between group bg-slate-50 border border-slate-200 text-[#0f2b3d]"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+        type="button"
+      >
+        <span className="flex items-center gap-1">
+          <span className={`w-1.5 h-1.5 rounded-full ${label === 'Add' ? 'bg-green-500' : 'bg-red-500'}`} />
+          {label} tags
+        </span>
+        {selected.length > 0 && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-orange-100 text-orange-600">
+            {selected.length}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-40 md:hidden" onClick={onClose} />
+          <div className="absolute z-50 left-0 right-0 mt-1 rounded-lg shadow-xl overflow-hidden bg-white border border-slate-200 min-w-[190px] w-full">
+            <div className="flex items-center justify-between px-2 py-1.5 bg-slate-50 border-b border-slate-200">
+              <div className="text-[9px] font-medium text-slate-500">
+                {options.length} tags
+                {label === "Remove" && currentTags.length > 0 && (
+                  <span className="ml-1 text-orange-500">({currentTags.length} applied)</span>
+                )}
+              </div>
+              <div className="flex gap-1">
+                <button onClick={selectAll} className="text-[9px] px-1.5 py-0.5 rounded hover:bg-gray-100 text-[#0f2b3d]">All</button>
+                <button onClick={clearAll} className="text-[9px] px-1.5 py-0.5 rounded hover:bg-gray-100 text-slate-500">Clear</button>
+              </div>
+            </div>
+
+            <div className="max-h-48 overflow-y-auto p-1.5 space-y-1" style={{ scrollbarWidth: 'thin' }}>
+              {options.map(t => {
+                const active = selected.includes(t);
+                const tone = getTagStyle(t);
+                const isCurrentlyApplied = currentTags.includes(t);
+
+                return (
+                  <li
+                    key={t}
+                    className={`flex items-center gap-1.5 p-1.5 rounded-lg cursor-pointer transition-all duration-150 ${active ? 'shadow-sm bg-orange-50 border border-orange-200' : 'border border-transparent'}`}
+                    onClick={() => toggle(t)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() => toggle(t)}
+                      className="h-3 w-3 rounded focus:ring-1 cursor-pointer accent-orange-500"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium flex-1 ${tone.bg} ${tone.text} ${tone.ring}`} title={t}>
+                      <Emoji emoji={tone.emoji} size={10} />
+                      <span className="leading-none capitalize">{t}</span>
+                    </div>
+                    {label === "Remove" && isCurrentlyApplied && (
+                      <span className="text-[8px] font-medium px-1 py-0.5 rounded whitespace-nowrap bg-orange-100 text-orange-600">Applied</span>
+                    )}
+                  </li>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between px-2 py-1.5 border-t border-slate-200 bg-slate-50">
+              <div className="text-[9px] font-medium text-slate-500">
+                {selected.length} tag{selected.length !== 1 ? 's' : ''}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button onClick={onClose} className="px-2 py-0.5 text-[9px] rounded text-slate-500 hover:bg-gray-100">Cancel</button>
+                <button onClick={apply} disabled={selected.length === 0} className="px-2 py-0.5 text-[9px] font-medium rounded text-white bg-orange-500 hover:opacity-80 disabled:opacity-40">{label} {selected.length}</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const PropertyTags = ({ tags, className = "", onClickTag }: { tags: string[]; className?: string; onClickTag?: (tag: string) => void }) => {
+  if (!tags?.length) return null;
+  return (
+    <div className={`flex flex-wrap gap-1.5 ${className}`}>
+      {tags.map((raw, i) => {
+        const key = String(raw || "").trim();
+        const tone = getTagStyle(key);
+        const common = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ring-1 shadow-sm leading-none";
+        const TagEl = onClickTag ? "button" as const : "span";
+        return (
+          <TagEl
+            key={`${key}-${i}`}
+            title={onClickTag ? `Filter by: ${key}` : key}
+            className={`${common} ${tone.bg} ${tone.text} ${tone.ring} ${onClickTag ? "cursor-pointer hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400" : ""}`}
+            onClick={onClickTag ? () => onClickTag(key) : undefined}
+            type={onClickTag ? "button" : undefined}
+          >
+            <Emoji emoji={tone.emoji} size={12} className="text-xs mr-1" />
+            <span className="leading-none">{key}</span>
+          </TagEl>
+        );
+      })}
+    </div>
+  );
+};
 
 /* ---------------------- Image Helper Component ---------------------- */
 const ImageWithDebug: React.FC<{
@@ -188,6 +365,8 @@ export function RentalPropertiesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkAssignExecId, setBulkAssignExecId] = useState('');
+  const [ownerToView, setOwnerToView] = useState<{ id: number; name: string } | null>(null);
 
   // Selection
   const [selectedProperties, setSelectedProperties] = useState<(number | string)[]>([]);
@@ -203,6 +382,219 @@ export function RentalPropertiesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [viewsMap, setViewsMap] = useState<Record<string, { total_views: number; unique_views: number }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<number | string | null>(null);
+
+  // Dynamic Tags
+  const [propTags, setPropTags] = useState<Record<string, string[]>>({});
+  const [knownTags, setKnownTags] = useState<string[]>([]);
+  const [bulkTagsMenuOpen, setBulkTagsMenuOpen] = useState(false);
+  const [activeTagPicker, setActiveTagPicker] = useState<'add' | 'remove' | null>(null);
+
+  // Link Owner States & Handlers
+  const [showLinkOwnerModal, setShowLinkOwnerModal] = useState(false);
+  const [linkingPropertyForOwner, setLinkingPropertyForOwner] = useState<any | null>(null);
+  const [allOwnersList, setAllOwnersList] = useState<any[]>([]);
+  const [ownerSearchQuery, setOwnerSearchQuery] = useState('');
+  const [loadingOwners, setLoadingOwners] = useState(false);
+  const [savingOwnerLink, setSavingOwnerLink] = useState(false);
+
+  const handleOpenLinkOwnerModal = async (property: any) => {
+    setLinkingPropertyForOwner(property);
+    setShowLinkOwnerModal(true);
+    setOwnerSearchQuery('');
+    setLoadingOwners(true);
+    try {
+      const res = await ownerAPI.getAll();
+      const list = Array.isArray(res) ? res : (res?.data || []);
+      setAllOwnersList(list);
+    } catch (err) {
+      console.error("Failed to load owners:", err);
+      toast.error("Could not load owners");
+    } finally {
+      setLoadingOwners(false);
+    }
+  };
+
+  const handleLinkOwnerToProperty = async (owner: any) => {
+    if (!linkingPropertyForOwner) return;
+    setSavingOwnerLink(true);
+    try {
+      const currentProps = Array.isArray(owner.properties) ? owner.properties : [];
+      const pid = String(linkingPropertyForOwner.id);
+      const alreadyLinked = currentProps.some((p: any) => String(p.id || p.property_id || p._id) === pid);
+
+      const updatedProps = alreadyLinked ? currentProps : [...currentProps, linkingPropertyForOwner];
+
+      await ownerAPI.update(String(owner.id), {
+        ...owner,
+        properties: updatedProps,
+        property_ids: updatedProps.map((p: any) => p.id || p.property_id || p._id).filter(Boolean),
+      });
+
+      await rentalPropertiesAPI.patchOwner(String(linkingPropertyForOwner.id), 'link', owner.id);
+
+      setProperties(prev => prev.map(p => {
+        if (p.id === linkingPropertyForOwner.id) {
+          return {
+            ...p,
+            owner: {
+              id: owner.id,
+              name: owner.name,
+              phone: owner.phone,
+              email: owner.email,
+            },
+          };
+        }
+        return p;
+      }));
+
+      toast.success(`Property linked to owner "${owner.name}" successfully!`);
+      setShowLinkOwnerModal(false);
+      setLinkingPropertyForOwner(null);
+    } catch (err: any) {
+      console.error('Failed to link owner:', err);
+      toast.error('Failed to link owner to property');
+    } finally {
+      setSavingOwnerLink(false);
+    }
+  };
+
+  const handleUnlinkOwnerFromProperty = async () => {
+    if (!linkingPropertyForOwner) return;
+    const linkedOwnerId = linkingPropertyForOwner.owner?.id;
+    const linkedOwnerName = linkingPropertyForOwner.owner?.name;
+
+    const result = await Swal.fire({
+      title: 'Unlink Owner?',
+      text: `Are you sure you want to unlink owner "${linkedOwnerName}" from this property?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Unlink',
+      cancelButtonText: 'Cancel',
+      width: '380px',
+      customClass: {
+        popup: 'rounded-xl shadow-2xl',
+        title: 'text-base font-bold text-gray-800',
+        htmlContainer: 'text-xs text-gray-600',
+        confirmButton: 'px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 mx-1',
+        cancelButton: 'px-3 py-1.5 bg-gray-500 text-white text-xs font-semibold rounded-lg hover:bg-gray-600 mx-1',
+      },
+      buttonsStyling: false,
+    });
+
+    if (!result.isConfirmed) return;
+
+    setSavingOwnerLink(true);
+    try {
+      await rentalPropertiesAPI.patchOwner(String(linkingPropertyForOwner.id), 'unlink');
+
+      if (linkedOwnerId) {
+        try {
+          const resp = await ownerAPI.getById(String(linkedOwnerId));
+          const ownerData = resp?.data?.owner ?? resp?.owner ?? resp;
+          const currentProps: any[] = Array.isArray(resp?.data?.properties)
+            ? resp.data.properties
+            : Array.isArray(resp?.properties)
+            ? resp.properties
+            : [];
+
+          const pid = String(linkingPropertyForOwner.id);
+          const updatedProps = currentProps.filter(
+            (p: any) => String(p.id || p.property_id || p._id) !== pid
+          );
+
+          await ownerAPI.update(String(linkedOwnerId), {
+            ...(ownerData || {}),
+            properties: updatedProps,
+            property_ids: updatedProps.map((p: any) => p.id || p.property_id || p._id).filter(Boolean),
+          });
+        } catch (err) {
+          console.error('Failed to update owner properties on server during unlink:', err);
+        }
+      }
+
+      setProperties(prev => prev.map(p => {
+        if (p.id === linkingPropertyForOwner.id) {
+          return { ...p, owner: null };
+        }
+        return p;
+      }));
+
+      setLinkingPropertyForOwner(prev => prev ? { ...prev, owner: null } : null);
+      toast.success('Owner unlinked from property successfully!');
+    } catch (err: any) {
+      console.error('Failed to unlink owner:', err);
+      toast.error('Failed to unlink owner from property');
+    } finally {
+      setSavingOwnerLink(false);
+    }
+  };
+
+  const filteredOwnersForLink = useMemo(() => {
+    if (!ownerSearchQuery.trim()) return allOwnersList;
+    const q = ownerSearchQuery.toLowerCase().trim();
+    return allOwnersList.filter(o =>
+      String(o.name || '').toLowerCase().includes(q) ||
+      String(o.phone || '').toLowerCase().includes(q) ||
+      String(o.email || '').toLowerCase().includes(q) ||
+      String(o.location || '').toLowerCase().includes(q)
+    );
+  }, [allOwnersList, ownerSearchQuery]);
+
+  const knownTagsAll = useMemo(() => {
+    const set = new Set<string>([...Object.keys(DEFAULT_TAG_STYLE), ...knownTags]);
+    return Array.from(set).sort();
+  }, [knownTags]);
+
+  const handleBulkAddTags = async (tags: string[]) => {
+    if (!selectedProperties.length) return toast.warn("No properties selected");
+    const clean = Array.from(new Set(tags.map(t => String(t).trim()).filter(Boolean)));
+    if (!clean.length) return toast.warn("Pick at least one tag");
+
+    setBulkLoading(true);
+    try {
+      for (const id of selectedProperties) {
+        await propertyTagsAPI.add(id, clean);
+        const key = String(id);
+        setPropTags(prev => ({
+          ...prev,
+          [key]: Array.from(new Set([...(prev[key] || []), ...clean]))
+        }));
+      }
+      setKnownTags(prev => Array.from(new Set([...prev, ...clean])).sort());
+      toast.success("Tags added to selected properties");
+    } catch (e: any) {
+      console.error("Bulk add tags failed:", e);
+      toast.error(e?.response?.data?.message || "Failed to add tags");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkRemoveTags = async (tags: string[]) => {
+    if (!selectedProperties.length) return toast.warn("No properties selected");
+    const clean = Array.from(new Set(tags.map(t => String(t).trim()).filter(Boolean)));
+    if (!clean.length) return toast.warn("Pick at least one tag");
+
+    setBulkLoading(true);
+    try {
+      for (const id of selectedProperties) {
+        await propertyTagsAPI.remove(id, clean);
+        const key = String(id);
+        setPropTags(prev => {
+          const remain = (prev[key] || []).filter(t => !clean.some(r => r.toLowerCase() === t.toLowerCase()));
+          return { ...prev, [key]: remain };
+        });
+      }
+      toast.success("Tags removed from selected properties");
+    } catch (e: any) {
+      console.error("Bulk remove tags failed:", e);
+      toast.error(e?.response?.data?.message || "Failed to remove tags");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   // Filters State
   const EMPTY_FILTERS: RentalPropertyFilters = {
@@ -289,8 +681,18 @@ export function RentalPropertiesPage() {
           amenities: p.amenities || [],
           furnishingItems: p.furnishing_items || p.furnishingItems || [],
           nearby_places: p.nearby_places || [],
+          owner: (p.owner_id || p.owner?.id) ? { id: p.owner_id || p.owner?.id, name: p.owner_name || p.owner?.name || 'Owner' } : null,
         }));
         setProperties(mapped);
+
+        const ids = mapped.map((p: any) => p.id);
+        if (ids.length > 0) {
+          propertyTagsAPI.getBulk(ids).then(bulkMap => {
+            setPropTags(bulkMap || {});
+            const allTags = Object.values(bulkMap || {}).flat();
+            setKnownTags(prev => Array.from(new Set([...prev, ...allTags])).sort());
+          }).catch(console.error);
+        }
       }
     } catch (err) {
       toast.error('Failed to load rental properties');
@@ -618,6 +1020,34 @@ export function RentalPropertiesPage() {
     }
   };
 
+  const handleBulkAssignExecutive = async () => {
+    if (!bulkAssignExecId) { toast.warning('Select an executive first'); return; }
+    try {
+      setBulkLoading(true);
+      const res = await rentalPropertiesAPI.bulkAssignExecutive(selectedProperties.map(Number), Number(bulkAssignExecId));
+      if (res.success) {
+        toast.success(`Assigned executive to ${selectedProperties.length} properties`);
+        setSelectedProperties([]);
+        setBulkAssignExecId('');
+        loadProperties();
+      }
+    } catch (e) { toast.error('Failed to assign executive'); }
+    finally { setBulkLoading(false); }
+  };
+
+  const handleBulkUnassignExecutive = async () => {
+    try {
+      setBulkLoading(true);
+      const res = await rentalPropertiesAPI.bulkUnassignExecutive(selectedProperties.map(Number));
+      if (res.success) {
+        toast.success(`Unassigned executive from ${selectedProperties.length} properties`);
+        setSelectedProperties([]);
+        loadProperties();
+      }
+    } catch (e) { toast.error('Failed to unassign executive'); }
+    finally { setBulkLoading(false); }
+  };
+
   const handleBulkExport = async (format: 'csv' | 'json') => {
     if (!selectedProperties.length) {
       toast.info("Please select properties to export");
@@ -692,8 +1122,6 @@ export function RentalPropertiesPage() {
           society_name: prop.society_name || '',
           floor: prop.floor || '',
           totalFloors: prop.total_floors || '',
-          carpetArea: prop.carpet_area || '',
-          builtupArea: prop.builtup_area || '',
           leadSource: prop.lead_source || '',
           source_url: prop.source_url || prop.sourceUrl || '',
           address: prop.address || '',
@@ -745,6 +1173,15 @@ export function RentalPropertiesPage() {
       if (p) setCurrentPropertyView(p);
     }
   }, [loading, properties]);
+
+  if (ownerToView) {
+    return (
+      <OwnerViewPage
+        ownerId={ownerToView.id}
+        onBack={() => setOwnerToView(null)}
+      />
+    );
+  }
 
   if (currentPropertyView) {
     return (
@@ -968,11 +1405,10 @@ export function RentalPropertiesPage() {
 
               <button
                 onClick={() => setShowFilterModal(true)}
-                className={`flex items-center justify-center px-2.5 py-1.5 border rounded-md transition-all text-[11px] sm:text-xs font-semibold gap-1.5 ${
-                  activeFiltersCount > 0
-                    ? 'border-orange-500 bg-orange-50/50 text-orange-700 hover:bg-orange-100/60'
-                    : 'border-gray-300 hover:bg-gray-50 text-gray-700'
-                }`}
+                className={`flex items-center justify-center px-2.5 py-1.5 border rounded-md transition-all text-[11px] sm:text-xs font-semibold gap-1.5 ${activeFiltersCount > 0
+                  ? 'border-orange-500 bg-orange-50/50 text-orange-700 hover:bg-orange-100/60'
+                  : 'border-gray-300 hover:bg-gray-50 text-gray-700'
+                  }`}
               >
                 <FilterIcon size={12} className={activeFiltersCount > 0 ? 'text-orange-600' : 'text-gray-400'} />
                 <span className="hidden sm:inline">Filters</span>
@@ -1040,6 +1476,38 @@ export function RentalPropertiesPage() {
                       {selectedProperties.length === filteredProperties.length && filteredProperties.length > 0 ? 'Unselect All' : 'Select All'}
                     </button>
 
+                    {canAssign && (
+                      <>
+                        <select
+                          value={bulkAssignExecId}
+                          onChange={(e) => setBulkAssignExecId(e.target.value)}
+                          disabled={bulkLoading}
+                          className="px-2 py-1 text-[10px] sm:text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none"
+                        >
+                          <option value="">Assign Executive...</option>
+                          {executives.map(ex => (
+                            <option key={ex.id} value={ex.id}>
+                              {(`${ex.first_name || ''} ${ex.last_name || ''}`).trim() || ex.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={handleBulkAssignExecutive}
+                          disabled={bulkLoading || !bulkAssignExecId}
+                          className="px-2 sm:px-2.5 py-1 bg-[#0f2b3d] text-white rounded text-[10px] sm:text-xs hover:bg-[#1a3f5a] disabled:opacity-50 whitespace-nowrap"
+                        >
+                          Assign Exec
+                        </button>
+                        <button
+                          onClick={handleBulkUnassignExecutive}
+                          disabled={bulkLoading}
+                          className="px-2 sm:px-2.5 py-1 bg-gray-500 text-white rounded text-[10px] sm:text-xs hover:bg-gray-600 disabled:opacity-50 whitespace-nowrap"
+                        >
+                          Unassign Exec
+                        </button>
+                      </>
+                    )}
+
                     {canUpdate && (
                       <>
                         <button
@@ -1074,6 +1542,77 @@ export function RentalPropertiesPage() {
                           <span className="sm:hidden">Private</span>
                           <span className="hidden sm:inline">Mark Private</span>
                         </button>
+
+                        <div className="relative inline-block">
+                          <button
+                            onClick={() => {
+                              setBulkTagsMenuOpen(prev => !prev);
+                              setActiveTagPicker(null);
+                            }}
+                            className="px-2 sm:px-2.5 py-1 bg-gray-800 text-white rounded text-[10px] sm:text-xs hover:bg-gray-900 transition-colors whitespace-nowrap"
+                          >
+                            Tags
+                          </button>
+
+                          {bulkTagsMenuOpen && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-40"
+                                onClick={() => {
+                                  setBulkTagsMenuOpen(false);
+                                  setActiveTagPicker(null);
+                                }}
+                              />
+                              <div className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[220px] sm:min-w-[230px] left-0 sm:right-0 sm:left-auto">
+                                <div className="p-2 sm:p-3">
+                                  <div className="text-[10px] sm:text-xs font-medium text-gray-700 mb-1.5 sm:mb-2">Bulk Tag Operations</div>
+                                  <div className="tag-picker-container">
+                                    <TagPickerRow
+                                      label="Add"
+                                      knownTags={knownTagsAll}
+                                      selectedPropertyIds={selectedProperties}
+                                      propTags={propTags}
+                                      onApply={(tags) => {
+                                        handleBulkAddTags(tags);
+                                        setBulkTagsMenuOpen(false);
+                                        setActiveTagPicker(null);
+                                      }}
+                                      isOpen={activeTagPicker === 'add'}
+                                      onToggle={() => {
+                                        if (activeTagPicker && activeTagPicker !== 'add') {
+                                          setActiveTagPicker('add');
+                                        } else {
+                                          setActiveTagPicker(activeTagPicker === 'add' ? null : 'add');
+                                        }
+                                      }}
+                                      onClose={() => setActiveTagPicker(null)}
+                                    />
+                                    <TagPickerRow
+                                      label="Remove"
+                                      knownTags={knownTagsAll}
+                                      selectedPropertyIds={selectedProperties}
+                                      propTags={propTags}
+                                      onApply={(tags) => {
+                                        handleBulkRemoveTags(tags);
+                                        setBulkTagsMenuOpen(false);
+                                        setActiveTagPicker(null);
+                                      }}
+                                      isOpen={activeTagPicker === 'remove'}
+                                      onToggle={() => {
+                                        if (activeTagPicker && activeTagPicker !== 'remove') {
+                                          setActiveTagPicker('remove');
+                                        } else {
+                                          setActiveTagPicker(activeTagPicker === 'remove' ? null : 'remove');
+                                        }
+                                      }}
+                                      onClose={() => setActiveTagPicker(null)}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </>
                     )}
 
@@ -1155,8 +1694,11 @@ export function RentalPropertiesPage() {
                             />
                           </div>
 
-                          {/* Visibility badge */}
-                          <div className="absolute top-2 right-2 flex max-w-[70%] flex-wrap gap-1 justify-end">
+                          {/* Visibility badge & Tags overlay */}
+                          <div className="absolute top-2 right-2 flex max-w-[75%] flex-wrap gap-1 justify-end z-10">
+                            <PropertyTags
+                              tags={propTags[String(property.id)] || []}
+                            />
                             {property.isPublic ? (
                               <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-green-50 text-green-700 ring-1 ring-green-200">
                                 PUBLIC
@@ -1191,8 +1733,8 @@ export function RentalPropertiesPage() {
                                 <div className="flex-1 min-w-0">
                                   <div className="text-[11.5px] font-bold truncate text-[#0f2b3d] cursor-pointer hover:text-orange-600 transition-colors" title={leftTitle} onClick={() => handleViewProperty(property)}>
                                     {unitAndSubtype && <span className="text-[#0f2b3d] hover:text-orange-600">{unitAndSubtype}</span>}
-                                    {unitAndSubtype && societyName && <span className="text-gray-400 font-normal mx-1">•</span>}
-                                    {societyName && <span className="font-semibold text-gray-800 hover:text-orange-600">{societyName}</span>}
+                                    {unitAndSubtype && societyName && <span className="text-gray-400 font-normal mx-1"></span>}
+                                    {societyName && <span className=" hover:text-orange-600">{societyName}</span>}
                                     {!unitAndSubtype && !societyName && (property.title || 'Property')}
                                   </div>
                                 </div>
@@ -1240,7 +1782,7 @@ export function RentalPropertiesPage() {
                                 const hasFloor = Boolean(floorNo || totalNo);
 
                                 return (
-                                  <div className="flex items-center gap-0.5 flex-shrink-0 text-right">
+                                  <div className="flex items-center gap-0.5 flex-shrink-0 text-right pr-8">
                                     <Layers size={10} className="flex-shrink-0 text-slate-400" />
                                     <span className="font-medium text-gray-500">Floor:</span>
                                     <span className="text-[9.5px] font-bold">
@@ -1267,6 +1809,13 @@ export function RentalPropertiesPage() {
                               <User size={10} className="flex-shrink-0 text-slate-400" />
                               <span className="truncate">{dash(property.seller?.name)}</span>
                             </div>
+                            {/* Owner badge */}
+                            {property.owner?.id && (
+                              <div className="flex items-center gap-1 text-[9px] text-gray-500 mb-1">
+                                <UserCheck size={9} className="text-orange-500" />
+                                <span className="truncate max-w-[120px] font-medium">{property.owner.name}</span>
+                              </div>
+                            )}
                           </div>
 
                           {/* Stage and Visits */}
@@ -1287,10 +1836,14 @@ export function RentalPropertiesPage() {
                             >
                               View Details
                             </button>
-                            <button
-                              onClick={() => handleEditProperty(property.id)}
-                              className="p-1.5 rounded-lg transition-all text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100/50 flex-shrink-0 flex items-center justify-center"
-                              title="Edit Listing"
+                             <button
+                              onClick={() => handleOpenLinkOwnerModal(property)}
+                              className={`p-1.5 rounded-lg transition-all flex-shrink-0 flex items-center justify-center border ${
+                                property.owner?.id
+                                  ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border-indigo-100/50'
+                                  : 'text-gray-400 bg-gray-50 hover:bg-gray-100 border-gray-200'
+                              }`}
+                              title={property.owner?.id ? `Manage Owner: ${property.owner.name}` : 'Link Owner'}
                             >
                               <Link2 size={13} />
                             </button>
@@ -1444,7 +1997,7 @@ export function RentalPropertiesPage() {
                                   <Trash2 size={13} />
                                 </button>
                               </div>
-                             </td>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1574,6 +2127,152 @@ export function RentalPropertiesPage() {
             loadProperties();
           }}
         />
+      )}
+
+      {showLinkOwnerModal && linkingPropertyForOwner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="px-4 py-3 bg-gradient-to-r from-orange-500 to-amber-600 text-white flex justify-between items-center flex-shrink-0">
+              <div>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                  <LinkIcon size={13} /> Link Owner
+                </h3>
+                <p className="text-[10px] text-orange-50 opacity-90 mt-0.5 truncate max-w-[280px]">
+                  Property: {linkingPropertyForOwner.title || `Property ID: RENT-${linkingPropertyForOwner.id}`}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowLinkOwnerModal(false);
+                  setLinkingPropertyForOwner(null);
+                }}
+                className="p-1 rounded-full hover:bg-white/20 transition-colors text-white"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4 flex-1 overflow-y-auto space-y-4">
+              {/* Linked Owner Status */}
+              {linkingPropertyForOwner.owner?.id ? (
+                <div className="p-3 bg-amber-50/50 rounded-lg border border-amber-200/60 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-[9px] font-bold text-amber-800 uppercase tracking-wide">Linked Owner</span>
+                      <h4 className="text-xs font-bold text-slate-800 mt-0.5">
+                        {linkingPropertyForOwner.owner.name}
+                      </h4>
+                      <p className="text-[10px] text-slate-500">
+                        Owner ID: {linkingPropertyForOwner.owner.id}
+                      </p>
+                    </div>
+                    <button
+                      disabled={savingOwnerLink}
+                      onClick={handleUnlinkOwnerFromProperty}
+                      className="px-2 py-0.5 text-[9px] font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition-colors"
+                    >
+                      {savingOwnerLink ? 'Unlinking...' : 'Unlink Owner'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/60 text-center">
+                  <UserX size={20} className="mx-auto text-slate-400 mb-1" />
+                  <span className="text-[10px] font-bold text-slate-500">No Owner Linked yet</span>
+                </div>
+              )}
+
+              {/* Owner Search & Selection */}
+              <div className="space-y-2.5">
+                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">
+                  Link / Change Owner
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search owners by name, phone or email..."
+                    value={ownerSearchQuery}
+                    onChange={(e) => setOwnerSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white text-slate-800"
+                  />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                </div>
+
+                <div className="border border-slate-200 rounded-lg max-h-52 overflow-y-auto bg-white divide-y divide-slate-100">
+                  {loadingOwners ? (
+                    <div className="p-4 text-center text-[10px] text-gray-500 font-semibold">
+                      Loading owners list...
+                    </div>
+                  ) : filteredOwnersForLink.length === 0 ? (
+                    <div className="p-4 text-center text-[10px] text-gray-400 font-medium">
+                      No owners found matching "{ownerSearchQuery}"
+                    </div>
+                  ) : (
+                    filteredOwnersForLink.map((owner) => {
+                      const isCurrent = String(owner.id) === String(linkingPropertyForOwner.owner?.id);
+                      return (
+                        <div
+                          key={owner.id}
+                          onClick={() => {
+                            if (!isCurrent && !savingOwnerLink) {
+                              handleLinkOwnerToProperty(owner);
+                            }
+                          }}
+                          className={`p-2.5 flex items-center justify-between transition-all cursor-pointer ${
+                            isCurrent
+                              ? 'bg-orange-50/50 cursor-default'
+                              : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-800 text-[10.5px]">
+                                {owner.name}
+                              </span>
+                              {owner.phone && (
+                                <span className="text-[9px] text-slate-400">
+                                  ({owner.phone})
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[9px] text-slate-500 mt-0.5 truncate">
+                              ID: {owner.id} {owner.email ? `| ${owner.email}` : ''} {owner.location ? `| ${owner.location}` : ''}
+                            </div>
+                          </div>
+                          {isCurrent ? (
+                            <span className="px-2 py-0.5 rounded text-[8px] font-bold text-orange-600 bg-orange-100 border border-orange-200 flex-shrink-0">
+                              Linked
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[8px] font-bold text-[#E6761D] bg-orange-50 border border-orange-200/50 hover:bg-orange-100 flex-shrink-0">
+                              Link Owner
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex justify-end flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLinkOwnerModal(false);
+                  setLinkingPropertyForOwner(null);
+                }}
+                className="px-3 py-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200/80 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

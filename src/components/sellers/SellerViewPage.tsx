@@ -60,6 +60,8 @@ import LinkPropertyModal from "./LinkPropertyModal";
 import { sellerFollowupAPI } from "@/lib/sellerFollowupAPI";
 import { sellerAPI } from "@/lib/sellersAPI";
 import { useProperties } from "@/hooks/properties";
+import { propertiesAPI } from "@/lib/propertiesAPI";
+import { getImageUrl } from "@/lib/helpers";
 import SellerFollowupModal, {
   SellerFollowupPayload,
 } from "./SellerFollowupModal";
@@ -882,6 +884,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
   const [editingFollowup, setEditingFollowup] = useState<Followup | null>(null);
   const [fuLoading, setFuLoading] = useState(false);
   const [fuError, setFuError] = useState<string | null>(null);
+  const [selectedPropIds, setSelectedPropIds] = useState<string[]>([]);
   const { properties: availableProperties = [], loadingProps } = useProperties({ autoLog: false });
   const sellerRef = React.useRef(seller);
   useEffect(() => { sellerRef.current = seller; }, [seller]);
@@ -1377,16 +1380,28 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
   }, [availableProperties, seller, linkPropertySearch]);
 
   const handleLinkProperty = async (property: any) => {
+    const propertiesToLink = Array.isArray(property) ? property : [property];
     const currentProps = (seller as any).properties || [];
-    const pid = String(property.id || property.property_id || property._id);
-    const alreadyLinked = currentProps.some(
-      (p: any) => String(p.id || p.property_id || p._id) === pid
-    );
-    if (alreadyLinked) {
-      toast.info("Property is already linked to this seller");
+    
+    const updatedProps = [...currentProps];
+    let newlyLinkedCount = 0;
+
+    for (const prop of propertiesToLink) {
+      const pid = String(prop.id || prop.property_id || prop._id);
+      const alreadyLinked = updatedProps.some(
+        (p: any) => String(p.id || p.property_id || p._id) === pid
+      );
+      if (!alreadyLinked) {
+        updatedProps.push(prop);
+        newlyLinkedCount++;
+      }
+    }
+
+    if (newlyLinkedCount === 0) {
+      toast.info("Selected properties are already linked to this seller");
       return;
     }
-    const updatedProps = [...currentProps, property];
+
     const updatedSeller = {
       ...(seller as AnyObj),
       properties: updatedProps,
@@ -1394,7 +1409,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     onUpdateSeller(updatedSeller);
     setShowLinkPropertyModal(false);
     setLinkPropertySearch("");
-    toast.success("Property linked to seller successfully");
+    toast.success(`${newlyLinkedCount} properties linked to seller successfully`);
     if (sellerIdVal) {
       try {
         const res = await sellerAPI.update(String(sellerIdVal), {
@@ -1410,6 +1425,15 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       } catch (err) {
         console.error("Failed to update seller properties on server:", err);
       }
+    }
+  };
+
+  const handleUnlinkPropertyObj = async (property: any) => {
+    const currentProps = (seller as any).properties || [];
+    const pid = String(property.id || property.property_id || property._id);
+    const idx = currentProps.findIndex((p: any) => String(p.id || p.property_id || p._id) === pid);
+    if (idx !== -1) {
+      await handleUnlinkProperty(idx);
     }
   };
 
@@ -1461,10 +1485,80 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
         if (res && res.data) {
           onUpdateSeller(res.data);
         }
+        try {
+          await propertiesAPI.patchSeller(String(propToUnlink.id || propToUnlink.property_id || propToUnlink._id), 'unlink');
+        } catch (e) {
+          console.warn('patchSeller single unlink note:', e);
+        }
       } catch (err) {
         console.error("Failed to update seller properties on server:", err);
       }
     }
+  };
+
+  const handleBulkUnlinkProperties = async (propertyIds: string[]) => {
+    if (!propertyIds.length) return;
+    const currentProps = (seller as any).properties || [];
+
+    const result = await Swal.fire({
+      title: 'Unlink Selected Properties?',
+      text: `Are you sure you want to unlink the ${propertyIds.length} selected properties from this seller?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Unlink All',
+      cancelButtonText: 'Cancel',
+      width: '380px',
+      customClass: {
+        popup: 'rounded-xl shadow-2xl',
+        title: 'text-base font-bold text-gray-800',
+        htmlContainer: 'text-xs text-gray-600',
+        confirmButton: 'px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 mx-1',
+        cancelButton: 'px-3 py-1.5 bg-gray-500 text-white text-xs font-semibold rounded-lg hover:bg-gray-600 mx-1',
+      },
+      buttonsStyling: false,
+    });
+
+    if (!result.isConfirmed) return;
+
+    const idsToFilter = new Set(propertyIds.map(id => String(id)));
+    const updatedProps = currentProps.filter(
+      (p: any) => !idsToFilter.has(String(p.id || p.property_id || p._id))
+    );
+
+    const updatedSeller = {
+      ...(seller as AnyObj),
+      properties: updatedProps,
+    };
+    onUpdateSeller(updatedSeller);
+    toast.success(`${propertyIds.length} properties unlinked`);
+
+    if (sellerIdVal) {
+      try {
+        const res = await sellerAPI.update(String(sellerIdVal), {
+          ...updatedSeller,
+          properties: updatedProps,
+          property_ids: updatedProps
+            .map((p: any) => p.id || p.property_id || p._id)
+            .filter(Boolean),
+        });
+        if (res && res.data) {
+          onUpdateSeller(res.data);
+        }
+
+        for (const pid of propertyIds) {
+          try {
+            await propertiesAPI.patchSeller(String(pid), 'unlink');
+          } catch (e) {
+            console.warn('patchSeller bulk unlink note:', e);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to update seller properties on server:", err);
+      }
+    }
+    setSelectedPropIds([]);
   };
 
   const handleAddProperty = async (propertyData: AnyObj) => {
@@ -1834,6 +1928,15 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
 
             {/* TWO OPTIONS: LINK PROPERTY & ADD PROPERTY */}
             <div className="flex items-center gap-2">
+              {selectedPropIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleBulkUnlinkProperties(selectedPropIds)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 transition-colors shadow-sm animate-pulse"
+                >
+                  Unlink Selected ({selectedPropIds.length})
+                </button>
+              )}
               <button
                 onClick={() => {
                   setLinkPropertySearch("");
@@ -1857,12 +1960,12 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
           {sellerProps.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {sellerProps.map((property: AnyObj, index: number) => {
-                const title =
-                  property.title ??
-                  property.slug ??
-                  property.unit_type ??
-                  property.property_type ??
-                  "Untitled Property";
+                const propType = property.property_type_name || property.property_type || "";
+                const unitType = property.unit_type || property.bhk || property.configuration || "";
+                const subtype = property.property_subtype_name || property.property_sub_type || property.property_subtype || property.subtype || "";
+                const titleParts = [propType, unitType, subtype].map(s => String(s).trim()).filter(Boolean).join(" ");
+                const title = titleParts || property.title || "Untitled Property";
+
                 const address =
                   property.address ??
                   property.location ??
@@ -1870,11 +1973,12 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
                     .filter(Boolean)
                     .join(", ") ||
                     "—");
-                const photo =
+                const rawPhoto =
                   property.photos?.[0]?.url ||
                   property.photos?.[0] ||
                   property.image ||
                   property.photo;
+                const photo = getImageUrl(rawPhoto) || null;
                 const price =
                   property.price ?? property.budget ?? property.expected_price;
 
@@ -1884,17 +1988,31 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
                     className="border border-gray-200 rounded-lg p-2.5 hover:shadow-sm transition-shadow bg-white flex gap-2.5 items-center justify-between"
                   >
                     <div className="flex gap-2.5 items-center min-w-0 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedPropIds.includes(String(property.id || property.property_id || property._id))}
+                        onChange={(e) => {
+                          const idStr = String(property.id || property.property_id || property._id);
+                          if (e.target.checked) {
+                            setSelectedPropIds(prev => [...prev, idStr]);
+                          } else {
+                            setSelectedPropIds(prev => prev.filter(id => id !== idStr));
+                          }
+                        }}
+                        className="accent-orange-500 h-3.5 w-3.5 mr-1 cursor-pointer"
+                      />
+                      <div className="flex gap-2.5 items-center min-w-0 flex-1">
                       {photo ? (
                         <img
-                          src={typeof photo === "string" ? photo : photo?.url}
+                          src={photo}
                           alt={title}
                           className="w-14 h-12 object-cover rounded-md flex-shrink-0"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling && ((e.target as HTMLImageElement).nextElementSibling as HTMLElement)?.classList?.remove('hidden'); }}
                         />
-                      ) : (
-                        <div className="w-14 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0">
-                          No Pic
-                        </div>
-                      )}
+                      ) : null}
+                      <div className={`w-14 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0 ${photo ? 'hidden' : ''}`}>
+                        No Pic
+                      </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-[11px] font-semibold truncate text-gray-900">
                           {title}
@@ -1909,6 +2027,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
                         )}
                       </div>
                     </div>
+                  </div>
 
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
@@ -2762,6 +2881,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
         isOpen={showLinkPropertyModal}
         onClose={() => setShowLinkPropertyModal(false)}
         onSelectProperty={handleLinkProperty}
+        onUnlinkProperty={handleUnlinkPropertyObj}
         linkingSeller={seller}
         onCreatePropertyClick={openPropertyFormForCreate}
       />

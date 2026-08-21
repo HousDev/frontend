@@ -36,7 +36,7 @@ export const ownerAPI = {
   },
 
   importOwners: async (owners: any[]) => {
-    const response = await api.post(`/owners/bulk-import`, owners);
+    const response = await api.post(`/owners/bulk-import`, { items: owners });
     return response.data;
   },
 
