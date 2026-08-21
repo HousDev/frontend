@@ -29,6 +29,7 @@ import SubscriptionModal from '@/components/subscription/SubscriptionModal';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import PublicPropertyDetailPage from './PublicPropertyDetailPage';
 import { propertiesAPI } from '@/lib/propertiesAPI';
+import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
@@ -167,6 +168,7 @@ const isPublicProp = (p: any): boolean => {
 
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [transactionType, setTransactionType] = useState<'buy' | 'rent'>('buy');
   const [selectedCity, setSelectedCity] = useState('Pune');
   const [localityInput, setLocalityInput] = useState('');
   const [localities, setLocalities] = useState<string[]>([]);
@@ -302,8 +304,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       try {
         setLoading(true);
 
+        const activeAPI = transactionType === 'rent' ? rentalPropertiesAPI : propertiesAPI;
+
         // ✅ server से public-only
-        const response = await propertiesAPI.PublicgetProperties({
+        const response = await activeAPI.PublicgetProperties({
           status: 'Available',
           limit: 12,
           isPublic: true,
@@ -319,7 +323,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         let rawList = listRaw.filter(isPublicProp);
 
         if (!rawList.length) {
-          const fbRes = await propertiesAPI.PublicgetProperties({
+          const fbRes = await activeAPI.PublicgetProperties({
             status: 'Available',
             limit: 12,
             isPublic: true,
@@ -344,47 +348,36 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
         const mapped: Property[] = await Promise.all(
           slicedList.map(async (p: any) => {
-            // ✅ Get property type for default image
+            const viewData = await fetchPropertyViews(p.id);
             const propertyType = p.property_type_name || p.property_type || '';
 
-            // ✅ Create images array with proper fallback
-          // ✅ Create images array with proper fallback
-let images: string[] = [];
-
-// 1️⃣ Handle p.photos (filter out videos)
-if (Array.isArray(p.photos) && p.photos.length > 0) {
-  images = p.photos
-    .map((ph: any) => {
-      const url = typeof ph === 'string' ? ph : (ph?.url ?? '');
-      return (url || '').replace(/\\/g, '/');
-    })
-    .filter((u: string) => u && !isVideoUrl(u));
-}
-
-// 2️⃣ If still empty, try p.photoUrls (also filter videos)
-if (!images.length && Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
-  images = p.photoUrls
-    .map((u: string) => (u || '').replace(/\\/g, '/'))
-    .filter((u: string) => u && !isVideoUrl(u));
-}
-
-// 3️⃣ Final fallback to default image based on property type
-if (!images.length) {
-  images = [getDefaultImageByType(propertyType)];
-}
+            let images: string[] = [];
+            if (Array.isArray(p.photos) && p.photos.length > 0) {
+              images = p.photos
+                .map((ph: any) => {
+                  const url = typeof ph === 'string' ? ph : (ph?.url ?? '');
+                  return (url || '').replace(/\\/g, '/');
+                })
+                .filter((u: string) => u && !isVideoUrl(u));
+            }
+            if (!images.length && Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
+              images = p.photoUrls
+                .map((u: string) => (u || '').replace(/\\/g, '/'))
+                .filter((u: string) => u && !isVideoUrl(u));
+            }
+            if (!images.length) {
+              images = [getDefaultImageByType(propertyType)];
+            }
 
             const city = p.city_name || p.city || p.town || p.cityName || '';
             const locationRaw = p.location_name || p.locality || p.area || p.neighbourhood || p.location || p.address || '';
             const state = p.state || p.region || '';
             const location = [locationRaw, city, state].filter(Boolean).slice(0, 2).join(', ');
 
-            // ✅ Use bulk-fetched tags + fetch views
-            const tags: string[] = allTagsBulk[p.id] || [];
-            const viewData = await fetchPropertyViews(p.id);
-
-
             const unitType = (p.unit_type || p.unit_type_name || p.unit || p.unitType || '').toString().trim();
             const subtype = (p.property_subtype_name || p.property_subtype || p.unit_category_name || p.subtype || '').toString().trim();
+
+            const tags: string[] = allTagsBulk[p.id] || [];
 
             const rawSlug = p?.slug ?? p?.url_slug ?? p?.generated_slug;
             const slug = typeof rawSlug === 'string' && rawSlug.trim().length > 0 ? rawSlug.trim() : undefined;
@@ -394,7 +387,7 @@ if (!images.length) {
             const superBuiltup = Number(p.super_builtup_area) || 0;
             const totalArea = carpet || builtup || superBuiltup || Number(p.area) || undefined;
 
-            const priceVal = p.budget || p.price || p.amount;
+            const priceVal = p.monthly_rent || p.budget || p.price || p.amount;
             const price = priceVal ? Number(priceVal) : undefined;
 
             return {
@@ -408,7 +401,7 @@ if (!images.length) {
               city,
               property_type: propertyType,
               status: p.status || '',
-              images, // ✅ Now images will never be empty
+              images,
               location,
               area: totalArea,
               type: p.property_type_name || p.property_type || '',
@@ -447,8 +440,8 @@ if (!images.length) {
         );
 
         // ✅ सिर्फ featured pick करें
-      const featuredOnly = mapped.filter(isFeatured);
-setFeaturedProperties(featuredOnly.length ? featuredOnly : mapped);
+        const featuredOnly = mapped.filter(isFeatured);
+        setFeaturedProperties(featuredOnly.length ? featuredOnly : mapped);
 
       } catch (err) {
         console.error('Error fetching featured properties (public-only):', err);
@@ -459,7 +452,7 @@ setFeaturedProperties(featuredOnly.length ? featuredOnly : mapped);
     };
 
     fetchFeaturedProperties();
-  }, []);
+  }, [transactionType]);
 
 
   // ---------- ✅ HERO: fetch & build slides ----------
@@ -566,7 +559,6 @@ setFeaturedProperties(featuredOnly.length ? featuredOnly : mapped);
     return `₹${n.toLocaleString('en-IN')}`;
   };
 
-  const [transactionType, setTransactionType] = useState<'buy' | 'rent'>('buy');
 
   const addLocality = (value?: string) => {
     const v = (value ?? localityInput ?? '').toString().trim();
@@ -627,14 +619,10 @@ setFeaturedProperties(featuredOnly.length ? featuredOnly : mapped);
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (transactionType === 'rent') {
-      console.warn('Rent search not implemented yet. Only Buy is active.');
-      return;
-    }
     const city = selectedCity.trim();
     const locationStrings = localities.map(loc => loc.trim());
     if (!city && locationStrings.length === 0) {
-      navigate(`/properties?status=Available`);
+      navigate(`/properties?status=Available&transaction=${transactionType}`);
       return;
     }
     const params: { city: string; locations?: string | string[] } = { city };
@@ -642,7 +630,8 @@ setFeaturedProperties(featuredOnly.length ? featuredOnly : mapped);
 
     try {
       setLoading(true);
-      const response = await propertiesAPI.searchByCityLocation(params);
+      const activeAPI = transactionType === 'rent' ? rentalPropertiesAPI : propertiesAPI;
+      const response = await activeAPI.searchByCityLocation(params);
       const rawList = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
       await Promise.all(rawList.map(async (_p: any) => _p)); // mapping skipped; we only build the querystring below
 
@@ -652,6 +641,7 @@ setFeaturedProperties(featuredOnly.length ? featuredOnly : mapped);
       if (selectedPropertyType) searchParams.set('propertyType', selectedPropertyType);
       if (selectedBudget) searchParams.set('budget', selectedBudget);
       searchParams.set('status', 'Available');
+      searchParams.set('transaction', transactionType);
       if (filterToken && filterParamKey) searchParams.set(filterParamKey, filterToken);
 
       const qs = searchParams.toString();
@@ -807,23 +797,24 @@ setFeaturedProperties(featuredOnly.length ? featuredOnly : mapped);
                     type="button"
                     onClick={() => setTransactionType("buy")}
                     className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
-        ${'buy' === "buy"
+                      ${transactionType === "buy"
                         ? "bg-[#E6761D] text-white"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
-                    aria-pressed={true}
+                    aria-pressed={transactionType === "buy"}
                   >
                     Buy
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => { }}
-                    className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition bg-gray-100 text-gray-700 opacity-60 cursor-not-allowed`}
-                    title="Launching soon !"
-                    disabled
-                    aria-disabled="true"
-                    aria-pressed={false}
+                    onClick={() => setTransactionType("rent")}
+                    className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+                      ${transactionType === "rent"
+                        ? "bg-[#E6761D] text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    aria-pressed={transactionType === "rent"}
                   >
                     Rent
                   </button>

@@ -738,6 +738,19 @@ getPopularLocations: async (limit: number = 24): Promise<PopularLocationsRespons
   }
 },
 
+/* ---- Seller link / unlink (sets seller_id directly on my_properties) ---- */
+  patchSeller: async (
+    propertyId: string | number,
+    action: 'link' | 'unlink',
+    seller_id?: string | number | null
+  ) => {
+    const res = await api.patch(`/properties/${propertyId}/link-seller`, {
+      action,
+      seller_id: seller_id ?? null,
+    });
+    return res.data as { success: boolean; message: string };
+  },
+
 /* ---- Brochure PDF Generation ---- */
  downloadBrochure: (id: string|number, payload?: any) =>
     api.post(`/properties/${id}/brochure`, payload, { responseType: 'blob' })

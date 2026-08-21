@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, Save, User, Phone, MapPin, Building, Star, Trash2, Home, Briefcase, Plus } from 'lucide-react';
+import { X, Save, User, Phone, MapPin, Building, Star, Trash2, Home, Briefcase, Plus, ChevronDown, FileText } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
@@ -64,8 +64,8 @@ const FormField: React.FC<{
   icon?: React.ReactNode;
   error?: string;
 }> = ({ label, required, children, icon, error }) => (
-  <div className="space-y-1">
-    <label className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide" style={{ color: MU }}>
+  <div className="space-y-0.5">
+    <label className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-gray-500">
       {icon && <span className="text-orange-500">{icon}</span>}
       {label}
       {required && <span className="text-red-500">*</span>}
@@ -80,7 +80,8 @@ const SearchableSelect: React.FC<{
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
   placeholder: string;
-}> = ({ value, onChange, options, placeholder }) => {
+  className?: string;
+}> = ({ value, onChange, options, placeholder, className = "" }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -103,27 +104,27 @@ const SearchableSelect: React.FC<{
     );
   }, [options, search]);
 
-  const displayLabel = options.find(o => o.value === value)?.label || value || "";
+  const displayLabel = options.find(o => o.value === value || String(o.value) === String(value))?.label || value || "";
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className={`relative w-full ${className}`}>
       <div
-        onClick={() => { setIsOpen(true); setSearch(""); }}
+        onClick={() => { if (!isOpen) { setIsOpen(true); setSearch(""); } }}
         className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-[10px] bg-white cursor-pointer flex justify-between items-center h-[28px]"
         style={{ borderColor: BD }}
       >
-        <span className={value ? "text-gray-800" : "text-gray-400"}>
+        <span className={value ? "text-gray-800 truncate" : "text-gray-400 truncate"}>
           {displayLabel || placeholder}
         </span>
-        <span className="text-gray-400 text-[8px]">▼</span>
+        <ChevronDown size={11} className="text-gray-400 flex-shrink-0 ml-1" />
       </div>
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 p-1.5 space-y-1.5">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 p-1.5 space-y-1.5 min-w-[150px]">
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search location..."
+            placeholder="Search..."
             className="w-full border border-gray-300 rounded px-2 py-0.5 text-[10px] focus:outline-none"
             autoFocus
           />
@@ -139,7 +140,7 @@ const SearchableSelect: React.FC<{
                     setIsOpen(false);
                   }}
                   className={`p-1.5 rounded hover:bg-orange-50 hover:text-orange-600 cursor-pointer ${
-                    o.value === value ? "bg-orange-100 text-orange-700 font-semibold" : "text-gray-700"
+                    o.value === value || String(o.value) === String(value) ? "bg-orange-100 text-orange-700 font-semibold" : "text-gray-700"
                   }`}
                 >
                   {o.label}
@@ -182,6 +183,7 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
   const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedPropIds, setSelectedPropIds] = useState<string[]>([]);
 
   // Dropdown master options
   const [masters, setMasters] = useState<Record<string, any[]>>({});
@@ -360,6 +362,16 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
     }));
   };
 
+  const handleBulkUnlinkProperties = (propertyIds: Array<string | number>) => {
+    const idsToFilter = new Set(propertyIds.map(id => String(id)));
+    setFormData(prev => ({
+      ...prev,
+      properties: (prev.properties || []).filter((p: any) => !idsToFilter.has(String(p.id)))
+    }));
+    setSelectedPropIds([]);
+    toast.info("Selected properties unlinked locally!");
+  };
+
   // Master lists filters
   const stateOptions = masters['state'] || [];
   const cityOptions = masters['city'] || [];
@@ -375,340 +387,397 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
     [locationOptions, formData.city]
   );
 
-  const leadSources = masters['lead_source'] || [];
-  const leadStages = masters['buyer_lead_stage'] || masters['lead_stage'] || [];
-  const prioritiesList = masters['lead_priority'] || [];
+  const salutationOptions = masters['salutation'] || [
+    { value: 'Mr.', label: 'Mr.' },
+    { value: 'Mrs.', label: 'Mrs.' },
+    { value: 'Ms.', label: 'Ms.' },
+    { value: 'Dr.', label: 'Dr.' }
+  ];
+  const leadSources = masters['lead source'] || masters['Lead Source'] || [];
+  const leadStages = masters['seller lead stage'] || masters['Seller lead stage'] || masters['lead stage'] || [];
+  const prioritiesList = masters['lead priority'] || masters['Lead Priority'] || [];
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-xs" style={{ border: `1px solid ${BD}` }}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden text-xs" style={{ border: `1px solid ${BD}` }}>
         {/* Header */}
-        <div className="px-4 py-3 flex items-center justify-between text-white" style={{ backgroundColor: N }}>
-          <div className="flex items-center gap-1.5">
-            <User size={16} className="text-orange-500" />
-            <h3 className="font-bold">{owner?.id ? 'Edit Owner' : 'Add New Owner'}</h3>
+        <div className="px-4 py-2.5 flex items-center justify-between text-white" style={{ backgroundColor: N }}>
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-white/10">
+              <User size={15} className="text-orange-500" />
+            </div>
+            <div>
+              <h3 className="font-bold text-xs">{owner?.id ? 'Edit Owner' : 'Add New Owner'}</h3>
+              <p className="text-[9px] text-white/70">Manage owner contact details, address, and rental properties</p>
+            </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/10 text-white transition-colors">
             <X size={16} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ background: BG }}>
-          {/* Section 1: Contact details */}
-          <div className="bg-white p-3 rounded-lg border border-gray-150 space-y-3">
-            <h4 className="text-[10px] font-bold text-[#0f2b3d] border-b pb-1 flex items-center gap-1">
-              <User size={12} className="text-orange-500" /> CONTACT DETAILS
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex gap-1.5 items-end">
-                <div className="w-1/4">
-                  <FormField label="Salutation" required>
-                    <select
-                      value={formData.salutation}
-                      onChange={e => handleInputChange('salutation', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white focus:outline-none"
-                      style={{ borderColor: BD }}
-                    >
-                      <option value="Mr.">Mr.</option>
-                      <option value="Mrs.">Mrs.</option>
-                      <option value="Ms.">Ms.</option>
-                      <option value="Dr.">Dr.</option>
-                    </select>
-                  </FormField>
-                </div>
-                <div className="flex-1">
-                  <FormField label="Name" required error={errors.name}>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={e => handleInputChange('name', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] focus:outline-none bg-white"
-                      style={{ borderColor: BD }}
-                    />
-                  </FormField>
-                </div>
-              </div>
-
-              <FormField label="Phone" required error={errors.phone}>
-                <input
-                  type="text"
-                  value={formData.phone}
-                  onChange={e => handlePhoneChange(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] focus:outline-none bg-white"
-                  style={{ borderColor: BD }}
-                />
-              </FormField>
-
-              <FormField label="WhatsApp">
-                <div className="flex items-center gap-1.5">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={formData.whatsapp}
-                      onChange={e => handleInputChange('whatsapp', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg pl-7 pr-2 py-1.5 text-[10px] focus:outline-none bg-white"
-                      style={{ borderColor: BD }}
-                      disabled={sameWhatsapp}
-                    />
-                    <FaWhatsapp className="absolute left-2.5 top-1/2 -translate-y-1/2 text-green-500" size={13} />
-                  </div>
-                  <label className="flex items-center gap-1 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={sameWhatsapp}
-                      onChange={toggleSameWhatsapp}
-                      className="accent-orange-500 h-3.5 w-3.5"
-                    />
-                    <span className="text-[9px] text-gray-500 font-bold whitespace-nowrap">Same as Phone</span>
-                  </label>
-                </div>
-              </FormField>
-
-              <FormField label="Email" error={errors.email}>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={e => handleInputChange('email', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] focus:outline-none bg-white"
-                  style={{ borderColor: BD }}
-                />
-              </FormField>
-            </div>
-          </div>
-
-          {/* Section 2: Address */}
-          <div className="bg-white p-3 rounded-lg border border-gray-150 space-y-3">
-            <h4 className="text-[10px] font-bold text-[#0f2b3d] border-b pb-1 flex items-center gap-1">
-              <MapPin size={12} className="text-orange-500" /> ADDRESS DETAILS
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <FormField label="State">
-                {stateOptions.length ? (
-                  <select
-                    value={formData.state || ''}
-                    onChange={e => { handleInputChange('state', e.target.value); handleInputChange('city', ''); handleInputChange('location', ''); }}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white focus:outline-none"
-                    style={{ borderColor: BD }}
-                  >
-                    <option value="">Select State</option>
-                    {stateOptions.map((s: any) => <option key={s.value ?? s.label} value={s.value ?? s.label}>{s.label ?? s.value}</option>)}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={formData.state || ''}
-                    onChange={e => handleInputChange('state', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] focus:outline-none bg-white"
-                    style={{ borderColor: BD }}
-                  />
-                )}
-              </FormField>
-
-              <FormField label="City">
-                {filteredCities.length || cityOptions.length ? (
-                  <select
-                    value={formData.city || ''}
-                    onChange={e => { handleInputChange('city', e.target.value); handleInputChange('location', ''); }}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white focus:outline-none"
-                    style={{ borderColor: BD }}
-                  >
-                    <option value="">Select City</option>
-                    {(filteredCities.length ? filteredCities : cityOptions).map((c: any) => <option key={c.value ?? c.label} value={c.value ?? c.label}>{c.label ?? c.value}</option>)}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={formData.city || ''}
-                    onChange={e => handleInputChange('city', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] focus:outline-none bg-white"
-                    style={{ borderColor: BD }}
-                  />
-                )}
-              </FormField>
-
-              <FormField label="Location/Area">
-                {filteredLocations.length || locationOptions.length ? (
-                  <SearchableSelect
-                    value={formData.location || ''}
-                    onChange={v => handleInputChange('location', v)}
-                    options={(filteredLocations.length ? filteredLocations : locationOptions).map((l: any) => ({
-                      value: l.value ?? l.label,
-                      label: l.label ?? l.value
-                    }))}
-                    placeholder="Select Location"
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    value={formData.location || ''}
-                    onChange={e => handleInputChange('location', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] focus:outline-none bg-white"
-                    style={{ borderColor: BD }}
-                  />
-                )}
-              </FormField>
-            </div>
-          </div>
-
-          {/* Section 3: Lead details styled like seller form */}
-          <div className="bg-white p-3 rounded-lg border border-gray-150 space-y-3">
-            <h4 className="text-[10px] font-bold text-[#0f2b3d] border-b pb-1 flex items-center gap-1">
-              <Star size={12} className="text-orange-500" /> LEAD DETAILS
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormField label="Lead Source">
-                <select
-                  value={formData.source || ''}
-                  onChange={e => handleInputChange('source', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white focus:outline-none"
-                  style={{ borderColor: BD }}
-                >
-                  <option value="">Select Source</option>
-                  {leadSources.map((o: any) => <option key={o.value ?? o.label} value={o.value ?? o.label}>{o.label ?? o.value}</option>)}
-                </select>
-              </FormField>
-
-              {(() => {
-                const selectedSource = leadSources.find(o => String(o.value) === String(formData.source) || String(o.label) === String(formData.source));
-                const label = selectedSource?.label || formData.source || "";
-                return ["housing", "99acres", "no broker", "nobroker"].includes(label.toLowerCase().trim());
-              })() && (
-                <FormField label="Source URL">
-                  <input
-                    type="text"
-                    placeholder="Enter listing URL..."
-                    value={formData.source_url || ""}
-                    onChange={e => handleInputChange("source_url", e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] focus:outline-none bg-white"
-                    style={{ borderColor: BD }}
-                  />
-                </FormField>
-              )}
-
-              <FormField label="Lead Stage">
-                <select
-                  value={formData.stage || ''}
-                  onChange={e => handleInputChange('stage', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white focus:outline-none"
-                  style={{ borderColor: BD }}
-                >
-                  <option value="">Select Stage</option>
-                  {leadStages.map((o: any) => <option key={o.value ?? o.label} value={o.value ?? o.label}>{o.label ?? o.value}</option>)}
-                </select>
-              </FormField>
-
-              <FormField label="Priority">
-                <select
-                  value={formData.priority || ''}
-                  onChange={e => handleInputChange('priority', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white focus:outline-none"
-                  style={{ borderColor: BD }}
-                >
-                  <option value="">Select Priority</option>
-                  {prioritiesList.map((o: any) => <option key={o.value ?? o.label} value={o.value ?? o.label}>{o.label ?? o.value}</option>)}
-                </select>
-              </FormField>
-
-              <FormField label="Status">
-                <select
-                  value={formData.status || ''}
-                  onChange={e => handleInputChange('status', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white focus:outline-none"
-                  style={{ borderColor: BD }}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </FormField>
-
-              <div className="sm:col-span-2">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-1">
-                    <FormField label="Assigned Executive">
+        {/* Content - Card based two-column layout */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4" style={{ background: '#ffffff', scrollbarWidth: 'thin' }}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            
+            {/* Left Column */}
+            <div className="space-y-3">
+              
+              {/* Card 1: Basic Information */}
+              <div className="rounded-lg p-2.5 space-y-2" style={{ background: BG, border: `1px solid ${BD}` }}>
+                <h3 className="text-[11px] font-bold flex items-center gap-1.5 pb-1 border-b" style={{ color: N }}>
+                  <User size={12} style={{ color: O }} /> Basic Information
+                </h3>
+                
+                <div className="grid grid-cols-3 gap-1.5">
+                  <div className="col-span-1">
+                    <FormField label="Salutation" required>
                       <select
-                        value={formData.assigned_to || ''}
-                        onChange={e => handleInputChange('assigned_to', e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white focus:outline-none"
+                        value={formData.salutation}
+                        onChange={e => handleInputChange('salutation', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1 text-[10px] bg-white focus:outline-none h-[28px]"
                         style={{ borderColor: BD }}
                       >
-                        <option value="">Unassigned</option>
-                        {executives.map(e => (
-                          <option key={e.id} value={e.id}>
-                            {`${e.first_name || ''} ${e.last_name || ''}`.trim() || e.name || e.username}
+                        {salutationOptions.map((opt: any) => (
+                          <option key={opt.value ?? opt.label} value={opt.value ?? opt.label}>
+                            {opt.label ?? opt.value}
                           </option>
                         ))}
                       </select>
                     </FormField>
                   </div>
-                  <div className="sm:col-span-2">
-                    <FormField label="Notes / Remarks">
+                  <div className="col-span-2">
+                    <FormField label="Name" required error={errors.name}>
                       <input
                         type="text"
-                        value={formData.notes || ''}
-                        onChange={e => handleInputChange('notes', e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-[10px] focus:outline-none bg-white h-[28px]"
+                        value={formData.name}
+                        onChange={e => handleInputChange('name', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1 text-[10px] focus:outline-none bg-white h-[28px]"
                         style={{ borderColor: BD }}
                       />
                     </FormField>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  <FormField label="Phone" required error={errors.phone}>
+                    <PhoneInput
+                      country="in"
+                      enableSearch={true}
+                      value={formData.phone || ''}
+                      onChange={val => handlePhoneChange(val)}
+                      inputProps={{ name: 'phone', required: true }}
+                      inputClass="!w-full !h-[28px] !text-[10px] !rounded-lg !pl-12"
+                      containerClass="!w-full h-[28px]"
+                      buttonClass="!rounded-l-lg"
+                    />
+                  </FormField>
+
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide" style={{ color: MU }}>
+                      <FaWhatsapp className="text-green-500" size={10} />
+                      <span>WhatsApp Number</span>
+                      <div className="ml-auto flex items-center">
+                        <label className="relative inline-flex items-center cursor-pointer gap-1">
+                          <input
+                            type="checkbox"
+                            checked={sameWhatsapp}
+                            onChange={toggleSameWhatsapp}
+                            className="accent-orange-500 h-3 w-3 cursor-pointer"
+                          />
+                          <span className="text-[8px] text-gray-500 lowercase font-bold">Same</span>
+                        </label>
+                      </div>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={formData.whatsapp}
+                        onChange={e => handleInputChange('whatsapp', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg pl-7 pr-2 py-1 text-[10px] focus:outline-none bg-white h-[28px] disabled:bg-gray-100"
+                        style={{ borderColor: BD }}
+                        disabled={sameWhatsapp}
+                        placeholder="WhatsApp number"
+                      />
+                      <FaWhatsapp className="absolute left-2.5 top-1/2 -translate-y-1/2 text-green-500" size={13} />
+                    </div>
+                  </div>
+                </div>
+
+                <FormField label="Email" error={errors.email}>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={e => handleInputChange('email', e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1 text-[10px] focus:outline-none bg-white h-[28px]"
+                    style={{ borderColor: BD }}
+                  />
+                </FormField>
+              </div>
+
+              {/* Card 2: Address Details */}
+              <div className="rounded-lg p-2.5 space-y-2" style={{ background: BG, border: `1px solid ${BD}` }}>
+                <h3 className="text-[11px] font-bold flex items-center gap-1.5 pb-1 border-b" style={{ color: N }}>
+                  <MapPin size={12} style={{ color: O }} /> Address Details
+                </h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                  <FormField label="State">
+                    {stateOptions.length ? (
+                      <SearchableSelect
+                        value={formData.state || ''}
+                        onChange={val => {
+                          handleInputChange('state', val);
+                          handleInputChange('city', '');
+                          handleInputChange('location', '');
+                        }}
+                        options={stateOptions.map((s: any) => ({ value: s.value ?? s.label, label: s.label ?? s.value }))}
+                        placeholder="Select State"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.state || ''}
+                        onChange={e => handleInputChange('state', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1 text-[10px] focus:outline-none bg-white h-[28px]"
+                        style={{ borderColor: BD }}
+                      />
+                    )}
+                  </FormField>
+
+                  <FormField label="City">
+                    {filteredCities.length || cityOptions.length ? (
+                      <SearchableSelect
+                        value={formData.city || ''}
+                        onChange={val => {
+                          handleInputChange('city', val);
+                          handleInputChange('location', '');
+                        }}
+                        options={(filteredCities.length ? filteredCities : cityOptions).map((c: any) => ({ value: c.value ?? c.label, label: c.label ?? c.value }))}
+                        placeholder="Select City"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.city || ''}
+                        onChange={e => handleInputChange('city', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1 text-[10px] focus:outline-none bg-white h-[28px]"
+                        style={{ borderColor: BD }}
+                      />
+                    )}
+                  </FormField>
+
+                  <FormField label="Location/Area">
+                    {filteredLocations.length || locationOptions.length ? (
+                      <SearchableSelect
+                        value={formData.location || ''}
+                        onChange={v => handleInputChange('location', v)}
+                        options={(filteredLocations.length ? filteredLocations : locationOptions).map((l: any) => ({
+                          value: l.value ?? l.label,
+                          label: l.label ?? l.value
+                        }))}
+                        placeholder="Select Location"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.location || ''}
+                        onChange={e => handleInputChange('location', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1 text-[10px] focus:outline-none bg-white h-[28px]"
+                        style={{ borderColor: BD }}
+                      />
+                    )}
+                  </FormField>
+                </div>
+              </div>
+            </div>
+            
+            {/* Right Column */}
+            <div className="space-y-3">
+              
+              {/* Card 3: Lead Details */}
+              <div className="rounded-lg p-2.5 space-y-2" style={{ background: BG, border: `1px solid ${BD}` }}>
+                <h3 className="text-[11px] font-bold flex items-center gap-1.5 pb-1 border-b" style={{ color: N }}>
+                  <Star size={12} style={{ color: O }} /> Lead Details
+                </h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  <FormField label="Lead Source">
+                    <SearchableSelect
+                      value={formData.source || ''}
+                      onChange={val => handleInputChange('source', val)}
+                      options={leadSources.map((s: any) => ({ value: s.value ?? s.label, label: s.label ?? s.value }))}
+                      placeholder="Select source"
+                    />
+                  </FormField>
+
+                  <FormField label="Lead Stage">
+                    <SearchableSelect
+                      value={formData.stage || ''}
+                      onChange={val => handleInputChange('stage', val)}
+                      options={leadStages.map((s: any) => ({ value: s.value ?? s.label, label: s.label ?? s.value }))}
+                      placeholder="Select stage"
+                    />
+                  </FormField>
+
+                  <FormField label="Priority">
+                    <SearchableSelect
+                      value={formData.priority || ''}
+                      onChange={val => handleInputChange('priority', val)}
+                      options={prioritiesList.map((p: any) => ({ value: p.value ?? p.label, label: p.label ?? p.value }))}
+                      placeholder="Select priority"
+                    />
+                  </FormField>
+
+                  <FormField label="Status">
+                    <select
+                      value={formData.status || ''}
+                      onChange={e => handleInputChange('status', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-2 py-1 text-[10px] bg-white focus:outline-none h-[28px]"
+                      style={{ borderColor: BD }}
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </FormField>
+
+                  <div className="sm:col-span-2">
+                    <FormField label="Assigned Executive">
+                      <SearchableSelect
+                        value={String(formData.assigned_to || '')}
+                        onChange={val => {
+                          const selected = executives.find(ex => String(ex.id) === String(val));
+                          setFormData(prev => ({
+                            ...prev,
+                            assigned_to: val,
+                            assigned_to_name: selected ? selected.name : ''
+                          }));
+                        }}
+                        options={[
+                          { value: '', label: 'Unassigned' },
+                          ...executives.map((ex: any) => ({ value: String(ex.id), label: ex.name }))
+                        ]}
+                        placeholder="Select Executive"
+                      />
+                    </FormField>
+                  </div>
+
+                  {(() => {
+                    const selectedSource = leadSources.find(o => String(o.value) === String(formData.source) || String(o.label) === String(formData.source));
+                    const label = selectedSource?.label || formData.source || "";
+                    return ["housing", "99acres", "99acers", "no broker", "nobroker"].includes(label.toLowerCase().trim());
+                  })() && (
+                    <div className="sm:col-span-2">
+                      <FormField label="Source URL">
+                        <input
+                          type="text"
+                          placeholder="Enter listing URL..."
+                          value={formData.source_url || ""}
+                          onChange={e => handleInputChange("source_url", e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-2 py-1 text-[10px] focus:outline-none bg-white h-[28px]"
+                          style={{ borderColor: BD }}
+                        />
+                      </FormField>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 4: Linked Rental Properties */}
+              <div className="rounded-lg p-2.5 space-y-2" style={{ background: BG, border: `1px solid ${BD}` }}>
+                <div className="flex justify-between items-center pb-1 border-b">
+                  <h3 className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: N }}>
+                    <Home size={12} style={{ color: O }} /> Linked Rental Properties
+                  </h3>
+                  <div className="flex gap-2">
+                    {selectedPropIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleBulkUnlinkProperties(selectedPropIds)}
+                        className="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-red-600 border border-red-200 bg-red-50 rounded hover:bg-red-100 transition-colors animate-pulse"
+                      >
+                        Unlink Selected ({selectedPropIds.length})
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowLinkModal(true)}
+                      className="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-[#e67e22] border border-[#e67e22] rounded hover:bg-orange-50 transition-colors"
+                    >
+                      <Plus size={10} /> Link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPropertyModal(true)}
+                      className="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-white bg-orange-500 rounded hover:bg-orange-600 transition-colors"
+                    >
+                      <Plus size={10} /> Add
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 max-h-24 overflow-y-auto">
+                  {!formData.properties?.length ? (
+                    <div className="text-center py-3 text-[10px] text-gray-400">
+                      No rental properties linked.
+                    </div>
+                  ) : (
+                    formData.properties.map((p: any) => {
+                      const displayTitle = p.title || `${p.bedrooms || 0} BHK Property in ${p.society_name || p.location_name || ''}`;
+                      return (
+                        <div key={p.id} className="flex justify-between items-center p-1.5 rounded border bg-white text-[10px]" style={{ borderColor: BD }}>
+                          <div className="flex items-center flex-1 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={selectedPropIds.includes(String(p.id))}
+                              onChange={(e) => {
+                                const idStr = String(p.id);
+                                if (e.target.checked) {
+                                  setSelectedPropIds(prev => [...prev, idStr]);
+                                } else {
+                                  setSelectedPropIds(prev => prev.filter(id => id !== idStr));
+                                }
+                              }}
+                              className="accent-orange-500 h-3.5 w-3.5 mr-1.5 cursor-pointer"
+                            />
+                            <span className="font-semibold text-gray-700 truncate pr-2">{displayTitle}</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="font-bold bg-orange-100 text-orange-700 px-1 py-0.2 rounded">RENT-{p.id}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleUnlinkProperty(p.id)}
+                              className="text-red-500 hover:text-red-700 font-bold"
+                            >
+                              Unlink
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Section 4: Linked Properties */}
-          <div className="bg-white p-3 rounded-lg border border-gray-150 space-y-3">
-            <div className="flex justify-between items-center border-b pb-1">
-              <h4 className="text-[10px] font-bold text-[#0f2b3d] flex items-center gap-1">
-                <Home size={12} className="text-orange-500" /> LINKED RENTAL PROPERTIES
-              </h4>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowLinkModal(true)}
-                  className="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-[#e67e22] border border-[#e67e22] rounded hover:bg-orange-50 transition-colors"
-                >
-                  <Plus size={10} /> Link Property
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddPropertyModal(true)}
-                  className="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-white bg-orange-500 rounded hover:bg-orange-600 transition-colors"
-                >
-                  <Plus size={10} /> Add Property
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-1.5 max-h-40 overflow-y-auto">
-              {!formData.properties?.length ? (
-                <div className="text-center py-4 text-[10px] text-gray-400">
-                  No rental properties linked.
-                </div>
-              ) : (
-                formData.properties.map((p: any) => {
-                  const displayTitle = p.title || `${p.bedrooms || 0} BHK Property in ${p.society_name || p.location_name || ''}`;
-                  return (
-                    <div key={p.id} className="flex justify-between items-center p-2 rounded border bg-gray-50 text-[10px]">
-                      <span className="font-semibold text-gray-750 truncate flex-1 pr-2">{displayTitle}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold bg-orange-100 text-orange-700 px-1 py-0.2 rounded">RENT-{p.id}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleUnlinkProperty(p.id)}
-                          className="text-red-500 hover:text-red-700 font-bold"
-                        >
-                          Unlink
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+          {/* Card 5: Notes & Remarks (Full Width at the bottom) */}
+          <div className="mt-3 rounded-lg p-2.5 space-y-2" style={{ background: BG, border: `1px solid ${BD}` }}>
+            <h3 className="text-[11px] font-bold flex items-center gap-1.5 pb-1 border-b" style={{ color: N }}>
+              <FileText size={12} style={{ color: O }} /> Notes & Remarks
+            </h3>
+            <FormField label="Notes / Remarks">
+              <textarea
+                rows={2}
+                value={formData.notes || ''}
+                onChange={e => handleInputChange('notes', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-[10px] focus:outline-none bg-white min-h-[40px] resize-none"
+                style={{ borderColor: BD }}
+                placeholder="Enter additional remarks..."
+              />
+            </FormField>
           </div>
         </div>
 

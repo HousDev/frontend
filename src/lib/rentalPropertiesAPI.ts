@@ -357,6 +357,16 @@ export const rentalPropertiesAPI = {
     return res.data as AssignPropertyResponse;
   },
 
+  bulkAssignExecutive: async (propertyIds: number[], executiveId: number | null) => {
+    const res = await api.post('/bulk-operations/assign-executive', { propertyIds, executiveId, isRental: true });
+    return res.data as BulkOperationResponse;
+  },
+
+  bulkUnassignExecutive: async (propertyIds: number[]) => {
+    const res = await api.post('/bulk-operations/assign-executive', { propertyIds, executiveId: null, isRental: true });
+    return res.data as BulkOperationResponse;
+  },
+
   getSimilarProperties: async (params?: SimilarPropertiesFilters) => {
     const res = await api.get("/rental-properties/similar", { params });
     return res.data as SimilarPropertiesResponse;
@@ -375,6 +385,85 @@ export const rentalPropertiesAPI = {
   saveFilterContext: async (data: CreateFilterContextPayload) => {
     const res = await api.post("/rental-properties/filters", data);
     return res.data as CreateFilterContextResponse;
+  },
+
+  search: async (data: any) => {
+    const res = await api.get("/rental-properties/search", { params: data });
+    return res.data;
+  },
+
+  getSearch: async (data: any) => {
+    const res = await api.get("/rental-properties/search", { params: data });
+    return res.data;
+  },
+
+  searchProperties: async (params: any) => {
+    const queryParams: any = {
+      city: params.city,
+      location: params.location,
+      budget_min: params.minPrice,
+      budget_max: params.maxPrice,
+      sort: params.sort,
+      propertyType: Array.isArray(params.propertyType) ? params.propertyType.join(",") : params.propertyType,
+      propertySubtype: Array.isArray(params.propertySubtype) ? params.propertySubtype.join(",") : params.propertySubtype,
+      unitType: Array.isArray(params.unitType) ? params.unitType.join(",") : params.unitType,
+      unitTypes: params.unitTypes?.join(","),
+      furnishing: params.furnishing,
+      possession: params.possession,
+      featured: params.featured,
+      verified: params.verified,
+      min_rating: params.minRating,
+      parking: params.parking,
+      floor_min: params.floor_min,
+      floor_max: params.floor_max,
+      bathrooms: params.bathrooms,
+      bedrooms: Array.isArray(params.bedrooms) ? params.bedrooms.join(",") : params.bedrooms,
+      filter_token: params.filterToken ?? undefined,
+    };
+
+    Object.keys(queryParams).forEach((k) => {
+      if (queryParams[k] === undefined || queryParams[k] === null || queryParams[k] === "") delete queryParams[k];
+    });
+
+    const response = await api.get("/rental-properties/search", { params: queryParams });
+    return response.data;
+  },
+
+  searchByCityLocation: async (params: {
+    city: string;
+    locations?: string | string[];
+    limit?: number;
+    offset?: number;
+    propertyType?: string;
+  }) => {
+    const queryParams: any = {
+      city: params.city,
+      limit: params.limit,
+      offset: params.offset,
+      status: 'Available'
+    };
+
+    if (params.locations) {
+      if (Array.isArray(params.locations)) {
+        queryParams.locations = params.locations.join(',');
+      } else {
+        queryParams.locations = params.locations;
+      }
+    }
+
+    if (params.propertyType) {
+      queryParams.propertyType = params.propertyType;
+    }
+
+    const res = await api.get("/rental-properties/city-locations", { 
+      params: queryParams 
+    });
+    return res.data;
+  },
+
+  patchOwner: async (propertyId: string, action: 'link' | 'unlink', ownerId?: string | number) => {
+    const res = await api.patch(`/rental-properties/${propertyId}/link-owner`, { action, owner_id: ownerId });
+    return res.data;
   },
 };
 

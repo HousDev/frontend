@@ -2301,6 +2301,7 @@ import { SocietyImportModal } from "./master/SocietyImportModal";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/utils/permission";
+import Pagination from "@/components/ui/Pagination";
 
 const getYouTubeEmbedUrl = (url: string): string | null => {
   const match = url.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
@@ -2407,7 +2408,7 @@ const initialFilters: AdvancedFilters = {
 export default function MasterDataPage(): JSX.Element {
 
   const { user } = useAuth();
-  
+
   const [appliedFilters, setAppliedFilters] = useState<AdvancedFilters>(initialFilters);
   const [draftFilters, setDraftFilters] = useState<AdvancedFilters>(initialFilters);
   const [showFilters, setShowFilters] = useState<boolean>(false);
@@ -2484,13 +2485,10 @@ export default function MasterDataPage(): JSX.Element {
   const isConnectedRemarkTab = activeId === "connectedRemark";
   const isSocietyTab = activeId === "society";
   const [selectedValueIds, setSelectedValueIds] = useState<string[]>([]);
-  const isAllSelected =
-    selectedMaster?.values?.length > 0 && selectedValueIds.length === (selectedMaster.values?.length ?? 0);
 
   const [connectedRemarks, setConnectedRemarks] = useState<ConnectedRemark[]>([]);
   const [currentConnectedRemark, setCurrentConnectedRemark] = useState<ConnectedRemark | null>(null);
   const [selectedRemarkIds, setSelectedRemarkIds] = useState<string[]>([]);
-  const [isAllRemarksSelected, setIsAllRemarksSelected] = useState(false);
 
   const [societies, setSocieties] = useState<SocietyData[]>([]);
   const [currentSociety, setCurrentSociety] = useState<SocietyData | null>(null);
@@ -2498,7 +2496,51 @@ export default function MasterDataPage(): JSX.Element {
   const [isViewModalOpen, setIsViewModalOpen] = useState<boolean>(false);
 
   const [selectedSocietyIds, setSelectedSocietyIds] = useState<string[]>([]);
-  const [isAllSocietiesSelected, setIsAllSocietiesSelected] = useState(false);
+
+  // Column-based filter states
+  const [valColFilterValue, setValColFilterValue] = useState<string>("");
+  const [valColFilterStatus, setValColFilterStatus] = useState<string>("");
+
+  const [crColFilterTab, setCrColFilterTab] = useState<string>("");
+  const [crColFilterType1, setCrColFilterType1] = useState<string>("");
+  const [crColFilterVal1, setCrColFilterVal1] = useState<string>("");
+  const [crColFilterType2, setCrColFilterType2] = useState<string>("");
+  const [crColFilterVal2, setCrColFilterVal2] = useState<string>("");
+  const [crColFilterRemark, setCrColFilterRemark] = useState<string>("");
+  const [crColFilterStatus, setCrColFilterStatus] = useState<string>("");
+
+  const [socColFilterName, setSocColFilterName] = useState<string>("");
+  const [socColFilterLocality, setSocColFilterLocality] = useState<string>("");
+  const [socColFilterCity, setSocColFilterCity] = useState<string>("");
+  const [socColFilterPincode, setSocColFilterPincode] = useState<string>("");
+  const [socColFilterAmenities, setSocColFilterAmenities] = useState<string>("");
+  const [socColFilterStatus, setSocColFilterStatus] = useState<string>("");
+
+  // Pagination states
+  const [valPage, setValPage] = useState<number>(1);
+  const [crPage, setCrPage] = useState<number>(1);
+  const [socPage, setSocPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(25);
+
+  // Reset pages on filters/search/selection change
+  useEffect(() => {
+    setValPage(1);
+  }, [searchTerm, valColFilterValue, valColFilterStatus, selectedMaster]);
+
+  useEffect(() => {
+    setCrPage(1);
+  }, [searchTerm, crColFilterTab, crColFilterType1, crColFilterVal1, crColFilterType2, crColFilterVal2, crColFilterRemark, crColFilterStatus, activeId]);
+
+  useEffect(() => {
+    setSocPage(1);
+  }, [searchTerm, socColFilterName, socColFilterLocality, socColFilterCity, socColFilterPincode, socColFilterAmenities, socColFilterStatus, activeId]);
+
+  // Reset to page 1 when rows-per-page changes
+  useEffect(() => {
+    setValPage(1);
+    setCrPage(1);
+    setSocPage(1);
+  }, [itemsPerPage]);
 
   const uniqueCities = useMemo(() => {
     const list = societies.map((s) => s.city).filter(Boolean);
@@ -2630,7 +2672,7 @@ export default function MasterDataPage(): JSX.Element {
     handleViewSociety(society);
   };
 
-const handleDeleteSociety = async (societyId: string): Promise<void> => {
+  const handleDeleteSociety = async (societyId: string): Promise<void> => {
     const result = await Swal.fire({
       title: "Are you sure?",
       text: "You are about to delete this society. This action cannot be undone!",
@@ -2697,14 +2739,13 @@ const handleDeleteSociety = async (societyId: string): Promise<void> => {
   };
 
 
-  // Toggle select all societies
+  // Toggle select all societies (current page only)
   const toggleSelectAllSocieties = () => {
+    const pageIds = paginatedSocieties.map(s => s.id!);
     if (isAllSocietiesSelected) {
-      setSelectedSocietyIds([]);
-      setIsAllSocietiesSelected(false);
+      setSelectedSocietyIds(prev => prev.filter(id => !pageIds.includes(id)));
     } else {
-      setSelectedSocietyIds(filteredSocieties.map(s => s.id!));
-      setIsAllSocietiesSelected(true);
+      setSelectedSocietyIds(prev => Array.from(new Set([...prev, ...pageIds])));
     }
   };
 
@@ -2716,7 +2757,7 @@ const handleDeleteSociety = async (societyId: string): Promise<void> => {
   };
 
   // Bulk delete societies
-const handleBulkDeleteSocieties = async () => {
+  const handleBulkDeleteSocieties = async () => {
     if (selectedSocietyIds.length === 0) return;
 
     const result = await Swal.fire({
@@ -2750,7 +2791,6 @@ const handleBulkDeleteSocieties = async () => {
       await loadSocieties();
       const count = selectedSocietyIds.length;
       setSelectedSocietyIds([]);
-      setIsAllSocietiesSelected(false);
       Swal.fire({
         title: "Deleted!",
         text: `${count} societies have been deleted successfully.`,
@@ -2829,7 +2869,7 @@ const handleBulkDeleteSocieties = async () => {
     setIsModalOpen(true);
   };
 
- const handleDeleteConnectedRemark = async (remarkId: string): Promise<void> => {
+  const handleDeleteConnectedRemark = async (remarkId: string): Promise<void> => {
     const result = await Swal.fire({
       title: "Are you sure?",
       text: "You are about to delete this connected remark. This action cannot be undone!",
@@ -2895,14 +2935,13 @@ const handleBulkDeleteSocieties = async () => {
     }
   };
 
-  // Toggle select all connected remarks
+  // Toggle select all connected remarks (current page only)
   const toggleSelectAllRemarks = () => {
+    const pageIds = paginatedConnectedRemarks.map(r => r.id);
     if (isAllRemarksSelected) {
-      setSelectedRemarkIds([]);
-      setIsAllRemarksSelected(false);
+      setSelectedRemarkIds(prev => prev.filter(id => !pageIds.includes(id)));
     } else {
-      setSelectedRemarkIds(filteredConnectedRemarks.map(r => r.id));
-      setIsAllRemarksSelected(true);
+      setSelectedRemarkIds(prev => Array.from(new Set([...prev, ...pageIds])));
     }
   };
 
@@ -2910,7 +2949,6 @@ const handleBulkDeleteSocieties = async () => {
   const toggleSelectRemark = (id: string) => {
     setSelectedRemarkIds(prev => {
       const next = prev.includes(id) ? prev.filter(rid => rid !== id) : [...prev, id];
-      setIsAllRemarksSelected(next.length === filteredConnectedRemarks.length);
       return next;
     });
   };
@@ -2950,7 +2988,6 @@ const handleBulkDeleteSocieties = async () => {
       await loadConnectedRemarks();
       const count = selectedRemarkIds.length;
       setSelectedRemarkIds([]);
-      setIsAllRemarksSelected(false);
       Swal.fire({
         title: "Deleted!",
         text: `${count} connected remarks have been deleted successfully.`,
@@ -3111,7 +3148,7 @@ const handleBulkDeleteSocieties = async () => {
     setIsModalOpen(true);
   };
 
-const handleDelete = async (id: string): Promise<void> => {
+  const handleDelete = async (id: string): Promise<void> => {
     const result = await Swal.fire({
       title: "Are you sure?",
       text: "You are about to delete this master type. This action cannot be undone!",
@@ -3263,7 +3300,7 @@ const handleDelete = async (id: string): Promise<void> => {
     setIsValueModalOpen(true);
   };
 
- const handleDeleteValue = async (valueId: string): Promise<void> => {
+  const handleDeleteValue = async (valueId: string): Promise<void> => {
     if (!selectedMaster) return;
 
     const result = await Swal.fire({
@@ -3332,7 +3369,7 @@ const handleDelete = async (id: string): Promise<void> => {
     }
   };
 
-const handleBulkDelete = async (): Promise<void> => {
+  const handleBulkDelete = async (): Promise<void> => {
     if (!selectedMaster || selectedValueIds.length === 0 || isConnectedRemarkTab) return;
 
     const result = await Swal.fire({
@@ -3580,10 +3617,11 @@ const handleBulkDelete = async (): Promise<void> => {
   };
 
   const toggleSelectAll = (): void => {
+    const pageIds = paginatedValues.map(v => v.id);
     if (isAllSelected) {
-      setSelectedValueIds([]);
+      setSelectedValueIds(prev => prev.filter(id => !pageIds.includes(id)));
     } else {
-      setSelectedValueIds(selectedMaster?.values.map((v) => v.id) || []);
+      setSelectedValueIds(prev => Array.from(new Set([...prev, ...pageIds])));
     }
   };
 
@@ -3605,7 +3643,10 @@ const handleBulkDelete = async (): Promise<void> => {
           matchesType = !isNumeric;
         }
 
-        return matchesSearch && matchesStatus && matchesType;
+        const matchesColVal = !valColFilterValue || value.value.toLowerCase().includes(valColFilterValue.toLowerCase());
+        const matchesColStatus = !valColFilterStatus || value.status === valColFilterStatus;
+
+        return matchesSearch && matchesStatus && matchesType && matchesColVal && matchesColStatus;
       })
       .sort((a, b) => {
         const numA = parseInt(a.value);
@@ -3670,7 +3711,16 @@ const handleBulkDelete = async (): Promise<void> => {
     const matchesType1 = appliedFilters.type1 === "" || remark.type1Name === appliedFilters.type1;
     const matchesType2 = appliedFilters.type2 === "" || remark.type2Name === appliedFilters.type2;
 
-    return matchesSearch && matchesStatus && matchesTabId && matchesType1 && matchesType2;
+    const matchesColTab = !crColFilterTab || (remark.tab_id || remark.tabId || "").toLowerCase().includes(crColFilterTab.toLowerCase());
+    const matchesColType1 = !crColFilterType1 || (remark.type1Name || "").toLowerCase().includes(crColFilterType1.toLowerCase());
+    const matchesColVal1 = !crColFilterVal1 || (remark.value1Name || "").toLowerCase().includes(crColFilterVal1.toLowerCase());
+    const matchesColType2 = !crColFilterType2 || (remark.type2Name || "").toLowerCase().includes(crColFilterType2.toLowerCase());
+    const matchesColVal2 = !crColFilterVal2 || (remark.value2Name || "").toLowerCase().includes(crColFilterVal2.toLowerCase());
+    const matchesColRemark = !crColFilterRemark || remarksText.toLowerCase().includes(crColFilterRemark.toLowerCase());
+    const matchesColStatus = !crColFilterStatus || remark.status === crColFilterStatus;
+
+    return matchesSearch && matchesStatus && matchesTabId && matchesType1 && matchesType2 &&
+      matchesColTab && matchesColType1 && matchesColVal1 && matchesColType2 && matchesColVal2 && matchesColRemark && matchesColStatus;
   });
 
   const filteredSocieties = societies.filter((society) => {
@@ -3698,8 +3748,29 @@ const handleBulkDelete = async (): Promise<void> => {
       matchesMedia = !hasMedia;
     }
 
-    return matchesSearch && matchesStatus && matchesCity && matchesLocality && matchesPincode && matchesAmenities && matchesMedia;
+    const matchesColName = !socColFilterName || (society.societyName || "").toLowerCase().includes(socColFilterName.toLowerCase());
+    const matchesColLocality = !socColFilterLocality || (society.locality || "").toLowerCase().includes(socColFilterLocality.toLowerCase());
+    const matchesColCity = !socColFilterCity || (society.city || "").toLowerCase().includes(socColFilterCity.toLowerCase());
+    const matchesColPincode = !socColFilterPincode || (society.pincode || "").toLowerCase().includes(socColFilterPincode.toLowerCase());
+    const matchesColAmenities = !socColFilterAmenities || (society.amenities || []).some(amenity => amenity.toLowerCase().includes(socColFilterAmenities.toLowerCase()));
+    const matchesColStatus = !socColFilterStatus || (society.status || "Active") === socColFilterStatus;
+
+    return matchesSearch && matchesStatus && matchesCity && matchesLocality && matchesPincode && matchesAmenities && matchesMedia &&
+      matchesColName && matchesColLocality && matchesColCity && matchesColPincode && matchesColAmenities && matchesColStatus;
   });
+
+  // Paginated slices (used for current-page bulk select)
+  const paginatedValues: Value[] = filteredValues.slice((valPage - 1) * itemsPerPage, valPage * itemsPerPage);
+  const paginatedConnectedRemarks: ConnectedRemark[] = filteredConnectedRemarks.slice((crPage - 1) * itemsPerPage, crPage * itemsPerPage);
+  const paginatedSocieties: SocietyData[] = filteredSocieties.slice((socPage - 1) * itemsPerPage, socPage * itemsPerPage);
+
+  // Derived select-all states (current page only)
+  const isAllSelected: boolean =
+    paginatedValues.length > 0 && paginatedValues.every(v => selectedValueIds.includes(v.id));
+  const isAllRemarksSelected: boolean =
+    paginatedConnectedRemarks.length > 0 && paginatedConnectedRemarks.every(r => selectedRemarkIds.includes(r.id));
+  const isAllSocietiesSelected: boolean =
+    paginatedSocieties.length > 0 && paginatedSocieties.every(s => selectedSocietyIds.includes(s.id!));
 
   // 🆕 View Society Modal Component
   const ViewSocietyModal = () => {
@@ -3820,37 +3891,37 @@ const handleBulkDelete = async (): Promise<void> => {
                 Images ({viewSociety.imageUrls.length})
               </div>
               <div className="grid grid-cols-4 sm:grid-cols-6 gap-1">
-            {viewSociety.imageUrls.slice(0, 6).map((img: any, idx) => {
-  const url = typeof img === 'string' ? img : img.url;
-  const label = typeof img === 'string' ? '' : img.label;
-  const mediaType = typeof img === 'string' ? 'image' : (img.type === 'video' ? 'video' : 'image');
-  const ytEmbed = mediaType === 'video' ? getYouTubeEmbedUrl(url) : null;
-  return (
-    <div key={idx} className="relative aspect-square rounded-md overflow-hidden border border-gray-200">
-      {mediaType === 'video' ? (
-        ytEmbed ? (
-          <iframe src={ytEmbed} className="w-full h-full" frameBorder="0" allow="autoplay; encrypted-media" />
-        ) : (
-          <video src={url} className="w-full h-full object-cover" muted controls />
-        )
-      ) : (
-        <img
-          src={url}
-          alt={`${viewSociety.societyName} ${idx + 1}`}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect fill="%23f3f4f6" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E';
-          }}
-        />
-      )}
-      {label && (
-        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[7px] px-1 py-0.5 truncate text-center">
-          {label}
-        </div>
-      )}
-    </div>
-  );
-})}
+                {viewSociety.imageUrls.slice(0, 6).map((img: any, idx) => {
+                  const url = typeof img === 'string' ? img : img.url;
+                  const label = typeof img === 'string' ? '' : img.label;
+                  const mediaType = typeof img === 'string' ? 'image' : (img.type === 'video' ? 'video' : 'image');
+                  const ytEmbed = mediaType === 'video' ? getYouTubeEmbedUrl(url) : null;
+                  return (
+                    <div key={idx} className="relative aspect-square rounded-md overflow-hidden border border-gray-200">
+                      {mediaType === 'video' ? (
+                        ytEmbed ? (
+                          <iframe src={ytEmbed} className="w-full h-full" frameBorder="0" allow="autoplay; encrypted-media" />
+                        ) : (
+                          <video src={url} className="w-full h-full object-cover" muted controls />
+                        )
+                      ) : (
+                        <img
+                          src={url}
+                          alt={`${viewSociety.societyName} ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect fill="%23f3f4f6" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E';
+                          }}
+                        />
+                      )}
+                      {label && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[7px] px-1 py-0.5 truncate text-center">
+                          {label}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {viewSociety.imageUrls.length > 6 && (
                   <div className="aspect-square rounded-md border border-gray-200 flex items-center justify-center bg-gray-100">
                     <span className="text-[10px] font-semibold text-gray-500">+{viewSociety.imageUrls.length - 6}</span>
@@ -3885,7 +3956,7 @@ const handleBulkDelete = async (): Promise<void> => {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 ">
       <header className="p-4 border-b bg-white shadow-sm">
         <h1 className="text-xl font-semibold">Master Data Management</h1>
       </header>
@@ -3901,9 +3972,7 @@ const handleBulkDelete = async (): Promise<void> => {
                 setSelectedMaster(null);
                 setSelectedValueIds([]);
                 setSelectedRemarkIds([]);
-                setIsAllRemarksSelected(false);
                 setSelectedSocietyIds([]);
-                setIsAllSocietiesSelected(false);
                 setSearchTerm("");
                 setAppliedFilters(initialFilters);
                 setDraftFilters(initialFilters);
@@ -3919,185 +3988,189 @@ const handleBulkDelete = async (): Promise<void> => {
         </div>
       </nav>
 
-      <main className="p-3 sm:p-4">
-            {currentView === "list" ? (
-              <>
-                <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between mb-4 sm:mb-6">
+      <main className="p-1 sm:p-2">
+        {currentView === "list" ? (
+          <>
+            <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between mb-4 sm:mb-6">
 
-                  {/* 🔹 MOBILE: Heading + Create button in same row */}
-                  <div className="flex items-center justify-between md:block">
-                    <h2 className="text-base sm:text-lg font-semibold truncate">
-                      {activeTab.title}
-                    </h2>
+              {/* 🔹 MOBILE: Heading + Create button in same row */}
+              <div className="flex items-center justify-between md:block">
+                <h2 className="text-base sm:text-lg font-semibold truncate">
+                  {activeTab.title}
+                </h2>
 
-                    {/* Create button (mobile only) */}
-                    <div className="md:hidden">
-                      <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-2 text-xs"
-                      >
-                        <Plus size={14} />
-                        <span className="whitespace-nowrap">
-                          {isConnectedRemarkTab
-                            ? "Add Connected Remark"
-                            : isSocietyTab
-                              ? "Add Society"
-                              : `Create ${activeTab.title} types`}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
+                {/* Create button (mobile only) */}
+                <div className="md:hidden">
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-2 text-xs"
+                  >
+                    <Plus size={14} />
+                    <span className="whitespace-nowrap">
+                      {isConnectedRemarkTab
+                        ? "Add Connected Remark"
+                        : isSocietyTab
+                          ? "Add Society"
+                          : `Create ${activeTab.title} types`}
+                    </span>
+                  </button>
+                </div>
+              </div>
 
-                  {/* 🔹 RIGHT SECTION */}
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap w-full md:w-auto">
+              {/* 🔹 RIGHT SECTION */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap w-full md:w-auto">
 
-                    {/* Search & Advanced Filters Toggle */}
-                    <div className="flex gap-2 w-full sm:w-auto flex-1">
-                      <input
-                        type="text"
-                        placeholder="Search..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all ${
-                          showFilters
-                            ? "bg-blue-50 border-blue-200 text-blue-600 shadow-sm animate-pulse-fast"
-                            : "bg-white border-gray-300 text-gray-600 hover:bg-gray-50"
-                        }`}
-                      >
-                        <Filter size={14} className={showFilters ? "fill-blue-600/10 text-blue-600" : "text-gray-400"} />
-                        <span className="hidden sm:inline">Filters</span>
-                        {activeFiltersCount > 0 && (
-                          <span className="flex h-4.5 w-4.5 min-w-[18px] items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white px-1">
-                            {activeFiltersCount}
-                          </span>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* 🔹 Import + Export */}
-                    {!isConnectedRemarkTab && !isSocietyTab && (
-                      <div className="flex gap-2 w-full md:w-auto">
-                        <button
-                          onClick={() => {
-                            setImportType("master");
-                            setIsImportModalOpen(true);
-                          }}
-                          className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
-                        >
-                          <Upload size={14} />
-                          <span className="whitespace-nowrap">
-                            Import {activeTab.title}
-                          </span>
-                        </button>
-
-                        <button
-                          onClick={handleMasterExport}
-                          disabled={!filteredMasterItems.length}
-                          className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
-                        >
-                          <Download size={14} />
-                          <span className="whitespace-nowrap">Export</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {/* 🔹 Society Tab - Export button */}
-                    {isSocietyTab && (
-                      <div className="flex gap-2 w-full md:w-auto">
-                        {/* 🆕 IMPORT BUTTON — Export ke bajule, Add Society se pehle */}
-                        <button
-                          onClick={() => setIsSocietyImportModalOpen(true)}
-                          className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
-                        >
-                          <Upload size={14} />
-                          <span className="whitespace-nowrap">Import Societies</span>
-                        </button>
-
-                        <button
-                          onClick={handleMasterExport}
-                          disabled={!filteredSocieties.length}
-                          className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
-                        >
-                          <Download size={14} />
-                          <span className="whitespace-nowrap">Export Societies</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {/* 🔹 Connected Remark Tab - Export button */}
-                    {isConnectedRemarkTab && (
-                      <div className="flex gap-2 w-full md:w-auto">
-                        <button
-                          onClick={handleMasterExport}
-                          disabled={!filteredConnectedRemarks.length}
-                          className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
-                        >
-                          <Download size={14} />
-                          <span className="whitespace-nowrap">Export Remarks</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {/* 🔹 DESKTOP: Create button */}
+                {/* Search & Advanced Filters Toggle */}
+                {!isConnectedRemarkTab && !isSocietyTab && (
+                  <div className="flex gap-2 w-full sm:w-auto flex-1">
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
                     <button
-                      onClick={() => setIsModalOpen(true)}
-                      className="hidden md:flex w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg items-center justify-center gap-2 text-xs"
+                      type="button"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all ${showFilters
+                        ? "bg-blue-50 border-blue-200 text-blue-600 shadow-sm animate-pulse-fast"
+                        : "bg-white border-gray-300 text-gray-600 hover:bg-gray-50"
+                        }`}
                     >
-                      <Plus size={14} />
+                      <Filter size={14} className={showFilters ? "fill-blue-600/10 text-blue-600" : "text-gray-400"} />
+                      <span className="hidden sm:inline">Filters</span>
+                      {activeFiltersCount > 0 && (
+                        <span className="flex h-4.5 w-4.5 min-w-[18px] items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white px-1">
+                          {activeFiltersCount}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* 🔹 Import + Export */}
+                {!isConnectedRemarkTab && !isSocietyTab && (
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <button
+                      onClick={() => {
+                        setImportType("master");
+                        setIsImportModalOpen(true);
+                      }}
+                      className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
+                    >
+                      <Upload size={14} />
                       <span className="whitespace-nowrap">
-                        {isConnectedRemarkTab
-                          ? "Add Connected Remark"
-                          : isSocietyTab
-                            ? "Add Society"
-                            : `Create ${activeTab.title} types`}
+                        Import {activeTab.title}
                       </span>
                     </button>
 
+                    <button
+                      onClick={handleMasterExport}
+                      disabled={!filteredMasterItems.length}
+                      className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                    >
+                      <Download size={14} />
+                      <span className="whitespace-nowrap">Export</span>
+                    </button>
                   </div>
-                </div>
+                )}
 
-                {isLoading ? (
-                  <div className="text-center py-10 sm:py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
-                    <p className="mt-2 text-gray-500 text-sm">Loading...</p>
+                {/* 🔹 Society Tab - Export button */}
+                {isSocietyTab && (
+                  <div className="flex gap-2 w-full md:w-auto">
+                    {/* 🆕 IMPORT BUTTON — Export ke bajule, Add Society se pehle */}
+                    <button
+                      onClick={() => setIsSocietyImportModalOpen(true)}
+                      className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
+                    >
+                      <Upload size={14} />
+                      <span className="whitespace-nowrap">Import Societies</span>
+                    </button>
+
+                    <button
+                      onClick={handleMasterExport}
+                      disabled={!filteredSocieties.length}
+                      className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                    >
+                      <Download size={14} />
+                      <span className="whitespace-nowrap">Export Societies</span>
+                    </button>
                   </div>
-                ) : isConnectedRemarkTab ? (
-                  <div className="bg-white rounded-lg shadow-sm">
-                    {/* Bulk Actions Bar */}
-                    {selectedRemarkIds.length > 0 && (
-                      <div className="flex items-center justify-between p-3 bg-blue-50 border-b">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isAllRemarksSelected}
-                            onChange={toggleSelectAllRemarks}
-                            className="h-4 w-4 rounded border-gray-300"
-                          />
-                          <span className="text-sm text-gray-700 font-medium">
-                            {selectedRemarkIds.length} connected remark(s) selected
-                          </span>
-                        </div>
-                        <button
-                          onClick={handleBulkDeleteRemarks}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs font-medium transition-colors"
-                        >
-                          <Trash2 size={14} />
-                          Delete Selected ({selectedRemarkIds.length})
-                        </button>
-                      </div>
-                    )}
+                )}
 
-                    {filteredConnectedRemarks.length === 0 ? (
-                      <div className="text-center py-10 sm:py-12 text-gray-500">
-                        <Plus size={40} className="mx-auto mb-3 opacity-50" />
-                        {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No connected remarks created yet</p>}
-                      </div>
-                    ) : (
+                {/* 🔹 Connected Remark Tab - Export button */}
+                {isConnectedRemarkTab && (
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <button
+                      onClick={handleMasterExport}
+                      disabled={!filteredConnectedRemarks.length}
+                      className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                    >
+                      <Download size={14} />
+                      <span className="whitespace-nowrap">Export Remarks</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 🔹 DESKTOP: Create button */}
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="hidden md:flex w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg items-center justify-center gap-2 text-xs"
+                >
+                  <Plus size={14} />
+                  <span className="whitespace-nowrap">
+                    {isConnectedRemarkTab
+                      ? "Add Connected Remark"
+                      : isSocietyTab
+                        ? "Add Society"
+                        : `Create ${activeTab.title} types`}
+                  </span>
+                </button>
+
+              </div>
+            </div>
+
+            {isLoading ? (
+              <div className="text-center py-10 sm:py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
+                <p className="mt-2 text-gray-500 text-sm">Loading...</p>
+              </div>
+            ) : isConnectedRemarkTab ? (
+              <div className="bg-white rounded-lg shadow-sm">
+                {/* Bulk Actions Bar */}
+                {selectedRemarkIds.length > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 border-b">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isAllRemarksSelected}
+                        onChange={toggleSelectAllRemarks}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700 font-medium">
+                        {selectedRemarkIds.length} connected remark(s) selected
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleBulkDeleteRemarks}
+                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs font-medium transition-colors"
+                    >
+                      <Trash2 size={14} />
+                      Delete Selected ({selectedRemarkIds.length})
+                    </button>
+                  </div>
+                )}
+
+                {filteredConnectedRemarks.length === 0 ? (
+                  <div className="text-center py-10 sm:py-12 text-gray-500">
+                    <Plus size={40} className="mx-auto mb-3 opacity-50" />
+                    {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No connected remarks created yet</p>}
+                  </div>
+                ) : (
+                  (() => {
+                    const totalCRPages = Math.ceil(filteredConnectedRemarks.length / itemsPerPage);
+                    return (
                       <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
                         <div className="overflow-auto max-h-[380px] sm:max-h-[450px]">
                           <table className="min-w-[1200px] w-full border-collapse table-fixed">
@@ -4121,9 +4194,80 @@ const handleBulkDelete = async (): Promise<void> => {
                                 <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
                                 <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
                               </tr>
+                              {/* Search Row */}
+                              <tr className="bg-gray-50 border-b border-gray-200 divide-x divide-gray-200">
+                                <th className="p-2 w-[50px]"></th>
+                                <th className="p-2 w-[60px]"></th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="Tab..."
+                                    value={crColFilterTab}
+                                    onChange={(e) => setCrColFilterTab(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="Type 1..."
+                                    value={crColFilterType1}
+                                    onChange={(e) => setCrColFilterType1(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="Value 1..."
+                                    value={crColFilterVal1}
+                                    onChange={(e) => setCrColFilterVal1(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="Type 2..."
+                                    value={crColFilterType2}
+                                    onChange={(e) => setCrColFilterType2(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="Value 2..."
+                                    value={crColFilterVal2}
+                                    onChange={(e) => setCrColFilterVal2(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="Remark..."
+                                    value={crColFilterRemark}
+                                    onChange={(e) => setCrColFilterRemark(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2 text-left">
+                                  <select
+                                    value={crColFilterStatus}
+                                    onChange={(e) => setCrColFilterStatus(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  >
+                                    <option value="">All Status</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                  </select>
+                                </th>
+                                <th className="p-2"></th>
+                              </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-100">
-                              {filteredConnectedRemarks.map((remark, index) => (
+                              {paginatedConnectedRemarks.map((remark, index) => (
                                 <tr key={remark.id} className="border-b hover:bg-gray-50 transition-colors divide-x divide-gray-200">
                                   <td className="p-3 w-[50px]">
                                     <input
@@ -4133,7 +4277,7 @@ const handleBulkDelete = async (): Promise<void> => {
                                       className="h-4 w-4 rounded border-gray-300"
                                     />
                                   </td>
-                                  <td className="p-3 text-gray-600 text-xs w-[60px]">{index + 1}</td>
+                                  <td className="p-3 text-gray-600 text-xs w-[60px]">{(crPage - 1) * itemsPerPage + index + 1}</td>
                                   <td className="p-3 font-medium text-xs">{remark.tab_id || remark.tabId || "N/A"}</td>
                                   <td className="p-3 font-medium text-xs">{remark.type1Name || "N/A"}</td>
                                   <td className="p-3 font-medium text-xs">{remark.value1Name || "N/A"}</td>
@@ -4202,7 +4346,7 @@ const handleBulkDelete = async (): Promise<void> => {
                                   </td>
                                 </tr>
                               ))}
-                              {filteredConnectedRemarks.length === 0 && (
+                              {paginatedConnectedRemarks.length === 0 && (
                                 <tr>
                                   <td colSpan={10} className="p-3 text-center text-xs text-gray-400">
                                     No data found
@@ -4212,49 +4356,76 @@ const handleBulkDelete = async (): Promise<void> => {
                             </tbody>
                           </table>
                         </div>
-                        <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                          <span className="text-xs text-gray-400">
-                            Showing <span className="font-medium text-gray-600">{filteredConnectedRemarks.length}</span> records
-                          </span>
-                          {selectedRemarkIds.length > 0 && (
-                            <span className="text-xs text-blue-600 font-medium">{selectedRemarkIds.length} selected</span>
+                        <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-400">
+                              Showing <span className="font-medium text-gray-600">
+                                {filteredConnectedRemarks.length > 0 ? (crPage - 1) * itemsPerPage + 1 : 0}-
+                                {Math.min(crPage * itemsPerPage, filteredConnectedRemarks.length)}
+                              </span> of <span className="font-medium text-gray-600">{filteredConnectedRemarks.length}</span> records
+                              {selectedRemarkIds.length > 0 && (
+                                <span className="text-xs text-blue-600 font-medium ml-2">({selectedRemarkIds.length} selected)</span>
+                              )}
+                            </span>
+                            <select
+                              value={itemsPerPage}
+                              onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
+                              className="px-2 py-0.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-600"
+                            >
+                              {[25, 50, 100, 200, 300].map((n) => (
+                                <option key={n} value={n}>{n}</option>
+                              ))}
+                              <option value={999999}>All</option>
+                            </select>
+                          </div>
+                          {totalCRPages > 1 && (
+                            <Pagination
+                              currentPage={crPage}
+                              totalPages={totalCRPages}
+                              onPageChange={setCrPage}
+                            />
                           )}
                         </div>
                       </div>
-                    )}
+                    );
+                  })()
+                )}
+              </div>
+            ) : isSocietyTab ? (
+              <div className="bg-white rounded-lg shadow-sm">
+                {/* Bulk Actions Bar */}
+                {selectedSocietyIds.length > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 border-b">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isAllSocietiesSelected}
+                        onChange={toggleSelectAllSocieties}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {selectedSocietyIds.length} society(s) selected
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleBulkDeleteSocieties}
+                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs"
+                    >
+                      <Trash2 size={14} />
+                      Delete Selected ({selectedSocietyIds.length})
+                    </button>
                   </div>
-                ) : isSocietyTab ? (
-                  <div className="bg-white rounded-lg shadow-sm">
-                    {/* Bulk Actions Bar */}
-                    {selectedSocietyIds.length > 0 && (
-                      <div className="flex items-center justify-between p-3 bg-blue-50 border-b">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isAllSocietiesSelected}
-                            onChange={toggleSelectAllSocieties}
-                            className="h-4 w-4 rounded border-gray-300"
-                          />
-                          <span className="text-sm text-gray-700">
-                            {selectedSocietyIds.length} society(s) selected
-                          </span>
-                        </div>
-                        <button
-                          onClick={handleBulkDeleteSocieties}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs"
-                        >
-                          <Trash2 size={14} />
-                          Delete Selected ({selectedSocietyIds.length})
-                        </button>
-                      </div>
-                    )}
+                )}
 
-                    {filteredSocieties.length === 0 ? (
-                      <div className="text-center py-10 sm:py-12 text-gray-500">
-                        <Plus size={40} className="mx-auto mb-3 opacity-50" />
-                        {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No societies created yet</p>}
-                      </div>
-                    ) : (
+                {filteredSocieties.length === 0 ? (
+                  <div className="text-center py-10 sm:py-12 text-gray-500">
+                    <Plus size={40} className="mx-auto mb-3 opacity-50" />
+                    {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No societies created yet</p>}
+                  </div>
+                ) : (
+                  (() => {
+                    const totalSocPages = Math.ceil(filteredSocieties.length / itemsPerPage);
+                    return (
                       <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
                         <div className="overflow-auto max-h-[400px] sm:max-h-[450px]">
                           <table className="min-w-[900px] w-full border-collapse">
@@ -4278,9 +4449,72 @@ const handleBulkDelete = async (): Promise<void> => {
                                 <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
                                 <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
                               </tr>
+                              {/* Search Row */}
+                              <tr className="bg-gray-50 border-b border-gray-200 divide-x divide-gray-200">
+                                <th className="p-2"></th>
+                                <th className="p-2"></th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="Search name..."
+                                    value={socColFilterName}
+                                    onChange={(e) => setSocColFilterName(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="Locality..."
+                                    value={socColFilterLocality}
+                                    onChange={(e) => setSocColFilterLocality(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="City..."
+                                    value={socColFilterCity}
+                                    onChange={(e) => setSocColFilterCity(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="Pincode..."
+                                    value={socColFilterPincode}
+                                    onChange={(e) => setSocColFilterPincode(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="Amenities..."
+                                    value={socColFilterAmenities}
+                                    onChange={(e) => setSocColFilterAmenities(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2"></th>
+                                <th className="p-2 text-left">
+                                  <select
+                                    value={socColFilterStatus}
+                                    onChange={(e) => setSocColFilterStatus(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  >
+                                    <option value="">All Status</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                  </select>
+                                </th>
+                                <th className="p-2"></th>
+                              </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-100">
-                              {filteredSocieties.map((society, index) => (
+                              {paginatedSocieties.map((society, index) => (
                                 <tr
                                   key={society.id}
                                   className="border-b hover:bg-gray-50 transition-colors divide-x divide-gray-200"
@@ -4295,7 +4529,7 @@ const handleBulkDelete = async (): Promise<void> => {
                                   </td>
 
                                   <td className="p-3 text-gray-600 text-xs">
-                                    {index + 1}
+                                    {(socPage - 1) * itemsPerPage + index + 1}
                                   </td>
 
                                   {/* 🔥 Clickable Society Name */}
@@ -4406,7 +4640,7 @@ const handleBulkDelete = async (): Promise<void> => {
                                 </tr>
                               ))}
 
-                              {filteredSocieties.length === 0 && (
+                              {paginatedSocieties.length === 0 && (
                                 <tr>
                                   <td colSpan={9} className="p-6 text-center text-gray-500">
                                     No societies found
@@ -4417,248 +4651,292 @@ const handleBulkDelete = async (): Promise<void> => {
                           </table>
                         </div>
 
-                        <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                          <span className="text-xs text-gray-400">
-                            Showing <span className="font-medium text-gray-600">{filteredSocieties.length}</span> societies
-                          </span>
-                          {selectedSocietyIds.length > 0 && (
-                            <span className="text-xs text-blue-600 font-medium">{selectedSocietyIds.length} selected</span>
+                        <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-400">
+                              Showing <span className="font-medium text-gray-600">
+                                {filteredSocieties.length > 0 ? (socPage - 1) * itemsPerPage + 1 : 0}-
+                                {Math.min(socPage * itemsPerPage, filteredSocieties.length)}
+                              </span> of <span className="font-medium text-gray-600">{filteredSocieties.length}</span> societies
+                              {selectedSocietyIds.length > 0 && (
+                                <span className="text-xs text-blue-600 font-medium ml-2">({selectedSocietyIds.length} selected)</span>
+                              )}
+                            </span>
+                            <select
+                              value={itemsPerPage}
+                              onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
+                              className="px-2 py-0.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-600"
+                            >
+                              {[25, 50, 100, 200, 300].map((n) => (
+                                <option key={n} value={n}>{n}</option>
+                              ))}
+                              <option value={999999}>All</option>
+                            </select>
+                          </div>
+                          {totalSocPages > 1 && (
+                            <Pagination
+                              currentPage={socPage}
+                              totalPages={totalSocPages}
+                              onPageChange={setSocPage}
+                            />
                           )}
                         </div>
                       </div>
+                    );
+                  })()
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 max-h-[390px] sm:max-h-[480px] overflow-y-auto pr-2">
+                {filteredMasterItems.length === 0 ? (
+                  <div className="col-span-full text-center py-10 sm:py-12 text-gray-500">
+                    <Plus size={40} className="mx-auto mb-3 opacity-50" />
+                    {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No {activeTab.title} types created yet</p>}
+                  </div>
+                ) : (
+                  filteredMasterItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-white p-2 sm:p-3 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => handleCardClick(item)}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="font-semibold text-sm sm:text-[15px]">{item.name}</h3>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(item);
+                            }}
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(item.id);
+                            }}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium ${item.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                            }`}
+                        >
+                          {item.status === "Active" ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                          {item.status}
+                        </span>
+                        <span className="text-[11px] sm:text-xs text-gray-500">{item.valueCount} values</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="mb-2 sm:mb-2">
+              <button
+                onClick={handleBackToList}
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-3 sm:mb-4"
+              >
+                <ArrowLeft size={18} className="sm:size-5" />
+                <span className="text-sm sm:text-base">Back to {activeTab.title}</span>
+              </button>
+
+              <div className="bg-white rounded-lg p-3 sm:p-3 shadow-sm">
+
+                {/* HEADER */}
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4 sm:mb-6">
+
+                  {/* TITLE + STATUS */}
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-semibold truncate">
+                      {selectedMaster?.name}
+                    </h2>
+
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-medium border ${selectedMaster?.status === "Active"
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-red-50 text-red-600 border-red-200"
+                        }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${selectedMaster?.status === "Active" ? "bg-green-500" : "bg-red-500"}`} />
+                      {selectedMaster?.status}
+                    </span>
+                  </div>
+
+                  {/* RIGHT SECTION */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap w-full md:w-auto">
+
+                    <div className="flex flex-row gap-2 w-full sm:w-auto order-1 sm:order-none">
+                      {!isConnectedRemarkTab && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setImportType("values");
+                              setIsImportModalOpen(true);
+                            }}
+                            disabled={!selectedMaster}
+                            className={`flex-1 sm:w-auto bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs ${!selectedMaster ? "opacity-50 cursor-not-allowed" : ""
+                              }`}
+                          >
+                            <Upload size={14} />
+                            <span className="whitespace-nowrap">Import Values</span>
+                          </button>
+
+                          <button
+                            onClick={handleExport}
+                            disabled={!selectedMaster?.values?.length}
+                            className="flex-1 sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                          >
+                            <Download size={14} />
+                            <span className="whitespace-nowrap">Export</span>
+                          </button>
+
+                          <button
+                            onClick={() => setIsValueModalOpen(true)}
+                            className="flex-1 sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
+                          >
+                            <Plus size={14} />
+                            <span className="whitespace-nowrap">Add Value</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex flex-row gap-2 w-full sm:w-auto order-2 sm:order-none">
+
+                      {/* Search & Advanced Filters Toggle */}
+                      <div className="flex gap-2 w-full sm:w-auto flex-1">
+                        <input
+                          type="text"
+                          placeholder="Search..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="flex-1 sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowFilters(!showFilters)}
+                          className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all ${showFilters
+                            ? "bg-blue-50 border-blue-200 text-blue-600 shadow-sm"
+                            : "bg-white border-gray-300 text-gray-600 hover:bg-gray-50"
+                            }`}
+                        >
+                          <Filter size={14} className={showFilters ? "fill-blue-600/10 text-blue-600" : "text-gray-400"} />
+                          <span className="hidden sm:inline">Filters</span>
+                          {activeFiltersCount > 0 && (
+                            <span className="flex h-4.5 w-4.5 min-w-[18px] items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white px-1">
+                              {activeFiltersCount}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+
+                      {!isConnectedRemarkTab && selectedValueIds.length > 0 && (
+                        <button
+                          onClick={handleBulkDelete}
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs whitespace-nowrap"
+                        >
+                          <Trash2 size={14} />
+                          <span className="whitespace-nowrap">
+                            Delete Selected ({selectedValueIds.length})
+                          </span>
+                        </button>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
+
+                {isValuesLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto" />
+                    <p className="mt-2 text-gray-500 text-sm">Loading values...</p>
+                  </div>
+                ) : filteredValues.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    {selectedMaster?.values?.length === 0 ? (
+                      <>
+                        <Plus size={32} className="mx-auto mb-2 opacity-50" />
+                        <p>No values added yet</p>
+                      </>
+                    ) : (
+                      <p>
+                        No values found matching{" "}
+                        <span className="font-medium">&quot;{searchTerm}&quot;</span>
+                      </p>
                     )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 max-h-[390px] sm:max-h-[480px] overflow-y-auto pr-2">
-                    {filteredMasterItems.length === 0 ? (
-                      <div className="col-span-full text-center py-10 sm:py-12 text-gray-500">
-                        <Plus size={40} className="mx-auto mb-3 opacity-50" />
-                        {searchTerm.trim() !== "" ? <p>No results found</p> : <p>No {activeTab.title} types created yet</p>}
-                      </div>
-                    ) : (
-                      filteredMasterItems.map((item) => (
-                        <div
-                          key={item.id}
-                          className="bg-white p-2 sm:p-3 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
-                          onClick={() => handleCardClick(item)}
-                        >
-                          <div className="flex justify-between items-start mb-1">
-                            <h3 className="font-semibold text-sm sm:text-[15px]">{item.name}</h3>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEdit(item);
-                                }}
-                                className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                              >
-                                <Edit2 size={14} />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(item.id);
-                                }}
-                                className="p-1 text-red-600 hover:bg-red-50 rounded"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium ${item.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                }`}
-                            >
-                              {item.status === "Active" ? <CheckCircle size={12} /> : <XCircle size={12} />}
-                              {item.status}
-                            </span>
-                            <span className="text-[11px] sm:text-xs text-gray-500">{item.valueCount} values</span>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="mb-4 sm:mb-6">
-                  <button
-                    onClick={handleBackToList}
-                    className="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-3 sm:mb-4"
-                  >
-                    <ArrowLeft size={18} className="sm:size-5" />
-                    <span className="text-sm sm:text-base">Back to {activeTab.title}</span>
-                  </button>
-
-                  <div className="bg-white rounded-lg p-3 sm:p-3 shadow-sm">
-
-                    {/* HEADER */}
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-2 sm:mb-2">
-
-                      {/* TITLE + STATUS */}
-                      <div className="flex items-center justify-between w-full sm:w-auto gap-2">
-                        <h2 className="text-sm sm:text-base font-semibold">
-                          {selectedMaster?.name}
-                        </h2>
-
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] sm:text-xs font-medium sm:mt-2 ${selectedMaster?.status === "Active"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                            }`}
-                        >
-                          {selectedMaster?.status === "Active" ? (
-                            <CheckCircle size={12} />
-                          ) : (
-                            <XCircle size={12} />
-                          )}
-                          {selectedMaster?.status}
-                        </span>
-                      </div>
-
-                      {/* RIGHT SECTION */}
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap w-full sm:w-auto">
-
-                        <div className="flex flex-row gap-2 w-full sm:w-auto order-1 sm:order-none">
-                          {!isConnectedRemarkTab && (
-                            <>
-                              <button
-                                onClick={() => {
-                                  setImportType("values");
-                                  setIsImportModalOpen(true);
-                                }}
-                                disabled={!selectedMaster}
-                                className={`flex-1 sm:w-auto bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs ${!selectedMaster ? "opacity-50 cursor-not-allowed" : ""
-                                  }`}
-                              >
-                                <Upload size={14} />
-                                <span className="whitespace-nowrap">Import Values</span>
-                              </button>
-
-                              <button
-                                onClick={handleExport}
-                                disabled={!selectedMaster?.values?.length}
-                                className="flex-1 sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
-                              >
-                                <Download size={14} />
-                                <span className="whitespace-nowrap">Export</span>
-                              </button>
-
-                              <button
-                                onClick={() => setIsValueModalOpen(true)}
-                                className="flex-1 sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
-                              >
-                                <Plus size={14} />
-                                <span className="whitespace-nowrap">Add Value</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-
-                        <div className="flex flex-row gap-2 w-full sm:w-auto order-2 sm:order-none">
-                          
-                          {/* Search & Advanced Filters Toggle */}
-                          <div className="flex gap-2 w-full sm:w-auto flex-1">
-                            <input
-                              type="text"
-                              placeholder="Search..."
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              className="flex-1 sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowFilters(!showFilters)}
-                              className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all ${
-                                showFilters
-                                  ? "bg-blue-50 border-blue-200 text-blue-600 shadow-sm"
-                                  : "bg-white border-gray-300 text-gray-600 hover:bg-gray-50"
-                              }`}
-                            >
-                              <Filter size={14} className={showFilters ? "fill-blue-600/10 text-blue-600" : "text-gray-400"} />
-                              <span className="hidden sm:inline">Filters</span>
-                              {activeFiltersCount > 0 && (
-                                <span className="flex h-4.5 w-4.5 min-w-[18px] items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white px-1">
-                                  {activeFiltersCount}
-                                </span>
-                              )}
-                            </button>
-                          </div>
-
-                          {!isConnectedRemarkTab && selectedValueIds.length > 0 && (
-                            <button
-                              onClick={handleBulkDelete}
-                              className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs whitespace-nowrap"
-                            >
-                              <Trash2 size={14} />
-                              <span className="whitespace-nowrap">
-                                Delete Selected ({selectedValueIds.length})
-                              </span>
-                            </button>
-                          )}
-                        </div>
-
-                      </div>
-                    </div>
-
-                    {isValuesLoading ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto" />
-                        <p className="mt-2 text-gray-500 text-sm">Loading values...</p>
-                      </div>
-                    ) : filteredValues.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">
-                        {selectedMaster?.values?.length === 0 ? (
-                          <>
-                            <Plus size={32} className="mx-auto mb-2 opacity-50" />
-                            <p>No values added yet</p>
-                          </>
-                        ) : (
-                          <p>
-                            No values found matching{" "}
-                            <span className="font-medium">&quot;{searchTerm}&quot;</span>
-                          </p>
-                        )}
-                      </div>
-                    ) : (
+                  (() => {
+                    const totalValPages = Math.ceil(filteredValues.length / itemsPerPage);
+                    return (
                       <div className="rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                        <div className="overflow-auto max-h-[320px] sm:max-h-[410px]">
+                        <div className="overflow-auto h-[400px]">
                           <table className="min-w-[600px] w-full border-collapse">
-                            <thead className="sticky top-0 z-10">
+                            <thead className="sticky top-0 z-10 bg-gray-100">
                               <tr className="bg-gray-100 border-b border-gray-200 divide-x divide-gray-200">
-                                <th className="text-left p-3 font-medium text-[11px] sm:text-xs">
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="checkbox"
-                                      checked={isAllSelected}
-                                      onChange={toggleSelectAll}
-                                      className="h-4 w-4"
-                                    />
-                                    <span>#</span>
-                                  </div>
+                                <th className="text-left p-3 font-medium text-[11px] sm:text-xs w-[50px]">
+                                  <input
+                                    type="checkbox"
+                                    checked={isAllSelected}
+                                    onChange={toggleSelectAll}
+                                    className="h-4 w-4 rounded border-gray-300"
+                                  />
                                 </th>
+                                <th className="text-left p-3 font-medium text-[11px] sm:text-xs w-[60px]">#</th>
                                 <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Value</th>
                                 <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Status</th>
                                 <th className="text-left p-3 font-medium text-[11px] sm:text-xs">Actions</th>
                               </tr>
+                              {/* Search Row */}
+                              {/* <tr className="bg-gray-50 border-b border-gray-200 divide-x divide-gray-200">
+                                <th className="p-2 w-[50px]"></th>
+                                <th className="p-2 w-[60px]"></th>
+                                <th className="p-2 text-left">
+                                  <input
+                                    type="text"
+                                    placeholder="Search value..."
+                                    value={valColFilterValue}
+                                    onChange={(e) => setValColFilterValue(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  />
+                                </th>
+                                <th className="p-2 text-left">
+                                  <select
+                                    value={valColFilterStatus}
+                                    onChange={(e) => setValColFilterStatus(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-[11px] font-normal focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                  >
+                                    <option value="">All Status</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                  </select>
+                                </th>
+                                <th className="p-2"></th>
+                              </tr> */}
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-100">
-                              {filteredValues.map((value, index) => (
+                              {paginatedValues.map((value, index) => (
                                 <tr key={value.id} className="border-b hover:bg-gray-50 transition-colors divide-x divide-gray-200">
-                                  <td className="p-3 text-gray-600 text-xs">
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedValueIds.includes(value.id)}
-                                        onChange={() => toggleSelectValue(value.id)}
-                                        className="h-4 w-4"
-                                      />
-                                      {index + 1}
-                                    </div>
+                                  <td className="p-3 w-[50px] text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedValueIds.includes(value.id)}
+                                      onChange={() => toggleSelectValue(value.id)}
+                                      className="h-4 w-4 rounded border-gray-300"
+                                    />
                                   </td>
+                                  <td className="p-3 text-gray-600 text-xs w-[60px]">{(valPage - 1) * itemsPerPage + index + 1}</td>
                                   <td className="p-3 font-medium text-xs">{value.value}</td>
                                   <td className="p-3">
                                     <span
@@ -4689,9 +4967,9 @@ const handleBulkDelete = async (): Promise<void> => {
                                   </td>
                                 </tr>
                               ))}
-                              {filteredValues.length === 0 && (
+                              {paginatedValues.length === 0 && (
                                 <tr>
-                                  <td colSpan={4} className="p-3 text-center text-xs text-gray-400">
+                                  <td colSpan={5} className="p-3 text-center text-xs text-gray-400">
                                     No values found
                                   </td>
                                 </tr>
@@ -4699,20 +4977,44 @@ const handleBulkDelete = async (): Promise<void> => {
                             </tbody>
                           </table>
                         </div>
-                        <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                          <span className="text-xs text-gray-400">
-                            Showing <span className="font-medium text-gray-600">{filteredValues.length}</span> values
-                          </span>
-                          {selectedValueIds.length > 0 && (
-                            <span className="text-xs text-blue-600 font-medium">{selectedValueIds.length} selected</span>
+                        <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-400">
+                              Showing <span className="font-medium text-gray-600">
+                                {filteredValues.length > 0 ? (valPage - 1) * itemsPerPage + 1 : 0}-
+                                {Math.min(valPage * itemsPerPage, filteredValues.length)}
+                              </span> of <span className="font-medium text-gray-600">{filteredValues.length}</span> values
+                              {selectedValueIds.length > 0 && (
+                                <span className="text-xs text-blue-600 font-medium ml-2">({selectedValueIds.length} selected)</span>
+                              )}
+                            </span>
+                            <select
+                              value={itemsPerPage}
+                              onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))}
+                              className="px-2 py-0.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-600"
+                            >
+                              {[25, 50, 100, 200, 300].map((n) => (
+                                <option key={n} value={n}>{n}</option>
+                              ))}
+                              <option value={999999}>All</option>
+                            </select>
+                          </div>
+                          {totalValPages > 1 && (
+                            <Pagination
+                              currentPage={valPage}
+                              totalPages={totalValPages}
+                              onPageChange={setValPage}
+                            />
                           )}
                         </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
+                    );
+                  })()
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </main>
 
       {/* View Society Modal */}
@@ -4820,7 +5122,23 @@ const handleBulkDelete = async (): Promise<void> => {
       </Modal>
 
       {/* Value Modal */}
-      <Modal isOpen={isValueModalOpen} onClose={resetValueForm} title={`${editingValue ? "Edit" : "Add"} Value`}>
+      <Modal
+        isOpen={isValueModalOpen}
+        onClose={resetValueForm}
+        showHeader={false}
+        showCloseButton={false}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b rounded-t-lg" style={{ background: '#0f2b3d', borderColor: '#e2e8f0' }}>
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-5 rounded-full bg-[#e67e22]" />
+            <h2 className="text-sm font-bold text-white">
+              {editingValue ? "Edit Value" : "Add Value"}
+            </h2>
+          </div>
+          <button type="button" onClick={resetValueForm} className="p-1 rounded hover:bg-white/10 transition-colors">
+            <X size={16} color="white" />
+          </button>
+        </div>
         <form onSubmit={handleValueSubmit}>
           <div className="space-y-4 px-5 py-4">
             <div>
@@ -4877,18 +5195,16 @@ const handleBulkDelete = async (): Promise<void> => {
         <>
           {/* Overlay Backdrop */}
           <div
-            className={`fixed inset-0 z-[1000] transition-opacity duration-300 ${
-              showFilters ? "opacity-100" : "opacity-0 pointer-events-none"
-            }`}
+            className={`fixed inset-0 z-[1000] transition-opacity duration-300 ${showFilters ? "opacity-100" : "opacity-0 pointer-events-none"
+              }`}
             style={{ background: "rgba(15, 43, 61, 0.45)", backdropFilter: "blur(2px)" }}
             onClick={() => setShowFilters(false)}
           />
 
           {/* Drawer Sidebar */}
           <div
-            className={`fixed top-0 right-0 h-full z-[1001] flex flex-col transform transition-transform duration-300 ease-out ${
-              showFilters ? "translate-x-0" : "translate-x-full"
-            } w-[280px] sm:w-[380px]`}
+            className={`fixed top-0 right-0 h-full z-[1001] flex flex-col transform transition-transform duration-300 ease-out ${showFilters ? "translate-x-0" : "translate-x-full"
+              } w-[280px] sm:w-[380px]`}
             style={{ background: "#f8fafc", boxShadow: "-4px 0 32px rgba(15, 43, 61, 0.18)" }}
             role="dialog"
             aria-modal="true"
@@ -4931,7 +5247,7 @@ const handleBulkDelete = async (): Promise<void> => {
               style={{ scrollbarWidth: "thin" }}
             >
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                
+
                 {/* SECTION: Global/Active View Status Filter */}
                 {currentView !== "values" && (
                   <div>

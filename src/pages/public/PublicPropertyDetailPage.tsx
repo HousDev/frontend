@@ -56,6 +56,7 @@ import {
 import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
 import propertiesAPI from '@/lib/propertiesAPI';
+import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import { FaWhatsapp } from 'react-icons/fa';
 import viewsAPI from '@/lib/viewAPI';
 import ShareModal from './ShareModal';
@@ -424,6 +425,16 @@ const getGalleryPhotos = () => {
       setSimilarPropertiesLoading(true);
 
       try {
+        const isRental = Boolean(
+          property.raw?.listing_type === 'rent' ||
+          property.raw?.monthly_rent ||
+          property.raw?.security_deposit ||
+          property.monthly_rent ||
+          (property.raw?.listing_type && String(property.raw.listing_type).toLowerCase() === 'rent')
+        );
+
+        const activeAPI = isRental ? rentalPropertiesAPI : propertiesAPI;
+
         const primaryFilters = {
           propertyId: property.id,
           type: property.type,
@@ -439,8 +450,18 @@ const getGalleryPhotos = () => {
           excludeCurrent: true,
         };
 
-        const similarData = await propertiesAPI.getSimilarProperties(primaryFilters);
-        const list = similarData?.data || [];
+        let similarData: any = null;
+        try {
+          similarData = await activeAPI.getSimilarProperties(primaryFilters);
+        } catch (err) {
+          similarData = await activeAPI.PublicgetProperties({
+            city: property.city,
+            limit: 6,
+            status: 'Available'
+          });
+        }
+
+        const list = Array.isArray(similarData?.data) ? similarData.data : (Array.isArray(similarData) ? similarData : []);
 
         // 👉 Per item full fetch to get price/images/etc.
         const enriched = await Promise.all(
@@ -450,11 +471,11 @@ const getGalleryPhotos = () => {
               const id = p?.id ?? p?.raw?.id ?? null;
 
               let full: any = null;
-              if (slug && propertiesAPI.PublicgetPropertyBySlug) {
-                const r = await propertiesAPI.PublicgetPropertyBySlug(slug);
+              if (slug && activeAPI.PublicgetPropertyBySlug) {
+                const r = await activeAPI.PublicgetPropertyBySlug(slug);
                 full = r?.data ?? r ?? null;
-              } else if (id && propertiesAPI.getProperty) {
-                const r = await propertiesAPI.getProperty(id);
+              } else if (id && (activeAPI as any).getProperty) {
+                const r = await (activeAPI as any).getProperty(id);
                 full = r?.data ?? r ?? null;
               }
 
@@ -716,7 +737,7 @@ const getGalleryPhotos = () => {
   const normalizeProperty = (p: RawProperty) => {
     if (!p) return null;
 
-    const price = Number(p?.budget ?? p?.price ?? p?.amount ?? p?.listing_price ?? p?.listingPrice);
+    const price = Number(p?.monthly_rent ?? p?.budget ?? p?.price ?? p?.amount ?? p?.listing_price ?? p?.listingPrice);
     const sqftCandidates = [
       p?.carpet_area,
       p?.builtup_area,
@@ -937,7 +958,16 @@ const images: string[] = mediaItems.map((m: any) => m.url); // backward compatib
       if (!slug) return;
       try {
         setLoading(true);
-        const res = await propertiesAPI.PublicgetPropertyBySlug(slug as string);
+        let res: any = null;
+        try {
+          res = await propertiesAPI.PublicgetPropertyBySlug(slug as string);
+        } catch (e) {
+          try {
+            res = await rentalPropertiesAPI.PublicgetPropertyBySlug(slug as string);
+          } catch (rentalErr) {
+            throw e;
+          }
+        }
         const payload = res?.data ?? res ?? null;
         const normalized = normalizeProperty(payload);
         setProperty(normalized);

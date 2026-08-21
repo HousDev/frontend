@@ -3,6 +3,7 @@ import { ArrowLeft, Phone, Mail, MapPin, Edit, Eye, User as UserIcon, Calendar a
 import ownerAPI from "@/lib/ownerAPI";
 import ownerFollowupAPI from "@/lib/ownerFollowupAPI";
 import LinkRentalPropertyModal from "./LinkRentalPropertyModal";
+import rentalPropertiesAPI from "@/lib/rentalPropertiesAPI";
 import OwnerFollowupModal from "./OwnerFollowupModal";
 import { toast } from "react-toastify";
 import TableLoader from "@/components/ui/TableLoader";
@@ -59,6 +60,7 @@ export const OwnerViewPage: React.FC<OwnerViewPageProps> = ({ ownerId, onBack })
       };
       
       await ownerAPI.update(ownerId, payload);
+      await rentalPropertiesAPI.patchOwner(String(property.id), 'link', ownerId);
       toast.success("Rental property linked successfully!");
       fetchOwnerDetails();
       setShowLinkModal(false);
@@ -79,6 +81,7 @@ export const OwnerViewPage: React.FC<OwnerViewPageProps> = ({ ownerId, onBack })
       };
       
       await ownerAPI.update(ownerId, payload);
+      await rentalPropertiesAPI.patchOwner(String(propertyId), 'unlink');
       toast.success("Rental property unlinked successfully!");
       fetchOwnerDetails();
     } catch (err: any) {

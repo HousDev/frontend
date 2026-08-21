@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import Swal from "sweetalert2";
 import {
   X,
   Phone,
@@ -22,6 +23,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
+import { getImageUrl } from "@/lib/helpers";
 
 const N = "#0f2b3d";
 const O = "#e67e22";
@@ -37,6 +39,7 @@ interface SellerViewModalProps {
   onEdit?: (seller: any) => void;
   onAccount?: (sellerId: number) => void;
   canEdit?: boolean;
+  onUnlinkProperties?: (propertyIds: string[]) => Promise<void> | void;
 }
 
 const formatCurrency = (val?: number | string | null) => {
@@ -88,7 +91,10 @@ const SellerViewModal: React.FC<SellerViewModalProps> = ({
   onEdit,
   onAccount,
   canEdit = true,
+  onUnlinkProperties,
 }) => {
+  const [selectedPropIds, setSelectedPropIds] = useState<string[]>([]);
+
   if (!isOpen || !seller) return null;
 
   const initials = (() => {
@@ -362,24 +368,56 @@ const SellerViewModal: React.FC<SellerViewModalProps> = ({
             className="p-3 rounded-lg border space-y-2"
             style={{ background: "white", borderColor: BD }}
           >
-            <div className="flex items-center justify-between">
-              <h4
-                className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"
-                style={{ color: N }}
-              >
-                <Building size={12} style={{ color: O }} /> Linked Properties ({properties.length})
-              </h4>
-            </div>
+              <div className="flex items-center justify-between w-full">
+                <h4
+                  className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"
+                  style={{ color: N }}
+                >
+                  <Building size={12} style={{ color: O }} /> Linked Properties ({properties.length})
+                </h4>
+                {selectedPropIds.length > 0 && onUnlinkProperties && (
+                  <button
+                    onClick={async () => {
+                      const result = await Swal.fire({
+                        title: 'Unlink Selected Properties?',
+                        text: `Are you sure you want to unlink the ${selectedPropIds.length} selected properties from this seller?`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Yes, Unlink All',
+                        cancelButtonText: 'Cancel',
+                        width: '380px',
+                        customClass: {
+                          popup: 'rounded-xl shadow-2xl',
+                          title: 'text-base font-bold text-gray-800',
+                          htmlContainer: 'text-xs text-gray-600',
+                          confirmButton: 'px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 mx-1',
+                          cancelButton: 'px-3 py-1.5 bg-gray-500 text-white text-xs font-semibold rounded-lg hover:bg-gray-600 mx-1',
+                        },
+                        buttonsStyling: false,
+                      });
+                      if (result.isConfirmed) {
+                        await onUnlinkProperties(selectedPropIds);
+                        setSelectedPropIds([]);
+                      }
+                    }}
+                    className="px-2 py-0.5 rounded text-[8px] font-bold text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 transition-all animate-pulse"
+                  >
+                    Unlink Selected ({selectedPropIds.length})
+                  </button>
+                )}
+              </div>
 
             {properties.length > 0 ? (
               <div className="space-y-1.5 max-h-36 overflow-y-auto">
                 {properties.map((p: any, idx: number) => {
-                  const title =
-                    p.title ||
-                    p.property_type_name ||
-                    p.unit_type ||
-                    p.property_type ||
-                    `Property #${idx + 1}`;
+                  const propType = p.property_type_name || p.property_type || "";
+                  const unitType = p.unit_type || p.bhk || p.configuration || "";
+                  const subtype = p.property_subtype_name || p.property_sub_type || p.property_subtype || p.subtype || "";
+                  const titleParts = [propType, unitType, subtype].map(s => String(s).trim()).filter(Boolean).join(" ");
+                  const title = titleParts || p.title || `Property #${idx + 1}`;
+
                   const address =
                     p.address ||
                     [p.location_name || p.location, p.city_name || p.city]
@@ -387,11 +425,12 @@ const SellerViewModal: React.FC<SellerViewModalProps> = ({
                       .join(", ") ||
                     "Location not specified";
                   const price = p.price || p.budget || p.expected_price;
-                  const photo =
+                  const rawPhoto =
                     p.photo ||
                     p.photos?.[0]?.url ||
                     p.photos?.[0] ||
                     p.image;
+                  const photo = getImageUrl(rawPhoto) || null;
 
                   return (
                     <div
@@ -399,19 +438,32 @@ const SellerViewModal: React.FC<SellerViewModalProps> = ({
                       className="flex items-center gap-2.5 p-2 rounded-lg border hover:bg-gray-50 transition-colors"
                       style={{ borderColor: BD }}
                     >
+                      {onUnlinkProperties && (
+                        <input
+                          type="checkbox"
+                          checked={selectedPropIds.includes(String(p.id || p.property_id || p._id))}
+                          onChange={(e) => {
+                            const idStr = String(p.id || p.property_id || p._id);
+                            if (e.target.checked) {
+                              setSelectedPropIds(prev => [...prev, idStr]);
+                            } else {
+                              setSelectedPropIds(prev => prev.filter(id => id !== idStr));
+                            }
+                          }}
+                          className="accent-orange-500 h-3.5 w-3.5 mr-0.5 cursor-pointer"
+                        />
+                      )}
                       {photo ? (
                         <img
                           src={photo}
                           alt={title}
                           className="w-10 h-10 object-cover rounded-md flex-shrink-0"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling && ((e.target as HTMLImageElement).nextElementSibling as HTMLElement)?.classList?.remove('hidden'); }}
                         />
-                      ) : (
-                        <div
-                          className="w-10 h-10 rounded-md flex items-center justify-center text-[8px] text-gray-400 bg-gray-100 flex-shrink-0"
-                        >
-                          No Pic
-                        </div>
-                      )}
+                      ) : null}
+                      <div className={`w-10 h-10 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0 ${photo ? 'hidden' : ''}`}>
+                        No Pic
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 truncate text-[11px]">
                           {title}

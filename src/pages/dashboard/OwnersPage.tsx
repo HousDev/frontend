@@ -9,6 +9,8 @@ import ImportOwnersModal from "@/components/owners/ImportOwnersModal";
 import OwnerFollowupModal from "@/components/owners/OwnerFollowupModal";
 import OwnerViewPage from "@/components/owners/OwnerViewPage";
 import TableLoader from "@/components/ui/TableLoader";
+import LinkRentalPropertyModal from "@/components/owners/LinkRentalPropertyModal";
+import rentalPropertiesAPI from "@/lib/rentalPropertiesAPI";
 import { useAuth } from "@/contexts/AuthContext";
 import { usersAPI } from "@/lib/api";
 import { can } from "@/utils/permission";
@@ -141,6 +143,8 @@ export const OwnersPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showFollowupModal, setShowFollowupModal] = useState(false);
   const [viewingOwner, setViewingOwner] = useState<UIOwner | null>(null);
+  const [showDirectLinkModal, setShowDirectLinkModal] = useState(false);
+  const [linkingOwnerForProp, setLinkingOwnerForProp] = useState<any | null>(null);
 
   // Column search states
   const [colSearch, setColSearch] = useState({
@@ -248,15 +252,42 @@ export const OwnersPage: React.FC = () => {
     ];
   }, [allOwners]);
 
-  // Pagination Slice
-  const paginatedOwners = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredOwners.slice(start, start + itemsPerPage);
-  }, [filteredOwners, currentPage, itemsPerPage]);
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredOwners.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
 
-  const totalPages = Math.ceil(filteredOwners.length / itemsPerPage);
+  const paginatedOwners = useMemo(() => {
+    return filteredOwners.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredOwners, startIndex, itemsPerPage]);
+
+  // Reset page when filters/tab/search change
+  useEffect(() => { setCurrentPage(1); }, [filteredOwners.length, activeTab, itemsPerPage]);
 
   // Multi Selection handlers
+  const handleDirectLinkProperty = async (property: any) => {
+    if (!linkingOwnerForProp) return;
+    try {
+      const currentProps = linkingOwnerForProp.properties || [];
+      const updatedProps = [...currentProps, property];
+      
+      await ownerAPI.update(String(linkingOwnerForProp.id), {
+        ...linkingOwnerForProp,
+        properties: updatedProps,
+        property_ids: updatedProps.map((p: any) => p.id || p.property_id || p._id).filter(Boolean),
+      });
+
+      await rentalPropertiesAPI.patchOwner(String(property.id), 'link', linkingOwnerForProp.id);
+      
+      toast.success("Rental property linked successfully!");
+      setShowDirectLinkModal(false);
+      setLinkingOwnerForProp(null);
+      await loadOwners();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to link rental property");
+    }
+  };
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
       setSelectedOwners(paginatedOwners.map(o => o.id));
@@ -373,21 +404,42 @@ export const OwnersPage: React.FC = () => {
     return <OwnerViewPage ownerId={viewingOwner.id} onBack={() => { setViewingOwner(null); loadOwners(); }} />;
   }
 
+  // Pagination page buttons helper
+  const getPageButtons = () => {
+    const pages: (number | '...')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
   return (
-    <div className="p-2 sm:p-4 space-y-3" style={{ backgroundColor: "#f5f6f8" }}>
+    <div className="p-0 sm:p-4 space-y-3 -mt-2">
+      <style>{`
+        .owners-table td { border-right: 1px solid rgba(209,213,219,0.5); }
+        .owners-table td:last-child { border-right: none; }
+        .owners-table thead th { border-right: 1px solid rgba(209,213,219,0.4); }
+        .owners-table thead th:last-child { border-right: none; }
+      `}</style>
+
       {/* Header Tabs & Actions */}
-      <div className="hidden sm:flex items-center justify-between gap-2 bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm flex-wrap">
+      <div className="hidden sm:flex items-center justify-between gap-2 p-2.5 rounded-xl flex-wrap">
         <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
-          <div className="flex gap-1 min-w-max bg-gray-100 p-1 rounded-lg">
+          <div className="flex gap-1 min-w-max p-1 rounded-lg">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => { setActiveTab(tab.id); setCurrentPage(1); }}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-medium transition-all whitespace-nowrap ${
-                    isActive ? "bg-white shadow-sm" : "text-gray-500 hover:text-gray-700"
-                  }`}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-medium transition-all whitespace-nowrap ${isActive ? "bg-white shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    }`}
                   style={isActive ? { color: RESALE.orange } : {}}
                 >
                   <span>{tab.label}</span>
@@ -487,117 +539,121 @@ export const OwnersPage: React.FC = () => {
 
       {/* Main Table View */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto min-h-[400px]">
-          <table className="w-full text-left border-collapse text-xs" style={{ minWidth: "900px" }}>
-            <thead>
-              <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                <th className="w-8 px-3 py-2 text-center bg-gray-50">
+        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 290px)' }}>
+          <table
+            className="owners-table w-full text-left text-xs"
+            style={{ minWidth: "950px", borderCollapse: "separate", borderSpacing: 0 }}
+          >
+            <thead style={{ position: "sticky", top: 0, zIndex: 30 }}>
+              {/* Row 1: Column Headers */}
+              <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
+                <th className="w-5 px-1 py-1 text-center bg-gray-50">
                   <input
                     type="checkbox"
                     checked={paginatedOwners.length > 0 && paginatedOwners.every(o => selectedOwners.includes(o.id))}
                     onChange={handleSelectAll}
-                    className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3.5 h-3.5 cursor-pointer"
+                    className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3 cursor-pointer"
                   />
                 </th>
-                <th className="px-2 py-2 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider w-10">S.No.</th>
-                <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider">COMMUNICATE</th>
-                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">OWNER DETAILS</th>
-                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">CONTACT & LOCATION</th>
-                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">BUSINESS INFO</th>
-                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">PROGRESS & ACTIVITY</th>
-                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">PERFORMANCE</th>
-                <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider">MANAGE</th>
-                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">ASSIGNED TO</th>
+                <th className="px-1 py-1 text-center text-[9px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50 w-8">S.No.</th>
+                <th className="px-1 py-1 text-center text-[9px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">COMMUNICATE</th>
+                <th className="px-1.5 py-1 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">OWNER DETAILS</th>
+                <th className="px-1.5 py-1 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">CONTACT &amp; LOCATION</th>
+                <th className="px-1.5 py-1 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">BUSINESS INFO</th>
+                <th className="px-1.5 py-1 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">PROGRESS &amp; ACTIVITY</th>
+                <th className="px-1.5 py-1 text-center text-[9px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">MANAGE</th>
+                <th className="px-1.5 py-1 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ASSIGNED TO</th>
               </tr>
 
-              {/* Row 2: Search Inputs */}
-              <tr className="bg-gray-100 border-b">
-                <th className="px-2 py-1" />
-                <th className="px-1.5 py-1 text-center font-normal text-gray-400">#</th>
-                <th className="px-2 py-1" />
-                <th className="px-2 py-1">
+              {/* Row 2: Column Search */}
+              <tr className="bg-gray-100">
+                <th className="px-1 py-0.5 bg-gray-100" />
+                <th className="px-1 py-0.5 bg-gray-100 text-[8px] text-gray-400 font-normal">#</th>
+                <th className="px-1 py-0.5 bg-gray-100" />
+                <th className="px-1 py-0.5 bg-gray-100">
                   <input
                     type="text"
                     placeholder="Search name/ID/status..."
                     value={colSearch.name}
                     onChange={(e) => setColSearch(p => ({ ...p, name: e.target.value }))}
-                    className="w-full px-2 py-1 text-[10px] border rounded bg-white font-normal"
+                    className="w-full px-1 py-0.5 text-[8.5px] border border-gray-300 rounded bg-white font-normal"
                   />
                 </th>
-                <th className="px-2 py-1">
+                <th className="px-1 py-0.5 bg-gray-100">
                   <input
                     type="text"
                     placeholder="Search phone/email/location..."
                     value={colSearch.contact}
                     onChange={(e) => setColSearch(p => ({ ...p, contact: e.target.value }))}
-                    className="w-full px-2 py-1 text-[10px] border rounded bg-white font-normal"
+                    className="w-full px-1 py-0.5 text-[8.5px] border border-gray-300 rounded bg-white font-normal"
                   />
                 </th>
-                <th className="px-2 py-1">
+                <th className="px-1 py-0.5 bg-gray-100">
                   <input
                     type="text"
                     placeholder="Search source/status..."
                     value={colSearch.source}
                     onChange={(e) => setColSearch(p => ({ ...p, source: e.target.value }))}
-                    className="w-full px-2 py-1 text-[10px] border rounded bg-white font-normal"
+                    className="w-full px-1 py-0.5 text-[8.5px] border border-gray-300 rounded bg-white font-normal"
                   />
                 </th>
-                <th className="px-2 py-1">
+                <th className="px-1 py-0.5 bg-gray-100">
                   <input
                     type="text"
                     placeholder="Search stage..."
                     value={colSearch.stage}
                     onChange={(e) => setColSearch(p => ({ ...p, stage: e.target.value }))}
-                    className="w-full px-2 py-1 text-[10px] border rounded bg-white font-normal"
+                    className="w-full px-1 py-0.5 text-[8.5px] border border-gray-300 rounded bg-white font-normal"
                   />
                 </th>
-                <th className="px-2 py-1" />
-                <th className="px-2 py-1" />
-                <th className="px-2 py-1">
+                <th className="px-1 py-0.5 bg-gray-100" />
+                <th className="px-1 py-0.5 bg-gray-100">
                   <input
                     type="text"
                     placeholder="Search assigned..."
                     value={colSearch.assigned}
                     onChange={(e) => setColSearch(p => ({ ...p, assigned: e.target.value }))}
-                    className="w-full px-2 py-1 text-[10px] border rounded bg-white font-normal"
+                    className="w-full px-1 py-0.5 text-[8.5px] border border-gray-300 rounded bg-white font-normal"
                   />
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {loading ? (
-                <TableLoader colSpan={11} />
+                <TableLoader colSpan={9} />
               ) : paginatedOwners.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-12 text-center text-gray-500 font-semibold">No owners found.</td>
+                  <td colSpan={9} className="p-12 text-center text-gray-500 font-semibold">No owners found.</td>
                 </tr>
               ) : (
                 paginatedOwners.map((o, idx) => {
-                  const sNo = (currentPage - 1) * itemsPerPage + idx + 1;
+                  const sNo = startIndex + idx + 1;
                   const isActive = o.status === "active";
                   return (
                     <tr key={o.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-3 py-1.5 text-center">
+                      <td className="px-1 py-0.5 text-center bg-white">
                         <input
                           type="checkbox"
                           checked={selectedOwners.includes(o.id)}
                           onChange={() => handleSelectOwner(o.id)}
-                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3.5 h-3.5 cursor-pointer"
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3 cursor-pointer"
                         />
                       </td>
-                      <td className="px-2 py-1.5 text-center font-bold text-gray-500">{sNo}</td>
-                      <td className="px-3 py-1.5 text-center">
-                        <div className="flex items-center gap-1 justify-center">
+                      <td className="px-1 py-0.5 text-center text-[9px] font-semibold text-gray-500 bg-white">{sNo}</td>
+
+                      {/* COMMUNICATE */}
+                      <td className="px-1 py-0.5 text-center">
+                        <div className="flex items-center gap-0.5 justify-center">
                           <button
                             onClick={() => {
                               const p = o.phone.replace(/\D/g, "");
                               if (p && p !== "-") window.open(`tel:${p}`);
                               else toast.error("No phone number");
                             }}
-                            className="p-1 rounded hover:bg-green-50 text-green-600 transition-colors"
+                            className="p-0.5 rounded hover:bg-green-50 text-green-600 transition-colors"
                             title="Call"
                           >
-                            <Phone size={13} />
+                            <Phone size={11} />
                           </button>
                           <button
                             onClick={() => {
@@ -606,10 +662,10 @@ export const OwnersPage: React.FC = () => {
                                 window.open(`https://wa.me/${p}?text=Hi ${o.name}`, "_blank");
                               } else toast.error("No phone number");
                             }}
-                            className="p-1 rounded hover:bg-green-50 text-green-600 transition-colors"
+                            className="p-0.5 rounded hover:bg-green-50 text-green-600 transition-colors"
                             title="WhatsApp"
                           >
-                            <SiWhatsapp size={13} />
+                            <SiWhatsapp size={11} />
                           </button>
                           <button
                             onClick={() => {
@@ -617,114 +673,113 @@ export const OwnersPage: React.FC = () => {
                                 window.open(`mailto:${o.email}`, "_blank");
                               } else toast.error("No email address");
                             }}
-                            className="p-1 rounded hover:bg-blue-50 text-blue-600 transition-colors"
+                            className="p-0.5 rounded hover:bg-blue-50 text-blue-600 transition-colors"
                             title="Email"
                           >
-                            <Mail size={13} />
+                            <Mail size={11} />
                           </button>
                           <button
                             onClick={() => { setSelectedOwner(o); setShowFollowupModal(true); }}
-                            className="p-1 rounded hover:bg-purple-50 text-purple-600 transition-colors"
+                            className="p-0.5 rounded hover:bg-purple-50 text-purple-600 transition-colors"
                             title="Schedule Follow-up"
                           >
-                            <Calendar size={13} />
+                            <Calendar size={11} />
                           </button>
                         </div>
                       </td>
-                      <td className="px-3 py-1.5">
-                        <button onClick={() => setViewingOwner(o)} className="flex items-center gap-2 text-left group">
-                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-sm" style={{ backgroundColor: RESALE.orange }}>
+
+                      {/* OWNER DETAILS */}
+                      <td className="px-1.5 py-0.5">
+                        <button onClick={() => setViewingOwner(o)} className="flex items-center gap-1 text-left group">
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold shadow-sm flex-shrink-0" style={{ backgroundColor: RESALE.orange }}>
                             {(o.name.split(" ")[0]?.charAt(0) + (o.name.split(" ")[1]?.charAt(0) || "")).toUpperCase()}
                           </div>
                           <div>
-                            <div className="font-semibold text-gray-900 group-hover:text-orange-500 transition-colors">{o.salutation} {o.name}</div>
-                            <div className="flex items-center gap-1.5 text-[9px] mt-0.5">
+                            <div className="font-semibold text-[10px] text-gray-900 group-hover:text-orange-500 transition-colors whitespace-nowrap">{o.salutation} {o.name}</div>
+                            <div className="flex items-center gap-1 text-[8px] mt-0.5">
                               <span className="text-gray-400">ID: {o.id}</span>
-                              <span className={`inline-flex px-1 py-0.2 rounded-full text-[8px] font-medium ${
-                                isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"
-                              }`}>
+                              <span className={`inline-flex px-1 py-0.2 rounded-full text-[7px] font-medium ${isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
                                 {isActive ? "● Active" : "● Inactive"}
                               </span>
                             </div>
                           </div>
                         </button>
                       </td>
-                      <td className="px-3 py-1.5 text-gray-600 space-y-0.5">
-                        <div className="flex items-center gap-1"><Phone size={9} className="text-gray-400" />{o.phone}</div>
-                        <div className="flex items-center gap-1"><Mail size={9} className="text-gray-400" /><span className="truncate max-w-[120px]">{o.email}</span></div>
-                        <div className="flex items-center gap-1"><MapPin size={9} className="text-gray-400" /><span className="truncate max-w-[120px]">{o.location}</span></div>
+
+                      {/* CONTACT & LOCATION */}
+                      <td className="px-1.5 py-0.5 text-gray-600 space-y-0.5">
+                        <div className="flex items-center gap-0.5"><Phone size={7} className="text-gray-400" /><span className="text-[8px]">{o.phone}</span></div>
+                        <div className="flex items-center gap-0.5"><Mail size={7} className="text-gray-400" /><span className="text-[8px] truncate max-w-[100px]">{o.email}</span></div>
+                        <div className="flex items-center gap-0.5"><MapPin size={7} className="text-gray-400" /><span className="text-[8px] truncate max-w-[100px]">{o.location}</span></div>
                       </td>
-                      <td className="px-3 py-1.5 space-y-1">
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium ${getStageBadgeClass(o.stage)}`}>{o.stage.replace(/_/g, " ")}</span>
-                          <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium ${getPriorityBadgeClass(o.priority)}`}>{o.priority}</span>
+
+                      {/* BUSINESS INFO */}
+                      <td className="px-1.5 py-0.5 space-y-0.5">
+                        <div className="flex items-center gap-0.5 flex-wrap">
+                          <span className={`px-1 py-0.2 rounded-full text-[7px] font-medium ${getStageBadgeClass(o.stage)}`}>{o.stage.replace(/_/g, " ")}</span>
+                          <span className={`px-1 py-0.2 rounded-full text-[7px] font-medium ${getPriorityBadgeClass(o.priority)}`}>{o.priority}</span>
                         </div>
-                        <div className="text-[9px] text-gray-600">Source: <span className="font-semibold">{o.source}</span></div>
+                        <div className="text-[8px] text-gray-600">Source: <span className="font-semibold">{o.source}</span></div>
                       </td>
-                      <td className="px-3 py-1.5 space-y-1">
+
+                      {/* PROGRESS & ACTIVITY */}
+                      <td className="px-1.5 py-0.5 space-y-0.5">
                         <div>
-                          <div className="flex justify-between text-[9px] mb-0.5"><span>Stage Progress</span><span>{o.stageProgress}%</span></div>
-                          <div className="w-20 bg-gray-200 rounded-full h-1"><div className="bg-orange-500 h-1 rounded-full" style={{ width: `${o.stageProgress}%` }} /></div>
+                          <div className="flex justify-between text-[8px] mb-0.5"><span>Progress</span><span>{o.stageProgress}%</span></div>
+                          <div className="w-16 bg-gray-200 rounded-full h-0.5"><div className="bg-orange-500 h-0.5 rounded-full" style={{ width: `${o.stageProgress}%` }} /></div>
                         </div>
-                        <div className="text-[9px] text-gray-600">Visits: <span className="font-semibold">{o.visits}</span></div>
+                        <div className="text-[8px] text-gray-500">Visits: <span className="font-semibold text-gray-800">{o.visits}</span></div>
+                        <div className="text-[8px] text-gray-500">Created: <span className="font-semibold text-gray-700">{toDate(o.created_at)}</span></div>
                       </td>
-                      <td className="px-3 py-1.5 space-y-1">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[9px] text-gray-500">Deal Value: <span className="font-bold text-gray-800">₹{o.dealValue.toLocaleString()}</span></span>
-                          <span className="text-[9px] text-gray-500">Rate: <span className="font-bold text-gray-800">{o.responseRate}%</span></span>
-                          <span className="text-[9px] text-gray-500">Properties: <span className="font-bold text-gray-800">{o.properties?.length || 0}</span></span>
-                        </div>
-                        <div className="text-[9px] text-gray-600 flex items-center gap-2 flex-wrap">
-                          <span>Last Activity: {toDate(o.lastActivity)}</span>
-                          <span className="text-gray-400">•</span>
-                          <span>Created: {toDate(o.created_at)}</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-1.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
+
+                      {/* MANAGE */}
+                      <td className="px-1.5 py-0.5 text-center">
+                        <div className="flex items-center justify-center gap-0.5">
                           <button
                             onClick={() => setViewingOwner(o)}
-                            className="p-1 rounded hover:bg-gray-100 text-gray-500 transition-colors"
+                            className="p-0.5 rounded hover:bg-gray-100 text-gray-500 transition-colors"
                             title="Quick View"
                           >
-                            <Eye size={13} />
+                            <Eye size={11} />
                           </button>
                           <button
-                            onClick={() => { setSelectedOwner(o); setShowAddEditModal(true); }}
-                            className="p-1 rounded hover:bg-blue-50 text-blue-600 transition-colors"
+                            onClick={() => { setLinkingOwnerForProp(o); setShowDirectLinkModal(true); }}
+                            className="p-0.5 rounded hover:bg-blue-50 text-blue-600 transition-colors"
                             title="Link Property"
                           >
-                            <Link2 size={13} />
+                            <Link2 size={11} />
                           </button>
                           <button
                             onClick={() => setViewingOwner(o)}
-                            className="p-1 rounded hover:bg-gray-100 text-green-600 transition-colors"
+                            className="p-0.5 rounded hover:bg-gray-100 text-green-600 transition-colors"
                             title="Owner Account"
                           >
-                            <UserCheck size={13} />
+                            <UserCheck size={11} />
                           </button>
                           {canUpdate && (
                             <button
                               onClick={() => { setSelectedOwner(o); setShowAddEditModal(true); }}
-                              className="p-1 rounded hover:bg-gray-100 text-orange-500 transition-colors"
+                              className="p-0.5 rounded hover:bg-gray-100 text-orange-500 transition-colors"
                               title="Edit Owner"
                             >
-                              <Edit size={13} />
+                              <Edit size={11} />
                             </button>
                           )}
                           {canDelete && (
                             <button
                               onClick={() => handleDelete(o.id)}
-                              className="p-1 rounded hover:bg-red-50 text-red-600 transition-colors"
+                              className="p-0.5 rounded hover:bg-red-50 text-red-600 transition-colors"
                               title="Delete Owner"
                             >
-                              <Trash2 size={13} />
+                              <Trash2 size={11} />
                             </button>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-1.5 text-gray-800 font-semibold text-[10px]">
-                        {o.assigned_to_name ? o.assigned_to_name.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "") : "Unassigned"}
+
+                      {/* ASSIGNED TO */}
+                      <td className="px-1.5 py-0.5 text-[8.5px] text-gray-800 font-semibold whitespace-nowrap">
+                        {o.assigned_to_name ? o.assigned_to_name.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.)?\s+/i, "") : "Unassigned"}
                       </td>
                     </tr>
                   );
@@ -734,40 +789,64 @@ export const OwnersPage: React.FC = () => {
           </table>
         </div>
 
-        {/* Footer Pagination */}
-        <div className="flex justify-between items-center p-3 bg-gray-50 border-t flex-wrap gap-2 text-xs text-gray-500 font-medium">
-          <div className="flex items-center gap-1.5">
-            <span>Show</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="px-2 py-0.5 border rounded bg-white font-bold"
-            >
-              {[25, 50, 100, 200, 300, 400, 500, 1000].map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <span>entries</span>
-          </div>
+        {/* Footer Pagination — Seller-style compact */}
+        {filteredOwners.length > 0 && (
+          <div className="px-2 sm:px-3 py-2 border-t border-gray-100 bg-white">
+            {/* MOBILE */}
+            <div className="flex flex-col gap-2 sm:hidden">
+              <div className="text-[10px] text-gray-500 text-center">
+                Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredOwners.length)} of {filteredOwners.length} owners
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => { setItemsPerPage(parseInt(e.target.value, 10)); setCurrentPage(1); }}
+                  className="min-w-[60px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
+                >
+                  {[25, 50, 100, 200, 300, 400, 500, 1000].map(n => <option key={n} value={n}>{n}</option>)}
+                  <option value={999999}>All</option>
+                </select>
+                <div className="flex-1 overflow-x-auto scrollbar-hide">
+                  <div className="flex justify-end min-w-max">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronLeft size={14} /></button>
+                      {getPageButtons().map((p, i) =>
+                        p === '...' ? <span key={`e${i}`} className="px-1 text-xs">...</span>
+                          : <button key={p} onClick={() => setCurrentPage(p as number)} className={`px-2 py-1 rounded text-xs ${currentPage === p ? "bg-orange-500 text-white" : "border border-gray-300"}`}>{p}</button>
+                      )}
+                      <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronRight size={14} /></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-          <div className="flex items-center gap-3">
-            <span>Showing {filteredOwners.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}-{Math.min(currentPage * itemsPerPage, filteredOwners.length)} of {filteredOwners.length} owners</span>
-            <div className="flex gap-1.5">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => p - 1)}
-                className="p-1.5 border rounded bg-white disabled:opacity-50 hover:bg-gray-100"
-              >
-                <ChevronLeft size={13} />
-              </button>
-              <button
-                disabled={currentPage === totalPages || totalPages === 0}
-                onClick={() => setCurrentPage(p => p + 1)}
-                className="p-1.5 border rounded bg-white disabled:opacity-50 hover:bg-gray-100"
-              >
-                <ChevronRight size={13} />
-              </button>
+            {/* DESKTOP */}
+            <div className="hidden sm:flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="text-[10px] text-gray-500 whitespace-nowrap">
+                  Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredOwners.length)} of {filteredOwners.length} owners
+                </div>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => { setItemsPerPage(parseInt(e.target.value, 10)); setCurrentPage(1); }}
+                  className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
+                >
+                  {[25, 50, 100, 200, 300, 400, 500, 1000].map(n => <option key={n} value={n}>{n}</option>)}
+                  <option value={999999}>All</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronLeft size={14} /></button>
+                {getPageButtons().map((p, i) =>
+                  p === '...' ? <span key={`e${i}`} className="px-1 text-xs text-gray-400">...</span>
+                    : <button key={p} onClick={() => setCurrentPage(p as number)} className={`px-2 py-1 rounded text-xs ${currentPage === p ? "bg-orange-500 text-white" : "border border-gray-300 hover:bg-gray-50"}`}>{p}</button>
+                )}
+                <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronRight size={14} /></button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Sidebar Filter Component */}
@@ -803,13 +882,25 @@ export const OwnersPage: React.FC = () => {
         />
       )}
 
-      {/* Followup Modal */}
+      {/* Follow-up Modal */}
       {showFollowupModal && selectedOwner && (
         <OwnerFollowupModal
           isOpen={showFollowupModal}
           onClose={() => setShowFollowupModal(false)}
           ownerId={selectedOwner.id}
           onSave={loadOwners}
+        />
+      )}
+
+      {showDirectLinkModal && linkingOwnerForProp && (
+        <LinkRentalPropertyModal
+          isOpen={showDirectLinkModal}
+          onClose={() => {
+            setShowDirectLinkModal(false);
+            setLinkingOwnerForProp(null);
+          }}
+          onSelectProperty={handleDirectLinkProperty}
+          linkingOwner={linkingOwnerForProp}
         />
       )}
     </div>
