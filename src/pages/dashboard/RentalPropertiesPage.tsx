@@ -21,6 +21,7 @@ import RentalPropertyFilterModal, { RentalPropertyFilters } from './RentalProper
 import ImportRentalPropertiesModal from '../../components/properties/ImportRentalPropertiesModal';
 import RentalPropertyViewPage from '../../components/properties/RentalPropertyViewPage';
 import { OwnerViewPage } from '../../components/owners/OwnerViewPage';
+import TenantMatchingModal from '../../components/properties/TenantMatchingModal';
 import propertyTagsAPI from '@/lib/propertyTagsAPI';
 import getTagStyle, { DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 import { LucideIcon } from 'lucide-react';
@@ -362,6 +363,13 @@ export function RentalPropertiesPage() {
 
   const [properties, setProperties] = useState<UIProperty[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showTenantMatching, setShowTenantMatching] = useState(false);
+  const [matchingProperty, setMatchingProperty] = useState<any | null>(null);
+
+  const handleTenantMatching = (property: any) => {
+    setMatchingProperty(property);
+    setShowTenantMatching(true);
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -1912,6 +1920,7 @@ export function RentalPropertiesPage() {
                               <Link2 size={13} />
                             </button>
                             <button
+                              onClick={() => handleTenantMatching(property)}
                               className="relative flex items-center justify-center w-7 h-7 rounded-lg transition-all text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100/50 flex-shrink-0"
                               title="Match Tenants"
                             >
@@ -2039,6 +2048,13 @@ export function RentalPropertiesPage() {
                             <td className="p-3 font-semibold text-gray-600">{p.assignedTo?.name || 'Unassigned'}</td>
                             <td className="p-3">
                               <div className="flex items-center justify-center gap-1.5">
+                                 <button
+                                   onClick={() => handleTenantMatching(p)}
+                                   className="p-1 text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
+                                   title="Match Tenants"
+                                 >
+                                   <Users size={13} />
+                                 </button>
                                 <button
                                   onClick={() => handleViewProperty(p)}
                                   className="p-1 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
@@ -2407,6 +2423,17 @@ export function RentalPropertiesPage() {
           </div>
         );
       })()}
+
+      {showTenantMatching && matchingProperty && (
+        <TenantMatchingModal
+          isOpen={showTenantMatching}
+          onClose={() => {
+            setShowTenantMatching(false);
+            setMatchingProperty(null);
+          }}
+          property={matchingProperty}
+        />
+      )}
     </div>
   );
 }

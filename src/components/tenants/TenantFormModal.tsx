@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import { X, User, Mail, Building, FileText, Calendar, Plus, Edit } from "lucide-react";
+import { X, User, Mail, Building, FileText, Calendar, Plus, Edit, ChevronDown, Search } from "lucide-react";
 import { usersAPI } from "@/lib/api";
 import { rentalPropertiesAPI } from "@/lib/rentalPropertiesAPI";
 import { toast } from "react-toastify";
@@ -22,6 +22,44 @@ const BD = "#e2e8f0";
 
 const INP = "w-full h-8 px-2.5 rounded-md text-xs border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#e67e22]/20 focus:border-[#e67e22] transition-colors placeholder:text-gray-400";
 const LBL = "block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1";
+
+/** Convert number -> Indian currency words */
+const numberToWords = (numStr: string | number): string => {
+  if (!numStr) return "";
+  const num = Number(numStr);
+  if (isNaN(num) || num <= 0) return "";
+
+  const a = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+    "Seventeen", "Eighteen", "Nineteen"
+  ];
+  const b = [
+    "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"
+  ];
+
+  const makeWords = (n: number): string => {
+    if (n < 20) return a[n];
+    if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? " " + a[n % 10] : "");
+    if (n < 1000) return a[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + makeWords(n % 100) : "");
+    return "";
+  };
+
+  let str = "";
+  const crore = Math.floor(num / 10000000);
+  const lakh = Math.floor((num / 100000) % 100);
+  const thousand = Math.floor((num / 1000) % 100);
+  const hundred = Math.floor((num / 100) % 10);
+  const rest = num % 100;
+
+  if (crore) str += makeWords(crore) + " Crore ";
+  if (lakh) str += makeWords(lakh) + " Lakh ";
+  if (thousand) str += makeWords(thousand) + " Thousand ";
+  if (hundred) str += makeWords(hundred) + " Hundred ";
+  if (rest) str += makeWords(rest);
+
+  return str.trim() ? `${str.trim()} Rupees` : "";
+};
 
 const SectionHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="flex items-center gap-2 mb-3 mt-4">
@@ -85,6 +123,8 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
     { value: "3 BHK", label: "3 BHK" },
     { value: "4 BHK", label: "4 BHK" },
   ]);
+  const [locationOptions, setLocationOptions] = useState<MasterOption[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
   const [propertySearch, setPropertySearch] = useState("");
   const [isPropDropdownOpen, setIsPropDropdownOpen] = useState(false);
@@ -113,6 +153,11 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
           assigned_to: initialData.assigned_to || "",
         });
         
+        const initialLocs = initialData.preferred_location 
+          ? initialData.preferred_location.split(/[;,]+/).map((s: any) => s.trim()).filter(Boolean)
+          : [];
+        setSelectedLocations(initialLocs);
+
         // Find property title or construct from details
         let propTitle = initialData.property_title || "";
         if (!propTitle && initialData.rental_property_id) {
@@ -141,6 +186,7 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
           rental_property_id: "",
           assigned_to: "",
         });
+        setSelectedLocations([]);
         setPropertySearch("");
         setSameWhatsapp(false);
       }
@@ -155,7 +201,7 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
         const [usersRes, propsRes, masterData] = await Promise.all([
           usersAPI.getAllUsers().catch(() => ({ success: false, data: [] })),
           rentalPropertiesAPI.getProperties().catch(() => ({ success: false, data: [] })),
-          getMasterDropdownOptions(["common", "property"]).catch(() => ({})),
+          getMasterDropdownOptions(["common", "property", "location"]).catch(() => ({})),
         ]);
 
         if (usersRes.success && Array.isArray(usersRes.data)) {
@@ -175,6 +221,9 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
           { value: "4 BHK", label: "4 BHK" },
         ];
         setBhkOptions(bhkOpts);
+
+        const locOpts = masterData["location"] || masterData["locations"] || [];
+        setLocationOptions(locOpts);
       } catch (err) {
         console.error("Failed to load form metadata:", err);
       } finally {
@@ -294,6 +343,15 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
       if (next && formData.phone) {
         setFormData((p) => ({ ...p, whatsapp: formatWhatsappValue(p.phone) }));
       }
+      return next;
+    });
+  };
+
+  const togglePreferredLocation = (loc: string) => {
+    setSelectedLocations(prev => {
+      const exists = prev.includes(loc);
+      const next = exists ? prev.filter(x => x !== loc) : [...prev, loc];
+      setFormData(f => ({ ...f, preferred_location: next.join(', ') }));
       return next;
     });
   };
@@ -426,36 +484,56 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
 
             <Field label="Min Budget (₹)">
               <input
-                type="number"
+                type="text"
                 name="budget_min"
                 value={formData.budget_min}
-                onChange={handleInputChange}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d+$/.test(val)) {
+                    handleInputChange(e);
+                  }
+                }}
                 className={INP}
                 placeholder="Minimum monthly budget"
               />
+              {numberToWords(formData.budget_min) && (
+                <p className="text-[10px] text-green-600 font-medium mt-1">
+                  {numberToWords(formData.budget_min)}
+                </p>
+              )}
             </Field>
 
             <Field label="Max Budget (₹)">
               <input
-                type="number"
+                type="text"
                 name="budget_max"
                 value={formData.budget_max}
-                onChange={handleInputChange}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d+$/.test(val)) {
+                    handleInputChange(e);
+                  }
+                }}
                 className={INP}
                 placeholder="Maximum monthly budget"
               />
+              {numberToWords(formData.budget_max) && (
+                <p className="text-[10px] text-green-600 font-medium mt-1">
+                  {numberToWords(formData.budget_max)}
+                </p>
+              )}
             </Field>
 
-            <Field label="Preferred Location">
-              <input
-                type="text"
-                name="preferred_location"
-                value={formData.preferred_location}
-                onChange={handleInputChange}
-                className={INP}
-                placeholder="Target neighborhood/society"
+            <div className="flex flex-col gap-0.5">
+              <MultiSelectDropdown
+                label="Preferred Location"
+                options={locationOptions}
+                selectedValues={selectedLocations}
+                onToggle={togglePreferredLocation}
+                placeholder="Select locations"
+                withSearch
               />
-            </Field>
+            </div>
 
             <Field label="Target Move-In Date">
               <input
@@ -583,6 +661,142 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
           </div>
         </form>
       </div>
+    </div>
+  );
+};
+
+// ------------------------------
+// MultiSelectDropdown helper component
+// ------------------------------
+const MultiSelectDropdown = ({
+  label,
+  options,
+  selectedValues = [],
+  onToggle,
+  placeholder,
+  withSearch = false
+}: {
+  label: string;
+  options: any[];
+  selectedValues?: any[];
+  onToggle: (val: any) => void;
+  placeholder: string;
+  withSearch?: boolean;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const safeOptions = Array.isArray(options) ? options : [];
+
+  const filteredOptions = useMemo(() => {
+    if (!withSearch || !searchTerm) return safeOptions;
+    const t = searchTerm.toLowerCase();
+    return safeOptions.filter((o) => o?.label?.toLowerCase().includes(t));
+  }, [withSearch, searchTerm, safeOptions]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+      if (event.key === 'Tab' && isOpen) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && withSearch && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen, withSize => withSearch]);
+
+  const handleToggle = (val: any) => {
+    onToggle(val);
+  };
+
+  const MU = "#5a7184";
+  const N = "#0f2b3d";
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">{label}</label>
+      <button
+        type="button"
+        className="border rounded-md w-full h-8 px-2.5 text-xs text-left focus:outline-none focus:ring-2 focus:ring-[#e67e22]/20 focus:border-[#e67e22] transition-colors flex items-center justify-between bg-white border-gray-200"
+        onClick={() => {
+          setIsOpen(prev => !prev);
+          setSearchTerm('');
+        }}
+      >
+        <span className="truncate" style={{ color: selectedValues.length > 0 ? N : MU }}>
+          {selectedValues.length > 0
+            ? selectedValues.slice(0, 2).join(', ') + (selectedValues.length > 2 ? ` +${selectedValues.length - 2}` : '')
+            : placeholder}
+        </span>
+        <ChevronDown size={12} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} style={{ color: MU }} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-hidden border-gray-200">
+          {withSearch && (
+            <div className="p-1.5 border-b sticky top-0 bg-white z-10 border-gray-200">
+              <div className="relative">
+                <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-7 pr-2 py-1 text-[10px] border rounded-md focus:outline-none focus:ring-1 border-gray-200"
+                />
+              </div>
+            </div>
+          )}
+          <div className="overflow-y-auto max-h-32">
+            {filteredOptions.map((option) => (
+              <label
+                key={option.value}
+                className="flex items-center p-1.5 hover:bg-gray-50 cursor-pointer gap-2 transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedValues.includes(option.value)}
+                  onChange={() => handleToggle(option.value)}
+                  className="h-3 w-3 rounded text-[#e67e22]"
+                  style={{ accentColor: '#e67e22' }}
+                />
+                <span className="text-[10px]" style={{ color: N }}>{option.label}</span>
+              </label>
+            ))}
+            {filteredOptions.length === 0 && (
+              <div className="p-2 text-[10px] text-center text-gray-400">No options found</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

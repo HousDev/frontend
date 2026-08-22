@@ -512,19 +512,19 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ buyer, onUpdateBuyer, setActi
 
   const getStageBadge = (stage: string) => {
     const stageConfig = {
-      'initial_contact': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Initial Contact', icon: '📞' },
-      'requirement_gathering': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Requirement Gathering', icon: '📋' },
-      'property_hunting': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Property Hunting', icon: '🔍' },
-      'loan_processing': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Loan Processing', icon: '🏦' },
-      'property_finalization': { bg: 'bg-green-100', text: 'text-green-700', label: 'Property Finalization', icon: '✅' },
-      'deal_closure': { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Deal Closure', icon: '🤝' },
-      'completed': { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Completed', icon: '🎉' }
+      'initial_contact': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Initial Contact' },
+      'requirement_gathering': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Requirement Gathering' },
+      'property_hunting': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Property Hunting' },
+      'loan_processing': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Loan Processing' },
+      'property_finalization': { bg: 'bg-green-100', text: 'text-green-700', label: 'Property Finalization' },
+      'deal_closure': { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Deal Closure' },
+      'completed': { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Completed' }
     };
 
     const config = stageConfig[stage as keyof typeof stageConfig] || stageConfig.initial_contact;
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
-        {config.icon} {config.label}
+        {config.label}
       </span>
     );
   };
