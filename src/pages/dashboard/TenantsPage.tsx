@@ -1,11 +1,20 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users, Plus, Search, Edit, Trash2, Phone, Mail, MapPin,
-  Building, User, FileText, CheckCircle, X, SlidersHorizontal
+  Building, User, FileText, X, SlidersHorizontal, Download, Upload,
+  Loader2, RefreshCw, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { SiWhatsapp } from "react-icons/si";
 import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
+import * as XLSX from "xlsx";
+
+import { tenantAPI } from "@/lib/tenantAPI";
+import { usersAPI } from "@/lib/api";
+import TenantSidebarFilter, { TenantFiltersState } from "./components/TenantSidebarFilter";
+import ImportTenantsModal from "@/components/tenants/ImportTenantsModal";
+import TenantFormModal from "@/components/tenants/TenantFormModal";
+import TableLoader from "@/components/ui/TableLoader";
 
 interface Tenant {
   id: number;
@@ -18,234 +27,165 @@ interface Tenant {
   budget_min: string;
   budget_max: string;
   preferred_bhk: string;
-  tenant_type: 'Family' | 'Bachelor (Male)' | 'Bachelor (Female)' | 'Company' | '';
+  tenant_type: string;
   move_in_date: string;
   current_address: string;
   notes: string;
   status: 'Active Search' | 'Interested' | 'Agreement Signed' | 'Inactive';
+  rental_property_id?: number | string;
+  property_title?: string;
+  owner_name?: string;
+  assigned_to?: number | string;
+  assigned_to_name?: string;
 }
 
-const INITIAL_TENANTS: Tenant[] = [
-  {
-    id: 1,
-    tenant_id: 'TEN0001',
-    name: 'Rahul Sharma',
-    email: 'rahul.sharma@example.com',
-    phone: '9876543210',
-    whatsapp: '9876543210',
-    preferred_location: 'Kharghar, Sector 12',
-    budget_min: '15000',
-    budget_max: '22000',
-    preferred_bhk: '2 BHK',
-    tenant_type: 'Family',
-    move_in_date: '2026-09-01',
-    current_address: 'Flat 402, Shiv Darshan Towers, Vashi, Navi Mumbai',
-    notes: 'Needs parking space for a sedan and prefers high floor flats.',
-    status: 'Active Search',
-  },
-  {
-    id: 2,
-    tenant_id: 'TEN0002',
-    name: 'Priyanka Patel',
-    email: 'priyanka.patel@example.com',
-    phone: '9812345678',
-    whatsapp: '9812345678',
-    preferred_location: 'Seawoods',
-    budget_min: '25000',
-    budget_max: '35000',
-    preferred_bhk: '3 BHK',
-    tenant_type: 'Family',
-    move_in_date: '2026-09-15',
-    current_address: 'A-12, Green Meadows, Pune',
-    notes: 'Family moving due to job relocation. Prefers fully furnished flats.',
-    status: 'Interested',
-  },
-  {
-    id: 3,
-    tenant_id: 'TEN0003',
-    name: 'Vikram Aditya',
-    email: 'vikram.aditya@example.com',
-    phone: '9988776655',
-    whatsapp: '9988776655',
-    preferred_location: 'Belapur',
-    budget_min: '12000',
-    budget_max: '18000',
-    preferred_bhk: '1 BHK',
-    tenant_type: 'Bachelor (Male)',
-    move_in_date: '2026-08-25',
-    current_address: 'Room 10, Sector 15, Kopar Khairane',
-    notes: 'IT Professional. Quiet place preferred. Lock-in period of 12 months is fine.',
-    status: 'Agreement Signed',
-  },
-  {
-    id: 4,
-    tenant_id: 'TEN0004',
-    name: 'Tanya Sen',
-    email: 'tanya.sen@example.com',
-    phone: '9777888999',
-    whatsapp: '9777888999',
-    preferred_location: 'Nerul East',
-    budget_min: '18000',
-    budget_max: '24000',
-    preferred_bhk: '2 BHK',
-    tenant_type: 'Bachelor (Female)',
-    move_in_date: '2026-10-01',
-    current_address: 'B-303, Tulip Heights, Thane',
-    notes: 'Needs flat close to Nerul railway station.',
-    status: 'Active Search',
-  },
-  {
-    id: 5,
-    tenant_id: 'TEN0005',
-    name: 'Intellect Software Solutions',
-    email: 'admin@intellectsoft.com',
-    phone: '2244556677',
-    whatsapp: '9888999000',
-    preferred_location: 'Ghansoli, Millennium Business Park',
-    budget_min: '40000',
-    budget_max: '60000',
-    preferred_bhk: '3 BHK',
-    tenant_type: 'Company',
-    move_in_date: '2026-09-10',
-    current_address: 'Unit 5, MBP, Ghansoli',
-    notes: 'Company lease agreement. High premium quality apartment required.',
-    status: 'Active Search',
-  }
-];
-
-/* ---------- DESIGN TOKENS (MATCHING PROPERTY FORM) ---------- */
-const BRAND = '#E6761D';
-const INP = 'w-full h-8 px-2.5 rounded-md text-xs border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E6761D]/20 focus:border-[#E6761D] transition-colors placeholder:text-gray-400';
-const LBL = 'block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1';
-
-const SectionHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="flex items-center gap-2 mb-3 mt-4">
-    <div className="w-1 h-3.5 rounded-full flex-shrink-0" style={{ background: BRAND }} />
-    <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: BRAND }}>{children}</span>
-    <div className="flex-1 h-px bg-orange-100" />
-  </div>
-);
-
-const Field: React.FC<{ label: string; required?: boolean; children: React.ReactNode; className?: string }> = ({
-  label, required, children, className = '',
-}) => (
-  <div className={`flex flex-col gap-0.5 ${className}`}>
-    <label className={LBL}>{label}{required && <span className="text-red-400 ml-0.5 normal-case">*</span>}</label>
-    {children}
-  </div>
-);
+const BRAND = '#e67e22';
 
 export default function TenantsPage() {
-  const [tenants, setTenants] = useState<Tenant[]>(INITIAL_TENANTS);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [showFormModal, setShowFormModal] = useState(false);
-  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Form states
-  const [formState, setFormState] = useState<Partial<Tenant>>({
-    name: '',
-    email: '',
-    phone: '',
-    whatsapp: '',
-    preferred_location: '',
-    budget_min: '',
-    budget_max: '',
-    preferred_bhk: '',
-    tenant_type: '',
-    move_in_date: '',
-    current_address: '',
-    notes: '',
-    status: 'Active Search'
+  // Bulk selection
+  const [selectedTenants, setSelectedTenants] = useState<number[]>([]);
+
+  // Search & Filter state
+  const [colSearch, setColSearch] = useState({
+    name: "",
+    contact: "",
+    requirements: "",
+    property: "",
+    status: "",
   });
 
+  const [filters, setFilters] = useState<TenantFiltersState>({
+    status: "",
+    tenant_type: "",
+    preferred_bhk: "",
+    assigned: "",
+  });
+
+  const [showFilters, setShowFilters] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(30);
+
+  // Metadata for filter options
+  const [executives, setExecutives] = useState<any[]>([]);
+  // Track viewport width safely (avoids "window is not defined" on SSR + updates on resize)
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkWidth = () => setIsMobile(window.innerWidth < 640);
+    checkWidth(); // set correct value on mount
+    window.addEventListener('resize', checkWidth);
+    return () => window.removeEventListener('resize', checkWidth);
+  }, []);
+
+  const loadTenants = async () => {
+    try {
+      setLoading(true);
+      const data = await tenantAPI.getAll();
+      setTenants(data || []);
+      setSelectedTenants([]);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load tenant database");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTenants();
+    const fetchExecutives = async () => {
+      try {
+        const usersRes = await usersAPI.getAllUsers();
+        if (usersRes.success && Array.isArray(usersRes.data)) {
+          const execs = usersRes.data.filter((u: any) =>
+            u.role === 'sales_executive' || u.role_name === 'sales_executive' || u.role_name === 'admin'
+          );
+          setExecutives(execs);
+        }
+      } catch (err) {
+        console.warn("Failed to load executives for filter:", err);
+      }
+    };
+    fetchExecutives();
+  }, []);
+
+  const handleInputChange = (col: keyof typeof colSearch, val: string) => {
+    setColSearch(prev => ({ ...prev, [col]: val }));
+    setCurrentPage(1);
+  };
+
+  // Filtered & Searched Tenants
   const filteredTenants = useMemo(() => {
     return tenants.filter(t => {
-      const matchSearch =
-        t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.tenant_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.phone.includes(searchTerm) ||
-        t.preferred_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.preferred_bhk.toLowerCase().includes(searchTerm.toLowerCase());
+      // 1. Column Search
+      if (colSearch.name && !t.name.toLowerCase().includes(colSearch.name.toLowerCase()) && !t.tenant_id.toLowerCase().includes(colSearch.name.toLowerCase())) return false;
+      if (colSearch.contact && !t.phone.includes(colSearch.contact) && !t.whatsapp.includes(colSearch.contact) && !(t.email || "").toLowerCase().includes(colSearch.contact.toLowerCase())) return false;
+      if (colSearch.requirements && !t.preferred_bhk.toLowerCase().includes(colSearch.requirements.toLowerCase()) && !t.preferred_location.toLowerCase().includes(colSearch.requirements.toLowerCase())) return false;
+      if (colSearch.property && !t.property_title?.toLowerCase().includes(colSearch.property.toLowerCase()) && !`rent-${t.rental_property_id}`.toLowerCase().includes(colSearch.property.toLowerCase()) && !(t.owner_name || "").toLowerCase().includes(colSearch.property.toLowerCase())) return false;
+      if (colSearch.status && !t.status.toLowerCase().includes(colSearch.status.toLowerCase())) return false;
 
-      const matchStatus = statusFilter ? t.status === statusFilter : true;
-      const matchType = typeFilter ? t.tenant_type === typeFilter : true;
+      // 2. Sidebar Filters
+      if (filters.status && t.status !== filters.status) return false;
+      if (filters.tenant_type && t.tenant_type !== filters.tenant_type) return false;
+      if (filters.preferred_bhk && !t.preferred_bhk.toLowerCase().includes(filters.preferred_bhk.toLowerCase())) return false;
+      if (filters.assigned && String(t.assigned_to) !== String(filters.assigned)) return false;
 
-      return matchSearch && matchStatus && matchType;
+      return true;
     });
-  }, [tenants, searchTerm, statusFilter, typeFilter]);
+  }, [tenants, colSearch, filters]);
+
+  // Pagination helpers
+  const totalPages = Math.ceil(filteredTenants.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedTenants = filteredTenants.slice(startIndex, startIndex + itemsPerPage);
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedTenants(paginatedTenants.map(t => t.id));
+    } else {
+      setSelectedTenants([]);
+    }
+  };
+
+  const handleTenantSelect = (id: number) => {
+    setSelectedTenants(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
 
   const handleOpenAddModal = () => {
     setEditingTenant(null);
-    setFormState({
-      name: '',
-      email: '',
-      phone: '',
-      whatsapp: '',
-      preferred_location: '',
-      budget_min: '',
-      budget_max: '',
-      preferred_bhk: '',
-      tenant_type: '',
-      move_in_date: '',
-      current_address: '',
-      notes: '',
-      status: 'Active Search'
-    });
     setShowFormModal(true);
   };
 
   const handleOpenEditModal = (tenant: Tenant) => {
     setEditingTenant(tenant);
-    setFormState(tenant);
     setShowFormModal(true);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormState(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formState.name || !formState.phone) {
-      toast.error('Name and Phone fields are required.');
-      return;
+  const handleFormSubmit = async (formData: any) => {
+    try {
+      if (editingTenant) {
+        await tenantAPI.update(editingTenant.id, formData);
+        toast.success("Tenant updated successfully!");
+      } else {
+        await tenantAPI.create(formData);
+        toast.success("Tenant added successfully!");
+      }
+      setShowFormModal(false);
+      loadTenants();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to save tenant");
     }
-
-    if (editingTenant) {
-      // Update
-      setTenants(prev =>
-        prev.map(t => (t.id === editingTenant.id ? { ...t, ...formState } as Tenant : t))
-      );
-      toast.success('Tenant details updated successfully!');
-    } else {
-      // Add new
-      const newId = tenants.length > 0 ? Math.max(...tenants.map(t => t.id)) + 1 : 1;
-      const formattedId = `TEN${String(newId).padStart(4, '0')}`;
-      const newTenant: Tenant = {
-        id: newId,
-        tenant_id: formattedId,
-        name: formState.name || '',
-        email: formState.email || '',
-        phone: formState.phone || '',
-        whatsapp: formState.whatsapp || '',
-        preferred_location: formState.preferred_location || '',
-        budget_min: formState.budget_min || '',
-        budget_max: formState.budget_max || '',
-        preferred_bhk: formState.preferred_bhk || '',
-        tenant_type: (formState.tenant_type as any) || '',
-        move_in_date: formState.move_in_date || '',
-        current_address: formState.current_address || '',
-        notes: formState.notes || '',
-        status: (formState.status as any) || 'Active Search'
-      };
-
-      setTenants(prev => [newTenant, ...prev]);
-      toast.success('New Tenant added successfully!');
-    }
-    setShowFormModal(false);
   };
 
   const handleDeleteTenant = (id: number) => {
@@ -254,15 +194,71 @@ export default function TenantsPage() {
       text: "You won't be able to revert this!",
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#E6761D',
+      confirmButtonColor: '#e67e22',
       cancelButtonColor: '#d33',
       confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        setTenants(prev => prev.filter(t => t.id !== id));
-        toast.success('Tenant profile deleted.');
+        try {
+          await tenantAPI.delete(id);
+          toast.success('Tenant profile deleted.');
+          loadTenants();
+        } catch (err) {
+          toast.error("Failed to delete tenant");
+        }
       }
     });
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedTenants.length === 0) return;
+    Swal.fire({
+      title: 'Bulk Delete Selected Tenants?',
+      text: `Are you sure you want to delete the ${selectedTenants.length} selected tenant profiles permanently?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Delete All',
+      cancelButtonText: 'Cancel'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await tenantAPI.bulkDelete(selectedTenants);
+          toast.success(`${selectedTenants.length} tenant profiles deleted.`);
+          loadTenants();
+        } catch (err) {
+          toast.error("Failed to execute bulk delete.");
+        }
+      }
+    });
+  };
+
+  const handleExport = () => {
+    const dataToExport = filteredTenants.map((t) => ({
+      "Tenant ID": t.tenant_id,
+      "Name": t.name,
+      "Email": t.email || "",
+      "Phone": t.phone,
+      "Whatsapp": t.whatsapp || "",
+      "Tenant Type": t.tenant_type || "",
+      "Preferred Location": t.preferred_location || "",
+      "Preferred BHK": t.preferred_bhk || "",
+      "Min Budget": t.budget_min || "",
+      "Max Budget": t.budget_max || "",
+      "Move In Date": t.move_in_date || "",
+      "Linked Property": t.rental_property_id ? `RENT-${t.rental_property_id}` : "Unlinked",
+      "Owner/Landlord": t.owner_name || "",
+      "Assigned Executive": t.assigned_to_name || "",
+      "Status": t.status,
+      "Notes": t.notes || "",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Tenants");
+    XLSX.writeFile(workbook, "Tenants_Database_Export.xlsx");
+    toast.success("Database exported to Excel!");
   };
 
   const getStatusColor = (status: Tenant['status']) => {
@@ -281,359 +277,415 @@ export default function TenantsPage() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 p-4 space-y-4">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-        <div>
-          <h1 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">
-            <Users className="text-[#E6761D]" size={22} />
-            Tenant Management
-          </h1>
-          <p className="text-xs text-gray-500">Track and manage tenant profiles, rental requirements, and agreement status.</p>
-        </div>
-        <button
-          onClick={handleOpenAddModal}
-          className="flex items-center gap-1 px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors bg-[#E6761D] hover:bg-[#CC6A1A] shadow-md"
-        >
-          <Plus size={16} />
-          Add Tenant
-        </button>
-      </div>
+    <>
+      <style>
+        {`
+          .scrollbar-custom {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom::-webkit-scrollbar {
+            height: 4px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+          .scrollbar-custom-vertical {
+            scrollbar-width: thin;
+            scrollbar-color: #e67e22 #e5e7eb;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar {
+            width: 4px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb {
+            background: #e67e22;
+            border-radius: 10px;
+          }
+          .scrollbar-custom-vertical::-webkit-scrollbar-thumb:hover {
+            background: #d35400;
+          }
+          /* ✅ Column divider lines */
+          .tenant-table-custom tbody td {
+            border-right: 1px solid rgba(209, 213, 219, 0.5);
+            border-bottom: 1px solid rgba(209, 213, 219, 0.5);
+          }
+          .tenant-table-custom tbody td:last-child {
+            border-right: none;
+          }
+          .tenant-table-custom thead th {
+            border-right: 1px solid rgba(209, 213, 219, 0.4);
+          }
+          .tenant-table-custom thead th:last-child {
+            border-right: none;
+          }
+        `}
+      </style>
+      <div className="h-full overflow-y-auto scrollbar-custom-vertical" >
+        <div className="max-w-[1600px] mx-auto px-2 sm:px-2 md:px-2 py-1 sm:py-2 flex flex-col gap-2">
+          {/* Top Header Buttons and Search integrated in one row to save vertical space */}
+          <div className="flex flex-col md:flex-row items-end justify-end gap-3  p-3 rounded-lg shadow-xs flex-shrink-0">
 
-      {/* Search & Filters */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
-        <div className="flex flex-col md:flex-row gap-3">
-          {/* Search Bar */}
-          <div className="relative flex-1">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
-              <Search size={15} />
-            </span>
-            <input
-              type="text"
-              placeholder="Search by ID, Name, BHK, or Location..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-9 pl-9 pr-4 rounded-lg text-xs border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-[#E6761D] transition-colors"
-            />
-          </div>
 
-          {/* Quick Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-semibold">
-              <SlidersHorizontal size={14} />
-              Filters:
-            </div>
-            
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="h-9 px-3 rounded-lg text-xs border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#E6761D] bg-white text-gray-600"
-            >
-              <option value="">All Tenant Types</option>
-              <option value="Family">Family</option>
-              <option value="Bachelor (Male)">Bachelor (Male)</option>
-              <option value="Bachelor (Female)">Bachelor (Female)</option>
-              <option value="Company">Company</option>
-            </select>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 px-3 rounded-lg text-xs border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#E6761D] bg-white text-gray-600"
-            >
-              <option value="">All Statuses</option>
-              <option value="Active Search">Active Search</option>
-              <option value="Interested">Interested</option>
-              <option value="Agreement Signed">Agreement Signed</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Table Content */}
-      <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-        <div className="overflow-x-auto flex-1">
-          <table className="min-w-full divide-y divide-gray-100 text-left">
-            <thead className="bg-gray-50 text-[10px] uppercase tracking-wider text-gray-500 font-bold">
-              <tr>
-                <th className="px-4 py-3">Tenant ID</th>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Contact</th>
-                <th className="px-4 py-3">Requirements</th>
-                <th className="px-4 py-3">Budget Range</th>
-                <th className="px-4 py-3">Move-In Date</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
-              {filteredTenants.length > 0 ? (
-                filteredTenants.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-3 font-bold text-gray-900">{t.tenant_id}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-gray-900">{t.name}</div>
-                      <div className="text-[10px] text-gray-400 capitalize">{t.tenant_type || 'Renter'}</div>
-                    </td>
-                    <td className="px-4 py-3 space-y-0.5">
-                      <div className="flex items-center gap-1">
-                        <Phone size={11} className="text-gray-400" />
-                        <span>{t.phone}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <SiWhatsapp size={11} className="text-green-600" />
-                        <span>{t.whatsapp}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 space-y-0.5">
-                      <div className="font-semibold text-gray-800">{t.preferred_bhk}</div>
-                      <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                        <MapPin size={10} className="text-gray-400 flex-shrink-0" />
-                        <span className="truncate max-w-[150px]">{t.preferred_location}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-gray-900">
-                      ₹{parseInt(t.budget_min).toLocaleString()} - ₹{parseInt(t.budget_max).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {t.move_in_date ? new Date(t.move_in_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${getStatusColor(t.status)}`}>
-                        {t.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => handleOpenEditModal(t)}
-                          className="p-1.5 rounded hover:bg-gray-100 text-blue-600 hover:text-blue-700 transition-colors"
-                          title="Edit Tenant"
-                        >
-                          <Edit size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTenant(t.id)}
-                          className="p-1.5 rounded hover:bg-gray-100 text-red-600 hover:text-red-700 transition-colors"
-                          title="Delete Tenant"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-gray-400">
-                    <Building size={32} className="mx-auto mb-2 text-gray-300" />
-                    No tenants found matching search criteria.
-                  </td>
-                </tr>
+            {/* Action Controls */}
+            <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end">
+              {selectedTenants.length > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white bg-red-600 hover:bg-red-700 font-bold text-xs shadow-xs transition-colors"
+                >
+                  <Trash2 size={13} />
+                  <span>Delete Selected ({selectedTenants.length})</span>
+                </button>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Add/Edit Modal (Matching Lead Form / Property Form exactly) */}
-      {showFormModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col border border-gray-200 animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header (Dark background matching PropertyFormModal) */}
-            <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 border-b bg-[#111827] border-gray-800 text-white">
-              <div className="flex items-center gap-2">
-                <User size={16} className="text-[#E6761D]" />
-                <h2 className="text-sm font-bold text-white">
-                  {editingTenant ? `Edit Tenant Profile (${editingTenant.tenant_id})` : 'Add New Tenant Profile'}
-                </h2>
-              </div>
               <button
-                onClick={() => setShowFormModal(false)}
-                className="p-1 rounded hover:bg-white/10 transition-colors"
+                onClick={handleExport}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-xs transition-colors bg-white"
               >
-                <X size={16} style={{ color: 'white' }} />
+                <Download size={13} />
+                <span>Export</span>
+              </button>
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-xs transition-colors bg-white"
+              >
+                <Upload size={13} />
+                <span>Import</span>
+              </button>
+              <button
+                onClick={() => setShowFilters(true)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 font-semibold text-xs transition-all bg-white ${Object.values(filters).some(Boolean)
+                  ? "border-orange-200 bg-orange-50 text-[#e67e22]"
+                  : "text-gray-700 hover:bg-gray-50"
+                  }`}
+              >
+                <SlidersHorizontal size={13} />
+                <span>Filters</span>
+              </button>
+
+              <button
+                onClick={handleOpenAddModal}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white rounded-lg transition-colors bg-[#0f2b3d] hover:bg-[#1b435c] shadow-xs"
+              >
+                <Plus size={15} />
+                <span>Add Tenant</span>
               </button>
             </div>
+          </div>
 
-            {/* Modal Form body */}
-            <form onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[75vh]">
-              
-              {/* Section 1: Personal Information */}
-              <SectionHeader>Personal Details</SectionHeader>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                <Field label="Tenant Name" required>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    value={formState.name || ''}
-                    onChange={handleInputChange}
-                    placeholder="Enter full name"
-                    className={INP}
-                  />
-                </Field>
-                <Field label="Email Address">
-                  <input
-                    type="email"
-                    name="email"
-                    value={formState.email || ''}
-                    onChange={handleInputChange}
-                    placeholder="name@example.com"
-                    className={INP}
-                  />
-                </Field>
-                <Field label="Phone Number" required>
-                  <input
-                    type="text"
-                    name="phone"
-                    required
-                    value={formState.phone || ''}
-                    onChange={handleInputChange}
-                    placeholder="e.g. 9876543210"
-                    className={INP}
-                  />
-                </Field>
-                <Field label="WhatsApp Number">
-                  <input
-                    type="text"
-                    name="whatsapp"
-                    value={formState.whatsapp || ''}
-                    onChange={handleInputChange}
-                    placeholder="WhatsApp number"
-                    className={INP}
-                  />
-                </Field>
-              </div>
+          <div
+            className="bg-white rounded-lg border border-gray-300 shadow-sm overflow-hidden flex flex-col"
+            style={{
+              height: isMobile ? '600px' : '580px',
+              minHeight: isMobile ? '600px' : '580px',
+              maxHeight: isMobile ? '600px' : '580px',
+            }}
+          >
+            <div className="scrollbar-custom-vertical flex-1 min-h-0 relative" style={{ overflowY: "auto", overflowX: "auto" }}>
+              {loading ? (
+                <TableLoader colSpan={8} />
+              ) : (
+                <table className="w-full tenant-table-custom" style={{ minWidth: "1500px", borderCollapse: "separate", borderSpacing: 0 }}>
+                  <thead className="sticky top-0 z-10" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                    {/* Headers */}
+                    <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
+                      <th className="px-2 py-1.5 text-center w-10 bg-gray-50 border-r border-b border-gray-200">
+                        <input
+                          type="checkbox"
+                          checked={paginatedTenants.length > 0 && paginatedTenants.every(t => selectedTenants.includes(t.id))}
+                          onChange={handleSelectAll}
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3 cursor-pointer"
+                        />
+                      </th>
+                      <th className="px-2 py-1.5 text-center w-12 bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">S.No.</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tenant Details</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Contact Details</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Requirements / BHK</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Linked Context</th>
+                      <th className="px-3 py-1.5 text-center w-36 bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Status</th>
+                      <th className="px-3 py-1.5 text-center w-24 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                    </tr>
+                    {/* Search Fields */}
+                    <tr className="bg-gray-100">
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100"></th>
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100"></th>
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100">
+                        <input
+                          type="text"
+                          value={colSearch.name}
+                          onChange={(e) => handleInputChange("name", e.target.value)}
+                          placeholder="Search ID/Name..."
+                          className="w-full px-2 py-0.5 text-[9px] border border-gray-300 rounded bg-white font-normal"
+                        />
+                      </th>
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100">
+                        <input
+                          type="text"
+                          value={colSearch.contact}
+                          onChange={(e) => handleInputChange("contact", e.target.value)}
+                          placeholder="Search Contact..."
+                          className="w-full px-2 py-0.5 text-[9px] border border-gray-300 rounded bg-white font-normal"
+                        />
+                      </th>
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100">
+                        <input
+                          type="text"
+                          value={colSearch.requirements}
+                          onChange={(e) => handleInputChange("requirements", e.target.value)}
+                          placeholder="Search BHK/Loc..."
+                          className="w-full px-2 py-0.5 text-[9px] border border-gray-300 rounded bg-white font-normal"
+                        />
+                      </th>
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100">
+                        <input
+                          type="text"
+                          value={colSearch.property}
+                          onChange={(e) => handleInputChange("property", e.target.value)}
+                          placeholder="Search Prop/Owner..."
+                          className="w-full px-2 py-0.5 text-[9px] border border-gray-300 rounded bg-white font-normal"
+                        />
+                      </th>
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100">
+                        <input
+                          type="text"
+                          value={colSearch.status}
+                          onChange={(e) => handleInputChange("status", e.target.value)}
+                          placeholder="Search Status..."
+                          className="w-full px-2 py-0.5 text-[9px] border border-gray-300 rounded bg-white font-normal text-center"
+                        />
+                      </th>
+                      <th className="px-2 py-0.5 border-b border-gray-200 bg-gray-100"></th>
+                    </tr>
+                  </thead>
 
-              {/* Section 2: Requirements & Preferences */}
-              <SectionHeader>Requirements & Locations</SectionHeader>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                <Field label="Preferred Locations">
-                  <input
-                    type="text"
-                    name="preferred_location"
-                    value={formState.preferred_location || ''}
-                    onChange={handleInputChange}
-                    placeholder="e.g. Kharghar, Seawoods"
-                    className={INP}
-                  />
-                </Field>
-                <Field label="Preferred BHK Configuration">
-                  <input
-                    type="text"
-                    name="preferred_bhk"
-                    value={formState.preferred_bhk || ''}
-                    onChange={handleInputChange}
-                    placeholder="e.g. 2 BHK, 3 BHK"
-                    className={INP}
-                  />
-                </Field>
-                <Field label="Tenant Category / Type">
-                  <select
-                    name="tenant_type"
-                    value={formState.tenant_type || ''}
-                    onChange={handleInputChange}
-                    className={INP}
-                  >
-                    <option value="">Select Category</option>
-                    <option value="Family">Family</option>
-                    <option value="Bachelor (Male)">Bachelor (Male)</option>
-                    <option value="Bachelor (Female)">Bachelor (Female)</option>
-                    <option value="Company">Company</option>
-                  </select>
-                </Field>
-                <Field label="Expected Move-in Date">
-                  <input
-                    type="date"
-                    name="move_in_date"
-                    value={formState.move_in_date || ''}
-                    onChange={handleInputChange}
-                    className={INP}
-                  />
-                </Field>
-              </div>
+                  <tbody className="divide-y divide-gray-200 text-xs text-gray-700 bg-white">
+                    {paginatedTenants.length > 0 ? (
+                      paginatedTenants.map((t, index) => (
+                        <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="px-2 py-1.5 text-center border-r border-b border-gray-200 bg-white">
+                            <input
+                              type="checkbox"
+                              checked={selectedTenants.includes(t.id)}
+                              onChange={() => handleTenantSelect(t.id)}
+                              className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3 cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-center text-gray-400 font-bold border-r border-b border-gray-200">
+                            {startIndex + index + 1}
+                          </td>
 
-              {/* Section 3: Financials & Status */}
-              <SectionHeader>Financials & Remarks</SectionHeader>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                <Field label="Monthly Budget Min (₹)">
-                  <input
-                    type="text"
-                    name="budget_min"
-                    value={formState.budget_min || ''}
-                    onChange={handleInputChange}
-                    placeholder="e.g. 15000"
-                    className={INP}
-                  />
-                </Field>
-                <Field label="Monthly Budget Max (₹)">
-                  <input
-                    type="text"
-                    name="budget_max"
-                    value={formState.budget_max || ''}
-                    onChange={handleInputChange}
-                    placeholder="e.g. 25000"
-                    className={INP}
-                  />
-                </Field>
-                <Field label="Current Residence Address" className="sm:col-span-2">
-                  <input
-                    type="text"
-                    name="current_address"
-                    value={formState.current_address || ''}
-                    onChange={handleInputChange}
-                    placeholder="Enter current city/address"
-                    className={INP}
-                  />
-                </Field>
-                <Field label="Lead Search Status">
-                  <select
-                    name="status"
-                    value={formState.status || 'Active Search'}
-                    onChange={handleInputChange}
-                    className={`${INP} font-bold text-gray-700`}
-                  >
-                    <option value="Active Search">Active Search</option>
-                    <option value="Interested">Interested</option>
-                    <option value="Agreement Signed">Agreement Signed</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </Field>
-                <Field label="Special Requirements & Notes" className="sm:col-span-3">
-                  <textarea
-                    name="notes"
-                    value={formState.notes || ''}
-                    onChange={handleInputChange}
-                    placeholder="Specify parking, furnishing preferences, pet restrictions, lock-in duration etc."
-                    rows={2}
-                    className="w-full p-2 rounded-md text-xs border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-[#E6761D] transition-colors resize-none"
-                  />
-                </Field>
-              </div>
+                          {/* Tenant Details - single line */}
+                          <td className="px-3 py-1.5 border-r border-b border-gray-200 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-900">{t.name}</span>
+                              <span className="text-[9px] text-[#e67e22] font-bold">{t.tenant_id}</span>
+                              <span className="text-[9px] text-gray-400 capitalize">• {t.tenant_type || 'Renter'}</span>
+                            </div>
+                          </td>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-200 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowFormModal(false)}
-                  className="h-8 px-4 text-xs font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 rounded-md transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="h-8 px-4 text-xs font-bold text-white bg-[#E6761D] hover:bg-[#CC6A1A] rounded-md transition-colors shadow-sm flex items-center gap-1.5"
-                >
-                  <CheckCircle size={13} />
-                  {editingTenant ? 'Update Tenant' : 'Add Tenant'}
-                </button>
+                          {/* Contact Details - single line */}
+                          <td className="px-3 py-1.5 border-r border-b border-gray-200 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1">
+                                <Phone size={10} className="text-gray-400 flex-shrink-0" />
+                                <span className="text-[10px]">{t.phone}</span>
+                              </div>
+                              {t.email && (
+                                <div className="flex items-center gap-1">
+                                  <Mail size={10} className="text-gray-400 flex-shrink-0" />
+                                  <span className="text-[10px] text-gray-500">{t.email}</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Requirements/BHK - single line */}
+                          <td className="px-3 py-1.5 border-r border-b border-gray-200 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-800 text-[11px]">{t.preferred_bhk || "—"}</span>
+                              <div className="flex items-center gap-1 text-[9px] text-gray-400">
+                                <MapPin size={9} className="flex-shrink-0" />
+                                <span>{t.preferred_location || "Any Location"}</span>
+                              </div>
+                              {(Number(t.budget_min) > 0 || Number(t.budget_max) > 0) && (
+                                <span className="px-1 bg-slate-50 text-[9px] font-bold text-slate-600 rounded border">
+                                  ₹{Number(t.budget_min).toLocaleString("en-IN")} - ₹{Number(t.budget_max).toLocaleString("en-IN")}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Linked Context - single line */}
+                          <td className="px-3 py-1.5 border-r border-b border-gray-200 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {t.rental_property_id ? (
+                                <>
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-orange-50 text-[#e67e22] border border-orange-100">
+                                    RENT-{t.rental_property_id}
+                                  </span>
+                                  <span className="text-[9px] text-gray-400">{t.property_title}</span>
+                                </>
+                              ) : (
+                                <span className="text-[10px] text-gray-400 italic">No linked property</span>
+                              )}
+                              {t.owner_name && (
+                                <div className="text-[9px] text-gray-500 flex items-center gap-1">
+                                  <User size={9} className="text-gray-400 flex-shrink-0" />
+                                  <span>Owner: <strong className="text-slate-700">{t.owner_name}</strong></span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Status - single line */}
+                          <td className="px-3 py-1.5 text-center border-r border-b border-gray-200 whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold rounded-full border ${getStatusColor(t.status)}`}>
+                                {t.status}
+                              </span>
+                              {t.assigned_to_name && (
+                                <span className="text-[9px] text-gray-400 font-medium">Exec: {t.assigned_to_name}</span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="px-3 py-1.5 text-center border-b border-gray-200 bg-white">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => handleOpenEditModal(t)}
+                                className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-orange-500 transition-colors"
+                                title="Edit Tenant"
+                              >
+                                <Edit size={13} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTenant(t.id)}
+                                className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                                title="Delete Tenant"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-gray-400 italic">
+                          No tenants match your search filter criteria.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Pagination Footer */}
+            {filteredTenants.length > 0 && (
+              <div className="px-2 sm:px-3 py-2 border-t border-gray-200 bg-white">
+                {/* MOBILE */}
+                <div className="flex flex-col gap-2 sm:hidden">
+                  <div className="text-[10px] text-gray-500 text-center">Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredTenants.length)} of {filteredTenants.length} tenants</div>
+                  <div className="flex items-center justify-between gap-2">
+                    {selectedTenants.length === 0 && (
+                      <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(parseInt(e.target.value, 10)); setCurrentPage(1); }} className="min-w-[60px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white">
+                        {[15, 30, 50, 100, 200].map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    )}
+                    <div className="flex-1 overflow-x-auto scrollbar-hide">
+                      <div className="flex justify-end min-w-max">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronLeft size={14} /></button>
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                              const page = i + 1;
+                              return <button key={page} onClick={() => setCurrentPage(page)} className={`px-2 py-1 rounded text-xs ${currentPage === page ? "bg-orange-500 text-white" : "border border-gray-300"}`}>{page}</button>;
+                            })}
+                            {totalPages > 5 && <span className="px-1 text-xs">...</span>}
+                            {totalPages > 5 && <button onClick={() => setCurrentPage(totalPages)} className="px-2 py-1 rounded text-xs border border-gray-300">{totalPages}</button>}
+                          </div>
+                          <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronRight size={14} /></button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* DESKTOP */}
+                <div className="hidden sm:flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="text-[10px] text-gray-500 whitespace-nowrap">Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredTenants.length)} of {filteredTenants.length} tenants</div>
+                    {selectedTenants.length === 0 && (
+                      <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(parseInt(e.target.value, 10)); setCurrentPage(1); }} className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white">
+                        {[15, 30, 50, 100, 200].map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronLeft size={14} /></button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const page = i + 1;
+                        return <button key={page} onClick={() => setCurrentPage(page)} className={`px-2 py-1 rounded text-xs ${currentPage === page ? "bg-orange-500 text-white" : "border border-gray-300"}`}>{page}</button>;
+                      })}
+                      {totalPages > 5 && <span className="px-1 text-xs">...</span>}
+                      {totalPages > 5 && <button onClick={() => setCurrentPage(totalPages)} className="px-2 py-1 rounded text-xs border border-gray-300">{totalPages}</button>}
+                    </div>
+                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronRight size={14} /></button>
+                  </div>
+                </div>
               </div>
-            </form>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* Sidebar Advanced Filters */}
+      {showFilters && (
+        <TenantSidebarFilter
+          isOpen={showFilters}
+          onClose={() => setShowFilters(false)}
+          filters={filters}
+          setFilters={setFilters}
+          resetFilters={() => setFilters({ status: "", tenant_type: "", preferred_bhk: "", assigned: "" })}
+          statuses={["Active Search", "Interested", "Agreement Signed", "Inactive"]}
+          tenantTypes={["Family", "Bachelor (Male)", "Bachelor (Female)", "Company"]}
+          bhkOptions={["1 BHK", "2 BHK", "3 BHK", "4 BHK"]}
+          assignedUsers={executives.map(e => ({ id: e.id, name: `${e.first_name} ${e.last_name}` }))}
+        />
       )}
-    </div>
+
+      {/* Tenant Create / Edit Form Modal */}
+      {showFormModal && (
+        <TenantFormModal
+          isOpen={showFormModal}
+          onClose={() => setShowFormModal(false)}
+          mode={editingTenant ? "edit" : "create"}
+          initialData={editingTenant}
+          onSubmit={handleFormSubmit}
+        />
+      )}
+
+      {/* Import Tenants Modal */}
+      {showImportModal && (
+        <ImportTenantsModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImportComplete={loadTenants}
+        />
+      )}
+    </>
   );
 }

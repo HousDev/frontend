@@ -219,6 +219,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
     priority: [] as MasterOption[]
   });
   const [presalesUsers, setPreSalesUsers] = useState<any[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const digitsOnly = (s?: string) => (s ? String(s).replace(/\D/g, '') : '');
   const toE164 = (s?: string) => {
@@ -244,20 +245,11 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
 
     (async () => {
       try {
-        const resp = await usersAPI.getAllUsers();
-        const list =
-          (Array.isArray(resp?.data) && resp.data) ||
-          (Array.isArray(resp?.users) && resp.users) ||
-          (Array.isArray(resp) && resp) ||
-          [];
+        const resp = await usersAPI.getSalesExecutives();
+        const list = Array.isArray(resp) ? resp : (resp?.data || resp?.items || []);
 
         const execs = list
-          .filter((u: any) => {
-            const dept = normalizeText(u?.department || u?.department_name);
-            const role = normalizeText(u?.role || u?.role_name || u?.title);
-            const isActive = u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null;
-            return dept.includes('presale') && role.includes('executive') && isActive;
-          })
+          .filter((u: any) => u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null)
           .map((u: any) => ({
             id: String(u.id || u._id || u.user_id),
             name: formatUserName(u),
@@ -405,13 +397,19 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
   const normalizeNumber = (num?: string) => toE164(num);
 
   const handleSubmit = () => {
+    const errs: Record<string, string> = {};
     if (!String(newLead.name || '').trim()) {
-      toast.error('Please enter a valid name');
-      return;
+      errs.name = 'Please enter a valid name';
     }
+    
     if (!newLead.phone) {
-      toast.error('Please enter phone number');
-      return;
+      errs.phone = 'Please enter phone number';
+    } else {
+      const phoneDigits = newLead.phone.replace(/\D/g, '');
+      const localPhone = phoneDigits.startsWith('91') ? phoneDigits.slice(2) : phoneDigits;
+      if (localPhone.length !== 10) {
+        errs.phone = 'Phone number must be exactly 10 digits';
+      }
     }
 
     const emailValue = newLead.email?.trim() || '';
@@ -421,6 +419,14 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
         toast.error('Please enter a valid email address');
         return;
       }
+    }
+
+    setFieldErrors(errs);
+
+    if (Object.keys(errs).length > 0) {
+      const firstError = Object.values(errs)[0];
+      toast.error(firstError);
+      return;
     }
 
     const payload: any = {
@@ -516,6 +522,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
                   style={{ borderColor: BD }}
                 />
               </div>
+              {fieldErrors.name && <p className="text-red-500 text-[9px] mt-0.5">{fieldErrors.name}</p>}
             </div>
             <div className="sm:col-span-5">
               <label className="block text-[9px] font-semibold mb-0.5" style={{ color: N }}>Email</label>
@@ -545,6 +552,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
                 onChange={handlePhoneChange}
                 inputClass="!w-full !h-7 !rounded !border-gray-300 !text-[11px] focus:!ring-1 focus:!ring-orange-500 !pl-10"
               />
+              {fieldErrors.phone && <p className="text-red-500 text-[9px] mt-0.5">{fieldErrors.phone}</p>}
             </div>
             <div>
               <label className="block text-[9px] font-semibold mb-0.5 flex items-center gap-1" style={{ color: N }}>
@@ -695,7 +703,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSave, le
                   </div>
                 )}
                 {assignableExecutives.length === 0 && (
-                  <div className="text-[9px]" style={{ color: '#dc2626' }}>No Presales Executives available</div>
+                  <div className="text-[9px]" style={{ color: '#dc2626' }}>No Sales Executives available</div>
                 )}
               </div>
             )}

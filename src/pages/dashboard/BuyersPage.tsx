@@ -175,7 +175,7 @@ const BuyersPage = () => {
   }
 
   /* ---------------- UI state ---------------- */
-const [activeTab, setActiveTab] = useState('uncontacts');  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('uncontacts'); const [searchTerm, setSearchTerm] = useState('');
   const [selectedBuyers, setSelectedBuyers] = useState<Array<number | string>>([]);
   const [showBuyerForm, setShowBuyerForm] = useState(false);
   const [currentBuyerView, setCurrentBuyerView] = useState<UIBuyer | null>(null);
@@ -188,13 +188,13 @@ const [activeTab, setActiveTab] = useState('uncontacts');  const [searchTerm, se
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
-const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
 
   // Column-level search filters
   const [colSearch, setColSearch] = useState({
     buyer: "",
     phoneWhatsapp: "",
-     emailLocation: "",
+    emailLocation: "",
     contact: "",
     business: "",
     assigned: "",
@@ -220,8 +220,8 @@ const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
 
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
-const [showBuyerFollowupModal, setShowBuyerFollowupModal] = useState(false);
-const [selectedBuyerForFollowup, setSelectedBuyerForFollowup] = useState<UIBuyer | null>(null);
+  const [showBuyerFollowupModal, setShowBuyerFollowupModal] = useState(false);
+  const [selectedBuyerForFollowup, setSelectedBuyerForFollowup] = useState<UIBuyer | null>(null);
   const [filters, setFilters] = useState({
     dateFrom: '',
     dateTo: '',
@@ -308,7 +308,7 @@ const [selectedBuyerForFollowup, setSelectedBuyerForFollowup] = useState<UIBuyer
               executivesList = Array.isArray(res) ? res : (res.items || res.data || []);
             }
           }
-        } catch (err) {}
+        } catch (err) { }
 
         if (executivesList.length === 0 && (usersAPI as any).getAll) {
           try {
@@ -321,7 +321,7 @@ const [selectedBuyerForFollowup, setSelectedBuyerForFollowup] = useState<UIBuyer
                 return (dept.includes('sales') || role.includes('sales')) && (role.includes('executive') || role.includes('sales'));
               });
             }
-          } catch (err) {}
+          } catch (err) { }
         }
         executivesList = executivesList.filter((u: any) => u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null);
 
@@ -359,12 +359,12 @@ const [selectedBuyerForFollowup, setSelectedBuyerForFollowup] = useState<UIBuyer
   }, [execDropdownOpen]);
 
   useEffect(() => {
-  const handleResize = () => {
-    setIsDesktop(window.innerWidth >= 768);
-  };
-  window.addEventListener('resize', handleResize);
-  return () => window.removeEventListener('resize', handleResize);
-}, []);
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
 
   const filteredExecutives = executives.filter(exec =>
@@ -556,15 +556,15 @@ const [selectedBuyerForFollowup, setSelectedBuyerForFollowup] = useState<UIBuyer
         creditScore: toNumOrNull(fin.creditScore ?? fin.credit_score),
       },
       matchedProperties: Array.isArray(b.matchedProperties) ? b.matchedProperties : [],
-matchedPropertiesCount: b.matchedPropertiesCount ||
-  (() => {
-    if (properties.length > 0) {
-      const tempBuyer = { id: b.id, budget: { min: budgetMin, max: budgetMax } } as UIBuyer;
-      return countMatchingProperties(tempBuyer);
-    }
-    return 0;
-  })(),     
-   activities: Array.isArray(b.activities) ? b.activities : [],
+      matchedPropertiesCount: b.matchedPropertiesCount ||
+        (() => {
+          if (properties.length > 0) {
+            const tempBuyer = { id: b.id, budget: { min: budgetMin, max: budgetMax } } as UIBuyer;
+            return countMatchingProperties(tempBuyer);
+          }
+          return 0;
+        })(),
+      activities: Array.isArray(b.activities) ? b.activities : [],
       followups: Array.isArray(b.followups) ? b.followups : [],
       documents: Array.isArray(b.documents) ? b.documents : [],
       visits: toNumOrNull(b.visits) ?? 0,
@@ -578,7 +578,7 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
       responseRate: toNumOrNull(b.responseRate) ?? 0,
       avgResponseTime: b.avgResponseTime ?? null,
     };
-}, [resolveExecutiveName, properties]);
+  }, [resolveExecutiveName, properties]);
   const fetchBuyers = useCallback(async () => {
     try {
       setLoading(true);
@@ -615,25 +615,25 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
   }, [allBuyers, user, executives, showUnassignedToExecutives]);
 
   useEffect(() => {
-  const updateBuyersWithExecutiveNames = async () => {
-    if (allBuyers.length > 0 && executives.length > 0) {
-      const updatedBuyers = allBuyers.map(buyer => {
-        if (buyer.assigned_executive) {
-          const { name: execName } = resolveExecutiveName(buyer.assigned_executive);
-          if (execName !== buyer.assigned_executive_name) {
-            return { ...buyer, assigned_executive_name: execName };
+    const updateBuyersWithExecutiveNames = async () => {
+      if (allBuyers.length > 0 && executives.length > 0) {
+        const updatedBuyers = allBuyers.map(buyer => {
+          if (buyer.assigned_executive) {
+            const { name: execName } = resolveExecutiveName(buyer.assigned_executive);
+            if (execName !== buyer.assigned_executive_name) {
+              return { ...buyer, assigned_executive_name: execName };
+            }
           }
-        }
-        return buyer;
-      });
-      const hasChanges = updatedBuyers.some((buyer, index) =>
-        buyer.assigned_executive_name !== allBuyers[index]?.assigned_executive_name
-      );
-      if (hasChanges) setAllBuyers(updatedBuyers);
-    }
-  };
-  updateBuyersWithExecutiveNames();
-}, [executives, allBuyers, resolveExecutiveName]);
+          return buyer;
+        });
+        const hasChanges = updatedBuyers.some((buyer, index) =>
+          buyer.assigned_executive_name !== allBuyers[index]?.assigned_executive_name
+        );
+        if (hasChanges) setAllBuyers(updatedBuyers);
+      }
+    };
+    updateBuyersWithExecutiveNames();
+  }, [executives, allBuyers, resolveExecutiveName]);
   const tabs = [
     { id: 'all', label: 'All', count: roleFilteredBuyers.length },
     { id: 'uncontacts', label: 'Uncontacts', count: roleFilteredBuyers.filter(b => (b.source || '').toLowerCase() === 'whatsapp').length },
@@ -677,15 +677,15 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
       (activeTab === 'ready_to_buy' && stg === 'property_finalization');
 
     const matchesFilters = (filters.source === 'all' || key(buyer.source) === key(filters.source)) &&
-  (filters.stage === 'all' || stg === filters.stage) &&
-  (filters.priority === 'all' || pri === filters.priority) &&
-  (filters.assigned === 'all' || key(buyer.assigned) === key(filters.assigned)) &&
-  (filters.assigned_executive === 'all' ||
-   (filters.assigned_executive === 'unassigned' && (!buyer.assigned_executive || String(buyer.assigned_executive) === '0' || String(buyer.assigned_executive).toLowerCase() === 'null' || String(buyer.assigned_executive).trim() === '')) ||
-   key(buyer.assigned_executive) === key(filters.assigned_executive)) &&
-  (filters.status === 'all' || key(buyer.status) === key(filters.status)) &&
-  (filters.propertyType === 'all' || key(buyer.requirements?.propertyType) === key(filters.propertyType)) &&
-  matchesBudgetRange(buyer, filters.budgetRange); // ← यह नई line add हुई
+      (filters.stage === 'all' || stg === filters.stage) &&
+      (filters.priority === 'all' || pri === filters.priority) &&
+      (filters.assigned === 'all' || key(buyer.assigned) === key(filters.assigned)) &&
+      (filters.assigned_executive === 'all' ||
+        (filters.assigned_executive === 'unassigned' && (!buyer.assigned_executive || String(buyer.assigned_executive) === '0' || String(buyer.assigned_executive).toLowerCase() === 'null' || String(buyer.assigned_executive).trim() === '')) ||
+        key(buyer.assigned_executive) === key(filters.assigned_executive)) &&
+      (filters.status === 'all' || key(buyer.status) === key(filters.status)) &&
+      (filters.propertyType === 'all' || key(buyer.requirements?.propertyType) === key(filters.propertyType)) &&
+      matchesBudgetRange(buyer, filters.budgetRange); // ← यह नई line add हुई
 
     const created = buyer.created_at ? new Date(buyer.created_at) : null;
     const fromOk = !filters.dateFrom || (created && created >= new Date(filters.dateFrom));
@@ -694,47 +694,47 @@ matchedPropertiesCount: b.matchedPropertiesCount ||
 
     // Column search
     const cs = colSearch;
-const matchesColSearch = 
-  (!cs.buyer || (
-    buyer.name?.toLowerCase().includes(cs.buyer.toLowerCase()) || 
-    String(buyer.id).includes(cs.buyer) ||
-    // ✅ Status search add kiya
-    (cs.buyer.toLowerCase() === 'active' && buyer.is_active === true) ||
-    (cs.buyer.toLowerCase() === 'inactive' && buyer.is_active === false)
-  )) &&
-  (!cs.phoneWhatsapp || (
-    buyer.phone?.includes(cs.phoneWhatsapp) || 
-    buyer.whatsapp?.includes(cs.phoneWhatsapp) ||
-    // ✅ Email search phoneWhatsapp se bhi
-    buyer.email?.toLowerCase().includes(cs.phoneWhatsapp.toLowerCase())
-  )) &&
-  (!cs.emailLocation || (
-    buyer.email?.toLowerCase().includes(cs.emailLocation.toLowerCase()) || 
-    buyer.location?.toLowerCase().includes(cs.emailLocation.toLowerCase()) || 
-    buyer.city?.toLowerCase().includes(cs.emailLocation.toLowerCase())
-  )) &&
-  (!cs.business || (
-    buyer.source?.toLowerCase().includes(cs.business.toLowerCase()) || 
-    buyer.priority?.toLowerCase().includes(cs.business.toLowerCase())
-  )) &&
-  (!cs.assigned || (
-    buyer.assigned_executive_name?.toLowerCase().includes(cs.assigned.toLowerCase())
-  )) &&
-  (!cs.requirements || (
-    buyer.requirements?.propertyType?.toLowerCase().includes(cs.requirements.toLowerCase()) || 
-    // ✅ Budget search add kiya
-    formatCurrency(buyer.budget.min).toLowerCase().includes(cs.requirements.toLowerCase()) || 
-    formatCurrency(buyer.budget.max).toLowerCase().includes(cs.requirements.toLowerCase()) ||
-    String(buyer.budget.min || '').includes(cs.requirements) ||
-    String(buyer.budget.max || '').includes(cs.requirements)
-  )) &&
-  (!cs.progress || (
-    buyer.stage?.toLowerCase().includes(cs.progress.toLowerCase())
-  )) &&
-  (!cs.performance || (
-    String(buyer.matchedPropertiesCount || 0).includes(cs.performance) || 
-    String(buyer.activities?.length || 0).includes(cs.performance)
-  ));
+    const matchesColSearch =
+      (!cs.buyer || (
+        buyer.name?.toLowerCase().includes(cs.buyer.toLowerCase()) ||
+        String(buyer.id).includes(cs.buyer) ||
+        // ✅ Status search add kiya
+        (cs.buyer.toLowerCase() === 'active' && buyer.is_active === true) ||
+        (cs.buyer.toLowerCase() === 'inactive' && buyer.is_active === false)
+      )) &&
+      (!cs.phoneWhatsapp || (
+        buyer.phone?.includes(cs.phoneWhatsapp) ||
+        buyer.whatsapp?.includes(cs.phoneWhatsapp) ||
+        // ✅ Email search phoneWhatsapp se bhi
+        buyer.email?.toLowerCase().includes(cs.phoneWhatsapp.toLowerCase())
+      )) &&
+      (!cs.emailLocation || (
+        buyer.email?.toLowerCase().includes(cs.emailLocation.toLowerCase()) ||
+        buyer.location?.toLowerCase().includes(cs.emailLocation.toLowerCase()) ||
+        buyer.city?.toLowerCase().includes(cs.emailLocation.toLowerCase())
+      )) &&
+      (!cs.business || (
+        buyer.source?.toLowerCase().includes(cs.business.toLowerCase()) ||
+        buyer.priority?.toLowerCase().includes(cs.business.toLowerCase())
+      )) &&
+      (!cs.assigned || (
+        buyer.assigned_executive_name?.toLowerCase().includes(cs.assigned.toLowerCase())
+      )) &&
+      (!cs.requirements || (
+        buyer.requirements?.propertyType?.toLowerCase().includes(cs.requirements.toLowerCase()) ||
+        // ✅ Budget search add kiya
+        formatCurrency(buyer.budget.min).toLowerCase().includes(cs.requirements.toLowerCase()) ||
+        formatCurrency(buyer.budget.max).toLowerCase().includes(cs.requirements.toLowerCase()) ||
+        String(buyer.budget.min || '').includes(cs.requirements) ||
+        String(buyer.budget.max || '').includes(cs.requirements)
+      )) &&
+      (!cs.progress || (
+        buyer.stage?.toLowerCase().includes(cs.progress.toLowerCase())
+      )) &&
+      (!cs.performance || (
+        String(buyer.matchedPropertiesCount || 0).includes(cs.performance) ||
+        String(buyer.activities?.length || 0).includes(cs.performance)
+      ));
 
     return matchesSearch && matchesTab && matchesFilters && matchesDate && matchesColSearch;
   }).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
@@ -800,7 +800,7 @@ const matchesColSearch =
     try {
       await buyerAPI.delete(String(buyerId));
       setAllBuyers(prev => prev.filter(b => b.id !== buyerId));
-      
+
       Swal.fire({
         title: 'Deleted!',
         text: 'Buyer has been deleted successfully.',
@@ -1011,7 +1011,7 @@ const matchesColSearch =
       setAllBuyers(prev => prev.filter(b => !ids.includes(String(b.id))));
       setSelectedBuyers([]);
       await buyerAPI.bulkDelete(ids, false);
-      
+
       Swal.fire({
         title: 'Deleted!',
         text: `${ids.length} buyer(s) have been deleted successfully.`,
@@ -1081,116 +1081,116 @@ const matchesColSearch =
   };
 
   const exportToExcel = (mode: 'filtered' | 'selected' | 'all' = 'filtered') => {
-  let source: UIBuyer[] = [];
-  let modeText = '';
-  
-  if (mode === 'selected') {
-    source = roleFilteredBuyers.filter(b => selectedBuyers.includes(b.id));
-    modeText = 'selected';
-    if (selectedBuyers.length === 0) { toast.info('No buyers selected to export.'); return; }
-  } else if (mode === 'filtered') {
-    source = filteredSortedBuyers;
-    modeText = 'filtered';
-    if (!source || source.length === 0) { toast.info('No buyers found in current view to export.'); return; }
-  } else {
-    source = roleFilteredBuyers;
-    modeText = 'all';
-    if (!source || source.length === 0) { toast.info('No buyers available to export.'); return; }
-  }
+    let source: UIBuyer[] = [];
+    let modeText = '';
 
-  // Prepare data for Excel export
-  const exportData = source.map(b => ({
-    'ID': b.id,
-    'Name': b.name || '',
-    'Salutation': b.salutation || '',
-    'Phone': b.phone || '',
-    'Email': b.email || '',
-    'WhatsApp': b.whatsapp || '',
-    'City': b.city || '',
-    'State': b.state || '',
-    'Location': b.location || '',
-    'Source': b.source || '',
-    'Priority': b.priority || '',
-    'Stage': b.stage || '',
-    'Status': b.is_active ? 'Active' : 'Inactive',
-    'Assigned Executive': b.assigned_executive_name || 'Not assigned',
-    'Lead Score': b.leadScore || 0,
-    'Budget Min': b.budget?.min ? `₹${(b.budget.min / 100000).toFixed(1)}L` : '',
-    'Budget Max': b.budget?.max ? `₹${(b.budget.max / 100000).toFixed(1)}L` : '',
-    'Property Type': b.requirements?.propertyType || '',
-    'Unit Types': Array.isArray(b.requirements?.unitTypes) ? b.requirements.unitTypes.join(', ') : '',
-    'Preferred Locations': Array.isArray(b.requirements?.preferredLocations) ? b.requirements.preferredLocations.join(', ') : '',
-    'Furnishing': b.requirements?.furnishing || '',
-    'Possession': b.requirements?.possession || '',
-    'Special Requirements': b.requirements?.specialRequirements || '',
-    'Loan Required': b.financials?.loanRequired ? 'Yes' : 'No',
-    'Loan Amount': b.financials?.loanAmount ? `₹${(b.financials.loanAmount / 100000).toFixed(1)}L` : '',
-    'Credit Score': b.financials?.creditScore || '',
-    'Property Matches': b.matchedPropertiesCount || 0,
-    'Activities Count': b.activities?.length || 0,
-    'Total Visits': b.totalVisits || 0,
-    'Response Rate': b.responseRate ? `${b.responseRate}%` : '',
-    'Notifications': b.notifications || 0,
-    'Created At': b.created_at ? new Date(b.created_at).toLocaleString() : '',
-    'Last Activity': b.lastActivity ? new Date(b.lastActivity).toLocaleString() : '',
-  }));
+    if (mode === 'selected') {
+      source = roleFilteredBuyers.filter(b => selectedBuyers.includes(b.id));
+      modeText = 'selected';
+      if (selectedBuyers.length === 0) { toast.info('No buyers selected to export.'); return; }
+    } else if (mode === 'filtered') {
+      source = filteredSortedBuyers;
+      modeText = 'filtered';
+      if (!source || source.length === 0) { toast.info('No buyers found in current view to export.'); return; }
+    } else {
+      source = roleFilteredBuyers;
+      modeText = 'all';
+      if (!source || source.length === 0) { toast.info('No buyers available to export.'); return; }
+    }
 
-  // Create worksheet
-  const ws = XLSX.utils.json_to_sheet(exportData);
-  
-  // Auto-size columns (set column widths)
-  const colWidths = [
-    { wch: 10 }, { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 30 },
-    { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 25 }, { wch: 15 },
-    { wch: 10 }, { wch: 20 }, { wch: 10 }, { wch: 20 }, { wch: 10 },
-    { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 25 },
-    { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 10 }, { wch: 15 },
-    { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 },
-    { wch: 10 }, { wch: 20 }, { wch: 20 }
-  ];
-  ws['!cols'] = colWidths;
+    // Prepare data for Excel export
+    const exportData = source.map(b => ({
+      'ID': b.id,
+      'Name': b.name || '',
+      'Salutation': b.salutation || '',
+      'Phone': b.phone || '',
+      'Email': b.email || '',
+      'WhatsApp': b.whatsapp || '',
+      'City': b.city || '',
+      'State': b.state || '',
+      'Location': b.location || '',
+      'Source': b.source || '',
+      'Priority': b.priority || '',
+      'Stage': b.stage || '',
+      'Status': b.is_active ? 'Active' : 'Inactive',
+      'Assigned Executive': b.assigned_executive_name || 'Not assigned',
+      'Lead Score': b.leadScore || 0,
+      'Budget Min': b.budget?.min ? `₹${(b.budget.min / 100000).toFixed(1)}L` : '',
+      'Budget Max': b.budget?.max ? `₹${(b.budget.max / 100000).toFixed(1)}L` : '',
+      'Property Type': b.requirements?.propertyType || '',
+      'Unit Types': Array.isArray(b.requirements?.unitTypes) ? b.requirements.unitTypes.join(', ') : '',
+      'Preferred Locations': Array.isArray(b.requirements?.preferredLocations) ? b.requirements.preferredLocations.join(', ') : '',
+      'Furnishing': b.requirements?.furnishing || '',
+      'Possession': b.requirements?.possession || '',
+      'Special Requirements': b.requirements?.specialRequirements || '',
+      'Loan Required': b.financials?.loanRequired ? 'Yes' : 'No',
+      'Loan Amount': b.financials?.loanAmount ? `₹${(b.financials.loanAmount / 100000).toFixed(1)}L` : '',
+      'Credit Score': b.financials?.creditScore || '',
+      'Property Matches': b.matchedPropertiesCount || 0,
+      'Activities Count': b.activities?.length || 0,
+      'Total Visits': b.totalVisits || 0,
+      'Response Rate': b.responseRate ? `${b.responseRate}%` : '',
+      'Notifications': b.notifications || 0,
+      'Created At': b.created_at ? new Date(b.created_at).toLocaleString() : '',
+      'Last Activity': b.lastActivity ? new Date(b.lastActivity).toLocaleString() : '',
+    }));
 
-  // Create workbook
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, `Buyers_${modeText}`);
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
 
-  // Generate Excel file
-  const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([excelBuffer], { 
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-  });
-  
-  // Download file
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `buyers_${modeText}_${new Date().toISOString().split('T')[0]}.xlsx`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  
-  toast.success(`Exported ${source.length} buyers to Excel successfully`);
-};
+    // Auto-size columns (set column widths)
+    const colWidths = [
+      { wch: 10 }, { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 30 },
+      { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 25 }, { wch: 15 },
+      { wch: 10 }, { wch: 20 }, { wch: 10 }, { wch: 20 }, { wch: 10 },
+      { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 25 },
+      { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 10 }, { wch: 15 },
+      { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 },
+      { wch: 10 }, { wch: 20 }, { wch: 20 }
+    ];
+    ws['!cols'] = colWidths;
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `Buyers_${modeText}`);
+
+    // Generate Excel file
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+
+    // Download file
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `buyers_${modeText}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast.success(`Exported ${source.length} buyers to Excel successfully`);
+  };
   const resetFilters = () => {
-  setFilters({
-    dateFrom: '', dateTo: '', ignoreDate: false, source: 'all', stage: 'all', priority: 'all',
-    assigned: 'all', assigned_executive: 'all', status: 'all', budgetRange: 'all', propertyType: 'all',
-  });
-  setColSearch({ 
-    buyer: "", 
-    phoneWhatsapp: "",      // ✅ Added missing property
-    emailLocation: "",      // ✅ Added missing property
-    contact: "", 
-    business: "", 
-    assigned: "", 
-    requirements: "", 
-    progress: "", 
-    performance: "" 
-  });
-  setSearchTerm('');
-  setActiveTab('all');
-};
+    setFilters({
+      dateFrom: '', dateTo: '', ignoreDate: false, source: 'all', stage: 'all', priority: 'all',
+      assigned: 'all', assigned_executive: 'all', status: 'all', budgetRange: 'all', propertyType: 'all',
+    });
+    setColSearch({
+      buyer: "",
+      phoneWhatsapp: "",      // ✅ Added missing property
+      emailLocation: "",      // ✅ Added missing property
+      contact: "",
+      business: "",
+      assigned: "",
+      requirements: "",
+      progress: "",
+      performance: ""
+    });
+    setSearchTerm('');
+    setActiveTab('all');
+  };
 
   const getColSpan = () => {
     let colSpan = 8;
@@ -1236,7 +1236,7 @@ const matchesColSearch =
 
   return (
     <div style={{ backgroundColor: '#f5f6f8' }}>
-        <style>
+      <style>
         {`
           .scrollbar-custom {
             scrollbar-width: thin;
@@ -1293,68 +1293,66 @@ const matchesColSearch =
       </style>
       <div className="max-w-[1600px] mx-auto px-3 sm:px-2 md:px-2 py-2 sm:py-2">
         {/* TABS ROW */}
-      <div className="hidden sm:flex items-center justify-between gap-2 mb-2">
+        <div className="hidden sm:flex items-center justify-between gap-2 mb-2">
 
-  {/* Tabs */}
-  <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
-    <div className="flex gap-1 min-w-max bg-gray-100 p-0.5 rounded-lg">
+          {/* Tabs */}
+          <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">
+            <div className="flex gap-1 min-w-max bg-gray-100 p-0.5 rounded-lg">
 
-      {tabs.map((tab) => {
-        const isActive = activeTab === tab.id;
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
 
-        return (
-          <button
-            key={tab.id}
-            onClick={() => {
-              setActiveTab(tab.id);
-              setCurrentPage(1);
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-medium transition-all whitespace-nowrap ${
-              isActive
-                ? "bg-white shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            style={isActive ? { color: RESALE.orange } : {}}
-          >
-            <span>{tab.label}</span>
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setCurrentPage(1);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-medium transition-all whitespace-nowrap ${isActive
+                        ? "bg-white shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    style={isActive ? { color: RESALE.orange } : {}}
+                  >
+                    <span>{tab.label}</span>
 
-            <span
-              className={`px-1.5 py-[1px] rounded-full text-[10px] font-semibold ${
-                isActive
-                  ? "bg-orange-100 text-orange-600"
-                  : "bg-gray-200 text-gray-600"
-              }`}
+                    <span
+                      className={`px-1.5 py-[1px] rounded-full text-[10px] font-semibold ${isActive
+                          ? "bg-orange-100 text-orange-600"
+                          : "bg-gray-200 text-gray-600"
+                        }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+
+            <button
+              onClick={() => setShowFilters(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
             >
-              {tab.count}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  </div>
+              <SlidersHorizontal size={12} />
+              <span>Filters</span>
+            </button>
 
-  {/* Actions */}
-  <div className="flex items-center gap-1.5 flex-shrink-0">
+            {canExport && (
+              <>
+                <button
+                  onClick={() => exportToExcel('filtered')}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
+                >
+                  <Download size={12} />
+                  <span>Export</span>
+                </button>
 
-    <button
-      onClick={() => setShowFilters(true)}
-      className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
-    >
-      <SlidersHorizontal size={12} />
-      <span>Filters</span>
-    </button>
-
-    {canExport && (
-      <>
-        <button
-          onClick={() => exportToExcel('filtered')}
-          className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
-        >
-          <Download size={12} />
-          <span>Export</span>
-        </button>
-
-        {/* {selectedBuyers.length > 0 && (
+                {/* {selectedBuyers.length > 0 && (
           <button
             onClick={() => exportToExcel('selected')}
             className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-white bg-green-600 rounded-md hover:bg-green-700"
@@ -1365,316 +1363,316 @@ const matchesColSearch =
             </span>
           </button>
         )} */}
-      </>
-    )}
+              </>
+            )}
 
-    {canImport && (
-      <button
-        onClick={() => setShowImportBuyers(true)}
-        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
-      >
-        <Upload size={12} />
-        <span>Import</span>
-      </button>
-    )}
+            {canImport && (
+              <button
+                onClick={() => setShowImportBuyers(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-black bg-white border border-gray-200 rounded-md hover:bg-gray-50"
+              >
+                <Upload size={12} />
+                <span>Import</span>
+              </button>
+            )}
 
-    {canCreate && (
-      <button
-        onClick={handleAddBuyer}
-        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-white rounded-md bg-[#0f2b3d]"
-      >
-        <Plus size={12} />
-        <span>Add Buyer</span>
-      </button>
-    )}
-  </div>
-</div>
+            {canCreate && (
+              <button
+                onClick={handleAddBuyer}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-white rounded-md bg-[#0f2b3d]"
+              >
+                <Plus size={12} />
+                <span>Add Buyer</span>
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* MOBILE TABS */}
-      <div className="flex sm:hidden items-center justify-between gap-2 mb-1">
-  <div className="flex items-center gap-1.5 ml-auto overflow-x-auto scrollbar-hide">
+        <div className="flex sm:hidden items-center justify-between gap-2 mb-1">
+          <div className="flex items-center gap-1.5 ml-auto overflow-x-auto scrollbar-hide">
 
-    <button
-      onClick={() => setShowFilters(true)}
-      className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg whitespace-nowrap"
-    >
-      <SlidersHorizontal size={12} />
-      <span>Filters</span>
-    </button>
+            <button
+              onClick={() => setShowFilters(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg whitespace-nowrap"
+            >
+              <SlidersHorizontal size={12} />
+              <span>Filters</span>
+            </button>
 
-    {canExport && (
-      <button
-        onClick={() => exportToExcel('filtered')}
-        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg whitespace-nowrap"
-      >
-        <Download size={12} />
-        <span>Export</span>
-      </button>
-    )}
+            {canExport && (
+              <button
+                onClick={() => exportToExcel('filtered')}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg whitespace-nowrap"
+              >
+                <Download size={12} />
+                <span>Export</span>
+              </button>
+            )}
 
-    {canImport && (
-      <button
-        onClick={() => setShowImportBuyers(true)}
-        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg whitespace-nowrap"
-      >
-        <Upload size={12} />
-        <span>Import</span>
-      </button>
-    )}
+            {canImport && (
+              <button
+                onClick={() => setShowImportBuyers(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-black bg-white border border-gray-200 rounded-lg whitespace-nowrap"
+              >
+                <Upload size={12} />
+                <span>Import</span>
+              </button>
+            )}
 
-    {canCreate && (
-      <button
-        onClick={handleAddBuyer}
-        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-white rounded-lg bg-[#0f2b3d] whitespace-nowrap"
-      >
-        <Plus size={12} />
-        <span>Add Buyer</span>
-      </button>
-    )}
+            {canCreate && (
+              <button
+                onClick={handleAddBuyer}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-white rounded-lg bg-[#0f2b3d] whitespace-nowrap"
+              >
+                <Plus size={12} />
+                <span>Add Buyer</span>
+              </button>
+            )}
 
-  </div>
-</div>
+          </div>
+        </div>
 
         <div className="flex sm:hidden items-center gap-2 mb-3">
-<div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">            <div className="flex gap-1 min-w-max bg-gray-100 p-1 rounded-xl">
-              {tabs.slice(0, 4).map((tab) => {
-                const isActive = activeTab === tab.id;
-                return (
-                  <button key={tab.id} onClick={() => { setActiveTab(tab.id); setCurrentPage(1); }} className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white shadow-sm' : 'text-gray-500'}`} style={isActive ? { color: RESALE.orange } : {}}>
-                    <span>{tab.label}</span>
-                    <span className={`px-1 py-0.5 rounded-full text-[10px] font-semibold ${isActive ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'}`}>{tab.count}</span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="overflow-x-auto scrollbar-hide flex-1 min-w-0">            <div className="flex gap-1 min-w-max bg-gray-100 p-1 rounded-xl">
+            {tabs.slice(0, 4).map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button key={tab.id} onClick={() => { setActiveTab(tab.id); setCurrentPage(1); }} className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white shadow-sm' : 'text-gray-500'}`} style={isActive ? { color: RESALE.orange } : {}}>
+                  <span>{tab.label}</span>
+                  <span className={`px-1 py-0.5 rounded-full text-[10px] font-semibold ${isActive ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'}`}>{tab.count}</span>
+                </button>
+              );
+            })}
+          </div>
           </div>
           {/* <select value={itemsPerPage} onChange={(e) => setItemsPerPage(parseInt(e.target.value, 10))} className="flex-shrink-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white"> 
             {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}/pg</option>)}
           </select> */}
         </div>
 
-  {selectedBuyers.length > 0 && (canUpdate || canAssign || canBulkDelete) && (
-    <div className="bg-white border border-gray-200 rounded-xl p-3 mb-1 shadow-sm flex flex-col gap-2 sm:flex-wrap sm:flex-row sm:items-center">
+        {selectedBuyers.length > 0 && (canUpdate || canAssign || canBulkDelete) && (
+          <div className="bg-white border border-gray-200 rounded-xl p-3 mb-1 shadow-sm flex flex-col gap-2 sm:flex-wrap sm:flex-row sm:items-center">
 
-      {/* TOP ROW */}
-      <div className="flex items-center gap-2 w-full sm:w-auto flex-nowrap overflow-x-auto scrollbar-hide">
-        
-        <span
-          className="text-xs font-semibold px-2.5 py-1 rounded-lg border whitespace-nowrap"
-          style={{
-            color: RESALE.orange,
-            backgroundColor: `${RESALE.orange}15`,
-            borderColor: `${RESALE.orange}40`,
-          }}
-        >
-          Selected: {selectedBuyers.length}
-        </span>
+            {/* TOP ROW */}
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-nowrap overflow-x-auto scrollbar-hide">
 
-        {canUpdate && (
-          <>
-            <select
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val) {
-                  handleBulkUpdateLeadField("buyer_lead_stage", val);
-                  e.target.value = "";
-                }
-              }}
-              className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[140px]"
-            >
-              <option value="">Update Stage...</option>
-              {effectiveStageOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val) {
-                  handleBulkUpdateLeadField("buyer_lead_priority", val);
-                  e.target.value = "";
-                }
-              }}
-              className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[150px]"
-            >
-              <option value="">Update Priority...</option>
-              {effectivePriorityOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-
-        {/* MOBILE DELETE */}
-        {canBulkDelete && (
-          <button
-            onClick={handleBulkDelete}
-            disabled={bulkLoading || selectedBuyers.length === 0}
-            className="sm:hidden px-3 py-1 text-xs border border-red-300 text-red-600 rounded-lg whitespace-nowrap"
-          >
-            Delete
-          </button>
-        )}
-
-        {/* DESKTOP ASSIGN */}
-        <div className="hidden sm:block h-5 w-px bg-gray-200" />
-
-        {canAssign && (
-          <div className="hidden sm:flex items-center gap-1.5">
-            <span className="text-xs text-gray-500">Assign:</span>
-            <select
-              value={pendingExec}
-              onChange={(e) => setPendingExec(e.target.value)}
-              className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[130px]"
-            >
-              <option value="">Assign...</option>
-              <option value="Unassigned">Unassign</option>
-              {assignableExecutives.map((u: any) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-            {pendingExec && (
-              <button
-                onClick={() => {
-                  const newAssigneeId = pendingExec === "Unassigned" ? null : pendingExec;
-                  handleAssignExecutive(newAssigneeId);
-                  setPendingExec('');
+              <span
+                className="text-xs font-semibold px-2.5 py-1 rounded-lg border whitespace-nowrap"
+                style={{
+                  color: RESALE.orange,
+                  backgroundColor: `${RESALE.orange}15`,
+                  borderColor: `${RESALE.orange}40`,
                 }}
-                className="px-2 py-1 text-xs bg-orange-500 text-white rounded-lg whitespace-nowrap hover:bg-orange-600"
               >
-                Apply
+                Selected: {selectedBuyers.length}
+              </span>
+
+              {canUpdate && (
+                <>
+                  <select
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val) {
+                        handleBulkUpdateLeadField("buyer_lead_stage", val);
+                        e.target.value = "";
+                      }
+                    }}
+                    className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[140px]"
+                  >
+                    <option value="">Update Stage...</option>
+                    {effectiveStageOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val) {
+                        handleBulkUpdateLeadField("buyer_lead_priority", val);
+                        e.target.value = "";
+                      }
+                    }}
+                    className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[150px]"
+                  >
+                    <option value="">Update Priority...</option>
+                    {effectivePriorityOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              {/* MOBILE DELETE */}
+              {canBulkDelete && (
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkLoading || selectedBuyers.length === 0}
+                  className="sm:hidden px-3 py-1 text-xs border border-red-300 text-red-600 rounded-lg whitespace-nowrap"
+                >
+                  Delete
+                </button>
+              )}
+
+              {/* DESKTOP ASSIGN */}
+              <div className="hidden sm:block h-5 w-px bg-gray-200" />
+
+              {canAssign && (
+                <div className="hidden sm:flex items-center gap-1.5">
+                  <span className="text-xs text-gray-500">Assign:</span>
+                  <select
+                    value={pendingExec}
+                    onChange={(e) => setPendingExec(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[130px]"
+                  >
+                    <option value="">Assign...</option>
+                    <option value="Unassigned">Unassign</option>
+                    {assignableExecutives.map((u: any) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                  {pendingExec && (
+                    <button
+                      onClick={() => {
+                        const newAssigneeId = pendingExec === "Unassigned" ? null : pendingExec;
+                        handleAssignExecutive(newAssigneeId);
+                        setPendingExec('');
+                      }}
+                      className="px-2 py-1 text-xs bg-orange-500 text-white rounded-lg whitespace-nowrap hover:bg-orange-600"
+                    >
+                      Apply
+                    </button>
+                  )}
+                </div>
+              )}
+
+            </div>
+
+            {/* MOBILE COMPACT ACTION ROW - EXACTLY AS IT WAS */}
+            <div className="flex items-center gap-2 w-full sm:hidden overflow-x-auto whitespace-nowrap scrollbar-hide">
+
+              {canAssign && (
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={pendingExec}
+                    onChange={(e) => setPendingExec(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[120px]"
+                  >
+                    <option value="">Assign...</option>
+                    <option value="Unassigned">Unassign</option>
+                    {assignableExecutives.map((u: any) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                  {pendingExec && (
+                    <button
+                      onClick={() => {
+                        const newAssigneeId = pendingExec === "Unassigned" ? null : pendingExec;
+                        handleAssignExecutive(newAssigneeId);
+                        setPendingExec('');
+                      }}
+                      className="px-2 py-1 text-xs bg-orange-500 text-white rounded-lg whitespace-nowrap hover:bg-orange-600"
+                    >
+                      Apply
+                    </button>
+                  )}
+
+                </div>
+              )}
+
+              {canUpdate && (
+                <>
+                  <button
+                    onClick={() => handleBulkUpdateLeadField("is_active", 1)}
+                    className="px-3 py-1 text-xs bg-emerald-600 text-white rounded-lg whitespace-nowrap"
+                  >
+                    Active
+                  </button>
+                  <button
+                    onClick={() => handleBulkUpdateLeadField("is_active", 0)}
+                    className="px-3 py-1 text-xs bg-gray-600 text-white rounded-lg whitespace-nowrap"
+                  >
+                    Inactive
+                  </button>
+                </>
+              )}
+
+              {canExport && (
+                <button
+                  onClick={() => exportToExcel("selected")}
+                  className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg whitespace-nowrap"
+                >
+                  Export ({selectedBuyers.length})
+                </button>
+              )}
+
+              <button
+                onClick={() => setSelectedBuyers([])}
+                className="px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg whitespace-nowrap"
+              >
+                Clear
               </button>
-            )}
+            </div>
+
+            {/* DESKTOP ACTIONS - ALL ON RIGHT SIDE */}
+            <div className="hidden sm:flex items-center gap-1.5 w-full sm:w-auto sm:ml-auto mt-2 sm:mt-0 overflow-x-auto whitespace-nowrap scrollbar-hide">
+
+              {canUpdate && (
+                <>
+                  <button
+                    onClick={() => handleBulkUpdateLeadField("is_active", 1)}
+                    className="px-3 py-1 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 whitespace-nowrap"
+                  >
+                    Mark Active
+                  </button>
+                  <button
+                    onClick={() => handleBulkUpdateLeadField("is_active", 0)}
+                    className="px-3 py-1 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700 whitespace-nowrap"
+                  >
+                    Mark Inactive
+                  </button>
+                </>
+              )}
+
+              {canExport && (
+                <button
+                  onClick={() => exportToExcel("selected")}
+                  className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
+                >
+                  Export ({selectedBuyers.length})
+                </button>
+              )}
+
+              {canBulkDelete && (
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkLoading || selectedBuyers.length === 0}
+                  className="px-3 py-1 text-xs border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 whitespace-nowrap"
+                >
+                  Delete ({selectedBuyers.length})
+                </button>
+              )}
+
+              <button
+                onClick={() => setSelectedBuyers([])}
+                className="px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 whitespace-nowrap"
+              >
+                Clear
+              </button>
+            </div>
           </div>
         )}
 
-      </div>
 
-      {/* MOBILE COMPACT ACTION ROW - EXACTLY AS IT WAS */}
-      <div className="flex items-center gap-2 w-full sm:hidden overflow-x-auto whitespace-nowrap scrollbar-hide">
-
-        {canAssign && (
-          <div className="flex items-center gap-1.5">
-            <select
-              value={pendingExec}
-              onChange={(e) => setPendingExec(e.target.value)}
-              className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[120px]"
-            >
-              <option value="">Assign...</option>
-              <option value="Unassigned">Unassign</option>
-              {assignableExecutives.map((u: any) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-            {pendingExec && (
-              <button
-                onClick={() => {
-                  const newAssigneeId = pendingExec === "Unassigned" ? null : pendingExec;
-                  handleAssignExecutive(newAssigneeId);
-                  setPendingExec('');
-                }}
-                className="px-2 py-1 text-xs bg-orange-500 text-white rounded-lg whitespace-nowrap hover:bg-orange-600"
-              >
-                Apply
-              </button>
-            )}
-
-          </div>
-        )}
-
-        {canUpdate && (
-          <>
-            <button
-              onClick={() => handleBulkUpdateLeadField("is_active", 1)}
-              className="px-3 py-1 text-xs bg-emerald-600 text-white rounded-lg whitespace-nowrap"
-            >
-              Active
-            </button>
-            <button
-              onClick={() => handleBulkUpdateLeadField("is_active", 0)}
-              className="px-3 py-1 text-xs bg-gray-600 text-white rounded-lg whitespace-nowrap"
-            >
-              Inactive
-            </button>
-          </>
-        )}
-
-        {canExport && (
-          <button
-            onClick={() => exportToExcel("selected")}
-            className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg whitespace-nowrap"
-          >
-            Export ({selectedBuyers.length})
-          </button>
-        )}
-
-        <button
-          onClick={() => setSelectedBuyers([])}
-          className="px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg whitespace-nowrap"
-        >
-          Clear
-        </button>
-      </div>
-
-      {/* DESKTOP ACTIONS - ALL ON RIGHT SIDE */}
-      <div className="hidden sm:flex items-center gap-1.5 w-full sm:w-auto sm:ml-auto mt-2 sm:mt-0 overflow-x-auto whitespace-nowrap scrollbar-hide">
-
-        {canUpdate && (
-          <>
-            <button
-              onClick={() => handleBulkUpdateLeadField("is_active", 1)}
-              className="px-3 py-1 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 whitespace-nowrap"
-            >
-              Mark Active
-            </button>
-            <button
-              onClick={() => handleBulkUpdateLeadField("is_active", 0)}
-              className="px-3 py-1 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700 whitespace-nowrap"
-            >
-              Mark Inactive
-            </button>
-          </>
-        )}
-
-        {canExport && (
-          <button
-            onClick={() => exportToExcel("selected")}
-            className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
-          >
-            Export ({selectedBuyers.length})
-          </button>
-        )}
-
-        {canBulkDelete && (
-          <button
-            onClick={handleBulkDelete}
-            disabled={bulkLoading || selectedBuyers.length === 0}
-            className="px-3 py-1 text-xs border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 whitespace-nowrap"
-          >
-            Delete ({selectedBuyers.length})
-          </button>
-        )}
-
-        <button
-          onClick={() => setSelectedBuyers([])}
-          className="px-3 py-1 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 whitespace-nowrap"
-        >
-          Clear
-        </button>
-      </div>
-    </div>
-)}
-
-       
 
         {/* Search Bar */}
         {/* <div className="mb-4">
@@ -1685,714 +1683,714 @@ const matchesColSearch =
         </div> */}
 
         {/* MAIN TABLE */}
-<div
-  className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden flex flex-col"
-  style={{
-    height: window.innerWidth < 640
-      ? selectedBuyers.length > 0 ? '460px' : '560px'
-      : selectedBuyers.length > 0 ? '560px' : '620px',
-  }}
->
-  {loading ? (
-    <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
-  ) : (
-    <>
-{/* OUTER: controls max-height + vertical scroll */}
-<div
-  className="scrollbar-custom-vertical flex-1 min-h-0"
-  style={{
-    overflowY: 'auto',
-    overflowX: 'auto',
-  }}
->
-
-  <table
-    className="w-full"
-    style={{ minWidth: '1400px', borderCollapse: 'separate', borderSpacing: 0 }}
-  >
-    {/* ── THEAD: sticky so it never scrolls away ── */}
-    <thead
-      style={{ position: 'sticky', top: 0, zIndex: 30 }}
-    >
-      {/* ── ROW 1: Column Headers ── */}
-      <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
-
-        {/* CHECKBOX */}
-        {(canUpdate || canDelete || canAssign || canBulkDelete) && (
-         <th
-  className="w-6 px-2 py-1.5 text-center bg-gray-50"
-  style={isDesktop ? { position: 'sticky', left: 0, zIndex: 31, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' } : {}}
->
-            <input
-              type="checkbox"
-              checked={selectedBuyers.length === paginatedBuyers.length && paginatedBuyers.length > 0}
-              onChange={handleSelectAll}
-              className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
-            />
-          </th>
-        )}
-
-        {/* S.NO */}
-        <th className="px-1.5 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50 w-10">
-          S.No.
-        </th>
-
-        {/* STICKY COL 1: COMMUNICATE */}
-        {shouldShowActionsColumn && (
-         <th
-  className="px-2 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50"
-  style={isDesktop ? {
-    position: 'sticky',
-    left: (canUpdate || canDelete || canAssign || canBulkDelete) ? '28px' : 0,
-    zIndex: 31,
-    boxShadow: '2px 0 4px rgba(0,0,0,0.06)',
-  } : {}}
->
-            COMMUNICATE
-          </th>
-        )}
-
-        {/* STICKY COL 2: BUYER DETAILS */}
-       <th
-  className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50"
-  style={isDesktop ? {
-    position: 'sticky',
-    left: (() => {
-      let left = 0;
-      if (canUpdate || canDelete || canAssign || canBulkDelete) left += 28;
-      if (shouldShowActionsColumn) left += 125;
-      return `${left}px`;
-    })(),
-    zIndex: 31,
-    boxShadow: '2px 0 4px rgba(0,0,0,0.06)',
-  } : {}}
->
-          BUYER DETAILS
-        </th>
-
-        {/* SCROLLABLE COLUMNS */}
-        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">PHONE & EMAIL</th>
-        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">BUDGET & LOCATION</th>
-        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">BUSINESS INFO</th>
-        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">REQUIREMENT</th>
-        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">PROGRESS</th>
-        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ACTIVITY</th>
-        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">MATCHES & ACTS</th>
-        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">VISIT & RESP</th>
-        {shouldShowActionsColumn && (
-          <th className="px-2 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">MANAGE</th>
-        )}
-        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ASSIGNED TO</th>
-      </tr>
-
-      {/* ── ROW 2: Column Search ── */}
-      <tr className="bg-gray-100">
-
-        {/* CHECKBOX - sticky */}
-       {(canUpdate || canDelete || canAssign || canBulkDelete) && (
-  <th
-    className="px-2 py-0.5 bg-gray-100"
-    style={isDesktop ? { position: 'sticky', left: 0, zIndex: 31 } : {}}
-  />
-)}
-
-        {/* S.NO - empty placeholder */}
-        <th className="px-1.5 py-0.5 bg-gray-100 w-10" />
-
-        {/* COMMUNICATE - sticky placeholder */}
-      {shouldShowActionsColumn && (
-  <th
-    className="px-1.5 py-0.5 bg-gray-100"
-    style={isDesktop ? {
-      position: 'sticky',
-      left: (canUpdate || canDelete || canAssign || canBulkDelete) ? '28px' : 0,
-      zIndex: 31,
-    } : {}}
-  />
-)}
-
-        {/* BUYER DETAILS search - sticky */}
-       <th
-  className="px-1.5 py-0.5 bg-gray-100"
-  style={isDesktop ? {
-    position: 'sticky',
-    left: (() => {
-      let left = 0;
-      if (canUpdate || canDelete || canAssign || canBulkDelete) left += 28;
-      if (shouldShowActionsColumn) left += 125;
-      return `${left}px`;
-    })(),
-    zIndex: 31,
-  } : {}}
->
-  <input
-    type="text"
-    placeholder="Search buyer..."
-    value={colSearch.buyer}
-    onChange={e => setColSearch(p => ({ ...p, buyer: e.target.value }))}
-    className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
-  />
-</th>
-
-        {/* PHONE & EMAIL search */}
-        <th className="px-1.5 py-0.5 bg-gray-100">
-          <input
-            type="text"
-            placeholder="Search phone/email..."
-            value={colSearch.phoneWhatsapp}
-            onChange={e => setColSearch(p => ({ ...p, phoneWhatsapp: e.target.value }))}
-            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
-          />
-        </th>
-
-        {/* BUDGET & LOCATION search */}
-        <th className="px-1.5 py-0.5 bg-gray-100">
-          <input
-            type="text"
-            placeholder="Search location..."
-            value={colSearch.emailLocation}
-            onChange={e => setColSearch(p => ({ ...p, emailLocation: e.target.value }))}
-            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
-          />
-        </th>
-
-        {/* BUSINESS INFO search */}
-        <th className="px-1.5 py-0.5 bg-gray-100">
-          <input
-            type="text"
-            placeholder="Search source/priority..."
-            value={colSearch.business}
-            onChange={e => setColSearch(p => ({ ...p, business: e.target.value }))}
-            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
-          />
-        </th>
-
-        {/* REQUIREMENT search */}
-        <th className="px-1.5 py-0.5 bg-gray-100">
-          <input
-            type="text"
-            placeholder="Search requirement..."
-            value={colSearch.requirements}
-            onChange={e => setColSearch(p => ({ ...p, requirements: e.target.value }))}
-            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
-          />
-        </th>
-
-        {/* PROGRESS search */}
-        <th className="px-1.5 py-0.5 bg-gray-100">
-          <input
-            type="text"
-            placeholder="Search stage..."
-            value={colSearch.progress}
-            onChange={e => setColSearch(p => ({ ...p, progress: e.target.value }))}
-            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
-          />
-        </th>
-
-        {/* ACTIVITY - empty */}
-        <th className="px-1.5 py-0.5 bg-gray-100" />
-
-        {/* MATCHES search */}
-        <th className="px-1.5 py-0.5 bg-gray-100">
-          <input
-            type="text"
-            placeholder="Search matches..."
-            value={colSearch.performance}
-            onChange={e => setColSearch(p => ({ ...p, performance: e.target.value }))}
-            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
-          />
-        </th>
-
-        {/* VISIT & RESP - empty */}
-        <th className="px-1.5 py-0.5 bg-gray-100" />
-
-        {/* MANAGE - empty */}
-        {shouldShowActionsColumn && <th className="px-1.5 py-0.5 bg-gray-100" />}
-
-        {/* ASSIGNED TO search */}
-        <th className="px-1.5 py-0.5 bg-gray-100">
-          <input
-            type="text"
-            placeholder="Search assigned..."
-            value={colSearch.assigned}
-            onChange={e => setColSearch(p => ({ ...p, assigned: e.target.value }))}
-            className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
-          />
-        </th>
-      </tr>
-    </thead>
-
-    {/* ── TBODY: only this scrolls ── */}
-    <tbody className="bg-white divide-y divide-gray-100">
-      {paginatedBuyers.map((buyer, index) => {
-        const { name: execName, isCurrentUser } = resolveExecutiveName(buyer.assigned_executive);
-        const initials = getInitials(buyer.name);
-        return (
-          <tr key={buyer.id} className="hover:bg-gray-50 transition-colors">
-
-            {/* CHECKBOX */}
-            {(canUpdate || canDelete || canAssign || canBulkDelete) && (
-            <td
-  className="px-2 py-1 text-center bg-white"
-  style={isDesktop ? { position: 'sticky', left: 0, zIndex: 10, boxShadow: '2px 0 4px rgba(0,0,0,0.04)' } : {}}
->
-                <input
-                  type="checkbox"
-                  checked={selectedBuyers.includes(buyer.id)}
-                  onChange={() => handleBuyerSelection(buyer.id)}
-                  className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
-                />
-              </td>
-            )}
-
-            {/* S.NO */}
-            <td className="px-1.5 py-1 text-center text-xs font-semibold text-gray-500 bg-white">
-              {(currentPage - 1) * itemsPerPage + index + 1}
-            </td>
-
-            {/* STICKY COL 1: COMMUNICATE */}
-            {shouldShowActionsColumn && (
-              <td
-  className="px-2 py-1 bg-white"
-  style={isDesktop ? {
-    position: 'sticky',
-    left: (canUpdate || canDelete || canAssign || canBulkDelete) ? '28px' : 0,
-    zIndex: 10,
-    boxShadow: '2px 0 4px rgba(0,0,0,0.04)',
-  } : {}}
->
-                <div className="flex items-center gap-1">
-                  {/* Call */}
-                  <button
-                    onClick={() => {
-                      const phoneNumber = buyer.phone?.replace(/\D/g, '');
-                      if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
-                        window.location.href = `tel:${phoneNumber}`;
-                      } else {
-                        toast.error("No phone number available");
-                      }
-                    }}
-                    className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
-                    title="Call"
-                  >
-                    <Phone size={13} />
-                  </button>
-
-                  {/* WhatsApp */}
-                  <button
-                    onClick={() => {
-                      const phoneNumber = buyer.phone?.replace(/\D/g, '');
-                      if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
-                        const userName = user?.username || user?.name || user?.email?.split('@')[0] || 'Team';
-                        const message = encodeURIComponent(
-                          `Hi ${buyer.salutation || ''} ${buyer.name || 'Buyer'},\n\n` +
-                          `Property search for ${buyer.requirements?.propertyType || 'property'} in ${buyer.location || buyer.city || 'your location'}.\n\n` +
-                          `Budget: ${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}\n\n` +
-                          `Found ${buyer.matchedPropertiesCount || 0} matching properties.\n\n` +
-                          `Best Regards,\n${userName}`
-                        );
-                        window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
-                      } else {
-                        toast.error("No phone number available for WhatsApp");
-                      }
-                    }}
-                    className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
-                    title="WhatsApp"
-                  >
-                    <SiWhatsapp size={13} />
-                  </button>
-
-                  {/* Email */}
-                  <button
-                    onClick={() => {
-                      const email = buyer.email;
-                      if (email && email !== '-' && email !== '') {
-                        const userName = user?.username || user?.name || user?.email?.split('@')[0] || 'Team';
-                        const subject = encodeURIComponent(
-                          `Property Recommendations - ${buyer.requirements?.propertyType || 'Property'}`
-                        );
-                        const body = encodeURIComponent(
-                          `Dear ${buyer.salutation || ''} ${buyer.name || 'Buyer'},\n\n` +
-                          `Requirements: ${buyer.requirements?.propertyType || 'Not specified'}\n` +
-                          `Budget: ${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}\n` +
-                          `Location: ${buyer.location || buyer.city || 'Not specified'}\n\n` +
-                          `Found ${buyer.matchedPropertiesCount || 0} matching properties.\n\n` +
-                          `Best Regards,\n${userName}`
-                        );
-                        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
-                      } else {
-                        toast.error("No email address available");
-                      }
-                    }}
-                    className="p-1 rounded hover:bg-blue-100 transition-colors text-blue-600"
-                    title="Email"
-                  >
-                    <Mail size={13} strokeWidth={1.8} />
-                  </button>
-
-                  {/* Send Properties */}
-                  <button
-                    onClick={() => {
-                      const phoneNumber = buyer.phone?.replace(/\D/g, '');
-                      if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
-                        const userName = user?.username || user?.name || (user?.email?.split('@')[0]) || 'Team';
-                        const message = encodeURIComponent(
-                          `🏠 Property Recommendations for ${buyer.name} 🏠\n\n` +
-                          `Location: ${buyer.location || buyer.city || 'your location'}\n` +
-                          `Budget: ${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}\n` +
-                          `Type: ${buyer.requirements?.propertyType || 'property'}\n\n` +
-                          `Found ${buyer.matchedPropertiesCount || 0} matching properties!\n\n` +
-                          `Best Regards,\n${userName}`
-                        );
-                        window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
-                      } else {
-                        toast.error("No phone number available to send properties");
-                      }
-                    }}
-                    className="p-1 rounded hover:bg-yellow-100 transition-colors text-yellow-600"
-                    title="Send Properties"
-                  >
-                    <ShareIcon size={13} />
-                  </button>
-
-                  {/* Follow-up */}
-                  <button
-                    onClick={() => {
-                      setSelectedBuyerForFollowup(buyer);
-                      setShowBuyerFollowupModal(true);
-                    }}
-                    className="p-1 rounded hover:bg-purple-100 transition-colors text-purple-600"
-                    title="Follow-up"
-                  >
-                    <Calendar size={13} />
-                  </button>
-                </div>
-              </td>
-            )}
-
-            {/* STICKY COL 2: BUYER DETAILS — full name with salutation */}
-           <td
-  className="px-2 py-1 bg-white"
-  style={isDesktop ? {
-    position: 'sticky',
-    left: (() => {
-      let left = 0;
-      if (canUpdate || canDelete || canAssign || canBulkDelete) left += 28;
-      if (shouldShowActionsColumn) left += 125;
-      return `${left}px`;
-    })(),
-    zIndex: 10,
-    boxShadow: '2px 0 4px rgba(0,0,0,0.04)',
-  } : {}}
->
-              <div className="flex items-center gap-2 whitespace-nowrap">
-                <div
-                  className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0 shadow-sm"
-                  style={{ backgroundColor: RESALE.orange }}
-                >
-                  {initials}
-                </div>
-                <div className="min-w-0">
-                  <button
-                    onClick={() => handleViewBuyer(buyer)}
-                    className="font-medium text-[11px] text-gray-900 hover:text-orange-500 text-left leading-tight"
-                  >
-                    {buyer.salutation && `${buyer.salutation} `}{buyer.name || 'Unknown'}
-                  </button>
-                  <div className="flex items-center gap-1 mt-0 flex-wrap">
-                    <span className="text-[9px] text-gray-400">ID: {String(buyer.id).slice(0, 6)}</span>
-                    {getStatusBadge(buyer.is_active)}
-                  </div>
-                </div>
-              </div>
-            </td>
-
-            {/* PHONE & EMAIL (merged, no WhatsApp row) */}
-            <td className="px-2 py-1">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1">
-                  <Phone size={10} className="text-gray-400" />
-                  <a href={`tel:${buyer.phone}`} className="text-[10px] text-gray-600 hover:text-orange-500">
-                    {safeStr(buyer.phone)}
-                  </a>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Mail size={10} className="text-gray-400" />
-                  <a
-                    href={`mailto:${buyer.email}`}
-                    className="text-[10px] text-gray-600 hover:text-orange-500 truncate max-w-[130px]"
-                  >
-                    {safeStr(buyer.email)}
-                  </a>
-                </div>
-              </div>
-            </td>
-
-            {/* BUDGET & LOCATION (merged) */}
-            <td className="px-2 py-1">
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-bold text-green-600 whitespace-nowrap">
-                  {formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}
-                </span>
-                <div className="flex items-center gap-1">
-                  <MapPin size={10} className="text-gray-400" />
-                  <span className="text-[10px] text-gray-600 truncate max-w-[120px]">
-                    {safeStr(buyer.location)}{buyer.city ? `, ${buyer.city}` : ''}
-                  </span>
-                </div>
-              </div>
-            </td>
-
-            {/* BUSINESS INFO */}
-            <td className="px-2 py-1">
-              <div className="space-y-0.5">
-                <div className="text-[10px] whitespace-nowrap overflow-hidden text-ellipsis">
-                  <span className="text-gray-500">Source:</span>{" "}
-                  <span className="font-medium text-blue-700">
-                    {buyer.source || "Not specified"}
-                  </span>
-                </div>
-                <div>{getPriorityBadge(buyer.priority)}</div>
-              </div>
-            </td>
-
-            {/* REQUIREMENT */}
-            <td className="px-2 py-1">
-              <div className="text-[10px] font-medium text-gray-800">
-                {buyer.requirements?.propertyType || '—'}
-              </div>
-              <div className="text-[8px] text-gray-500 mt-0.5">
-                {safeStr(buyer.requirements?.unitTypes)}
-              </div>
-            </td>
-
-           {/* PROGRESS */}
-<td className="px-2 py-1">
-  <div className="space-y-0.5 whitespace-nowrap">
-    {getStageBadge(buyer.stage)}
-    <div className="w-20">
-      <div className="flex justify-between text-[8px] text-gray-500 mb-0">
-        <span>{getStageProgressPercent(buyer.stage)}%</span>
-      </div>
-      <div className="w-full bg-gray-200 rounded-full h-1">
         <div
-          className="bg-orange-500 h-1 rounded-full"
-          style={{ width: `${getStageProgressPercent(buyer.stage)}%` }}
-        />
-      </div>
-    </div>
-  </div>
-</td>
+          className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden flex flex-col"
+          style={{
+            height: window.innerWidth < 640
+              ? selectedBuyers.length > 0 ? '600px' : '680px'
+              : selectedBuyers.length > 0 ? '560px' : '620px',
+          }}
+        >
+          {loading ? (
+            <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
+          ) : (
+            <>
+              {/* OUTER: controls max-height + vertical scroll */}
+              <div
+                className="scrollbar-custom-vertical flex-1 min-h-0"
+                style={{
+                  overflowY: 'auto',
+                  overflowX: 'auto',
+                }}
+              >
 
-            {/* ACTIVITY */}
-            <td className="px-2 py-1">
-              <div className="text-[9px] text-gray-600">
-                Last: {formatDate(buyer.lastActivity)}
-              </div>
-            </td>
-
-            {/* MATCHES & ACTS */}
-            <td className="px-2 py-1">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1">
-                  <Target size={9} className="text-green-500" />
-                  <span className={`text-[9px] font-medium ${(buyer.matchedPropertiesCount || 0) > 0 ? 'text-green-600' : 'text-gray-500'}`}>
-                    {buyer.matchedPropertiesCount || 0} matches
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Activity size={9} className="text-orange-500" />
-                  <span className="text-[9px] text-gray-600">{buyer.activities?.length ?? 0} acts</span>
-                </div>
-              </div>
-            </td>
-
-            {/* VISIT & RESP */}
-            <td className="px-2 py-1">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1">
-                  <Eye size={9} className="text-purple-500" />
-                  <span className="text-[9px] text-gray-600">{buyer.visits ?? 0} visits</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <TrendingUp size={9} className="text-blue-500" />
-                  <span className="text-[9px] text-gray-600">{buyer.responseRate ? `${buyer.responseRate}%` : '-'}</span>
-                </div>
-                {buyer.notifications > 0 && (
-                  <div className="flex items-center gap-1 mt-1">
-                    <Bell size={8} className="text-red-500" />
-                    <span className="text-[8px] text-red-600 font-medium">{buyer.notifications} notif</span>
-                  </div>
-                )}
-              </div>
-            </td>
-
-            {/* MANAGE: VIEW, ACCOUNT, EDIT, DELETE */}
-            {shouldShowActionsColumn && (
-              <td className="px-2 py-1">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleViewBuyer(buyer)}
-                    className="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500"
-                    title="View"
+                <table
+                  className="w-full"
+                  style={{ minWidth: '1400px', borderCollapse: 'separate', borderSpacing: 0 }}
+                >
+                  {/* ── THEAD: sticky so it never scrolls away ── */}
+                  <thead
+                    style={{ position: 'sticky', top: 0, zIndex: 30 }}
                   >
-                    <Eye size={13} />
-                  </button>
-                  <button
-                    onClick={() => handleBuyerAccount(buyer)}
-                    className="p-1 rounded hover:bg-gray-100 transition-colors text-green-600"
-                    title="Account"
-                  >
-                    <UserCheck size={13} />
-                  </button>
-                  {canEditBuyer(buyer) && (
-                    <button
-                      onClick={() => handleEditBuyer(buyer)}
-                      className="p-1 rounded hover:bg-gray-100 transition-colors text-orange-500"
-                      title="Edit"
-                    >
-                      <Edit size={13} />
-                    </button>
-                  )}
-                  {canDeleteBuyer(buyer) && (
-                    <button
-                      onClick={() => handleDeleteBuyer(buyer.id, buyer.name || undefined)}
-                      className="p-1 rounded hover:bg-red-100 transition-colors text-red-600"
-                      title="Delete"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
-              </td>
-            )}
+                    {/* ── ROW 1: Column Headers ── */}
+                    <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
 
-            {/* LAST COL: ASSIGNED TO */}
-            <td className="px-2 py-1">
-              {buyer.assigned_executive ? (
-                <div className="flex items-center gap-2 whitespace-nowrap">
-                  <div className="font-semibold text-gray-900 text-[10px]">
-                    {execName
-                      ?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")}
+                      {/* CHECKBOX */}
+                      {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                        <th
+                          className="w-6 px-2 py-1.5 text-center bg-gray-50"
+                          style={isDesktop ? { position: 'sticky', left: 0, zIndex: 31, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' } : {}}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedBuyers.length === paginatedBuyers.length && paginatedBuyers.length > 0}
+                            onChange={handleSelectAll}
+                            className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
+                          />
+                        </th>
+                      )}
+
+                      {/* S.NO */}
+                      <th className="px-1.5 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50 w-10">
+                        S.No.
+                      </th>
+
+                      {/* STICKY COL 1: COMMUNICATE */}
+                      {shouldShowActionsColumn && (
+                        <th
+                          className="px-2 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50"
+                          style={isDesktop ? {
+                            position: 'sticky',
+                            left: (canUpdate || canDelete || canAssign || canBulkDelete) ? '28px' : 0,
+                            zIndex: 31,
+                            boxShadow: '2px 0 4px rgba(0,0,0,0.06)',
+                          } : {}}
+                        >
+                          COMMUNICATE
+                        </th>
+                      )}
+
+                      {/* STICKY COL 2: BUYER DETAILS */}
+                      <th
+                        className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50"
+                        style={isDesktop ? {
+                          position: 'sticky',
+                          left: (() => {
+                            let left = 0;
+                            if (canUpdate || canDelete || canAssign || canBulkDelete) left += 28;
+                            if (shouldShowActionsColumn) left += 125;
+                            return `${left}px`;
+                          })(),
+                          zIndex: 31,
+                          boxShadow: '2px 0 4px rgba(0,0,0,0.06)',
+                        } : {}}
+                      >
+                        BUYER DETAILS
+                      </th>
+
+                      {/* SCROLLABLE COLUMNS */}
+                      <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">PHONE & EMAIL</th>
+                      <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">BUDGET & LOCATION</th>
+                      <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">BUSINESS INFO</th>
+                      <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">REQUIREMENT</th>
+                      <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">PROGRESS</th>
+                      <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ACTIVITY</th>
+                      <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">MATCHES & ACTS</th>
+                      <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">VISIT & RESP</th>
+                      {shouldShowActionsColumn && (
+                        <th className="px-2 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">MANAGE</th>
+                      )}
+                      <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ASSIGNED TO</th>
+                    </tr>
+
+                    {/* ── ROW 2: Column Search ── */}
+                    <tr className="bg-gray-100">
+
+                      {/* CHECKBOX - sticky */}
+                      {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                        <th
+                          className="px-2 py-0.5 bg-gray-100"
+                          style={isDesktop ? { position: 'sticky', left: 0, zIndex: 31 } : {}}
+                        />
+                      )}
+
+                      {/* S.NO - empty placeholder */}
+                      <th className="px-1.5 py-0.5 bg-gray-100 w-10" />
+
+                      {/* COMMUNICATE - sticky placeholder */}
+                      {shouldShowActionsColumn && (
+                        <th
+                          className="px-1.5 py-0.5 bg-gray-100"
+                          style={isDesktop ? {
+                            position: 'sticky',
+                            left: (canUpdate || canDelete || canAssign || canBulkDelete) ? '28px' : 0,
+                            zIndex: 31,
+                          } : {}}
+                        />
+                      )}
+
+                      {/* BUYER DETAILS search - sticky */}
+                      <th
+                        className="px-1.5 py-0.5 bg-gray-100"
+                        style={isDesktop ? {
+                          position: 'sticky',
+                          left: (() => {
+                            let left = 0;
+                            if (canUpdate || canDelete || canAssign || canBulkDelete) left += 28;
+                            if (shouldShowActionsColumn) left += 125;
+                            return `${left}px`;
+                          })(),
+                          zIndex: 31,
+                        } : {}}
+                      >
+                        <input
+                          type="text"
+                          placeholder="Search buyer..."
+                          value={colSearch.buyer}
+                          onChange={e => setColSearch(p => ({ ...p, buyer: e.target.value }))}
+                          className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                        />
+                      </th>
+
+                      {/* PHONE & EMAIL search */}
+                      <th className="px-1.5 py-0.5 bg-gray-100">
+                        <input
+                          type="text"
+                          placeholder="Search phone/email..."
+                          value={colSearch.phoneWhatsapp}
+                          onChange={e => setColSearch(p => ({ ...p, phoneWhatsapp: e.target.value }))}
+                          className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                        />
+                      </th>
+
+                      {/* BUDGET & LOCATION search */}
+                      <th className="px-1.5 py-0.5 bg-gray-100">
+                        <input
+                          type="text"
+                          placeholder="Search location..."
+                          value={colSearch.emailLocation}
+                          onChange={e => setColSearch(p => ({ ...p, emailLocation: e.target.value }))}
+                          className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                        />
+                      </th>
+
+                      {/* BUSINESS INFO search */}
+                      <th className="px-1.5 py-0.5 bg-gray-100">
+                        <input
+                          type="text"
+                          placeholder="Search source/priority..."
+                          value={colSearch.business}
+                          onChange={e => setColSearch(p => ({ ...p, business: e.target.value }))}
+                          className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                        />
+                      </th>
+
+                      {/* REQUIREMENT search */}
+                      <th className="px-1.5 py-0.5 bg-gray-100">
+                        <input
+                          type="text"
+                          placeholder="Search requirement..."
+                          value={colSearch.requirements}
+                          onChange={e => setColSearch(p => ({ ...p, requirements: e.target.value }))}
+                          className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                        />
+                      </th>
+
+                      {/* PROGRESS search */}
+                      <th className="px-1.5 py-0.5 bg-gray-100">
+                        <input
+                          type="text"
+                          placeholder="Search stage..."
+                          value={colSearch.progress}
+                          onChange={e => setColSearch(p => ({ ...p, progress: e.target.value }))}
+                          className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                        />
+                      </th>
+
+                      {/* ACTIVITY - empty */}
+                      <th className="px-1.5 py-0.5 bg-gray-100" />
+
+                      {/* MATCHES search */}
+                      <th className="px-1.5 py-0.5 bg-gray-100">
+                        <input
+                          type="text"
+                          placeholder="Search matches..."
+                          value={colSearch.performance}
+                          onChange={e => setColSearch(p => ({ ...p, performance: e.target.value }))}
+                          className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                        />
+                      </th>
+
+                      {/* VISIT & RESP - empty */}
+                      <th className="px-1.5 py-0.5 bg-gray-100" />
+
+                      {/* MANAGE - empty */}
+                      {shouldShowActionsColumn && <th className="px-1.5 py-0.5 bg-gray-100" />}
+
+                      {/* ASSIGNED TO search */}
+                      <th className="px-1.5 py-0.5 bg-gray-100">
+                        <input
+                          type="text"
+                          placeholder="Search assigned..."
+                          value={colSearch.assigned}
+                          onChange={e => setColSearch(p => ({ ...p, assigned: e.target.value }))}
+                          className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
+                        />
+                      </th>
+                    </tr>
+                  </thead>
+
+                  {/* ── TBODY: only this scrolls ── */}
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {paginatedBuyers.map((buyer, index) => {
+                      const { name: execName, isCurrentUser } = resolveExecutiveName(buyer.assigned_executive);
+                      const initials = getInitials(buyer.name);
+                      return (
+                        <tr key={buyer.id} className="hover:bg-gray-50 transition-colors">
+
+                          {/* CHECKBOX */}
+                          {(canUpdate || canDelete || canAssign || canBulkDelete) && (
+                            <td
+                              className="px-2 py-1 text-center bg-white"
+                              style={isDesktop ? { position: 'sticky', left: 0, zIndex: 10, boxShadow: '2px 0 4px rgba(0,0,0,0.04)' } : {}}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedBuyers.includes(buyer.id)}
+                                onChange={() => handleBuyerSelection(buyer.id)}
+                                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3"
+                              />
+                            </td>
+                          )}
+
+                          {/* S.NO */}
+                          <td className="px-1.5 py-1 text-center text-xs font-semibold text-gray-500 bg-white">
+                            {(currentPage - 1) * itemsPerPage + index + 1}
+                          </td>
+
+                          {/* STICKY COL 1: COMMUNICATE */}
+                          {shouldShowActionsColumn && (
+                            <td
+                              className="px-2 py-1 bg-white"
+                              style={isDesktop ? {
+                                position: 'sticky',
+                                left: (canUpdate || canDelete || canAssign || canBulkDelete) ? '28px' : 0,
+                                zIndex: 10,
+                                boxShadow: '2px 0 4px rgba(0,0,0,0.04)',
+                              } : {}}
+                            >
+                              <div className="flex items-center gap-1">
+                                {/* Call */}
+                                <button
+                                  onClick={() => {
+                                    const phoneNumber = buyer.phone?.replace(/\D/g, '');
+                                    if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
+                                      window.location.href = `tel:${phoneNumber}`;
+                                    } else {
+                                      toast.error("No phone number available");
+                                    }
+                                  }}
+                                  className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
+                                  title="Call"
+                                >
+                                  <Phone size={13} />
+                                </button>
+
+                                {/* WhatsApp */}
+                                <button
+                                  onClick={() => {
+                                    const phoneNumber = buyer.phone?.replace(/\D/g, '');
+                                    if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
+                                      const userName = user?.username || user?.name || user?.email?.split('@')[0] || 'Team';
+                                      const message = encodeURIComponent(
+                                        `Hi ${buyer.salutation || ''} ${buyer.name || 'Buyer'},\n\n` +
+                                        `Property search for ${buyer.requirements?.propertyType || 'property'} in ${buyer.location || buyer.city || 'your location'}.\n\n` +
+                                        `Budget: ${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}\n\n` +
+                                        `Found ${buyer.matchedPropertiesCount || 0} matching properties.\n\n` +
+                                        `Best Regards,\n${userName}`
+                                      );
+                                      window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+                                    } else {
+                                      toast.error("No phone number available for WhatsApp");
+                                    }
+                                  }}
+                                  className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
+                                  title="WhatsApp"
+                                >
+                                  <SiWhatsapp size={13} />
+                                </button>
+
+                                {/* Email */}
+                                <button
+                                  onClick={() => {
+                                    const email = buyer.email;
+                                    if (email && email !== '-' && email !== '') {
+                                      const userName = user?.username || user?.name || user?.email?.split('@')[0] || 'Team';
+                                      const subject = encodeURIComponent(
+                                        `Property Recommendations - ${buyer.requirements?.propertyType || 'Property'}`
+                                      );
+                                      const body = encodeURIComponent(
+                                        `Dear ${buyer.salutation || ''} ${buyer.name || 'Buyer'},\n\n` +
+                                        `Requirements: ${buyer.requirements?.propertyType || 'Not specified'}\n` +
+                                        `Budget: ${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}\n` +
+                                        `Location: ${buyer.location || buyer.city || 'Not specified'}\n\n` +
+                                        `Found ${buyer.matchedPropertiesCount || 0} matching properties.\n\n` +
+                                        `Best Regards,\n${userName}`
+                                      );
+                                      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+                                    } else {
+                                      toast.error("No email address available");
+                                    }
+                                  }}
+                                  className="p-1 rounded hover:bg-blue-100 transition-colors text-blue-600"
+                                  title="Email"
+                                >
+                                  <Mail size={13} strokeWidth={1.8} />
+                                </button>
+
+                                {/* Send Properties */}
+                                <button
+                                  onClick={() => {
+                                    const phoneNumber = buyer.phone?.replace(/\D/g, '');
+                                    if (phoneNumber && phoneNumber !== '-' && phoneNumber !== '') {
+                                      const userName = user?.username || user?.name || (user?.email?.split('@')[0]) || 'Team';
+                                      const message = encodeURIComponent(
+                                        `🏠 Property Recommendations for ${buyer.name} 🏠\n\n` +
+                                        `Location: ${buyer.location || buyer.city || 'your location'}\n` +
+                                        `Budget: ${formatCurrency(buyer.budget.min)} - ${formatCurrency(buyer.budget.max)}\n` +
+                                        `Type: ${buyer.requirements?.propertyType || 'property'}\n\n` +
+                                        `Found ${buyer.matchedPropertiesCount || 0} matching properties!\n\n` +
+                                        `Best Regards,\n${userName}`
+                                      );
+                                      window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+                                    } else {
+                                      toast.error("No phone number available to send properties");
+                                    }
+                                  }}
+                                  className="p-1 rounded hover:bg-yellow-100 transition-colors text-yellow-600"
+                                  title="Send Properties"
+                                >
+                                  <ShareIcon size={13} />
+                                </button>
+
+                                {/* Follow-up */}
+                                <button
+                                  onClick={() => {
+                                    setSelectedBuyerForFollowup(buyer);
+                                    setShowBuyerFollowupModal(true);
+                                  }}
+                                  className="p-1 rounded hover:bg-purple-100 transition-colors text-purple-600"
+                                  title="Follow-up"
+                                >
+                                  <Calendar size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+
+                          {/* STICKY COL 2: BUYER DETAILS — full name with salutation */}
+                          <td
+                            className="px-2 py-1 bg-white"
+                            style={isDesktop ? {
+                              position: 'sticky',
+                              left: (() => {
+                                let left = 0;
+                                if (canUpdate || canDelete || canAssign || canBulkDelete) left += 28;
+                                if (shouldShowActionsColumn) left += 125;
+                                return `${left}px`;
+                              })(),
+                              zIndex: 10,
+                              boxShadow: '2px 0 4px rgba(0,0,0,0.04)',
+                            } : {}}
+                          >
+                            <div className="flex items-center gap-2 whitespace-nowrap">
+                              <div
+                                className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0 shadow-sm"
+                                style={{ backgroundColor: RESALE.orange }}
+                              >
+                                {initials}
+                              </div>
+                              <div className="min-w-0">
+                                <button
+                                  onClick={() => handleViewBuyer(buyer)}
+                                  className="font-medium text-[11px] text-gray-900 hover:text-orange-500 text-left leading-tight"
+                                >
+                                  {buyer.salutation && `${buyer.salutation} `}{buyer.name || 'Unknown'}
+                                </button>
+                                <div className="flex items-center gap-1 mt-0 flex-wrap">
+                                  <span className="text-[9px] text-gray-400">ID: {String(buyer.id).slice(0, 6)}</span>
+                                  {getStatusBadge(buyer.is_active)}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* PHONE & EMAIL (merged, no WhatsApp row) */}
+                          <td className="px-2 py-1">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1">
+                                <Phone size={10} className="text-gray-400" />
+                                <a href={`tel:${buyer.phone}`} className="text-[10px] text-gray-600 hover:text-orange-500">
+                                  {safeStr(buyer.phone)}
+                                </a>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Mail size={10} className="text-gray-400" />
+                                <a
+                                  href={`mailto:${buyer.email}`}
+                                  className="text-[10px] text-gray-600 hover:text-orange-500 truncate max-w-[130px]"
+                                >
+                                  {safeStr(buyer.email)}
+                                </a>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* BUDGET & LOCATION (merged) */}
+                          <td className="px-2 py-1">
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-bold text-green-600 whitespace-nowrap">
+                                {formatCurrency(buyer.budget.min)} - {formatCurrency(buyer.budget.max)}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <MapPin size={10} className="text-gray-400" />
+                                <span className="text-[10px] text-gray-600 truncate max-w-[120px]">
+                                  {safeStr(buyer.location)}{buyer.city ? `, ${buyer.city}` : ''}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* BUSINESS INFO */}
+                          <td className="px-2 py-1">
+                            <div className="space-y-0.5">
+                              <div className="text-[10px] whitespace-nowrap overflow-hidden text-ellipsis">
+                                <span className="text-gray-500">Source:</span>{" "}
+                                <span className="font-medium text-blue-700">
+                                  {buyer.source || "Not specified"}
+                                </span>
+                              </div>
+                              <div>{getPriorityBadge(buyer.priority)}</div>
+                            </div>
+                          </td>
+
+                          {/* REQUIREMENT */}
+                          <td className="px-2 py-1">
+                            <div className="text-[10px] font-medium text-gray-800">
+                              {buyer.requirements?.propertyType || '—'}
+                            </div>
+                            <div className="text-[8px] text-gray-500 mt-0.5">
+                              {safeStr(buyer.requirements?.unitTypes)}
+                            </div>
+                          </td>
+
+                          {/* PROGRESS */}
+                          <td className="px-2 py-1">
+                            <div className="space-y-0.5 whitespace-nowrap">
+                              {getStageBadge(buyer.stage)}
+                              <div className="w-20">
+                                <div className="flex justify-between text-[8px] text-gray-500 mb-0">
+                                  <span>{getStageProgressPercent(buyer.stage)}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-1">
+                                  <div
+                                    className="bg-orange-500 h-1 rounded-full"
+                                    style={{ width: `${getStageProgressPercent(buyer.stage)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* ACTIVITY */}
+                          <td className="px-2 py-1">
+                            <div className="text-[9px] text-gray-600">
+                              Last: {formatDate(buyer.lastActivity)}
+                            </div>
+                          </td>
+
+                          {/* MATCHES & ACTS */}
+                          <td className="px-2 py-1">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1">
+                                <Target size={9} className="text-green-500" />
+                                <span className={`text-[9px] font-medium ${(buyer.matchedPropertiesCount || 0) > 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                                  {buyer.matchedPropertiesCount || 0} matches
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Activity size={9} className="text-orange-500" />
+                                <span className="text-[9px] text-gray-600">{buyer.activities?.length ?? 0} acts</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* VISIT & RESP */}
+                          <td className="px-2 py-1">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1">
+                                <Eye size={9} className="text-purple-500" />
+                                <span className="text-[9px] text-gray-600">{buyer.visits ?? 0} visits</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <TrendingUp size={9} className="text-blue-500" />
+                                <span className="text-[9px] text-gray-600">{buyer.responseRate ? `${buyer.responseRate}%` : '-'}</span>
+                              </div>
+                              {buyer.notifications > 0 && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <Bell size={8} className="text-red-500" />
+                                  <span className="text-[8px] text-red-600 font-medium">{buyer.notifications} notif</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* MANAGE: VIEW, ACCOUNT, EDIT, DELETE */}
+                          {shouldShowActionsColumn && (
+                            <td className="px-2 py-1">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => handleViewBuyer(buyer)}
+                                  className="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500"
+                                  title="View"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleBuyerAccount(buyer)}
+                                  className="p-1 rounded hover:bg-gray-100 transition-colors text-green-600"
+                                  title="Account"
+                                >
+                                  <UserCheck size={13} />
+                                </button>
+                                {canEditBuyer(buyer) && (
+                                  <button
+                                    onClick={() => handleEditBuyer(buyer)}
+                                    className="p-1 rounded hover:bg-gray-100 transition-colors text-orange-500"
+                                    title="Edit"
+                                  >
+                                    <Edit size={13} />
+                                  </button>
+                                )}
+                                {canDeleteBuyer(buyer) && (
+                                  <button
+                                    onClick={() => handleDeleteBuyer(buyer.id, buyer.name || undefined)}
+                                    className="p-1 rounded hover:bg-red-100 transition-colors text-red-600"
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          )}
+
+                          {/* LAST COL: ASSIGNED TO */}
+                          <td className="px-2 py-1">
+                            {buyer.assigned_executive ? (
+                              <div className="flex items-center gap-2 whitespace-nowrap">
+                                <div className="font-semibold text-gray-900 text-[10px]">
+                                  {execName
+                                    ?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")}
+                                </div>
+                                {isCurrentUser && (
+                                  <span className="text-[7px] bg-green-100 text-green-700 px-1 rounded">
+                                    You
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-gray-400 italic">
+                                Not assigned
+                              </span>
+                            )}
+                          </td>
+
+                        </tr>
+                      );
+                    })}
+
+                    {paginatedBuyers.length === 0 && (
+                      <tr>
+                        <td colSpan={getColSpan()} className="text-center py-6">
+                          <div className="text-gray-400 mb-1 text-sm">No buyers found</div>
+                          <p className="text-xs text-gray-400">Try adjusting your filters or search criteria</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {filteredSortedBuyers.length > 0 && (
+                <div className="px-2 sm:px-3 py-2 border-t border-gray-100 bg-white">
+
+                  {/* MOBILE */}
+                  <div className="flex flex-col gap-2 sm:hidden">
+
+                    {/* Showing Text */}
+                    <div className="text-[10px] text-gray-500 text-center">
+                      Showing {startIndex + 1}-
+                      {Math.min(startIndex + itemsPerPage, filteredSortedBuyers.length)}{" "}
+                      of {filteredSortedBuyers.length} buyers
+                    </div>
+
+                    {/* Bottom Row */}
+                    <div className="flex items-center justify-between gap-2">
+
+                      {/* Dropdown */}
+                      {selectedBuyers.length === 0 && (
+                        <select
+                          value={itemsPerPage}
+                          onChange={(e) =>
+                            setItemsPerPage(parseInt(e.target.value, 10))
+                          }
+                          className="min-w-[60px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
+                        >
+                          {[25, 50, 100, 200, 300, 400, 500, 1000].map((n) => (
+                            <option key={n} value={n}>
+                              {n}
+                            </option>
+                          ))}
+                          <option value={999999}>All</option>
+                        </select>
+                      )}
+
+                      {/* Pagination Wrapper */}
+                      <div className="flex-1 overflow-x-auto scrollbar-hide">
+                        <div className="flex justify-end min-w-max">
+                          <Pagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  {isCurrentUser && (
-                    <span className="text-[7px] bg-green-100 text-green-700 px-1 rounded">
-                      You
-                    </span>
-                  )}
+
+                  {/* DESKTOP */}
+                  <div className="hidden sm:flex items-center justify-between gap-3">
+
+                    {/* Left Side */}
+                    <div className="flex items-center gap-3">
+
+                      <div className="text-[10px] text-gray-500 whitespace-nowrap">
+                        Showing {startIndex + 1}-
+                        {Math.min(
+                          startIndex + itemsPerPage,
+                          filteredSortedBuyers.length
+                        )}{" "}
+                        of {filteredSortedBuyers.length} buyers
+                      </div>
+
+                      {selectedBuyers.length === 0 && (
+                        <select
+                          value={itemsPerPage}
+                          onChange={(e) =>
+                            setItemsPerPage(parseInt(e.target.value, 10))
+                          }
+                          className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
+                        >
+                          {[25, 50, 100, 200, 300, 400, 500, 1000].map((n) => (
+                            <option key={n} value={n}>
+                              {n}
+                            </option>
+                          ))}
+                          <option value={999999}>All</option>
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Right Side */}
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                    />
+                  </div>
                 </div>
-              ) : (
-                <span className="text-[10px] text-gray-400 italic">
-                  Not assigned
-                </span>
               )}
-            </td>
 
-          </tr>
-        );
-      })}
-
-      {paginatedBuyers.length === 0 && (
-        <tr>
-          <td colSpan={getColSpan()} className="text-center py-6">
-            <div className="text-gray-400 mb-1 text-sm">No buyers found</div>
-            <p className="text-xs text-gray-400">Try adjusting your filters or search criteria</p>
-          </td>
-        </tr>
-      )}
-    </tbody>
-  </table>
-</div>
-{filteredSortedBuyers.length > 0 && (
-  <div className="px-2 sm:px-3 py-2 border-t border-gray-100 bg-white">
-    
-    {/* MOBILE */}
-    <div className="flex flex-col gap-2 sm:hidden">
-      
-      {/* Showing Text */}
-      <div className="text-[10px] text-gray-500 text-center">
-        Showing {startIndex + 1}-
-        {Math.min(startIndex + itemsPerPage, filteredSortedBuyers.length)}{" "}
-        of {filteredSortedBuyers.length} buyers
-      </div>
-
-      {/* Bottom Row */}
-      <div className="flex items-center justify-between gap-2">
-        
-        {/* Dropdown */}
-        {selectedBuyers.length === 0 && (
-         <select
-            value={itemsPerPage}
-            onChange={(e) =>
-              setItemsPerPage(parseInt(e.target.value, 10))
-            }
-            className="min-w-[60px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
-          >
-            {[25, 50, 100, 200, 300, 400, 500, 1000].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-            <option value={999999}>All</option>
-          </select>
-        )}
-
-        {/* Pagination Wrapper */}
-        <div className="flex-1 overflow-x-auto scrollbar-hide">
-          <div className="flex justify-end min-w-max">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* DESKTOP */}
-    <div className="hidden sm:flex items-center justify-between gap-3">
-      
-      {/* Left Side */}
-      <div className="flex items-center gap-3">
-        
-        <div className="text-[10px] text-gray-500 whitespace-nowrap">
-          Showing {startIndex + 1}-
-          {Math.min(
-            startIndex + itemsPerPage,
-            filteredSortedBuyers.length
-          )}{" "}
-          of {filteredSortedBuyers.length} buyers
-        </div>
-
-        {selectedBuyers.length === 0 && (
-          <select
-            value={itemsPerPage}
-            onChange={(e) =>
-              setItemsPerPage(parseInt(e.target.value, 10))
-            }
-            className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
-          >
-            {[25, 50, 100, 200, 300, 400, 500, 1000].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-            <option value={999999}>All</option>
-          </select>
-        )}
-      </div>
-
-      {/* Right Side */}
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-      />
-    </div>
-  </div>
-)}
-            
             </>
           )}
         </div>
@@ -2402,35 +2400,35 @@ const matchesColSearch =
       <BuyerSidebarFilter isOpen={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} resetFilters={resetFilters} sources={sources} stages={stagesFromMasters} priorities={prioritiesFromMasters} budgetRanges={budgetRanges} propertyTypes={propertyTypes} executives={executives.map(e => ({ id: e.id, name: e.name }))} />
       <BuyerFormModal isOpen={showBuyerForm} onClose={() => { setShowBuyerForm(false); setEditingBuyer(null); }} buyer={editingBuyer} onSave={handleSaveBuyer} />
       <ImportBuyersLeadsModal isOpen={showImportBuyers} onClose={() => setShowImportBuyers(false)} onImportComplete={fetchBuyers} />
-        {/* Buyer Follow-up Modal */}
-{showBuyerFollowupModal && selectedBuyerForFollowup && (
-  <BuyerFollowupModal
-    isOpen={showBuyerFollowupModal}
-    onClose={() => {
-      setShowBuyerFollowupModal(false);
-      setSelectedBuyerForFollowup(null);
-    }}
-    onSave={async (payload) => {
-      try {
-        // Call API to save follow-up
-        const response = await buyerFollowupAPI.create(payload);
-        if (response) {
-          toast.success("Follow-up added successfully");
-          // Refresh buyers to update follow-ups count
-          fetchBuyers();
-        }
-        setShowBuyerFollowupModal(false);
-        setSelectedBuyerForFollowup(null);
-      } catch (error) {
-        console.error("Error adding follow-up:", error);
-        toast.error("Failed to add follow-up");
-      }
-    }}
-    tabId="buyer"
-    buyerId={selectedBuyerForFollowup.id}
-    initialForm={undefined}
-  />
-)}
+      {/* Buyer Follow-up Modal */}
+      {showBuyerFollowupModal && selectedBuyerForFollowup && (
+        <BuyerFollowupModal
+          isOpen={showBuyerFollowupModal}
+          onClose={() => {
+            setShowBuyerFollowupModal(false);
+            setSelectedBuyerForFollowup(null);
+          }}
+          onSave={async (payload) => {
+            try {
+              // Call API to save follow-up
+              const response = await buyerFollowupAPI.create(payload);
+              if (response) {
+                toast.success("Follow-up added successfully");
+                // Refresh buyers to update follow-ups count
+                fetchBuyers();
+              }
+              setShowBuyerFollowupModal(false);
+              setSelectedBuyerForFollowup(null);
+            } catch (error) {
+              console.error("Error adding follow-up:", error);
+              toast.error("Failed to add follow-up");
+            }
+          }}
+          tabId="buyer"
+          buyerId={selectedBuyerForFollowup.id}
+          initialForm={undefined}
+        />
+      )}
     </div>
   );
 };
@@ -2490,12 +2488,12 @@ function matchesBudgetRange(buyer: UIBuyer, budgetRange: string): boolean {
   const L = 100_000;
   const Cr = 10_000_000;
   switch (budgetRange) {
-    case '0-50L':    return val <= 50 * L;
-    case '50L-1Cr':  return val > 50 * L  && val <= Cr;
-    case '1Cr-2Cr':  return val > Cr       && val <= 2 * Cr;
-    case '2Cr-5Cr':  return val > 2 * Cr   && val <= 5 * Cr;
-    case '5Cr+':     return val > 5 * Cr;
-    default:         return true;
+    case '0-50L': return val <= 50 * L;
+    case '50L-1Cr': return val > 50 * L && val <= Cr;
+    case '1Cr-2Cr': return val > Cr && val <= 2 * Cr;
+    case '2Cr-5Cr': return val > 2 * Cr && val <= 5 * Cr;
+    case '5Cr+': return val > 5 * Cr;
+    default: return true;
   }
 }
 function getPriorityBadge(priority: string | null | undefined) {

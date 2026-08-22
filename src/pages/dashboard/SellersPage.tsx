@@ -913,12 +913,14 @@ const SellersPage: React.FC = () => {
 
   const handleUnlinkPropertyFromSeller = async (property: any) => {
     if (!linkingSeller) return;
+    const propertiesToUnlink = Array.isArray(property) ? property : [property];
+    if (propertiesToUnlink.length === 0) return;
     const currentProps = (linkingSeller as any).properties || [];
-    const pid = String(property.id || property.property_id || property._id);
+    const pidsToRemove = propertiesToUnlink.map(p => String(p.id || p.property_id || p._id));
 
     const result = await Swal.fire({
-      title: 'Unlink Property?',
-      text: `Are you sure you want to unlink this property from this seller?`,
+      title: 'Unlink Properties?',
+      text: `Are you sure you want to unlink ${propertiesToUnlink.length === 1 ? 'this property' : `${propertiesToUnlink.length} properties`} from this seller?`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
@@ -939,7 +941,7 @@ const SellersPage: React.FC = () => {
     if (!result.isConfirmed) return;
 
     const updatedProps = currentProps.filter(
-      (p: any) => String(p.id || p.property_id || p._id) !== pid
+      (p: any) => !pidsToRemove.includes(String(p.id || p.property_id || p._id))
     );
     const updatedSeller = {
       ...linkingSeller,
@@ -953,7 +955,7 @@ const SellersPage: React.FC = () => {
     setAllSellers((prev) =>
       prev.map((s) => (s.id === linkingSeller.id ? updatedSeller : s))
     );
-    toast.success("Property unlinked successfully");
+    toast.success(`${propertiesToUnlink.length} properties unlinked successfully`);
 
     try {
       await sellerAPI.update(String(linkingSeller.id), {
@@ -963,16 +965,20 @@ const SellersPage: React.FC = () => {
           .map((p: any) => p.id || p.property_id || p._id)
           .filter(Boolean),
       });
-      // Also clear seller_id on the property itself for bidirectional sync
-      try {
-        await propertiesAPI.patchSeller(String(property.id || property.property_id || property._id), 'unlink');
-      } catch (e) {
-        console.warn('patchSeller(unlink) note:', e);
-      }
+      // Also clear seller_id on the properties themselves for bidirectional sync
+      await Promise.all(
+        propertiesToUnlink.map(async (prop) => {
+          try {
+            await propertiesAPI.patchSeller(String(prop.id || prop.property_id || prop._id), 'unlink');
+          } catch (e) {
+            console.warn('patchSeller(unlink) note:', e);
+          }
+        })
+      );
       await loadSellers();
     } catch (err) {
       console.error("Failed to update seller properties on server:", err);
-      toast.error("Failed to save unlinked property on server");
+      toast.error("Failed to save unlinked properties on server");
     }
   };
 
@@ -2102,7 +2108,7 @@ table tbody td {
             className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden flex flex-col"
             style={{
               height: window.innerWidth < 640
-                ? selectedSellers.length > 0 ? '420px' : '560px'
+                ? selectedSellers.length > 0 ? '600px' : '680px'
                 : selectedSellers.length > 0 ? '550px' : '620px',
             }}
           >

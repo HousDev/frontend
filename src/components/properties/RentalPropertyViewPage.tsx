@@ -124,8 +124,8 @@ const formatCurrency = (amount: number | string | undefined | null) => {
 
 const buildInitialData = (p: any) => ({
   id: p.id,
-  seller: p.seller?.name || p.seller_name || '',
-  sellerId: p.seller?.id || p.seller_id || '',
+  seller: p.owner?.name || p.owner_name || p.seller?.name || p.seller_name || '',
+  sellerId: p.owner?.id || p.owner_id || p.seller?.id || p.seller_id || '',
   assigned_to: p.assignedTo?.id || p.assigned_to || '',
   propertyType: p.type || p.propertyType || p.property_type_name || '',
   propertySubtype: p.subtype || p.propertySubtype || p.property_subtype_name || '',
@@ -777,45 +777,65 @@ const RentalOverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
 
         {/* Right Column */}
         <div className="w-full xl:w-72 space-y-3 flex-shrink-0">
-          {/* Landlord Contact Info */}
-          <div className="bg-white rounded-lg border p-2.5" style={{ borderColor: BD }}>
-            <h3 className="text-[11px] font-semibold mb-2" style={{ color: N }}>Landlord / Owner Details</h3>
-            {property.seller?.name ? (
-              <div className="space-y-1.5 text-xs">
-                <p className="font-extrabold text-slate-800">{property.seller.name}</p>
-                {property.seller.phone && (
-                  <div className="flex items-center gap-2">
-                    <a href={`tel:${property.seller.phone}`} className="flex-1 px-2 py-1 rounded bg-slate-50 hover:bg-slate-100 text-[10px] text-slate-700 flex items-center gap-1">
-                      <Phone size={10} className="text-slate-400" /> {property.seller.phone}
-                    </a>
-                  </div>
-                )}
-                {property.seller.email && (
-                  <a href={`mailto:${property.seller.email}`} className="text-[10px] text-slate-500 flex items-center gap-1">
-                    <Mail size={10} className="text-slate-400" /> {property.seller.email}
-                  </a>
-                )}
-              </div>
-            ) : (
-              <p className="text-[10px] text-slate-400">Owner not linked.</p>
-            )}
-          </div>
+          {/* Landlord / Owner Details Card */}
+          {(() => {
+            const ownerName = (property as any).owner?.name || (typeof (property as any).seller === 'object' ? (property as any).seller?.name : null) || null;
+            const ownerPhone = (property as any).owner?.phone || (typeof (property as any).seller === 'object' ? (property as any).seller?.phone : null) || null;
+            const ownerEmail = (property as any).owner?.email || (typeof (property as any).seller === 'object' ? (property as any).seller?.email : null) || null;
+            const ownerLocation = (property as any).owner?.location || (property as any).location || null;
 
-          {/* Assigned Executive */}
-          <div className="bg-white rounded-lg border p-2.5" style={{ borderColor: BD }}>
-            <h3 className="text-[11px] font-semibold mb-2" style={{ color: N }}>Assigned Executive</h3>
-            {property.assignedTo?.name ? (
-              <div className="space-y-1.5 text-xs">
-                <p className="font-extrabold text-slate-800">{property.assignedTo.name}</p>
-                {property.assignedTo.email && (
-                  <p className="text-[10px] text-slate-500 flex items-center gap-1">
-                    <Mail size={10} className="text-slate-400" /> {property.assignedTo.email}
-                  </p>
-                )}
+            return (
+              <div className="rounded-lg p-2.5 animate-fade-in" style={{ background: 'linear-gradient(135deg, #3b82f608 0%, #3b82f615 100%)', border: '1px solid #3b82f630' }}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: '#3b82f620' }}>
+                    <User size={12} style={{ color: '#3b82f6' }} />
+                  </div>
+                  <h3 className="text-[11px] font-bold" style={{ color: '#3b82f6' }}>Owner Information</h3>
+                </div>
+                <div className="space-y-1.5 text-[10px]">
+                  <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#3b82f608' }}>
+                    <User size={10} style={{ color: '#3b82f6' }} />
+                    <span className="font-semibold" style={{ color: N }}>{ownerName || "-"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#3b82f608' }}>
+                    <Phone size={10} style={{ color: '#3b82f6' }} />
+                    <span style={{ color: MU }}>{ownerPhone || "Not Available"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#3b82f608' }}>
+                    <Mail size={10} style={{ color: '#3b82f6' }} />
+                    <span style={{ color: MU }}>{ownerEmail || "Not Available"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#3b82f608' }}>
+                    <MapPin size={10} style={{ color: '#3b82f6' }} />
+                    <span style={{ color: MU }}>{ownerLocation || "-"}</span>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <p className="text-[10px] text-slate-400">Unassigned</p>
-            )}
+            );
+          })()}
+
+          {/* Assigned Executive Card */}
+          <div className="rounded-lg p-2.5 animate-fade-in" style={{ background: 'linear-gradient(135deg, #e67e2208 0%, #e67e2215 100%)', border: '1px solid #e67e2230' }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: '#e67e2220' }}>
+                <User size={12} style={{ color: O }} />
+              </div>
+              <h3 className="text-[11px] font-bold" style={{ color: O }}>Executive Information</h3>
+            </div>
+            <div className="space-y-1.5 text-[10px]">
+              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
+                <User size={10} style={{ color: O }} />
+                <span className="font-semibold" style={{ color: N }}>{property.assignedTo?.name || "-"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
+                <Phone size={10} style={{ color: O }} />
+                <span style={{ color: MU }}>{property.assignedTo?.phone || "Not Available"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
+                <Mail size={10} style={{ color: O }} />
+                <span style={{ color: MU }}>{property.assignedTo?.email || "Not Available"}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -846,6 +866,21 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
       setPropertyData(property);
     }
   }, [property]);
+
+  useEffect(() => {
+    const fetchFullDetails = async () => {
+      if (!property?.id) return;
+      try {
+        const res = await rentalPropertiesAPI.getProperty(String(property.id));
+        if (res && res.success && res.data) {
+          setPropertyData(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch full property details:", err);
+      }
+    };
+    fetchFullDetails();
+  }, [property?.id]);
 
   const fetchStatusHistory = async () => {
     if (!propertyData.id) return;
@@ -902,7 +937,24 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  {propertyData.propertyId || `RENT-${propertyData.id}`}
+                  {(() => {
+                    const p: any = propertyData;
+                    const idText = p.propertyId || `RENT-${p.id}`;
+                    const typeName = p.type || p.propertyType || p.property_type_name;
+                    const subtypeName = p.subtype || p.propertySubtype || p.property_subtype_name;
+                    const unitTypeName = p.unitType || p.unit_type;
+                    const societyName = p.society || p.society_name;
+                    
+                    const infoParts = [
+                      idText,
+                      typeName,
+                      subtypeName,
+                      unitTypeName,
+                      societyName
+                    ].filter(Boolean);
+                    
+                    return infoParts.join(" • ");
+                  })()}
                 </span>
                 {propertyData.isPublic && (
                   <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-green-50 text-green-700 ring-1 ring-green-200">

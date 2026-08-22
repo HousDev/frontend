@@ -1195,35 +1195,165 @@ function SummaryModal({ isOpen, onClose, title = "Import Summary", duplicates, s
   if (!isOpen) return null;
   const allKeys = Array.from(new Set(
     [...duplicates.map((r: any) => r.data), ...skippedRows.map((r: any) => r.data), ...updatedRows.map((r: any) => r.data)]
-      .flatMap((row: any) => Object.keys(row).filter(k => row[k] && String(row[k]).trim() !== ""))
+      .flatMap((row: any) => Object.keys(row).filter((k) => row[k] && String(row[k]).trim() !== ""))
   ));
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} width="max-w-6xl">
-      <div className="p-4 space-y-4">
-        <div className="flex flex-wrap gap-3">
-          <span className="text-sm">Duplicates: <strong>{duplicates.length}</strong></span>
-          <span className="text-sm">Skipped: <strong>{skippedRows.length}</strong></span>
-          {updatedRows.length > 0 && <span className="text-sm">Updated: <strong>{updatedRows.length}</strong></span>}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" style={{ background: "rgba(15,43,61,0.6)", backdropFilter: "blur(4px)" }}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden" style={{ border: `1px solid ${BD}` }}>
+        {/* Header */}
+        <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: N }}>
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg" style={{ background: `${O}20` }}>
+              <AlertCircle size={14} style={{ color: O }} />
+            </div>
+            <div>
+              <h2 className="text-xs font-bold text-white">{title}</h2>
+              <p className="text-[9px] text-white/70">Review details of the imported file</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white">
+            <X size={16} />
+          </button>
         </div>
-        {duplicates.length > 0 && (
-          <div><h4 className="font-semibold text-purple-700 mb-2">Duplicates</h4><div className="max-h-60 overflow-auto border rounded"><table className="w-full text-xs"><thead className="bg-purple-50 sticky top-0"><tr><th>Row</th><th>Reason</th>{allKeys.map(k => <th key={k}>{k}</th>)}</tr></thead><tbody>{duplicates.map((row: any, i: number) => (<tr key={i}><td>{row.row}</td><td>{row.reason}</td>{allKeys.map(k => <td key={k}>{renderCell(row.data?.[k])}</td>)}</tr>))}</tbody></table></div></div>
-        )}
-        {skippedRows.length > 0 && (
-          <div><h4 className="font-semibold text-red-700 mb-2">Skipped</h4><div className="max-h-60 overflow-auto border rounded"><table className="w-full text-xs"><thead className="bg-red-50 sticky top-0"><tr><th>Row</th><th>Reason</th>{allKeys.map(k => <th key={k}>{k}</th>)}</tr></thead><tbody>{skippedRows.map((row: any, i: number) => (<tr key={i}><td>{row.row}</td><td>{row.reason}</td>{allKeys.map(k => <td key={k}>{renderCell(row.data?.[k])}</td>)}</tr>))}</tbody></table></div></div>
-        )}
-        {updatedRows.length > 0 && (
-          <div><h4 className="font-semibold text-green-700 mb-2">Updated</h4><div className="max-h-60 overflow-auto border rounded"><table className="w-full text-xs"><thead className="bg-green-50 sticky top-0"><td><th>Row</th><th>ID</th><th>Note</th>{allKeys.map(k => <th key={k}>{k}</th>)}</td></thead><tbody>{updatedRows.map((row: any, i: number) => (<tr key={i}><td>{row.row}</td><td>{row.id}</td><td>{row.note}</td>{allKeys.map(k => <td key={k}>{renderCell(row.data?.[k])}</td>)}</tr>))}</tbody></table></div></div>
-        )}
-        <div className="flex justify-end gap-2">
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4" style={{ scrollbarWidth: 'thin' }}>
+          {/* Stats Badges */}
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold" style={{ background: `${O}08`, borderColor: `${O}20`, color: N }}>
+              <Users size={12} style={{ color: O }} />
+              <span>Duplicates: {duplicates.length}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold" style={{ background: '#fef2f2', borderColor: '#fecaca', color: '#991b1b' }}>
+              <AlertCircle size={12} className="text-red-500" />
+              <span>Skipped: {skippedRows.length}</span>
+            </div>
+            {updatedRows.length > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold" style={{ background: '#f0fdf4', borderColor: '#bbf7d0', color: '#166534' }}>
+                <CheckCircle size={12} className="text-green-600" />
+                <span>Updated: {updatedRows.length}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Duplicates Section */}
+          {duplicates.length > 0 && (
+            <div className="space-y-1.5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wide flex items-center gap-1" style={{ color: O }}>
+                <AlertCircle size={11} /> Duplicates ({duplicates.length})
+              </h4>
+              <div className="max-h-48 overflow-auto border rounded-lg" style={{ borderColor: BD }}>
+                <table className="w-full text-[10px] border-collapse">
+                  <thead className="sticky top-0 text-left bg-gray-50 z-10" style={{ borderBottom: `1px solid ${BD}` }}>
+                    <tr className="text-gray-600 font-semibold">
+                      <th className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>Row</th>
+                      <th className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>Duplicate Fields</th>
+                      <th className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>Existing ID</th>
+                      <th className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>Reason</th>
+                      {allKeys.map((k: string) => (
+                        <th key={k} className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>{k}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y bg-white" style={{ borderColor: BD }}>
+                    {duplicates.map((row: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-2 py-1 text-center font-bold border-r" style={{ borderColor: BD }}>{row.row ?? "-"}</td>
+                        <td className="px-2 py-1 border-r text-gray-700 font-medium" style={{ borderColor: BD }}>{row.duplicateFields?.join(", ") || "-"}</td>
+                        <td className="px-2 py-1 text-center border-r font-medium text-gray-700" style={{ borderColor: BD }}>{row.existingId ?? "-"}</td>
+                        <td className="px-2 py-1 border-r font-semibold text-orange-600" style={{ borderColor: BD }}>{row.reason}</td>
+                        {allKeys.map((k: string) => (
+                          <td key={k} className="px-2 py-1 border-r text-gray-600" style={{ borderColor: BD }}>{renderCell(row.data?.[k])}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Skipped Section */}
+          {skippedRows.length > 0 && (
+            <div className="space-y-1.5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 text-red-700">
+                <AlertCircle size={11} className="text-red-500" /> Skipped / Errors ({skippedRows.length})
+              </h4>
+              <div className="max-h-48 overflow-auto border rounded-lg" style={{ borderColor: BD }}>
+                <table className="w-full text-[10px] border-collapse">
+                  <thead className="sticky top-0 text-left bg-gray-50 z-10" style={{ borderBottom: `1px solid ${BD}` }}>
+                    <tr className="text-gray-600 font-semibold">
+                      <th className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>Row</th>
+                      <th className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>Reason</th>
+                      {allKeys.map((k: string) => (
+                        <th key={k} className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>{k}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y bg-white" style={{ borderColor: BD }}>
+                    {skippedRows.map((row: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-2 py-1 text-center font-bold border-r" style={{ borderColor: BD }}>{row.row}</td>
+                        <td className="px-2 py-1 border-r font-semibold text-red-600" style={{ borderColor: BD }}>{row.reason}</td>
+                        {allKeys.map((k: string) => (
+                          <td key={k} className="px-2 py-1 border-r text-gray-600" style={{ borderColor: BD }}>{renderCell(row.data?.[k])}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Updated Section */}
+          {updatedRows.length > 0 && (
+            <div className="space-y-1.5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 text-green-700">
+                <CheckCircle size={11} /> Updated ({updatedRows.length})
+              </h4>
+              <div className="max-h-48 overflow-auto border rounded-lg" style={{ borderColor: BD }}>
+                <table className="w-full text-[10px] border-collapse">
+                  <thead className="sticky top-0 text-left bg-gray-50 z-10" style={{ borderBottom: `1px solid ${BD}` }}>
+                    <tr className="text-gray-600 font-semibold">
+                      <th className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>Row</th>
+                      <th className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>ID</th>
+                      <th className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>Note</th>
+                      {allKeys.map((k: string) => (
+                        <th key={k} className="px-2 py-1.5 border-r" style={{ borderColor: BD }}>{k}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y bg-white" style={{ borderColor: BD }}>
+                    {updatedRows.map((row: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-2 py-1 text-center font-bold border-r" style={{ borderColor: BD }}>{row.row ?? "-"}</td>
+                        <td className="px-2 py-1 text-center border-r font-medium text-gray-700" style={{ borderColor: BD }}>{row.id ?? "-"}</td>
+                        <td className="px-2 py-1 border-r font-semibold text-green-600" style={{ borderColor: BD }}>{row.note || "Updated"}</td>
+                        {allKeys.map((k: string) => (
+                          <td key={k} className="px-2 py-1 border-r text-gray-600" style={{ borderColor: BD }}>{renderCell(row.data?.[k])}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-2 flex justify-end gap-2 border-t" style={{ borderColor: BD, background: BG }}>
           {onExport && (duplicates.length > 0 || skippedRows.length > 0) && (
-            <Button onClick={onExport} style={{ background: O, color: 'white' }} className="flex items-center gap-1">
+            <Button onClick={onExport} style={{ background: O, color: 'white' }} className="px-2.5 py-1 text-[10px] font-semibold text-white rounded-lg transition-all hover:opacity-90 flex items-center gap-1 shadow-sm font-medium">
               <Download size={12} /> Export Issues Report
             </Button>
           )}
-          <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button variant="outline" onClick={onClose} className="px-2.5 py-1 text-[10px] border rounded-lg hover:bg-gray-50 font-medium transition-all" style={{ borderColor: BD, color: N }}>Close</Button>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }
 

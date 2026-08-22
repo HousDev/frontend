@@ -10,6 +10,9 @@ import LinkRentalPropertyModal from './LinkRentalPropertyModal';
 import RentalPropertyFormModal from '@/pages/dashboard/components/RentalPropertyFormModal';
 import { toast } from 'react-toastify';
 import ownerAPI from '@/lib/ownerAPI';
+import { getImageUrl } from '@/lib/helpers';
+import Swal from 'sweetalert2';
+import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 
 const N = "#0f2b3d";
 const O = "#e67e22";
@@ -139,9 +142,8 @@ const SearchableSelect: React.FC<{
                     onChange(o.value);
                     setIsOpen(false);
                   }}
-                  className={`p-1.5 rounded hover:bg-orange-50 hover:text-orange-600 cursor-pointer ${
-                    o.value === value || String(o.value) === String(value) ? "bg-orange-100 text-orange-700 font-semibold" : "text-gray-700"
-                  }`}
+                  className={`p-1.5 rounded hover:bg-orange-50 hover:text-orange-600 cursor-pointer ${o.value === value || String(o.value) === String(value) ? "bg-orange-100 text-orange-700 font-semibold" : "text-gray-700"
+                    }`}
                 >
                   {o.label}
                 </div>
@@ -156,7 +158,7 @@ const SearchableSelect: React.FC<{
 
 export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave }) => {
   const { user } = useAuth();
-  
+
   const [formData, setFormData] = useState<Owner>({
     salutation: 'Mr.',
     name: '',
@@ -290,10 +292,28 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.name?.trim()) newErrors.name = 'Name is required';
-    if (!formData.phone?.trim()) newErrors.phone = 'Phone number is required';
-    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email';
+    if (!formData.name?.trim()) {
+      newErrors.name = 'Name is required';
+    }
+    if (!formData.phone?.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else {
+      const phoneDigits = formData.phone.replace(/\D/g, '');
+      const localPhone = phoneDigits.startsWith('91') ? phoneDigits.slice(2) : phoneDigits;
+      if (localPhone.length !== 10) {
+        newErrors.phone = 'Phone number must be exactly 10 digits';
+      }
+    }
+    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Invalid email';
+    }
     setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.values(newErrors)[0];
+      toast.error(firstError);
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -355,34 +375,92 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
     toast.success("New Rental Property linked successfully!");
   };
 
-  const handleUnlinkProperty = (propertyId: number | string) => {
+  const handleUnlinkProperty = useCallback(async (propertyId: number | string) => {
+    const result = await Swal.fire({
+      title: 'Unlink Rental Property?',
+      text: 'Are you sure you want to unlink this rental property from this owner?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Unlink',
+      cancelButtonText: 'Cancel',
+      width: '380px',
+      customClass: {
+        popup: 'rounded-xl shadow-2xl',
+        title: 'text-base font-bold text-gray-800',
+        htmlContainer: 'text-xs text-gray-600',
+        confirmButton: 'px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 mx-1',
+        cancelButton: 'px-3 py-1.5 bg-gray-500 text-white text-xs font-semibold rounded-lg hover:bg-gray-600 mx-1',
+      },
+      buttonsStyling: false,
+    });
+    if (!result.isConfirmed) return;
+
     setFormData(prev => ({
       ...prev,
       properties: (prev.properties || []).filter((p: any) => String(p.id) !== String(propertyId))
     }));
-  };
 
-  const handleBulkUnlinkProperties = (propertyIds: Array<string | number>) => {
+    try {
+      await rentalPropertiesAPI.patchOwner(String(propertyId), 'unlink');
+    } catch (e) {
+      console.warn('patchOwner unlink note:', e);
+    }
+    toast.info('Property unlinked');
+  }, []);
+
+  const handleBulkUnlinkProperties = useCallback(async (propertyIds: Array<string | number>) => {
+    if (!propertyIds.length) return;
+    const result = await Swal.fire({
+      title: 'Unlink Selected Properties?',
+      text: `Are you sure you want to unlink the ${propertyIds.length} selected rental properties from this owner?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Unlink All',
+      cancelButtonText: 'Cancel',
+      width: '380px',
+      customClass: {
+        popup: 'rounded-xl shadow-2xl',
+        title: 'text-base font-bold text-gray-800',
+        htmlContainer: 'text-xs text-gray-600',
+        confirmButton: 'px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 mx-1',
+        cancelButton: 'px-3 py-1.5 bg-gray-500 text-white text-xs font-semibold rounded-lg hover:bg-gray-600 mx-1',
+      },
+      buttonsStyling: false,
+    });
+    if (!result.isConfirmed) return;
+
     const idsToFilter = new Set(propertyIds.map(id => String(id)));
     setFormData(prev => ({
       ...prev,
       properties: (prev.properties || []).filter((p: any) => !idsToFilter.has(String(p.id)))
     }));
+
+    for (const pid of propertyIds) {
+      try {
+        await rentalPropertiesAPI.patchOwner(String(pid), 'unlink');
+      } catch (e) {
+        console.warn('patchOwner bulk unlink note:', e);
+      }
+    }
     setSelectedPropIds([]);
-    toast.info("Selected properties unlinked locally!");
-  };
+    toast.info(`${propertyIds.length} properties unlinked`);
+  }, []);
 
   // Master lists filters
   const stateOptions = masters['state'] || [];
   const cityOptions = masters['city'] || [];
   const locationOptions = masters['location'] || [];
 
-  const filteredCities = useMemo(() => 
+  const filteredCities = useMemo(() =>
     cityOptions.filter((c: any) => !formData.state || c.parentValue === formData.state),
     [cityOptions, formData.state]
   );
 
-  const filteredLocations = useMemo(() => 
+  const filteredLocations = useMemo(() =>
     locationOptions.filter((l: any) => !formData.city || l.parentValue === formData.city),
     [locationOptions, formData.city]
   );
@@ -421,16 +499,16 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
         {/* Content - Card based two-column layout */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4" style={{ background: '#ffffff', scrollbarWidth: 'thin' }}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            
+
             {/* Left Column */}
             <div className="space-y-3">
-              
+
               {/* Card 1: Basic Information */}
               <div className="rounded-lg p-2.5 space-y-2" style={{ background: BG, border: `1px solid ${BD}` }}>
                 <h3 className="text-[11px] font-bold flex items-center gap-1.5 pb-1 border-b" style={{ color: N }}>
                   <User size={12} style={{ color: O }} /> Basic Information
                 </h3>
-                
+
                 <div className="grid grid-cols-3 gap-1.5">
                   <div className="col-span-1">
                     <FormField label="Salutation" required>
@@ -477,7 +555,7 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
 
                   <div className="space-y-1">
                     <label className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide" style={{ color: MU }}>
-                      <FaWhatsapp className="text-green-500" size={10} />
+                      {/* <FaWhatsapp className="text-green-500" size={10} /> */}
                       <span>WhatsApp Number</span>
                       <div className="ml-auto flex items-center">
                         <label className="relative inline-flex items-center cursor-pointer gap-1">
@@ -499,7 +577,6 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
                         className="w-full border border-gray-300 rounded-lg pl-7 pr-2 py-1 text-[10px] focus:outline-none bg-white h-[28px] disabled:bg-gray-100"
                         style={{ borderColor: BD }}
                         disabled={sameWhatsapp}
-                        placeholder="WhatsApp number"
                       />
                       <FaWhatsapp className="absolute left-2.5 top-1/2 -translate-y-1/2 text-green-500" size={13} />
                     </div>
@@ -522,7 +599,7 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
                 <h3 className="text-[11px] font-bold flex items-center gap-1.5 pb-1 border-b" style={{ color: N }}>
                   <MapPin size={12} style={{ color: O }} /> Address Details
                 </h3>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                   <FormField label="State">
                     {stateOptions.length ? (
@@ -593,16 +670,16 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
                 </div>
               </div>
             </div>
-            
+
             {/* Right Column */}
             <div className="space-y-3">
-              
+
               {/* Card 3: Lead Details */}
               <div className="rounded-lg p-2.5 space-y-2" style={{ background: BG, border: `1px solid ${BD}` }}>
                 <h3 className="text-[11px] font-bold flex items-center gap-1.5 pb-1 border-b" style={{ color: N }}>
                   <Star size={12} style={{ color: O }} /> Lead Details
                 </h3>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   <FormField label="Lead Source">
                     <SearchableSelect
@@ -669,19 +746,19 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
                     const label = selectedSource?.label || formData.source || "";
                     return ["housing", "99acres", "99acers", "no broker", "nobroker"].includes(label.toLowerCase().trim());
                   })() && (
-                    <div className="sm:col-span-2">
-                      <FormField label="Source URL">
-                        <input
-                          type="text"
-                          placeholder="Enter listing URL..."
-                          value={formData.source_url || ""}
-                          onChange={e => handleInputChange("source_url", e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-2 py-1 text-[10px] focus:outline-none bg-white h-[28px]"
-                          style={{ borderColor: BD }}
-                        />
-                      </FormField>
-                    </div>
-                  )}
+                      <div className="sm:col-span-2">
+                        <FormField label="Source URL">
+                          <input
+                            type="text"
+                            placeholder="Enter listing URL..."
+                            value={formData.source_url || ""}
+                            onChange={e => handleInputChange("source_url", e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-2 py-1 text-[10px] focus:outline-none bg-white h-[28px]"
+                            style={{ borderColor: BD }}
+                          />
+                        </FormField>
+                      </div>
+                    )}
                 </div>
               </div>
 
@@ -718,38 +795,85 @@ export const OwnerFormModal: React.FC<Props> = ({ isOpen, onClose, owner, onSave
                   </div>
                 </div>
 
-                <div className="space-y-1.5 max-h-24 overflow-y-auto">
+                <div className="space-y-1.5 max-h-36 overflow-y-auto">
                   {!formData.properties?.length ? (
                     <div className="text-center py-3 text-[10px] text-gray-400">
                       No rental properties linked.
                     </div>
                   ) : (
-                    formData.properties.map((p: any) => {
-                      const displayTitle = p.title || `${p.bedrooms || 0} BHK Property in ${p.society_name || p.location_name || ''}`;
+                    formData.properties.map((property: any) => {
+                      const displayTitle = property.title || `${property.bedrooms || 0} BHK Property in ${property.society_name || property.location_name || ''}`;
+                      const photoCandidate = property.photos?.[0]?.url || property.photos?.[0] || property.photo || property.image || "";
+                      const photoUrl = getImageUrl(photoCandidate);
+
                       return (
-                        <div key={p.id} className="flex justify-between items-center p-1.5 rounded border bg-white text-[10px]" style={{ borderColor: BD }}>
+                        <div key={property.id} className="flex justify-between items-center p-2 rounded-lg text-[10px]" style={{ background: 'white', border: `1px solid ${BD}` }}>
                           <div className="flex items-center flex-1 min-w-0">
                             <input
                               type="checkbox"
-                              checked={selectedPropIds.includes(String(p.id))}
+                              checked={selectedPropIds.includes(String(property.id))}
                               onChange={(e) => {
-                                const idStr = String(p.id);
+                                const idStr = String(property.id);
                                 if (e.target.checked) {
                                   setSelectedPropIds(prev => [...prev, idStr]);
                                 } else {
                                   setSelectedPropIds(prev => prev.filter(id => id !== idStr));
                                 }
                               }}
-                              className="accent-orange-500 h-3.5 w-3.5 mr-1.5 cursor-pointer"
+                              className="accent-orange-500 h-3.5 w-3.5 mr-1.5 cursor-pointer flex-shrink-0"
                             />
-                            <span className="font-semibold text-gray-700 truncate pr-2">{displayTitle}</span>
+                            {photoUrl ? (
+                              <img
+                                src={photoUrl}
+                                alt={displayTitle}
+                                className="w-12 h-12 object-cover rounded-lg flex-shrink-0 bg-gray-50 border border-gray-100 mr-2"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.display = "none";
+                                  if (e.currentTarget.nextElementSibling) {
+                                    (e.currentTarget.nextElementSibling as HTMLElement).style.display = "flex";
+                                  }
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className="w-12 h-12 rounded-lg items-center justify-center text-[8px] flex-shrink-0 mr-2"
+                              style={{
+                                background: BG,
+                                color: MU,
+                                display: photoUrl ? "none" : "flex",
+                              }}
+                            >
+                              No Image
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <div className="font-semibold text-[10px] truncate text-gray-800">{displayTitle}</div>
+                                {property.property_subtype_name && (
+                                  <span className="px-1.5 py-0.25 rounded text-[7px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">{property.property_subtype_name}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                {Number(property.monthly_rent) > 0 ? (
+                                  <div className="text-[9px] font-bold text-emerald-600">
+                                    ₹ {Number(property.monthly_rent).toLocaleString()}/mo
+                                  </div>
+                                ) : null}
+                                {property.executiveName && (
+                                  <div className="flex items-center gap-1 text-[8px] text-gray-600 bg-gray-50 px-1.5 py-0.25 rounded border border-gray-100">
+                                    <User size={8} className="text-gray-400" />
+                                    <span>Executive:</span>
+                                    <span className="font-semibold text-gray-800">{property.executiveName}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="font-bold bg-orange-100 text-orange-700 px-1 py-0.2 rounded">RENT-{p.id}</span>
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                            <span className="font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-[9px]">RENT-{property.id}</span>
                             <button
                               type="button"
-                              onClick={() => handleUnlinkProperty(p.id)}
-                              className="text-red-500 hover:text-red-700 font-bold"
+                              onClick={() => handleUnlinkProperty(property.id)}
+                              className="text-red-500 hover:text-red-700 font-semibold text-[10px]"
                             >
                               Unlink
                             </button>
