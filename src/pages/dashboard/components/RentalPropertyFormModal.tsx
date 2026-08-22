@@ -1356,25 +1356,12 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
       setFormData(prev => ({ ...prev, ...updates }));
     }
   }, [masterOptions, mode, initialData, isEditDataLoaded, formData.propertyType, formData.propertySubtype, formData.unitType, formData.furnishing, formData.parkingType, formData.status, formData.leadSource, formData.bedrooms, formData.bathrooms, formData.facing, formData.balcony, formData.lock_in_period, formData.agreement_duration]);
-
   useEffect(() => {
     if (!isOpen) return;
     if (mode !== 'edit' || !initialData) return;
-    if (societyOptions.length === 0) return;
     if (isEditDataLoaded) return;
 
-    let societyId = initialData.society || '';
-
-    if (societyId) {
-      const matchedSociety = societyOptions.find(
-        opt =>
-          String(opt.label).trim().toLowerCase() ===
-          String(societyId).trim().toLowerCase()
-      );
-      if (matchedSociety) {
-        societyId = String(matchedSociety.value);
-      }
-    }
+    const societyId = initialData.society || '';
 
     setFormData(prev => ({
       ...prev,
@@ -1443,6 +1430,23 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
     }
 
     setIsEditDataLoaded(true);
+  }, [isOpen, mode, initialData]);
+
+  useEffect(() => {
+    if (!isOpen || mode !== 'edit' || !initialData || !societyOptions || societyOptions.length === 0) return;
+    const rawSociety = initialData.society;
+    if (rawSociety) {
+      const matchedSociety = societyOptions.find(
+        opt =>
+          String(opt.label).trim().toLowerCase() ===
+          String(rawSociety).trim().toLowerCase()
+      );
+      if (matchedSociety) {
+        setFormData(prev => ({ ...prev, society: String(matchedSociety.value) }));
+        const savedPhotoUrls = (initialData.existingPhotos || []).map(p => p.url);
+        fetchSocietyDetails(String(matchedSociety.value), savedPhotoUrls);
+      }
+    }
   }, [isOpen, mode, initialData, societyOptions]);
 
   useEffect(() => {
@@ -2198,7 +2202,7 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
                 onDrop={(e) => {
                   e.preventDefault();
                   e.currentTarget.classList.remove('border-orange-400', 'bg-orange-50/20');
-                  const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                  const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
                   if (dropped.length > 0) handlePhotosUpload(dropped);
                 }}
               >

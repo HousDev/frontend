@@ -2234,7 +2234,7 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                 onDrop={(e) => {
                   e.preventDefault();
                   e.currentTarget.classList.remove('border-orange-400', 'bg-orange-50/20');
-                  const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                  const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
                   if (dropped.length > 0) handlePhotosUpload(dropped);
                 }}
               >

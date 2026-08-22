@@ -10,7 +10,9 @@ const BD = "#e2e8f0";
 interface LinkRentalPropertyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectProperty: (property: any) => void;
+  onSelectProperty?: (properties: any | any[]) => void;
+  onLinkProperties?: (properties: any | any[]) => void;
+  onUnlinkProperties?: (properties: any | any[]) => void;
   linkingOwner: any;
   onCreatePropertyClick?: () => void;
 }
@@ -19,12 +21,16 @@ export const LinkRentalPropertyModal: React.FC<LinkRentalPropertyModalProps> = (
   isOpen,
   onClose,
   onSelectProperty,
+  onLinkProperties,
+  onUnlinkProperties,
   linkingOwner,
   onCreatePropertyClick,
 }) => {
+  const linkCallback = onSelectProperty || onLinkProperties;
   const [linkPropertySearch, setLinkPropertySearch] = useState("");
   const [catalogProperties, setCatalogProperties] = useState<any[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -44,6 +50,7 @@ export const LinkRentalPropertyModal: React.FC<LinkRentalPropertyModalProps> = (
         }
       };
       fetchRentalProperties();
+      setSelectedPropertyIds([]);
     }
   }, [isOpen]);
 
@@ -51,7 +58,7 @@ export const LinkRentalPropertyModal: React.FC<LinkRentalPropertyModalProps> = (
     if (!linkingOwner) return [];
 
     const currentPropertyIds = new Set(
-      ((linkingOwner as any).properties || []).map((p: any) =>
+      ((linkingOwner as any)?.properties || []).map((p: any) =>
         String(p.id || p.property_id || p._id || "")
       ).filter(Boolean)
     );
@@ -114,10 +121,74 @@ export const LinkRentalPropertyModal: React.FC<LinkRentalPropertyModalProps> = (
     });
   }, [catalogProperties, linkingOwner, linkPropertySearch]);
 
+  const unlinkedVisibleProperties = useMemo(() => {
+    if (!linkingOwner) return [];
+    const currentPropertyIds = new Set(
+      ((linkingOwner as any)?.properties || []).map((p: any) =>
+        String(p.id || p.property_id || p._id || "")
+      ).filter(Boolean)
+    );
+    return filteredLinkableProperties.filter((p: any) => !currentPropertyIds.has(String(p.id || "")));
+  }, [filteredLinkableProperties, linkingOwner]);
+
+  const allSelected = unlinkedVisibleProperties.length > 0 && unlinkedVisibleProperties.every(p => selectedPropertyIds.includes(String(p.id)));
+
+  const handleSelectAllToggle = () => {
+    if (allSelected) {
+      const idsToRemove = unlinkedVisibleProperties.map(p => String(p.id));
+      setSelectedPropertyIds(prev => prev.filter(id => !idsToRemove.includes(id)));
+    } else {
+      const idsToAdd = unlinkedVisibleProperties.map(p => String(p.id));
+      setSelectedPropertyIds(prev => {
+        const next = [...prev];
+        idsToAdd.forEach(id => {
+          if (!next.includes(id)) {
+            next.push(id);
+          }
+        });
+        return next;
+      });
+    }
+  };
+
+  const handleToggleSelect = (property: any) => {
+    const pid = String(property.id || "");
+    if (selectedPropertyIds.includes(pid)) {
+      setSelectedPropertyIds(prev => prev.filter(x => x !== pid));
+    } else {
+      setSelectedPropertyIds(prev => [...prev, pid]);
+    }
+  };
+
+  const toLink = useMemo(() => {
+    const linkedIds = new Set(((linkingOwner as any)?.properties || []).map((p: any) => String(p.id || p.property_id || p._id || "")));
+    return catalogProperties.filter((p: any) => selectedPropertyIds.includes(String(p.id)) && !linkedIds.has(String(p.id)));
+  }, [catalogProperties, selectedPropertyIds, linkingOwner]);
+
+  const toUnlink = useMemo(() => {
+    const linkedIds = new Set(((linkingOwner as any)?.properties || []).map((p: any) => String(p.id || p.property_id || p._id || "")));
+    return catalogProperties.filter((p: any) => selectedPropertyIds.includes(String(p.id)) && linkedIds.has(String(p.id)));
+  }, [catalogProperties, selectedPropertyIds, linkingOwner]);
+
+  const handleBulkLink = () => {
+    if (toLink.length > 0 && linkCallback) {
+      linkCallback(toLink);
+    }
+    handleClose();
+  };
+
+  const handleBulkUnlink = () => {
+    if (toUnlink.length > 0 && onUnlinkProperties) {
+      onUnlinkProperties(toUnlink);
+    }
+    handleClose();
+  };
+
   if (!isOpen) return null;
 
   const handleClose = () => {
     setLinkPropertySearch("");
+    setSelectedPropertyIds([]);
     onClose();
   };
 
@@ -125,11 +196,11 @@ export const LinkRentalPropertyModal: React.FC<LinkRentalPropertyModalProps> = (
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         style={{ border: `1px solid ${BD}` }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -140,9 +211,9 @@ export const LinkRentalPropertyModal: React.FC<LinkRentalPropertyModalProps> = (
               <Link2 size={15} className="text-[#e67e22]" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Link Rental Property to Owner</h3>
+              <h3 className="text-sm font-bold text-white">Link Rental Properties to Owner</h3>
               <p className="text-[10px] text-white/70">
-                Select a rental property to link to {ownerName}
+                Select one or more properties to associate or dissociate with {ownerName}
               </p>
             </div>
           </div>
@@ -167,9 +238,20 @@ export const LinkRentalPropertyModal: React.FC<LinkRentalPropertyModalProps> = (
               autoFocus
             />
           </div>
-          <div className="mt-1.5 text-[10px] text-gray-500 flex justify-between">
-            <span>Available rental properties: {filteredLinkableProperties.length}</span>
-            {catalogLoading && <span className="text-orange-500 font-medium">Loading...</span>}
+          <div className="mt-1.5 text-[10px] text-gray-500 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <span>Available rental properties to link: {filteredLinkableProperties.length}</span>
+              {unlinkedVisibleProperties.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSelectAllToggle}
+                  className="text-xs font-bold text-[#e67e22] hover:underline flex items-center gap-1"
+                >
+                  {allSelected ? "Deselect All" : `Select All (${unlinkedVisibleProperties.length})`}
+                </button>
+              )}
+            </div>
+            {catalogLoading && <span className="text-orange-500 font-medium">Loading properties...</span>}
           </div>
         </div>
 
@@ -183,9 +265,16 @@ export const LinkRentalPropertyModal: React.FC<LinkRentalPropertyModalProps> = (
             </div>
           ) : (
             filteredLinkableProperties.map((property: any) => {
-              const propType = property.property_type_name || "";
-              const unitType = property.unit_type || property.bedrooms ? `${property.bedrooms} BHK` : "";
-              const displayTitle = [propType, unitType].filter(Boolean).join(" • ") || property.title || "Rental Property";
+              const propType = property.property_type_name && String(property.property_type_name) !== "null" && String(property.property_type_name) !== "undefined" ? property.property_type_name : "";
+              
+              let unitType = "";
+              if (property.bedrooms && String(property.bedrooms) !== "null" && String(property.bedrooms) !== "undefined") {
+                unitType = `${property.bedrooms} BHK`;
+              } else if (property.unit_type && String(property.unit_type) !== "null" && String(property.unit_type) !== "undefined") {
+                unitType = property.unit_type;
+              }
+              
+              const displayTitle = [propType, unitType].map(s => String(s).trim()).filter(Boolean).filter(s => s !== "null" && s !== "undefined").join(" • ") || property.title || "Rental Property";
 
               const address =
                 property.address ||
@@ -204,16 +293,35 @@ export const LinkRentalPropertyModal: React.FC<LinkRentalPropertyModalProps> = (
                 )
               );
 
+              const isChecked = selectedPropertyIds.includes(pid);
+
               return (
                 <div
                   key={pid}
-                  className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border transition-shadow bg-white ${
+                  onClick={() => handleToggleSelect(property)}
+                  className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border transition-shadow bg-white cursor-pointer ${
                     isAlreadyLinked
-                      ? "border-emerald-200 bg-emerald-50/20"
+                      ? isChecked
+                        ? "border-red-300 bg-red-50/10 shadow-sm"
+                        : "border-emerald-200 bg-emerald-50/20"
+                      : isChecked
+                      ? "border-orange-300 bg-orange-50/10 shadow-sm"
                       : "border-gray-200 hover:shadow-sm"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => handleToggleSelect(property)}
+                      onClick={(e) => e.stopPropagation()}
+                      className={`h-3.5 w-3.5 rounded border-gray-300 cursor-pointer ${
+                        isAlreadyLinked
+                          ? "text-red-500 focus:ring-red-500"
+                          : "text-orange-500 focus:ring-orange-500"
+                      }`}
+                    />
+
                     {photo ? (
                       <img
                         src={photo}
@@ -249,16 +357,35 @@ export const LinkRentalPropertyModal: React.FC<LinkRentalPropertyModalProps> = (
                   </div>
 
                   {isAlreadyLinked ? (
-                    <button
-                      disabled
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-emerald-700 bg-emerald-100 border border-emerald-200 cursor-default flex-shrink-0"
-                    >
-                      <UserCheck size={12} />
-                      <span>Linked</span>
-                    </button>
+                    onUnlinkProperties ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUnlinkProperties(property);
+                          handleClose();
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-red-700 bg-red-100 border border-red-200 hover:bg-red-200 flex-shrink-0 transition-colors"
+                      >
+                        <X size={12} className="text-red-500" />
+                        <span>Unlink</span>
+                      </button>
+                    ) : (
+                      <button
+                        disabled
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-emerald-700 bg-emerald-100 border border-emerald-200 cursor-default flex-shrink-0"
+                      >
+                        <UserCheck size={12} />
+                        <span>Linked</span>
+                      </button>
+                    )
                   ) : (
                     <button
-                      onClick={() => onSelectProperty(property)}
+                      onClick={(e) => {
+                        if (linkCallback) {
+                          linkCallback(property);
+                        }
+                        handleClose();
+                      }}
                       className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg text-white shadow-sm transition-all hover:opacity-90 flex-shrink-0 bg-[#e67e22]"
                     >
                       <Link2 size={12} />
@@ -272,46 +399,86 @@ export const LinkRentalPropertyModal: React.FC<LinkRentalPropertyModalProps> = (
         </div>
 
         {/* Footer */}
-        {onCreatePropertyClick ? (
-          <div
-            className="px-4 py-2.5 border-t flex items-center justify-between text-xs"
-            style={{ background: BG, borderColor: BD }}
-          >
-            <span className="text-[10px] text-gray-500">
-              Create a new rental property?
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleClose}
-                className="px-3 py-1 text-xs rounded-lg border text-gray-600 hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  handleClose();
-                  onCreatePropertyClick();
-                }}
-                className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg text-white bg-blue-600 hover:bg-blue-700 font-medium"
-              >
-                <Plus size={11} />
-                <span>Create Rental</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div
-            className="px-4 py-2.5 border-t flex items-center justify-end text-xs"
-            style={{ background: BG, borderColor: BD }}
-          >
-            <button
-              onClick={handleClose}
-              className="px-4 py-1.5 text-xs rounded-lg border text-gray-600 hover:bg-gray-100 font-medium"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
+        <div
+          className="px-4 py-2.5 border-t flex items-center justify-between text-xs"
+          style={{ background: BG, borderColor: BD }}
+        >
+          {onCreatePropertyClick ? (
+            <>
+              <span className="text-[10px] text-gray-500">
+                {selectedPropertyIds.length > 0
+                  ? `${toLink.length} to link, ${toUnlink.length} to unlink`
+                  : "Create a new rental property?"}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleClose}
+                  className="px-3 py-1 text-xs rounded-lg border text-gray-600 hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                {toLink.length > 0 && (
+                  <button
+                    onClick={handleBulkLink}
+                    className="px-3 py-1 text-xs rounded-lg text-white bg-[#e67e22] hover:bg-[#d35400] font-medium"
+                  >
+                    <span>Link Selected ({toLink.length})</span>
+                  </button>
+                )}
+                {toUnlink.length > 0 && onUnlinkProperties && (
+                  <button
+                    onClick={handleBulkUnlink}
+                    className="px-3 py-1 text-xs rounded-lg text-white bg-red-600 hover:bg-red-700 font-medium"
+                  >
+                    <span>Unlink Selected ({toUnlink.length})</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    handleClose();
+                    onCreatePropertyClick();
+                  }}
+                  className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg text-white bg-blue-600 hover:bg-blue-700 font-medium"
+                >
+                  <Plus size={11} />
+                  <span>Create Rental</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="text-[10px] text-gray-500">
+                {selectedPropertyIds.length > 0
+                  ? `${toLink.length} to link, ${toUnlink.length} to unlink`
+                  : "Select checkboxes to link or unlink multiple properties"}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleClose}
+                  className="px-4 py-1.5 text-xs rounded-lg border text-gray-600 hover:bg-gray-100 font-medium"
+                >
+                  Cancel
+                </button>
+                {toLink.length > 0 && (
+                  <button
+                    onClick={handleBulkLink}
+                    className="px-4 py-1.5 text-xs rounded-lg text-white bg-[#e67e22] hover:bg-[#d35400] font-medium"
+                  >
+                    <span>Link Selected ({toLink.length})</span>
+                  </button>
+                )}
+                {toUnlink.length > 0 && onUnlinkProperties && (
+                  <button
+                    onClick={handleBulkUnlink}
+                    className="px-4 py-1.5 text-xs rounded-lg text-white bg-red-600 hover:bg-red-700 font-medium"
+                  >
+                    <span>Unlink Selected ({toUnlink.length})</span>
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

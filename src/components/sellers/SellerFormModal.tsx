@@ -614,6 +614,8 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
     });
   }, [availableProperties, propertySearchQuery, formData.properties]);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const filteredCities = useMemo(() => cityOptions.filter((c: any) => !formData.state || c.parentValue === formData.state), [cityOptions, formData.state]);
   const locationOptions: MasterOption[] = masters['location'] || [];
   const filteredLocations = useMemo(() => locationOptions.filter((l: any) => {
@@ -816,13 +818,43 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
   const ageError = formData.seller_dob ? (age < 18 ? 'Seller must be at least 18 years old' : '') : '';
 
   const onlyDigits = (s: string) => (s || '').replace(/\D/g, '');
-  const isValidEmail = (s?: string) => isEmpty(s) ? true : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s));
+
+  const validate = useCallback(() => {
+    const newErrors: Record<string, string> = {};
+    if (isEmpty(formData.name)) {
+      newErrors.name = 'Please enter seller name';
+    }
+
+    if (isEmpty(formData.phone)) {
+      newErrors.phone = 'Please enter phone number';
+    } else {
+      const phoneDigits = String(formData.phone).replace(/\D/g, '');
+      const localPhone = phoneDigits.startsWith('91') ? phoneDigits.slice(2) : phoneDigits;
+      if (localPhone.length !== 10) {
+        newErrors.phone = 'Phone number must be exactly 10 digits';
+      }
+    }
+
+    if (!isEmpty(formData.email) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(formData.email))) {
+      newErrors.email = 'Please enter a valid email';
+    }
+
+    if (formData.seller_dob && age < 18) {
+      newErrors.dob = 'Seller must be at least 18 years old';
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.values(newErrors)[0];
+      toast.error(firstError);
+    }
+
+    return Object.keys(newErrors).length === 0;
+  }, [formData.name, formData.phone, formData.email, formData.seller_dob, age]);
 
   const handleSave = useCallback(async () => {
-    if (isEmpty(formData.name)) return alert('Please enter seller name');
-    if (isEmpty(formData.phone)) return alert('Please enter phone number');
-    if (!isValidEmail(formData.email)) return alert('Please enter a valid email');
-    if (formData.seller_dob && age < 18) return alert('Seller must be at least 18 years old');
+    if (!validate()) return;
 
     setIsSubmitting(true);
     try {
@@ -877,7 +909,7 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4" style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col overflow-hidden" style={{ border: `1px solid ${BD}` }}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[87vh] flex flex-col overflow-hidden" style={{ border: `1px solid ${BD}` }}>
 
         {/* Header */}
         <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between" style={{ background: N }}>
@@ -912,13 +944,13 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
                     </FormField>
                   </div>
                   <div className="col-span-3">
-                    <FormField label="Full Name" required>
+                    <FormField label="Full Name" required error={errors.name}>
                       <input type="text" value={formData.name || ''} onChange={(e) => handleInputChange('name', e.target.value)} className="w-full border rounded-lg px-2 py-1.5 text-[10px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }} placeholder="Enter full name" />
                     </FormField>
                   </div>
                 </div>
                 <div className="mt-2">
-                  <FormField label="Date of Birth" icon={<Calendar size={7} />}>
+                  <FormField label="Date of Birth" icon={<Calendar size={7} />} error={errors.dob}>
                     <DOBStepCalendar value={formData.seller_dob} onChange={(iso) => setFormData((prev) => ({ ...prev, seller_dob: iso }))} label="" max={ISO_18Y_BACK} placeholder="Select date of birth" size="sm" />
                   </FormField>
                 </div>
@@ -928,7 +960,7 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
               <div className="rounded-lg p-2.5" style={{ background: BG, border: `1px solid ${BD}` }}>
                 <h3 className="text-[10px] font-bold mb-2 flex items-center gap-1" style={{ color: N }}><Phone size={10} style={{ color: O }} /> Contact Information</h3>
                 <div className="space-y-2">
-                  <FormField label="Phone Number" required>
+                  <FormField label="Phone Number" required error={errors.phone}>
                     <PhoneInput country="in" value={formData.phone || ''} onChange={handlePhoneChange as any} inputProps={{ name: 'phone', required: true }} inputClass="!w-full !h-9 !text-[10px] !rounded-lg" containerClass="!w-full" />
                   </FormField>
                   <div>
@@ -954,7 +986,7 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
                       placeholder="WhatsApp number"
                     />
                   </div>
-                  <FormField label="Email Address" icon={<Mail size={7} />}>
+                  <FormField label="Email Address" icon={<Mail size={7} />} error={errors.email}>
                     <input type="email" value={formData.email || ''} onChange={(e) => handleInputChange('email', e.target.value)} className="w-full border rounded-lg px-2 py-1.5 text-[10px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }} placeholder="Enter email address" />
                   </FormField>
                 </div>
@@ -1047,170 +1079,170 @@ const SellerFormModal: React.FC<Props> = ({ isOpen, onClose, seller, onSave }) =
           </div>
 
           {/* Card 3: Attached Properties */}
-              <div className="rounded-lg p-2.5 space-y-2" style={{ background: BG, border: `1px solid ${BD}` }}>
-                <div className="flex justify-between items-center pb-1 border-b">
-                  <h3 className="text-[10px] font-bold flex items-center gap-1.5" style={{ color: N }}>
-                    <Building size={12} style={{ color: O }} /> Attached Properties
-                  </h3>
-                  <div className="flex gap-2">
-                    {selectedPropIds.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => bulkRemoveProperties(selectedPropIds)}
-                        className="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-red-600 border border-red-200 bg-red-50 rounded hover:bg-red-100 transition-colors animate-pulse"
-                      >
-                        Unlink Selected ({selectedPropIds.length})
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setShowPropertySelector(true)}
-                      className="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-[#e67e22] border border-[#e67e22] rounded hover:bg-orange-50 transition-colors"
-                    >
-                      <Plus size={10} /> Link
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowPropertyCreateModal(true)}
-                      className="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-white bg-orange-500 rounded hover:bg-orange-600 transition-colors"
-                    >
-                      <Plus size={10} /> Add
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                  {(formData.properties || []).map((property) => (
-                    <div key={property.id} className="flex justify-between items-center p-2 rounded-lg" style={{ background: 'white', border: `1px solid ${BD}` }}>
-                      <div className="flex items-center flex-1 min-w-0">
-                        <input
-                          type="checkbox"
-                          checked={selectedPropIds.includes(String(property.id))}
-                          onChange={(e) => {
-                            const idStr = String(property.id);
-                            if (e.target.checked) {
-                              setSelectedPropIds(prev => [...prev, idStr]);
-                            } else {
-                              setSelectedPropIds(prev => prev.filter(id => id !== idStr));
-                            }
-                          }}
-                          className="accent-orange-500 h-3.5 w-3.5 mr-1.5 cursor-pointer"
-                        />
-                        {property.image && getImageUrl(property.image) ? (
-                          <img
-                            src={getImageUrl(property.image) || ""}
-                            alt={property.title}
-                            className="w-12 h-12 object-cover rounded-lg flex-shrink-0 bg-gray-50 border border-gray-100"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLElement).style.display = "none";
-                              if (e.currentTarget.nextElementSibling) {
-                                (e.currentTarget.nextElementSibling as HTMLElement).style.display = "flex";
-                              }
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className="w-12 h-12 rounded-lg items-center justify-center text-[8px] flex-shrink-0"
-                          style={{
-                            background: BG,
-                            color: MU,
-                            display: property.image && getImageUrl(property.image) ? "none" : "flex",
-                          }}
-                        >
-                          No Image
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <div className="font-semibold text-[10px] truncate">{property.title}</div>
-                            {property.subtype && (
-                              <span className="px-1.5 py-0.25 rounded text-[7px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">{property.subtype}</span>
-                            )}
-                            {property._rxpBadge && (
-                              <span className="px-1 py-0.25 rounded text-[7px] font-bold" style={{ background: `${O}15`, color: O }}>{property._rxpBadge}</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 flex-wrap">
-                            {Number(property.price) > 0 ? (
-                              <div className="text-[8px] font-bold text-emerald-600">
-                                ₹ {numberToINR(property.price)}
-                              </div>
-                            ) : null}
-                            {property.executiveName && (
-                              <div className="flex items-center gap-1 text-[8px] text-gray-600 bg-gray-50 px-1.5 py-0.25 rounded border border-gray-100">
-                                <User size={8} className="text-gray-400" />
-                                <span>Executive:</span>
-                                <span className="font-semibold text-gray-800">{property.executiveName}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeProperty(property.id)}
-                        className="px-2 py-1 text-[9px] font-bold text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-all flex-shrink-0"
-                      >
-                        Unlink
-                      </button>
-                    </div>
-                  ))}
-
-                  {(!formData.properties || formData.properties.length === 0) && (
-                    <div className="text-center py-3 text-[9px]" style={{ color: MU }}>
-                      No properties attached. Use <span className="font-semibold text-orange-600">Link Property</span> to select existing, or <span className="font-semibold text-orange-600">Add Property</span> to create new.
-                    </div>
-                  )}
-                </div>
+          <div className="rounded-lg p-2.5 space-y-2" style={{ background: BG, border: `1px solid ${BD}` }}>
+            <div className="flex justify-between items-center pb-1 border-b">
+              <h3 className="text-[10px] font-bold flex items-center gap-1.5" style={{ color: N }}>
+                <Building size={12} style={{ color: O }} /> Attached Properties
+              </h3>
+              <div className="flex gap-2">
+                {selectedPropIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => bulkRemoveProperties(selectedPropIds)}
+                    className="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-red-600 border border-red-200 bg-red-50 rounded hover:bg-red-100 transition-colors animate-pulse"
+                  >
+                    Unlink Selected ({selectedPropIds.length})
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowPropertySelector(true)}
+                  className="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-[#e67e22] border border-[#e67e22] rounded hover:bg-orange-50 transition-colors"
+                >
+                  <Plus size={10} /> Link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPropertyCreateModal(true)}
+                  className="flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-white bg-orange-500 rounded hover:bg-orange-600 transition-colors"
+                >
+                  <Plus size={10} /> Add
+                </button>
               </div>
+            </div>
 
-              {/* Co-Sellers */}
-              <div className="rounded-lg p-2.5" style={{ background: BG, border: `1px solid ${BD}` }}>
-                <h3 className="text-[10px] font-bold mb-2 flex items-center gap-1" style={{ color: N }}><Users size={10} style={{ color: O }} /> Co-Sellers</h3>
-                <div className="space-y-2">
-                  {(formData.coSellers || []).map((coSeller, index) => (
-                    <div key={`coseller-${index}`} className="p-2 rounded-lg" style={{ background: 'white', border: `1px solid ${BD}` }}>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <FormField label="Salutation">
-                          <select value={coSeller.coSeller_salutation || 'Mr.'} onChange={(e) => updateCoSeller(index, 'coSeller_salutation', e.target.value)} className="w-full border rounded-lg px-1.5 py-1 text-[8px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }}>
-                            {salutationOptions.map((opt: any) => (<option key={opt.value ?? opt.label} value={opt.value ?? opt.label}>{opt.label ?? opt.value}</option>))}
-                          </select>
-                        </FormField>
-                        <FormField label="Full Name">
-                          <input type="text" value={coSeller.coSeller_name || ''} onChange={(e) => updateCoSeller(index, 'coSeller_name', e.target.value)} className="w-full border rounded-lg px-1.5 py-1 text-[8px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }} placeholder="Full name" />
-                        </FormField>
-                        <FormField label="Email">
-                          <input type="email" value={coSeller.coSeller_email || ''} onChange={(e) => updateCoSeller(index, 'coSeller_email', e.target.value)} className="w-full border rounded-lg px-1.5 py-1 text-[8px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }} placeholder="Email" />
-                        </FormField>
-                        <FormField label="Phone">
-                          <PhoneInput country="in" value={coSeller.coSeller_phone || ''} onChange={(value, countryData) => handleCoSellerPhoneChange(index, value as string, countryData)} inputProps={{ autoFocus: false }} inputClass="!w-full !h-7 !text-[8px] !rounded-lg" containerClass="!w-full" />
-                        </FormField>
-                        <FormField label="WhatsApp">
-                          <div className="flex items-center gap-1"><input type="checkbox" checked={!!coSeller.coSeller_sameAsPhone} onChange={(e) => toggleCoSellerSameAsPhone(index, e.target.checked)} className="accent-orange-500" /><span className="text-[7px]" style={{ color: MU }}>Same as phone</span></div>
-                          <input type="tel" value={coSeller.coSeller_whatsapp || ''} onChange={(e) => updateCoSeller(index, 'coSeller_whatsapp', e.target.value)} disabled={!!coSeller.coSeller_sameAsPhone} className="w-full border rounded-lg px-1.5 py-1 text-[8px] disabled:bg-gray-100 focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }} placeholder="WhatsApp" />
-                        </FormField>
-                        <FormField label="Relation">
-                          <input type="text" value={coSeller.coSeller_relation || ''} onChange={(e) => updateCoSeller(index, 'coSeller_relation', e.target.value)} className="w-full border rounded-lg px-1.5 py-1 text-[8px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }} placeholder="e.g., Spouse" />
-                        </FormField>
-                        <div className="flex items-end">
-                          <button onClick={() => removeCoSeller(index)} className="p-1 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#dc2626' }}><Trash2 size={10} /></button>
-                        </div>
+            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              {(formData.properties || []).map((property) => (
+                <div key={property.id} className="flex justify-between items-center p-2 rounded-lg" style={{ background: 'white', border: `1px solid ${BD}` }}>
+                  <div className="flex items-center flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={selectedPropIds.includes(String(property.id))}
+                      onChange={(e) => {
+                        const idStr = String(property.id);
+                        if (e.target.checked) {
+                          setSelectedPropIds(prev => [...prev, idStr]);
+                        } else {
+                          setSelectedPropIds(prev => prev.filter(id => id !== idStr));
+                        }
+                      }}
+                      className="accent-orange-500 h-3.5 w-3.5 mr-1.5 cursor-pointer"
+                    />
+                    {property.image && getImageUrl(property.image) ? (
+                      <img
+                        src={getImageUrl(property.image) || ""}
+                        alt={property.title}
+                        className="w-12 h-12 object-cover rounded-lg flex-shrink-0 bg-gray-50 border border-gray-100"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = "none";
+                          if (e.currentTarget.nextElementSibling) {
+                            (e.currentTarget.nextElementSibling as HTMLElement).style.display = "flex";
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="w-12 h-12 rounded-lg items-center justify-center text-[8px] flex-shrink-0"
+                      style={{
+                        background: BG,
+                        color: MU,
+                        display: property.image && getImageUrl(property.image) ? "none" : "flex",
+                      }}
+                    >
+                      No Image
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <div className="font-semibold text-[10px] truncate">{property.title}</div>
+                        {property.subtype && (
+                          <span className="px-1.5 py-0.25 rounded text-[7px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">{property.subtype}</span>
+                        )}
+                        {property._rxpBadge && (
+                          <span className="px-1 py-0.25 rounded text-[7px] font-bold" style={{ background: `${O}15`, color: O }}>{property._rxpBadge}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        {Number(property.price) > 0 ? (
+                          <div className="text-[8px] font-bold text-emerald-600">
+                            ₹ {numberToINR(property.price)}
+                          </div>
+                        ) : null}
+                        {property.executiveName && (
+                          <div className="flex items-center gap-1 text-[8px] text-gray-600 bg-gray-50 px-1.5 py-0.25 rounded border border-gray-100">
+                            <User size={8} className="text-gray-400" />
+                            <span>Executive:</span>
+                            <span className="font-semibold text-gray-800">{property.executiveName}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ))}
-                  <button onClick={addCoSeller} className="flex items-center justify-center gap-1 w-full py-1.5 rounded-lg text-[9px] font-medium transition-all hover:opacity-80" style={{ background: `${O}10`, color: O }}>
-                    <Handshake size={10} /> Add Co-Seller
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeProperty(property.id)}
+                    className="px-2 py-1 text-[9px] font-bold text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-all flex-shrink-0"
+                  >
+                    Unlink
                   </button>
                 </div>
-              </div>
+              ))}
 
-              {/* Notes */}
-              <div>
-                <FormField label="Notes" icon={<FileText size={7} />}>
-                  <textarea value={formData.notes || ''} onChange={(e) => handleInputChange('notes', e.target.value)} className="w-full border rounded-lg px-2 py-1.5 text-[9px] focus:outline-none focus:ring-1 bg-white resize-none" style={{ borderColor: BD }} rows={2} placeholder="Additional notes about the Seller..." />
-                </FormField>
-              </div>
+              {(!formData.properties || formData.properties.length === 0) && (
+                <div className="text-center py-3 text-[9px]" style={{ color: MU }}>
+                  No properties attached. Use <span className="font-semibold text-orange-600">Link Property</span> to select existing, or <span className="font-semibold text-orange-600">Add Property</span> to create new.
+                </div>
+              )}
+            </div>
+          </div>
 
-              {ageError && <div className="text-[9px] text-red-500 mt-1">{ageError}</div>}
+          {/* Co-Sellers */}
+          <div className="rounded-lg p-2.5" style={{ background: BG, border: `1px solid ${BD}` }}>
+            <h3 className="text-[10px] font-bold mb-2 flex items-center gap-1" style={{ color: N }}><Users size={10} style={{ color: O }} /> Co-Sellers</h3>
+            <div className="space-y-2">
+              {(formData.coSellers || []).map((coSeller, index) => (
+                <div key={`coseller-${index}`} className="p-2 rounded-lg" style={{ background: 'white', border: `1px solid ${BD}` }}>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <FormField label="Salutation">
+                      <select value={coSeller.coSeller_salutation || 'Mr.'} onChange={(e) => updateCoSeller(index, 'coSeller_salutation', e.target.value)} className="w-full border rounded-lg px-1.5 py-1 text-[8px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }}>
+                        {salutationOptions.map((opt: any) => (<option key={opt.value ?? opt.label} value={opt.value ?? opt.label}>{opt.label ?? opt.value}</option>))}
+                      </select>
+                    </FormField>
+                    <FormField label="Full Name">
+                      <input type="text" value={coSeller.coSeller_name || ''} onChange={(e) => updateCoSeller(index, 'coSeller_name', e.target.value)} className="w-full border rounded-lg px-1.5 py-1 text-[8px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }} placeholder="Full name" />
+                    </FormField>
+                    <FormField label="Email">
+                      <input type="email" value={coSeller.coSeller_email || ''} onChange={(e) => updateCoSeller(index, 'coSeller_email', e.target.value)} className="w-full border rounded-lg px-1.5 py-1 text-[8px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }} placeholder="Email" />
+                    </FormField>
+                    <FormField label="Phone">
+                      <PhoneInput country="in" value={coSeller.coSeller_phone || ''} onChange={(value, countryData) => handleCoSellerPhoneChange(index, value as string, countryData)} inputProps={{ autoFocus: false }} inputClass="!w-full !h-7 !text-[8px] !rounded-lg" containerClass="!w-full" />
+                    </FormField>
+                    <FormField label="WhatsApp">
+                      <div className="flex items-center gap-1"><input type="checkbox" checked={!!coSeller.coSeller_sameAsPhone} onChange={(e) => toggleCoSellerSameAsPhone(index, e.target.checked)} className="accent-orange-500" /><span className="text-[7px]" style={{ color: MU }}>Same as phone</span></div>
+                      <input type="tel" value={coSeller.coSeller_whatsapp || ''} onChange={(e) => updateCoSeller(index, 'coSeller_whatsapp', e.target.value)} disabled={!!coSeller.coSeller_sameAsPhone} className="w-full border rounded-lg px-1.5 py-1 text-[8px] disabled:bg-gray-100 focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }} placeholder="WhatsApp" />
+                    </FormField>
+                    <FormField label="Relation">
+                      <input type="text" value={coSeller.coSeller_relation || ''} onChange={(e) => updateCoSeller(index, 'coSeller_relation', e.target.value)} className="w-full border rounded-lg px-1.5 py-1 text-[8px] focus:outline-none focus:ring-1 bg-white" style={{ borderColor: BD }} placeholder="e.g., Spouse" />
+                    </FormField>
+                    <div className="flex items-end">
+                      <button onClick={() => removeCoSeller(index)} className="p-1 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#dc2626' }}><Trash2 size={10} /></button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <button onClick={addCoSeller} className="flex items-center justify-center gap-1 w-full py-1.5 rounded-lg text-[9px] font-medium transition-all hover:opacity-80" style={{ background: `${O}10`, color: O }}>
+                <Handshake size={10} /> Add Co-Seller
+              </button>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <FormField label="Notes" icon={<FileText size={7} />}>
+              <textarea value={formData.notes || ''} onChange={(e) => handleInputChange('notes', e.target.value)} className="w-full border rounded-lg px-2 py-1.5 text-[9px] focus:outline-none focus:ring-1 bg-white resize-none" style={{ borderColor: BD }} rows={2} placeholder="Additional notes about the Seller..." />
+            </FormField>
+          </div>
+
+          {ageError && <div className="text-[9px] text-red-500 mt-1">{ageError}</div>}
         </div>
 
         {/* Footer */}

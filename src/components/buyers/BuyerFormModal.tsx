@@ -447,6 +447,7 @@ const BuyerFormModal = ({
   const [touched, setTouched] = useState({ minBudget: false, maxBudget: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState(() => buildFormStateFromBuyer(buyer || {}));
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const modalRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
@@ -621,23 +622,39 @@ const BuyerFormModal = ({
       preferredLocations: formData.requirements.preferredLocations.filter((l: any) => l !== loc),
     });
 
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.name?.trim()) {
+      newErrors.name = 'Name is required';
+    }
+    
+    if (!formData.phone?.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else {
+      const phoneDigits = formData.phone.replace(/\D/g, '');
+      const localPhone = phoneDigits.startsWith('91') ? phoneDigits.slice(2) : phoneDigits;
+      if (localPhone.length !== 10) {
+        newErrors.phone = 'Phone number must be exactly 10 digits';
+      }
+    }
+    
+    if (ageError) {
+      newErrors.dob = ageError;
+    }
+    
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.values(newErrors)[0];
+      toast.error(firstError);
+    }
+
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSave = async () => {
     if (isSubmitting) return;
-
-    if (!formData.name.trim()) {
-      toast.error('Name is required');
-      return;
-    }
-
-    if (!formData.phone.trim()) {
-      toast.error('Phone number is required');
-      return;
-    }
-
-    if (ageError) {
-      toast.error(ageError);
-      return;
-    }
+    if (!validate()) return;
 
     setIsSubmitting(true);
 
@@ -744,7 +761,7 @@ const BuyerFormModal = ({
                     </FormField>
                   </div>
                   <div className="col-span-2">
-                    <FormField label="Full Name" required>
+                    <FormField label="Full Name" required error={errors.name}>
                       <input
                         type="text"
                         value={formData.name}
@@ -764,7 +781,7 @@ const BuyerFormModal = ({
                   <PhoneIcon size={12} style={{ color: O }} /> Contact Information
                 </h3>
                 <div className="space-y-2">
-                  <FormField label="Phone" required>
+                  <FormField label="Phone" required error={errors.phone}>
                     <PhoneInput
                       country={'in'}
                       value={formData.phone}

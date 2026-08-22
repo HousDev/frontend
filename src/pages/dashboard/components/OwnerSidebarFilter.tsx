@@ -24,7 +24,7 @@ interface Props {
   sources: OptionList;
   stages: OptionList;
   priorities: OptionList;
-  assignedUsers: OptionList;
+  assignedUsers: { id: string; name: string }[];
   statuses: OptionList;
 }
 
@@ -255,7 +255,7 @@ export const OwnerSidebarFilter: React.FC<Props> = ({
                 style={selectStyle}
               >
                 {assignedUsers.map((u) => (
-                  <option key={u} value={u}>{u === "all" ? "All" : u}</option>
+                  <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
               </select>
             </div>

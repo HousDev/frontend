@@ -12,8 +12,8 @@ const BD = "#e2e8f0";
 interface LinkPropertyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectProperty: (property: any) => void;
-  onUnlinkProperty?: (property: any) => void;
+  onSelectProperty: (property: any | any[]) => void;
+  onUnlinkProperty?: (property: any | any[]) => void;
   linkingSeller: any; // The seller object (or formData) to check already linked properties
   onCreatePropertyClick?: () => void; // Optional callback for "Create Property" footer action
 }
@@ -39,7 +39,7 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
 
     // Resolve already linked properties by checking against different ID patterns
     const currentPropertyIds = new Set(
-      ((linkingSeller as any).properties || []).map((p: any) =>
+      ((linkingSeller as any)?.properties || []).map((p: any) =>
         String(p.id || p.property_id || p._id || p._pid || "")
       ).filter(Boolean)
     );
@@ -52,7 +52,6 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
 
     const qDigits = q.replace(/\D/g, "");
     const qNum = parseInt(qDigits, 10);
-    const qTrimmed = qDigits.replace(/^0+/, "");
 
     const all = (catalogProperties || []).filter((p: any) => {
       if (!q) return true;
@@ -83,7 +82,6 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
 
       const pidDigits = pid.replace(/\D/g, "");
       const pidNum = parseInt(pidDigits, 10);
-      const pidTrimmed = pidDigits.replace(/^0+/, "");
       const pidClean = pid.replace(/[^a-z0-9]/gi, "");
       const repIdClean = repId.replace(/[^a-z0-9]/gi, "");
 
@@ -100,36 +98,16 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
         return true;
       }
 
-      // If it's an ID search, perform strict numeric/trimmed matches on property ID
+      // 2. ID matching
       if (isIdSearch) {
-        // 2. Alphanumeric clean match (e.g. 'rex0388' vs '388' or 'rex388') - ensuring not empty
-        if (
-          qClean &&
-          ((pidClean && pidClean.includes(qClean)) ||
-            (repIdClean && repIdClean.includes(qClean)))
-        ) {
-          return true;
-        }
-
-        // 3. Number comparison ignoring leading zeros ('0388' === 388)
-        if (!isNaN(qNum) && !isNaN(pidNum) && qNum === pidNum) {
-          return true;
-        }
-
-        // 4. Trimmed digit match - ensuring not empty
-        if (
-          qTrimmed &&
-          pidTrimmed &&
-          pidTrimmed.includes(qTrimmed)
-        ) {
-          return true;
-        }
+        if (qClean === pidClean || qClean === repIdClean) return true;
+        if (!isNaN(qNum) && pidNum === qNum) return true;
       }
 
       return false;
     });
 
-    // Sort unlinked properties first, then already linked ones
+    // Sort: unlinked properties first, then linked properties
     return all.sort((a: any, b: any) => {
       const aPid = String(a.id || a.property_id || a._id || "");
       const bPid = String(b.id || b.property_id || b._id || "");
@@ -140,6 +118,69 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
     });
   }, [catalogProperties, linkingSeller, linkPropertySearch]);
 
+  const unlinkedVisibleProperties = useMemo(() => {
+    if (!linkingSeller) return [];
+    const currentPropertyIds = new Set(
+      ((linkingSeller as any)?.properties || []).map((p: any) =>
+        String(p.id || p.property_id || p._id || p._pid || "")
+      ).filter(Boolean)
+    );
+    return filteredLinkableProperties.filter((p: any) => !currentPropertyIds.has(String(p.id || p.property_id || p._id || "")));
+  }, [filteredLinkableProperties, linkingSeller]);
+
+  const allSelected = unlinkedVisibleProperties.length > 0 && unlinkedVisibleProperties.every(p => selectedPropertyIds.includes(String(p.id || p.property_id || p._id)));
+
+  const handleSelectAllToggle = () => {
+    if (allSelected) {
+      const idsToRemove = unlinkedVisibleProperties.map(p => String(p.id || p.property_id || p._id));
+      setSelectedPropertyIds(prev => prev.filter(id => !idsToRemove.includes(id)));
+    } else {
+      const idsToAdd = unlinkedVisibleProperties.map(p => String(p.id || p.property_id || p._id));
+      setSelectedPropertyIds(prev => {
+        const next = [...prev];
+        idsToAdd.forEach(id => {
+          if (!next.includes(id)) {
+            next.push(id);
+          }
+        });
+        return next;
+      });
+    }
+  };
+
+  const handleToggleSelect = (property: any) => {
+    const pid = String(property.id || property.property_id || property._id || "");
+    if (selectedPropertyIds.includes(pid)) {
+      setSelectedPropertyIds(prev => prev.filter(x => x !== pid));
+    } else {
+      setSelectedPropertyIds(prev => [...prev, pid]);
+    }
+  };
+
+  const toLink = useMemo(() => {
+    const linkedIds = new Set(((linkingSeller as any)?.properties || []).map((p: any) => String(p.id || p.property_id || p._id || "")));
+    return catalogProperties.filter((p: any) => selectedPropertyIds.includes(String(p.id || p.property_id || p._id)) && !linkedIds.has(String(p.id || p.property_id || p._id)));
+  }, [catalogProperties, selectedPropertyIds, linkingSeller]);
+
+  const toUnlink = useMemo(() => {
+    const linkedIds = new Set(((linkingSeller as any)?.properties || []).map((p: any) => String(p.id || p.property_id || p._id || "")));
+    return catalogProperties.filter((p: any) => selectedPropertyIds.includes(String(p.id || p.property_id || p._id)) && linkedIds.has(String(p.id || p.property_id || p._id)));
+  }, [catalogProperties, selectedPropertyIds, linkingSeller]);
+
+  const handleBulkLink = () => {
+    if (toLink.length > 0) {
+      onSelectProperty(toLink);
+    }
+    handleClose();
+  };
+
+  const handleBulkUnlink = () => {
+    if (toUnlink.length > 0 && onUnlinkProperty) {
+      onUnlinkProperty(toUnlink);
+    }
+    handleClose();
+  };
+
   if (!isOpen) return null;
 
   const handleClose = () => {
@@ -148,35 +189,32 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
     onClose();
   };
 
-  const handleToggleSelect = (property: any) => {
-    const pid = String(property.id || property.property_id || property._id);
-    setSelectedPropertyIds((prev) =>
-      prev.includes(pid) ? prev.filter((id) => id !== pid) : [...prev, pid]
-    );
-  };
-
   const sellerName = linkingSeller?.name || "Seller";
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in"
+      style={{
+        background: "rgba(15,43,61,0.6)",
+        backdropFilter: "blur(4px)",
+      }}
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         style={{ border: `1px solid ${BD}` }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-4 py-3 flex items-center justify-between bg-[#0f2b3d]">
-          <div className="flex items-center gap-2">
+        <div className="px-4 py-3 flex items-center justify-between" style={{ background: N }}>
+          <div className="flex items-center gap-2.5">
             <div className="p-1.5 rounded-lg bg-[#e67e22]/20">
               <Link2 size={15} className="text-[#e67e22]" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Link Property to Seller</h3>
               <p className="text-[10px] text-white/70">
-                Select one or more existing properties to associate with {sellerName}
+                Select one or more existing properties to associate or dissociate with {sellerName}
               </p>
             </div>
           </div>
@@ -201,8 +239,19 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
               autoFocus
             />
           </div>
-          <div className="mt-1.5 text-[10px] text-gray-500 flex justify-between">
-            <span>Available properties to link: {filteredLinkableProperties.length}</span>
+          <div className="mt-1.5 text-[10px] text-gray-500 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <span>Available properties to link: {filteredLinkableProperties.length}</span>
+              {unlinkedVisibleProperties.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSelectAllToggle}
+                  className="text-xs font-bold text-[#e67e22] hover:underline flex items-center gap-1"
+                >
+                  {allSelected ? "Deselect All" : `Select All (${unlinkedVisibleProperties.length})`}
+                </button>
+              )}
+            </div>
             {catalogLoading && <span className="text-orange-500 font-medium">Loading properties...</span>}
           </div>
         </div>
@@ -224,29 +273,18 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
               const pid = String(property.id || property.property_id || property._id || "");
               const formattedRexId = property.propertyId || `REX${String(pid).padStart(4, "0")}`;
 
-              // Clean title: "Commercial 5BHK Flat" in a straight line, space separated
               const mainTitle = [propType, unitType, subtype].map(s => String(s).trim()).filter(Boolean).join(" ");
-              // If no real title data at all, show the REX ID as placeholder
               const displayTitle = mainTitle || property.title || formattedRexId;
 
-              // Address — suppress "Location not specified" for empty properties, show nothing instead
               const address =
-                (utils?.addressFrom ? utils.addressFrom(property) : null) ||
                 property.address ||
                 [property.location_name || property.locality_name, property.city_name || property.city]
                   .filter(Boolean)
                   .join(", ") ||
                 "";
 
-              // Resolve price
-              const price = utils?.priceFrom
-                ? utils.priceFrom(property)
-                : (property.price || property.budget || property.final_price || property.expected_price || 0);
-
-              // Resolve photo — pick first available, run through getImageUrl for relative paths
-              const rawPhoto = utils?.photoFrom
-                ? utils.photoFrom(property)
-                : (property.photos?.[0]?.url || (typeof property.photos?.[0] === 'string' ? property.photos?.[0] : null) || property.photo || property.image || "");
+              const price = property.price || property.budget || property.final_price || property.expected_price || 0;
+              const rawPhoto = property.photos?.[0]?.url || (typeof property.photos?.[0] === 'string' ? property.photos?.[0] : null) || property.photo || property.image || "";
               const photo = getImageUrl(rawPhoto) || null;
 
               const isAlreadyLinked = Boolean(
@@ -261,41 +299,43 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
               return (
                 <div
                   key={pid}
-                  className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border transition-shadow bg-white ${isAlreadyLinked
-                      ? "border-emerald-200 bg-emerald-50/20"
+                  onClick={() => handleToggleSelect(property)}
+                  className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border transition-shadow bg-white cursor-pointer ${
+                    isAlreadyLinked
+                      ? isChecked
+                        ? "border-red-300 bg-red-50/10 shadow-sm"
+                        : "border-emerald-200 bg-emerald-50/20"
                       : isChecked
-                        ? "border-orange-300 bg-orange-50/10 shadow-sm"
-                        : "border-gray-200 hover:shadow-sm"
-                    }`}
-                  onClick={() => {
-                    if (!isAlreadyLinked) {
-                      handleToggleSelect(property);
-                    }
-                  }}
-                  style={{ cursor: isAlreadyLinked ? "default" : "pointer" }}
+                      ? "border-orange-300 bg-orange-50/10 shadow-sm"
+                      : "border-gray-200 hover:shadow-sm"
+                  }`}
+                  style={{ cursor: "pointer" }}
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    {/* Checkbox for Multi-select */}
-                    {!isAlreadyLinked && (
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => handleToggleSelect(property)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-3.5 w-3.5 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
-                      />
-                    )}
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => handleToggleSelect(property)}
+                      onClick={(e) => e.stopPropagation()}
+                      className={`h-3.5 w-3.5 rounded border-gray-300 cursor-pointer ${
+                        isAlreadyLinked
+                          ? "text-red-500 focus:ring-red-500"
+                          : "text-orange-500 focus:ring-orange-500"
+                      }`}
+                    />
+
                     {photo ? (
                       <img
                         src={photo}
                         alt={displayTitle}
-                        className="w-12 h-12 object-cover rounded-md flex-shrink-0"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling && ((e.target as HTMLImageElement).nextElementSibling as HTMLElement)?.classList?.remove('hidden'); }}
+                        className="w-12 h-12 object-cover rounded-md flex-shrink-0 animate-fade-in"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                       />
-                    ) : null}
-                    <div className={`w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0 ${photo ? 'hidden' : ''}`}>
-                      No Pic
-                    </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0">
+                        No Pic
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-semibold text-xs text-gray-900 truncate">
@@ -308,7 +348,7 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
                         )}
                         {isAlreadyLinked && (
                           <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                            Linked to this Seller
+                            Linked
                           </span>
                         )}
                       </div>
@@ -327,6 +367,7 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           onUnlinkProperty(property);
+                          handleClose();
                         }}
                         className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-red-700 bg-red-100 border border-red-200 hover:bg-red-200 flex-shrink-0 transition-colors"
                       >
@@ -369,7 +410,9 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
           {onCreatePropertyClick ? (
             <>
               <span className="text-[10px] text-gray-500">
-                Want to create a new property instead?
+                {selectedPropertyIds.length > 0
+                  ? `${toLink.length} to link, ${toUnlink.length} to unlink`
+                  : "Want to create a new property instead?"}
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -378,18 +421,20 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
                 >
                   Cancel
                 </button>
-                {selectedPropertyIds.length > 0 && (
+                {toLink.length > 0 && (
                   <button
-                    onClick={() => {
-                      const toSelect = filteredLinkableProperties.filter((p: any) =>
-                        selectedPropertyIds.includes(String(p.id || p.property_id || p._id))
-                      );
-                      onSelectProperty(toSelect);
-                      handleClose();
-                    }}
+                    onClick={handleBulkLink}
                     className="px-3 py-1 text-xs rounded-lg text-white bg-[#e67e22] hover:bg-[#d35400] font-medium"
                   >
-                    <span>Link Selected ({selectedPropertyIds.length})</span>
+                    <span>Link Selected ({toLink.length})</span>
+                  </button>
+                )}
+                {toUnlink.length > 0 && onUnlinkProperty && (
+                  <button
+                    onClick={handleBulkUnlink}
+                    className="px-3 py-1 text-xs rounded-lg text-white bg-red-600 hover:bg-red-700 font-medium"
+                  >
+                    <span>Unlink Selected ({toUnlink.length})</span>
                   </button>
                 )}
                 <button
@@ -408,8 +453,8 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
             <>
               <span className="text-[10px] text-gray-500">
                 {selectedPropertyIds.length > 0
-                  ? `${selectedPropertyIds.length} properties selected`
-                  : "Select checkbox next to property to link multiple"}
+                  ? `${toLink.length} to link, ${toUnlink.length} to unlink`
+                  : "Select checkbox next to property to link/unlink multiple"}
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -418,18 +463,20 @@ export const LinkPropertyModal: React.FC<LinkPropertyModalProps> = ({
                 >
                   Cancel
                 </button>
-                {selectedPropertyIds.length > 0 && (
+                {toLink.length > 0 && (
                   <button
-                    onClick={() => {
-                      const toSelect = filteredLinkableProperties.filter((p: any) =>
-                        selectedPropertyIds.includes(String(p.id || p.property_id || p._id))
-                      );
-                      onSelectProperty(toSelect);
-                      handleClose();
-                    }}
+                    onClick={handleBulkLink}
                     className="px-4 py-1.5 text-xs rounded-lg text-white bg-[#e67e22] hover:bg-[#d35400] font-medium"
                   >
-                    <span>Link Selected ({selectedPropertyIds.length})</span>
+                    <span>Link Selected ({toLink.length})</span>
+                  </button>
+                )}
+                {toUnlink.length > 0 && onUnlinkProperty && (
+                  <button
+                    onClick={handleBulkUnlink}
+                    className="px-4 py-1.5 text-xs rounded-lg text-white bg-red-600 hover:bg-red-700 font-medium"
+                  >
+                    <span>Unlink Selected ({toUnlink.length})</span>
                   </button>
                 )}
               </div>

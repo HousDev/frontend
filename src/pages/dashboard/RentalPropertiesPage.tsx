@@ -4,7 +4,7 @@ import {
   Home, Eye, CheckCircle, Award, UserCheck, Plus, Search, Filter as FilterIcon,
   Download, Upload, Edit, Trash2, MoreVertical, Check, RefreshCw, Sparkles,
   Link as LinkIcon, UserPlus, FileText, ChevronDown, ListFilter, Users,
-  Layers, MapPin, User, UserX, Link2, Grid, List, MoreHorizontal, Globe, X
+  Layers, MapPin, User, UserX, Link2, Grid, List, MoreHorizontal, Globe, X, Mail, Phone
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
@@ -418,14 +418,22 @@ export function RentalPropertiesPage() {
     if (!linkingPropertyForOwner) return;
     setSavingOwnerLink(true);
     try {
-      const currentProps = Array.isArray(owner.properties) ? owner.properties : [];
+      // Fetch full owner details to ensure we do not overwrite other properties linked to this owner
+      const resp = await ownerAPI.getById(String(owner.id));
+      const ownerData = resp?.data?.owner ?? resp?.owner ?? resp;
+      const currentProps = Array.isArray(resp?.data?.properties)
+        ? resp.data.properties
+        : Array.isArray(resp?.properties)
+        ? resp.properties
+        : [];
+
       const pid = String(linkingPropertyForOwner.id);
       const alreadyLinked = currentProps.some((p: any) => String(p.id || p.property_id || p._id) === pid);
 
       const updatedProps = alreadyLinked ? currentProps : [...currentProps, linkingPropertyForOwner];
 
       await ownerAPI.update(String(owner.id), {
-        ...owner,
+        ...(ownerData || {}),
         properties: updatedProps,
         property_ids: updatedProps.map((p: any) => p.id || p.property_id || p._id).filter(Boolean),
       });
@@ -516,12 +524,12 @@ export function RentalPropertiesPage() {
 
       setProperties(prev => prev.map(p => {
         if (p.id === linkingPropertyForOwner.id) {
-          return { ...p, owner: null };
+          return { ...p, owner: null, owner_id: null, owner_name: null };
         }
         return p;
       }));
 
-      setLinkingPropertyForOwner(prev => prev ? { ...prev, owner: null } : null);
+      setLinkingPropertyForOwner(prev => prev ? { ...prev, owner: null, owner_id: null, owner_name: null } : null);
       toast.success('Owner unlinked from property successfully!');
     } catch (err: any) {
       console.error('Failed to unlink owner:', err);
@@ -802,8 +810,20 @@ export function RentalPropertiesPage() {
   }, [properties]);
 
   const filteredProperties = useMemo(() => {
-    let result = properties.filter((p) => {
+    let result = properties.filter((p: any) => {
       const q = searchTerm.toLowerCase().trim();
+
+      const pid = String(p.id || "");
+      const pidDigits = pid.replace(/\D/g, "");
+      const pidNum = Number(pidDigits);
+      const qDigits = q.replace(/\D/g, "");
+      const qNum = Number(qDigits);
+      const qTrimmed = qDigits.replace(/^0+/, "");
+      const qClean = q.replace(/[^a-z0-9]/gi, "");
+      const pidTrimmed = pidDigits.replace(/^0+/, "");
+      const pidClean = pid.replace(/[^a-z0-9]/gi, "");
+      const repId = String(p.propertyId || "").toLowerCase();
+      const repIdClean = repId.replace(/[^a-z0-9]/gi, "");
 
       const matchesSearch = !q ||
         p.title.toLowerCase().includes(q) ||
@@ -812,8 +832,13 @@ export function RentalPropertiesPage() {
         p.city.toLowerCase().includes(q) ||
         (p.society || '').toLowerCase().includes(q) ||
         (p.seller?.name || '').toLowerCase().includes(q) ||
+        (p.owner?.name || '').toLowerCase().includes(q) ||
+        (p.owner_name || '').toLowerCase().includes(q) ||
         (p.subtype || '').toLowerCase().includes(q) ||
-        (p.type || '').toLowerCase().includes(q);
+        (p.type || '').toLowerCase().includes(q) ||
+        (qClean && (pidClean.includes(qClean) || repIdClean.includes(qClean))) ||
+        (!isNaN(qNum) && !isNaN(pidNum) && qNum === pidNum) ||
+        (qTrimmed && pidTrimmed && pidTrimmed.includes(qTrimmed));
 
       const matchesTab =
         activeTab === 'all' ||
@@ -1088,11 +1113,27 @@ export function RentalPropertiesPage() {
       security_deposit: p.security_deposit,
     };
   };
-  const getFirstDisplayPhotoUrl = (photos: any) => {
-    if (!photos || !Array.isArray(photos) || photos.length === 0) return undefined;
+  const getPhotoUrl = (photo: any): string => {
+    if (!photo) return '';
+    return typeof photo === 'string' ? photo : (photo.url || '');
+  };
+
+  const getFirstDisplayPhotoUrl = (photos: any[]): string => {
+    if (!Array.isArray(photos) || photos.length === 0) return '';
+
+    const firstImage = photos.find((p) => {
+      if (typeof p === 'string') return true; // legacy string entries = image
+      return p?.type !== 'video';
+    });
+    if (firstImage) return getPhotoUrl(firstImage);
+
+    // Agar sab video hi hain, YouTube thumbnail try karo
     const first = photos[0];
-    if (typeof first === 'string') return first;
-    return first.url;
+    const firstUrl = getPhotoUrl(first);
+    const ytMatch = firstUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (ytMatch) return `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+
+    return ''; // koi usable image nahi mila
   };
 
   const handleEditProperty = async (id: number) => {
@@ -1102,8 +1143,9 @@ export function RentalPropertiesPage() {
         const prop = detailed.data;
         const initial = {
           id: prop.id,
-          seller: prop.seller_name || '',
-          seller_id: prop.seller_id || '',
+          // Support linking to owner or seller transparently
+          seller: prop.owner_name || prop.seller_name || '',
+          seller_id: prop.owner_id || prop.seller_id || '',
           assigned_to: prop.assigned_to || '',
           propertyType: prop.property_type_name || '',
           propertySubtype: prop.property_subtype_name || '',
@@ -1119,7 +1161,8 @@ export function RentalPropertiesPage() {
           parkingQty: prop.parking_qty || '',
           city: prop.city_name || '',
           location: prop.location_name || '',
-          society_name: prop.society_name || '',
+          society: prop.society_name || prop.society || '',
+          society_name: prop.society_name || prop.society || '',
           floor: prop.floor || '',
           totalFloors: prop.total_floors || '',
           leadSource: prop.lead_source || '',
@@ -1129,8 +1172,29 @@ export function RentalPropertiesPage() {
           description: prop.description || '',
           amenities: prop.amenities || [],
           furnishingItems: prop.furnishing_items || [],
+          nearby_places: prop.nearby_places || [],
+          carpetArea: prop.carpet_area || '',
+          builtupArea: prop.builtup_area || '',
           photos: prop.photos || [],
           ownershipDocUrl: prop.ownership_doc_path || '',
+          existingOwnershipDocUrl: prop.ownership_doc_path || '',
+          existingOwnershipDocName: prop.ownership_doc_name || 'Ownership Document',
+          existingPhotos: (prop.photos || []).map((photo: any, idx: number) => {
+            const isObj = photo && typeof photo === 'object';
+            const url = isObj ? photo.url : photo;
+            const label = isObj ? (photo.label || '') : '';
+            const isSociety = isObj ? !!photo.isSociety : false;
+            const type: 'video' | 'image' | undefined = isObj ? (photo.type === 'video' ? 'video' : 'image') : undefined;
+            const name = label || `photo-${idx + 1}`;
+            return {
+              id: String(idx + 1),
+              url,
+              name,
+              label,
+              isSociety,
+              type,
+            };
+          }),
 
           monthly_rent: prop.monthly_rent || '',
           security_deposit: prop.security_deposit || '',
@@ -2129,151 +2193,220 @@ export function RentalPropertiesPage() {
         />
       )}
 
-      {showLinkOwnerModal && linkingPropertyForOwner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="px-4 py-3 bg-gradient-to-r from-orange-500 to-amber-600 text-white flex justify-between items-center flex-shrink-0">
-              <div>
-                <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5">
-                  <LinkIcon size={13} /> Link Owner
-                </h3>
-                <p className="text-[10px] text-orange-50 opacity-90 mt-0.5 truncate max-w-[280px]">
-                  Property: {linkingPropertyForOwner.title || `Property ID: RENT-${linkingPropertyForOwner.id}`}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowLinkOwnerModal(false);
-                  setLinkingPropertyForOwner(null);
-                }}
-                className="p-1 rounded-full hover:bg-white/20 transition-colors text-white"
-              >
-                <X size={15} />
-              </button>
-            </div>
+      {showLinkOwnerModal && linkingPropertyForOwner && (() => {
+        const linkedOwnerName = linkingPropertyForOwner.owner?.name || (linkingPropertyForOwner as any).owner_name;
+        const linkedOwnerId = linkingPropertyForOwner.owner?.id || (linkingPropertyForOwner as any).owner_id;
+        const linkedOwnerPhone = linkingPropertyForOwner.owner?.phone || (linkingPropertyForOwner as any).owner_phone || '';
+        const linkedOwnerEmail = linkingPropertyForOwner.owner?.email || (linkingPropertyForOwner as any).owner_email || '';
 
-            {/* Modal Content */}
-            <div className="p-4 flex-1 overflow-y-auto space-y-4">
-              {/* Linked Owner Status */}
-              {linkingPropertyForOwner.owner?.id ? (
-                <div className="p-3 bg-amber-50/50 rounded-lg border border-amber-200/60 space-y-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="text-[9px] font-bold text-amber-800 uppercase tracking-wide">Linked Owner</span>
-                      <h4 className="text-xs font-bold text-slate-800 mt-0.5">
-                        {linkingPropertyForOwner.owner.name}
-                      </h4>
-                      <p className="text-[10px] text-slate-500">
-                        Owner ID: {linkingPropertyForOwner.owner.id}
-                      </p>
-                    </div>
-                    <button
-                      disabled={savingOwnerLink}
-                      onClick={handleUnlinkOwnerFromProperty}
-                      className="px-2 py-0.5 text-[9px] font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition-colors"
-                    >
-                      {savingOwnerLink ? 'Unlinking...' : 'Unlink Owner'}
-                    </button>
+        const cleanOwnerId = String(linkedOwnerId || '').trim();
+        const cleanOwnerName = String(linkedOwnerName || '').trim().replace(/\s+/g, '');
+        const hasLinkedOwner = Boolean(
+          cleanOwnerId &&
+          cleanOwnerId !== '0' &&
+          cleanOwnerId !== 'null' &&
+          cleanOwnerId !== 'undefined' &&
+          cleanOwnerName &&
+          cleanOwnerName !== '-' &&
+          cleanOwnerName !== '—'
+        );
+
+        const getInitials = (name: string) => {
+          const cleaned = String(name || '').replace(/^(mr|mrs|ms|dr|miss)\.?\s+/i, '').trim();
+          const parts = cleaned.split(/\s+/).filter(Boolean);
+          if (parts.length === 0) return 'O';
+          if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+          return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+        };
+
+        // Format phone with +91 country code
+        const formatPhone = (phone: string) => {
+          if (!phone) return '';
+          const digits = String(phone).replace(/\D/g, '');
+          const last10 = digits.slice(-10);
+          return `+91 ${last10}`;
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden border border-gray-200">
+              {/* Header */}
+              <div className="px-4 py-3 bg-[#0f2b3d] text-white flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="p-1.5 rounded-lg bg-orange-500/20 text-orange-400 flex-shrink-0">
+                    <UserPlus size={16} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    {hasLinkedOwner ? (
+                      <>
+                        <h3 className="text-sm font-bold truncate">Linked Owner: {linkedOwnerName}</h3>
+                        <p className="text-[9px] text-emerald-400 font-medium">Currently Associated</p>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="text-sm font-bold">Link Owner to Property</h3>
+                        <p className="text-[10px] text-white/70 truncate">
+                          Property: <span className="font-semibold text-white">{linkingPropertyForOwner.title || `${linkingPropertyForOwner.unitType || ''} ${linkingPropertyForOwner.subtype || ''}`.trim() || 'Property'}</span>
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
-              ) : (
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/60 text-center">
-                  <UserX size={20} className="mx-auto text-slate-400 mb-1" />
-                  <span className="text-[10px] font-bold text-slate-500">No Owner Linked yet</span>
-                </div>
-              )}
 
-              {/* Owner Search & Selection */}
-              <div className="space-y-2.5">
-                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">
-                  Link / Change Owner
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search owners by name, phone or email..."
-                    value={ownerSearchQuery}
-                    onChange={(e) => setOwnerSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white text-slate-800"
-                  />
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                <div className="flex items-center gap-2 ml-3">
+                  {hasLinkedOwner && (
+                    <button
+                      onClick={handleUnlinkOwnerFromProperty}
+                      disabled={savingOwnerLink}
+                      className="px-2.5 py-1 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 hover:text-red-300 rounded-lg transition-all flex items-center gap-1 disabled:opacity-50 flex-shrink-0"
+                    >
+                      <UserX size={12} />
+                      <span>Unlink Owner</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setShowLinkOwnerModal(false);
+                      setLinkingPropertyForOwner(null);
+                    }}
+                    className="p-1 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors flex-shrink-0"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
+              </div>
 
-                <div className="border border-slate-200 rounded-lg max-h-52 overflow-y-auto bg-white divide-y divide-slate-100">
-                  {loadingOwners ? (
-                    <div className="p-4 text-center text-[10px] text-gray-500 font-semibold">
-                      Loading owners list...
-                    </div>
-                  ) : filteredOwnersForLink.length === 0 ? (
-                    <div className="p-4 text-center text-[10px] text-gray-400 font-medium">
-                      No owners found matching "{ownerSearchQuery}"
-                    </div>
-                  ) : (
-                    filteredOwnersForLink.map((owner) => {
-                      const isCurrent = String(owner.id) === String(linkingPropertyForOwner.owner?.id);
-                      return (
-                        <div
-                          key={owner.id}
-                          onClick={() => {
-                            if (!isCurrent && !savingOwnerLink) {
-                              handleLinkOwnerToProperty(owner);
-                            }
-                          }}
-                          className={`p-2.5 flex items-center justify-between transition-all cursor-pointer ${
-                            isCurrent
-                              ? 'bg-orange-50/50 cursor-default'
-                              : 'hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="min-w-0 flex-1 pr-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-slate-800 text-[10.5px]">
-                                {owner.name}
-                              </span>
-                              {owner.phone && (
-                                <span className="text-[9px] text-slate-400">
-                                  ({owner.phone})
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[9px] text-slate-500 mt-0.5 truncate">
-                              ID: {owner.id} {owner.email ? `| ${owner.email}` : ''} {owner.location ? `| ${owner.location}` : ''}
-                            </div>
-                          </div>
-                          {isCurrent ? (
-                            <span className="px-2 py-0.5 rounded text-[8px] font-bold text-orange-600 bg-orange-100 border border-orange-200 flex-shrink-0">
-                              Linked
+              {hasLinkedOwner ? (
+                /* Linked Owner Details Card - Property ID, phone, email all in one row */
+                <div className="p-3 border-b border-gray-100">
+                  <div className="p-3 rounded-lg border border-gray-100 bg-white shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-sm shadow-inner flex-shrink-0">
+                        {getInitials(linkedOwnerName)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="font-bold text-sm text-gray-800 block truncate">{linkedOwnerName}</span>
+                        <div className="flex items-center gap-3 text-[11px] text-gray-600 flex-wrap mt-0.5">
+                          <span className="text-gray-500">
+                            Property ID: <span className="font-semibold text-[#e67e22]">{linkingPropertyForOwner.propertyId || `REX${String(linkingPropertyForOwner.id).padStart(4, "0")}`}</span>
+                          </span>
+                          {linkedOwnerPhone && (
+                            <span className="flex items-center gap-1">
+                              <Phone size={12} className="text-gray-400 flex-shrink-0" />
+                              <span className="font-medium text-gray-700">{formatPhone(linkedOwnerPhone)}</span>
                             </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded text-[8px] font-bold text-[#E6761D] bg-orange-50 border border-orange-200/50 hover:bg-orange-100 flex-shrink-0">
-                              Link Owner
+                          )}
+                          {linkedOwnerEmail && (
+                            <span className="flex items-center gap-1 truncate">
+                              <Mail size={12} className="text-gray-400 flex-shrink-0" />
+                              <span className="font-medium text-gray-700 truncate">{linkedOwnerEmail}</span>
                             </span>
                           )}
                         </div>
-                      );
-                    })
-                  )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {/* Search */}
+                  <div className="p-3 border-b border-gray-100 bg-gray-50">
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={ownerSearchQuery}
+                        onChange={(e) => setOwnerSearchQuery(e.target.value)}
+                        placeholder="Search owners by name, phone, email, location..."
+                        className="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  {/* Owners List */}
+                  <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[50vh]">
+                    {loadingOwners ? (
+                      <div className="py-8 text-center text-xs text-gray-500">Loading owners...</div>
+                    ) : filteredOwnersForLink.length === 0 ? (
+                      <div className="py-8 text-center text-xs text-gray-500">
+                        {ownerSearchQuery ? 'No owners found matching your search.' : 'No owners available.'}
+                      </div>
+                    ) : (
+                      filteredOwnersForLink.map((owner: any) => {
+                        const oId = owner.id || owner.owner_id || owner._id;
+                        const isCurrent = linkingPropertyForOwner.owner?.name && String(linkingPropertyForOwner.owner?.name).toLowerCase() === String(owner.name || '').toLowerCase();
+
+                        return (
+                          <div
+                            key={oId}
+                            className="p-2.5 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50/30 transition-all flex items-center justify-between gap-3 bg-white"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-700 font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                {getInitials(owner.name)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-semibold text-xs text-gray-800 truncate">{owner.name || 'Unnamed Owner'}</span>
+                                  {isCurrent && (
+                                    <span className="px-1.5 py-0.2 rounded-full text-[8px] font-bold bg-green-100 text-green-700">
+                                      Currently Linked
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-gray-500 flex items-center gap-2 mt-0.5 flex-wrap">
+                                  {owner.phone && (
+                                    <span className="flex items-center gap-1">
+                                      <Phone size={10} className="text-gray-400" /> {formatPhone(owner.phone)}
+                                    </span>
+                                  )}
+                                  {owner.location && (
+                                    <span className="flex items-center gap-1">
+                                      <MapPin size={10} className="text-gray-400" /> {owner.location}
+                                    </span>
+                                  )}
+                                  {owner.email && (
+                                    <span className="flex items-center gap-1 truncate max-w-[160px]">
+                                      <Mail size={10} className="text-gray-400" /> {owner.email}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => handleLinkOwnerToProperty(owner)}
+                              disabled={savingOwnerLink}
+                              className="px-3 py-1.5 bg-[#e67e22] hover:bg-[#d35400] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 flex-shrink-0 disabled:opacity-50"
+                            >
+                              <Link2 size={12} />
+                              <span>{isCurrent ? 'Re-link' : 'Link'}</span>
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Footer */}
+              <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowLinkOwnerModal(false);
+                    setLinkingPropertyForOwner(null);
+                  }}
+                  className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Close
+                </button>
               </div>
             </div>
-
-            {/* Modal Footer */}
-            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex justify-end flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowLinkOwnerModal(false);
-                  setLinkingPropertyForOwner(null);
-                }}
-                className="px-3 py-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200/80 rounded-lg transition-colors"
-              >
-                Close
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

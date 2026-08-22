@@ -1,10 +1,10 @@
-// src/components/owners/ImportOwnersModal.tsx
+// src/components/tenants/ImportTenantsModal.tsx
 import React, { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback } from "react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import * as XLSXRaw from "xlsx-js-style";
 import { usersAPI } from "@/lib/api";
-import ownerAPI from "@/lib/ownerAPI";
+import { tenantAPI } from "@/lib/tenantAPI";
 import { toast } from "react-toastify";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -24,7 +24,7 @@ import {
 
 const XLSX = XLSXRaw as any;
 
-// ESALE Theme Colors
+// Theme Colors matching Resale CRM layout
 const N = "#0f2b3d";
 const O = "#e67e22";
 const BG = "#f8fafc";
@@ -40,7 +40,7 @@ type PreviewRow = { rowNum: number; valid: boolean; reason?: string; data: RawRo
 type Executive = { id: string | number; name: string; email?: string; username?: string };
 type AssignmentMode = "none" | "selected";
 
-type ImportOwnersModalProps = {
+type ImportTenantsModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onImportComplete?: () => void;
@@ -271,42 +271,72 @@ function SummaryModal({ isOpen, onClose, title = "Import Summary", duplicates, s
   );
 }
 
-/* ====================== Template Download (matches OwnerFormModal fields) ====================== */
-const downloadOwnerTemplate = () => {
+/* ====================== Template Download ====================== */
+const downloadTenantTemplate = () => {
   const headers = [
-    "Salutation", "Name", "Phone", "WhatsApp", "Email", "Owner DOB",
-    "State", "City", "Location", "Lead Source", "Lead Stage", "Lead Type",
-    "Priority", "Status", "Notes"
+    "Name",
+    "Phone",
+    "Email",
+    "WhatsApp",
+    "Preferred Location",
+    "Budget Min",
+    "Budget Max",
+    "Preferred BHK",
+    "Tenant Type",
+    "Move In Date",
+    "Current Address",
+    "Notes",
+    "Status"
   ];
 
   const sampleRows = [
     [
-      "Mr.", "Rajesh Kumar", "9876543210", "9876543210", "rajesh.kumar@gmail.com", "1980-05-15",
-      "Maharashtra", "Mumbai", "Bandra West", "Website", "Initial Contact", "Owner Lead",
-      "High", "Active", "Looking to rent or sell residential 3BHK flat"
+      "Rahul Sharma",
+      "9876543210",
+      "rahul.sharma@example.com",
+      "9876543210",
+      "Kharghar, Sector 12",
+      "15000",
+      "22000",
+      "2 BHK",
+      "Family",
+      "2026-09-01",
+      "Flat 402, Shiv Darshan Towers, Vashi, Navi Mumbai",
+      "Needs parking space for a sedan and prefers high floor flats.",
+      "Active Search"
     ],
     [
-      "Mrs.", "Sunita Sharma", "9988776655", "9988776655", "sunita.sharma@gmail.com", "1975-12-20",
-      "Delhi", "New Delhi", "Connaught Place", "Referral", "Discussion", "Premium Owner",
-      "Medium", "In Progress", "Commercial showroom, prime location"
+      "Priyanka Patel",
+      "9812345678",
+      "priyanka.patel@example.com",
+      "9812345678",
+      "Seawoods",
+      "25000",
+      "35000",
+      "3 BHK",
+      "Family",
+      "2026-09-15",
+      "A-12, Green Meadows, Pune",
+      "Family moving due to job relocation. Prefers fully furnished flats.",
+      "Active Search"
     ]
   ];
 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
   // Mark mandatory columns (Name, Phone) as red
-  [1, 2].forEach(c => {
+  [0, 1].forEach(c => {
     const addr = XLSX.utils.encode_cell({ r: 0, c });
     if (ws[addr]) (ws as any)[addr].s = { font: { color: { rgb: "FF0000" }, bold: true } };
   });
   // Set column widths
-  ws['!cols'] = [12, 20, 15, 15, 25, 12, 12, 12, 16, 14, 16, 14, 10, 10, 30].map(w => ({ width: w }));
+  ws['!cols'] = [20, 15, 25, 15, 20, 12, 12, 12, 14, 12, 35, 35, 14].map(w => ({ width: w }));
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Owners");
-  XLSX.writeFile(wb, "Owners_Import_Template.xlsx");
+  XLSX.utils.book_append_sheet(wb, ws, "Tenants");
+  XLSX.writeFile(wb, "Tenants_Import_Template.xlsx");
 };
 
 /* ============================== Main Component ============================== */
-export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }: ImportOwnersModalProps) {
+export default function ImportTenantsModal({ isOpen, onClose, onImportComplete }: ImportTenantsModalProps) {
   const { user } = useAuth() as any;
   const onlyThisExecutive = isExecutiveUser(user);
 
@@ -358,7 +388,7 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
     const ws = XLSX.utils.json_to_sheet(rowsToExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Import Issues");
-    XLSX.writeFile(wb, `owners_import_issues_${Date.now()}.xlsx`);
+    XLSX.writeFile(wb, `tenants_import_issues_${Date.now()}.xlsx`);
     toast.success("Successfully exported import issues to Excel.");
   };
 
@@ -374,7 +404,7 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [execDropdownOpen]);
 
-  // Fetch sales executives (department=Sales, role=Sales Executive)
+  // Fetch sales executives (department=Sales, role=Sales Executive or Admin)
   useEffect(() => {
     if (!isOpen) return;
     (async () => {
@@ -386,6 +416,7 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
           const name = `${firstName} ${lastName}`.trim();
           return name || u?.username || u?.email || "Sales Executive";
         };
+        
         if (onlyThisExecutive) {
           const selfId = user?.id || user?.userId || user?._id || String(user?.email || user?.username || "me");
           setExecutives([{ id: selfId, name: formatName(user), email: user?.email, username: user?.username }]);
@@ -393,20 +424,20 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
           setAssignmentMode("selected");
           return;
         }
-        const res = await usersAPI.getByDeptRole({
-          department: "Sales",
-          role: "Sales Executive",
-          is_active: 1,
-          limit: 100,
-        });
-        const list = Array.isArray(res) ? res : res?.data || res?.items || [];
-        const mapped: Executive[] = list.map((u: any) => ({
-          id: u.id || u.userId || u._id,
-          name: formatName(u),
-          email: u.email,
-          username: u.username,
-        }));
-        setExecutives(mapped);
+
+        const usersRes = await usersAPI.getAllUsers();
+        if (usersRes.success && Array.isArray(usersRes.data)) {
+          const list = usersRes.data.filter((u: any) =>
+            u.role === 'sales_executive' || u.role_name === 'sales_executive' || u.role_name === 'admin'
+          );
+          const mapped: Executive[] = list.map((u: any) => ({
+            id: u.id || u.userId || u._id,
+            name: formatName(u),
+            email: u.email,
+            username: u.username,
+          }));
+          setExecutives(mapped);
+        }
       } catch (e) {
         console.error(e);
         toast.error("Could not fetch sales executives");
@@ -426,46 +457,44 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
   const selectAllExecs = () => setSelectedExecIds(new Set(executives.map(e => e.id)));
   const clearExecs = () => setSelectedExecIds(new Set());
 
-  // Normalize an owner row
-  const normalizeOwnerRow = (row: any) => {
+  // Normalize a tenant row
+  const normalizeTenantRow = (row: any) => {
     const normalized: Record<string, any> = {};
     Object.keys(row || {}).forEach(k => { if (row[k] !== undefined && row[k] !== null && row[k] !== "") normalized[String(k).trim().toLowerCase()] = row[k]; });
 
-    const owner: any = {
-      salutation: ensureString(normalized["salutation"]),
+    const tenant: any = {
       name: ensureString(normalized["name"]),
       phone: ensureString(normalized["phone"]),
-      whatsapp: ensureString(normalized["whatsapp"]),
       email: ensureString(normalized["email"]),
-      owner_dob: toISODate(normalized["owner_dob"]),
-      state: ensureString(normalized["state"]),
-      city: ensureString(normalized["city"]),
-      location: ensureString(normalized["location"]),
-      source: ensureString(normalized["lead source"] ?? normalized["source"]),
-      stage: ensureString(normalized["lead stage"] ?? normalized["stage"]),
-      leadType: ensureString(normalized["lead type"] ?? normalized["leadtype"]),
-      priority: ensureString(normalized["priority"]),
-      status: ensureString(normalized["status"]),
-      notes: ensureString(normalized["notes"]),
+      whatsapp: ensureString(normalized["whatsapp"] ?? normalized["phone"]),
+      preferred_location: ensureString(normalized["preferred location"] ?? normalized["preferred_location"] ?? normalized["location"]),
+      budget_min: ensureString(normalized["budget min"] ?? normalized["budget_min"] ?? normalized["min budget"]),
+      budget_max: ensureString(normalized["budget max"] ?? normalized["budget_max"] ?? normalized["max budget"]),
+      preferred_bhk: ensureString(normalized["preferred bhk"] ?? normalized["preferred_bhk"] ?? normalized["bhk"]),
+      tenant_type: ensureString(normalized["tenant type"] ?? normalized["tenant_type"]),
+      move_in_date: toISODate(normalized["move in date"] ?? normalized["move_in_date"]),
+      current_address: ensureString(normalized["current address"] ?? normalized["current_address"] ?? normalized["address"]),
+      notes: ensureString(normalized["notes"] ?? normalized["remarks"]),
+      status: ensureString(normalized["status"]) || "Active Search",
     };
     // Clean undefined values
-    Object.keys(owner).forEach(k => { if (owner[k] === undefined) delete owner[k]; });
+    Object.keys(tenant).forEach(k => { if (tenant[k] === undefined) delete tenant[k]; });
     const rowErrors: string[] = [];
-    if (!owner.name) rowErrors.push("Missing name");
-    if (!owner.phone) rowErrors.push("Missing phone");
-    if (owner.phone) {
-      const p = toCanonicalPhone(owner.phone);
-      owner.phone = p.display;
+    if (!tenant.name) rowErrors.push("Missing name");
+    if (!tenant.phone) rowErrors.push("Missing phone");
+    if (tenant.phone) {
+      const p = toCanonicalPhone(tenant.phone);
+      tenant.phone = p.display;
     }
-    if (owner.whatsapp) {
-      const w = toCanonicalPhone(owner.whatsapp);
-      owner.whatsapp = w.display;
+    if (tenant.whatsapp) {
+      const w = toCanonicalPhone(tenant.whatsapp);
+      tenant.whatsapp = w.display;
     }
-    return { owner, rowErrors };
+    return { tenant, rowErrors };
   };
 
   // Validate all rows and produce preview
-  const filterValidOwnersWithPreview = (data: RawRow[]) => {
+  const filterValidTenantsWithPreview = (data: RawRow[]) => {
     const seenPhoneKeys = new Set<string>();
     const seenEmails = new Set<string>();
     const validData: any[] = [];
@@ -475,15 +504,15 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
 
     data.forEach((row, index) => {
       const rowNum = index + 2;
-      const { owner, rowErrors } = normalizeOwnerRow(row);
+      const { tenant, rowErrors } = normalizeTenantRow(row);
       if (rowErrors.length > 0) {
         skipped.push({ row: rowNum, reason: `Validation: ${rowErrors.join(", ")}`, data: row, errors: rowErrors });
         previewRowsArr.push({ rowNum, valid: false, reason: rowErrors.join(", "), data: row });
         return;
       }
-      const phoneParsed = toCanonicalPhone(owner.phone);
+      const phoneParsed = toCanonicalPhone(tenant.phone);
       const phoneKey = phoneParsed.key;
-      const email = (owner.email ? owner.email : "").toLowerCase();
+      const email = (tenant.email ? tenant.email : "").toLowerCase();
       if (phoneKey && seenPhoneKeys.has(phoneKey)) {
         localDuplicates.push({ row: rowNum, reason: "Duplicate phone in file", data: row, duplicateFields: ["phone"] });
         previewRowsArr.push({ rowNum, valid: false, reason: "Duplicate phone", data: row });
@@ -494,10 +523,10 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
         previewRowsArr.push({ rowNum, valid: false, reason: "Duplicate email", data: row });
         return;
       }
-      const phoneDigits = owner.phone.replace(/[^\d+]/g, "");
+      const phoneDigits = tenant.phone.replace(/[^\d+]/g, "");
       const okPhone = /^\+91\d{10}$/.test(phoneDigits) || /^\+\d{10,15}$/.test(phoneDigits) || /^\d{10}$/.test(phoneDigits);
       if (!okPhone) {
-        const reason = `Invalid phone format (${owner.phone})`;
+        const reason = `Invalid phone format (${tenant.phone})`;
         skipped.push({ row: rowNum, reason, data: row });
         previewRowsArr.push({ rowNum, valid: false, reason, data: row });
         return;
@@ -508,8 +537,8 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
         previewRowsArr.push({ rowNum, valid: false, reason, data: row });
         return;
       }
-      validData.push(owner);
-      previewRowsArr.push({ rowNum, valid: true, reason: "Valid", data: row, normalizedData: owner });
+      validData.push(tenant);
+      previewRowsArr.push({ rowNum, valid: true, reason: "Valid", data: row, normalizedData: tenant });
       seenPhoneKeys.add(phoneKey);
       if (email) seenEmails.add(email);
     });
@@ -519,13 +548,13 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
   const processPreview = (rawData: RawRow[], source: string) => {
     setPreviewLoading(true);
     try {
-      const { validData, nonDuplicateSkipped, localDuplicates, previewRows } = filterValidOwnersWithPreview(rawData);
+      const { validData, nonDuplicateSkipped, localDuplicates, previewRows } = filterValidTenantsWithPreview(rawData);
       setValidPreviewData(validData);
       setPreviewSkipped(nonDuplicateSkipped);
       setPreviewDuplicates(localDuplicates);
       setPreviewRows(previewRows);
       setShowPreview(true);
-      if (validData.length === 0) toast.warning(`No valid owners found in ${source}.`);
+      if (validData.length === 0) toast.warning(`No valid tenants found in ${source}.`);
       else toast.info(`Preview: ${validData.length} valid, ${nonDuplicateSkipped.length + localDuplicates.length} issues.`);
     } catch (err) { console.error(err); toast.error(`Error processing ${source}`); }
     finally { setPreviewLoading(false); }
@@ -615,12 +644,12 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
   };
 
   const executeImport = async () => {
-    if (validPreviewData.length === 0) { toast.error("No valid owners to import. Check preview."); return; }
+    if (validPreviewData.length === 0) { toast.error("No valid tenants to import. Check preview."); return; }
     if (!onlyThisExecutive && assignmentMode === "selected" && selectedExecIds.size === 0) { toast.error("Select at least one executive or choose 'None'."); return; }
     setIsUploading(true);
     try {
       const payload = applyAssignmentPolicy(validPreviewData);
-      const res = await ownerAPI.importOwners(payload);
+      const res = await tenantAPI.importTenants(payload);
       const ok = res?.success === true || res?.ok === true || (typeof res?.status === "number" && res.status >= 200 && res.status < 300) || typeof res?.inserted !== "undefined";
       if (!ok) { toast.error(res?.message || "Import failed"); setIsUploading(false); return; }
       const insertedCount = res?.inserted ?? res?.data?.inserted ?? payload.length;
@@ -635,7 +664,7 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
       setSkippedRows(allSkipped);
       setUpdatedRows(serverUpdated);
       if (insertedCount > 0 && allDuplicates.length === 0 && allSkipped.length === 0) {
-        toast.success(`Imported ${insertedCount} owner(s) successfully.`);
+        toast.success(`Imported ${insertedCount} tenant(s) successfully.`);
         onImportComplete?.();
         resetAndClose();
       } else {
@@ -683,7 +712,7 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
           <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between" style={{ background: N }}>
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-lg" style={{ background: `${O}20` }}><Upload size={14} style={{ color: O }} /></div>
-              <div><h2 className="text-sm font-bold text-white">Import Owners</h2><p className="text-[9px] text-white/70">Import owners from Excel files or Google Sheets</p></div>
+              <div><h2 className="text-sm font-bold text-white">Import Tenants</h2><p className="text-[9px] text-white/70">Import tenants from Excel files or Google Sheets</p></div>
             </div>
             <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white"><X size={16} /></button>
           </div>
@@ -721,17 +750,17 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
                   </button>
                 </div>
 
-                <button onClick={downloadOwnerTemplate} className="w-full rounded-lg py-1.5 text-[10px] font-medium transition-all border flex items-center justify-center gap-1" style={{ borderColor: BD, color: N }}><Download size={10} /> Download Template</button>
+                <button onClick={downloadTenantTemplate} className="w-full rounded-lg py-1.5 text-[10px] font-medium transition-all border flex items-center justify-center gap-1" style={{ borderColor: BD, color: N }}><Download size={10} /> Download Template</button>
               </div>
 
               {/* Right Column - Assignment */}
               <div className="space-y-3">
                 <div className="rounded-lg p-2.5" style={{ background: BG, border: `1px solid ${BD}` }}>
-                  <h3 className="text-[11px] font-bold mb-2 flex items-center gap-1" style={{ color: N }}><Users size={12} style={{ color: O }} /> Owner Assignment</h3>
+                  <h3 className="text-[11px] font-bold mb-2 flex items-center gap-1" style={{ color: N }}><Users size={12} style={{ color: O }} /> Tenant Assignment</h3>
                   <div className="space-y-2">
                     <label className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer ${assignmentMode === "none" && !onlyThisExecutive ? "border-orange-300 bg-orange-50" : "border-gray-200 bg-white"} ${onlyThisExecutive ? "opacity-60 cursor-not-allowed" : ""}`}>
                       <input type="radio" className="mt-0.5 w-3 h-3" style={{ accentColor: O }} checked={assignmentMode === "none"} onChange={() => !onlyThisExecutive && setAssignmentMode("none")} disabled={onlyThisExecutive} />
-                      <div className="flex-1"><p className="text-[10px] font-medium" style={{ color: N }}>No Assignment</p><p className="text-[8px]" style={{ color: MU }}>Owners not assigned to any executive</p></div>
+                      <div className="flex-1"><p className="text-[10px] font-medium" style={{ color: N }}>No Assignment</p><p className="text-[8px]" style={{ color: MU }}>Tenants not assigned to any executive</p></div>
                     </label>
                     <label className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer ${assignmentMode === "selected" || onlyThisExecutive ? "border-orange-300 bg-orange-50" : "border-gray-200 bg-white"}`}>
                       <input type="radio" className="mt-0.5 w-3 h-3" style={{ accentColor: O }} checked={assignmentMode === "selected" || onlyThisExecutive} onChange={() => setAssignmentMode("selected")} disabled={onlyThisExecutive} />
@@ -748,14 +777,15 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
                             <div className="p-1.5 border-b"><div className="relative"><Search size={9} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: MU }} /><input type="text" value={execSearch} onChange={e => setExecSearch(e.target.value)} placeholder="Search..." className="w-full pl-6 pr-2 py-1 text-[9px] border rounded" style={{ borderColor: BD }} /></div></div>
                             <div className="max-h-40 overflow-auto">
                               {execsLoading ? <div className="p-2 text-center text-[9px]" style={{ color: MU }}>Loading...</div> : filteredExecutives.length === 0 ? <div className="p-2 text-center text-[9px]" style={{ color: MU }}>No executives</div> : filteredExecutives.map(e => (
-                                <label key={e.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 cursor-pointer">
-                                  <input type="checkbox" className="w-3 h-3 rounded" style={{ accentColor: O }} checked={selectedExecIds.has(e.id)} onChange={() => toggleExec(e.id)} />
-                                  <span className="text-[9px]" style={{ color: N }}>{e.name}</span>
+                                <label key={e.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer border-b last:border-0" style={{ borderColor: BD }}>
+                                  <input type="checkbox" checked={selectedExecIds.has(e.id)} onChange={() => toggleExec(e.id)} className="w-3 h-3 rounded" style={{ accentColor: O }} />
+                                  <div className="text-[10px]"><p className="font-semibold" style={{ color: N }}>{e.name}</p><p className="text-[8px]" style={{ color: MU }}>{e.email || e.username || ""}</p></div>
                                 </label>
                               ))}
                             </div>
-                            <div className="flex items-center justify-between p-1.5 border-t bg-gray-50">
-                              <div className="flex gap-1"><button onClick={selectAllExecs} className="px-2 py-0.5 text-[8px] rounded" style={{ color: N }}>All</button><button onClick={clearExecs} className="px-2 py-0.5 text-[8px] rounded" style={{ color: N }}>Clear</button></div>
+                            <div className="flex justify-between bg-gray-50 p-1.5 border-t" style={{ borderColor: BD }}>
+                              <button type="button" onClick={selectAllExecs} className="text-[8px] font-bold" style={{ color: O }}>Select All</button>
+                              <button type="button" onClick={clearExecs} className="text-[8px] font-bold text-red-500">Clear</button>
                             </div>
                           </div>
                         )}
@@ -763,70 +793,92 @@ export default function ImportOwnersModal({ isOpen, onClose, onImportComplete }:
                     )}
                   </div>
                 </div>
-
-                <div className="rounded-lg p-2.5" style={{ background: `${O}10`, border: `1px solid ${O}20` }}>
-                  <div className="flex items-start gap-1.5"><AlertCircle size={10} className="shrink-0 mt-0.5" style={{ color: O }} /><div><p className="text-[9px] font-medium mb-0.5" style={{ color: N }}>Required fields:</p><div className="flex gap-1.5"><span className="px-1.5 py-0.5 rounded text-[8px] font-medium" style={{ background: `${O}20`, color: O }}>Name*</span><span className="px-1.5 py-0.5 rounded text-[8px] font-medium" style={{ background: `${O}20`, color: O }}>Phone*</span></div></div></div>
-                </div>
-
-                {(skippedRows.length > 0 || previewSkipped.length > 0 || previewDuplicates.length > 0) && (
-                  <button onClick={exportSkippedRows} className="w-full rounded-lg py-1.5 text-[10px] font-medium transition-all border flex items-center justify-center gap-1" style={{ borderColor: BD, color: O }}><FileWarning size={10} /> Export Error Report ({skippedRows.length || (previewSkipped.length + previewDuplicates.length)})</button>
-                )}
               </div>
             </div>
 
             {/* Preview Section */}
             {showPreview && (
-              <div className="mt-3 rounded-lg overflow-hidden" style={{ border: `1px solid ${BD}` }}>
-                <div className="px-3 py-1.5 flex items-center justify-between" style={{ background: BG, borderBottom: `1px solid ${BD}` }}>
-                  <div className="flex items-center gap-1.5"><CheckCircle size={10} style={{ color: O }} /><span className="text-[9px] font-medium" style={{ color: N }}>{validPreviewData.length} owner(s) ready to import</span></div>
-                  <div className="flex gap-2 text-[8px]"><span className="text-green-600">Valid: {validPreviewData.length}</span><span className="text-red-600">Issues: {previewSkipped.length + previewDuplicates.length}</span></div>
+              <div className="mt-4 pt-3 border-t" style={{ borderColor: BD }}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[11px] font-bold uppercase tracking-wide flex items-center gap-1.5" style={{ color: N }}>
+                    <FileSpreadsheet size={13} style={{ color: O }} /> Preview Parsing ({previewRows.length} total rows)
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200">Valid: {validPreviewData.length}</span>
+                    {(previewSkipped.length > 0 || previewDuplicates.length > 0) && (
+                      <button onClick={exportSkippedRows} className="text-[9px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200 flex items-center gap-1 hover:bg-red-100">
+                        <FileWarning size={10} /> Issues: {previewSkipped.length + previewDuplicates.length} (Click to export)
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="max-h-48 overflow-y-auto">
-                  <table className="w-full text-[9px] border-collapse">
-                    <thead className="sticky top-0 bg-gray-50" style={{ background: BG }}>
-                      <tr>
-                        <th className="px-2 py-1 text-left font-semibold">Row</th>
-                        <th className="px-2 py-1 text-left font-semibold">Status</th>
-                        <th className="px-2 py-1 text-left font-semibold">Name</th>
-                        <th className="px-2 py-1 text-left font-semibold">Phone</th>
-                        <th className="px-2 py-1 text-left font-semibold">Email</th>
-                        <th className="px-2 py-1 text-left font-semibold">Location</th>
-                        <th className="px-2 py-1 text-left font-semibold">Stage</th>
+
+                <div className="max-h-60 overflow-auto border rounded-lg" style={{ borderColor: BD }}>
+                  <table className="w-full text-[10px] border-collapse bg-white">
+                    <thead className="sticky top-0 bg-gray-50 text-left z-10" style={{ borderBottom: `1px solid ${BD}` }}>
+                      <tr className="text-gray-600 font-semibold">
+                        <th className="px-2.5 py-2 border-r text-center" style={{ borderColor: BD }}>Row</th>
+                        <th className="px-2.5 py-2 border-r text-center" style={{ borderColor: BD }}>Status</th>
+                        <th className="px-2.5 py-2 border-r text-left" style={{ borderColor: BD }}>Validation Reason</th>
+                        <th className="px-2.5 py-2 border-r text-left" style={{ borderColor: BD }}>Name</th>
+                        <th className="px-2.5 py-2 border-r text-left" style={{ borderColor: BD }}>Phone</th>
+                        <th className="px-2.5 py-2 border-r text-left" style={{ borderColor: BD }}>Email</th>
+                        <th className="px-2.5 py-2 border-r text-left" style={{ borderColor: BD }}>Budget</th>
+                        <th className="px-2.5 py-2 border-r text-left" style={{ borderColor: BD }}>BHK</th>
+                        <th className="px-2.5 py-2 text-left" style={{ borderColor: BD }}>Location</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {previewRows.slice(0, 10).map((row, idx) => (
-                        <tr key={idx} className={row.valid ? "hover:bg-green-50" : "hover:bg-red-50"}>
-                          <td className="px-2 py-1">{row.rowNum}</td>
-                          <td className="px-2 py-1" style={{ color: row.valid ? "#2e7d32" : "#c62828" }}>{row.valid ? "✅ Valid" : `❌ ${row.reason?.substring(0, 30)}`}</td>
-                          <td className="px-2 py-1">{row.normalizedData?.name || row.data?.Name || "-"}</td>
-                          <td className="px-2 py-1">{row.normalizedData?.phone || row.data?.Phone || "-"}</td>
-                          <td className="px-2 py-1">{row.normalizedData?.email || row.data?.Email || "-"}</td>
-                          <td className="px-2 py-1">{row.normalizedData?.location || row.data?.Location || "-"}</td>
-                          <td className="px-2 py-1">{row.normalizedData?.stage || row.data?.Stage || "-"}</td>
+                    <tbody className="divide-y divide-gray-100" style={{ borderColor: BD }}>
+                      {previewRows.map((r, i) => (
+                        <tr key={i} className={`hover:bg-slate-50/50 ${!r.valid ? "bg-red-50/10" : ""}`}>
+                          <td className="px-2.5 py-1.5 border-r text-center font-bold" style={{ borderColor: BD }}>{r.rowNum}</td>
+                          <td className="px-2.5 py-1.5 border-r text-center" style={{ borderColor: BD }}>
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold ${r.valid ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                              {r.valid ? "VALID" : "ISSUE"}
+                            </span>
+                          </td>
+                          <td className={`px-2.5 py-1.5 border-r font-medium ${r.valid ? "text-slate-400" : "text-red-600 font-bold"}`} style={{ borderColor: BD }}>{r.reason || "Valid row"}</td>
+                          <td className="px-2.5 py-1.5 border-r font-bold text-slate-800" style={{ borderColor: BD }}>{r.data?.Name || r.data?.name || "-"}</td>
+                          <td className="px-2.5 py-1.5 border-r text-slate-700" style={{ borderColor: BD }}>{r.data?.Phone || r.data?.phone || "-"}</td>
+                          <td className="px-2.5 py-1.5 border-r text-slate-500" style={{ borderColor: BD }}>{r.data?.Email || r.data?.email || "-"}</td>
+                          <td className="px-2.5 py-1.5 border-r text-slate-600" style={{ borderColor: BD }}>
+                            {r.data?.["Budget Min"] || r.data?.budget_min || "0"} - {r.data?.["Budget Max"] || r.data?.budget_max || "0"}
+                          </td>
+                          <td className="px-2.5 py-1.5 border-r text-slate-600" style={{ borderColor: BD }}>{r.data?.["Preferred BHK"] || r.data?.preferred_bhk || "-"}</td>
+                          <td className="px-2.5 py-1.5 text-slate-600 truncate max-w-[150px]" style={{ borderColor: BD }}>{r.data?.["Preferred Location"] || r.data?.preferred_location || "-"}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  {previewRows.length > 10 && <div className="p-2 text-center text-[8px]" style={{ color: MU }}>Showing first 10 of {previewRows.length} rows</div>}
                 </div>
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="px-4 sm:px-5 py-2.5 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2" style={{ borderColor: BD, background: BG }}>
-            <div className="flex items-center"><AlertCircle size={10} style={{ color: MU }} /><span className="text-[8px] ml-1" style={{ color: MU }}>Fields marked with * are required</span></div>
-            <div className="flex items-center gap-2">
-              <button onClick={handleClose} className="px-3 py-1.5 text-[10px] font-medium rounded-lg transition-all hover:bg-gray-50" style={{ border: `1px solid ${BD}`, color: N }}>Cancel</button>
-              <button onClick={executeImport} disabled={validPreviewData.length === 0 || isUploading || previewLoading} className="px-3 py-1.5 text-[10px] font-medium text-white rounded-lg transition-all hover:opacity-80 disabled:opacity-50 flex items-center gap-1" style={{ background: O }}>
-                {isUploading ? <><Loader2 size={10} className="animate-spin" /> Importing...</> : <><Upload size={10} /> Import Owners ({validPreviewData.length})</>}
-              </button>
-            </div>
+          <div className="px-5 py-2.5 flex justify-end gap-2 border-t" style={{ borderColor: BD, background: BG }}>
+            <Button variant="outline" onClick={handleClose} className="px-3.5 py-1.5 text-[10px] border border-gray-300 rounded-lg hover:bg-gray-50 transition-all font-semibold" style={{ color: N }}>Cancel</Button>
+            <Button
+              onClick={executeImport}
+              disabled={validPreviewData.length === 0 || isUploading || previewLoading}
+              className="px-3.5 py-1.5 text-[10px] font-bold text-white rounded-lg transition-all shadow-sm hover:opacity-90 flex items-center gap-1.5"
+              style={{ background: O }}
+            >
+              {isUploading ? <Loader2 size={12} className="animate-spin" /> : "Commit Import"}
+            </Button>
           </div>
         </div>
       </div>
-      <SummaryModal isOpen={showSummary} onClose={() => setShowSummary(false)} duplicates={duplicates} skippedRows={skippedRows} updatedRows={updatedRows} onExport={exportSkippedRows} />
+
+      <SummaryModal
+        isOpen={showSummary}
+        onClose={resetAndClose}
+        title="Tenant Import Complete"
+        duplicates={duplicates}
+        skippedRows={skippedRows}
+        updatedRows={updatedRows}
+        onExport={exportSkippedRows}
+      />
     </>
   );
 }
