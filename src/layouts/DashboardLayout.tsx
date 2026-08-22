@@ -433,7 +433,7 @@ const DashboardLayout = () => {
         "/dashboard/accounts",
       ],
       tools: ["/dashboard/vendors", "/dashboard/ai-training"],
-      reports: ["/dashboard/activities", "/dashboard/analytics"],
+      reports: ["/dashboard/activities", "/reports/activities", "/dashboard/analytics", "/admin/reports"],
       settings: [
         "/dashboard/settings",
         "/dashboard/settings/roles-permissions",
@@ -665,8 +665,15 @@ const DashboardLayout = () => {
         required: "report.read",
         submenu: [
           {
+            name: "Reports & BI",
+            href: "/admin/reports",
+            icon: BarChart3,
+            colorClass: navTextClass,
+            required: "report.read",
+          },
+          {
             name: "Activities",
-            href: "/dashboard/activities",
+            href: "/reports/activities",
             icon: Activity,
             colorClass: navTextClass,
             required: "report.read",
