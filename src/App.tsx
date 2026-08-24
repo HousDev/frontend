@@ -33,6 +33,7 @@ import ActivitiesPage from '@/pages/dashboard/ActivitiesPage';
 import AnalyticsPage from '@/pages/dashboard/AnalyticsPage';
 import UsersPage from '@/pages/dashboard/UsersPage';
 import SettingsPage from '@/pages/dashboard/SettingsPage';
+import { ReportsPage } from './components/reports/ReportsPage';
 
 
 
@@ -133,6 +134,28 @@ function App() {
                   />
                   
 
+                  <Route
+                    path="/admin/reports"
+                    element={
+                      <ProtectedRoute>
+                        <DashboardLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<ReportsPage />} />
+                  </Route>
+
+                  <Route
+                    path="/reports/activities"
+                    element={
+                      <ProtectedRoute>
+                        <DashboardLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<ActivitiesPage />} />
+                  </Route>
+
                   <Route path="/digio/success" element={<DigioSuccess />} />
 
 
@@ -213,6 +236,8 @@ function App() {
                     <Route path="vendors" element={<VendorDirectoryPage />} />
                     <Route path="activities" element={<ActivitiesPage />} />
                     <Route path="analytics" element={<AnalyticsPage />} />
+                    <Route path="reports" element={<ReportsPage />} />
+                    <Route path="admin/reports" element={<ReportsPage />} />
                     <Route path="users" element={<UsersPage />} />
                     <Route path="profile" element={<SettingsPage />} />
 

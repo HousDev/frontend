@@ -1,596 +1,455 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+// frontend/src/pages/dashboard/ActivitiesPage.tsx
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  Plus,
-  Search,
-  Filter,
-  Calendar,
-  Clock,
-  Phone,
-  Mail,
-  MessageSquare,
   Users,
-  Building,
-  CheckCircle,
-  XCircle,
-  Edit,
-  Trash2,
-  MoreHorizontal,
-  Bell,
-  AlertTriangle,
-  X,
-  ChevronDown,
-} from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { activitiesAPI } from '@/lib/api';
-import Button from '@/components/ui/Button';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { toast } from '@/hooks/useToast';
+  PhoneCall,
+  UserCheck,
+  CheckCircle2,
+} from "lucide-react";
+import { reportAPI } from "@/lib/reportAPI";
+import {
+  PRINT_BRAND_STYLE,
+  buildBrandHeaderHTML,
+  buildWatermarkHTML,
+  triggerIframePrint,
+} from "@/lib/printUtils";
+import { SmartFilterDrawer, SmartFilterParams } from "@/components/reports/SmartFilterDrawer";
+import { ReportTable, ColumnDef, StatusPill } from "@/components/reports/ReportTable";
 
-interface Activity {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  assigned_to: string;
-  lead_id?: string;
-  property_id?: string;
-  lead_name?: string;
-  property_title?: string;
-  scheduled_at: string;
-  completed_at?: string;
-  created_at: string;
-  created_by: string;
-  due_date?: string;
-  notes?: string;
-}
+export const ActivitiesPage: React.FC = () => {
+  const [activeView, setActiveView] = useState<"user_breakdown" | "activity_logs">("user_breakdown");
+  const [loading, setLoading] = useState<boolean>(true);
 
-const ActivitiesPage: React.FC = () => {
-  const { user } = useAuth();
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
-  const [showAddActivity, setShowAddActivity] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [newActivity, setNewActivity] = useState({
-    type: 'task',
-    title: '',
-    description: '',
-    priority: 'medium',
-    scheduled_at: '',
-    lead_id: '',
-    property_id: '',
-  });
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  // Stats & Data State
+  const [stats, setStats] = useState<any>(null);
+  const [userSummary, setUserSummary] = useState<any[]>([]);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchActivities();
-  }, [searchTerm, statusFilter, typeFilter, priorityFilter, dateFilter]);
+  // Filter & Drawer State
+  const [filters, setFilters] = useState<SmartFilterParams>({ ignoreDate: true, status: "all" });
+  const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
+  const [activeStatusPill, setActiveStatusPill] = useState<string>("all");
 
-
-  
-  const fetchActivities = async () => {
+  // Fetch Activity Report Data
+  const fetchActivityReport = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const params: any = {};
-      
-      if (searchTerm) params.search = searchTerm;
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (typeFilter !== 'all') params.type = typeFilter;
-      if (priorityFilter !== 'all') params.priority = priorityFilter;
-      if (dateFilter !== 'all') {
-        const today = new Date();
-        switch (dateFilter) {
-          case 'today':
-            params.date = today.toISOString().split('T')[0];
-            break;
-          case 'this_week':
-            const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
-            params.date_from = weekStart.toISOString().split('T')[0];
-            break;
-          case 'overdue':
-            params.overdue = true;
-            break;
-        }
-      }
-      
-      const response = await activitiesAPI.getActivities(params);
-      if (response.success) {
-        setActivities(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching activities:', error);
-      // toast.error('Failed to load activities');
+      const res = await reportAPI.getActivityReport(filters);
+      if (res?.stats) setStats(res.stats);
+      if (res?.userSummary) setUserSummary(res.userSummary);
+      if (res?.data) setActivityLogs(res.data);
+    } catch (err) {
+      console.error("Failed to load activity report:", err);
     } finally {
       setLoading(false);
     }
+  }, [filters]);
+
+  useEffect(() => {
+    fetchActivityReport();
+  }, [fetchActivityReport]);
+
+  const safeStats = stats || { total_count: 0, call_count: 0, meeting_count: 0, whatsapp_count: 0, completed_count: 0 };
+
+  const totalExecutiveUsers = userSummary.length;
+  const totalAssignedLeads = userSummary.reduce((acc, curr) => acc + Number(curr.assigned_leads || 0), 0);
+  const totalInterestedLeads = userSummary.reduce((acc, curr) => acc + Number(curr.interested_leads || 0), 0);
+  const totalCallsDone = userSummary.reduce((acc, curr) => acc + Number(curr.calls_done || 0), 0);
+
+  // Status Pills
+  const statusPills: StatusPill[] = [
+    { label: "Total Executive Users", key: "all", count: totalExecutiveUsers },
+    { label: "Assigned Leads", key: "assigned", count: totalAssignedLeads },
+    { label: "Interested Leads", key: "interested", count: totalInterestedLeads },
+    { label: "Activity Logs", key: "logs", count: safeStats.total_count || activityLogs.length },
+  ];
+
+  // Clickable Status Pills Filter Logic
+  const handleSelectStatusPill = (key: string) => {
+    setActiveStatusPill(key);
+    if (key === "logs") {
+      setActiveView("activity_logs");
+    } else {
+      setActiveView("user_breakdown");
+    }
   };
 
-  const handleAddActivity = async () => {
-    try {
-      const activityData = {
-        ...newActivity,
-        assigned_to: user?.id,
-        lead_id: newActivity.lead_id || undefined,
-        property_id: newActivity.property_id || undefined,
-      };
-      
-      await activitiesAPI.createActivity(activityData);
-      toast.success('Activity created successfully');
-      setNewActivity({
-        type: 'task',
-        title: '',
-        description: '',
-        priority: 'medium',
-        scheduled_at: '',
-        lead_id: '',
-        property_id: '',
+  // Filter userSummary according to activeStatusPill
+  const displayUserSummary = userSummary.filter((u) => {
+    if (activeStatusPill === "assigned") return Number(u.assigned_leads || 0) > 0;
+    if (activeStatusPill === "interested") return Number(u.interested_leads || 0) > 0;
+    return true;
+  });
+
+  // User Lead Activity Execution Table Columns
+  const userColumns: ColumnDef[] = [
+    {
+      key: "user_name",
+      header: "EXECUTIVE NAME & ROLE",
+      searchPlaceholder: "Search executive...",
+      render: (row) => (
+        <div>
+          <div className="font-bold text-gray-900 flex items-center gap-2">
+            <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+            {row.user_name || "N/A"}
+          </div>
+          <div className="text-[11px] text-gray-400 capitalize">{row.role || "Executive"} | {row.department || "Sales"}</div>
+        </div>
+      ),
+    },
+    {
+      key: "assigned_leads",
+      header: "ASSIGNED LEADS",
+      render: (row) => <span className="font-bold text-gray-900">{row.assigned_leads || 0}</span>,
+    },
+    {
+      key: "calls_done",
+      header: "CALLS COMPLETED",
+      render: (row) => <span className="font-semibold text-blue-700">{row.calls_done || 0}</span>,
+    },
+    {
+      key: "pending_calls",
+      header: "NOT CALLED / PENDING",
+      render: (row) => <span className="font-semibold text-amber-700">{row.pending_calls || 0}</span>,
+    },
+    {
+      key: "interested_leads",
+      header: "INTERESTED LEADS",
+      render: (row) => <span className="font-bold text-emerald-600">{row.interested_leads || 0}</span>,
+    },
+    {
+      key: "not_interested_leads",
+      header: "NOT INTERESTED",
+      render: (row) => <span className="font-medium text-rose-600">{row.not_interested_leads || 0}</span>,
+    },
+    {
+      key: "followups_count",
+      header: "FOLLOW-UPS LOGGED",
+      render: (row) => <span className="font-bold text-purple-700">{row.followups_count || 0}</span>,
+    },
+    {
+      key: "conversion_rate",
+      header: "CONVERSION RATE",
+      render: (row) => {
+        const assigned = Number(row.assigned_leads || 0);
+        const interested = Number(row.interested_leads || 0);
+        const rate = assigned > 0 ? Number(((interested / assigned) * 100).toFixed(1)) : 0;
+        return <span className="font-bold text-navy-900">{rate}%</span>;
+      },
+    },
+  ];
+
+  // Activity History Logs Columns
+  const logColumns: ColumnDef[] = [
+    {
+      key: "type",
+      header: "ACTIVITY TYPE",
+      searchPlaceholder: "Search type...",
+      render: (row) => <span className="font-bold text-gray-900 capitalize">{row.type || "Call"}</span>,
+    },
+    {
+      key: "description",
+      header: "DESCRIPTION / REMARK",
+      searchPlaceholder: "Search description...",
+      render: (row) => row.description || "N/A",
+    },
+    {
+      key: "status",
+      header: "STATUS",
+      searchPlaceholder: "Search status...",
+      render: (row) => {
+        const s = (row.status || "completed").toLowerCase();
+        const color = s === "completed" || s === "done" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800";
+        return <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${color}`}>{row.status || "Completed"}</span>;
+      },
+    },
+    {
+      key: "scheduled_date",
+      header: "DATE & TIME",
+      render: (row) => (row.scheduled_date ? new Date(row.scheduled_date).toLocaleString("en-IN") : "N/A"),
+    },
+    {
+      key: "user_name",
+      header: "PERFORMED BY",
+      render: (row) => row.user_name || "Agent",
+    },
+  ];
+
+  // Instant Client-Side CSV Export
+  const handleExportCSV = () => {
+    let csv = "";
+    if (activeView === "user_breakdown") {
+      csv = "S.NO,EXECUTIVE NAME,ROLE,DEPARTMENT,ASSIGNED LEADS,CALLS COMPLETED,PENDING CALLS,INTERESTED LEADS,NOT INTERESTED,FOLLOW-UPS LOGGED,CONVERSION RATE\n";
+      displayUserSummary.forEach((r, idx) => {
+        const assigned = Number(r.assigned_leads || 0);
+        const interested = Number(r.interested_leads || 0);
+        const rate = assigned > 0 ? Number(((interested / assigned) * 100).toFixed(1)) : 0;
+        csv += `"${idx + 1}","${r.user_name || ""}","${r.role || ""}","${r.department || ""}","${r.assigned_leads || 0}","${r.calls_done || 0}","${r.pending_calls || 0}","${r.interested_leads || 0}","${r.not_interested_leads || 0}","${r.followups_count || 0}","${rate}%"\n`;
       });
-      setShowAddActivity(false);
-      fetchActivities();
-    } catch (error) {
-      console.error('Error creating activity:', error);
-      toast.error('Failed to create activity');
-    }
-  };
-
-  const handleCompleteActivity = async (activityId: string) => {
-    try {
-      await activitiesAPI.updateActivity(activityId, {
-        status: 'completed',
-        completed_at: new Date().toISOString(),
+    } else {
+      csv = "S.NO,ACTIVITY TYPE,DESCRIPTION,STATUS,DATE,PERFORMED BY\n";
+      activityLogs.forEach((r, idx) => {
+        csv += `"${idx + 1}","${r.type || ""}","${(r.description || "").replace(/"/g, '""')}","${r.status || ""}","${r.scheduled_date || ""}","${r.user_name || ""}"\n`;
       });
-      toast.success('Activity marked as completed');
-      fetchActivities();
-    } catch (error) {
-      console.error('Error completing activity:', error);
-      toast.error('Failed to complete activity');
     }
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `user_activity_report_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const handleDeleteActivity = async (activityId: string) => {
-    if (window.confirm('Are you sure you want to delete this activity?')) {
-      try {
-        await activitiesAPI.deleteActivity(activityId);
-        toast.success('Activity deleted successfully');
-        fetchActivities();
-      } catch (error) {
-        console.error('Error deleting activity:', error);
-        toast.error('Failed to delete activity');
-      }
-    }
-  };
+  // Print Preview
+  const handlePrint = () => {
+    const orgName = "RESALE EXPERT";
+    const tabName = "USER ACTIVITY REPORT";
+    const pdfTitle = `${orgName}_User_Activity_Report_${new Date().toISOString().slice(0, 10)}`;
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+    const headerHTML = buildBrandHeaderHTML("", orgName, tabName);
+    const watermarkHTML = buildWatermarkHTML(orgName);
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority?.toLowerCase()) {
-      case 'high':
-        return 'text-red-600';
-      case 'medium':
-        return 'text-yellow-600';
-      case 'low':
-        return 'text-green-600';
-      default:
-        return 'text-gray-600';
-    }
-  };
+    const activeDataset = activeView === "user_breakdown" ? displayUserSummary : activityLogs;
 
-  const getActivityIcon = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case 'call':
-        return <Phone className="h-4 w-4" />;
-      case 'email':
-        return <Mail className="h-4 w-4" />;
-      case 'meeting':
-        return <Users className="h-4 w-4" />;
-      case 'viewing':
-        return <Building className="h-4 w-4" />;
-      case 'follow_up':
-        return <Bell className="h-4 w-4" />;
-      case 'note':
-        return <MessageSquare className="h-4 w-4" />;
-      default:
-        return <Calendar className="h-4 w-4" />;
-    }
-  };
+    const tableRows = activeDataset.length === 0
+      ? `<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">No activity records found for print.</td></tr>`
+      : activeDataset
+          .map((row, idx) => {
+            if (activeView === "user_breakdown") {
+              const name = row.user_name || `Executive #${row.user_id}`;
+              const role = `${row.role || "Executive"} (${row.department || "Sales"})`;
+              const assigned = row.assigned_leads || 0;
+              const calls = row.calls_done || 0;
+              const interested = row.interested_leads || 0;
+              const followups = row.followups_count || 0;
 
-  const isOverdue = (scheduledAt: string) => {
-    return new Date(scheduledAt) < new Date() && !activities.find(a => a.id === scheduledAt)?.completed_at;
-  };
+              return `<tr>
+                <td style="text-align:center;font-weight:700">${idx + 1}</td>
+                <td style="font-weight:700">${name}</td>
+                <td>${role}</td>
+                <td style="font-weight:700">${assigned}</td>
+                <td style="color:#1d4ed8;font-weight:700">${calls}</td>
+                <td style="color:#047857;font-weight:700">${interested}</td>
+                <td style="color:#6b21a8;font-weight:700">${followups}</td>
+              </tr>`;
+            } else {
+              const type = row.type || "Call";
+              const desc = row.description || "N/A";
+              const status = row.status || "Completed";
+              const date = row.scheduled_date ? new Date(row.scheduled_date).toLocaleString("en-IN") : "N/A";
+              const agent = row.user_name || "Agent";
 
-  const getUpcomingActivities = () => {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    return activities.filter(activity => {
-      const activityDate = new Date(activity.scheduled_at);
-      return activityDate >= today && activityDate <= tomorrow && activity.status !== 'completed';
-    });
-  };
+              return `<tr>
+                <td style="text-align:center;font-weight:700">${idx + 1}</td>
+                <td style="font-weight:700">${type}</td>
+                <td>${desc}</td>
+                <td><span style="font-weight:700;text-transform:uppercase">${status}</span></td>
+                <td>${date}</td>
+                <td>${agent}</td>
+                <td>Log</td>
+              </tr>`;
+            }
+          })
+          .join("");
 
-  const getOverdueActivities = () => {
-    return activities.filter(activity => 
-      isOverdue(activity.scheduled_at) && activity.status !== 'completed'
-    );
+    const contentHTML = `
+      ${headerHTML}
+      <div class="meta-line">
+        <span>Report Type: User Lead Activity & Execution Intelligence</span>
+        <span>Executive Count: ${displayUserSummary.length}</span>
+        <span>Generated: ${new Date().toLocaleString("en-IN")}</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-box"><span class="stat-lbl">TOTAL EXECUTIVES</span><span class="stat-val">${totalExecutiveUsers}</span></div>
+        <div class="stat-box"><span class="stat-lbl">TOTAL ASSIGNED LEADS</span><span class="stat-val">${totalAssignedLeads}</span></div>
+        <div class="stat-box"><span class="stat-lbl">CALLS COMPLETED</span><span class="stat-val">${totalCallsDone}</span></div>
+        <div class="stat-box"><span class="stat-lbl">INTERESTED LEADS</span><span class="stat-val">${totalInterestedLeads}</span></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px;text-align:center">S.NO.</th>
+            <th>EXECUTIVE NAME</th>
+            <th>ROLE / TYPE</th>
+            <th>ASSIGNED LEADS</th>
+            <th>CALLS COMPLETED</th>
+            <th>INTERESTED LEADS</th>
+            <th>FOLLOW-UPS LOGGED</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+      ${watermarkHTML}
+      <div class="footer">
+        <span>${orgName} • User Activity Performance Export</span>
+        <span>Page 1 of 1</span>
+      </div>
+    `;
+
+    const fullPrintDoc = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${pdfTitle}</title>
+          <style>${PRINT_BRAND_STYLE}</style>
+        </head>
+        <body>
+          ${contentHTML}
+        </body>
+      </html>
+    `;
+
+    triggerIframePrint(fullPrintDoc, pdfTitle);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-4 sm:space-y-0">
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Activities</h1>
-            <p className="text-gray-600 mt-1 text-sm sm:text-base">
-              Manage your tasks, meetings, and follow-ups
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-            <div className="flex space-x-1">
-              <Button
-                variant={viewMode === 'list' ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="flex-1 sm:flex-none"
-              >
-                List
-              </Button>
-              <Button
-                variant={viewMode === 'calendar' ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('calendar')}
-                className="flex-1 sm:flex-none"
-              >
-                Calendar
-              </Button>
+    <div className="space-y-5 p-4 sm:p-6 bg-slate-50 min-h-screen">
+      
+
+      {/* Soft Pastel Top KPI Stats Header */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-[#eef2ff] p-4 rounded-xl shadow-2xs flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-900 opacity-80 mb-0.5">
+              TOTAL EXECUTIVES
             </div>
-            <Button
-              onClick={() => setShowAddActivity(true)}
-              className="flex items-center justify-center space-x-2 w-full sm:w-auto"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden xs:inline">Add Activity</span>
-              <span className="xs:hidden">Add</span>
-            </Button>
+            <div className="text-xl font-black text-indigo-900 tracking-tight">
+              {totalExecutiveUsers}
+            </div>
+            <div className="text-[11px] font-semibold text-indigo-700 opacity-75 mt-0.5">
+              Active team members
+            </div>
+          </div>
+          <div className="p-2.5 rounded-full bg-indigo-100 text-indigo-700">
+            <UserCheck className="w-5 h-5" />
           </div>
         </div>
 
-        {/* Alerts */}
-        {getOverdueActivities().length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
-            <div className="flex items-start space-x-2">
-              <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <span className="text-red-800 font-medium text-sm sm:text-base">
-                You have {getOverdueActivities().length} overdue activities!
-              </span>
+        <div className="bg-[#e0f2fe] p-4 rounded-xl shadow-2xs flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-sky-900 opacity-80 mb-0.5">
+              ASSIGNED LEADS
+            </div>
+            <div className="text-xl font-black text-sky-900 tracking-tight">
+              {totalAssignedLeads.toLocaleString("en-IN")}
+            </div>
+            <div className="text-[11px] font-semibold text-sky-700 opacity-75 mt-0.5">
+              Total distributed leads
             </div>
           </div>
-        )}
-
-        {getUpcomingActivities().length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-            <div className="flex items-start space-x-2">
-              <Bell className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <span className="text-blue-800 font-medium text-sm sm:text-base">
-                You have {getUpcomingActivities().length} activities due today/tomorrow
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Add Activity Modal */}
-        {showAddActivity && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Add New Activity</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAddActivity(false)}
-                  className="p-1"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                  <select
-                    value={newActivity.type}
-                    onChange={(e) => setNewActivity({ ...newActivity, type: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm sm:text-base"
-                  >
-                    <option value="task">Task</option>
-                    <option value="call">Phone Call</option>
-                    <option value="email">Email</option>
-                    <option value="meeting">Meeting</option>
-                    <option value="viewing">Property Viewing</option>
-                    <option value="follow_up">Follow-up</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                  <input
-                    type="text"
-                    value={newActivity.title}
-                    onChange={(e) => setNewActivity({ ...newActivity, title: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm sm:text-base"
-                    placeholder="Activity title"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea
-                    value={newActivity.description}
-                    onChange={(e) => setNewActivity({ ...newActivity, description: e.target.value })}
-                    rows={3}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm sm:text-base resize-none"
-                    placeholder="Activity description"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                  <select
-                    value={newActivity.priority}
-                    onChange={(e) => setNewActivity({ ...newActivity, priority: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm sm:text-base"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date/Time</label>
-                  <input
-                    type="datetime-local"
-                    value={newActivity.scheduled_at}
-                    onChange={(e) => setNewActivity({ ...newActivity, scheduled_at: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm sm:text-base"
-                  />
-                </div>
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
-                  <Button
-                    onClick={handleAddActivity}
-                    disabled={!newActivity.title || !newActivity.description}
-                    className="flex-1 order-1 sm:order-none"
-                  >
-                    Create Activity
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowAddActivity(false)}
-                    className="flex-1 order-2 sm:order-none"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-          <div className="space-y-4">
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search activities..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
-              />
-            </div>
-            
-            {/* Filter Toggle for Mobile */}
-            <div className="sm:hidden">
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className="w-full flex items-center justify-between"
-              >
-                <div className="flex items-center space-x-2">
-                  <Filter className="h-4 w-4" />
-                  <span>Filters</span>
-                </div>
-                <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-              </Button>
-            </div>
-
-            {/* Filters */}
-            <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 ${showFilters ? 'block' : 'hidden sm:grid'}`}>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
-              >
-                <option value="all">All Types</option>
-                <option value="task">Task</option>
-                <option value="call">Call</option>
-                <option value="email">Email</option>
-                <option value="meeting">Meeting</option>
-                <option value="viewing">Viewing</option>
-                <option value="follow_up">Follow-up</option>
-              </select>
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
-              >
-                <option value="all">All Priorities</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
-              >
-                <option value="all">All Dates</option>
-                <option value="today">Today</option>
-                <option value="this_week">This Week</option>
-                <option value="overdue">Overdue</option>
-              </select>
-            </div>
+          <div className="p-2.5 rounded-full bg-sky-100 text-sky-700">
+            <Users className="w-5 h-5" />
           </div>
         </div>
 
-        {/* Activities List */}
-        <div className="bg-white rounded-lg shadow">
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <LoadingSpinner size="lg" />
+        <div className="bg-[#f3e8ff] p-4 rounded-xl shadow-2xs flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-purple-900 opacity-80 mb-0.5">
+              COMPLETED CALLS
             </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {activities.length > 0 ? (
-                activities.map((activity) => (
-                  <div key={activity.id} className="p-4 sm:p-6 hover:bg-gray-50">
-                    <div className="flex flex-col sm:flex-row sm:items-start space-y-3 sm:space-y-0 sm:space-x-4">
-                      <div className="flex items-start space-x-3 sm:space-x-4 flex-1">
-                        <div className="mt-1 flex-shrink-0">
-                          {getActivityIcon(activity.type)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col space-y-2">
-                            <div className="flex flex-wrap items-start gap-2">
-                              <h3 className="text-base sm:text-lg font-medium text-gray-900 break-words">
-                                {activity.title}
-                              </h3>
-                              <div className="flex flex-wrap gap-2">
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${getStatusColor(activity.status)}`}>
-                                  {activity.status || 'Pending'}
-                                </span>
-                                {activity.priority && (
-                                  <span className={`text-xs font-medium px-2 py-1 rounded-full bg-gray-100 whitespace-nowrap ${getPriorityColor(activity.priority)}`}>
-                                    {activity.priority.toUpperCase()}
-                                  </span>
-                                )}
-                                {isOverdue(activity.scheduled_at) && activity.status !== 'completed' && (
-                                  <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-1 rounded whitespace-nowrap">
-                                    OVERDUE
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <p className="text-gray-700 text-sm sm:text-base break-words">{activity.description}</p>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0 text-xs sm:text-sm text-gray-500">
-                              <div className="flex items-center space-x-1">
-                                <Clock className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                <span className="break-words">{new Date(activity.scheduled_at).toLocaleString()}</span>
-                              </div>
-                              {activity.lead_name && (
-                                <div className="flex items-center space-x-1">
-                                  <Users className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                  <span className="break-words">Lead: {activity.lead_name}</span>
-                                </div>
-                              )}
-                              {activity.property_title && (
-                                <div className="flex items-center space-x-1">
-                                  <Building className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                  <span className="break-words">Property: {activity.property_title}</span>
-                                </div>
-                              )}
-                              <span className="break-words">Created by {activity.created_by}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Action Buttons */}
-                      <div className="flex flex-row sm:flex-col lg:flex-row items-center gap-2 sm:items-end lg:items-center flex-shrink-0">
-                        {activity.status !== 'completed' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCompleteActivity(activity.id)}
-                            className="flex items-center space-x-1 text-xs sm:text-sm flex-1 sm:flex-none lg:flex-1 xl:flex-none min-w-0"
-                          >
-                            <CheckCircle className="h-3 w-3 flex-shrink-0" />
-                            <span className="hidden xs:inline truncate">Complete</span>
-                            <span className="xs:hidden">✓</span>
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex items-center space-x-1 text-xs sm:text-sm flex-1 sm:flex-none lg:flex-1 xl:flex-none min-w-0"
-                        >
-                          <Edit className="h-3 w-3 flex-shrink-0" />
-                          <span className="hidden xs:inline truncate">Edit</span>
-                          <span className="xs:hidden">✏️</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteActivity(activity.id)}
-                          className="text-red-600 hover:text-red-800 flex items-center justify-center p-2 min-w-0"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-12 px-4">
-                  <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No activities found</h3>
-                  <p className="text-gray-500 mb-4 text-sm sm:text-base">
-                    {searchTerm || statusFilter !== 'all' || typeFilter !== 'all'
-                      ? 'Try adjusting your search criteria'
-                      : 'Get started by creating your first activity'}
-                  </p>
-                  <Button
-                    onClick={() => setShowAddActivity(true)}
-                    className="flex items-center space-x-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Create First Activity</span>
-                  </Button>
-                </div>
-              )}
+            <div className="text-xl font-black text-purple-900 tracking-tight">
+              {totalCallsDone.toLocaleString("en-IN")}
             </div>
-          )}
+            <div className="text-[11px] font-semibold text-purple-700 opacity-75 mt-0.5">
+              Phone calls done
+            </div>
+          </div>
+          <div className="p-2.5 rounded-full bg-purple-100 text-purple-700">
+            <PhoneCall className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-[#dcfce7] p-4 rounded-xl shadow-2xs flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-900 opacity-80 mb-0.5">
+              INTERESTED LEADS
+            </div>
+            <div className="text-xl font-black text-emerald-900 tracking-tight">
+              {totalInterestedLeads.toLocaleString("en-IN")}
+            </div>
+            <div className="text-[11px] font-semibold text-emerald-700 opacity-75 mt-0.5">
+              Qualified prospects
+            </div>
+          </div>
+          <div className="p-2.5 rounded-full bg-emerald-100 text-emerald-700">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
         </div>
       </div>
+
+      {/* Mode Switcher Banner (Bottom Underline Active Pill Style matching 2nd Screenshot) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-gray-300 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveView("user_breakdown");
+              setActiveStatusPill("all");
+            }}
+            className={`px-4 py-2 text-xs transition-all border-b-2 ${
+              activeView === "user_breakdown"
+                ? "border-indigo-600 text-indigo-900 font-extrabold bg-white shadow-2xs rounded-t-lg"
+                : "border-transparent text-gray-500 hover:text-gray-900 font-semibold"
+            }`}
+          >
+            Executive Lead Execution Breakdown
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveView("activity_logs");
+              setActiveStatusPill("logs");
+            }}
+            className={`px-4 py-2 text-xs transition-all border-b-2 ${
+              activeView === "activity_logs"
+                ? "border-indigo-600 text-indigo-900 font-extrabold bg-white shadow-2xs rounded-t-lg"
+                : "border-transparent text-gray-500 hover:text-gray-900 font-semibold"
+            }`}
+          >
+            Chronological Activity Feed
+          </button>
+        </div>
+        <div className="text-xs font-semibold text-gray-500">
+          {activeView === "user_breakdown" ? "Showing Per-User Lead Execution & Call Metrics" : "Showing Full System Activity History Logs"}
+        </div>
+      </div>
+
+      {/* Fixed 520px Height Grid Table Component */}
+      <ReportTable
+        title={activeView === "user_breakdown" ? "Executive Lead Activity Report" : "Activity Feed Logs"}
+        columns={activeView === "user_breakdown" ? userColumns : logColumns}
+        data={activeView === "user_breakdown" ? displayUserSummary : activityLogs}
+        statusPills={statusPills}
+        activeStatusPill={activeStatusPill}
+        onSelectStatusPill={handleSelectStatusPill}
+        onOpenFilters={() => setIsFilterOpen(true)}
+        onExport={handleExportCSV}
+        onRefresh={fetchActivityReport}
+        onPrint={handlePrint}
+        pagination={{ page: 1, limit: 100, totalRecords: activeView === "user_breakdown" ? displayUserSummary.length : activityLogs.length, totalPages: 1 }}
+        onPageChange={() => {}}
+        onLimitChange={() => {}}
+        loading={loading}
+      />
+
+      {/* Smart Slide-over Filter Drawer */}
+      <SmartFilterDrawer
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        filters={filters}
+        tabKey="activities"
+        onApplyFilters={(newFilters) => {
+          setFilters(newFilters);
+        }}
+        onClearFilters={() => {
+          setFilters({ ignoreDate: true, status: "all" });
+        }}
+      />
     </div>
   );
 };
