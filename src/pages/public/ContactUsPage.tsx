@@ -2098,9 +2098,9 @@ const ContactUsPage: React.FC = () => {
                 <label className={labelCls + " text-xs"}>Purpose of Enquiry <span className="text-red-500">*</span></label>
                 <select name="enquiryType" value={form.enquiryType} onChange={onChange}
                   className={inputCls + " py-2 text-sm"} style={{ borderColor: BORDER }}>
-                  <option value="lead">🔍 General / New Enquiry</option>
-                  <option value="buyer">🏠 I want to Buy a Property</option>
-                  <option value="seller">🏷️ I want to Sell my Property</option>
+                  <option value="lead">General / New Enquiry</option>
+                  <option value="buyer">I want to Buy a Property</option>
+                  <option value="seller">I want to Sell my Property</option>
                 </select>
               </div>
             </div>
@@ -2140,13 +2140,13 @@ const ContactUsPage: React.FC = () => {
                 </div>
                 <div>
                   <label className={labelCls + " text-xs"}>Budget Min (₹)</label>
-                  <input type="number" name="budgetMin" value={form.budgetMin} onChange={onChange}
-                    placeholder="e.g. 50L" className={inputCls + " py-2 text-sm"} style={{ borderColor: BORDER }} />
+                  <input type="text" inputMode="numeric" name="budgetMin" value={form.budgetMin} onChange={onChange}
+                    placeholder="e.g. 50,00,000" className={inputCls + " py-2 text-sm"} style={{ borderColor: BORDER }} />
                 </div>
                 <div>
                   <label className={labelCls + " text-xs"}>Budget Max (₹)</label>
-                  <input type="number" name="budgetMax" value={form.budgetMax} onChange={onChange}
-                    placeholder="e.g. 1Cr" className={inputCls + " py-2 text-sm"} style={{ borderColor: BORDER }} />
+                  <input type="text" inputMode="numeric" name="budgetMax" value={form.budgetMax} onChange={onChange}
+                    placeholder="e.g. 1,00,00,000" className={inputCls + " py-2 text-sm"} style={{ borderColor: BORDER }} />
                 </div>
               </div>
             )}
@@ -2164,8 +2164,8 @@ const ContactUsPage: React.FC = () => {
                 </div>
                 <div>
                   <label className={labelCls + " text-xs"}>Selling Price (₹)</label>
-                  <input type="number" name="expectedPrice" value={form.expectedPrice} onChange={onChange}
-                    placeholder="e.g. 75L" className={inputCls + " py-2 text-sm"} style={{ borderColor: BORDER }} />
+                  <input type="text" inputMode="numeric" name="expectedPrice" value={form.expectedPrice} onChange={onChange}
+                    placeholder="e.g. 75,00,000" className={inputCls + " py-2 text-sm"} style={{ borderColor: BORDER }} />
                 </div>
               </div>
             )}

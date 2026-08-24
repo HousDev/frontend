@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users, Plus, Search, Edit, Trash2, Phone, Mail, MapPin,
   Building, User, FileText, X, SlidersHorizontal, Download, Upload,
-  Loader2, RefreshCw, ChevronLeft, ChevronRight
+  Loader2, RefreshCw, ChevronLeft, ChevronRight, Eye
 } from 'lucide-react';
 import { SiWhatsapp } from "react-icons/si";
 import { toast } from 'react-toastify';
@@ -11,9 +11,12 @@ import * as XLSX from "xlsx";
 
 import { tenantAPI } from "@/lib/tenantAPI";
 import { usersAPI } from "@/lib/api";
+import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
 import TenantSidebarFilter, { TenantFiltersState } from "./components/TenantSidebarFilter";
 import ImportTenantsModal from "@/components/tenants/ImportTenantsModal";
 import TenantFormModal from "@/components/tenants/TenantFormModal";
+import TenantViewPage from "@/components/tenants/TenantViewPage";
+import TenantViewModal from "@/components/tenants/TenantViewModal";
 import TableLoader from "@/components/ui/TableLoader";
 
 interface Tenant {
@@ -68,6 +71,10 @@ export default function TenantsPage() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [currentTenantView, setCurrentTenantView] = useState<Tenant | null>(null);
+  const [viewModalTenant, setViewModalTenant] = useState<Tenant | null>(null);
+  const [showViewModal, setShowViewModal] = useState<boolean>(false);
+  const [bhkMasterOptions, setBhkMasterOptions] = useState<string[]>([]);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -106,15 +113,31 @@ export default function TenantsPage() {
         const usersRes = await usersAPI.getAllUsers();
         if (usersRes.success && Array.isArray(usersRes.data)) {
           const execs = usersRes.data.filter((u: any) =>
-            u.role === 'sales_executive' || u.role_name === 'sales_executive' || u.role_name === 'admin'
+            u.role?.name === 'Executive' || u.role?.name === 'Admin' || u.role?.name === 'Super Admin'
           );
           setExecutives(execs);
         }
       } catch (err) {
-        console.warn("Failed to load executives for filter:", err);
+        console.error(err);
+      }
+    };
+    const fetchMasterBhk = async () => {
+      try {
+        const opts: MasterOption[] = await getMasterDropdownOptions("bhk");
+        if (opts && opts.length > 0) {
+          setBhkMasterOptions(opts.map(o => o.label));
+        } else {
+          const altOpts: MasterOption[] = await getMasterDropdownOptions("preferred_bhk");
+          if (altOpts && altOpts.length > 0) {
+            setBhkMasterOptions(altOpts.map(o => o.label));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load master BHK options", err);
       }
     };
     fetchExecutives();
+    fetchMasterBhk();
   }, []);
 
   const handleInputChange = (col: keyof typeof colSearch, val: string) => {
@@ -261,20 +284,61 @@ export default function TenantsPage() {
     toast.success("Database exported to Excel!");
   };
 
-  const getStatusColor = (status: Tenant['status']) => {
-    switch (status) {
+  const getStatusColor = (status: string) => {
+    if (!status) return 'bg-gray-50 text-gray-700 border-gray-200';
+    const s = status.trim();
+    switch (s) {
       case 'Active Search':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Interested':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'Agreement Signed':
         return 'bg-green-50 text-green-700 border-green-200';
+      case 'Interested':
+        return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'Agreement Signed':
+        return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'Inactive':
         return 'bg-gray-100 text-gray-600 border-gray-300';
-      default:
-        return 'bg-gray-50 text-gray-700 border-gray-200';
+      default: {
+        // Dynamic hashing for custom master options
+        const colors = [
+          'bg-blue-50 text-blue-700 border-blue-200',
+          'bg-indigo-50 text-indigo-700 border-indigo-200',
+          'bg-purple-50 text-purple-700 border-purple-200',
+          'bg-amber-50 text-amber-700 border-amber-200',
+          'bg-teal-50 text-teal-700 border-teal-200',
+          'bg-cyan-50 text-cyan-700 border-cyan-200',
+          'bg-rose-50 text-rose-700 border-rose-200',
+        ];
+        let hash = 0;
+        for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
+        return colors[Math.abs(hash) % colors.length];
+      }
     }
   };
+
+  if (currentTenantView) {
+    const currentIndex = filteredTenants.findIndex(t => t.id === currentTenantView.id);
+    return (
+      <TenantViewPage
+        tenant={currentTenantView}
+        onBack={() => setCurrentTenantView(null)}
+        onNext={() => {
+          if (currentIndex >= 0 && currentIndex < filteredTenants.length - 1) {
+            setCurrentTenantView(filteredTenants[currentIndex + 1]);
+          }
+        }}
+        onPrevious={() => {
+          if (currentIndex > 0) {
+            setCurrentTenantView(filteredTenants[currentIndex - 1]);
+          }
+        }}
+        currentIndex={currentIndex >= 0 ? currentIndex : 0}
+        totalTenants={filteredTenants.length}
+        onUpdateTenant={(updated) => {
+          setTenants(prev => prev.map(item => item.id === updated.id ? updated : item));
+          setCurrentTenantView(updated);
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -383,24 +447,31 @@ export default function TenantsPage() {
               </button>
             </div>
           </div>
-
           <div
-            className="bg-white rounded-lg border border-gray-300 shadow-sm overflow-hidden flex flex-col"
+            className="bg-white  border border-gray-300 shadow-sm overflow-hidden flex flex-col"
             style={{
-              height: isMobile ? '600px' : '580px',
-              minHeight: isMobile ? '600px' : '580px',
-              maxHeight: isMobile ? '600px' : '580px',
+              height: isMobile ? '700px' : '580px',
+              minHeight: isMobile ? '700px' : '580px',
+              maxHeight: isMobile ? '700px' : '580px',
             }}
           >
-            <div className="scrollbar-custom-vertical flex-1 min-h-0 relative" style={{ overflowY: "auto", overflowX: "auto" }}>
+            <div className="scrollbar-custom-vertical flex-1 min-h-0 relative" style={{ overflowY: "auto", overflowX: isMobile ? "auto" : "hidden" }}>
               {loading ? (
                 <TableLoader colSpan={8} />
               ) : (
-                <table className="w-full tenant-table-custom" style={{ minWidth: "1500px", borderCollapse: "separate", borderSpacing: 0 }}>
+                <table
+                  className="w-full tenant-table-custom"
+                  style={{
+                    tableLayout: isMobile ? "auto" : "fixed",
+                    borderCollapse: "separate",
+                    borderSpacing: 0,
+                    minWidth: isMobile ? "900px" : "auto",
+                  }}
+                >
                   <thead className="sticky top-0 z-10" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                     {/* Headers */}
                     <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
-                      <th className="px-2 py-1.5 text-center w-10 bg-gray-50 border-r border-b border-gray-200">
+                      <th className="px-2 py-1.5 text-center bg-gray-50 border-r border-b border-gray-200" style={{ width: "3%" }}>
                         <input
                           type="checkbox"
                           checked={paginatedTenants.length > 0 && paginatedTenants.every(t => selectedTenants.includes(t.id))}
@@ -408,13 +479,15 @@ export default function TenantsPage() {
                           className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3 cursor-pointer"
                         />
                       </th>
-                      <th className="px-2 py-1.5 text-center w-12 bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">S.No.</th>
-                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tenant Details</th>
-                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Contact Details</th>
-                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Requirements / BHK</th>
-                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Linked Context</th>
-                      <th className="px-3 py-1.5 text-center w-36 bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Status</th>
-                      <th className="px-3 py-1.5 text-center w-24 bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                      <th className="px-2 py-1.5 text-center bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "4%" }}>S.No.</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "14%" }}>Tenant Details</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "14%" }}>Contact Details</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "8%" }}>BHK</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "10%" }}>Budget</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "13%" }}>Location</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "14%" }}>Linked Property</th>
+                      <th className="px-3 py-1.5 text-center bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "10%" }}>Status</th>
+                      <th className="px-3 py-1.5 text-center bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "10%" }}>Actions</th>
                     </tr>
                     {/* Search Fields */}
                     <tr className="bg-gray-100">
@@ -443,16 +516,18 @@ export default function TenantsPage() {
                           type="text"
                           value={colSearch.requirements}
                           onChange={(e) => handleInputChange("requirements", e.target.value)}
-                          placeholder="Search BHK/Loc..."
+                          placeholder="BHK..."
                           className="w-full px-2 py-0.5 text-[9px] border border-gray-300 rounded bg-white font-normal"
                         />
                       </th>
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100"></th>
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100"></th>
                       <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100">
                         <input
                           type="text"
                           value={colSearch.property}
                           onChange={(e) => handleInputChange("property", e.target.value)}
-                          placeholder="Search Prop/Owner..."
+                          placeholder="Prop/Owner..."
                           className="w-full px-2 py-0.5 text-[9px] border border-gray-300 rounded bg-white font-normal"
                         />
                       </th>
@@ -461,7 +536,7 @@ export default function TenantsPage() {
                           type="text"
                           value={colSearch.status}
                           onChange={(e) => handleInputChange("status", e.target.value)}
-                          placeholder="Search Status..."
+                          placeholder="Status..."
                           className="w-full px-2 py-0.5 text-[9px] border border-gray-300 rounded bg-white font-normal text-center"
                         />
                       </th>
@@ -473,7 +548,7 @@ export default function TenantsPage() {
                     {paginatedTenants.length > 0 ? (
                       paginatedTenants.map((t, index) => (
                         <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-2 py-1.5 text-center border-r border-b border-gray-200 bg-white">
+                          <td className="px-2 py-2 text-center border-r border-b border-gray-200 bg-white">
                             <input
                               type="checkbox"
                               checked={selectedTenants.includes(t.id)}
@@ -481,87 +556,105 @@ export default function TenantsPage() {
                               className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3 h-3 cursor-pointer"
                             />
                           </td>
-                          <td className="px-2 py-1.5 text-center text-gray-400 font-bold border-r border-b border-gray-200">
+                          <td className="px-2 py-2 text-center text-gray-400 font-bold border-r border-b border-gray-200">
                             {startIndex + index + 1}
                           </td>
 
-                          {/* Tenant Details - single line */}
-                          <td className="px-3 py-1.5 border-r border-b border-gray-200 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-900">{t.name}</span>
+                          {/* Tenant Details */}
+                          <td className="px-3 py-2 border-r border-b border-gray-200 overflow-hidden">
+                            <div
+                              onClick={() => setCurrentTenantView(t)}
+                              className="font-semibold text-gray-900 truncate hover:text-[#e67e22] cursor-pointer transition-colors"
+                              title="Click to view tenant details"
+                            >
+                              {t.name}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
                               <span className="text-[9px] text-[#e67e22] font-bold">{t.tenant_id}</span>
-                              <span className="text-[9px] text-gray-400 capitalize">• {t.tenant_type || 'Renter'}</span>
+                              <span className="text-[9px] text-gray-400 capitalize truncate">• {t.tenant_type || 'Renter'}</span>
                             </div>
                           </td>
 
-                          {/* Contact Details - single line */}
-                          <td className="px-3 py-1.5 border-r border-b border-gray-200 whitespace-nowrap">
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-1">
-                                <Phone size={10} className="text-gray-400 flex-shrink-0" />
-                                <span className="text-[10px]">{t.phone}</span>
+                          {/* Contact Details: phone line 1, email line 2 */}
+                          <td className="px-3 py-2 border-r border-b border-gray-200 overflow-hidden">
+                            <div className="flex items-center gap-1">
+                              <Phone size={10} className="text-gray-400 flex-shrink-0" />
+                              <span className="text-[10px]">{t.phone}</span>
+                            </div>
+                            {t.email && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <Mail size={10} className="text-gray-400 flex-shrink-0" />
+                                <span className="text-[10px] text-gray-500 truncate">{t.email}</span>
                               </div>
-                              {t.email && (
-                                <div className="flex items-center gap-1">
-                                  <Mail size={10} className="text-gray-400 flex-shrink-0" />
-                                  <span className="text-[10px] text-gray-500">{t.email}</span>
-                                </div>
-                              )}
-                            </div>
+                            )}
                           </td>
 
-                          {/* Requirements/BHK - single line */}
-                          <td className="px-3 py-1.5 border-r border-b border-gray-200 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-800 text-[11px]">{t.preferred_bhk || "—"}</span>
-                              <div className="flex items-center gap-1 text-[9px] text-gray-400">
-                                <MapPin size={9} className="flex-shrink-0" />
-                                <span>{t.preferred_location || "Any Location"}</span>
-                              </div>
-                              {(Number(t.budget_min) > 0 || Number(t.budget_max) > 0) && (
-                                <span className="px-1 bg-slate-50 text-[9px] font-bold text-slate-600 rounded border">
-                                  ₹{Number(t.budget_min).toLocaleString("en-IN")} - ₹{Number(t.budget_max).toLocaleString("en-IN")}
-                                </span>
-                              )}
-                            </div>
+                          {/* BHK */}
+                          <td className="px-2 py-1.5 border-r border-b border-gray-200 text-center">
+                            <span className="text-[10px] font-bold text-gray-700">{t.preferred_bhk || '—'}</span>
                           </td>
 
-                          {/* Linked Context - single line */}
-                          <td className="px-3 py-1.5 border-r border-b border-gray-200 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              {t.rental_property_id ? (
-                                <>
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-orange-50 text-[#e67e22] border border-orange-100">
-                                    RENT-{t.rental_property_id}
-                                  </span>
-                                  <span className="text-[9px] text-gray-400">{t.property_title}</span>
-                                </>
-                              ) : (
-                                <span className="text-[10px] text-gray-400 italic">No linked property</span>
-                              )}
-                              {t.owner_name && (
-                                <div className="text-[9px] text-gray-500 flex items-center gap-1">
-                                  <User size={9} className="text-gray-400 flex-shrink-0" />
-                                  <span>Owner: <strong className="text-slate-700">{t.owner_name}</strong></span>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* Status - single line */}
-                          <td className="px-3 py-1.5 text-center border-r border-b border-gray-200 whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-2">
-                              <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold rounded-full border ${getStatusColor(t.status)}`}>
-                                {t.status}
+                          {/* Budget */}
+                          <td className="px-2 py-1.5 border-r border-b border-gray-200">
+                            {(Number(t.budget_min) > 0 || Number(t.budget_max) > 0) ? (
+                              <span className="text-[10px] font-bold text-green-700 whitespace-nowrap">
+                                ₹{Number(t.budget_min).toLocaleString('en-IN')} – ₹{Number(t.budget_max).toLocaleString('en-IN')}
                               </span>
-                              {t.assigned_to_name && (
-                                <span className="text-[9px] text-gray-400 font-medium">Exec: {t.assigned_to_name}</span>
-                              )}
+                            ) : (
+                              <span className="text-[9px] text-gray-400 italic">Not set</span>
+                            )}
+                          </td>
+
+                          {/* Location */}
+                          <td className="px-2 py-1.5 border-r border-b border-gray-200">
+                            <div className="flex items-center gap-1">
+                              <MapPin size={9} className="text-gray-400 flex-shrink-0" />
+                              <span className="text-[10px] text-gray-600 truncate max-w-[100px]">{t.preferred_location || 'Any Location'}</span>
                             </div>
                           </td>
 
-                          <td className="px-3 py-1.5 text-center border-b border-gray-200 bg-white">
+                          {/* Linked Context */}
+                          <td className="px-3 py-2 border-r border-b border-gray-200 overflow-hidden">
+                            {t.rental_property_id ? (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-orange-50 text-[#e67e22] border border-orange-100">
+                                  RENT-{t.rental_property_id}
+                                </span>
+                                <span className="text-[9px] text-gray-400 truncate">{t.property_title}</span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-gray-400 italic">No linked property</span>
+                            )}
+                            {t.owner_name && (
+                              <div className="text-[9px] text-gray-500 flex items-center gap-1 mt-0.5">
+                                <User size={9} className="text-gray-400 flex-shrink-0" />
+                                <span className="truncate">Owner: <strong className="text-slate-700">{t.owner_name}</strong></span>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-3 py-2 text-center border-r border-b border-gray-200 overflow-hidden">
+                            <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold rounded-full border ${getStatusColor(t.status)}`}>
+                              {t.status}
+                            </span>
+                            {t.assigned_to_name && (
+                              <div className="text-[9px] text-gray-400 mt-0.5 font-medium truncate">Exec: {t.assigned_to_name}</div>
+                            )}
+                          </td>
+
+                          <td className="px-3 py-2 text-center border-b border-gray-200 bg-white">
                             <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setViewModalTenant(t);
+                                  setShowViewModal(true);
+                                }}
+                                className="p-1 rounded hover:bg-orange-50 text-gray-500 hover:text-orange-500 transition-colors"
+                                title="View Tenant Details Modal"
+                              >
+                                <Eye size={13} />
+                              </button>
                               <button
                                 onClick={() => handleOpenEditModal(t)}
                                 className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-orange-500 transition-colors"
@@ -582,7 +675,7 @@ export default function TenantsPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-gray-400 italic">
+                        <td colSpan={11} className="px-4 py-8 text-center text-gray-400 italic">
                           No tenants match your search filter criteria.
                         </td>
                       </tr>
@@ -662,8 +755,24 @@ export default function TenantsPage() {
           resetFilters={() => setFilters({ status: "", tenant_type: "", preferred_bhk: "", assigned: "" })}
           statuses={["Active Search", "Interested", "Agreement Signed", "Inactive"]}
           tenantTypes={["Family", "Bachelor (Male)", "Bachelor (Female)", "Company"]}
-          bhkOptions={["1 BHK", "2 BHK", "3 BHK", "4 BHK"]}
+          bhkOptions={bhkMasterOptions.length > 0 ? bhkMasterOptions : ["1 BHK", "2 BHK", "3 BHK", "4 BHK"]}
           assignedUsers={executives.map(e => ({ id: e.id, name: `${e.first_name} ${e.last_name}` }))}
+        />
+      )}
+
+      {/* Tenant View Pop-up Modal */}
+      {showViewModal && viewModalTenant && (
+        <TenantViewModal
+          isOpen={showViewModal}
+          onClose={() => {
+            setShowViewModal(false);
+            setViewModalTenant(null);
+          }}
+          tenant={viewModalTenant}
+          onEdit={(tenant) => {
+            setShowViewModal(false);
+            handleOpenEditModal(tenant);
+          }}
         />
       )}
 

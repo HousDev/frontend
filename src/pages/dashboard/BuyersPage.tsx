@@ -1310,8 +1310,8 @@ const BuyersPage = () => {
                       setCurrentPage(1);
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-medium transition-all whitespace-nowrap ${isActive
-                        ? "bg-white shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
                       }`}
                     style={isActive ? { color: RESALE.orange } : {}}
                   >
@@ -1319,8 +1319,8 @@ const BuyersPage = () => {
 
                     <span
                       className={`px-1.5 py-[1px] rounded-full text-[10px] font-semibold ${isActive
-                          ? "bg-orange-100 text-orange-600"
-                          : "bg-gray-200 text-gray-600"
+                        ? "bg-orange-100 text-orange-600"
+                        : "bg-gray-200 text-gray-600"
                         }`}
                     >
                       {tab.count}
@@ -2447,21 +2447,43 @@ function getLeadScore(score: number) {
 }
 
 function getStageBadge(stageOrBuyer: string | any) {
-  const raw = typeof stageOrBuyer === 'string' ? stageOrBuyer : stageOrBuyer?.buyer_lead_stage ?? stageOrBuyer?.stage ?? '';
+  const raw = (typeof stageOrBuyer === 'string' ? stageOrBuyer : stageOrBuyer?.buyer_lead_stage ?? stageOrBuyer?.stage ?? '').trim();
+  if (!raw) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"><span className="text-[10px] font-normal">—</span></span>;
+
   const stageConfig: Record<string, any> = {
-    connected: { bg: 'bg-cyan-100', text: 'text-cyan-700', label: 'Connected', icon: '🔗' },   // 👈 YEH LINE ADD KARO
-    initial_contact: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Initial Contact', icon: '📞' },
-    requirement_gathering: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Requirement Gathering', icon: '📋' },
-    property_hunting: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Property Hunting', icon: '🔍' },
-    loan_processing: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Loan Processing', icon: '🏦' },
-    property_finalization: { bg: 'bg-green-100', text: 'text-green-700', label: 'Property Finalization', icon: '✅' },
-    deal_closure: { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Deal Closure', icon: '🤝' },
-    completed: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Completed', icon: '🎉' },
+    connected: { bg: 'bg-cyan-100', text: 'text-cyan-700', label: 'Connected' },
+    initial_contact: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Initial Contact' },
+    requirement_gathering: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Requirement Gathering' },
+    property_hunting: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Property Hunting' },
+    loan_processing: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Loan Processing' },
+    property_finalization: { bg: 'bg-green-100', text: 'text-green-700', label: 'Property Finalization' },
+    deal_closure: { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Deal Closure' },
+    completed: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Completed' },
   };
+
   const keyS = raw.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-  const config = stageConfig[keyS] || stageConfig.initial_contact;
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}><span className="mr-1 text-xs">{config.icon}</span><span className="text-[10px] font-normal">{config.label}</span></span>;
+  let config = stageConfig[keyS];
+  if (!config) {
+    const palette = [
+      { bg: 'bg-blue-100', text: 'text-blue-700' },
+      { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+      { bg: 'bg-purple-100', text: 'text-purple-700' },
+      { bg: 'bg-pink-100', text: 'text-pink-700' },
+      { bg: 'bg-amber-100', text: 'text-amber-700' },
+      { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+      { bg: 'bg-cyan-100', text: 'text-cyan-700' },
+      { bg: 'bg-teal-100', text: 'text-teal-700' },
+      { bg: 'bg-rose-100', text: 'text-rose-700' },
+    ];
+    let hash = 0;
+    for (let i = 0; i < raw.length; i++) hash = raw.charCodeAt(i) + ((hash << 5) - hash);
+    const chosen = palette[Math.abs(hash) % palette.length];
+    config = { ...chosen, label: raw };
+  }
+
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}><span className="text-[10px] font-normal">{config.label}</span></span>;
 }
+
 
 function getStageProgressPercent(stage: string | null): number {
   const stageProgressMap: Record<string, number> = {
