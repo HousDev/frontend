@@ -292,9 +292,9 @@ export const ReportsPage: React.FC = () => {
 
   // Instant Client-Side CSV Export Fallback
   const handleExportCSV = async () => {
+    const filename = `report_${activeTab}_${Date.now()}.csv`;
     try {
       let activeDataset: any[] = [];
-      let filename = `report_${activeTab}_${Date.now()}.csv`;
       let csvHeader = "";
 
       if (activeTab === "leads") {
@@ -333,7 +333,14 @@ export const ReportsPage: React.FC = () => {
       }
 
       if (activeDataset.length === 0) {
-        await reportAPI.exportReport(activeTab, filters);
+        const blobData = await reportAPI.exportReportCSV(activeTab, filters);
+        const url = URL.createObjectURL(blobData);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         return;
       }
 
@@ -360,7 +367,18 @@ export const ReportsPage: React.FC = () => {
       document.body.removeChild(link);
     } catch (e) {
       console.error("Export error:", e);
-      await reportAPI.exportReport(activeTab, filters);
+      try {
+        const blobData = await reportAPI.exportReportCSV(activeTab, filters);
+        const url = URL.createObjectURL(blobData);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (err) {
+        console.error("Server export error:", err);
+      }
     }
   };
 

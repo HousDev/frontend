@@ -25,21 +25,22 @@ interface Tenant {
   name: string;
   email: string;
   phone: string;
-  whatsapp: string;
+  whatsapp?: string;
   preferred_location: string;
-  budget_min: string;
-  budget_max: string;
+  budget_min: string | number;
+  budget_max: string | number;
   preferred_bhk: string;
   tenant_type: string;
-  move_in_date: string;
-  current_address: string;
-  notes: string;
-  status: 'Active Search' | 'Interested' | 'Agreement Signed' | 'Inactive';
-  rental_property_id?: number | string;
+  move_in_date?: string;
+  current_address?: string;
+  notes?: string;
+  status: string;
+  rental_property_id?: number | string | null;
   property_title?: string;
   owner_name?: string;
   assigned_to?: number | string;
   assigned_to_name?: string;
+  created_at?: string;
 }
 
 const BRAND = '#e67e22';
@@ -123,11 +124,13 @@ export default function TenantsPage() {
     };
     const fetchMasterBhk = async () => {
       try {
-        const opts: MasterOption[] = await getMasterDropdownOptions("bhk");
+        const data = await getMasterDropdownOptions(["bhk"]);
+        const opts: MasterOption[] = data["bhk"] || [];
         if (opts && opts.length > 0) {
           setBhkMasterOptions(opts.map(o => o.label));
         } else {
-          const altOpts: MasterOption[] = await getMasterDropdownOptions("preferred_bhk");
+          const altData = await getMasterDropdownOptions(["preferred_bhk"]);
+          const altOpts: MasterOption[] = altData["preferred_bhk"] || [];
           if (altOpts && altOpts.length > 0) {
             setBhkMasterOptions(altOpts.map(o => o.label));
           }
