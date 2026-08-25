@@ -28,6 +28,8 @@ import {
 import SubscriptionModal from '@/components/subscription/SubscriptionModal';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import PublicPropertyDetailPage from './PublicPropertyDetailPage';
+import { getImageUrl } from '@/lib/helpers';
+
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
@@ -59,6 +61,7 @@ interface Property {
   property_type?: string;
   status?: string;
   images?: string[];
+  photos?: string[];
   location?: string;
   area?: number;
   type?: string;
@@ -80,6 +83,10 @@ interface Property {
   executive?: { phone?: string, name?: string, email?: string };
   tags?: string[];
   featured?: boolean;
+  listing_type?: string;
+  transaction_type?: string;
+  monthly_rent?: number;
+  expected_rent?: number;
 }
 const isVideoUrl = (u: string) =>
   /\.(mp4|mov|webm|mkv)$/i.test(u) || /youtube\.com|youtu\.be/i.test(u);
@@ -457,29 +464,29 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   // ---------- ✅ HERO: fetch & build slides ----------
   useEffect(() => {
-   const fetchHero = async () => {
-  try {
-    const blocks = await homeHeroAPI.list();
-    // ✅ keep only active blocks
-    const activeBlocks = blocks.filter(b => b.is_active !== false);
-    setHeroBlocks(activeBlocks);
+    const fetchHero = async () => {
+      try {
+        const blocks = await homeHeroAPI.list();
+        // ✅ keep only active blocks
+        const activeBlocks = blocks.filter(b => b.is_active !== false);
+        setHeroBlocks(activeBlocks);
 
-    const slides: { url: string; title?: string; description?: string }[] = [];
-    for (const b of activeBlocks) {
-      const photos = Array.isArray(b.photos) ? b.photos as PhotoPreview[] : [];
-      photos.forEach((p) => {
-        const url = (p?.url || '').replace(/\\/g, '/');
-        if (url) slides.push({ url, title: b.title, description: b.description });
-      });
-    }
-    setHeroSlides(slides);
-    setHeroIndex(0);
-  } catch (e) {
-    console.warn('[HomePage] homeHeroAPI.list() failed, will fallback to featured images', e);
-    setHeroBlocks([]);
-    setHeroSlides([]);
-  }
-};
+        const slides: { url: string; title?: string; description?: string }[] = [];
+        for (const b of activeBlocks) {
+          const photos = Array.isArray(b.photos) ? b.photos as PhotoPreview[] : [];
+          photos.forEach((p) => {
+            const url = (p?.url || '').replace(/\\/g, '/');
+            if (url) slides.push({ url, title: b.title, description: b.description });
+          });
+        }
+        setHeroSlides(slides);
+        setHeroIndex(0);
+      } catch (e) {
+        console.warn('[HomePage] homeHeroAPI.list() failed, will fallback to featured images', e);
+        setHeroBlocks([]);
+        setHeroSlides([]);
+      }
+    };
     fetchHero();
   }, []);
 
@@ -654,9 +661,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   };
 
   const handleSellPropertyClick = () => {
-  // Redirect to seller page instead of opening modal
-  navigate('/sell-property');
-};
+    // Redirect to seller page instead of opening modal
+    navigate('/sell-property');
+  };
 
   const handleSellerSave = async (formData: any) => {
     try {
@@ -730,10 +737,12 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   // ---------- HERO background source preference ----------
   // 1) Use hero slides if present, else 2) fallback to featured property images
-  const activeHeroUrl =
+  const rawHeroUrl =
     heroSlides.length > 0
       ? heroSlides[heroIndex]?.url
-      : (featuredProperties[featuredIndex]?.images?.[0] );
+      : (featuredProperties[featuredIndex]?.images?.[0] || featuredProperties[featuredIndex]?.photos?.[0]);
+  const activeHeroUrl = getImageUrl(rawHeroUrl) || rawHeroUrl;
+
 
   const activeHeroTitle =
     heroSlides.length > 0 ? (heroSlides[heroIndex]?.title || '') : '';
@@ -1132,13 +1141,38 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                           </div>
                         </div>
                         <div className="text-lg text-gray-500">
-                          {property.propertyId || `REX${String(property.id ?? '').padStart(4, '0')}`}
+                          {(() => {
+                            const isRental = Boolean(
+                              property.listing_type === 'rent' ||
+                              property.transaction_type === 'rent' ||
+                              property.monthly_rent ||
+                              property.expected_rent ||
+                              (property.listing_type && String(property.listing_type).toLowerCase() === 'rent') ||
+                              transactionType === 'rent'
+                            );
+                            if (isRental) {
+                              if (property.propertyId) {
+                                return property.propertyId.replace(/^REX/i, 'RENT-');
+                              }
+                              return `RENT-${property.id ?? ''}`;
+                            }
+                            return property.propertyId || `REX${String(property.id ?? '').padStart(4, '0')}`;
+                          })()}
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <div className="text-xl font-bold text-green-600">{formatCurrency(property.price)}</div>
+                          <div className="text-xl font-bold text-green-600">
+                            {formatCurrency(property.price)}
+                            {Boolean(
+                              property.listing_type === 'rent' ||
+                              property.transaction_type === 'rent' ||
+                              property.monthly_rent ||
+                              transactionType === 'rent'
+                            ) ? '/mo' : ''}
+                          </div>
+
                           <div className="text-sm text-gray-500">
                             {property.unitType || property.type} • {property.square_feet ?? property.area ?? ' - '} sq ft
                           </div>
@@ -1350,157 +1384,157 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
 
       {/* Why Choose Us cards */}
-    {/* Why Choose Section - Modern like Roomac */}
-<section className="py-5 md:py-7 bg-gradient-to-b from-white to-gray-50">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    {/* Heading with dot decoration */}
-    <div className="text-center mb-10 md:mb-14">
-      <div className="inline-flex items-center gap-2 mb-3">
-        <span className="w-8 h-0.5 bg-[#E6761D]"></span>
-        <span className="text-[#E6761D] text-sm font-semibold uppercase tracking-wide">Why Choose Us</span>
-        <span className="w-8 h-0.5 bg-[#E6761D]"></span>
-      </div>
-      <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-3">
-        Why Choose&nbsp;{companyName}?
-      </h2>
-      <p className="text-gray-600 max-w-2xl mx-auto text-sm md:text-base">
-        Trusted Resale Property Consultant in Pune & PCMC
-      </p>
-    </div>
-
-    {/* Cards Grid - 2x2 on mobile, 4 on desktop */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6 lg:gap-8">
-      
-      {/* Card 1 */}
-      <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
-        <div className="relative inline-block mb-4">
-          <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
-            <ShieldCheck className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+      {/* Why Choose Section - Modern like Roomac */}
+      <section className="py-5 md:py-7 bg-gradient-to-b from-white to-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Heading with dot decoration */}
+          <div className="text-center mb-10 md:mb-14">
+            <div className="inline-flex items-center gap-2 mb-3">
+              <span className="w-8 h-0.5 bg-[#E6761D]"></span>
+              <span className="text-[#E6761D] text-sm font-semibold uppercase tracking-wide">Why Choose Us</span>
+              <span className="w-8 h-0.5 bg-[#E6761D]"></span>
+            </div>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-3">
+              Why Choose&nbsp;{companyName}?
+            </h2>
+            <p className="text-gray-600 max-w-2xl mx-auto text-sm md:text-base">
+              Trusted Resale Property Consultant in Pune & PCMC
+            </p>
           </div>
-          <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
-            01
+
+          {/* Cards Grid - 2x2 on mobile, 4 on desktop */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6 lg:gap-8">
+
+            {/* Card 1 */}
+            <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
+              <div className="relative inline-block mb-4">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
+                  <ShieldCheck className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+                </div>
+                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+                  01
+                </div>
+              </div>
+              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+                Verified Listings Only
+              </h3>
+              <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
+                Every property undergoes legal and documentation checks for complete peace of mind.
+              </p>
+            </div>
+
+            {/* Card 2 */}
+            <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
+              <div className="relative inline-block mb-4">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
+                  <Brain className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+                </div>
+                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+                  02
+                </div>
+              </div>
+              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+                Fair Market Valuation
+              </h3>
+              <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
+                Transparent pricing with no hidden charges or inflated rates guaranteed.
+              </p>
+            </div>
+
+            {/* Card 3 */}
+            <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
+              <div className="relative inline-block mb-4">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
+                  <Users className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+                </div>
+                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+                  03
+                </div>
+              </div>
+              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+                Local Market Expertise
+              </h3>
+              <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
+                Deep understanding of Pune and PCMC real estate trends and micro-markets.
+              </p>
+            </div>
+
+            {/* Card 4 */}
+            <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
+              <div className="relative inline-block mb-4">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
+                  <Handshake className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+                </div>
+                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+                  04
+                </div>
+              </div>
+              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+                End-to-End Assistance
+              </h3>
+              <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
+                Complete support from property search to registration and final possession.
+              </p>
+            </div>
           </div>
         </div>
-        <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
-          Verified Listings Only
-        </h3>
-        <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
-          Every property undergoes legal and documentation checks for complete peace of mind.
-        </p>
-      </div>
+      </section>
 
-      {/* Card 2 */}
-      <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
-        <div className="relative inline-block mb-4">
-          <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
-            <Brain className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+      {/* Stats Section - Modern stats cards */}
+      <section className="py-4 md:py-5 bg-gradient-to-br from-slate-50 via-white to-blue-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
+
+            {/* Stat 1 */}
+            <div className="bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-blue-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
+              <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-blue-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-blue-300 transition-colors">
+                <Home className="text-blue-700" size={18} />
+              </div>
+              <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
+                10K<span className="text-base md:text-lg text-gray-600">+</span>
+              </h4>
+              <p className="text-gray-600 text-[11px] md:text-xs font-medium">Properties Sold</p>
+              <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-blue-300 rounded-full mx-auto"></div>
+            </div>
+
+            {/* Stat 2 */}
+            <div className="bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-emerald-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
+              <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-emerald-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-emerald-300 transition-colors">
+                <Users className="text-emerald-700" size={18} />
+              </div>
+              <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
+                25K<span className="text-base md:text-lg text-gray-600">+</span>
+              </h4>
+              <p className="text-gray-600 text-[11px] md:text-xs font-medium">Happy Customers</p>
+              <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-emerald-300 rounded-full mx-auto"></div>
+            </div>
+
+            {/* Stat 3 */}
+            <div className="bg-gradient-to-br from-amber-100 to-amber-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-amber-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
+              <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-amber-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-amber-300 transition-colors">
+                <Award className="text-amber-700" size={18} />
+              </div>
+              <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
+                15<span className="text-base md:text-lg text-gray-600">+</span>
+              </h4>
+              <p className="text-gray-600 text-[11px] md:text-xs font-medium">Years of Trust</p>
+              <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-amber-300 rounded-full mx-auto"></div>
+            </div>
+
+            {/* Stat 4 */}
+            <div className="bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-purple-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
+              <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-purple-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-purple-300 transition-colors">
+                <Star className="text-purple-700" size={18} />
+              </div>
+              <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
+                4.9<span className="text-base md:text-lg text-gray-600">★</span>
+              </h4>
+              <p className="text-gray-600 text-[11px] md:text-xs font-medium">Customer Rating</p>
+              <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-purple-300 rounded-full mx-auto"></div>
+            </div>
           </div>
-          <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
-            02
-          </div>
         </div>
-        <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
-          Fair Market Valuation
-        </h3>
-        <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
-          Transparent pricing with no hidden charges or inflated rates guaranteed.
-        </p>
-      </div>
-
-      {/* Card 3 */}
-      <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
-        <div className="relative inline-block mb-4">
-          <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
-            <Users className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
-          </div>
-          <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
-            03
-          </div>
-        </div>
-        <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
-          Local Market Expertise
-        </h3>
-        <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
-          Deep understanding of Pune and PCMC real estate trends and micro-markets.
-        </p>
-      </div>
-
-      {/* Card 4 */}
-      <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
-        <div className="relative inline-block mb-4">
-          <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
-            <Handshake className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
-          </div>
-          <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
-            04
-          </div>
-        </div>
-        <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
-          End-to-End Assistance
-        </h3>
-        <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
-          Complete support from property search to registration and final possession.
-        </p>
-      </div>
-    </div>
-  </div>
-</section>
-
-{/* Stats Section - Modern stats cards */}
-<section className="py-4 md:py-5 bg-gradient-to-br from-slate-50 via-white to-blue-50">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
-      
-      {/* Stat 1 */}
-      <div className="bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-blue-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
-        <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-blue-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-blue-300 transition-colors">
-          <Home className="text-blue-700" size={18} />
-        </div>
-        <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
-          10K<span className="text-base md:text-lg text-gray-600">+</span>
-        </h4>
-        <p className="text-gray-600 text-[11px] md:text-xs font-medium">Properties Sold</p>
-        <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-blue-300 rounded-full mx-auto"></div>
-      </div>
-
-      {/* Stat 2 */}
-      <div className="bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-emerald-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
-        <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-emerald-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-emerald-300 transition-colors">
-          <Users className="text-emerald-700" size={18} />
-        </div>
-        <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
-          25K<span className="text-base md:text-lg text-gray-600">+</span>
-        </h4>
-        <p className="text-gray-600 text-[11px] md:text-xs font-medium">Happy Customers</p>
-        <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-emerald-300 rounded-full mx-auto"></div>
-      </div>
-
-      {/* Stat 3 */}
-      <div className="bg-gradient-to-br from-amber-100 to-amber-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-amber-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
-        <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-amber-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-amber-300 transition-colors">
-          <Award className="text-amber-700" size={18} />
-        </div>
-        <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
-          15<span className="text-base md:text-lg text-gray-600">+</span>
-        </h4>
-        <p className="text-gray-600 text-[11px] md:text-xs font-medium">Years of Trust</p>
-        <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-amber-300 rounded-full mx-auto"></div>
-      </div>
-
-      {/* Stat 4 */}
-      <div className="bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-purple-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
-        <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-purple-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-purple-300 transition-colors">
-          <Star className="text-purple-700" size={18} />
-        </div>
-        <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
-          4.9<span className="text-base md:text-lg text-gray-600">★</span>
-        </h4>
-        <p className="text-gray-600 text-[11px] md:text-xs font-medium">Customer Rating</p>
-        <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-purple-300 rounded-full mx-auto"></div>
-      </div>
-    </div>
-  </div>
-</section>
+      </section>
 
 
       {/* Testimonials - Compact */}

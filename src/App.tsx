@@ -76,10 +76,12 @@ import ServicesPageCMS from './pages/dashboard/ServicesPageCMS';
 import SellPropertyPage from '@/pages/public/SellPropertyPage';
 import PrivacyPolicyPage from '@/pages/public/PrivacyPolicyPage';
 import TermsConditionsPage from '@/pages/public/TermsConditionsPage';
-// 🎯 Buyer Portal Components
+// 🎯 Buyer & Tenant Portal Components
 import StandaloneBuyerAccountPage from './components/buyers/StandaloneBuyerAccountPage';
 import StandaloneSellerAccountPage from './components/sellers/StandaloneSellerAccountPage';
+import StandaloneTenantAccountPage from './components/tenants/StandaloneTenantAccountPage';
 import VariableCenter from './pages/settings/VariableCenter';
+
 import HomePageCMS from './pages/dashboard/HomePageCMS';
 import DigioSuccess from './pages/DigioSuccess';
 import WhatsAppCRM from './pages/WhatsAppCRM/WhatsAppCRM';
@@ -218,7 +220,9 @@ function App() {
                     <Route path="owners" element={<OwnersPage />} />
                     <Route path="owners-account/:id" element={<StandaloneOwnerAccountPage />} />
                     <Route path="tenants" element={<TenantsPage />} />
+                    <Route path="tenants-account/:id" element={<StandaloneTenantAccountPage />} />
                     <Route path="document-center" element={<DocumentCenter />} />
+
 
                     {/* CMS Features */}
 
