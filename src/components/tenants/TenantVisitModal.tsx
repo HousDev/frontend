@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Calendar, Clock, Home, MapPin, FileText, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { tenantVisitAPI } from '@/lib/tenantVisitAPI';
 
 interface TenantVisitModalProps {
   isOpen: boolean;
@@ -29,20 +30,35 @@ export default function TenantVisitModal({ isOpen, onClose, tenant, onSave }: Te
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.visitDate) {
       toast.error('Please select a visit date');
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const payload = {
+        tenant_id: tenant.id,
+        property_title: form.propertyTitle,
+        visit_date: form.visitDate,
+        visit_time: form.visitTime,
+        meeting_point: form.meetPoint,
+        remarks: form.remarks,
+        status: 'Scheduled',
+      };
+      await tenantVisitAPI.create(payload);
       toast.success(`Site Visit scheduled for ${tenant.name}`);
-      onSave?.({ ...form, tenant_id: tenant.id });
+      onSave?.(payload);
       onClose();
-    }, 400);
+    } catch (err) {
+      console.error('Error creating visit:', err);
+      toast.error('Failed to schedule site visit');
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">

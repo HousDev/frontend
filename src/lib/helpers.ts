@@ -27,7 +27,10 @@ export const FILE_BASE: string = (() => {
 /** Normalize image path into full URL (no mixed-content) */
 export function getImageUrl(raw?: string | null): string | null {
   if (!raw) return null;
-  const clean = String(raw).replace(/\\/g, "/").trim();
+  let clean = String(raw).replace(/\\/g, "/").trim();
+
+  // Strip localhost / 127.0.0.1 dev server URLs so they become relative /uploads/...
+  clean = clean.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i, "/");
 
   // absolute http/https - upgrade to https if page is https
   if (/^https?:\/\//i.test(clean)) {
@@ -54,4 +57,5 @@ export function getImageUrl(raw?: string | null): string | null {
   const origin = typeof window !== "undefined" ? window.location.origin : FILE_BASE;
   return origin + path;
 }
+
 

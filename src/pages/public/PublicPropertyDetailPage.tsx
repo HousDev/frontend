@@ -74,6 +74,8 @@ import { toast } from 'react-toastify'; // if not already imported
 import { getMasterDropdownOptions } from '@/lib/useMasterData';
 import { buyerAPI } from '@/lib/buyerAPI';
 import PropertyGalleryPage from '../../components/properties/PropertyGalleryPage';
+import { getImageUrl } from '@/lib/helpers';
+
 
 
 type RawProperty = any;
@@ -504,9 +506,18 @@ const getGalleryPhotos = () => {
   // put near other helpers (below resolvePropertyIdNumber is perfect)
   const formatPropertyId = (normalized: any): string => {
     const n = resolvePropertyIdNumber(normalized);
-    if (!n) return 'REX—';
-    return `REX${String(n).padStart(4, '0')}`;
+    const isRental = Boolean(
+      normalized?.raw?.listing_type === 'rent' ||
+      normalized?.raw?.monthly_rent ||
+      normalized?.monthly_rent ||
+      normalized?.raw?.security_deposit ||
+      (normalized?.raw?.listing_type && String(normalized.raw.listing_type).toLowerCase() === 'rent')
+    );
+    const prefix = isRental ? 'RENT' : 'REX';
+    if (!n) return `${prefix}—`;
+    return `${prefix}${String(n).padStart(4, '0')}`;
   };
+
 
 
 
@@ -766,11 +777,14 @@ const getGalleryPhotos = () => {
       
 // object {url,label,type} aur plain string dono handle karo
 const mediaItems = rawMediaList.map((m: any) => {
+  const rawUrl = typeof m === 'string' ? m : (m?.url ?? '');
+  const resolvedUrl = getImageUrl(rawUrl) || rawUrl;
   if (typeof m === 'string') {
-    return { url: m, type: /\.(mp4|mov|webm|mkv)$/i.test(m) ? 'video' : 'image' };
+    return { url: resolvedUrl, type: /\.(mp4|mov|webm|mkv)$/i.test(m) ? 'video' : 'image' };
   }
-  return { url: m?.url ?? '', type: m?.type === 'video' ? 'video' : 'image', label: m?.label };
+  return { url: resolvedUrl, type: m?.type === 'video' ? 'video' : 'image', label: m?.label };
 }).filter((m: any) => m.url);
+
 
 const images: string[] = mediaItems.map((m: any) => m.url); // backward compatible string array
 

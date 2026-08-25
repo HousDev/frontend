@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Users, Plus, Search, Edit, Trash2, Phone, Mail, MapPin,
   Building, User, FileText, X, SlidersHorizontal, Download, Upload,
-  Loader2, RefreshCw, ChevronLeft, ChevronRight, Eye
+  Loader2, RefreshCw, ChevronLeft, ChevronRight, Eye, Link2,
+  UserCheck, CheckSquare, Send, Share2, ExternalLink, Bell,
+  Calendar,
+  Share
 } from 'lucide-react';
 import { SiWhatsapp } from "react-icons/si";
 import { toast } from 'react-toastify';
@@ -11,13 +15,23 @@ import * as XLSX from "xlsx";
 
 import { tenantAPI } from "@/lib/tenantAPI";
 import { usersAPI } from "@/lib/api";
+import { rentalPropertiesAPI } from "@/lib/rentalPropertiesAPI";
 import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
 import TenantSidebarFilter, { TenantFiltersState } from "./components/TenantSidebarFilter";
 import ImportTenantsModal from "@/components/tenants/ImportTenantsModal";
 import TenantFormModal from "@/components/tenants/TenantFormModal";
+import TenantAccountPage from "@/components/tenants/TenantAccountPage";
 import TenantViewPage from "@/components/tenants/TenantViewPage";
 import TenantViewModal from "@/components/tenants/TenantViewModal";
+import TenantFollowupModal from "@/components/tenants/TenantFollowupModal";
+import LinkRentalPropertyModal from "@/components/tenants/LinkRentalPropertyModal";
 import TableLoader from "@/components/ui/TableLoader";
+import Pagination from "@/components/ui/Pagination";
+
+
+
+
+
 
 interface Tenant {
   id: number;
@@ -46,7 +60,9 @@ interface Tenant {
 const BRAND = '#e67e22';
 
 export default function TenantsPage() {
+  const navigate = useNavigate();
   const [tenants, setTenants] = useState<Tenant[]>([]);
+
   const [loading, setLoading] = useState(false);
 
   // Bulk selection
@@ -75,7 +91,32 @@ export default function TenantsPage() {
   const [currentTenantView, setCurrentTenantView] = useState<Tenant | null>(null);
   const [viewModalTenant, setViewModalTenant] = useState<Tenant | null>(null);
   const [showViewModal, setShowViewModal] = useState<boolean>(false);
+  const [followupModalTenant, setFollowupModalTenant] = useState<Tenant | null>(null);
   const [bhkMasterOptions, setBhkMasterOptions] = useState<string[]>([]);
+  const [activeTabStatus, setActiveTabStatus] = useState<string>('All');
+  const [linkModalTenant, setLinkModalTenant] = useState<Tenant | null>(null);
+  const [pendingExec, setPendingExec] = useState<string>('');
+
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      All: tenants.length,
+      'Active Search': 0,
+      Interested: 0,
+      'Agreement Signed': 0,
+      Inactive: 0,
+    };
+    tenants.forEach((t) => {
+      const s = t.status?.trim() || 'Active Search';
+      if (counts[s] !== undefined) {
+        counts[s]++;
+      } else {
+        counts['Active Search'] = (counts['Active Search'] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [tenants]);
+
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -151,22 +192,28 @@ export default function TenantsPage() {
   // Filtered & Searched Tenants
   const filteredTenants = useMemo(() => {
     return tenants.filter(t => {
+      // 0. Status Tab Filter
+      if (activeTabStatus !== 'All' && (t.status?.trim() || 'Active Search') !== activeTabStatus) {
+        return false;
+      }
+
       // 1. Column Search
       if (colSearch.name && !t.name.toLowerCase().includes(colSearch.name.toLowerCase()) && !t.tenant_id.toLowerCase().includes(colSearch.name.toLowerCase())) return false;
-      if (colSearch.contact && !t.phone.includes(colSearch.contact) && !t.whatsapp.includes(colSearch.contact) && !(t.email || "").toLowerCase().includes(colSearch.contact.toLowerCase())) return false;
-      if (colSearch.requirements && !t.preferred_bhk.toLowerCase().includes(colSearch.requirements.toLowerCase()) && !t.preferred_location.toLowerCase().includes(colSearch.requirements.toLowerCase())) return false;
+      if (colSearch.contact && !t.phone.includes(colSearch.contact) && !(t.whatsapp || '').includes(colSearch.contact) && !(t.email || "").toLowerCase().includes(colSearch.contact.toLowerCase())) return false;
+      if (colSearch.requirements && !(t.preferred_bhk || '').toLowerCase().includes(colSearch.requirements.toLowerCase()) && !(t.preferred_location || '').toLowerCase().includes(colSearch.requirements.toLowerCase())) return false;
       if (colSearch.property && !t.property_title?.toLowerCase().includes(colSearch.property.toLowerCase()) && !`rent-${t.rental_property_id}`.toLowerCase().includes(colSearch.property.toLowerCase()) && !(t.owner_name || "").toLowerCase().includes(colSearch.property.toLowerCase())) return false;
-      if (colSearch.status && !t.status.toLowerCase().includes(colSearch.status.toLowerCase())) return false;
+      if (colSearch.status && !(t.status || '').toLowerCase().includes(colSearch.status.toLowerCase())) return false;
 
       // 2. Sidebar Filters
       if (filters.status && t.status !== filters.status) return false;
       if (filters.tenant_type && t.tenant_type !== filters.tenant_type) return false;
-      if (filters.preferred_bhk && !t.preferred_bhk.toLowerCase().includes(filters.preferred_bhk.toLowerCase())) return false;
+      if (filters.preferred_bhk && !(t.preferred_bhk || '').toLowerCase().includes(filters.preferred_bhk.toLowerCase())) return false;
       if (filters.assigned && String(t.assigned_to) !== String(filters.assigned)) return false;
 
       return true;
     });
-  }, [tenants, colSearch, filters]);
+  }, [tenants, colSearch, filters, activeTabStatus]);
+
 
   // Pagination helpers
   const totalPages = Math.ceil(filteredTenants.length / itemsPerPage) || 1;
@@ -260,6 +307,107 @@ export default function TenantsPage() {
     });
   };
 
+  const handleBulkAssign = async () => {
+    if (selectedTenants.length === 0) return;
+    const execOptions = executives.map((e: any) => `<option value="${e.id}">${e.name || e.username || e.email}</option>`).join('');
+    const { value: selectedExec } = await Swal.fire({
+      title: 'Bulk Assign Executive',
+      html: `<select id="swal-exec-select" class="swal2-input"><option value="">-- Select Executive --</option>${execOptions}</select>`,
+      focusConfirm: false,
+      showCancelButton: true,
+      preConfirm: () => {
+        const val = (document.getElementById('swal-exec-select') as HTMLSelectElement)?.value;
+        if (!val) {
+          Swal.showValidationMessage('Please select an executive');
+        }
+        return val;
+      }
+    });
+
+    if (selectedExec) {
+      try {
+        await tenantAPI.bulkAssign(selectedTenants, selectedExec);
+        toast.success(`Assigned ${selectedTenants.length} tenants to executive.`);
+        loadTenants();
+      } catch (err) {
+        toast.error('Failed bulk assign.');
+      }
+    }
+  };
+
+  const handleBulkUpdateStatus = async () => {
+    if (selectedTenants.length === 0) return;
+    const statuses = ['Active Search', 'Interested', 'Agreement Signed', 'Inactive'];
+    const statusOptions = statuses.map((s) => `<option value="${s}">${s}</option>`).join('');
+    const { value: selectedStatus } = await Swal.fire({
+      title: 'Bulk Update Status',
+      html: `<select id="swal-status-select" class="swal2-input"><option value="">-- Select Status --</option>${statusOptions}</select>`,
+      focusConfirm: false,
+      showCancelButton: true,
+      preConfirm: () => {
+        const val = (document.getElementById('swal-status-select') as HTMLSelectElement)?.value;
+        if (!val) {
+          Swal.showValidationMessage('Please select a status');
+        }
+        return val;
+      }
+    });
+
+    if (selectedStatus) {
+      try {
+        await tenantAPI.bulkUpdateStatus(selectedTenants, selectedStatus);
+        toast.success(`Updated status for ${selectedTenants.length} tenants.`);
+        loadTenants();
+      } catch (err) {
+        toast.error('Failed bulk status update.');
+      }
+    }
+  };
+
+  const handleBulkAssignDirect = async (execId: string) => {
+    if (!execId || selectedTenants.length === 0) return;
+    try {
+      await tenantAPI.bulkAssign(selectedTenants, execId);
+      toast.success(`Assigned ${selectedTenants.length} tenants to executive.`);
+      setPendingExec('');
+      loadTenants();
+    } catch (err) {
+      toast.error('Failed bulk assign.');
+    }
+  };
+
+  const handleBulkUpdateStatusDirect = async (statusStr: string) => {
+    if (!statusStr || selectedTenants.length === 0) return;
+    try {
+      await tenantAPI.bulkUpdateStatus(selectedTenants, statusStr);
+      toast.success(`Updated status for ${selectedTenants.length} tenants.`);
+      loadTenants();
+    } catch (err) {
+      toast.error('Failed bulk status update.');
+    }
+  };
+
+  const handleLinkPropertyToTenant = (tenantRow: Tenant) => {
+    setLinkModalTenant(tenantRow);
+  };
+
+  const handleLinkPropertySubmit = async (propertyId: number | string, propertyTitle: string) => {
+    if (!linkModalTenant) return;
+    try {
+      await tenantAPI.update(linkModalTenant.id, {
+        rental_property_id: propertyId,
+        property_title: propertyTitle
+      });
+      toast.success(`Linked property to ${linkModalTenant.name}`);
+      loadTenants();
+    } catch (err) {
+      toast.error('Failed to link property');
+      throw err;
+    }
+  };
+
+
+
   const handleExport = () => {
     const dataToExport = filteredTenants.map((t) => ({
       "Tenant ID": t.tenant_id,
@@ -343,6 +491,8 @@ export default function TenantsPage() {
     );
   }
 
+
+
   return (
     <>
       <style>
@@ -401,40 +551,48 @@ export default function TenantsPage() {
       </style>
       <div className="h-full overflow-y-auto scrollbar-custom-vertical" >
         <div className="max-w-[1600px] mx-auto px-2 sm:px-2 md:px-2 py-1 sm:py-2 flex flex-col gap-2">
-          {/* Top Header Buttons and Search integrated in one row to save vertical space */}
-          <div className="flex flex-col md:flex-row items-end justify-end gap-3  p-3 rounded-lg shadow-xs flex-shrink-0">
-
+          {/* Top Row: Status Filter Tabs & Action Controls */}
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-3 p-2 bg-gray-50/70 rounded-xl  flex-shrink-0">
+            {/* Status Tabs */}
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto scrollbar-hide py-0.5">
+              {[
+                { label: 'All', key: 'All' },
+                { label: 'Active Search', key: 'Active Search' },
+                { label: 'Interested', key: 'Interested' },
+                { label: 'Agreement Signed', key: 'Agreement Signed' },
+                { label: 'Inactive', key: 'Inactive' },
+              ].map((tab) => {
+                const count = statusCounts[tab.key] || 0;
+                const isActive = activeTabStatus === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => {
+                      setActiveTabStatus(tab.key);
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${isActive
+                      ? 'bg-white text-orange-600 shadow-xs '
+                      : 'text-gray-600 hover:bg-white/60 hover:text-gray-900 border border-transparent'
+                      }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${isActive ? 'bg-orange-100 text-orange-700' : 'bg-gray-200/70 text-gray-600'
+                      }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
             {/* Action Controls */}
-            <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end">
-              {selectedTenants.length > 0 && (
-                <button
-                  onClick={handleBulkDelete}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white bg-red-600 hover:bg-red-700 font-bold text-xs shadow-xs transition-colors"
-                >
-                  <Trash2 size={13} />
-                  <span>Delete Selected ({selectedTenants.length})</span>
-                </button>
-              )}
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-xs transition-colors bg-white"
-              >
-                <Download size={13} />
-                <span>Export</span>
-              </button>
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-xs transition-colors bg-white"
-              >
-                <Upload size={13} />
-                <span>Import</span>
-              </button>
+            <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-end">
               <button
                 onClick={() => setShowFilters(true)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 font-semibold text-xs transition-all bg-white ${Object.values(filters).some(Boolean)
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold text-xs transition-all bg-white ${Object.values(filters).some(Boolean)
                   ? "border-orange-200 bg-orange-50 text-[#e67e22]"
-                  : "text-gray-700 hover:bg-gray-50"
+                  : "border-gray-200 text-gray-700 hover:bg-gray-50"
                   }`}
               >
                 <SlidersHorizontal size={13} />
@@ -442,14 +600,120 @@ export default function TenantsPage() {
               </button>
 
               <button
+                onClick={handleExport}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-xs transition-colors bg-white shadow-2xs"
+              >
+                <Download size={13} />
+                <span>Export</span>
+              </button>
+
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-xs transition-colors bg-white shadow-2xs"
+              >
+                <Upload size={13} />
+                <span>Import</span>
+              </button>
+
+              <button
                 onClick={handleOpenAddModal}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white rounded-lg transition-colors bg-[#0f2b3d] hover:bg-[#1b435c] shadow-xs"
+                className="flex items-center gap-1 px-3.5 py-1.5 text-xs font-bold text-white rounded-lg transition-all bg-slate-900 hover:bg-slate-800 shadow-xs"
               >
                 <Plus size={15} />
-                <span>Add Tenant</span>
+                <span>+ Add Tenant</span>
               </button>
             </div>
           </div>
+
+          {/* Bulk Action Bar (Matching Screenshot 2) */}
+          {selectedTenants.length > 0 && (
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-2.5 flex items-center justify-between flex-wrap gap-2 animate-fadeIn">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Selected Count Badge */}
+                <span className="px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 border border-orange-200 text-xs font-bold">
+                  Selected: {selectedTenants.length}
+                </span>
+
+                {/* Status Dropdown */}
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleBulkUpdateStatusDirect(e.target.value);
+                      e.target.value = '';
+                    }
+                  }}
+                  className="border border-gray-300 rounded-lg px-2.5 py-1 text-xs bg-white text-gray-700 font-medium outline-none focus:ring-1 focus:ring-orange-500 min-w-[130px]"
+                >
+                  <option value="">Update Status...</option>
+                  <option value="Active Search">Active Search</option>
+                  <option value="Interested">Interested</option>
+                  <option value="Agreement Signed">Agreement Signed</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+
+                {/* Assign Executive Dropdown */}
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-500 font-medium">Assign:</span>
+                  <select
+                    value={pendingExec}
+                    onChange={(e) => setPendingExec(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-2.5 py-1 text-xs bg-white text-gray-700 font-medium outline-none focus:ring-1 focus:ring-orange-500 min-w-[140px]"
+                  >
+                    <option value="">Assign Executive...</option>
+                    <option value="Unassigned">Unassign</option>
+                    {executives.map((u: any) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name || u.username || u.email}
+                      </option>
+                    ))}
+                  </select>
+                  {pendingExec && (
+                    <button
+                      onClick={() => handleBulkAssignDirect(pendingExec === 'Unassigned' ? '' : pendingExec)}
+                      className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-colors"
+                    >
+                      Apply
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons Right Side */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  onClick={() => handleBulkUpdateStatusDirect('Active Search')}
+                  className="px-3 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+                >
+                  Mark Active
+                </button>
+                <button
+                  onClick={() => handleBulkUpdateStatusDirect('Inactive')}
+                  className="px-3 py-1 text-xs font-semibold bg-slate-700 hover:bg-slate-800 text-white rounded-lg transition-colors"
+                >
+                  Mark Inactive
+                </button>
+                <button
+                  onClick={handleExport}
+                  className="px-3 py-1 text-xs font-semibold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                >
+                  Export ({selectedTenants.length})
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  className="px-3 py-1 text-xs font-semibold border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  Delete ({selectedTenants.length})
+                </button>
+                <button
+                  onClick={() => setSelectedTenants([])}
+                  className="px-3 py-1 text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
+
           <div
             className="bg-white  border border-gray-300 shadow-sm overflow-hidden flex flex-col"
             style={{
@@ -483,17 +747,19 @@ export default function TenantsPage() {
                         />
                       </th>
                       <th className="px-2 py-1.5 text-center bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "4%" }}>S.No.</th>
-                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "14%" }}>Tenant Details</th>
-                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "14%" }}>Contact Details</th>
-                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "8%" }}>BHK</th>
+                      <th className="px-2 py-1.5 text-center bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-orange-600 uppercase tracking-wider" style={{ width: "11%" }}>COMMUNICATE</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "12%" }}>Tenant Details</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "12%" }}>Contact Details</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "7%" }}>Unit Type</th>
                       <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "10%" }}>Budget</th>
-                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "13%" }}>Location</th>
-                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "14%" }}>Linked Property</th>
-                      <th className="px-3 py-1.5 text-center bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "10%" }}>Status</th>
-                      <th className="px-3 py-1.5 text-center bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "10%" }}>Actions</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "12%" }}>Location</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "13%" }}>Linked Property</th>
+                      <th className="px-3 py-1.5 text-center bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "9%" }}>Status</th>
+                      <th className="px-3 py-1.5 text-center bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "11%" }}>Actions</th>
                     </tr>
                     {/* Search Fields */}
                     <tr className="bg-gray-100">
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100"></th>
                       <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100"></th>
                       <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100"></th>
                       <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100">
@@ -562,6 +828,85 @@ export default function TenantsPage() {
                           <td className="px-2 py-2 text-center text-gray-400 font-bold border-r border-b border-gray-200">
                             {startIndex + index + 1}
                           </td>
+
+                          {/* COMMUNICATE column (right after S.No.) */}
+                          <td className="px-2 py-1 text-center border-r border-b border-gray-200 bg-white">
+                            <div className="flex items-center justify-center gap-1">
+                              {/* Call */}
+                              <button
+                                onClick={() => {
+                                  const p = t.phone?.replace(/\D/g, '');
+                                  if (p) window.location.href = `tel:${p}`;
+                                  else toast.error('No phone number available');
+                                }}
+                                className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
+                                title="Call"
+                              >
+                                <Phone size={13} />
+                              </button>
+
+                              {/* WhatsApp */}
+                              <button
+                                onClick={() => {
+                                  const p = (t.whatsapp || t.phone)?.replace(/\D/g, '');
+                                  if (p) {
+                                    const msg = encodeURIComponent(
+                                      `Hi ${t.name},\n\n` +
+                                      `Regarding your rental property search in ${t.preferred_location || 'preferred location'}.\n` +
+                                      `Budget: ₹${t.budget_min || 0} - ₹${t.budget_max || 0}/mo.\n\n` +
+                                      `We have properties matching your requirement. Let us know your availability.\n\n` +
+                                      `Best Regards,\nResaleExpert`
+                                    );
+                                    window.open(`https://wa.me/${p}?text=${msg}`, '_blank');
+                                  } else {
+                                    toast.error('No phone number available for WhatsApp');
+                                  }
+                                }}
+                                className="p-1 rounded hover:bg-green-100 transition-colors text-green-600"
+                                title="WhatsApp"
+                              >
+                                <SiWhatsapp size={13} />
+                              </button>
+
+                              {/* Email */}
+                              <button
+                                onClick={() => {
+                                  if (t.email) {
+                                    const sub = encodeURIComponent(`Rental Requirement Update - ${t.name}`);
+                                    const body = encodeURIComponent(`Dear ${t.name},\n\nWe have property options matching your ${t.preferred_bhk || ''} requirement in ${t.preferred_location || ''}.\n\nBest Regards,\nResaleExpert`);
+                                    window.location.href = `mailto:${t.email}?subject=${sub}&body=${body}`;
+                                  } else {
+                                    toast.error('No email address available');
+                                  }
+                                }}
+                                className="p-1 rounded hover:bg-blue-100 transition-colors text-blue-600"
+                                title="Email"
+                              >
+                                <Mail size={13} strokeWidth={1.8} />
+                              </button>
+
+                              {/* Send Properties */}
+                              <button
+                                onClick={() => {
+                                  setCurrentTenantView(t);
+                                }}
+                                className="p-1 rounded hover:bg-yellow-100 transition-colors text-yellow-600"
+                                title="Send Properties"
+                              >
+                                <Share size={13} />
+                              </button>
+
+                              {/* Follow-up */}
+                              <button
+                                onClick={() => setFollowupModalTenant(t)}
+                                className="p-1 rounded hover:bg-purple-100 transition-colors text-purple-600"
+                                title="Follow-up"
+                              >
+                                <Calendar size={13} />
+                              </button>
+                            </div>
+                          </td>
+
 
                           {/* Tenant Details */}
                           <td className="px-3 py-2 border-r border-b border-gray-200 overflow-hidden">
@@ -647,33 +992,58 @@ export default function TenantsPage() {
                           </td>
 
                           <td className="px-3 py-2 text-center border-b border-gray-200 bg-white">
-                            <div className="flex items-center justify-center gap-1.5">
+                            <div className="flex items-center justify-center gap-1">
+                              {/* Link Property Icon */}
+                              <button
+                                onClick={() => handleLinkPropertyToTenant(t)}
+                                className="p-1 rounded hover:bg-blue-50 text-blue-500 hover:text-blue-600 transition-colors"
+                                title="Link Rental Property"
+                              >
+                                <Link2 size={13} />
+                              </button>
+
+                              {/* View Details Pop-up Modal */}
                               <button
                                 onClick={() => {
                                   setViewModalTenant(t);
                                   setShowViewModal(true);
                                 }}
                                 className="p-1 rounded hover:bg-orange-50 text-gray-500 hover:text-orange-500 transition-colors"
-                                title="View Tenant Details Modal"
+                                title="Quick View Pop-up Modal"
                               >
                                 <Eye size={13} />
                               </button>
+
+
+                              {/* Standalone Tenant Account Page Link */}
+                              <button
+                                onClick={() => navigate(`/dashboard/tenants-account/${t.id}`)}
+                                className="p-1 rounded hover:bg-purple-50 text-green-500 hover:text-purple-600 transition-colors"
+                                title="Open Full Tenant Account Page"
+                              >
+                                <UserCheck size={13} />
+                              </button>
+
+                              {/* Edit Tenant */}
                               <button
                                 onClick={() => handleOpenEditModal(t)}
-                                className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-orange-500 transition-colors"
+                                className="p-1 rounded hover:bg-gray-100 text-orange-500 hover:text-orange-500 transition-colors"
                                 title="Edit Tenant"
                               >
                                 <Edit size={13} />
                               </button>
+
+                              {/* Delete Tenant */}
                               <button
                                 onClick={() => handleDeleteTenant(t.id)}
-                                className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                                className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
                                 title="Delete Tenant"
                               >
                                 <Trash2 size={13} />
                               </button>
                             </div>
                           </td>
+
                         </tr>
                       ))
                     ) : (
@@ -683,6 +1053,7 @@ export default function TenantsPage() {
                         </td>
                       </tr>
                     )}
+
                   </tbody>
                 </table>
               )}
@@ -719,29 +1090,39 @@ export default function TenantsPage() {
                   </div>
                 </div>
 
-                {/* DESKTOP */}
+                {/* DESKTOP PAGINATION (Matching BuyersPage.tsx) */}
                 <div className="hidden sm:flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="text-[10px] text-gray-500 whitespace-nowrap">Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredTenants.length)} of {filteredTenants.length} tenants</div>
+                    <div className="text-[10px] text-gray-500 whitespace-nowrap">
+                      Showing {startIndex + 1}-
+                      {Math.min(startIndex + itemsPerPage, filteredTenants.length)}{" "}
+                      of {filteredTenants.length} tenants
+                    </div>
                     {selectedTenants.length === 0 && (
-                      <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(parseInt(e.target.value, 10)); setCurrentPage(1); }} className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white">
-                        {[15, 30, 50, 100, 200].map(n => <option key={n} value={n}>{n}</option>)}
+                      <select
+                        value={itemsPerPage}
+                        onChange={(e) => {
+                          setItemsPerPage(parseInt(e.target.value, 10));
+                          setCurrentPage(1);
+                        }}
+                        className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white outline-none focus:ring-1 focus:ring-orange-500"
+                      >
+                        {[25, 50, 100, 200, 300, 400, 500, 1000].map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                        <option value={999999}>All</option>
                       </select>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronLeft size={14} /></button>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        const page = i + 1;
-                        return <button key={page} onClick={() => setCurrentPage(page)} className={`px-2 py-1 rounded text-xs ${currentPage === page ? "bg-orange-500 text-white" : "border border-gray-300"}`}>{page}</button>;
-                      })}
-                      {totalPages > 5 && <span className="px-1 text-xs">...</span>}
-                      {totalPages > 5 && <button onClick={() => setCurrentPage(totalPages)} className="px-2 py-1 rounded text-xs border border-gray-300">{totalPages}</button>}
-                    </div>
-                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 rounded border border-gray-300 disabled:opacity-50"><ChevronRight size={14} /></button>
-                  </div>
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                  />
                 </div>
+
               </div>
             )}
           </div>
@@ -798,6 +1179,29 @@ export default function TenantsPage() {
           onImportComplete={loadTenants}
         />
       )}
+
+      {/* Visual Link Property Modal */}
+      {linkModalTenant && (
+        <LinkRentalPropertyModal
+          isOpen={Boolean(linkModalTenant)}
+          onClose={() => setLinkModalTenant(null)}
+          tenantName={linkModalTenant.name}
+          currentLinkedPropertyId={linkModalTenant.rental_property_id}
+          onLinkProperty={handleLinkPropertySubmit}
+        />
+      )}
+
+      {/* Schedule Follow-up Modal */}
+      {followupModalTenant && (
+        <TenantFollowupModal
+          isOpen={Boolean(followupModalTenant)}
+          onClose={() => setFollowupModalTenant(null)}
+          tenant={followupModalTenant}
+          onSave={loadTenants}
+        />
+      )}
     </>
   );
 }
+
+
